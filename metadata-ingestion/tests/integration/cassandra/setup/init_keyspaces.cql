@@ -14,8 +14,6 @@ CREATE TABLE cass_test_1.people (
     email text
 );
 
-
-
 CREATE TABLE cass_test_2.tasks (
     task_id int PRIMARY KEY,
     last_updated timestamp,
@@ -30,3 +28,60 @@ SELECT
 FROM cass_test_2.tasks
 WHERE status IS NOT NULL AND task_id IS NOT NULL
 PRIMARY KEY (task_id, status);
+
+-- Create Keyspace with comments
+CREATE KEYSPACE IF NOT EXISTS example_keyspace
+WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};
+
+-- Use Keyspace
+USE example_keyspace;
+
+-- Table with non-counter column types
+CREATE TABLE IF NOT EXISTS all_data_types (
+    id uuid PRIMARY KEY,
+    ascii_column ascii,
+    bigint_column bigint,
+    blob_column blob,
+    boolean_column boolean,
+    date_column date,
+    decimal_column decimal,
+    double_column double,
+    float_column float,
+    inet_column inet,
+    int_column int,
+    list_column list<text>,
+    map_column map<text, text>,
+    set_column set<text>,
+    smallint_column smallint,
+    text_column text,
+    time_column time,
+    timestamp_column timestamp,
+    timeuuid_column timeuuid,
+    tinyint_column tinyint,
+    tuple_column tuple<int, text>,
+    uuid_column uuid,
+    varchar_column varchar,
+    varint_column varint,
+    frozen_map_column frozen<map<text, text>>,
+    frozen_list_column frozen<list<text>>,
+    frozen_set_column frozen<set<text>>
+) WITH COMMENT = 'Table containing all supported Cassandra data types, excluding counters';
+
+-- Separate table for counters
+CREATE TABLE IF NOT EXISTS counter_table (
+    id uuid PRIMARY KEY,
+    counter_column counter
+) WITH COMMENT = 'Separate table containing only counter column';
+
+-- Sample view
+CREATE MATERIALIZED VIEW IF NOT EXISTS example_view_1 AS
+    SELECT id, ascii_column, bigint_column
+    FROM all_data_types
+    WHERE id IS NOT NULL AND ascii_column IS NOT NULL
+    PRIMARY KEY (id, ascii_column) WITH COMMENT = 'Example view definition with id and ascii_column';
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS example_view_2 AS
+    SELECT id, ascii_column, float_column
+    FROM all_data_types
+    WHERE id IS NOT NULL AND ascii_column IS NOT NULL
+    PRIMARY KEY (id, ascii_column) WITH COMMENT = 'Example view definition with id and ascii_column';

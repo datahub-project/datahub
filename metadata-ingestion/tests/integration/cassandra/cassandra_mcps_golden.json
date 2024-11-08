@@ -1,0 +1,2026 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e88cdfeb0f0ec790300527f9ea34ee05",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "cassandra",
+                "env": "PROD",
+                "keyspace": "cass_test_1"
+            },
+            "name": "cass_test_1",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924399,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e88cdfeb0f0ec790300527f9ea34ee05",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:cassandra"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924399,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e88cdfeb0f0ec790300527f9ea34ee05",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924399,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e88cdfeb0f0ec790300527f9ea34ee05",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Keyspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924400,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:e88cdfeb0f0ec790300527f9ea34ee05",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924400,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_1.information,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "information",
+            "platform": "urn:li:dataPlatform:cassandra",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "[{\"keyspace_name\": \"cass_test_1\", \"table_name\": \"information\", \"column_name\": \"details\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"text\"}, {\"keyspace_name\": \"cass_test_1\", \"table_name\": \"information\", \"column_name\": \"last_updated\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"timestamp\"}, {\"keyspace_name\": \"cass_test_1\", \"table_name\": \"information\", \"column_name\": \"person_id\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"int\"}]"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=text].details",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=timestamp].last_updated",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "timestamp",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=int].person_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924404,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_1.information,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924405,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_1.information,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924405,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_1.information,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "bloom_filter_fp_chance": "0.01",
+                "caching": "{'keys': 'ALL', 'rows_per_partition': 'NONE'}",
+                "cdc": "None",
+                "compaction": "{'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}",
+                "compression": "{'chunk_length_in_kb': '16', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}",
+                "max_index_interval": "2048",
+                "min_index_interval": "128"
+            },
+            "name": "information",
+            "qualifiedName": "cass_test_1.information",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310883261,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "all_data_types",
+            "platform": "urn:li:dataPlatform:cassandra",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"ascii_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"ascii\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"bigint_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"bigint\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"blob_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"blob\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"boolean_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"boolean\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"date_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"date\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"decimal_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"decimal\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"double_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"double\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"float_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"float\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"frozen_list_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"frozen<list<text>>\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"frozen_map_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"frozen<map<text, text>>\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"frozen_set_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"frozen<set<text>>\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"id\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"uuid\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"inet_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"inet\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"int_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"int\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"list_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"list<text>\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"map_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"map<text, text>\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"set_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"set<text>\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"smallint_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"smallint\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"text_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"text\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"time_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"time\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"timestamp_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"timestamp\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"timeuuid_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"timeuuid\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"tinyint_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"tinyint\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"tuple_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"frozen<tuple<int, text>>\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"uuid_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"uuid\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"varchar_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"text\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"varint_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"varint\"}]"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=ascii].ascii_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "ascii",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=bigint].bigint_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=blob].blob_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BytesType": {}
+                        }
+                    },
+                    "nativeDataType": "blob",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=boolean].boolean_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=date].date_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "date",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=decimal].decimal_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "decimal",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=double].double_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=float].float_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=frozen<list<text>>].frozen_list_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "frozen<list<text>>",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=frozen<map<text, text>>].frozen_map_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "frozen<map<text, text>>",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=frozen<set<text>>].frozen_set_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "frozen<set<text>>",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=uuid].id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "uuid",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=inet].inet_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "inet",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=int].int_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=list<text>].list_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "list<text>",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=map<text, text>].map_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "map<text, text>",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=set<text>].set_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "set<text>",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=smallint].smallint_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "smallint",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=text].text_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=time].time_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "time",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=timestamp].timestamp_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "timestamp",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=timeuuid].timeuuid_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "timeuuid",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=tinyint].tinyint_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "tinyint",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=frozen<tuple<int, text>>].tuple_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NullType": {}
+                        }
+                    },
+                    "nativeDataType": "frozen<tuple<int, text>>",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=uuid].uuid_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "uuid",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=text].varchar_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=varint].varint_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "varint",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097190,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097192,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_1.people,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "people",
+            "platform": "urn:li:dataPlatform:cassandra",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "[{\"keyspace_name\": \"cass_test_1\", \"table_name\": \"people\", \"column_name\": \"email\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"text\"}, {\"keyspace_name\": \"cass_test_1\", \"table_name\": \"people\", \"column_name\": \"name\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"text\"}, {\"keyspace_name\": \"cass_test_1\", \"table_name\": \"people\", \"column_name\": \"person_id\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"int\"}]"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=text].email",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=text].name",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=int].person_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924411,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_1.people,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924412,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_1.people,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924412,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_1.people,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "bloom_filter_fp_chance": "0.01",
+                "caching": "{'keys': 'ALL', 'rows_per_partition': 'NONE'}",
+                "cdc": "None",
+                "compaction": "{'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}",
+                "compression": "{'chunk_length_in_kb': '16', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}",
+                "max_index_interval": "2048",
+                "min_index_interval": "128"
+            },
+            "name": "people",
+            "qualifiedName": "cass_test_1.people",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310883267,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_1.information,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:e88cdfeb0f0ec790300527f9ea34ee05",
+                    "urn": "urn:li:container:e88cdfeb0f0ec790300527f9ea34ee05"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924406,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_1.information,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:e88cdfeb0f0ec790300527f9ea34ee05"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924406,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0381892d0717b54887d087eaafd95d2b",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "cassandra",
+                "env": "PROD",
+                "keyspace": "cass_test_2"
+            },
+            "name": "cass_test_2",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924420,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_1.people,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:e88cdfeb0f0ec790300527f9ea34ee05",
+                    "urn": "urn:li:container:e88cdfeb0f0ec790300527f9ea34ee05"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924413,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0381892d0717b54887d087eaafd95d2b",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924420,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_1.people,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:e88cdfeb0f0ec790300527f9ea34ee05"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924413,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0381892d0717b54887d087eaafd95d2b",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924421,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.tasks,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "tasks",
+            "platform": "urn:li:dataPlatform:cassandra",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "[{\"keyspace_name\": \"cass_test_2\", \"table_name\": \"tasks\", \"column_name\": \"details\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"text\"}, {\"keyspace_name\": \"cass_test_2\", \"table_name\": \"tasks\", \"column_name\": \"last_updated\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"timestamp\"}, {\"keyspace_name\": \"cass_test_2\", \"table_name\": \"tasks\", \"column_name\": \"status\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"text\"}, {\"keyspace_name\": \"cass_test_2\", \"table_name\": \"tasks\", \"column_name\": \"task_id\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"int\"}]"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=text].details",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=timestamp].last_updated",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "timestamp",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=text].status",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=int].task_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924425,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.tasks,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924426,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.tasks,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924426,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.tasks,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "bloom_filter_fp_chance": "0.01",
+                "caching": "{'keys': 'ALL', 'rows_per_partition': 'NONE'}",
+                "cdc": "None",
+                "compaction": "{'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}",
+                "compression": "{'chunk_length_in_kb': '16', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}",
+                "max_index_interval": "2048",
+                "min_index_interval": "128"
+            },
+            "name": "tasks",
+            "qualifiedName": "cass_test_2.tasks",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310883281,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0381892d0717b54887d087eaafd95d2b",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Keyspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924421,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0381892d0717b54887d087eaafd95d2b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:cassandra"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924420,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.tasks,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0381892d0717b54887d087eaafd95d2b",
+                    "urn": "urn:li:container:0381892d0717b54887d087eaafd95d2b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924427,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.tasks,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0381892d0717b54887d087eaafd95d2b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731309924427,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:305f73c676989511c67d97ace119138c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097193,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097193,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.task_status,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "task_status",
+            "platform": "urn:li:dataPlatform:cassandra",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "[{\"keyspace_name\": \"cass_test_2\", \"table_name\": \"task_status\", \"column_name\": \"status\", \"clustering_order\": \"asc\", \"kind\": \"clustering\", \"position\": 0, \"type\": \"text\"}, {\"keyspace_name\": \"cass_test_2\", \"table_name\": \"task_status\", \"column_name\": \"task_id\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"int\"}]"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=text].status",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=int].task_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310883287,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:305f73c676989511c67d97ace119138c",
+                    "urn": "urn:li:container:305f73c676989511c67d97ace119138c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097193,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "bloom_filter_fp_chance": "0.01",
+                "caching": "{'keys': 'ALL', 'rows_per_partition': 'NONE'}",
+                "cdc": "None",
+                "compaction": "{'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}",
+                "compression": "{'chunk_length_in_kb': '16', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}",
+                "max_index_interval": "2048",
+                "min_index_interval": "128"
+            },
+            "name": "all_data_types",
+            "qualifiedName": "example_keyspace.all_data_types",
+            "description": "Table containing all supported Cassandra data types, excluding counters",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310883307,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.task_status,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097158,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.task_status,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097161,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.counter_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "counter_table",
+            "platform": "urn:li:dataPlatform:cassandra",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"counter_table\", \"column_name\": \"counter_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"counter\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"counter_table\", \"column_name\": \"id\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"uuid\"}]"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=counter].counter_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "counter",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=uuid].id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "uuid",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097198,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.task_status,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "bloom_filter_fp_chance": "0.01",
+                "caching": "{'keys': 'ALL', 'rows_per_partition': 'NONE'}",
+                "cdc": "None",
+                "compaction": "{'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}",
+                "compression": "{'chunk_length_in_kb': '16', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}",
+                "max_index_interval": "2048",
+                "min_index_interval": "128",
+                "include_all_columns": "False"
+            },
+            "name": "task_status",
+            "qualifiedName": "cass_test_2.task_status",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310883286,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.counter_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097198,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.task_status,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": true,
+            "viewLogic": "status IS NOT NULL AND task_id IS NOT NULL",
+            "viewLanguage": "CQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097161,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.task_status,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0381892d0717b54887d087eaafd95d2b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097163,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.task_status,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:0381892d0717b54887d087eaafd95d2b",
+                    "urn": "urn:li:container:0381892d0717b54887d087eaafd95d2b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097163,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.counter_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:305f73c676989511c67d97ace119138c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097199,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.counter_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097198,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.task_status,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.tasks,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097162,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.counter_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:305f73c676989511c67d97ace119138c",
+                    "urn": "urn:li:container:305f73c676989511c67d97ace119138c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097199,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.counter_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "bloom_filter_fp_chance": "0.01",
+                "caching": "{'keys': 'ALL', 'rows_per_partition': 'NONE'}",
+                "cdc": "None",
+                "compaction": "{'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}",
+                "compression": "{'chunk_length_in_kb': '16', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}",
+                "max_index_interval": "2048",
+                "min_index_interval": "128"
+            },
+            "name": "counter_table",
+            "qualifiedName": "example_keyspace.counter_table",
+            "description": "Separate table containing only counter column",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310883314,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:305f73c676989511c67d97ace119138c",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:cassandra"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097186,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:305f73c676989511c67d97ace119138c",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "cassandra",
+                "env": "PROD",
+                "keyspace": "example_keyspace"
+            },
+            "name": "example_keyspace",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097185,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:305f73c676989511c67d97ace119138c",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097185,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:305f73c676989511c67d97ace119138c",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Keyspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097186,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:305f73c676989511c67d97ace119138c",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310097186,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310103459,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": true,
+            "viewLogic": "id IS NOT NULL AND ascii_column IS NOT NULL",
+            "viewLanguage": "CQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310103458,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310103456,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310103457,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "example_view_1",
+            "platform": "urn:li:dataPlatform:cassandra",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_1\", \"column_name\": \"ascii_column\", \"clustering_order\": \"asc\", \"kind\": \"clustering\", \"position\": 0, \"type\": \"ascii\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_1\", \"column_name\": \"bigint_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"bigint\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_1\", \"column_name\": \"id\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"uuid\"}]"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=ascii].ascii_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "ascii",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=bigint].bigint_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=uuid].id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "uuid",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310942152,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:305f73c676989511c67d97ace119138c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310103460,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:305f73c676989511c67d97ace119138c",
+                    "urn": "urn:li:container:305f73c676989511c67d97ace119138c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310103461,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "bloom_filter_fp_chance": "0.01",
+                "caching": "{'keys': 'ALL', 'rows_per_partition': 'NONE'}",
+                "cdc": "None",
+                "compaction": "{'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}",
+                "compression": "{'chunk_length_in_kb': '16', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}",
+                "max_index_interval": "2048",
+                "min_index_interval": "128",
+                "include_all_columns": "False"
+            },
+            "name": "example_view_1",
+            "qualifiedName": "example_keyspace.example_view_1",
+            "description": "Example view definition with id and ascii_column",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310942151,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:305f73c676989511c67d97ace119138c",
+                    "urn": "urn:li:container:305f73c676989511c67d97ace119138c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310942175,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310942171,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310942172,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "viewProperties",
+    "aspect": {
+        "json": {
+            "materialized": true,
+            "viewLogic": "id IS NOT NULL AND ascii_column IS NOT NULL",
+            "viewLanguage": "CQL"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310942172,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD)",
+                    "type": "VIEW"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310942174,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "bloom_filter_fp_chance": "0.01",
+                "caching": "{'keys': 'ALL', 'rows_per_partition': 'NONE'}",
+                "cdc": "None",
+                "compaction": "{'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}",
+                "compression": "{'chunk_length_in_kb': '16', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}",
+                "max_index_interval": "2048",
+                "min_index_interval": "128",
+                "include_all_columns": "False"
+            },
+            "name": "example_view_2",
+            "qualifiedName": "example_keyspace.example_view_2",
+            "description": "Example view definition with id and ascii_column",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310942172,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "example_view_2",
+            "platform": "urn:li:dataPlatform:cassandra",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_2\", \"column_name\": \"ascii_column\", \"clustering_order\": \"asc\", \"kind\": \"clustering\", \"position\": 0, \"type\": \"ascii\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_2\", \"column_name\": \"float_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"float\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_2\", \"column_name\": \"id\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"uuid\"}]"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=ascii].ascii_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "ascii",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=float].float_column",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "float",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=uuid].id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "uuid",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310942173,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:305f73c676989511c67d97ace119138c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731310942175,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

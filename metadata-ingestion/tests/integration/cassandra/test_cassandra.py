@@ -1,4 +1,5 @@
 import logging
+import time
 
 import pytest
 
@@ -7,9 +8,6 @@ from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
 logger = logging.getLogger(__name__)
-
-# TODO
-# FROZEN_TIME = "2024-10-07 10:00:00"
 
 
 @pytest.mark.integration
@@ -21,9 +19,9 @@ def test_cassandra_ingest(docker_compose_runner, pytestconfig, tmp_path):
     ) as docker_services:
         wait_for_port(docker_services, "test-cassandra", 9042)
 
+        time.sleep(5)
         # Run the metadata ingestion pipeline.
         logger.info("Starting the ingestion test...")
-
         pipeline_default_platform_instance = Pipeline.create(
             {
                 "run_id": "cassandra-test",
