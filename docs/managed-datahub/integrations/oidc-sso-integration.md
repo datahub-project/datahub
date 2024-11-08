@@ -6,7 +6,7 @@ description: >-
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 
-# Enable OIDC Single Sign-On
+# Enable OIDC SSO
 <FeatureAvailability saasOnly />
 
 _Note that we do not yet support LDAP or SAML authentication. Please let us know if either of these integrations would be useful for your organization._
@@ -23,7 +23,7 @@ In order to set up the OIDC SSO integration, you must have the `Manage Platform 
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/saas/configure-oidc.png"/>
 </p>
 
-2. Enter the **Client ID, Client Secret, and Discovery URI** you obtained in the previous step.
+2. Enter the **Client ID, Client Secret, and Discovery URI** you obtained in the [OIDC Prerequisites](../../authentication/guides/sso/initialize-oidc.md).
 3. Confirm your preferred **User Provisioning Strategy**:
 
   * **Just-in-Time (JIT) Provisioning** is enabled by defualt, automatically creating a DataHub User on login if one does not exist.

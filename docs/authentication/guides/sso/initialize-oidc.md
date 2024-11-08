@@ -22,25 +22,40 @@ Using an account linked to your organization, navigate to the [Google API Consol
 
 Within this project, we will configure the OAuth2.0 screen and credentials.
 
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/google/google-setup-1-create-project.png"/>
+</p>
+
+
 #### 2. Create OAuth2.0 consent screen
 
 Navigate to **OAuth consent screen**. This is where you'll configure the screen your users see when attempting to log in to DataHub. Select **Internal** (if you only want your company users to have access) and then click **Create**.
 
-Note that in order to complete this step you should be logged into a Google account associated with your organization.
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/google/google-setup-3-oauth-consent-step1.png"/>
+</p>
 
-Fill out the details in the App Information & Domain sections. Make sure the 'Application Home Page' provided matches where DataHub is deployed at your organization. Once you've completed this, **Save & Continue**.
+_Note that in order to complete this step you should be logged into a Google account associated with your organization._
+
+Fill out the details in the App Information & Domain sections. Make sure the 'Application Home Page' provided matches where DataHub is deployed at your organization.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/google-setup-1.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/google/google-setup-3-oauth-consent-step2.png"/>
 </p>
+
+Once you've completed this, **Save & Continue**.
 
 #### 3. Configure the appropriate scopes
 
 Next, click **Add or Remove Scopes**. Select the following scopes and click **Save & Continue**.
 
-- .../auth/userinfo.email
-- .../auth/userinfo.profile
-- openid
+- `.../auth/userinfo.email`
+- `.../auth/userinfo.profile`
+- `openid`
+
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/google/google-setup-3-oauth-consent-step3.png"/>
+</p>
 
 ### Step 2. Create Client Credentials
 
@@ -53,7 +68,17 @@ The following steps will walk you through generating a Client ID and Client Secr
 5. In **Authorized Redirect URLs**, add the domain where you are hosting DataHub with the path `/callback/oidc` appended, i.e. `https://your-datahub-domain.com/callback/oidc`.
 6. Click **Create**.
 
-This will generate a **Client ID** and **Client Secret**. You will need these values in the next step, in addition to the following Discovery URI:
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/google/google-setup-4-oauth-client-id-2.png"/>
+</p>
+
+This will generate a **Client ID** and **Client Secret**:
+
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/google/google-setup-4-oauth-client-id-3.png"/>
+</p>
+
+You will need these values in the next step, in addition to the following **Discovery URI**:
 
 ```
 https://accounts.google.com/.well-known/openid-configuration`
@@ -73,7 +98,7 @@ Log in to your Okta admin account and navigate to the developer console. From th
 1. Select **Applications**
 2. Click **Add Application**
 3. Click **Create New App**
-4. Select **OpenID Connect** as the Sign on method
+4. Select **OpenID Connect** as the Sign On method
 5. Choose **Web** as the Platform
 6. Click **Create**
 
@@ -129,7 +154,7 @@ Using an account linked to your organization, navigate to the [Microsoft Azure P
 4. Under **Redirect URI**, choose **Web** and enter `https://your-datahub-domain.com/callback/oidc`. NOTE: You can add more later.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-app-registration.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-app-registration.png"/>
 </p>
 
 5. Click **Register**.
@@ -144,7 +169,7 @@ Once registration is complete, you will need to configure the Logout URL, which 
 4. Click **Save**.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-authentication.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-authentication.png"/>
 </p>
 
 
@@ -161,7 +186,7 @@ You are now ready to create and configure client credentials:
 5. Copy the secret **`Value`** to be used as the **Client Secret** in DataHub SSO configuration; **Azure will not display this again**.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-certificates-secrets.png"/>
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/sso/azure-setup-certificates-secrets.png"/>
 </p>
 
 #### 2. Configure API Permissions
@@ -203,7 +228,7 @@ You will need the following values in the next step:
 
 ### Next Steps
 
-Once you have your **Client ID**, **Client Secret**, and **Discovery URL**, you may proceed with next steps.
+Once you have your **Client ID**, **Client Secret**, and **Discovery URI**, you may proceed with next steps.
 
 ### DataHub Cloud
 If you're deployed with DataHub Cloud, you can enable OIDC SSO with a few clicks. [👉 See the guide here](../../../managed-datahub/integrations/oidc-sso-integration.md#2-configuring-oidc-sso).
