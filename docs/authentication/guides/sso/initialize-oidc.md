@@ -231,7 +231,7 @@ You will need the following values in the next step:
 Once you have your **Client ID**, **Client Secret**, and **Discovery URI**, you may proceed with next steps.
 
 ### DataHub Cloud
-If you're deployed with DataHub Cloud, you can enable OIDC SSO with a few clicks. [👉 See the guide here](../../../managed-datahub/integrations/oidc-sso-integration.md#2-configuring-oidc-sso).
+If you're deployed with DataHub Cloud, you can enable OIDC SSO with a few clicks. [👉 See the guide here](../../../managed-datahub/integrations/oidc-sso-integration.md).
 
 ### Open Source
 If you're self-deployed with DataHub Core, you'll need to configure your frontend server within your deployment environment. [👉 See the guide here](./configure-oidc-react.md).
