@@ -19,7 +19,7 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
-    DatabaseKey,
+    NamespaceKey,
     add_dataset_to_container,
     gen_containers,
 )
@@ -66,6 +66,7 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
 )
 from datahub.metadata.urns import DatasetUrn
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 
 logger = logging.getLogger(__name__)
 
@@ -376,6 +377,18 @@ class AerospikeSource(StatefulIngestionSourceBase):
                 self.report.report_dropped(namespace)
                 continue
 
+            namespace_key = NamespaceKey(
+                namespace=namespace,
+                platform=self.platform,
+                instance=self.config.platform_instance,
+                env=self.config.env,
+            )
+            yield from gen_containers(
+                container_key=namespace_key,
+                name=namespace,
+                sub_types=[DatasetContainerSubTypes.NAMESPACE],
+            )
+
             # database = self.aerospike_client[namespace]
             # ns_sets: List[str] = [aerospike_set.set for aerospike_set in all_sets if aerospike_set.ns == namespace]
             ns_sets: List[AerospikeSet] = [
@@ -435,6 +448,7 @@ class AerospikeSource(StatefulIngestionSourceBase):
                         dataset_properties=dataset_properties,
                     )
 
+                yield from add_dataset_to_container(namespace_key, dataset_urn.urn())
                 yield from [
                     mcp.as_workunit()
                     for mcp in MetadataChangeProposalWrapper.construct_many(
@@ -453,7 +467,7 @@ class AerospikeSource(StatefulIngestionSourceBase):
             as_set: AerospikeSet,
             dataset_properties: DatasetPropertiesClass,
     ) -> SchemaMetadata:
-        set_schema = construct_schema_aerospike(
+        set_schema: Dict[Tuple[str, ...], SchemaDescription] = construct_schema_aerospike(
             client=self.aerospike_client,
             as_set=as_set,
             delimiter=".",

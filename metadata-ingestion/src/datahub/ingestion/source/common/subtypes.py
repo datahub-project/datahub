@@ -40,6 +40,7 @@ class DatasetContainerSubTypes(StrEnum):
     S3_BUCKET = "S3 bucket"
     GCS_BUCKET = "GCS bucket"
     ABS_CONTAINER = "ABS container"
+    NAMESPACE = "Namespace"
 
 
 class BIContainerSubTypes(StrEnum):

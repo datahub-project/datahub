@@ -1,5 +1,116 @@
 [
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "aerospike",
+                "instance": "instance",
+                "env": "PROD",
+                "namespace": "test"
+            },
+            "name": "test",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "aerospike-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "aerospike-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:aerospike",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "aerospike-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Namespace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "aerospike-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "aerospike-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:aerospike,instance.test.empty_set,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "aerospike-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:aerospike,instance.test.empty_set,PROD)",
     "changeType": "UPSERT",
@@ -60,6 +171,47 @@
         "json": {
             "platform": "urn:li:dataPlatform:aerospike",
             "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "aerospike-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:aerospike,instance.test.empty_set,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)"
+                },
+                {
+                    "id": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143",
+                    "urn": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "aerospike-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:aerospike,instance.test.first_set,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143"
         }
     },
     "systemMetadata": {
@@ -188,18 +340,6 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "favoriteFood.servings",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "double",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "legs",
                     "nullable": false,
                     "type": {
@@ -284,7 +424,19 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "favoriteFood.emptyObject",
+                    "fieldPath": "favoriteFood.servings",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "double",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "emptyObject",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -308,6 +460,18 @@
                     "isPartOfKey": false
                 },
                 {
+                    "fieldPath": "favoriteFood.emptyObject",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "map",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
                     "fieldPath": "favoriteFood.ingredients.color",
                     "nullable": true,
                     "type": {
@@ -316,6 +480,18 @@
                         }
                     },
                     "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "servings",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "integer",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -370,6 +546,47 @@
         "json": {
             "platform": "urn:li:dataPlatform:aerospike",
             "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "aerospike-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:aerospike,instance.test.first_set,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)"
+                },
+                {
+                    "id": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143",
+                    "urn": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "aerospike-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:aerospike,instance.test.large_set,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143"
         }
     },
     "systemMetadata": {
@@ -4053,6 +4270,47 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:aerospike,instance.test.large_set,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)"
+                },
+                {
+                    "id": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143",
+                    "urn": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "aerospike-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:aerospike,instance.test.second_set,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "aerospike-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:aerospike,instance.test.second_set,PROD)",
     "changeType": "UPSERT",
     "aspectName": "schemaMetadata",
@@ -4221,6 +4479,31 @@
         "json": {
             "platform": "urn:li:dataPlatform:aerospike",
             "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "aerospike-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:aerospike,instance.test.second_set,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:aerospike,instance)"
+                },
+                {
+                    "id": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143",
+                    "urn": "urn:li:container:97429b96a1bc63d2d776fbfd30e47143"
+                }
+            ]
         }
     },
     "systemMetadata": {
