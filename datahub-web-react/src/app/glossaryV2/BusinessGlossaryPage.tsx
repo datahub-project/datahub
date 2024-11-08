@@ -100,7 +100,6 @@ const BusinessGlossaryPage = () => {
                         hasTermsOrNodes={hasTermsOrNodes}
                         nodes={nodes || []}
                         terms={terms || []}
-                        termsData={termsData}
                         termsLoading={termsLoading}
                         nodesLoading={nodesLoading}
                         refetchForNodes={refetchForNodes}

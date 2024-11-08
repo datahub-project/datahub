@@ -9,15 +9,6 @@ import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { useEntityRegistry } from '../useEntityRegistry';
 import GlossaryEntityItem from './GlossaryEntityItem';
 
-interface GlossaryEntityWrapperProps {
-    termsTotal?: number | undefined;
-    $isShowNavBarRedesign?: boolean;
-}
-
-const GlossaryEntityWrapper = styled.div<GlossaryEntityWrapperProps>`
-    overflow: auto;
-`;
-
 const SectionTitle = styled(Typography)`
     margin: 12px 0 12px 16px;
     font-size: 12px;
@@ -27,7 +18,6 @@ const SectionTitle = styled(Typography)`
 
 const GlossaryNodes = styled.div<{ isGrid?: boolean }>`
     display: flex;
-    overflow: auto;
     ${(props) =>
         props.isGrid
             ? `
@@ -46,25 +36,24 @@ const GlossaryNodes = styled.div<{ isGrid?: boolean }>`
 
 const GlossaryTerms = styled.div`
     display: flex;
-    overflow: auto;
     flex-direction: column;
     gap: 12px;
+    margin-bottom: 20px;
 `;
 
 interface Props {
     nodes: (GlossaryNode | GlossaryNodeFragment)[];
     terms: (GlossaryTerm | ChildGlossaryTermFragment)[];
-    termsTotal?: number;
 }
 
 function GlossaryEntitiesList(props: Props) {
-    const { nodes, terms, termsTotal } = props;
+    const { nodes, terms } = props;
     const entityRegistry = useEntityRegistry();
     const { entityData } = useEntityData();
     const isGlossaryEntityPage = !!entityData;
 
     return (
-        <GlossaryEntityWrapper termsTotal={termsTotal}>
+        <>
             {nodes.length > 0 && isGlossaryEntityPage ? <SectionTitle>Term Groups</SectionTitle> : null}
             <GlossaryNodes isGrid={!isGlossaryEntityPage}>
                 {nodes.map((node) => (
@@ -96,7 +85,7 @@ function GlossaryEntitiesList(props: Props) {
                     />
                 ))}
             </GlossaryTerms>
-        </GlossaryEntityWrapper>
+        </>
     );
 }
 
