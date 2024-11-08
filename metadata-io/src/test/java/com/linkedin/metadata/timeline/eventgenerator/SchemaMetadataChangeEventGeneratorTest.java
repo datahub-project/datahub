@@ -204,10 +204,10 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
     List<ChangeEvent> actual = test.getChangeEvents(urn, entity, aspect, from, to3, auditStamp);
     compareDescriptions(
         Set.of(
-            "A backwards incompatible change due to a primary key constraint change. "
-                + "The following fields were removed: 'ID'. The following fields were added: 'ID2'."),
+            "A backwards incompatible change due to addition of the primary key field 'ID2'",
+            "A backwards incompatible change due to removal of the primary key field 'ID'"),
         actual);
-    assertEquals(1, actual.size());
+    assertEquals(actual.size(), 2);
     compareModificationCategories(Set.of(SchemaFieldModificationCategory.OTHER.toString()), actual);
   }
 
@@ -274,10 +274,10 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
     List<ChangeEvent> actual = test.getChangeEvents(urn, entity, aspect, from, to3, auditStamp);
     compareDescriptions(
         Set.of(
-            "A backwards incompatible change due to a primary key constraint change. "
-                + "The following fields were removed: 'ID'. The following fields were added: 'ID2'."),
+            "A backwards incompatible change due to addition of the primary key field 'ID2'",
+            "A backwards incompatible change due to removal of the primary key field 'ID'"),
         actual);
-    assertEquals(1, actual.size());
+    assertEquals(actual.size(), 2);
     compareModificationCategories(Set.of(SchemaFieldModificationCategory.OTHER.toString()), actual);
 
     Aspect<SchemaMetadata> to4 =
