@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import feast.types
 from feast import (
@@ -86,6 +86,14 @@ _field_type_mapping: Dict[Union[ValueType, feast.types.FeastType], str] = {
     feast.types.UnixTimestamp: MLFeatureDataType.TIME,
     feast.types.Array: MLFeatureDataType.SEQUENCE,  # type: ignore
     feast.types.Invalid: MLFeatureDataType.UNKNOWN,
+}
+
+# FIXME: Update to have more owners
+_owner_mapping: Dict[str, Dict[str, Any]] = {
+    "Datahub": {
+        "owner_type": builder.OwnerType.USER,
+        "owner_ship_type_class": OwnershipTypeClass.DATAOWNER,
+    }
 }
 
 
@@ -220,31 +228,13 @@ class FeastRepositorySource(Source):
         """
         Generate an MLPrimaryKey work unit for a Feast entity.
         """
-
         feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
-
-        aspects = [StatusClass(removed=False)]
-
-        if entity.tags.get("name"):
-            tag: str = entity.tags.get("name")
-            tag_association = TagAssociationClass(tag=builder.make_tag_urn(tag))
-            global_tags_aspect = GlobalTagsClass(tags=[tag_association])
-            aspects.append(global_tags_aspect)
-
-        if entity.owner:
-            owner = entity.owner
-            owner_association = OwnerClass(
-                owner=builder.make_owner_urn(owner, owner_type=builder.OwnerType.USER),
-                type=OwnershipTypeClass.TECHNICAL_OWNER,
-            )
-            owners_aspect = OwnershipClass(owners=[owner_association])
-            aspects.append(owners_aspect)
+        aspects = [StatusClass(removed=False)] + self._get_tags_and_owners(entity)
 
         entity_snapshot = MLPrimaryKeySnapshot(
             urn=builder.make_ml_primary_key_urn(feature_view_name, entity.name),
             aspects=aspects,
         )
-
         entity_snapshot.aspects.append(
             MLPrimaryKeyPropertiesClass(
                 description=entity.description,
@@ -254,12 +244,10 @@ class FeastRepositorySource(Source):
         )
 
         mce = MetadataChangeEvent(proposedSnapshot=entity_snapshot)
-
         return MetadataWorkUnit(id=entity.name, mce=mce)
 
     def _get_feature_workunit(
         self,
-        # FIXME: FeatureView and OnDemandFeatureView cannot be used as a type
         feature_view: Union[FeatureView, OnDemandFeatureView],
         field: FeastField,
     ) -> MetadataWorkUnit:
@@ -267,16 +255,7 @@ class FeastRepositorySource(Source):
         Generate an MLFeature work unit for a Feast feature.
         """
         feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
-        global_tags_aspect = None
-
-        if field.tags.get("name"):
-            tag_name = field.tags.get("name")
-            tag_association = TagAssociationClass(tag=builder.make_tag_urn(tag_name))
-            global_tags_aspect = GlobalTagsClass(tags=[tag_association])
-
-        aspects = [StatusClass(removed=False)]
-        if global_tags_aspect is not None:
-            aspects.append(global_tags_aspect)
+        aspects = [StatusClass(removed=False)] + self._get_tags_and_owners(field)
 
         feature_snapshot = MLFeatureSnapshot(
             urn=builder.make_ml_feature_urn(feature_view_name, field.name),
@@ -287,28 +266,23 @@ class FeastRepositorySource(Source):
         if isinstance(feature_view, FeatureView):
             feature_sources = self._get_data_sources(feature_view)
         elif isinstance(feature_view, OnDemandFeatureView):
-            if feature_view.source_request_sources is not None:
+            if feature_view.source_request_sources:
                 for request_source in feature_view.source_request_sources.values():
                     source_platform, source_name = self._get_data_source_details(
                         request_source
                     )
-
                     feature_sources.append(
                         builder.make_dataset_urn(
-                            source_platform,
-                            source_name,
-                            self.source_config.environment,
+                            source_platform, source_name, self.source_config.environment
                         )
                     )
-
-            if feature_view.source_feature_view_projections is not None:
+            if feature_view.source_feature_view_projections:
                 for (
                     feature_view_projection
                 ) in feature_view.source_feature_view_projections.values():
                     feature_view_source = self.feature_store.get_feature_view(
                         feature_view_projection.name
                     )
-
                     feature_sources.extend(self._get_data_sources(feature_view_source))
 
         feature_snapshot.aspects.append(
@@ -320,35 +294,17 @@ class FeastRepositorySource(Source):
         )
 
         mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
-
         return MetadataWorkUnit(id=field.name, mce=mce)
 
     def _get_feature_view_workunit(self, feature_view: FeatureView) -> MetadataWorkUnit:
         """
         Generate an MLFeatureTable work unit for a Feast feature view.
         """
-
         feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
-
         aspects = [
             BrowsePathsClass(paths=[f"/feast/{self.feature_store.project}"]),
             StatusClass(removed=False),
-        ]
-
-        if feature_view.tags.get("name"):
-            tag = feature_view.tags.get("name")
-            tag_association = TagAssociationClass(tag=builder.make_tag_urn(tag))
-            global_tags_aspect = GlobalTagsClass(tags=[tag_association])
-            aspects.append(global_tags_aspect)
-
-        if feature_view.owner:
-            owner = feature_view.owner
-            owner_association = OwnerClass(
-                owner=builder.make_owner_urn(owner, owner_type=builder.OwnerType.USER),
-                type=OwnershipTypeClass.TECHNICAL_OWNER,
-            )
-            owners_aspect = OwnershipClass(owners=[owner_association])
-            aspects.append(owners_aspect)
+        ] + self._get_tags_and_owners(feature_view)
 
         feature_view_snapshot = MLFeatureTableSnapshot(
             urn=builder.make_ml_feature_table_urn("feast", feature_view_name),
@@ -358,10 +314,7 @@ class FeastRepositorySource(Source):
         feature_view_snapshot.aspects.append(
             MLFeatureTablePropertiesClass(
                 mlFeatures=[
-                    builder.make_ml_feature_urn(
-                        feature_view_name,
-                        feature.name,
-                    )
+                    builder.make_ml_feature_urn(feature_view_name, feature.name)
                     for feature in feature_view.features
                 ],
                 mlPrimaryKeys=[
@@ -372,7 +325,6 @@ class FeastRepositorySource(Source):
         )
 
         mce = MetadataChangeEvent(proposedSnapshot=feature_view_snapshot)
-
         return MetadataWorkUnit(id=feature_view_name, mce=mce)
 
     def _get_on_demand_feature_view_workunit(
@@ -410,6 +362,39 @@ class FeastRepositorySource(Source):
         mce = MetadataChangeEvent(proposedSnapshot=on_demand_feature_view_snapshot)
 
         return MetadataWorkUnit(id=on_demand_feature_view_name, mce=mce)
+
+    def _get_tags_and_owners(self, obj: Union[Entity, FeatureView, FeastField]) -> list:
+        """
+        Extracts tags and owners from the given object and returns a list of aspects.
+        """
+        aspects: List[Union[GlobalTagsClass, OwnershipClass]] = []
+
+        # Extract tags
+        tag_name = obj.tags.get("name") if obj.tags else None
+        if tag_name:
+            tag_association = TagAssociationClass(tag=builder.make_tag_urn(tag_name))
+            global_tags_aspect = GlobalTagsClass(tags=[tag_association])
+            aspects.append(global_tags_aspect)
+
+        # Extract owner
+        owner = getattr(obj, "owner", None)
+        if owner:
+            owner_association = self._create_owner_association(owner)
+            owners_aspect = OwnershipClass(owners=[owner_association])
+            aspects.append(owners_aspect)
+
+        return aspects
+
+    def _create_owner_association(self, owner: str) -> OwnerClass:
+
+        owner_type: builder.OwnerType = _owner_mapping[owner]["owner_type"]
+        owner_ship_type_class: OwnershipTypeClass = _owner_mapping[owner][
+            "owner_ship_type_class"
+        ]
+        return OwnerClass(
+            owner=builder.make_owner_urn(owner, owner_type=owner_type),
+            type=owner_ship_type_class,
+        )
 
     @classmethod
     def create(cls, config_dict, ctx):
