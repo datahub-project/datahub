@@ -268,8 +268,12 @@ class IcebergSource(StatefulIngestionSourceBase):
             custom_properties["format-version"] = str(table.metadata.format_version)
             custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
             if table.current_snapshot():
-                custom_properties["snapshot-id"] = str(table.current_snapshot().snapshot_id)
-                custom_properties["manifest-list"] = table.current_snapshot().manifest_list
+                custom_properties["snapshot-id"] = str(
+                    table.current_snapshot().snapshot_id
+                )
+                custom_properties[
+                    "manifest-list"
+                ] = table.current_snapshot().manifest_list
             dataset_properties = DatasetPropertiesClass(
                 name=table.name()[-1],
                 tags=[],
