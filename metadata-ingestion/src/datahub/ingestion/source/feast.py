@@ -33,11 +33,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata._schema_classes import (
-    OwnerClass,
-    OwnershipClass,
-    OwnershipTypeClass,
-)
+
 from datahub.metadata.com.linkedin.pegasus2avro.common import MLFeatureDataType
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     MLFeatureSnapshot,
@@ -53,6 +49,9 @@ from datahub.metadata.schema_classes import (
     MLPrimaryKeyPropertiesClass,
     StatusClass,
     TagAssociationClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
 )
 
 # FIXME: ValueType module cannot be used as a type
@@ -91,7 +90,7 @@ _field_type_mapping: Dict[Union[ValueType, feast.types.FeastType], str] = {
 # FIXME: Update to have more owners
 _owner_mapping: Dict[str, Dict[str, Any]] = {
     "Datahub": {
-        "owner_type": builder.OwnerType.USER,
+        "owner_type": builder.OwnerType.GROUP,
         "owner_ship_type_class": OwnershipTypeClass.DATAOWNER,
     }
 }
