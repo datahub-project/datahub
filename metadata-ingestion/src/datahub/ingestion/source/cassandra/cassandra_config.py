@@ -84,6 +84,11 @@ class CassandraSourceConfig(
         description="Regex patterns to filter keyspaces for ingestion.",
     )
 
+    table_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter keyspaces.tables for ingestion.",
+    )
+
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
         description="Configuration for stateful ingestion and stale metadata removal.",

@@ -54,7 +54,6 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     OtherSchemaClass,
     SubTypesClass,
-    TimeStampClass,
     UpstreamClass,
     UpstreamLineageClass,
 )
@@ -190,6 +189,11 @@ class CassandraSource(StatefulIngestionSourceBase):
                 table, CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES["table_name"]
             )
             dataset_name: str = f"{keyspace_name}.{table_name}"
+
+            if not self.config.table_pattern.allowed(dataset_name):
+                self.report.report_dropped(dataset_name)
+                continue
+
             dataset_urn = make_dataset_urn_with_platform_instance(
                 platform=self.platform,
                 name=dataset_name,
@@ -229,7 +233,6 @@ class CassandraSource(StatefulIngestionSourceBase):
                     name=table_name,
                     qualifiedName=f"{keyspace_name}.{table_name}",
                     description=table.comment,
-                    created=TimeStampClass(time=0),
                     customProperties={
                         "bloom_filter_fp_chance": str(table.bloom_filter_fp_chance),
                         "caching": str(table.caching),

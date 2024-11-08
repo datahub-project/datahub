@@ -1,7 +1,6 @@
 import logging
 
 import pytest
-from freezegun import freeze_time
 
 from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
@@ -9,16 +8,16 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 logger = logging.getLogger(__name__)
 
-FROZEN_TIME = "2023-10-15 07:00:00"
+# TODO
+# FROZEN_TIME = "2024-10-07 10:00:00"
 
 
-@freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_cassandra_ingest(docker_compose_runner, pytestconfig, tmp_path):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/cassandra"
 
     with docker_compose_runner(
-        test_resources_dir / "docker-compose.yml", "cassandra", cleanup=False
+        test_resources_dir / "docker-compose.yml", "cassandra"
     ) as docker_services:
         wait_for_port(docker_services, "test-cassandra", 9042)
 
@@ -52,5 +51,4 @@ def test_cassandra_ingest(docker_compose_runner, pytestconfig, tmp_path):
             pytestconfig,
             output_path=f"{tmp_path}/cassandra_mcps.json",
             golden_path=test_resources_dir / "cassandra_mcps_golden.json",
-            ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
         )
