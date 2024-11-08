@@ -6,7 +6,6 @@ import threading
 import traceback
 import uuid
 from collections import defaultdict
-from time import time
 from typing import Any, Dict, Iterable, List, Optional
 
 from pyiceberg.catalog import Catalog
