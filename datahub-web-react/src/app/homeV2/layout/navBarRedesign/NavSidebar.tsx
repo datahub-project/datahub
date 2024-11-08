@@ -83,7 +83,7 @@ export const NavSidebar = () => {
     const me = useUserContext();
 
     const { isUserInitializing } = useContext(OnboardingContext);
-    const { helpLinkState } = useGlobalSettingsContext();
+    const { helpLinkState, globalSettings } = useGlobalSettingsContext();
     const { showOnboardingTour } = useHandleOnboardingTour();
     const { config } = useAppConfig();
     const { showFormAnalytics, formCreationEnabled } = config.featureFlags;
@@ -112,7 +112,7 @@ export const NavSidebar = () => {
     // Update education steps allow list
     useUpdateEducationStepsAllowList(!!showDataSources, HOME_PAGE_INGESTION_ID);
 
-    const customLogoUrl = appConfig.config.visualConfig.logoUrl;
+    const customLogoUrl = globalSettings?.visualSettings?.customLogoUrl || appConfig.config.visualConfig.logoUrl;
     const hasCustomLogo = customLogoUrl && customLogoUrl !== DEFAULT_LOGO;
     const logoComponent = hasCustomLogo ? <CustomLogo alt="logo" src={customLogoUrl} /> : <AcrylIcon />;
 

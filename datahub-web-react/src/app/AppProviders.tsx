@@ -14,20 +14,20 @@ interface Props {
 
 export default function AppProviders({ children }: Props) {
     return (
-        <AppConfigProvider>
-            <UserContextProvider>
-                <EntityRegistryProvider>
-                    <EducationStepsProvider>
-                        <QuickFiltersProvider>
-                            <SearchContextProvider>
-                                <GlobalSettingsContextProvider>
+        <GlobalSettingsContextProvider>
+            <AppConfigProvider>
+                <UserContextProvider>
+                    <EntityRegistryProvider>
+                        <EducationStepsProvider>
+                            <QuickFiltersProvider>
+                                <SearchContextProvider>
                                     <NavBarProvider>{children}</NavBarProvider>
-                                </GlobalSettingsContextProvider>
-                            </SearchContextProvider>
-                        </QuickFiltersProvider>
-                    </EducationStepsProvider>
-                </EntityRegistryProvider>
-            </UserContextProvider>
-        </AppConfigProvider>
+                                </SearchContextProvider>
+                            </QuickFiltersProvider>
+                        </EducationStepsProvider>
+                    </EntityRegistryProvider>
+                </UserContextProvider>
+            </AppConfigProvider>
+        </GlobalSettingsContextProvider>
     );
 }

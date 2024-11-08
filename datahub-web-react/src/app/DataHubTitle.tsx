@@ -2,6 +2,7 @@ import React from 'react';
 import { Helmet } from 'react-helmet-async';
 import { useLocation } from 'react-router';
 import { useCustomTheme } from '../customThemeContext';
+import { useGlobalSettingsContext } from './context/GlobalSettings/GlobalSettingsContext';
 import { useAppConfig } from './useAppConfig';
 
 const PATH_FRAGMENT_TO_TITLE_OVERRIDES = {
@@ -13,6 +14,7 @@ export default function DataHubTitle() {
     const location = useLocation();
     const { config } = useAppConfig();
     const { theme } = useCustomTheme();
+    const { globalSettings } = useGlobalSettingsContext();
 
     const title =
         location.pathname
@@ -27,6 +29,7 @@ export default function DataHubTitle() {
                 return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
             })
             .join(' | ') ||
+        globalSettings?.visualSettings?.customOrgName ||
         config?.visualConfig?.appTitle ||
         theme?.content.title;
 

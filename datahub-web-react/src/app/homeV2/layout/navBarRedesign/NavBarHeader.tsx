@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
 import NavBarToggler from './NavBarToggler';
 import { useNavBarContext } from './NavBarContext';
 
@@ -34,6 +35,10 @@ const Title = styled.div`
     font-style: normal;
     font: 700 16px/40px Mulish;
     text-wrap: nowrap;
+    white-space: nowrap;
+    overflow: hidden;
+    max-width: calc(100% - 30px);
+    text-overflow: ellipsis;
 `;
 
 const StyledLink = styled(Link)`
@@ -41,6 +46,7 @@ const StyledLink = styled(Link)`
     height: 40px;
     align-items: center;
     gap: 8px;
+    max-width: calc(100% - 40px);
 `;
 
 type Props = {
@@ -49,12 +55,14 @@ type Props = {
 
 export default function NavBarHeader({ logotype }: Props) {
     const { isCollapsed } = useNavBarContext();
+    const { globalSettings } = useGlobalSettingsContext();
+    const customName = globalSettings?.visualSettings?.customOrgName;
 
     return (
         <Container isCollapsed={isCollapsed}>
             <StyledLink to="/">
                 <Logotype>{logotype}</Logotype>
-                {!isCollapsed ? <Title>Acryl Data</Title> : null}
+                {!isCollapsed ? <Title>{customName || 'Acryl Data'}</Title> : null}
             </StyledLink>
             {!isCollapsed && <NavBarToggler iconSize={15} />}
         </Container>
