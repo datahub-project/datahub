@@ -5,6 +5,7 @@ import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClientCache;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.entity.DeleteEntityService;
@@ -43,7 +44,7 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
       RollbackService rollbackService,
       EventProducer eventProducer,
       EntityClientCacheConfig cacheConfig,
-      int batchGetV2Size) {
+      EntityClientConfig entityClientConfig) {
     super(
         entityService,
         deleteEntityService,
@@ -54,7 +55,7 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
         timeseriesAspectService,
         rollbackService,
         eventProducer,
-        batchGetV2Size);
+        entityClientConfig);
     this.operationContextMap = CacheBuilder.newBuilder().maximumSize(500).build();
     this.entityClientCache = buildEntityClientCache(SystemJavaEntityClient.class, cacheConfig);
   }
