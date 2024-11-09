@@ -17,9 +17,10 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
 )
 from datahub.ingestion.source.powerbi.m_query import resolver, validator
-from datahub.ingestion.source.powerbi.m_query.data_classes import (
-    TRACE_POWERBI_MQUERY_PARSER,
-)
+
+# from datahub.ingestion.source.powerbi.m_query.data_classes import (
+#     TRACE_POWERBI_MQUERY_PARSER,
+# )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ def get_lark_parser() -> Lark:
 
 
 def _parse_with_lark(expression: str) -> Tree:
-    logger.debug(f"PID = {os.getpid()}, Expression = {expression}")
+    # logger.debug(f"PID = {os.getpid()}, Expression = {expression}")
 
     lark_parser: Lark = get_lark_parser()
 
@@ -48,8 +49,8 @@ def _parse_with_lark(expression: str) -> Tree:
 
     parse_tree: Tree = lark_parser.parse(expression)
 
-    if TRACE_POWERBI_MQUERY_PARSER:
-        logger.debug(parse_tree.pretty())
+    # if TRACE_POWERBI_MQUERY_PARSER:
+    #     logger.debug(parse_tree.pretty())
 
     return parse_tree
 
