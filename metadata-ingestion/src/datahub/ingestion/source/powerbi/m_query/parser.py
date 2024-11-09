@@ -56,7 +56,7 @@ def _parse_with_lark(expression: str) -> Tree:
 
 
 def _parse_expression(expression: str, parse_timeout: int = 60) -> Tree:
-    with concurrent.futures.ProcessPoolExecutor(max_workers=1) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
         future = executor.submit(_parse_with_lark, expression)
         # Try to get the result within the specified timeout
         result = future.result(timeout=parse_timeout)
