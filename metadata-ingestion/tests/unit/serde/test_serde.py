@@ -79,9 +79,7 @@ def test_serde_to_avro(
     # In this test, we want to read in from JSON -> MCE object.
     # Next we serialize from MCE to Avro and then deserialize back to MCE.
     # Finally, we want to compare the two MCE objects.
-    with patch(
-        "datahub.ingestion.api.common.PipelineContext", autospec=True
-    ) as mock_pipeline_context:
+    with patch("datahub.ingestion.api.common.PipelineContext") as mock_pipeline_context:
         json_path = pytestconfig.rootpath / json_filename
         source = GenericFileSource(
             ctx=mock_pipeline_context, config=FileSourceConfig(path=str(json_path))
