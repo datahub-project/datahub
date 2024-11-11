@@ -69,12 +69,14 @@ class PowerBiAPI:
             client_id=self.__config.client_id,
             client_secret=self.__config.client_secret,
             tenant_id=self.__config.tenant_id,
+            api_call_timeout=self.__config.api_call_time_out,
         )
 
         self.__admin_api_resolver = AdminAPIResolver(
             client_id=self.__config.client_id,
             client_secret=self.__config.client_secret,
             tenant_id=self.__config.tenant_id,
+            api_call_timeout=self.__config.api_call_time_out,
         )
 
         self.reporter: PowerBiDashboardSourceReport = reporter

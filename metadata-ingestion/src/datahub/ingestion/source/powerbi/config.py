@@ -508,6 +508,12 @@ class PowerBiDashboardSourceConfig(
         "Increase this value if you encounter the 'M-Query Parsing Timeout' message in the connector report.",
     )
 
+    api_call_time_out: int = pydantic.Field(
+        default=30,
+        description="timeout in seconds for Rest Api Call.",
+        hidden_from_docs=True,
+    )
+
     @root_validator(skip_on_failure=True)
     def validate_extract_column_level_lineage(cls, values: Dict) -> Dict:
         flags = [

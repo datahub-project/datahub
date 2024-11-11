@@ -56,6 +56,19 @@ def is_http_failure(response: Response, message: str) -> bool:
     return True
 
 
+class SessionWithTimeout(requests.Session):
+    timeout: int
+
+    def __init__(self, timeout, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.timeout = timeout
+
+    def request(self, method, url, **kwargs):
+        # Set the default timeout if none is provided
+        kwargs.setdefault("timeout", self.timeout)
+        return super().request(method, url, **kwargs)
+
+
 class DataResolverBase(ABC):
     SCOPE: str = "https://analysis.windows.net/powerbi/api/.default"
     MY_ORG_URL = "https://api.powerbi.com/v1.0/myorg"
@@ -69,6 +82,7 @@ class DataResolverBase(ABC):
         client_id: str,
         client_secret: str,
         tenant_id: str,
+        api_call_timeout: int,
     ):
         self.__access_token: Optional[str] = None
         self.__access_token_expiry_time: Optional[datetime] = None
@@ -84,7 +98,9 @@ class DataResolverBase(ABC):
         self.get_access_token()
 
         logger.info(f"Connected to {self._get_authority_url()}")
-        self._request_session = requests.Session()
+
+        self._request_session = SessionWithTimeout(timeout=api_call_timeout)
+
         # set re-try parameter for request_session
         self._request_session.mount(
             "https://",
