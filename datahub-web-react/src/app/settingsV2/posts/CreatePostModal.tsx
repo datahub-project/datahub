@@ -161,6 +161,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
                         Cancel
                     </Button>
                     <Button
+                        type="primary"
                         id={CREATE_POST_BUTTON_ID}
                         data-testid={!editData ? 'create-post-button' : 'update-post-button'}
                         onClick={!editData ? onCreatePost : onUpdatePost}

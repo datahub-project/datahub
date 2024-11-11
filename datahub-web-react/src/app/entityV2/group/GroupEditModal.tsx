@@ -90,7 +90,7 @@ export default function GroupEditModal({
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="editGroupButton" onClick={onSaveChanges} disabled={saveButtonEnabled}>
+                    <Button type="primary" id="editGroupButton" onClick={onSaveChanges} disabled={saveButtonEnabled}>
                         Save Changes
                     </Button>
                 </>

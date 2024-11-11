@@ -121,6 +121,7 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
                             Cancel
                         </Button>
                         <Button
+                            type="primary"
                             id="createTokenButton"
                             onClick={onCreateNewToken}
                             disabled={createButtonEnabled}

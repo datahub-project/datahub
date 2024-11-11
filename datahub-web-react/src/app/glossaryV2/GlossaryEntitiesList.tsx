@@ -55,36 +55,40 @@ function GlossaryEntitiesList(props: Props) {
     return (
         <>
             {nodes.length > 0 && isGlossaryEntityPage ? <SectionTitle>Term Groups</SectionTitle> : null}
-            <GlossaryNodes isGrid={!isGlossaryEntityPage}>
-                {nodes.map((node) => (
-                    <GlossaryEntityItem
-                        key={node.urn}
-                        name={node.properties?.name || ''}
-                        description={node.properties?.description || ''}
-                        urn={node.urn}
-                        type={node.type}
-                        descendants={
-                            (node as GlossaryNodeFragment).children?.relationships
-                                ?.map((child) => child.entity)
-                                .filter((child) => child !== null) as (GlossaryNode | GlossaryTerm)[]
-                        }
-                        displayProperties={node.displayProperties}
-                        showAsCard={!isGlossaryEntityPage}
-                    />
-                ))}
-            </GlossaryNodes>
+            {nodes.length ? (
+                <GlossaryNodes isGrid={!isGlossaryEntityPage}>
+                    {nodes.map((node) => (
+                        <GlossaryEntityItem
+                            key={node.urn}
+                            name={node.properties?.name || ''}
+                            description={node.properties?.description || ''}
+                            urn={node.urn}
+                            type={node.type}
+                            descendants={
+                                (node as GlossaryNodeFragment).children?.relationships
+                                    ?.map((child) => child.entity)
+                                    .filter((child) => child !== null) as (GlossaryNode | GlossaryTerm)[]
+                            }
+                            displayProperties={node.displayProperties}
+                            showAsCard={!isGlossaryEntityPage}
+                        />
+                    ))}
+                </GlossaryNodes>
+            ) : null}
             {terms.length > 0 && isGlossaryEntityPage ? <SectionTitle>Glossary Terms</SectionTitle> : null}
-            <GlossaryTerms>
-                {terms.map((term) => (
-                    <GlossaryEntityItem
-                        key={term.urn}
-                        name={entityRegistry.getDisplayName(term.type, term)}
-                        urn={term.urn}
-                        type={term.type}
-                        description={term.properties?.description || ''}
-                    />
-                ))}
-            </GlossaryTerms>
+            {terms.length ? (
+                <GlossaryTerms>
+                    {terms.map((term) => (
+                        <GlossaryEntityItem
+                            key={term.urn}
+                            name={entityRegistry.getDisplayName(term.type, term)}
+                            urn={term.urn}
+                            type={term.type}
+                            description={term.properties?.description || ''}
+                        />
+                    ))}
+                </GlossaryTerms>
+            ) : null}
         </>
     );
 }

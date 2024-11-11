@@ -220,7 +220,7 @@ export default function UserProfile({ urn }: Props) {
             <EntityHead />
             {error && <ErrorSection />}
             <UserProfileWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
-                <Col xl={7} lg={7} md={7} sm={24} xs={24} style={{ height: '100%' }}>
+                <Col xl={7} lg={7} md={7} sm={24} xs={24} style={{ height: '100%', overflow: 'auto' }}>
                     <UserSideBar sidebarData={sidebarData} refetch={refetch} />
                 </Col>
                 <Col

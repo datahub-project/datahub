@@ -28,7 +28,7 @@ import { Preferences } from './Preferences';
 import { ManagePolicies } from '../permissions/policy/ManagePolicies';
 import { ManageViews } from '../entity/view/ManageViews';
 import { useUserContext } from '../context/useUserContext';
-import { ManageOwnership } from '../entity/ownership/ManageOwnership';
+import { ManageOwnership } from '../entityV2/ownership/ManageOwnership';
 import { ManageActorNotifications } from './personal/notifications/ManageActorNotifications';
 import { ManageActorSubscriptions } from './personal/subscriptions/ManageActorSubscriptions';
 import { useSubscriptionsEnabled } from './personal/notifications/utils';

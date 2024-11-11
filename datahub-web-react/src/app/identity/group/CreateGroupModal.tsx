@@ -98,6 +98,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         Cancel
                     </Button>
                     <Button
+                        type="primary"
                         id="createGroupButton"
                         data-testid="modal-create-group-button"
                         onClick={onCreateGroup}

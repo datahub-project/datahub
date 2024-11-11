@@ -4,7 +4,7 @@ import styled from 'styled-components/macro';
 import { OwnershipTypeEntity } from '../../../../types.generated';
 
 const DescriptionText = styled(Typography.Text)`
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 400;
 `;
 

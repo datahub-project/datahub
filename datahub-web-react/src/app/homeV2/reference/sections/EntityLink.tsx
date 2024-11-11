@@ -14,7 +14,6 @@ const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperti
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 2px;
 
     overflow: hidden;
     border-radius: 8px;
@@ -31,8 +30,8 @@ const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperti
     }
 `;
 
-const LinkButton = styled(Link)`
-    padding: 2px 4px;
+const LinkButton = styled(Link)<{ includePadding: boolean }>`
+    padding: ${(props) => (props.includePadding ? '2px 4px' : '0px')};
     height: auto;
     margin: 4px 0px 4px 0px;
     max-width: 100%; /* Ensure the grid container does not exceed its parent's width */
@@ -116,6 +115,7 @@ export const EntityLink = ({ entity, styles, render, displayTextStyle, onClick, 
                 <>
                     <HoverEntityTooltip entity={entity as Entity} showArrow={false} placement="bottom">
                         <LinkButton
+                            includePadding={entity.type !== EntityType.GlossaryTerm}
                             to={!onClick ? entityRegistry.getEntityUrl(entity.type, entity.urn) : undefined}
                             onClick={onClick}
                             {...linkProps}

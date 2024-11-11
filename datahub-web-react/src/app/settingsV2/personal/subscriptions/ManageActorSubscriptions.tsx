@@ -22,6 +22,7 @@ const PAGE_SIZE = 10;
 const PageContainer = styled.div`
     padding-top: 20px;
     width: 100%;
+    overflow: auto;
 `;
 
 const PageHeaderContainer = styled.div`

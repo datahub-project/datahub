@@ -251,7 +251,7 @@ export default function GroupProfile({ urn }: Props) {
             {loading && <Message type="loading" content="Loading..." style={messageStyle} />}
             {data && data?.corpGroup && (
                 <GroupProfileWrapper>
-                    <Col xl={7} lg={7} md={7} sm={24} xs={24} style={{ height: '100%' }}>
+                    <Col xl={7} lg={7} md={7} sm={24} xs={24} style={{ height: '100%', overflow: 'auto' }}>
                         <GroupSidebar sidebarData={sidebarData} refetch={refetch} />
                     </Col>
                     <Col
