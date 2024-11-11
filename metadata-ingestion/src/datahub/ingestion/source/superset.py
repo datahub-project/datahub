@@ -455,8 +455,18 @@ class SupersetSource(StatefulIngestionSourceBase):
         self.parse_owner_payload(dashboard_payload, owners_dict)
         
         return owners_dict
+    
+    def build_owners_urn_list(self, data):
+        owners_urn_list = []
+        for owner in data.get("owners", []):
+            owner_id = owner.get("id")
+            owner_email = self.owners_dict.get(owner_id)
+            if owner_email is not None:
+                owners_urn = make_user_urn(owner_email)
+                owners_urn_list.append(owners_urn)
+        return owners_urn_list
 
-    def get_all_dataset_owners(self) -> Iterable[MetadataWorkUnit]:
+    def get_all_dataset_owners(self) -> Iterable[Dict]:
         current_dataset_page = 1
         total_dataset_owners = PAGE_SIZE
         all_dataset_owners = []
@@ -478,7 +488,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         #return combined payload
         return {"result": all_dataset_owners, "count": total_dataset_owners}
 
-    def get_all_chart_owners(self) -> Iterable[MetadataWorkUnit]:
+    def get_all_chart_owners(self) -> Iterable[Dict]:
         current_chart_page = 1
         total_chart_owners = PAGE_SIZE
         all_chart_owners = []
@@ -499,7 +509,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         
         return {"result": all_chart_owners, "count": total_chart_owners}
     
-    def get_all_dashboard_owners(self) -> Iterable[MetadataWorkUnit]:
+    def get_all_dashboard_owners(self) -> Iterable[Dict]:
         current_dashboard_page = 1
         total_dashboard_owners = PAGE_SIZE
         all_dashboard_owners = []
@@ -591,14 +601,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         dashboard_snapshot.aspects.append(dashboard_info)
 
-        dashboard_owners_list = []
-        for owner in dashboard_data.get("owners", []):
-            owner_id = owner.get("id")
-            owner_email = self.owners_dict.get(owner_id)
-            #build list of owner urns
-            if owner_email is not None:
-                owners_urn = make_user_urn(owner_email)
-                dashboard_owners_list.append(owners_urn)
+        dashboard_owners_list = self.build_owners_urn_list(dashboard_data)
 
         owners_info = OwnershipClass(
             owners=[
@@ -724,14 +727,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         chart_snapshot.aspects.append(chart_info)
 
-        chart_owners_list = []
-        for owner in chart_data.get("owners", []):
-            owner_id = owner.get("id")
-            owner_email = self.owners_dict.get(owner_id)
-            #build list of owner urns
-            if owner_email is not None:
-                owners_urn = make_user_urn(owner_email)
-                chart_owners_list.append(owners_urn)
+        chart_owners_list = self.build_owners_urn_list(chart_data)
 
         owners_info = OwnershipClass(
             owners=[
@@ -860,14 +856,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
         )
 
-        dataset_owners_list = []
-        for owner in dataset_response.get("result", {}).get("owners", []):
-            owner_id = owner.get("id")
-            owner_email = self.owners_dict.get(owner_id)
-            #build list of owner urns
-            if owner_email is not None:
-                owners_urn = make_user_urn(owner_email)
-                dataset_owners_list.append(owners_urn)
+        dataset_owners_list = self.build_owners_urn_list(dataset_data)
 
         owners_info = OwnershipClass(
             owners=[
