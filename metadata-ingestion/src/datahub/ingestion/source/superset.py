@@ -417,20 +417,6 @@ class SupersetSource(StatefulIngestionSourceBase):
         ).json()
         return dataset_response
     
-    @lru_cache(maxsize=None)
-    def get_chart_info(self, chart_id):
-        chart_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/chart/{chart_id}"
-        ).json()
-        return chart_response
-    
-    @lru_cache(maxsize=None)
-    def get_dashboard_info(self, dashboard_id):
-        dashboard_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/dashboard/{dashboard_id}"
-        ).json()
-        return dashboard_response
-    
     def get_datasource_urn_from_id(self, dataset_response, platform_instance):
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
@@ -485,9 +471,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             full_owners_response.raise_for_status()
 
             payload = full_owners_response.json()
-            #update total dataset owners count based on the resopnse to know how many pages there are
             total_dataset_owners = payload.get("count", total_dataset_owners)
-            #add result entries to allowners list
             all_dataset_owners.extend(payload.get("result", []))
             current_dataset_page += 1
         
@@ -607,9 +591,8 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         dashboard_snapshot.aspects.append(dashboard_info)
 
-        dashboard_response = self.get_dashboard_info(dashboard_data.get("id"))
         dashboard_owners_list = []
-        for owner in dashboard_response.get("result", {}).get("owners", []):
+        for owner in dashboard_data.get("owners", []):
             owner_id = owner.get("id")
             owner_email = self.owners_dict.get(owner_id)
             #build list of owner urns
@@ -741,9 +724,8 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         chart_snapshot.aspects.append(chart_info)
 
-        chart_response = self.get_chart_info(chart_data.get("id"))
         chart_owners_list = []
-        for owner in chart_response.get("result", {}).get("owners", []):
+        for owner in chart_data.get("owners", []):
             owner_id = owner.get("id")
             owner_email = self.owners_dict.get(owner_id)
             #build list of owner urns
