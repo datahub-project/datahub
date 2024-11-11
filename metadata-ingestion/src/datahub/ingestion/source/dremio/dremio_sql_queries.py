@@ -257,7 +257,7 @@ class DremioSQLQueries:
             user_name,
             submitted_ts,
             query,
-            ARRAY_TO_STRING(queried_datasets, ',') as queried_datasets
+            CONCAT('[', ARRAY_TO_STRING(queried_datasets, ','), ']') as queried_datasets
         FROM
             sys.project.history.jobs
         WHERE
