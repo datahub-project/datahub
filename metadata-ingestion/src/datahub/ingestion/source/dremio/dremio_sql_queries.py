@@ -237,7 +237,11 @@ class DremioSQLQueries:
 
     QUERY_ALL_JOBS = """
     SELECT
-        *
+        job_id,
+        user_name,
+        submitted_ts,
+        query,
+        queried_datasets
     FROM
         SYS.JOBS_RECENT
     WHERE
@@ -249,7 +253,11 @@ class DremioSQLQueries:
 
     QUERY_ALL_JOBS_CLOUD = """
         SELECT
-            *
+            job_id,
+            user_name,
+            submitted_ts,
+            query,
+            ARRAY_TO_STRING(queried_datasets, ',') as queried_datasets
         FROM
             sys.project.history.jobs
         WHERE
