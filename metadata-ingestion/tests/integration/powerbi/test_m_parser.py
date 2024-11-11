@@ -1033,7 +1033,6 @@ def test_snowflake_multi_function_call():
 def test_mssql_drop_with_select():
     q = M_QUERIES[33]
 
-    q = 'let\n Source = Sql.Database("GUPSDB", "GUPS", [Query="SELECT#(lf)SourceTable#(lf), COUNT(1)#(tab)AS [Qnty]#(lf), MIN( ArchiveTimestampUTC ) AS [Min_ArchiveTimestampUTC]#(lf)#(lf)FROM#(lf)Archive.Archive#(lf)#(lf)GROUP BY#(lf)SourceTable"])\n in\n Source'
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         columns=[],
         measures=[],
