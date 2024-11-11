@@ -27,7 +27,6 @@ import { PlatformIntegrations } from './platform/PlatformIntegrations';
 import { PlatformNotifications } from './platform/notifications/PlatformNotifications';
 import { PlatformSsoIntegrations } from './platform/PlatformSsoIntegrations';
 import { Preferences } from './Preferences';
-import { Features } from './features/Features';
 import { ManagePolicies } from '../permissions/policy/ManagePolicies';
 import { ManageViews } from '../entity/view/ManageViews';
 import { useUserContext } from '../context/useUserContext';
@@ -119,7 +118,7 @@ const PATHS = [
     { path: 'views', content: <ManageViews /> },
     { path: 'ownership', content: <ManageOwnership /> },
     { path: 'posts', content: <ManagePosts /> },
-    { path: 'features', content: <Features /> },
+    // { path: 'features', content: <Features /> }, OSS-Only Currently!
     { path: 'helpLink', content: <ManageHelpLink /> },
 ];
 
