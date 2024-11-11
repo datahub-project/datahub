@@ -56,6 +56,7 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
+    ViewPropertiesClass,
 )
 
 logger = logging.getLogger(__name__)
@@ -240,6 +241,7 @@ class CassandraSource(StatefulIngestionSourceBase):
                         "compaction": str(table.compaction),
                         "compression": str(table.compression),
                         "max_index_interval": str(table.max_index_interval),
+                        "min_index_interval": str(table.min_index_interval),
                     },
                 ),
             ).as_workunit()
@@ -332,6 +334,45 @@ class CassandraSource(StatefulIngestionSourceBase):
                     ]
                 ),
             ).as_workunit()
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=ViewPropertiesClass(
+                    materialized=True,
+                    viewLogic=view.where_clause,  # Use the WHERE clause as view logic
+                    viewLanguage="CQL",  # Use "CQL" as the language
+                ),
+            ).as_workunit()
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_urn,
+                aspect=DatasetPropertiesClass(
+                    name=view_name,
+                    qualifiedName=f"{keyspace_name}.{view_name}",
+                    description=view.comment,
+                    customProperties={
+                        "bloom_filter_fp_chance": str(view.bloom_filter_fp_chance),
+                        "caching": str(view.caching),
+                        "cdc": str(view.cdc),
+                        "compaction": str(view.compaction),
+                        "compression": str(view.compression),
+                        "max_index_interval": str(view.max_index_interval),
+                        "min_index_interval": str(view.min_index_interval),
+                        "include_all_columns": str(view.include_all_columns),
+                    },
+                ),
+            ).as_workunit()
+
+            try:
+                yield from self._extract_columns_from_table(
+                    keyspace_name, view_name, dataset_urn
+                )
+            except Exception as e:
+                self.report.report_failure(
+                    message="Failed to extract columns from table",
+                    context=f"{view_name}",
+                    exc=e,
+                )
 
             # Construct and emit lineage off of 'base_table_name'
             # NOTE: we don't need to use 'base_table_id' since table is always in same keyspace, see https://docs.datastax.com/en/cql-oss/3.3/cql/cql_reference/cqlCreateMaterializedView.html#cqlCreateMaterializedView__keyspace-name
