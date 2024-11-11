@@ -1,3 +1,4 @@
+import datetime
 import logging
 import re
 
@@ -637,3 +638,59 @@ class OracleSource(SQLAlchemySource):
             clear=False,
         ):
             return super().get_workunits()
+
+    def generate_profile_candidates(
+        self,
+        inspector: Inspector,
+        threshold_time: Optional[datetime.datetime],
+        schema: str,
+    ) -> Optional[List[str]]:
+
+        tables_table_name = (
+            "ALL_TABLES" if self.config.data_dictionary_mode == "ALL" else "DBA_TABLES"
+        )
+        segments_table_name = (
+            "ALL_TABLES"
+            if self.config.data_dictionary_mode == "ALL"
+            else "DBA_SEGMENTS"
+        )
+
+        cursor = inspector.bind.execute(
+            sql.text(
+                f"""SELECT
+                            t.OWNER,
+                            t.TABLE_NAME,
+                            t.NUM_ROWS,
+                            COALESCE(s.BYTES, 0) / (1024 * 1024 * 1024) AS SIZE_GB
+                        FROM {tables_table_name} t
+                        LEFT JOIN {segments_table_name} s
+                        ON t.TABLE_NAME = s.SEGMENT_NAME
+                        AND t.OWNER = s.OWNER
+                        WHERE (t.NUM_ROWS < :table_row_limit OR t.NUM_ROWS IS NULL)
+                        AND COALESCE(s.BYTES, 0) < (:table_size_limit * 1024 * 1024 * 1024)
+                        AND (s.SEGMENT_TYPE = 'TABLE' OR s.SEGMENT_TYPE IS NULL);
+                """
+            ),
+            dict(
+                table_row_limit=self.config.profiling.profile_table_row_limit,
+                table_size_limit=self.config.profiling.profile_table_size_limit,
+            ),
+        )
+
+        TABLE_NAME_COL_LOC = 1
+        return [
+            self.get_identifier(
+                schema=schema,
+                entity=inspector.dialect.normalize_name(row[TABLE_NAME_COL_LOC])
+                or _raise_err(ValueError(f"Invalid table name: {row[0]}")),
+                inspector=inspector,
+            )
+            for row in cursor
+        ]
+
+    def add_profile_metadata(self, inspector: Inspector) -> None:
+        """
+        Method to add profile metadata in a sub-class that can be used to enrich profile metadata.
+        This is meant to change self.profile_metadata_info in the sub-class.
+        """
+        pass
