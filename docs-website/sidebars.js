@@ -979,4 +979,671 @@ module.exports = {
     // "docs/SECURITY_STANCE"
     // ],
   ],
+  acrylSidebar: [
+  {
+      type: "html",
+      value: "<div>Overview</div>",
+      defaultStyle: true,
+    },
+    {
+      type: "doc",
+      id: "docs/managed-datahub/managed-datahub-overview",
+      label: "Why DataHub Cloud?",
+    },
+    {
+      type: "doc",
+      id: "docs/managed-datahub/welcome-acryl",
+      label: "Getting Started With DataHub Cloud",
+    },
+    {
+      type: "html",
+      value: "<div>Features</div>",
+      defaultStyle: true,
+    },
+    {
+      type: "category",
+      label: "Data Discovery",
+      items: [
+        {
+          label: "Business Attributes",
+          type: "doc",
+          id: "docs/managed-datahub/generated/businessattributes",
+        },
+        {
+          label: "Business Glossary",
+          type: "doc",
+          id: "docs/managed-datahub/generated/glossary/business-glossary",
+        },
+        "docs/managed-datahub/generated/features/feature-guides/documentation-forms",
+        {
+          label: "Domains",
+          type: "doc",
+          id: "docs/managed-datahub/generated/domains",
+        },
+        {
+          label: "Ingestion",
+          type: "doc",
+          id: "docs/managed-datahub/generated/ui-ingestion",
+        },
+        {
+          label: "Lineage",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/managed-datahub/generated/generated/lineage/lineage-feature-guide",
+          },
+          items: [
+            {
+              label: "Lineage Impact analysis",
+              type: "doc",
+              id: "docs/managed-datahub/generated/act-on-metadata/impact-analysis",
+            },
+            {
+              label: "Managing Lineage via UI",
+              type: "doc",
+              id: "docs/managed-datahub/generated/features/feature-guides/ui-lineage",
+            },
+          ],
+        },
+        {
+          label: "Properties",
+          type: "doc",
+          id: "docs/managed-datahub/generated/features/feature-guides/properties",
+        },
+        {
+          label: "Schema history",
+          type: "doc",
+          id: "docs/managed-datahub/generated/schema-history",
+        },
+        {
+          label: "Search",
+          type: "doc",
+          id: "docs/managed-datahub/generated/how/search",
+        },
+        {
+          label: "Tags",
+          type: "doc",
+          id: "docs/managed-datahub/generated/tags",
+        },
+        "docs/managed-datahub/generated/features/dataset-usage-and-query-history",
+      ],
+    },
+    {
+      type: "category",
+      label: "Data Governance",
+      items: [
+        "docs/managed-datahub/generated/approval-workflows",
+        "docs/managed-datahub/generated/chrome-extension",
+        {
+          label: "Data Contract",
+          type: "doc",
+          id: "docs/managed-datahub/generated/observe/data-contract",
+        },
+        {
+          label: "Ownership",
+          type: "doc",
+          id: "docs/managed-datahub/generated/ownership/ownership-types",
+        },
+        {
+          label: "Policies",
+          type: "doc",
+          id: "docs/managed-datahub/generated/authorization/access-policies-guide",
+        },
+        "docs/managed-datahub/generated/posts",
+      ],
+    },
+    {
+      type: "category",
+      label: "Data Quality",
+      items: [
+        {
+          label: "Assertions",
+          type: "category",
+          link: {
+            type: "doc",
+            id: "docs/managed-datahub/generated/observe/assertions",
+          },
+          items: [
+            {
+              label: "Column Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/generated/observe/column-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Custom SQL Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/generated/observe/custom-sql-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Freshness Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/generated/observe/freshness-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Schema Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/generated/observe/schema-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Volume Assertions",
+              type: "doc",
+              id: "docs/managed-datahub/generated/observe/volume-assertions",
+              className: "saasOnly",
+            },
+            {
+              label: "Open Assertions Specification",
+              type: "category",
+              link: {
+                type: "doc",
+                id: "docs/managed-datahub/generated/assertions/open-assertions-spec",
+              },
+              items: [
+                {
+                  label: "Snowflake",
+                  type: "doc",
+                  id: "docs/managed-datahub/generated/assertions/snowflake/snowflake_dmfs",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          label: "Data Products",
+          type: "doc",
+          id: "docs/managed-datahub/generated/dataproducts",
+        },
+        {
+          label: "Incidents",
+          type: "doc",
+          id: "docs/managed-datahub/generated/incidents/incidents",
+        },
+        {
+          label: "Sync Status", // note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
+          type: "doc",
+          id: "docs/managed-datahub/generated/sync-status",
+        },
+      ],
+    },
+    {
+      Notifications: [
+        {
+          label: "Subscriptions & Notifications",
+          type: "doc",
+          id: "docs/managed-datahub/generated/subscription-and-notification",
+          className: "saasOnly",
+        },
+        {
+          Slack: [
+            {
+              type: "doc",
+              id: "docs/managed-datahub/generated/slack/saas-slack-setup",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/generated/slack/saas-slack-app",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/generated/slack/saas-slack-troubleshoot",
+              className: "saasOnly",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      type: "html",
+      value: "<div>Integrations</div>",
+      defaultStyle: true,
+    },
+    {
+      type: "category",
+      link: {
+        type: "doc",
+        id: "docs/managed-datahub/metadata-ingestion/README",
+      },
+      label: "Overview",
+      items: [
+        {
+          type: "doc",
+          label: "Recipe",
+          id: "docs/managed-datahub/metadata-ingestion/recipe_overview",
+        },
+        {
+          type: "category",
+          label: "Sinks",
+          link: {
+            type: "doc",
+            id: "docs/managed-datahub/metadata-ingestion/sink_overview",
+          },
+          items: [
+            "docs/managed-datahub/metadata-ingestion/sink_docs/console",
+            "docs/managed-datahub/metadata-ingestion/sink_docs/datahub",
+            "docs/managed-datahub/metadata-ingestion/sink_docs/metadata-file",
+          ],
+        },
+        {
+          type: "category",
+          label: "Transformers",
+          link: {
+            type: "doc",
+            id: "docs/managed-datahub/metadata-ingestion/docs/transformer/intro",
+          },
+          items: [
+            "docs/managed-datahub/metadata-ingestion/docs/transformer/dataset_transformer",
+          ],
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Sources",
+      link: {
+        type: "doc",
+        id: "docs/managed-datahub/metadata-ingestion/source_overview",
+      },
+      items: [
+        // collapse these; add push-based at top
+        {
+          type: "doc",
+          id: "docs/managed-datahub/generated/lineage/airflow",
+          label: "Airflow",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/generated/lineage/dagster",
+          label: "Dagster",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/generated/lineage/openlineage",
+          label: "OpenLineage",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/metadata-integration/java/acryl-spark-lineage/README",
+          label: "Spark",
+        },
+        //"docker/airflow/local_airflow",
+        "docs/managed-datahub/metadata-ingestion/integration_docs/great-expectations",
+        "docs/managed-datahub/metadata-integration/java/datahub-protobuf/README",
+        //"metadata-integration/java/spark-lineage-legacy/README",
+        //"metadata-ingestion/source-docs-template",
+        {
+          type: "autogenerated",
+          dirName: "docs/managed-datahub/generated/generated/ingestion/sources", // '.' means the current docs folder
+        },
+      ],
+    },
+    {
+      "Advanced Guides": [
+        {
+          "Scheduling Ingestion": [
+            "docs/managed-datahub/metadata-ingestion/schedule_docs/intro",
+            "docs/managed-datahub/metadata-ingestion/schedule_docs/cron",
+            "docs/managed-datahub/metadata-ingestion/schedule_docs/airflow",
+            "docs/managed-datahub/metadata-ingestion/schedule_docs/kubernetes",
+          ],
+        },
+        "docs/managed-datahub/generated/platform-instances",
+        "docs/managed-datahub/metadata-ingestion/docs/dev_guides/stateful",
+        "docs/managed-datahub/metadata-ingestion/docs/dev_guides/classification",
+        "docs/managed-datahub/metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
+        "docs/managed-datahub/metadata-ingestion/docs/dev_guides/sql_profiles",
+        "docs/managed-datahub/metadata-ingestion/docs/dev_guides/profiling_ingestions",
+      ],
+    },
+    {
+      type: "html",
+      value: "<div>Admin</div>",
+      defaultStyle: true,
+    },
+    "docs/managed-datahub/generated/authentication/guides/add-users",
+    "docs/managed-datahub/generated/authentication/personal-access-tokens",
+    {
+      Authorization: [
+        "docs/managed-datahub/generated/authorization/README",
+        "docs/managed-datahub/generated/authorization/roles",
+        "docs/managed-datahub/generated/authorization/policies",
+        "docs/managed-datahub/generated/authorization/groups",
+      ],
+    },
+    {
+      "Advanced Guides": [
+        "docs/managed-datahub/generated/how/delete-metadata",
+        {
+          type: "doc",
+          id: "docs/managed-datahub/generated/integrations/aws-privatelink",
+          label: "AWS PrivateLink Intergration",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/generated/integrations/oidc-sso-integration",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
+          className: "saasOnly",
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
+          className: "saasOnly",
+        },
+      ],
+    },
+    {
+      type: "html",
+      value: "<div>Developers</div>",
+      defaultStyle: true,
+    },
+    {
+      Architecture: [
+        "docs/managed-datahub/generated/architecture/architecture",
+        "docs/managed-datahub/generated/components",
+        "docs/managed-datahub/generated/architecture/metadata-ingestion",
+        "docs/managed-datahub/generated/architecture/metadata-serving",
+        "docs/managed-datahub/generated/architecture/docker-containers",
+      ],
+    },
+    {
+      "Metadata Model": [
+        "docs/managed-datahub/generated/modeling/metadata-model",
+        "docs/managed-datahub/generated/modeling/extending-the-metadata-model",
+        "docs/managed-datahub/generated/what/mxe",
+        {
+          Entities: [
+            {
+              type: "autogenerated",
+              dirName:
+                "docs/managed-datahub/generated/generated/metamodel/entities", // '.' means the current docs folder
+            },
+          ],
+        },
+      ],
+    },
+    {
+      type: "html",
+      value: "<div>API & SDKs</div>",
+      defaultStyle: true,
+    },
+    {
+      type: "category",
+      link: {
+        type: "doc",
+        id: "docs/managed-datahub/generated/api/datahub-apis",
+      },
+      label: "API",
+      items: [
+        {
+          "GraphQL API": [
+            {
+              label: "Overview",
+              type: "doc",
+              id: "docs/managed-datahub/generated/api/graphql/overview",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/datahub-api/graphql-api/getting-started",
+              className: "saasOnly",
+            },
+            {
+              Reference: [
+                {
+                  type: "doc",
+                  label: "Queries",
+                  id: "graphql/queries",
+                },
+                {
+                  type: "doc",
+                  label: "Mutations",
+                  id: "graphql/mutations",
+                },
+                {
+                  type: "doc",
+                  label: "Objects",
+                  id: "graphql/objects",
+                },
+                {
+                  type: "doc",
+                  label: "Inputs",
+                  id: "graphql/inputObjects",
+                },
+                {
+                  type: "doc",
+                  label: "Interfaces",
+                  id: "graphql/interfaces",
+                },
+                {
+                  type: "doc",
+                  label: "Unions",
+                  id: "graphql/unions",
+                },
+                {
+                  type: "doc",
+                  label: "Enums",
+                  id: "graphql/enums",
+                },
+                {
+                  type: "doc",
+                  label: "Scalars",
+                  id: "graphql/scalars",
+                },
+              ],
+            },
+            {
+              Guides: [
+                {
+                  type: "doc",
+                  label: "How To Set Up GraphQL",
+                  id: "docs/managed-datahub/generated/api/graphql/how-to-set-up-graphql",
+                },
+                {
+                  type: "doc",
+                  label: "Getting Started With GraphQL",
+                  id: "docs/managed-datahub/generated/api/graphql/getting-started",
+                },
+                {
+                  type: "doc",
+                  label: "Access Token Management",
+                  id: "docs/managed-datahub/generated/api/graphql/token-management",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          OpenAPI: [
+            {
+              type: "doc",
+              label: "OpenAPI",
+              id: "docs/managed-datahub/generated/api/openapi/openapi-usage-guide",
+            },
+          ],
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/datahub-api/entity-events-api",
+          className: "saasOnly",
+        },
+        "docs/managed-datahub/generated/dev-guides/timeline",
+        {
+          "Rest.li API": [
+            {
+              type: "doc",
+              label: "Rest.li API Guide",
+              id: "docs/managed-datahub/generated/api/restli/restli-overview",
+            },
+            {
+              type: "doc",
+              label: "Restore Indices",
+              id: "docs/managed-datahub/generated/api/restli/restore-indices",
+            },
+            {
+              type: "doc",
+              label: "Get Index Sizes",
+              id: "docs/managed-datahub/generated/api/restli/get-index-sizes",
+            },
+            {
+              type: "doc",
+              label: "Truncate Timeseries Aspect",
+              id: "docs/managed-datahub/generated/api/restli/truncate-time-series-aspect",
+            },
+            {
+              type: "doc",
+              label: "Get ElasticSearch Task Status Endpoint",
+              id: "docs/managed-datahub/generated/api/restli/get-elastic-task-status",
+            },
+            {
+              type: "doc",
+              label: "Evaluate Tests",
+              id: "docs/managed-datahub/generated/api/restli/evaluate-tests",
+            },
+            {
+              type: "doc",
+              label: "Aspect Versioning and Rest.li Modeling",
+              id: "docs/managed-datahub/generated/advanced/aspect-versioning",
+            },
+          ],
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "SDK",
+      items: [
+        {
+          "Python SDK": [
+            "docs/managed-datahub/metadata-ingestion/as-a-library",
+            {
+              "Python SDK Reference": [
+                {
+                  type: "autogenerated",
+                  dirName: "python-sdk",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          type: "doc",
+          label: "Java SDK",
+          id: "docs/managed-datahub/metadata-integration/java/as-a-library",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "DataHub CLI",
+      link: { type: "doc", id: "docs/cli" },
+      items: ["docs/managed-datahub/generated/datahub_lite"],
+    },
+    {
+      type: "category",
+      label: "Datahub Actions",
+      link: {
+        type: "doc",
+        id: "docs/managed-datahub/generated/act-on-metadata",
+      },
+      items: [
+        "docs/managed-datahub/generated/actions/README",
+        "docs/managed-datahub/generated/actions/quickstart",
+        "docs/managed-datahub/generated/actions/concepts",
+        {
+          Sources: [
+            "docs/managed-datahub/generated/actions/sources/kafka-event-source",
+          ],
+        },
+        {
+          Events: [
+            "docs/managed-datahub/generated/actions/events/entity-change-event",
+            "docs/managed-datahub/generated/actions/events/metadata-change-log-event",
+          ],
+        },
+        {
+          Actions: [
+            "docs/managed-datahub/generated/actions/actions/executor",
+            "docs/managed-datahub/generated/actions/actions/hello_world",
+            "docs/managed-datahub/generated/actions/actions/slack",
+            "docs/managed-datahub/generated/actions/actions/teams",
+          ],
+        },
+        {
+          Guides: [
+            "docs/managed-datahub/generated/actions/guides/developing-a-transformer",
+            "docs/managed-datahub/generated/actions/guides/developing-an-action",
+          ],
+        },
+      ],
+    },
+    {
+      Guides: [
+        "docs/managed-datahub/generated/api/tutorials/custom-properties",
+        "docs/managed-datahub/generated/api/tutorials/datasets",
+        "docs/managed-datahub/generated/api/tutorials/deprecation",
+        "docs/managed-datahub/generated/api/tutorials/descriptions",
+        "docs/managed-datahub/generated/api/tutorials/custom-properties",
+        "docs/managed-datahub/generated/api/tutorials/assertions",
+        "docs/managed-datahub/generated/api/tutorials/custom-assertions",
+        "docs/managed-datahub/generated/api/tutorials/incidents",
+        "docs/managed-datahub/generated/api/tutorials/operations",
+        "docs/managed-datahub/generated/api/tutorials/data-contracts",
+        "docs/managed-datahub/generated/api/tutorials/domains",
+        "docs/managed-datahub/generated/api/tutorials/forms",
+        "docs/managed-datahub/generated/api/tutorials/lineage",
+        "docs/managed-datahub/generated/api/tutorials/ml",
+        "docs/managed-datahub/generated/api/tutorials/owners",
+        "docs/managed-datahub/generated/api/tutorials/structured-properties",
+        "docs/managed-datahub/generated/api/tutorials/tags",
+        "docs/managed-datahub/generated/api/tutorials/terms",
+        {
+          type: "doc",
+          id: "docs/managed-datahub/generated/advanced/patch",
+          label: "Patch",
+        },
+      ],
+    },
+    {
+      type: "html",
+      value: "<div>Community</div>",
+      defaultStyle: true,
+    },
+    {
+      label: "Community",
+      type: "category",
+      collapsed: true,
+      link: {
+        type: "generated-index",
+        title: "Community",
+        description: "Learn about DataHub community.",
+      },
+      items: [
+        "docs/managed-datahub/generated/slack",
+        "docs/managed-datahub/generated/townhalls",
+        //        "docs/townhall-history",
+        "docs/managed-datahub/generated/CODE_OF_CONDUCT",
+        "docs/managed-datahub/generated/CONTRIBUTING",
+        "docs/managed-datahub/generated/links",
+        "docs/managed-datahub/generated/rfc",
+      ],
+    },
+        {
+          type: "category",
+          label: "Acryl Cloud Release History",
+          items: [
+            {
+              type: "autogenerated",
+              dirName: "docs/managed-datahub/release-notes",
+            },
+          ],
+        },
+  ]
 };
