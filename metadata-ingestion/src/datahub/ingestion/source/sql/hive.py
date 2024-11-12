@@ -38,8 +38,6 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemySource,
 )
 from datahub.metadata.schema_classes import (
-    BooleanTypeClass,
-    BytesTypeClass,
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
@@ -51,9 +49,7 @@ from datahub.metadata.schema_classes import (
     NumberTypeClass,
     OtherSchemaClass,
     SchemaFieldClass,
-    SchemaFieldDataTypeClass,
     SchemaMetadataClass,
-    StringTypeClass,
     TimeTypeClass,
     UpstreamClass,
     UpstreamLineageClass,
