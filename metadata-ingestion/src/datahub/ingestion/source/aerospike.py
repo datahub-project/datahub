@@ -1,7 +1,18 @@
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesView, Set
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    Union,
+    ValuesView,
+)
 
 import aerospike
 import aerospike_helpers
@@ -355,8 +366,10 @@ class AerospikeSource(StatefulIngestionSourceBase):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         sets_info: str = self.aerospike_client.info_random_node("sets")
-        sets_info = sets_info[len("sets\t"):] if sets_info.startswith("sets\t") else sets_info
-        sets_info = sets_info[:-len(";\n")] if sets_info.endswith(";\n") else sets_info
+        sets_info = (
+            sets_info[len("sets\t") :] if sets_info.startswith("sets\t") else sets_info
+        )
+        sets_info = sets_info[: -len(";\n")] if sets_info.endswith(";\n") else sets_info
 
         all_sets: List[AerospikeSet] = [
             AerospikeSet(item) for item in sets_info.split(";") if item
