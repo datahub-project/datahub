@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { Dropdown, List, Tag, Tooltip, Typography } from 'antd';
+import { Dropdown, List, Tag, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { Link } from 'react-router-dom';
 import { DeleteOutlined, MoreOutlined, UnlockOutlined } from '@ant-design/icons';
 import { CorpUser, CorpUserStatus, EntityType, DataHubRole } from '../../../types.generated';

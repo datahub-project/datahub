@@ -1,5 +1,6 @@
 import { DownloadOutlined } from '@ant-design/icons';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import { SEARCH_COLORS } from '../../entityV2/shared/constants';

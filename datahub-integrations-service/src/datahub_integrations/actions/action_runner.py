@@ -82,7 +82,7 @@ def main() -> None:
         recipe = load_config_file(
             config_file,
             allow_remote=False,
-            resolve_env_vars=True,
+            resolve_env_vars=executor_id == DEFAULT_EXECUTOR_ID,
         )
 
         if executor_id == DEFAULT_EXECUTOR_ID:

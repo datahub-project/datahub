@@ -1,10 +1,9 @@
 import { SearchOutlined } from '@ant-design/icons';
-import { Button } from '@components';
+import { Button, Tooltip } from '@components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';
-import { Tooltip } from 'antd';
 import React, { useState } from 'react';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';

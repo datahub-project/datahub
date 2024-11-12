@@ -1,12 +1,15 @@
+import { Card, Divider, message, Switch, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider, Typography, Switch, Card, message } from 'antd';
 import { useUpdateUserSettingMutation } from '../../graphql/me.generated';
 import { UserSetting } from '../../types.generated';
-import { ANTD_GRAY } from '../entity/shared/constants';
 import analytics, { EventType } from '../analytics';
 import { useUserContext } from '../context/useUserContext';
-import { useIsThemeV2Toggleable, useIsThemeV2EnabledForUser, useIsThemeV2 } from '../useIsThemeV2';
+import { ANTD_GRAY } from '../entity/shared/constants';
+import { useGetAuthenticatedUser } from '../useGetAuthenticatedUser';
+import { useIsThemeV2, useIsThemeV2EnabledForUser, useIsThemeV2Toggleable } from '../useIsThemeV2';
+import OrganizationInfo from './OrganizationInfo';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
 const Page = styled.div`
     width: 100%;
@@ -62,6 +65,11 @@ export const Preferences = () => {
     const [updateUserSettingMutation] = useUpdateUserSettingMutation();
 
     const showSimplifiedHomepageSetting = !isThemeV2;
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+
+    const authenticatedUser = useGetAuthenticatedUser();
+    const canManageOrganizationDisplayPreferences =
+        authenticatedUser?.platformPrivileges.manageOrganizationDisplayPreferences;
 
     return (
         <Page>
@@ -147,7 +155,8 @@ export const Preferences = () => {
                         </Card>
                     </>
                 )}
-                {!showSimplifiedHomepageSetting && !isThemeV2Toggleable && (
+                {canManageOrganizationDisplayPreferences && isShowNavBarRedesign && <OrganizationInfo />}
+                {!showSimplifiedHomepageSetting && !isThemeV2Toggleable && !canManageOrganizationDisplayPreferences && (
                     <div style={{ color: ANTD_GRAY[7] }}>No appearance settings found.</div>
                 )}
             </SourceContainer>

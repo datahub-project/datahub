@@ -94,18 +94,21 @@ export default function SubscribeButtonMenu({
                   {
                       key: DROPDOWN_KEYS.UNSUBSCRIBE_ME,
                       label: 'Unsubscribe Me',
+                      dataTestId: 'unsubscribe-me',
                   },
               ]
             : []),
         {
             key: DROPDOWN_KEYS.SUBSCRIBE_ME,
             label: isUserSubscribed ? 'Manage My Subscription' : 'Subscribe Me',
+            dataTestId: 'subscribe-or-manage-subscription',
         },
         ...(hasGroupRelationships
             ? [
                   {
                       key: DROPDOWN_KEYS.SUBSCRIBE_GROUP,
                       label: 'Manage Group Subscriptions',
+                      dataTestId: 'manage-group-subscription',
                   },
               ]
             : []),
@@ -115,7 +118,11 @@ export default function SubscribeButtonMenu({
         <>
             {!isFetchingSubscriptionSummary &&
                 items.map((item) => (
-                    <StyledMenuItem key={item.key} onClick={() => onClickMenuItem(item.key)}>
+                    <StyledMenuItem
+                        key={item.key}
+                        onClick={() => onClickMenuItem(item.key)}
+                        data-testid={item.dataTestId}
+                    >
                         {item.label}
                     </StyledMenuItem>
                 ))}

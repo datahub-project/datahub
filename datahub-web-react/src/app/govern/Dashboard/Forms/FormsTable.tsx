@@ -1,5 +1,5 @@
 import { NetworkStatus } from '@apollo/client';
-import { colors, Icon, Pill, Table, Text, typography } from '@components';
+import { colors, Icon, Pill, Table, Text, typography, Tooltip } from '@components';
 import { AlignmentOptions, ColorOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
@@ -15,7 +15,8 @@ import { useFormAnalyticsQuery } from '@src/graphql/analytics.generated';
 import { useDeleteFormMutation, useUpdateFormMutation } from '@src/graphql/form.generated';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { Entity, EntityType, FormState, SearchAcrossEntitiesInput } from '@src/types.generated';
-import { Dropdown, Tooltip, Typography } from 'antd';
+import { useAppConfig } from '@src/app/useAppConfig';
+import { Dropdown, Typography } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import { useHistory } from 'react-router';
@@ -92,6 +93,8 @@ const FormsTable = ({ searchQuery, searchData, loading, networkStatus, refetch, 
     const history = useHistory();
     const me = useUserContext();
     const canEditForms = me.platformPrivileges?.manageDocumentationForms;
+    const { config } = useAppConfig();
+    const { showFormAnalytics } = config.featureFlags;
     const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
     const [showConfirmUnpublish, setShowConfirmUnpublish] = useState<boolean>(false);
 
@@ -393,6 +396,7 @@ const FormsTable = ({ searchQuery, searchData, loading, networkStatus, refetch, 
 
                 // Show Analytics button if form analytics are available
                 const areFormAnalyticsAvailable =
+                    showFormAnalytics &&
                     !snapshotLoading &&
                     snapshot?.formAnalytics?.errors !== null &&
                     snapshot?.formAnalytics?.header !== null;

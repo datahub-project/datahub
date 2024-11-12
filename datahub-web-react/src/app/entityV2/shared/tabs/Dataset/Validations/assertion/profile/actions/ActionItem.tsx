@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { TooltipPlacement } from 'antd/es/tooltip';
 import styled from 'styled-components';
 import { ActionItemButton } from './styledComponents';

@@ -405,6 +405,8 @@ public class Constants {
   // Structured Property
   public static final String STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME = "propertyDefinition";
   public static final String STRUCTURED_PROPERTY_KEY_ASPECT_NAME = "structuredPropertyKey";
+  public static final String STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME =
+      "structuredPropertySettings";
 
   // Form
   public static final String FORM_INFO_ASPECT_NAME = "formInfo";
@@ -586,6 +588,8 @@ public class Constants {
   public static final String MDC_ASPECT_NAME = "aspectName";
   public static final String MDC_ENTITY_TYPE = "entityType";
   public static final String MDC_CHANGE_TYPE = "changeType";
+
+  public static final String RESTLI_SUCCESS = "success";
 
   private Constants() {}
 }

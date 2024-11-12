@@ -1,9 +1,8 @@
-import { Button, Icon, Text } from '@components';
+import { Button, Icon, Text, Tooltip } from '@components';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { FormPrompt, FormState } from '@src/types.generated';
-import { Tooltip } from 'antd';
 import React, { useContext, useState } from 'react';
 import { questionTypes } from './formUtils';
 import ManageFormContext from './ManageFormContext';

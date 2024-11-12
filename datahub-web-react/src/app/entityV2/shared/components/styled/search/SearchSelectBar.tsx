@@ -1,4 +1,5 @@
-import { Button, Checkbox, Modal, Tooltip, Typography } from 'antd';
+import { Button, Checkbox, Modal, Typography } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import { useEntityFormContext } from '@src/app/entity/shared/entityForm/EntityFormContext';

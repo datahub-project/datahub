@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
 
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { PageRoutes } from '../../../../../../../../conf/Global';

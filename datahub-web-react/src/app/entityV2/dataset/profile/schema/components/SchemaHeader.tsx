@@ -1,7 +1,8 @@
 import { FileTextOutlined, TableOutlined } from '@ant-design/icons';
 import VersionSelector from '@app/entityV2/dataset/profile/schema/components/VersionSelector';
 import HistoryIcon from '@mui/icons-material/History';
-import { Button, Tooltip, Typography } from 'antd';
+import { Button, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { debounce } from 'lodash';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';

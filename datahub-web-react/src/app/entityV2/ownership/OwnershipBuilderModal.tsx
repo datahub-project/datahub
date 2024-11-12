@@ -159,7 +159,7 @@ export const OwnershipBuilderModal = ({ isOpen, onClose, refetch, ownershipType 
     };
 
     const onUpsert = ownershipType ? onUpdateOwnershipType : onCreateOwnershipType;
-    const titleText = ownershipType ? 'Edit ownership type' : 'Add a new ownership type';
+    const titleText = ownershipType ? 'Edit Ownership Type' : 'Create Ownership Type';
     return (
         <Modal
             open={isOpen}

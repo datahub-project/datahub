@@ -1,39 +1,40 @@
+import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { message } from 'antd';
 import { ColumnsType } from 'antd/es/table';
-import type { FixedType } from 'rc-table/lib/interface';
 import { SorterResult } from 'antd/lib/table/interface';
 import ResizeObserver from 'rc-resize-observer';
+import type { FixedType } from 'rc-table/lib/interface';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 import { useVT } from 'virtualizedtableforantd4';
-import { useDebounce } from 'react-use';
-import { message } from 'antd';
-
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import {
     EditableSchemaMetadata,
     SchemaField,
     SchemaMetadata,
     UsageQueryResult,
 } from '../../../../../../types.generated';
+import { ProposedTag, ProposedTerm } from '../../../../../sharedV2/tags/TagTermGroup';
 import SchemaRow from '../../../../dataset/profile/schema/components/SchemaRow';
 import useSchemaTitleRenderer from '../../../../dataset/profile/schema/utils/schemaTitleRenderer';
 import useSchemaTypeRenderer from '../../../../dataset/profile/schema/utils/schemaTypeRenderer';
 import translateFieldPath from '../../../../dataset/profile/schema/utils/translateFieldPath';
 import { ExtendedSchemaFields } from '../../../../dataset/profile/schema/utils/types';
+import { findIndexOfFieldPathExcludingCollapsedFields } from '../../../../dataset/profile/schema/utils/utils';
+import { useInferDocumentationForItem } from '../../../components/inferredDocs/utils';
 import { StyledTable } from '../../../components/styled/StyledTable';
 import { REDESIGN_COLORS } from '../../../constants';
 import ExpandIcon from './components/ExpandIcon';
 import SchemaFieldDrawer from './components/SchemaFieldDrawer/SchemaFieldDrawer';
-import useDescriptionRenderer from './utils/useDescriptionRenderer';
-import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
-import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
 import useKeyboardControls from './useKeyboardControls';
-import { ProposedTag, ProposedTerm } from '../../../../../sharedV2/tags/TagTermGroup';
-import { useInferDocumentationForItem } from '../../../components/inferredDocs/utils';
-import { findIndexOfFieldPathExcludingCollapsedFields } from '../../../../dataset/profile/schema/utils/utils';
+import useDescriptionRenderer from './utils/useDescriptionRenderer';
+import useExtractFieldDescriptionInfo from './utils/useExtractFieldDescriptionInfo';
 import useExtractFieldGlossaryTermsInfo from './utils/useExtractFieldGlossaryTermsInfo';
 import useExtractFieldTagsInfo from './utils/useExtractFieldTagsInfo';
-import useExtractFieldDescriptionInfo from './utils/useExtractFieldDescriptionInfo';
+import { useGetStructuredPropColumns } from './utils/useGetStructuredPropColumns';
+import { useGetTableColumnProperties } from './utils/useGetTableColumnProperties';
+import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
+import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
 
 const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: boolean }>`
     overflow: inherit;
@@ -267,6 +268,9 @@ export default function SchemaTable({
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, filterText);
     const schemaTypeRenderer = useSchemaTypeRenderer();
 
+    const tableColumnStructuredProps = useGetTableColumnProperties();
+    const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps);
+
     const fieldColumn = {
         fixed: 'left' as FixedType,
         width: 200,
@@ -288,6 +292,7 @@ export default function SchemaTable({
         render: schemaTypeRenderer,
         sorter: (sourceA, sourceB) => sourceA.type.localeCompare(sourceB.type),
     };
+
     const descriptionColumn = {
         ellipsis: true,
         className: 'description-column',
@@ -347,6 +352,8 @@ export default function SchemaTable({
         termColumn,
         usageColumn,
     ];
+
+    if (structuredPropColumns) allColumns.splice(allColumns?.length - 1, 0, ...structuredPropColumns);
 
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 

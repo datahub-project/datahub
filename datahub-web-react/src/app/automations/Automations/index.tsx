@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { uniq, orderBy } from 'lodash';
 import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import { Button } from '@components';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import {
     AutomationsPageContainer,
     AutomationsSidebar,
@@ -11,6 +12,7 @@ import {
     AutomationsContentTabs,
     AutomationsContentTab,
     AutomationsBody,
+    ScrollableContent,
 } from './components';
 
 import { env } from '../constants';
@@ -66,16 +68,20 @@ const AutomationPage = React.memo(() => {
     const [activeTab, setActiveTab] = useState(tabs[0].key);
     const automationsData = tabs.filter((tab) => tab.key === activeTab)[0].data || [];
 
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+
+    const FinalScrollableContent = isShowNavBarRedesign ? ScrollableContent : React.Fragment;
+
     return (
         <>
-            <AutomationsPageContainer>
+            <AutomationsPageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
                 {!hideSidebar && (
                     <AutomationsSidebar>
                         <h1>Sidebar</h1>
                     </AutomationsSidebar>
                 )}
                 <AutomationsContent>
-                    <AutomationsContentHeader>
+                    <AutomationsContentHeader $isShowNavBarRedesign={isShowNavBarRedesign}>
                         <PageTitle title="Automations" subTitle="Manage automated actions across your data assets" />
                         <div>
                             <Button size="lg" icon="Add" onClick={() => setIsCreateOpen(!isCreateOpen)}>
@@ -83,7 +89,7 @@ const AutomationPage = React.memo(() => {
                             </Button>
                         </div>
                     </AutomationsContentHeader>
-                    <AutomationsContentBody>
+                    <AutomationsContentBody $isShowNavBarRedesign={isShowNavBarRedesign}>
                         <AutomationsContentTabs>
                             {orderBy(tabs, ['count'], ['desc']).map((tab) => (
                                 <AutomationsContentTab
@@ -96,11 +102,13 @@ const AutomationPage = React.memo(() => {
                                 </AutomationsContentTab>
                             ))}
                         </AutomationsContentTabs>
-                        <AutomationsBody>
-                            {automationsData.map((automation) => (
-                                <AutomationsListCard key={automation.key} automation={automation} />
-                            ))}
-                        </AutomationsBody>
+                        <FinalScrollableContent>
+                            <AutomationsBody>
+                                {automationsData.map((automation) => (
+                                    <AutomationsListCard key={automation.key} automation={automation} />
+                                ))}
+                            </AutomationsBody>
+                        </FinalScrollableContent>
                         {!isLoading && automationsData && automationsData.length === 0 && <EmptyState />}
                     </AutomationsContentBody>
                 </AutomationsContent>

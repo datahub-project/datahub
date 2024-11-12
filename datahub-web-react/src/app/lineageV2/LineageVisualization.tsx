@@ -1,4 +1,5 @@
 import SearchControl from '@app/lineageV2/controls/SearchControl';
+import TentativeEdge, { TENTATIVE_EDGE_NAME } from '@app/lineageV2/LineageEdge/TentativeEdge';
 import React, { useContext, useEffect, useState } from 'react';
 import ReactFlow, { Background, BackgroundVariant, Edge, EdgeTypes, MiniMap, NodeTypes, useReactFlow } from 'reactflow';
 import styled from 'styled-components';
@@ -36,6 +37,7 @@ const nodeTypes: NodeTypes = {
 
 const edgeTypes: EdgeTypes = {
     [LINEAGE_TABLE_EDGE_NAME]: LineageTableEdge,
+    [TENTATIVE_EDGE_NAME]: TentativeEdge,
 };
 
 interface Props {
@@ -49,6 +51,7 @@ export default MemoizedLineageVisualization;
 
 function LineageVisualization({ initialNodes, initialEdges }: Props) {
     const [searchQuery, setSearchQuery] = useState('');
+    const [isFocused, setIsFocused] = useState(false);
     const [searchedEntity, setSearchedEntity] = useState<string | null>(null);
     const { highlightedEdges, setSelectedColumn, setDisplayedMenuNode } = useContext(LineageDisplayContext);
 
@@ -57,7 +60,7 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
 
     return (
         <LineageVisualizationContext.Provider
-            value={{ searchQuery, setSearchQuery, searchedEntity, setSearchedEntity }}
+            value={{ searchQuery, setSearchQuery, searchedEntity, setSearchedEntity, isFocused }}
         >
             <StyledReactFlow
                 defaultNodes={initialNodes}
@@ -81,6 +84,9 @@ function LineageVisualization({ initialNodes, initialEdges }: Props) {
                 fitView
                 fitViewOptions={{ maxZoom: 1, duration: 0 }}
                 $edgesOnTop={!!highlightedEdges.size}
+                tabIndex={0} // Allow focus for keyboard shortcuts
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
             >
                 <Background variant={BackgroundVariant.Lines} />
                 <ZoomControls />

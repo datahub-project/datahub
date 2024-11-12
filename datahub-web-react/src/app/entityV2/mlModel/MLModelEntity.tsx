@@ -1,31 +1,32 @@
-import * as React from 'react';
 import { CodeSandboxOutlined, UnorderedListOutlined, WarningOutlined } from '@ant-design/icons';
-import { MlModel, EntityType, SearchResult } from '../../../types.generated';
-import { Preview } from './preview/Preview';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import * as React from 'react';
 import { useGetMlModelQuery } from '../../../graphql/mlModel.generated';
+import { EntityType, MlModel, SearchResult } from '../../../types.generated';
 import { GenericEntityProperties } from '../../entity/shared/types';
-import MLModelSummary from './profile/MLModelSummary';
-import MLModelGroupsTab from './profile/MLModelGroupsTab';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import MlModelFeaturesTab from './profile/MlModelFeaturesTab';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import { isOutputPort } from '../shared/utils';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
-import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { isOutputPort } from '../shared/utils';
+import { Preview } from './preview/Preview';
+import MLModelGroupsTab from './profile/MLModelGroupsTab';
+import MLModelSummary from './profile/MLModelSummary';
+import MlModelFeaturesTab from './profile/MlModelFeaturesTab';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.SHARE,
@@ -156,6 +157,9 @@ export class MLModelEntity implements Entity<MlModel> {
         },
         {
             component: SharingAssetSection,
+        },
+        {
+            component: SidebarStructuredProperties,
         },
     ];
 

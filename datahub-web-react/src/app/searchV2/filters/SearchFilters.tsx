@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import { SEARCH_RESULTS_FILTERS_ID } from '../../onboarding/config/SearchOnboardingConfig';
 import SearchFilterOptions from './SearchFilterOptions';
@@ -21,12 +22,14 @@ import {
     PROPOSED_SCHEMA_TAGS_FILTER_NAME,
 } from '../utils/constants';
 
-const Container = styled.div`
+const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     background-color: #ffffff;
-    border-radius: 8px;
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     padding: 16px 24px 16px 32px;
     border: 1px solid #e8e8e8;
-    box-shadow: 0px 4px 10px 0px #a8a8a840;
+    box-shadow: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['box-shadow-navbar-redesign'] : '0px 4px 10px 0px #a8a8a840'};
 `;
 
 const FilterSpacer = styled.div`
@@ -72,12 +75,13 @@ export default function SearchFilters({
     onChangeUnionType,
     onClearFilters,
 }: Props) {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     // Filter out the available filters if `basicFilters` is true
     const filteredFilters = (availableFilters || []).filter((f) => !FILTERS_TO_REMOVE.includes(f.field));
     const filters = basicFilters ? filteredFilters : availableFilters;
 
     return (
-        <Container id={SEARCH_RESULTS_FILTERS_ID}>
+        <Container id={SEARCH_RESULTS_FILTERS_ID} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <SearchFilterOptions
                 loading={loading}
                 availableFilters={filters}

@@ -28,7 +28,7 @@ import org.testng.annotations.Test;
 public class ListIngestionSourceResolverTest {
 
   private static final ListIngestionSourcesInput TEST_INPUT =
-      new ListIngestionSourcesInput(0, 20, null, null);
+      new ListIngestionSourcesInput(0, 20, null, null, null);
 
   @Test
   public void testGetSuccess() throws Exception {

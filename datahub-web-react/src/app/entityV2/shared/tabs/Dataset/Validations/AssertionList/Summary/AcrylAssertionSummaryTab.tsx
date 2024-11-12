@@ -11,8 +11,8 @@ import {
 } from '../../acrylUtils';
 import { AcrylAssertionSummaryCard } from './AcrylAssertionSummaryCard';
 import { AssertionGroup } from '../../acrylTypes';
-import { AcrylAssertionsSummaryLoading } from '../../AcrylAssertionsSummaryLoading';
 import { getAssertionGroupsByDisplayOrder } from '../utils';
+import { AcrylAssertionsSummaryTabLoading } from './AcrylAssertionsSummaryLoading';
 
 const AcrylAssertionSummaryContainer = styled.div`
     display: grid;
@@ -46,7 +46,7 @@ export const AcrylAssertionSummaryTab = () => {
 
     const renderSummaryTab = () => {
         if (loading) {
-            return <AcrylAssertionsSummaryLoading />;
+            return <AcrylAssertionsSummaryTabLoading />;
         }
         if (groupedAssertions?.length > 0) {
             return (

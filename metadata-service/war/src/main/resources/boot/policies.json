@@ -47,7 +47,7 @@
         "MANAGE_CONNECTIONS",
         "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_MONITORS",
-        "GET_ENTITY_CHANGE_EVENTS",
+        "GET_PLATFORM_EVENTS",
         "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES"
       ],
       "displayName": "Root User - All Platform Privileges",
@@ -89,8 +89,7 @@
         "MANAGE_GLOBAL_OWNERSHIP_TYPES",
         "DELETE_ENTITY",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
-        "SHARE_ENTITY",
-        "GET_ENTITY_CHANGE_EVENTS"
+        "SHARE_ENTITY"
       ],
       "displayName": "Root User - Edit and View All Resources",
       "description": "Grants all edit and view privileges for all resources to root user.",

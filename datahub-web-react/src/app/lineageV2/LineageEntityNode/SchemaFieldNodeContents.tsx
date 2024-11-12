@@ -12,7 +12,8 @@ import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
 import { useEntityRegistryV2 } from '@app/useEntityRegistry';
 import { EntityType, LineageDirection } from '@types';
-import { Skeleton, Spin, Tooltip } from 'antd';
+import { Skeleton, Spin } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
@@ -148,7 +149,6 @@ const InvalidSchemaFieldLine = styled.span`
     display: flex;
     align-items: center;
     height: min-content;
-    width: max-content;
     gap: 4px;
 
     font-size: 1.1em;

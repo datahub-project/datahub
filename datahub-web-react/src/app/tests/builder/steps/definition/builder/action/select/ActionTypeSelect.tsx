@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Select, Tooltip, Typography } from 'antd';
+import { Select, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { ActionType } from '../../property/types/action';
 
 const StyledSelect = styled(Select)`

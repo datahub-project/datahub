@@ -2,7 +2,8 @@ import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { isTransformational, LineageNodesContext } from '@app/lineageV2/common';
 import { ControlPanel, ControlPanelSubtext, ControlPanelTitle } from '@app/lineageV2/controls/common';
 import InfoPopover from '@app/sharedV2/icons/InfoPopover';
-import { Switch, Tooltip } from 'antd';
+import { Switch } from 'antd';
+import { Tooltip } from '@components';
 import React, { useContext, useMemo } from 'react';
 import styled from 'styled-components';
 

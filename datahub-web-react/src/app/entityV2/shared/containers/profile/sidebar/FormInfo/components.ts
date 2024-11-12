@@ -19,6 +19,7 @@ export const SubTitle = styled.div<{ addMargin?: boolean }>`
     font-weight: 600;
     margin-bottom: 4px;
     ${(props) => props.addMargin && `margin-top: 8px;`}
+    text-wrap: wrap;
 `;
 
 export const Title = styled.div`
@@ -50,13 +51,14 @@ export const StyledReadFilled = styled(ReadFilled)<{ color: string; addLineHeigh
     ${(props) => props.color && `color: ${props.color};`}
 `;
 
-export const CTAWrapper = styled.div<{ backgroundColor?: string; borderColor?: string }>`
+export const CTAWrapper = styled.div<{ backgroundColor?: string; borderColor?: string; padding?: string }>`
     color: #373d44;
     font-size: 14px;
+    min-width: 180px;
     ${(props) =>
         `
         border-radius: 8px;
-        padding: 16px;
+        padding: ${props.padding || '16px'};
         background-color: ${props.backgroundColor ? props.backgroundColor : '#f9f0ff'};
         border: 1px solid ${props.borderColor ? props.borderColor : '#8338b8'};
         `}
@@ -73,6 +75,7 @@ export const TitleWrapper = styled.div<{ isOpen?: boolean; isUserAssigned?: bool
     width: 100%;
     margin-bottom: ${(props) => (props.isOpen ? '10px' : '0px')};
     cursor: ${(props) => (props.isUserAssigned ? 'pointer' : 'not-allowed')};
+    text-wrap: wrap;
 `;
 
 export const StyledArrow = styled(KeyboardArrowDownOutlinedIcon)<{ isOpen: boolean }>`

@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { SearchOutlined } from '@ant-design/icons';
-import { Button } from '@src/alchemy-components';
+import { Button, PageTitle, Tooltip } from '@src/alchemy-components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType, SearchResult } from '@src/types.generated';
-import { PageTitle } from '@src/alchemy-components/components/PageTitle';
-import { Tooltip } from 'antd';
+import { EntityType, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import StructuredPropsDrawer from './StructuredPropsDrawer';
 import StructuredPropsTable from './StructuredPropsTable';
 import {
@@ -19,6 +18,7 @@ import {
 } from './styledComponents';
 
 const StructuredProperties = () => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
     const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();
@@ -47,9 +47,12 @@ const StructuredProperties = () => {
 
     const searchAcrossEntities = data?.searchAcrossEntities;
     const noOfProperties = searchAcrossEntities?.searchResults?.length;
+    const badgeProperty = searchAcrossEntities?.searchResults.find(
+        (prop) => (prop.entity as StructuredPropertyEntity).settings?.showAsAssetBadge,
+    )?.entity;
 
     return (
-        <PageContainer>
+        <PageContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
             <HeaderContainer>
                 <HeaderContent>
                     <PageTitle
@@ -107,6 +110,7 @@ const StructuredProperties = () => {
                 setSelectedProperty={setSelectedProperty}
                 inputs={inputs}
                 searchAcrossEntities={searchAcrossEntities}
+                badgeProperty={badgeProperty as StructuredPropertyEntity}
             />
         </PageContainer>
     );

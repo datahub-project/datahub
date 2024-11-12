@@ -1,13 +1,21 @@
 import React from 'react';
 import styled from 'styled-components';
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { ANTD_GRAY } from '../../shared/constants';
-import { ViewContainer, ViewContent, ViewDescription, ViewIcon, ViewLabel } from './styledComponents';
+import {
+    ViewContainer,
+    ViewContent,
+    ViewDescription,
+    ViewIcon,
+    ViewIconNavBarRedesign,
+    ViewLabel,
+} from './styledComponents';
 import { Carousel } from '../../../sharedV2/carousel/Carousel';
 
-const StyledCarousel = styled(Carousel)`
-    gap: 10px;
-    padding: 20px 0;
+const StyledCarousel = styled(Carousel)<{ $isShowNavBarRedesign?: boolean }>`
+    gap: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '10px')};
+    padding: ${(props) => (props.$isShowNavBarRedesign ? '8px 8px 0 0' : '20px 0')};
 
     .rc-virtual-list-holder-inner {
         display: flex;
@@ -38,15 +46,20 @@ type Props = {
 };
 
 export const ViewSelectContent = ({ children, onClickCreateView }: Props) => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+    const IconWrapper = isShowNavBarRedesign ? ViewIconNavBarRedesign : ViewIcon;
+
     return (
-        <StyledCarousel>
-            <ViewContainer onClick={() => onClickCreateView()} role="none">
-                <ViewIcon className="static">
+        <StyledCarousel $isShowNavBarRedesign={isShowNavBarRedesign}>
+            <ViewContainer onClick={() => onClickCreateView()} role="none" $isShowNavBarRedesign={isShowNavBarRedesign}>
+                <IconWrapper>
                     <AddOutlinedIconStyle />
-                </ViewIcon>
-                <ViewContent>
-                    <ViewLabel className="static">Create a View</ViewLabel>
-                    <ViewDescription>Create view</ViewDescription>
+                </IconWrapper>
+                <ViewContent $isShowNavBarRedesign={isShowNavBarRedesign}>
+                    <ViewLabel className="static" $isShowNavBarRedesign={isShowNavBarRedesign}>
+                        Create a View
+                    </ViewLabel>
+                    <ViewDescription $isShowNavBarRedesign={isShowNavBarRedesign}>Create view</ViewDescription>
                 </ViewContent>
             </ViewContainer>
             {children}

@@ -1,8 +1,8 @@
 import { PropertyValue, StructuredPropertiesEntry } from '../../../../../types.generated';
-import { getStructuredPropertyValue } from '../../../../entity/shared/utils';
-import EntityRegistry from '../../../EntityRegistry';
 import { useEntityData } from '../../../../entity/shared/EntityContext';
 import { GenericEntityProperties } from '../../../../entity/shared/types';
+import { getStructuredPropertyValue } from '../../../../entity/shared/utils';
+import EntityRegistry from '../../../EntityRegistry';
 import { useGetEntityWithSchema } from '../Dataset/Schema/useGetEntitySchema';
 import { PropertyRow } from './types';
 import { filterStructuredProperties } from './utils';
@@ -24,7 +24,7 @@ export function mapStructuredPropertyValues(structuredPropertiesEntry: Structure
         }));
 }
 
-function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: StructuredPropertiesEntry) {
+export function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: StructuredPropertiesEntry) {
     const { displayName, qualifiedName } = structuredPropertiesEntry.structuredProperty.definition;
     return {
         displayName: displayName || qualifiedName,

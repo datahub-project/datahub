@@ -1,5 +1,6 @@
 import { EnterOutlined } from '@ant-design/icons';
-import { Divider, Popover, Typography } from 'antd';
+import { Divider, Typography } from 'antd';
+import { Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import RowIcon from '../../../../../../../../images/row-icon.svg?react';

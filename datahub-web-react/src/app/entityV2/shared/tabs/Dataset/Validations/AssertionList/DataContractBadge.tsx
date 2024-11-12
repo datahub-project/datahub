@@ -1,7 +1,7 @@
 import React from 'react';
 import { AuditOutlined } from '@ant-design/icons';
 import { REDESIGN_COLORS } from '@src/app/entity/shared/constants';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 

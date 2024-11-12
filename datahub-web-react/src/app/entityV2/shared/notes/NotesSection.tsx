@@ -97,6 +97,7 @@ const NoteEditIcons = styled.div`
 const NoteWrapper = styled.div`
     display: flex;
     justify-content: space-between;
+    max-width: 100%;
 
     :hover {
         ${NoteEditWrapper} {
@@ -111,6 +112,7 @@ const NoteContent = styled.div`
     display: flex;
     flex-direction: column;
     gap: 2px;
+    max-width: inherit;
 `;
 
 const NoteHeader = styled.div`
@@ -120,12 +122,22 @@ const NoteHeader = styled.div`
     color: ${COLORS.blue_10};
 `;
 
-const NoteTime = styled.div``;
+const NoteTime = styled.div`
+    overflow: hidden;
+    text-overflow: ellipsis;
+`;
+
+const NoteOwner = styled.div`
+    min-width: 24px;
+`;
 
 const NoteTitle = styled.div`
     font-size: 16px;
     font-weight: 600;
     line-height: 20px;
+    max-width: inherit;
+    overflow: hidden;
+    text-overflow: ellipsis;
 `;
 
 const NoteDescriptionContainer = styled.div`
@@ -165,7 +177,7 @@ function SidebarNote({ note, parentUrn, parentSubResource, refetch }: NoteProps)
         <NoteWrapper>
             <NoteContent>
                 <NoteHeader>
-                    {note.lastModified.actor && <CustomAvatar size={18} name={parsedName} />}
+                    <NoteOwner>{note.lastModified.actor && <CustomAvatar size={18} name={parsedName} />}</NoteOwner>
                     <NoteTime>
                         {isToday && 'Today'}
                         {isYesterday && 'Yesterday'}

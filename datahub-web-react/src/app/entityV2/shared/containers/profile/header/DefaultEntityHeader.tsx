@@ -10,9 +10,9 @@ import {
     Post,
 } from '../../../../../../types.generated';
 import { EntitySubHeaderSection, GenericEntityProperties } from '../../../../../entity/shared/types';
+import ContextPath from '../../../../../previewV2/ContextPath';
 import HealthIcon from '../../../../../previewV2/HealthIcon';
 import NotesIcon from '../../../../../previewV2/NotesIcon';
-import ContextPath from '../../../../../previewV2/ContextPath';
 import useContentTruncation from '../../../../../shared/useContentTruncation';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { IconStyleType } from '../../../../Entity';
@@ -27,6 +27,7 @@ import { GlossaryPreviewCardDecoration } from './GlossaryPreviewCardDecoration';
 import IconColorPicker from './IconPicker/IconColorPicker';
 import ContainerIcon from './PlatformContent/ContainerIcon';
 import PlatformHeaderIcons from './PlatformContent/PlatformHeaderIcons';
+import StructuredPropertyBadge from './StructuredPropertyBadge';
 import { getDisplayedEntityType } from './utils';
 
 export const TitleWrapper = styled.div`
@@ -206,6 +207,7 @@ export const DefaultEntityHeader = ({
                                         {entityData?.health && (
                                             <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />
                                         )}
+                                        <StructuredPropertyBadge entityData={entityData} />
                                     </TitleRow>
                                     <HeaderRow>
                                         <ContextPath

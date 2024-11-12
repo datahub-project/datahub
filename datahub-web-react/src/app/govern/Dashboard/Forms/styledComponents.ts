@@ -14,11 +14,11 @@ export const CreateFormContainer = styled.div`
     height: 100%;
 `;
 
-export const ContentContainer = styled.div<{ $showV1Styles?: boolean }>`
+export const ContentContainer = styled.div<{ $showV1Styles?: boolean; $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex-direction: column;
     padding: 16px 0;
-    margin-right: 16px;
+    margin-right: ${(props) => (!props.$showV1Styles && props.$isShowNavBarRedesign ? '0' : '16px')};
     border-radius: 12px;
     flex: 1;
     background-color: ${colors.white};

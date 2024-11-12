@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 
+import com.linkedin.structured.StructuredPropertySettings;
 import java.util.UUID;
 import javax.annotation.Nullable;
 
@@ -25,5 +26,22 @@ public class StructuredPropertyUtils {
     }
 
     return id;
+  }
+
+  /*
+   * Ensure that a structured property settings aspect is valid by ensuring that if isHidden is true,
+   * the other fields concerning display locations are false;
+   */
+  public static void validatePropertySettings(StructuredPropertySettings settings)
+      throws Exception {
+    if (settings.isIsHidden()) {
+      if (settings.isShowInSearchFilters()
+          || settings.isShowInAssetSummary()
+          || settings.isShowAsAssetBadge()
+          || settings.isShowInColumnsTable()) {
+        throw new IllegalArgumentException(
+            "Cannot have property isHidden = true while other display location settings are also true.");
+      }
+    }
   }
 }

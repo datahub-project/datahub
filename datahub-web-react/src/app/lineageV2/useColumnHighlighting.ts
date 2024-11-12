@@ -1,4 +1,5 @@
 import EntityRegistry from '@app/entityV2/EntityRegistry';
+import { TENTATIVE_EDGE_NAME } from '@app/lineageV2/LineageEdge/TentativeEdge';
 import { useContext, useEffect, useMemo } from 'react';
 import { Edge, MarkerType, useReactFlow } from 'reactflow';
 import { LineageDirection } from '@types';
@@ -123,7 +124,7 @@ function computeSingleColumnHighlights(
         //   i.e. the missing node's upstreams when searching downstream, and vice versa
         const missingNodeParents = new Map<string, Set<ColumnRef>>();
 
-        function addEdge(ref: ColumnRef, childRef: ColumnRef, opacity = 1) {
+        function addEdge(ref: ColumnRef, childRef: ColumnRef, isTentative = false) {
             const fromRef = direction === LineageDirection.Downstream ? ref : childRef;
             const toRef = direction === LineageDirection.Downstream ? childRef : ref;
             const [fromUrn, fromField] = parseColumnRef(fromRef);
@@ -141,9 +142,9 @@ function computeSingleColumnHighlights(
                 target: toUrn,
                 sourceHandle: fromField ? fromRef : undefined,
                 targetHandle: toField ? toRef : undefined,
-                type: 'default',
+                type: isTentative ? TENTATIVE_EDGE_NAME : 'default',
                 markerEnd: { type: MarkerType.ArrowClosed },
-                style: { stroke, strokeWidth: 1.25, opacity },
+                style: { stroke, strokeWidth: 1.25 },
                 data: { isColumnEdge: true }, // Used to hide column edges
             });
         }
@@ -155,15 +156,16 @@ function computeSingleColumnHighlights(
             if (ref === undefined) {
                 break;
             }
-            const { filterNodeRef, opacity, showFilterNodeEdge } = addEdgeToLineageFilterNode(
+            const { filterNodeRef, showFilterNodeEdge, isTentative } = addEdgeToLineageFilterNode(
                 ref,
                 direction,
                 fgl,
                 nodes,
+                displayedNodeIds,
             );
             const [currentUrn] = parseColumnRef(ref);
             if (displayedNodeIds.has(currentUrn) && showFilterNodeEdge) {
-                addEdge(ref, filterNodeRef, opacity);
+                addEdge(ref, filterNodeRef, isTentative);
             }
 
             fgl.get(ref)?.forEach((fineGrainedOperationRef, childRef) => {
@@ -258,22 +260,29 @@ function addEdgeToLineageFilterNode(
     direction: LineageDirection,
     fgl: FineGrainedLineageMap,
     nodes: NodeContext['nodes'],
+    displayedNodeIds: Set<string>,
 ): {
     filterNodeRef: ColumnRef;
-    opacity: number;
     showFilterNodeEdge: boolean;
+    isTentative: boolean;
 } {
     const [urn, field] = parseColumnRef(ref);
     const filterNodeRef = createLineageFilterNodeId(urn, direction);
 
     const entity = nodes.get(urn)?.entity;
     const lineageAsset = entity?.lineageAssets?.get(field);
+
     const cachedNumRelated =
         direction === LineageDirection.Downstream ? lineageAsset?.numDownstream : lineageAsset?.numUpstream;
-    const isTentative = cachedNumRelated === undefined; // Not sure about count -- show half opaque edge
+    const numRelatedOnGraph = Array.from(fgl.get(ref)?.keys() || []).filter((neighbor) =>
+        displayedNodeIds.has(neighbor),
+    ).length;
+
+    // Show tentative edge if we haven't fetched counts yet, even if we have cached value
+    const isTentative = !lineageAsset?.lineageCountsFetched;
     return {
         filterNodeRef,
-        opacity: isTentative ? 0.5 : 1,
-        showFilterNodeEdge: (cachedNumRelated || 0) > (fgl.get(ref)?.size || 0) || isTentative,
+        showFilterNodeEdge: (cachedNumRelated ?? 0) > numRelatedOnGraph || isTentative,
+        isTentative,
     };
 }

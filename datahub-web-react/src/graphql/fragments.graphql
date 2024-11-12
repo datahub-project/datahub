@@ -1776,6 +1776,13 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
             }
         }
     }
+    settings {
+        isHidden
+        showInSearchFilters
+        showAsAssetBadge
+        showInAssetSummary
+        showInColumnsTable
+    }
 }
 
 fragment structuredPropertiesFields on StructuredPropertiesEntry {

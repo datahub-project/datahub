@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Dropdown, List, Menu, message, Popover, Tag, Tooltip, Typography } from 'antd';
+import { Button, Dropdown, List, Menu, message, Tag, Typography } from 'antd';
+import { Tooltip, Popover } from '@components';
 import { CheckCircleFilled, CheckOutlined, MoreOutlined, WarningFilled } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { EntityType, IncidentState, IncidentType } from '../../../../../../types.generated';

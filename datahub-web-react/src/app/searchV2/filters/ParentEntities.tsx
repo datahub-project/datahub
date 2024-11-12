@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { FolderOpenOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { ContextPathSeparator } from '@src/app/previewV2/ContextPathSeparator';
 import ContextPathEntityLink from '@src/app/previewV2/ContextPathEntityLink';
 import { Entity } from '../../../types.generated';
@@ -60,7 +60,7 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
             <ParentNodesWrapper>
                 {hasHiddenEntities &&
                     [...Array(numHiddenEntities)].map((index) => (
-                        <React.Fragment key={`icons-${index}`}>
+                        <React.Fragment key={`icons-${index || 0}`}>
                             <FolderOpenOutlined />
                             <ContextPathSeparator />
                         </React.Fragment>

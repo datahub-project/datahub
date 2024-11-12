@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Form, Select, Tag, Tooltip, Typography, Tag as CustomTag } from 'antd';
+import { Form, Select, Tag, Typography, Tag as CustomTag } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components/macro';
 
 import { useEntityRegistry } from '../../useEntityRegistry';

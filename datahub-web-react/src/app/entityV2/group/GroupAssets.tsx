@@ -4,7 +4,7 @@ import { UnionType } from '../../search/utils/constants';
 import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
 
 const GroupAssetsWrapper = styled.div`
-    height: calc(100vh - 114px);
+    height: 100%;
 `;
 
 type Props = {

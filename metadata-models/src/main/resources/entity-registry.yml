@@ -756,6 +756,7 @@ entities:
     keyAspect: structuredPropertyKey
     aspects:
       - propertyDefinition
+      - structuredPropertySettings
       - institutionalMemory
       - status
       - share

@@ -1,6 +1,6 @@
 import React from 'react';
 import { DeleteOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { Redirect } from 'react-router';
 import { useUserContext } from '../../../context/useUserContext';
 import { isDeleteDisabled, shouldDisplayChildDeletionWarning } from './utils';

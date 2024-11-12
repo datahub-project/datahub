@@ -1,4 +1,4 @@
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import TypeLabel from '../../../../shared/tabs/Dataset/Schema/components/TypeLabel';

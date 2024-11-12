@@ -225,6 +225,12 @@ public class PoliciesConfig {
           "Manage Organization Display Preferences",
           "Create, update, and delete organization display preferences.");
 
+  public static final Privilege GET_PLATFORM_EVENTS_PRIVILEGE =
+      Privilege.of(
+          "GET_PLATFORM_EVENTS",
+          "Get Platform Events",
+          "The ability to use the Events API to read Platform Events - Entity Change Events and Notification Request Events.");
+
   public static final List<Privilege> PLATFORM_PRIVILEGES =
       ImmutableList.of(
           MANAGE_POLICIES_PRIVILEGE,
@@ -262,7 +268,8 @@ public class PoliciesConfig {
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE,
           MANAGE_GLOBAL_SETTINGS,
           MANAGE_MONITORS,
-          MANAGE_ORGANIZATION_DISPLAY_PREFERENCES);
+          MANAGE_ORGANIZATION_DISPLAY_PREFERENCES,
+          GET_PLATFORM_EVENTS_PRIVILEGE);
 
   // Resource Privileges //
 
@@ -625,13 +632,6 @@ public class PoliciesConfig {
           "GET_COUNTS_PRIVILEGE",
           "Get Aspect/Entity Count APIs",
           "The ability to use the GET Aspect/Entity Count APIs.");
-
-  public static final Privilege GET_PLATFORM_EVENTS_PRIVILEGE =
-      Privilege.of(
-          "GET_PLATFORM_EVENTS",
-          "Get Platform Events",
-          "The ability to use the Events API to read Platform Events - Entity Change Events and Notification Request Events.");
-
   public static final Privilege RESTORE_INDICES_PRIVILEGE =
       Privilege.of(
           "RESTORE_INDICES_PRIVILEGE",

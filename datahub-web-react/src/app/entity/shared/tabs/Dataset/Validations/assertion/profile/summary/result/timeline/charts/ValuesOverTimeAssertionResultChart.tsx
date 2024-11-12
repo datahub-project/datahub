@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 
 import _ from 'lodash';
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import { AreaClosed, LinePath } from '@visx/shape';
 import { Group } from '@visx/group';
 import { AxisBottom, AxisLeft } from '@visx/axis';

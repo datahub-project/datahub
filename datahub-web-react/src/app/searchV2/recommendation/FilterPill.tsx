@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { RecommendedFilter } from './types';
 import { getFilterColor } from './utils';
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import styled, { useTheme } from 'styled-components/macro';
 
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { Link } from 'react-router-dom';
 
 import { HelpLinkRoutes, PageRoutes } from '../../../conf/Global';
@@ -120,6 +120,7 @@ export function NavLinksMenu(props: Props) {
     const isIngestionEnabled = config?.managedIngestionConfig.enabled;
     const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
     const isTestsEnabled = config?.testsConfig.enabled;
+    const { showFormAnalytics, formCreationEnabled } = config.featureFlags;
 
     const showSettings = true;
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
@@ -131,7 +132,9 @@ export function NavLinksMenu(props: Props) {
     const showObserve = showDatasetHealth;
     const showDocumentationCenter =
         config?.featureFlags?.documentationFormsEnabled &&
-        (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage);
+        (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage) &&
+        (showFormAnalytics || formCreationEnabled);
+
     const showAutomations = config?.classificationConfig.enabled && me?.platformPrivileges?.manageIngestion; // TODO: Add a dedicated permission for automations.
     const showStructuredProperties =
         config?.featureFlags?.showManageStructuredProperties &&

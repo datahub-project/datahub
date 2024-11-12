@@ -18,6 +18,7 @@ const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
 
 const TermContainer = styled.div`
     position: relative;
+    max-width: 200px;
 
     .ant-tag.ant-tag {
         border-radius: 5px;
@@ -100,6 +101,8 @@ export const TermRibbon = styled.span<{ color: string; opacity?: number }>`
 
 const StyledHighlight = styled(Highlight)`
     margin-left: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 `;
 
 interface Props {

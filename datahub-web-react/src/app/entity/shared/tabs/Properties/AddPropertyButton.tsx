@@ -2,11 +2,15 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { colors, Icon, Input as InputComponent, Text } from '@src/alchemy-components';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { getEntityTypeUrn } from '@src/app/govern/structuredProperties/utils';
+import { ENTITY_TYPES_FILTER_NAME } from '@src/app/searchV2/utils/constants';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useIsThemeV2 } from '@src/app/useIsThemeV2';
 import { PageRoutes } from '@src/conf/Global';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
-import { Dropdown, Tooltip } from 'antd';
+import { Dropdown } from 'antd';
+import { Tooltip } from '@components';
+import { EntityType, Maybe, StructuredProperties, StructuredPropertyEntity } from '@src/types.generated';
 import React, { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
@@ -70,14 +74,16 @@ const EmptyContainer = styled.div`
 interface Props {
     fieldUrn?: string;
     refetch?: () => void;
+    fieldProperties?: Maybe<StructuredProperties>;
     isV1Drawer?: boolean;
 }
 
-const AddPropertyButton = ({ fieldUrn, refetch, isV1Drawer }: Props) => {
+const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: Props) => {
     const [searchQuery, setSearchQuery] = useState('');
     const { entityData, entityType } = useEntityData();
     const isThemeV2 = useIsThemeV2();
     const me = useUserContext();
+    const entityRegistry = useEntityRegistryV2();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
     const inputs = {
@@ -86,6 +92,21 @@ const AddPropertyButton = ({ fieldUrn, refetch, isV1Drawer }: Props) => {
         start: 0,
         count: 100,
         searchFlags: { skipCache: true },
+        orFilters: [
+            {
+                and: [
+                    {
+                        field: ENTITY_TYPES_FILTER_NAME,
+                        values: [getEntityTypeUrn(entityRegistry, fieldUrn ? EntityType.SchemaField : entityType)],
+                    },
+                    {
+                        field: 'isHidden',
+                        values: ['true'],
+                        negated: true,
+                    },
+                ],
+            },
+        ],
     };
 
     // Execute search
@@ -105,15 +126,19 @@ const AddPropertyButton = ({ fieldUrn, refetch, isV1Drawer }: Props) => {
         setIsEditModalVisible(true);
     };
 
-    // only display structured props that can be applied to the asset type
+    const entityPropertiesUrns = entityData?.structuredProperties?.properties?.map(
+        (prop) => prop.structuredProperty.urn,
+    );
+    const fieldPropertiesUrns = fieldProperties?.properties?.map((prop) => prop.structuredProperty.urn);
+
+    // filter out the existing properties when displaying in the list of add button
     const properties = useMemo(
         () =>
             data?.searchAcrossEntities?.searchResults
                 .filter((result) =>
-                    (result.entity as StructuredPropertyEntity).definition.entityTypes.find((t) => {
-                        if (fieldUrn) return t.info.type === EntityType.SchemaField;
-                        return t.info.type === entityType;
-                    }),
+                    fieldUrn
+                        ? !fieldPropertiesUrns?.includes(result.entity.urn)
+                        : !entityPropertiesUrns?.includes(result.entity.urn),
                 )
                 .map((prop) => {
                     const entity = prop.entity as StructuredPropertyEntity;
@@ -129,7 +154,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, isV1Drawer }: Props) => {
                         name: entity.definition?.displayName || entity.urn,
                     };
                 }),
-        [data, entityType, fieldUrn],
+        [data, fieldUrn, fieldPropertiesUrns, entityPropertiesUrns],
     );
 
     const canEditProperties =

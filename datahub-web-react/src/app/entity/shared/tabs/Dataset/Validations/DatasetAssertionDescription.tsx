@@ -1,4 +1,5 @@
-import { Popover, Typography, Button } from 'antd';
+import { Typography, Button } from 'antd';
+import { Popover } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import {

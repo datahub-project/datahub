@@ -16,6 +16,7 @@ const DomainsWrapper = styled.div`
 const ResultWrapper = styled.div`
     padding: 16px;
     margin: 0px;
+    margin-bottom: 12px;
     display: flex;
     align-items: center;
     background-color: #ffffff;

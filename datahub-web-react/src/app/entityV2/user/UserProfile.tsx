@@ -1,9 +1,11 @@
-import { Col, Row } from 'antd';
+import { Col } from 'antd';
 import React, { useContext, useState } from 'react';
 import { ReadOutlined } from '@ant-design/icons';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { PageRoutes } from '../../../conf/Global';
 import { useGetUserOwnedAssetsQuery, useGetUserQuery } from '../../../graphql/user.generated';
 import { EntityRelationship, EntityType } from '../../../types.generated';
@@ -46,22 +48,26 @@ const defaultTabDisplayConfig = {
 /**
  * Styled Components
  */
-const UserProfileWrapper = styled.div`
+const UserProfileWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     &&& .ant-tabs-nav {
         margin: 0;
     }
-
     background-color: #fff;
-    border-radius: 8px;
-`;
-
-const Content = styled.div`
-    color: #262626;
-    height: calc(100vh - 60px);
-
+    height: 100%;
+    overflow: hidden;
+    display: flex;
     &&& .ant-tabs > .ant-tabs-nav .ant-tabs-nav-wrap {
         padding-left: 15px;
     }
+
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        margin: 5px;
+    `}
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
 `;
 
 export const EmptyValue = styled.div`
@@ -72,6 +78,7 @@ export const EmptyValue = styled.div`
         font-weight: 100;
     }
 `;
+
 const ContentContainer = styled.div<{ isVisible: boolean }>`
     flex: 1;
     ${(props) => props.isVisible && 'border-right: 1px solid #e8e8e8;'}
@@ -86,6 +93,7 @@ const Tabs = styled.div``;
  * Responsible for reading & writing users.
  */
 export default function UserProfile({ urn }: Props) {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const isCompact = React.useContext(CompactContext);
@@ -211,17 +219,20 @@ export default function UserProfile({ urn }: Props) {
         >
             <EntityHead />
             {error && <ErrorSection />}
-            <UserProfileWrapper>
-                <Row>
-                    <Col xl={7} lg={7} md={7} sm={24} xs={24}>
-                        <UserSideBar sidebarData={sidebarData} refetch={refetch} />
-                    </Col>
-                    <Col xl={17} lg={17} md={17} sm={24} xs={24} style={{ borderLeft: '1px solid #E9E9E9' }}>
-                        <Content>
-                            <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
-                        </Content>
-                    </Col>
-                </Row>
+            <UserProfileWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
+                <Col xl={7} lg={7} md={7} sm={24} xs={24} style={{ height: '100%', overflow: 'auto' }}>
+                    <UserSideBar sidebarData={sidebarData} refetch={refetch} />
+                </Col>
+                <Col
+                    xl={17}
+                    lg={17}
+                    md={17}
+                    sm={24}
+                    xs={24}
+                    style={{ borderLeft: `1px solid ${colors.gray[100]}`, height: '100%' }}
+                >
+                    <RoutedTabs defaultPath={defaultTabPath} tabs={getTabs()} onTabChange={onTabChange} />
+                </Col>
             </UserProfileWrapper>
         </EntityContext.Provider>
     );

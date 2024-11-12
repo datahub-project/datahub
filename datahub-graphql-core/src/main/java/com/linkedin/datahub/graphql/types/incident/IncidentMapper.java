@@ -125,7 +125,7 @@ public class IncidentMapper {
       final CorpUser user = new CorpUser();
       user.setUrn(actor.toString());
       return user;
-    } else if (actor.equals(Constants.CORP_GROUP_ENTITY_NAME)) {
+    } else if (actor.getEntityType().equals(Constants.CORP_GROUP_ENTITY_NAME)) {
       final CorpGroup group = new CorpGroup();
       group.setUrn(actor.toString());
       return group;

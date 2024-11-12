@@ -1,4 +1,3 @@
-import * as React from 'react';
 import {
     ConsoleSqlOutlined,
     FileOutlined,
@@ -6,31 +5,33 @@ import {
     UnorderedListOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import { DataFlow, EntityType, SearchResult } from '../../../types.generated';
-import { Preview } from './preview/Preview';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import * as React from 'react';
 import { useGetDataFlowQuery, useUpdateDataFlowMutation } from '../../../graphql/dataFlow.generated';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { DataFlow, EntityType, SearchResult } from '../../../types.generated';
 import { GenericEntityProperties } from '../../entity/shared/types';
-import { DataFlowJobsTab } from '../shared/tabs/Entity/DataFlowJobsTab';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { getDataProduct, isOutputPort } from '../shared/utils';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
+import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import { DataFlowJobsTab } from '../shared/tabs/Entity/DataFlowJobsTab';
 import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { getDataProduct, isOutputPort } from '../shared/utils';
+import { Preview } from './preview/Preview';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.EXTERNAL_URL,
@@ -154,6 +155,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
         },
         {
             component: SharingAssetSection,
+        },
+        {
+            component: SidebarStructuredProperties,
         },
     ];
 

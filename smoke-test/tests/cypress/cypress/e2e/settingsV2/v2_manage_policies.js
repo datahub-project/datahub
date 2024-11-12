@@ -89,7 +89,7 @@ describe("create and manage platform and metadata policies", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
     cy.loginWithCredentials();
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
     cy.visit("/settings/permissions/policies");
   });
 
@@ -126,7 +126,7 @@ describe("create and manage platform and metadata policies", () => {
       `Metadata policy description ${test_id}`,
       metadata_policy_name,
     );
-    //cy.get('span[title="All"]').click()
+    // cy.get('span[title="All"]').click()
     editPolicy(
       `${metadata_policy_name}`,
       metadata_policy_edited,

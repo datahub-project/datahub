@@ -3,7 +3,6 @@ import styled from 'styled-components/macro';
 import { Button } from 'antd';
 import { PageTitle } from '@src/alchemy-components/components/PageTitle';
 import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
-import { GetRootGlossaryTermsQuery } from '../../graphql/glossary.generated';
 import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
 import AddGlossaryIcon from '../../images/add-term-group.svg?react';
 import { GlossaryNode, GlossaryTerm } from '../../types.generated';
@@ -59,6 +58,7 @@ const ButtonContent = styled.div`
 
 const ListWrapper = styled.div`
     padding: 4px 12px 12px 12px;
+    overflow: auto;
 `;
 
 interface Props {
@@ -66,7 +66,6 @@ interface Props {
     hasTermsOrNodes: boolean;
     nodes: (GlossaryNode | GlossaryNodeFragment)[];
     terms: (GlossaryTerm | ChildGlossaryTermFragment)[];
-    termsData: GetRootGlossaryTermsQuery | undefined;
     termsLoading: boolean;
     nodesLoading: boolean;
     refetchForTerms: () => void;
@@ -79,7 +78,6 @@ const GlossaryContentProvider = (props: Props) => {
         hasTermsOrNodes,
         nodes,
         terms,
-        termsData,
         termsLoading,
         nodesLoading,
         refetchForTerms,
@@ -110,13 +108,7 @@ const GlossaryContentProvider = (props: Props) => {
                 </ButtonContainer>
             </HeaderWrapper>
             <ListWrapper>
-                {hasTermsOrNodes && (
-                    <GlossaryEntitiesList
-                        nodes={nodes || []}
-                        terms={terms || []}
-                        termsTotal={termsData?.getRootGlossaryTerms?.total}
-                    />
-                )}
+                {hasTermsOrNodes && <GlossaryEntitiesList nodes={nodes || []} terms={terms || []} />}
             </ListWrapper>
             {!(termsLoading || nodesLoading) && !hasTermsOrNodes && (
                 <EmptyGlossarySection

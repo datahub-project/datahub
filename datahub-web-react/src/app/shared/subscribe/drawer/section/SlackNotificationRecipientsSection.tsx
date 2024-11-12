@@ -221,7 +221,7 @@ export default function SlackNotificationRecipientSection() {
                                             ref={channelInputRef}
                                             placeholder={slackInputPlaceholder}
                                             data-testid="alternative-slack-member-id"
-                                            disabled={!slack.enabled || !slackSinkSupported}
+                                            disabled={!slackSinkSupported}
                                             value={slackChannelName}
                                             onChange={onChangeChannelInput}
                                             status={!slackChannelName ? 'error' : undefined}

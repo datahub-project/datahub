@@ -1,5 +1,6 @@
 import React from 'react';
-import { Button, Checkbox, Modal, Typography, Tooltip } from 'antd';
+import { Button, Checkbox, Modal, Typography } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import { useAppConfig } from '@src/app/useAppConfig';
 import { ANTD_GRAY } from '../../../constants';

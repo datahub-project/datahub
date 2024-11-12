@@ -5,6 +5,13 @@ from typing import List, Optional
 import requests
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from pydantic import BaseModel, Field
+from requests.exceptions import ConnectionError, HTTPError
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential,
+)
 
 from datahub_integrations.sources.remote_actions.events.resource_offsets_store import (
     ResourceBasedOffsetsStore,
@@ -43,6 +50,7 @@ class DataHubEventsConsumer:
         self.default_lookback_days = lookback_days
         self.offset_id = offset_id
         self.offsets_store: Optional[ResourceBasedOffsetsStore] = None
+        self.graph = graph
         if consumer_id is not None:
             # Case 1: Provided a consumer id to load offsets for
             self.consumer_id = consumer_id
@@ -55,6 +63,12 @@ class DataHubEventsConsumer:
                 f"Starting DataHub Events Consumer with id {consumer_id} at offset id {self.offset_id}"
             )
 
+    @retry(
+        retry=retry_if_exception_type((HTTPError, ConnectionError)),
+        wait=wait_exponential(multiplier=1, min=2, max=30),
+        stop=stop_after_attempt(3),
+        reraise=True,
+    )
     def poll_events(
         self,
         topic: str,
@@ -76,6 +90,8 @@ class DataHubEventsConsumer:
         Returns:
             ExternalEventsResponse: A Pydantic model containing the response data.
         """
+
+        # TODO: Push the following into AcrylDataHubGraph, or DataHubGraph if migrated back to DataHub.
         endpoint = f"{self.base_url}/v1/events/poll"
         resolved_offset_id = offset_id or self.offset_id
         params = {
@@ -86,10 +102,13 @@ class DataHubEventsConsumer:
             "lookbackWindowDays": self.default_lookback_days,
         }
 
+        # Important: We need to add headers for authentication from the base graph object.
+        headers = {**self.graph._session.headers}
+
         # Remove None values from params
         params = {k: v for k, v in params.items() if v is not None}
 
-        response = requests.get(endpoint, params=params)
+        response = requests.get(endpoint, params=params, headers=headers)
         response.raise_for_status()  # Raise an exception for HTTP errors
         external_events_response = ExternalEventsResponse.parse_obj(response.json())
         self.offset_id = external_events_response.offsetId

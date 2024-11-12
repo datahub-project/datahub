@@ -241,7 +241,10 @@ export default class NodeBuilder {
      */
     computeNodeX(adjacencyList: NodeContext['adjacencyList']): void {
         this.topologicalNodes.forEach((node) => {
+            // Filter out parents that are in the opposite direction
+            // Can remove first filter statement if we don't store downstream -> upstream cycles in adjacencyList
             const minParentLayer = getParents(node, adjacencyList)
+                .filter((parent) => [node.direction, undefined].includes(this.nodeInformation[parent]?.direction))
                 .map((parent) => this.nodeInformation[parent]?.layer)
                 .filter((layer): layer is Layer => layer !== undefined)
                 .sort(compareLayers)?.[0];
@@ -365,7 +368,7 @@ export default class NodeBuilder {
                         .map((p) => this.nodeInformation[p].y)
                         .filter((y): y is number => y !== undefined);
                     nodeY = relativesY.length ? relativesY.reduce((a, b) => a + b) / relativesY.length : 0;
-                    if (mini && !this.transformationChildren.has(id)) {
+                    if (mini && !this.transformationChildren.get(id)?.size) {
                         nodeY += TRANSFORMATIONAL_LEAF_OFFSET;
                     }
                 }

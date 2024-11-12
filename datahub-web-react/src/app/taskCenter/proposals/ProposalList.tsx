@@ -5,6 +5,7 @@ import { CheckOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import TabToolbar from '@src/app/entityV2/shared/components/styled/TabToolbar';
 import ActionRequestListItem from '@src/app/actionrequest/item/ActionRequestListItem';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { ActionRequest, ActionRequestAssignee, ActionRequestStatus } from '../../../types.generated';
 import { Message } from '../../shared/Message';
 import {
@@ -13,7 +14,13 @@ import {
     useRejectProposalsMutation,
 } from '../../../graphql/actionRequest.generated';
 
-const ActionRequestsContainer = styled.div``;
+const ActionRequestsContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
+    ${(props) => props.$isShowNavBarRedesign && 'height: calc(100% - 200px);'}
+`;
+
+const Container = styled.div`
+    height: 100%;
+`;
 
 const ActionRequestsTitle = styled(Typography.Title)`
     && {
@@ -21,7 +28,15 @@ const ActionRequestsTitle = styled(Typography.Title)`
     }
 `;
 
-const ActionRequestsStyledList = styled(List)`
+const ActionRequestsStyledList = styled(List)<{ $isShowNavBarRedesign?: boolean }>`
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        overflow-x: hidden;
+        overflow-y: auto;
+        height: calc(100% - 150px);
+    `}
+
     &&& {
         width: 100%;
         border-color: ${(props) => props.theme.styles['border-color-base']};
@@ -61,6 +76,7 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
     const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
     const [acceptProposalsMutation] = useAcceptProposalsMutation();
     const [rejectProposalsMutation] = useRejectProposalsMutation();
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     // Policy list paging.
     const start = (page - 1) * pageSize;
@@ -176,8 +192,10 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
     // Somehow need a way to refresh on action request update.
     const selectedCount = selectedUrns.size;
 
+    const FinalContainer = isShowNavBarRedesign ? Container : React.Fragment;
+
     return (
-        <>
+        <FinalContainer>
             {loading && <Message type="loading" content="Loading your requests…" />}
             {error && message.error('Failed to load your requests :(')}
             <TabToolbar>
@@ -203,10 +221,11 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
                     </Button>
                 </BulkActions>
             </TabToolbar>
-            <ActionRequestsContainer>
+            <ActionRequestsContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
                 {title && <ActionRequestsTitle level={2}>{title}</ActionRequestsTitle>}
                 <ActionRequestsStyledList
                     bordered
+                    $isShowNavBarRedesign={isShowNavBarRedesign}
                     locale={{
                         emptyText: <Empty description="No Requests!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
                     }}
@@ -235,6 +254,6 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
                     />
                 </ActionRequestsPaginationContainer>
             </ActionRequestsContainer>
-        </>
+        </FinalContainer>
     );
 };

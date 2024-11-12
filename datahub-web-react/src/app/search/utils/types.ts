@@ -12,6 +12,7 @@ export type DownloadSearchResultsInput = {
     orFilters?: Array<AndFilterInput> | null;
     viewUrn?: string | null;
     searchFlags?: SearchFlags | null;
+    convertToPredicate?: boolean;
 };
 
 /**

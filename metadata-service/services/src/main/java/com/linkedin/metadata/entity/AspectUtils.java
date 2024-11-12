@@ -13,7 +13,6 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
-import com.linkedin.entity.client.EntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -22,7 +21,6 @@ import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -36,22 +34,18 @@ public class AspectUtils {
   private AspectUtils() {}
 
   public static Map<Urn, Aspect> batchGetLatestAspect(
-      @Nonnull OperationContext opContext,
-      String entity,
-      Set<Urn> urns,
-      String aspectName,
-      EntityClient entityClient)
-      throws Exception {
-    final Map<Urn, EntityResponse> gmsResponse =
-        entityClient.batchGetV2(opContext, entity, urns, ImmutableSet.of(aspectName));
-    final Map<Urn, Aspect> finalResult = new HashMap<>();
-    for (Urn urn : urns) {
-      EntityResponse response = gmsResponse.get(urn);
-      if (response != null && response.getAspects().containsKey(aspectName)) {
-        finalResult.put(urn, response.getAspects().get(aspectName).getValue());
-      }
-    }
-    return finalResult;
+      @Nonnull OperationContext opContext, Set<Urn> urns, String aspectName) {
+    final Map<Urn, Map<String, Aspect>> gmsResponse =
+        opContext.getAspectRetriever().getLatestAspectObjects(urns, ImmutableSet.of(aspectName));
+
+    return gmsResponse.entrySet().stream()
+        .map(
+            entry ->
+                entry.getValue().containsKey(aspectName)
+                    ? Map.entry(entry.getKey(), entry.getValue().get(aspectName))
+                    : null)
+        .filter(Objects::nonNull)
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   public static MetadataChangeProposal buildMetadataChangeProposal(

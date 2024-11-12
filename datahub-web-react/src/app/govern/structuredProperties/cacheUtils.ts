@@ -19,6 +19,13 @@ const addToCache = (existingProperties, newProperty) => {
                 lastModified: newProperty.definition.lastModified,
                 filterStatus: newProperty.definition.filterStatus,
             },
+            settings: {
+                isHidden: newProperty.settings.isHidden,
+                showInSearchFilters: newProperty.settings.showInSearchFilters,
+                showAsAssetBadge: newProperty.settings.showAsAssetBadge,
+                showInAssetSummary: newProperty.settings.showInAssetSummary,
+                showInColumnsTable: newProperty.settings.showInColumnsTable,
+            },
             __typename: 'StructuredPropertyEntity',
         },
         matchedFields: [],

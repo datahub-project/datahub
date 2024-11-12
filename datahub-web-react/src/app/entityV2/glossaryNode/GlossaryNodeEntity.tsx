@@ -7,23 +7,24 @@ import Icon, {
 } from '@ant-design/icons';
 import React from 'react';
 import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
+import GlossaryNodeIcon from '../../../images/glossary_collections_bookmark.svg?react';
 import { EntityType, GlossaryNode, SearchResult } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
+import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { EntityActionItem } from '../shared/entity/EntityActions';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import ChildrenTab from './ChildrenTab';
 import { Preview } from './preview/Preview';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { EntityActionItem } from '../shared/entity/EntityActions';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import GlossaryNodeIcon from '../../../images/glossary_collections_bookmark.svg?react';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
-import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
@@ -130,6 +131,9 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
         },
         {
             component: SharingAssetSection,
+        },
+        {
+            component: SidebarStructuredProperties,
         },
     ];
 

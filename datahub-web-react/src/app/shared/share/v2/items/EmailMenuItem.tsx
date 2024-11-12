@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { CheckOutlined, MailOutlined } from '@ant-design/icons';
 import qs from 'query-string';
 import { StyledMenuItem } from '../styledComponents';

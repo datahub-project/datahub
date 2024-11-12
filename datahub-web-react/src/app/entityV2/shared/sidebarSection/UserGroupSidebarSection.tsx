@@ -15,6 +15,12 @@ const groupLinkStyle = {
     },
 };
 
+const entityLinkTextStyle = {
+    overflow: 'hidden',
+    'white-space': 'nowrap',
+    'text-overflow': 'ellipsis',
+};
+
 type Props = {
     groupsDetails: EntityRelationship[];
 };
@@ -33,7 +39,12 @@ export const UserGroupSideBarSection = ({ groupsDetails }: Props) => {
                             return (
                                 entity &&
                                 index < entityCount && (
-                                    <EntityLink key={entity?.urn} entity={entity} styles={groupLinkStyle} />
+                                    <EntityLink
+                                        key={entity?.urn}
+                                        entity={entity}
+                                        styles={groupLinkStyle}
+                                        displayTextStyle={entityLinkTextStyle}
+                                    />
                                 )
                             );
                         })}

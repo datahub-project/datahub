@@ -40,6 +40,8 @@ import { LoadingPermissions } from './govern/Dashboard/charts/AuxViews';
 import StructuredProperties from './govern/structuredProperties/StructuredProperties';
 import { TaskCenter } from './taskCenter/TaskCenter';
 import { useIsThemeV2 } from './useIsThemeV2';
+import AnalyticsTab from './govern/Dashboard/AnalyticsTab';
+import { FormAnalyticsProvider } from './govern/Dashboard/FormAnalyticsContext';
 
 /**
  * Container for all searchable page routes
@@ -147,6 +149,15 @@ export const SearchRoutes = (): JSX.Element => {
                         <Route exact path={PageRoutes.GOVERN_DASHBOARD} render={() => <GovernDashboard />} />
                         <Route path={PageRoutes.NEW_FORM} render={() => <CreateForm mode="create" />} />
                         <Route path={PageRoutes.EDIT_FORM} render={() => <CreateForm mode="edit" />} />
+                        {/* Remove below once we have analytics turned on full time. This is a debugging route */}
+                        <Route
+                            path={PageRoutes.FORM_ANALYTICS}
+                            render={() => (
+                                <FormAnalyticsProvider>
+                                    <AnalyticsTab />
+                                </FormAnalyticsProvider>
+                            )}
+                        />
                     </>
                 )}
                 <Route component={NoPageFound} />

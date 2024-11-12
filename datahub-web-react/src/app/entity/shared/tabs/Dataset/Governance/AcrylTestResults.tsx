@@ -1,6 +1,7 @@
 import React from 'react';
 import { ReloadOutlined } from '@ant-design/icons';
-import { Tooltip, Button, message } from 'antd';
+import { Button, message } from 'antd';
+import { Tooltip } from '@components';
 import { TestResult } from '../../../../../../types.generated';
 import { TestResultsList } from './TestResultsList';
 import { TestResultsSummary } from './TestResultsSummary';

@@ -2,6 +2,8 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { Divider } from 'antd';
+import { colors } from '@src/alchemy-components';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { Domain, EntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../../../../../entity/shared/constants';
@@ -10,14 +12,14 @@ import { DomainColoredIcon } from '../../../../../../entityV2/shared/links/Domai
 import { HoverEntityTooltip } from '../../../../../../recommendations/renderer/component/HoverEntityTooltip';
 import { SEARCH_COLORS } from '../../../../../../entityV2/shared/constants';
 
-const Card = styled(Link)`
-    border-radius: 10px;
+const Card = styled(Link)<{ $isShowNavBarRedesign?: boolean }>`
+    border-radius: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '10px')};
     background-color: #ffffff;
     padding: 16px;
-    border: 2px solid transparent;
+    border: ${(props) => (props.$isShowNavBarRedesign ? `1px solid ${colors.gray[100]}` : '2px solid transparent')};
 
     :hover {
-        border: 2px solid ${SEARCH_COLORS.LINK_BLUE};
+        border: ${(props) => (props.$isShowNavBarRedesign ? '1px' : '2px')} solid ${SEARCH_COLORS.LINK_BLUE};
     }
 
     display: flex;
@@ -61,13 +63,18 @@ type Props = {
 };
 
 export const DomainCard = ({ domain, assetCount }: Props) => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const entityRegistry = useEntityRegistry();
     const name = entityRegistry.getDisplayName(EntityType.Domain, domain);
     const dataProductCount = (domain as any).dataProducts?.total || 0;
 
     return (
         <HoverEntityTooltip placement="bottom" showArrow={false} entity={domain}>
-            <Card key={domain.urn} to={entityRegistry.getEntityUrl(domain.type, domain.urn)}>
+            <Card
+                key={domain.urn}
+                to={entityRegistry.getEntityUrl(domain.type, domain.urn)}
+                $isShowNavBarRedesign={isShowNavBarRedesign}
+            >
                 <DomainColoredIcon domain={domain} size={46} />
                 <Text>
                     <Name>{name}</Name>

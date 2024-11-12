@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import moment from 'moment';
-import { DatePicker, Space, Button, Typography, Tooltip } from 'antd';
+import { DatePicker, Space, Button, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { CalendarOutlined, CaretDownOutlined } from '@ant-design/icons';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 

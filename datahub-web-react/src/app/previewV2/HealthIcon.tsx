@@ -1,5 +1,5 @@
 import React from 'react';
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import styled from 'styled-components';
 import { CheckCircleOutlined } from '@ant-design/icons';
 import AmbulanceIcon from '../../images/ambulance-icon.svg?react';

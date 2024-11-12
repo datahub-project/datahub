@@ -1,6 +1,7 @@
 import React from 'react';
 
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
 import { SeriesContainer, SeriesLabel, SeriesButtons } from './components';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 

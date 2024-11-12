@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import { TooltipPlacement } from 'antd/lib/tooltip';
 
 import { Assertion, AssertionRunEvent } from '../../../../../../../../../../types.generated';

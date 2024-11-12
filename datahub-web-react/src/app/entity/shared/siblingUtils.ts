@@ -164,19 +164,19 @@ const mergeHealthMessage = (type: HealthStatusType, mergedStatus: HealthStatus):
     if (mergedStatus === HealthStatus.Fail) {
         switch (type) {
             case HealthStatusType.Assertions:
-                return 'Some failing assertions';
+                return 'See failing assertions →';
             case HealthStatusType.Incidents:
-                return 'Some active incidents';
+                return 'See active incidents →';
             case HealthStatusType.Tests:
-                return 'Some failing governance tests';
+                return 'See failing governance tests →';
             default:
-                return 'Some checks failed';
+                return 'See failed checks →';
         }
     }
     if (mergedStatus === HealthStatus.Warn) {
         switch (type) {
             case HealthStatusType.Assertions:
-                return 'Some assertions have problems failed';
+                return 'Some assertions have problems.';
             default:
                 return 'Some checks have problems.';
         }

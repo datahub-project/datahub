@@ -1,4 +1,5 @@
-import { Form, Tooltip } from 'antd';
+import { Form } from 'antd';
+import { Tooltip } from '@components';
 import { CheckboxChangeEvent } from 'antd/lib/checkbox';
 import React, { useState } from 'react';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';

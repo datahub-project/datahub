@@ -2,16 +2,24 @@ import { colors, Icon, typography } from '@src/alchemy-components';
 import { Checkbox, Collapse, Divider, Drawer, Form, Input, Modal, Select, Spin, Typography } from 'antd';
 import styled from 'styled-components';
 
-export const PageContainer = styled.div`
+export const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     overflow: auto;
-    margin: 0 12px 12px 0;
+    margin: ${(props) => (props.$isShowNavBarRedesign ? '0' : '0 12px 12px 0')};
     padding: 16px 20px 20px 20px;
-    border-radius: 8px;
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
     display: flex;
     flex: 1;
     flex-direction: column;
     gap: 20px;
     background-color: ${colors.white};
+    ${(props) => props.$isShowNavBarRedesign && 'max-height: calc(100vh - 88px);'};
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        margin: 5px;
+    `}
 `;
 
 export const HeaderContainer = styled.div`
@@ -232,11 +240,17 @@ export const StyledCollapse = styled(Collapse)`
 
 export const CollapseHeader = styled.div`
     border-top: 1px solid ${colors.gray[1400]};
-    border-bottom: 1px solid ${colors.gray[1400]};
     padding: 16px 0;
     margin-left: -16px;
     width: calc(100% + 32px);
     padding: 16px;
+    margin-top: 12px;
+`;
+
+export const TogglesContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
 `;
 
 export const StyledSpin = styled(Spin)`

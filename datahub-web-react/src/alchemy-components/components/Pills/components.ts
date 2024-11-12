@@ -1,5 +1,5 @@
-import styled from 'styled-components';
 import { spacing } from '@components/theme';
+import styled from 'styled-components';
 
 import { PillStyleProps } from './types';
 import { getPillStyle } from './utils';
@@ -9,7 +9,7 @@ export const PillContainer = styled.div(
     (props: PillStyleProps) => ({ ...getPillStyle(props as PillStyleProps) }),
     {
         // Base root styles
-        display: 'flex',
+        display: 'inline-flex',
         alignItems: 'center',
         gap: spacing.xsm,
         cursor: 'pointer',

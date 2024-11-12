@@ -16,6 +16,7 @@ export interface LineageDisplayColumn {
     connectedToHomeNode: boolean;
     type?: SchemaFieldDataType;
     nativeDataType?: string | null;
+    lineageAsset: ColumnAsset;
 }
 
 interface Arguments {
@@ -139,6 +140,7 @@ function getDisplayColumns(
                 highlighted: columnHighlights.has(columnAsset.name),
                 hasLineage: !!columnAsset.numUpstream || !!columnAsset.numDownstream || connectedToHomeNode,
                 connectedToHomeNode,
+                lineageAsset: columnAsset,
             };
         });
 }

@@ -23,9 +23,7 @@ const startAtDataSetLineage = () => {
 describe("impact analysis", () => {
   beforeEach(() => {
     cy.setIsThemeV2Enabled(true);
-    cy.on("uncaught:exception", (err, runnable) => {
-      return false;
-    });
+    cy.on("uncaught:exception", (err, runnable) => false);
   });
 
   it("can see 1 hop of lineage by default", () => {

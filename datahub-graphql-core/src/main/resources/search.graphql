@@ -180,6 +180,12 @@ input  SearchFlags {
   Whether or not to fetch and request for structured property facets when doing a search
   """
   includeStructuredPropertyFacets: Boolean
+
+  """
+  Invoke query rewrite chain for filters based on configured rewriters. ie. expand to include
+  assets in child domains and child containers.
+  """
+  rewriteQuery: Boolean
 }
 
 """
@@ -280,6 +286,11 @@ input SearchAcrossEntitiesInput {
   of rules.
   """
   predicateFilter: String
+
+  """
+  Optional - Convert the provided filter from search inputs into a predicate to do a predicate search
+  """
+  convertToPredicate: Boolean
 }
 
 """
@@ -367,6 +378,11 @@ input ScrollAcrossEntitiesInput {
   Flags controlling search options
   """
   searchFlags: SearchFlags
+
+  """
+  Optional - Convert the provided filter from scroll inputs into a predicate to do a predicate search
+  """
+  convertToPredicate: Boolean
 }
 
 

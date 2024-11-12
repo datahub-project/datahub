@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FolderOpenOutlined } from '@ant-design/icons';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { useUserContext } from '../../../context/useUserContext';
 import MoveGlossaryEntityModal from './MoveGlossaryEntityModal';
 import MoveDomainModal from './MoveDomainModal';

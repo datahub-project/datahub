@@ -3,87 +3,93 @@ import React from 'react';
 import styled from 'styled-components/macro';
 import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
 import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
-import { EntityType, GlossaryNode, GlossaryTerm } from '../../types.generated';
+import { GlossaryNode, GlossaryTerm } from '../../types.generated';
 import { useEntityData } from '../entity/shared/EntityContext';
-import { GenericEntityProperties } from '../entity/shared/types';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { useEntityRegistry } from '../useEntityRegistry';
 import GlossaryEntityItem from './GlossaryEntityItem';
 
-interface GlossaryEntityWrapperProps {
-    termsTotal?: number | undefined;
-}
-
-const GlossaryEntityWrapper = styled.div<GlossaryEntityWrapperProps>`
-    overflow: auto;
-    height: ${(props) => (props.termsTotal ? '70vh' : '80vh')};
-`;
-
-interface EntitiesWrapperProps {
-    type: EntityType;
-    entityData: {
-        urn: string;
-        entityType: EntityType;
-        entityData: GenericEntityProperties | null;
-        loading: boolean;
-    };
-}
-
-const EntitiesWrapper = styled.div<EntitiesWrapperProps>`
-    display: flex;
-    overflow: auto;
-    flex-wrap: wrap;
-`;
-
-const EntityTitle = styled(Typography)`
-    margin: 11px 0 12px 19px;
+const SectionTitle = styled(Typography)`
+    margin: 12px 0 12px 16px;
     font-size: 12px;
     font-weight: 400;
     color: ${REDESIGN_COLORS.SUBTITLE};
 `;
 
+const GlossaryNodes = styled.div<{ isGrid?: boolean }>`
+    display: flex;
+    ${(props) =>
+        props.isGrid
+            ? `
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(24%, 1fr));
+        gap: 8px; /* Adjust gap as needed */
+        `
+            : `
+        display: flex;
+        flex-direction: column;
+        gap: 12px; /* Adjust gap as needed */
+        `}
+    width: 100%;
+    margin-bottom: 20px;
+`;
+
+const GlossaryTerms = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+`;
+
 interface Props {
     nodes: (GlossaryNode | GlossaryNodeFragment)[];
     terms: (GlossaryTerm | ChildGlossaryTermFragment)[];
-    termsTotal?: number;
 }
 
 function GlossaryEntitiesList(props: Props) {
-    const { nodes, terms, termsTotal } = props;
+    const { nodes, terms } = props;
     const entityRegistry = useEntityRegistry();
-    const entityData = useEntityData();
+    const { entityData } = useEntityData();
+    const isGlossaryEntityPage = !!entityData;
 
     return (
-        <GlossaryEntityWrapper termsTotal={termsTotal}>
-            <EntitiesWrapper type={nodes[0]?.type} entityData={entityData}>
-                {nodes.length > 0 && entityData.urn !== '' && <EntityTitle>Term Groups</EntityTitle>}
-                {nodes.map((node) => (
-                    <GlossaryEntityItem
-                        key={node.urn}
-                        name={node.properties?.name || ''}
-                        description={node.properties?.description || ''}
-                        urn={node.urn}
-                        type={node.type}
-                        descendants={
-                            (node as GlossaryNodeFragment).children?.relationships
-                                ?.map((child) => child.entity)
-                                .filter((child) => child !== null) as (GlossaryNode | GlossaryTerm)[]
-                        }
-                        displayProperties={node.displayProperties}
-                    />
-                ))}
-                {entityData.urn !== '' && <EntityTitle>Glossary Terms</EntityTitle>}
-                {terms.map((term) => (
-                    <GlossaryEntityItem
-                        key={term.urn}
-                        name={entityRegistry.getDisplayName(term.type, term)}
-                        urn={term.urn}
-                        type={term.type}
-                        description={term.properties?.description || ''}
-                    />
-                ))}
-            </EntitiesWrapper>
-        </GlossaryEntityWrapper>
+        <>
+            {nodes.length > 0 && isGlossaryEntityPage ? <SectionTitle>Term Groups</SectionTitle> : null}
+            {nodes.length ? (
+                <GlossaryNodes isGrid={!isGlossaryEntityPage}>
+                    {nodes.map((node) => (
+                        <GlossaryEntityItem
+                            key={node.urn}
+                            name={node.properties?.name || ''}
+                            description={node.properties?.description || ''}
+                            urn={node.urn}
+                            type={node.type}
+                            descendants={
+                                (node as GlossaryNodeFragment).children?.relationships
+                                    ?.map((child) => child.entity)
+                                    .filter((child) => child !== null) as (GlossaryNode | GlossaryTerm)[]
+                            }
+                            displayProperties={node.displayProperties}
+                            showAsCard={!isGlossaryEntityPage}
+                        />
+                    ))}
+                </GlossaryNodes>
+            ) : null}
+            {terms.length > 0 && isGlossaryEntityPage ? <SectionTitle>Glossary Terms</SectionTitle> : null}
+            {terms.length ? (
+                <GlossaryTerms>
+                    {terms.map((term) => (
+                        <GlossaryEntityItem
+                            key={term.urn}
+                            name={entityRegistry.getDisplayName(term.type, term)}
+                            urn={term.urn}
+                            type={term.type}
+                            description={term.properties?.description || ''}
+                        />
+                    ))}
+                </GlossaryTerms>
+            ) : null}
+        </>
     );
 }
 

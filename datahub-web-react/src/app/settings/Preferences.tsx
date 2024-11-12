@@ -1,12 +1,12 @@
+import { Card, Divider, message, Switch, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Divider, Typography, Switch, Card, message } from 'antd';
 import { useUpdateUserSettingMutation } from '../../graphql/me.generated';
 import { UserSetting } from '../../types.generated';
-import { ANTD_GRAY } from '../entity/shared/constants';
 import analytics, { EventType } from '../analytics';
 import { useUserContext } from '../context/useUserContext';
-import { useIsThemeV2Toggleable, useIsThemeV2EnabledForUser, useIsThemeV2 } from '../useIsThemeV2';
+import { ANTD_GRAY } from '../entity/shared/constants';
+import { useIsThemeV2, useIsThemeV2EnabledForUser, useIsThemeV2Toggleable } from '../useIsThemeV2';
 
 const Page = styled.div`
     width: 100%;

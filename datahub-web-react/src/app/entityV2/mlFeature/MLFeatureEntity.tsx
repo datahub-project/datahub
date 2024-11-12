@@ -17,14 +17,15 @@ import { SidebarTagsSection } from '../shared/containers/profile/sidebar/Sidebar
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
 import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { FeatureTableTab } from '../shared/tabs/ML/MlFeatureFeatureTableTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
 import { Preview } from './preview/Preview';
-import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
-import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 
 const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.RAISE_INCIDENT]);
 
@@ -148,6 +149,9 @@ export class MLFeatureEntity implements Entity<MlFeature> {
         },
         {
             component: SharingAssetSection,
+        },
+        {
+            component: SidebarStructuredProperties,
         },
     ];
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Tooltip, Typography } from 'antd';
+import { Button, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { ANTD_GRAY } from '../../../../../../constants';
 
 const Container = styled(Button)<{ enabled }>`

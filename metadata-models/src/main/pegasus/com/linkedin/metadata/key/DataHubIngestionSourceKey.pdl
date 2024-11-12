@@ -9,6 +9,7 @@ namespace com.linkedin.metadata.key
 record DataHubIngestionSourceKey {
   /**
    * A unique id for the Ingestion Source, either generated or provided
+   * Note, this is only Searchable so the `systemCreated` field auto-populates on the search index.
    */
   id: string
 }

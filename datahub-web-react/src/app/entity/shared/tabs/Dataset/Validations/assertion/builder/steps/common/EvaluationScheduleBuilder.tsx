@@ -1,7 +1,8 @@
 import React, { useMemo, useRef } from 'react';
 import styled from 'styled-components';
 import cronstrue from 'cronstrue';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import { ClockCircleOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { Cron, PeriodType, SetValueFunctionExtra } from 'react-js-cron';
 import { AssertionType, CronSchedule } from '../../../../../../../../../../types.generated';

@@ -1,5 +1,6 @@
 import React from 'react';
-import { Tooltip, Badge } from 'antd';
+import { Badge } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 
 import { capitalizeFirstLetter } from '../../../../../../shared/textUtil';

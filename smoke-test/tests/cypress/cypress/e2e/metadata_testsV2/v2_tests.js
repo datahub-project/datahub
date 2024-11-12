@@ -4,7 +4,7 @@ const urn =
   "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleCypressHdfsDataset,PROD)";
 const datasetName = "SampleCypressHdfsDataset";
 const number = Math.floor(Math.random() * 100000);
-const testName = "Cypress Tag Test " + number;
+const testName = `Cypress Tag Test ${number}`;
 const testDescription = "Cyprress test description";
 
 describe("create, edit and remove metadata test", () => {
@@ -32,7 +32,7 @@ describe("create, edit and remove metadata test", () => {
     // create new test at governance > tests, test conditions and save the test
     setTestsConfigFlag(true);
     cy.loginWithCredentials();
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
     cy.visit("/tests");
     cy.get('[aria-label="Ingestion"]').should("be.visible");
     cy.clickOptionWithText("Create");

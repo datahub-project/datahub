@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
-import { Dropdown, MenuProps, Tooltip } from 'antd';
+import { Dropdown, MenuProps } from 'antd';
+import { Tooltip } from '@components';
 import { CaretDownFilled, StarFilled, StarOutlined } from '@ant-design/icons';
 import SubscriptionDrawer from './drawer/SubscriptionDrawer';
 import { useEntityData, useMutationUrn } from '../../entity/shared/EntityContext';

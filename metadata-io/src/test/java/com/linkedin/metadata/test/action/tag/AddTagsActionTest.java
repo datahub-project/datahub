@@ -7,7 +7,7 @@ import static org.mockito.Mockito.mock;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.resource.ResourceReference;
-import com.linkedin.metadata.service.TagService;
+import com.linkedin.metadata.service.TagServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
 import io.datahubproject.metadata.context.OperationContext;
@@ -59,7 +59,7 @@ public class AddTagsActionTest {
 
   @Test
   private void testApply() throws Exception {
-    TagService service = mock(TagService.class);
+    TagServiceAsync service = mock(TagServiceAsync.class);
 
     AddTagsAction action = new AddTagsAction(service);
     ActionParameters params = new ActionParameters(VALID_PARAMS);
@@ -84,14 +84,14 @@ public class AddTagsActionTest {
 
   @Test
   private void testValidateValidParams() {
-    AddTagsAction action = new AddTagsAction(mock(TagService.class));
+    AddTagsAction action = new AddTagsAction(mock(TagServiceAsync.class));
     ActionParameters params = new ActionParameters(VALID_PARAMS);
     action.validate(params);
   }
 
   @Test
   private void testValidateInvalidParams() {
-    AddTagsAction action = new AddTagsAction(mock(TagService.class));
+    AddTagsAction action = new AddTagsAction(mock(TagServiceAsync.class));
     ActionParameters params = new ActionParameters(Collections.emptyMap());
     Assert.assertThrows(InvalidActionParamsException.class, () -> action.validate(params));
   }

@@ -95,7 +95,7 @@
                   value: 0.3
                 {{/regexp_based_factors}}
       extraArgs:
-        extra_pip_requirements: '{{&ingestion.extra_pip_requirements}}{{^ingestion.extra_pip_requirements}}["acryl-datahub-cloud[datahub-usage-reporting]@/metadata-ingestion","polars","elasticsearch==7.13.4","numpy<2","scipy","opensearch-py==2.4.2","pyarrow"]{{/ingestion.extra_pip_requirements}}'
+        extra_pip_requirements: '{{&ingestion.extra_pip_requirements}}{{^ingestion.extra_pip_requirements}}["{{&ingestion.acryl-cloud-package}}{{^ingestion.acryl-cloud-package}}acryl-datahub-cloud[datahub-usage-reporting]{{/ingestion.acryl-cloud-package}}","polars","elasticsearch==7.13.4","numpy<2","scipy","opensearch-py==2.4.2","pyarrow"]{{/ingestion.extra_pip_requirements}}'
       debugMode: false
       executorId: default
     source:

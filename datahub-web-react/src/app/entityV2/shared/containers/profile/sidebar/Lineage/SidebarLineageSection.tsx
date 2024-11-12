@@ -3,8 +3,9 @@ import { useGetDefaultLineageStartTimeMillis } from '@app/lineage/utils/useGetLi
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { ArrowDownOutlined, ArrowUpOutlined, PartitionOutlined } from '@ant-design/icons';
+import UpstreamHealth from '@src/app/entityV2/shared/embed/UpstreamHealth/UpstreamHealth';
 import { useGetSearchAcrossLineageCountsQuery } from '../../../../../../../graphql/lineage.generated';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { SidebarSection } from '../SidebarSection';
@@ -98,6 +99,7 @@ const SidebarLineageSection = () => {
             content={
                 <>
                     {loading && <SidebarLineageLoadingSection />}
+                    {!loading && <UpstreamHealth />}
                     {!loading && directUpstreamCount > 0 && (
                         <Section key="upstream">
                             <Tooltip

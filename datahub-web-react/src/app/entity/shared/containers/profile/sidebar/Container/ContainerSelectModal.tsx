@@ -1,4 +1,5 @@
-import { Button, Form, Modal, Select, Tag, Tooltip } from 'antd';
+import { Button, Form, Modal, Select, Tag } from 'antd';
+import { Tooltip } from '@components';
 import React, { ReactNode, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
 import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/search.generated';

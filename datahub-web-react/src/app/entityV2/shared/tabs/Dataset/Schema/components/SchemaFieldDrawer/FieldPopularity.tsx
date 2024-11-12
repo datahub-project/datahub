@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { UsageQueryResult } from '../../../../../../../../types.generated';
 import { pathMatchesNewPath } from '../../../../../../dataset/profile/schema/utils/utils';
 import { PopularityBars } from './PopularityBars';

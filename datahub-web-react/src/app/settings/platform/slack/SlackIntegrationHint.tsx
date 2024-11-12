@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Button, Tooltip, Typography } from 'antd';
+import { Button, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { CloseOutlined } from '@ant-design/icons';
 import { purple } from '@ant-design/colors';
 import { ANTD_GRAY } from '../../../entity/shared/constants';

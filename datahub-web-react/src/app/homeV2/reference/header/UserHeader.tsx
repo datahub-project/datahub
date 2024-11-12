@@ -1,6 +1,7 @@
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { Skeleton } from 'antd';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { useUserContext } from '../../../context/useUserContext';
 import { GreetingText } from './GreetingText';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -25,16 +26,19 @@ const GreetingTextWrapper = styled.div`
     opacity: 0.8;
 `;
 
-const SkeletonButton = styled(Skeleton.Button)`
+const SkeletonButton = styled(Skeleton.Button)<{ $isShowNavBarRedesign?: boolean }>`
     &&& {
         width: 100%;
         min-height: 240px;
-        border-top-left-radius: 16px;
-        border-top-right-radius: 16px;
+        border-top-left-radius: ${(props) =>
+            props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
+        border-top-right-radius: ${(props) =>
+            props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '16px'};
     }
 `;
 
 export const UserHeader = () => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const entityRegistry = useEntityRegistry();
     const { user } = useUserContext();
     const photoUrl = user?.editableProperties?.pictureLink || undefined;
@@ -45,7 +49,7 @@ export const UserHeader = () => {
     return (
         <Container>
             {isUserInitializing || !user ? (
-                <SkeletonButton shape="square" size="large" active block />
+                <SkeletonButton shape="square" size="large" active block $isShowNavBarRedesign={isShowNavBarRedesign} />
             ) : (
                 <>
                     <UserHeaderImage photoUrl={photoUrl} displayName={displayName || undefined} />

@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { Entity } from '../../../../types.generated';
 import { EntityLink } from './EntityLink';
 import { EntityLinkListSkeleton } from './EntityLinkListSkeleton';
@@ -42,6 +42,7 @@ type Props = {
     showMore?: boolean;
     showMoreComponent?: React.ReactNode;
     showMoreCount?: number;
+    showHealthIcon?: boolean;
     empty?: React.ReactNode;
     onClickMore?: () => void;
     onClickTitle?: () => void;
@@ -56,6 +57,7 @@ export const EntityLinkList = ({
     showMoreComponent,
     showMore = false,
     showMoreCount,
+    showHealthIcon = false,
     empty,
     onClickMore,
     onClickTitle,
@@ -80,7 +82,14 @@ export const EntityLinkList = ({
             <List data-testid="test">
                 {(!isEmpty &&
                     entities.map((entity) => {
-                        return <EntityLink key={`${title}-${entity?.urn}`} entity={entity ?? null} render={render} />;
+                        return (
+                            <EntityLink
+                                key={`${title}-${entity?.urn}`}
+                                entity={entity ?? null}
+                                render={render}
+                                showHealthIcon={showHealthIcon}
+                            />
+                        );
                     })) || <>{empty || <DefaultEmptyEntityList />}</>}
             </List>
             {showMore && (

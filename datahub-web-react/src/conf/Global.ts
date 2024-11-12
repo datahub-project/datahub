@@ -26,6 +26,7 @@ export enum PageRoutes {
     GOVERN_DASHBOARD = '/govern/dashboard',
     NEW_FORM = '/govern/dashboard/new-form',
     EDIT_FORM = '/govern/dashboard/edit-form/:urn',
+    FORM_ANALYTICS = '/govern/dashboard/form-analytics',
     DOMAINS = '/domains',
     DOMAIN = '/domain',
     GLOSSARY = '/glossary',

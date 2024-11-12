@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import { DatabaseOutlined } from '@ant-design/icons';
 import { Typography } from 'antd';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { useGetTotalDatasetsQuery } from '../../../graphql/dataset_health.generated';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { AssertionsSummary } from './assertion/AssertionsSummary';
@@ -9,10 +10,18 @@ import { IncidentsSummary } from './incident/IncidentsSummary';
 import { EntityType } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
 
-const Container = styled.div`
+const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     height: 100%;
     background-color: white;
-    border-radius: 8px;
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        overflow:hidden;
+        margin: 5px;
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+    `}
 `;
 
 const Header = styled.div`
@@ -37,11 +46,17 @@ const SubTitle = styled(Typography.Paragraph)`
     }
 `;
 
-const Content = styled.div`
+const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     padding-left: 40px;
     padding-right: 40px;
     padding-top: 20px;
-    background-color: ${ANTD_GRAY[2]};
+    background-color: ${(props) => (props.$isShowNavBarRedesign ? 'white' : ANTD_GRAY[2])};
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        overflow-y: auto;
+        height: calc(100% - 115px);
+    `}
 `;
 
 const ContentSectionTitle = styled(Typography.Title)`
@@ -87,6 +102,7 @@ export const DatasetHealthPage = () => {
     // The total number of datasets in the instance (the denominator for metrics).
     const userContext = useUserContext();
     const viewUrn = userContext.localState?.selectedViewUrn;
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     const { data } = useGetTotalDatasetsQuery({
         variables: {
@@ -103,7 +119,7 @@ export const DatasetHealthPage = () => {
     const total = data?.searchAcrossEntities?.total || 0;
 
     return (
-        <Container>
+        <Container $isShowNavBarRedesign={isShowNavBarRedesign}>
             <Header>
                 <Title level={3}>
                     <StyledDatabaseOutlined />
@@ -111,7 +127,7 @@ export const DatasetHealthPage = () => {
                 </Title>
                 <SubTitle type="secondary">{PAGE_SUB_TITLE}</SubTitle>
             </Header>
-            <Content>
+            <Content $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <ContentSectionTitle level={3}>Overview</ContentSectionTitle>
                 <ContentSection>
                     <LeftColumn>

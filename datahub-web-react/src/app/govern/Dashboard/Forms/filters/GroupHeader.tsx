@@ -1,6 +1,7 @@
 import { Button as ButtonComponent, Icon } from '@src/alchemy-components';
 import { LogicalOperatorType } from '@src/app/tests/builder/steps/definition/builder/types';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import { ActionsContainer, CardIcons, OperationButton, ToolbarContainer } from './styledComponents';
 

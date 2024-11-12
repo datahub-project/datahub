@@ -484,7 +484,11 @@ plugins: Dict[str, Set[str]] = {
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
-    | {"teradatasqlalchemy>=17.20.0.0"},
+    | {
+        # On 2024-10-30, teradatasqlalchemy 20.0.0.2 was released. This version seemed to cause issues
+        # in our CI, so we're pinning the version for now.
+        "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
+    },
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},

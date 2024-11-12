@@ -10,10 +10,13 @@ import { getAssertionGroupName } from '../acrylUtils';
 import { ActionsColumn } from '../AcrylAssertionsTableColumns';
 import { AssertionListFilter } from './types';
 import { getQueryParams } from '../assertionUtils';
+import { AcrylAssertionTagColumn } from './Tags/AcrylAssertionTagColumn';
 
 const CategoryType = styled.div`
     font-family: Mulish;
     color: ${REDESIGN_COLORS.BODY_TEXT};
+    display: flex;
+    align-items: center;
 `;
 
 const LastRun = styled(Typography.Text)`
@@ -43,7 +46,7 @@ export const useAssertionsTableColumns = ({
                 dataIndex: 'name',
                 key: 'name',
                 render: (_, record) => <AssertionName record={record} groupBy={groupBy} contract={contract} />,
-                width: '50%',
+                width: '42%',
             },
             {
                 title: 'Category',
@@ -51,7 +54,7 @@ export const useAssertionsTableColumns = ({
                 key: 'type',
                 render: (_, record) =>
                     !record.groupName && <CategoryType>{getAssertionGroupName(record?.type)}</CategoryType>,
-                width: '11%',
+                width: '10%',
             },
             {
                 title: 'Last Run',
@@ -60,20 +63,21 @@ export const useAssertionsTableColumns = ({
                 render: (_, record) => {
                     return !record.groupName && <LastRun>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>;
                 },
-                width: '12%',
+                width: '10%',
             },
             {
                 title: 'Tags',
                 dataIndex: 'tags',
                 key: 'tags',
-                width: '12%',
-                render: (_, record) => <div>{record.tags?.name}</div>,
+                width: '20%',
+                render: (_, record) =>
+                    !record.groupName && <AcrylAssertionTagColumn record={record} refetch={refetch} />,
             },
             {
                 title: '',
                 dataIndex: '',
                 key: 'actions',
-                width: '10%',
+                width: '15%',
                 render: (_, record) => {
                     const isSqlAssertion = record.type === AssertionType.Sql;
                     return (

@@ -1,16 +1,25 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import FilterCenterFocusOutlinedIcon from '@mui/icons-material/FilterCenterFocusOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PublicIcon from '@mui/icons-material/Public';
+import { GlobeHemisphereEast, Lock } from '@phosphor-icons/react';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { ANTD_GRAY, REDESIGN_COLORS, SEARCH_COLORS } from '../../shared/constants';
 import { ViewOptionTooltipTitle } from './ViewOptionTooltipTitle';
 import { UserDefaultViewIcon } from '../shared/UserDefaultViewIcon';
 import { GlobalDefaultViewIcon } from '../shared/GlobalDefaultViewIcon';
 import { ViewDropdownMenu } from '../menu/ViewDropdownMenu';
 import { DataHubView } from '../../../../types.generated';
-import { ViewContainer, ViewContent, ViewDescription, ViewIcon, ViewLabel } from './styledComponents';
+import {
+    ViewContainer,
+    ViewContent,
+    ViewDescription,
+    ViewIcon,
+    ViewIconNavBarRedesign,
+    ViewLabel,
+} from './styledComponents';
 
 const ICON_WIDTH = 30;
 
@@ -89,9 +98,22 @@ export const ViewOptionName = ({
     onClickEdit,
     onClickPreview,
 }: Props) => {
-    return (
-        <ViewContainer role="row">
-            <ViewIcon className="create-view-icon" selected={selected}>
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+
+    const renderViewIcon = () => {
+        if (isShowNavBarRedesign) {
+            return (
+                <Tooltip placement="bottom" showArrow title={type === 'GLOBAL' ? 'Public' : 'Private'}>
+                    <ViewIconNavBarRedesign $selected={selected}>
+                        {type === 'GLOBAL' && <GlobeHemisphereEast size={22} />}
+                        {type === 'PERSONAL' && <Lock size={22} />}
+                    </ViewIconNavBarRedesign>
+                </Tooltip>
+            );
+        }
+
+        return (
+            <ViewIcon className="create-view-icon" $selected={selected}>
                 <FilterCenterFocusOutlinedIconStyle />
                 {(isUserDefault || isGlobalDefault) && (
                     <IconPlaceholder>
@@ -118,14 +140,20 @@ export const ViewOptionName = ({
                     </ViewType>
                 </Tooltip>
             </ViewIcon>
+        );
+    };
+
+    return (
+        <ViewContainer role="row" $selected={selected} $isShowNavBarRedesign={isShowNavBarRedesign}>
+            {renderViewIcon()}
             <Tooltip
                 placement="bottom"
                 showArrow
                 title={<ViewOptionTooltipTitle name={name} description={description} />}
             >
-                <ViewContent>
-                    <ViewLabel>{name}</ViewLabel>
-                    <ViewDescription>{description}</ViewDescription>
+                <ViewContent $isShowNavBarRedesign={isShowNavBarRedesign}>
+                    <ViewLabel $isShowNavBarRedesign={isShowNavBarRedesign}>{name}</ViewLabel>
+                    <ViewDescription $isShowNavBarRedesign={isShowNavBarRedesign}>{description}</ViewDescription>
                 </ViewContent>
             </Tooltip>
             <ViewDropdownMenuContainer>

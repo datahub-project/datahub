@@ -1,5 +1,6 @@
 import React from 'react';
-import { Avatar, Tooltip } from 'antd';
+import { Avatar } from 'antd';
+import { Tooltip } from '@components';
 import { CorpUser, EntityType } from '../../../../../../../types.generated';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import ActorAvatar from '../../../../ActorAvatar';

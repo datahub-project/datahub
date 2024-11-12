@@ -1,5 +1,5 @@
 import React from 'react';
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import styled from 'styled-components';
 import { ConsoleSqlOutlined, UserOutlined, ToolOutlined, EyeOutlined } from '@ant-design/icons';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';

@@ -1,4 +1,4 @@
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import OutputIcon from '@mui/icons-material/Output';
 import React from 'react';

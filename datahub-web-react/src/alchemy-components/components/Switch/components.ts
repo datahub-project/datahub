@@ -1,7 +1,7 @@
 import styled from 'styled-components';
 
-import { ColorOptions, SizeOptions } from '@components/theme/config';
 import { borders, colors, shadows, spacing, transition } from '@components/theme';
+import { ColorOptions, SizeOptions } from '@components/theme/config';
 
 import { Icon } from '../Icon';
 
@@ -23,13 +23,16 @@ export const Label = styled.div({
     alignItems: 'flex-start',
 });
 
-export const SwitchContainer = styled.label<{ labelPosition: SwitchLabelPosition }>(({ labelPosition }) => ({
-    display: 'flex',
-    flexDirection: labelPosition === 'top' ? 'column' : 'row',
-    alignItems: labelPosition === 'top' ? 'flex-start' : 'center',
-    gap: spacing.sm,
-    cursor: 'pointer',
-}));
+export const SwitchContainer = styled.label<{ labelPosition: SwitchLabelPosition; isDisabled?: boolean }>(
+    ({ labelPosition, isDisabled }) => ({
+        display: 'flex',
+        flexDirection: labelPosition === 'top' ? 'column' : 'row',
+        alignItems: labelPosition === 'top' ? 'flex-start' : 'center',
+        gap: spacing.sm,
+        cursor: isDisabled ? 'not-allowed' : 'pointer',
+        width: 'max-content',
+    }),
+);
 
 export const Slider = styled.div<{ size?: SizeOptions; isSquare?: boolean; isDisabled?: boolean }>(
     ({ size, isSquare, isDisabled }) => ({
@@ -62,6 +65,7 @@ export const Slider = styled.div<{ size?: SizeOptions; isSquare?: boolean; isDis
         backgroundColor: colors.gray[100],
         padding: spacing.xxsm,
         transition: `${transition.duration.normal} all`,
+        boxSizing: 'content-box',
     },
 );
 

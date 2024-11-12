@@ -7,3 +7,4 @@ bootstrap:
       # async: true
       mcps_location: "bootstrapmcp/datahub-test-mcp.yaml"
       values_env: "DATAHUB_TEST_VALUES_ENV"
+      revision_env: "DATAHUB_TEST_REVISION_ENV"

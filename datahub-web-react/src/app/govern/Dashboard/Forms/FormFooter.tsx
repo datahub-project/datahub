@@ -1,5 +1,5 @@
 import { useApolloClient } from '@apollo/client';
-import { Button } from '@components';
+import { Button, Tooltip } from '@components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
@@ -8,7 +8,6 @@ import { useIsThemeV2 } from '@src/app/useIsThemeV2';
 import { PageRoutes } from '@src/conf/Global';
 import { useCreateFormMutation, useUpdateFormMutation } from '@src/graphql/form.generated';
 import { FormState, FormType, SearchAcrossEntitiesInput, SearchResults } from '@src/types.generated';
-import { Tooltip } from 'antd';
 import React, { useContext, useEffect, useState } from 'react';
 import { useHistory, useParams } from 'react-router';
 import { Link } from 'react-router-dom';

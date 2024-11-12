@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Button, Tag, Typography, Tooltip } from 'antd';
+import { Button, Tag, Typography } from 'antd';
+import { Tooltip } from '@components';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { SUCCESS_COLOR_HEX } from '../entity/shared/tabs/Incident/incidentUtils';
 import { useGetTestResultsSummaryQuery } from '../../graphql/test.generated';

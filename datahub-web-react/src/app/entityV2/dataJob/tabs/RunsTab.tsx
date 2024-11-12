@@ -1,5 +1,6 @@
 import { DeliveredProcedureOutlined } from '@ant-design/icons';
-import { Pagination, Table, Tooltip, Typography } from 'antd';
+import { Pagination, Table, Typography } from 'antd';
+import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 

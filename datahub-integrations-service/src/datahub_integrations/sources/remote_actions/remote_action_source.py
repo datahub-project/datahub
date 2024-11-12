@@ -53,6 +53,9 @@ class RemoteActionSource(Source):
 name: {{ action_urn }}
 datahub: 
   server: {{ datahub_server }}
+  {% if datahub_token is not none %}
+  token: {{ datahub_token }}
+  {% endif %}
 source:
   type: 'datahub_integrations.sources.remote_actions.events.datahub_events_source.DataHubEventSource'
   config:
@@ -121,6 +124,7 @@ action:
             ),  # Link to GMS provided by the Ingestion Source context. Do not require additional config.
             lookback_days=self.config.lookback_days,
             force_full_refresh=self.config.force_full_refresh,
+            datahub_token=self.graph.config.token if self.graph else None,
         )
 
     def get_report(self) -> SourceReport:

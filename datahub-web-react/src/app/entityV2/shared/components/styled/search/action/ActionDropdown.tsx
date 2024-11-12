@@ -1,5 +1,6 @@
 import React from 'react';
-import { Button, Dropdown, Menu, Tooltip } from 'antd';
+import { Button, Dropdown, Menu } from 'antd';
+import { Tooltip } from '@components';
 import { CaretDownOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import MenuItem from 'antd/lib/menu/MenuItem';

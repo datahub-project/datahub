@@ -1,5 +1,6 @@
 import { FilterOutlined, SearchOutlined } from '@ant-design/icons';
-import { Input, Popover } from 'antd';
+import { Input } from 'antd';
+import { Popover } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import { pluralize } from '../../../../../shared/textUtil';

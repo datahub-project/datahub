@@ -90,7 +90,8 @@ public class EvaluateTestsStep implements UpgradeStep {
             numThreads,
             0L,
             TimeUnit.MILLISECONDS,
-            new LinkedBlockingQueue<>(queueSize));
+            new LinkedBlockingQueue<>(queueSize),
+            new ThreadPoolExecutor.CallerRunsPolicy());
     String envEvalMode = System.getenv(EvaluateTests.EVALUATION_MODE);
     evaluationMode = TestEngine.EvaluationMode.getEvaluationMode(envEvalMode);
   }

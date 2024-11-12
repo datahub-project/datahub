@@ -32,7 +32,7 @@ describe("create and manage freshness assertion", () => {
     // create freshness assertion, submit, verify assertion on ui
     setAssertionMonitorsFlag(true);
     cy.loginWithCredentials();
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
     cy.goToDataset(datasetUrn, datasetName);
     cy.openEntityTab("Quality");
     clickElement("#acryl-validation-tab-assertions-sub-tab");

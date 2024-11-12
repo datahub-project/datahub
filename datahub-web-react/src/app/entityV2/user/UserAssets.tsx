@@ -4,8 +4,7 @@ import { UnionType } from '../../search/utils/constants';
 import { EmbeddedListSearchSection } from '../shared/components/styled/search/EmbeddedListSearchSection';
 
 const UserAssetsWrapper = styled.div`
-    height: calc(100vh - 114px);
-    overflow: auto;
+    height: 100%;
 `;
 
 type Props = {

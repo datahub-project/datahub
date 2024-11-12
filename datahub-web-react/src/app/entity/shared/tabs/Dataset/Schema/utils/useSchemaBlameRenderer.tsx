@@ -1,6 +1,7 @@
 import React from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
-import { Button, Tooltip, Typography } from 'antd';
+import { Button, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { ScanOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { SchemaField, SchemaFieldBlame } from '../../../../../../../types.generated';

@@ -1,61 +1,14 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { Link } from 'react-router-dom';
-import styled from 'styled-components/macro';
 import { Tooltip } from 'antd';
 import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
 import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
 import { DisplayProperties, EntityType, GlossaryNode, GlossaryTerm } from '../../types.generated';
 import { useEntityData } from '../entity/shared/EntityContext';
-import { GenericEntityProperties } from '../entity/shared/types';
-import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { useEntityRegistry } from '../useEntityRegistry';
 import GlossaryNodeCard from './GlossaryNodeCard';
-import GlossaryTermItem from './GlossaryTermItem';
-
-const GlossaryItem = styled.div`
-    align-items: center;
-    color: ${REDESIGN_COLORS.SUBTITLE};
-    font-size: 14px;
-    font-weight: 400;
-    line-height: normal;
-    width: 100%;
-    height: 100%;
-    position: relative;
-    overflow: hidden;
-    padding: 8px;
-
-    .anticon-folder {
-        margin-right: 8px;
-    }
-`;
-
-interface ItemWrapperProps {
-    type: EntityType;
-    entityData: {
-        urn: string;
-        entityType: EntityType;
-        entityData: GenericEntityProperties | null;
-        loading: boolean;
-    };
-}
-
-const ItemWrapper = styled.div<ItemWrapperProps>`
-    transition: 0.15s;
-    width: 100%;
-    flex-basis: ${(props) => (props.type === EntityType.GlossaryNode && !props.entityData.urn ? '24%' : 'auto')};
-    min-width: 200px;
-    & a {
-        display: block;
-        width: 100%;
-        height: 100%;
-    }
-    &:hover {
-        transition: 0.15s;
-        background-color: ${REDESIGN_COLORS.LIGHT_GREY};
-        border-radius: 16px;
-    }
-`;
+import GlossaryListCard from './GlossaryListCard';
 
 interface Props {
     name: string;
@@ -64,6 +17,7 @@ interface Props {
     type: EntityType;
     descendants?: (GlossaryNode | GlossaryNodeFragment | GlossaryTerm | ChildGlossaryTermFragment)[];
     displayProperties?: Maybe<DisplayProperties>;
+    showAsCard?: boolean; // Currently only supported for Nodes!
 }
 
 // iterates through the layers of descendents and counts the max number of layers
@@ -130,32 +84,29 @@ function GlossaryEntityItem(props: Props) {
 
     return (
         <Tooltip title={name} showArrow={false} placement="top">
-            <ItemWrapper type={type} entityData={entityData}>
-                <Link to={`${entityRegistry.getEntityUrl(type, urn)}`}>
-                    <GlossaryItem>
-                        {type === EntityType.GlossaryNode && !entityData.urn ? (
-                            <GlossaryNodeCard
-                                name={name}
-                                type={type}
-                                description={description}
-                                displayProperties={displayProperties}
-                                urn={urn}
-                                termCount={termCount}
-                                nodeCount={nodeCount}
-                                maxDepth={maxDepth}
-                            />
-                        ) : (
-                            <GlossaryTermItem
-                                name={name}
-                                description={description}
-                                type={type}
-                                urn={urn}
-                                entityData={entityData}
-                            />
-                        )}
-                    </GlossaryItem>
-                </Link>
-            </ItemWrapper>
+            <Link to={`${entityRegistry.getEntityUrl(type, urn)}`}>
+                {type === EntityType.GlossaryNode && props.showAsCard ? (
+                    <GlossaryNodeCard
+                        name={name}
+                        description={description}
+                        displayProperties={displayProperties}
+                        urn={urn}
+                        termCount={termCount}
+                        nodeCount={nodeCount}
+                        maxDepth={maxDepth}
+                    />
+                ) : (
+                    <GlossaryListCard
+                        name={name}
+                        description={description}
+                        type={type}
+                        urn={urn}
+                        entityData={entityData}
+                        termCount={termCount}
+                        nodeCount={nodeCount}
+                    />
+                )}
+            </Link>
         </Tooltip>
     );
 }

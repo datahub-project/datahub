@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ExclamationCircleOutlined } from '@ant-design/icons';
-import { message, Tooltip } from 'antd';
+import { message } from 'antd';
+import { Tooltip } from '@components';
 import { useEntityData, useRefetch } from '../../../entity/shared/EntityContext';
 import { ActionMenuItem } from './styledComponents';
 import { useEntityRegistry } from '../../../useEntityRegistry';

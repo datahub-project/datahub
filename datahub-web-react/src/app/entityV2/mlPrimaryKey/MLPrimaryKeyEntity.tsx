@@ -1,27 +1,28 @@
-import * as React from 'react';
 import { DotChartOutlined, PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { MlPrimaryKey, EntityType, SearchResult } from '../../../types.generated';
-import { Preview } from './preview/Preview';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { GenericEntityProperties } from '../../entity/shared/types';
+import * as React from 'react';
 import { useGetMlPrimaryKeyQuery } from '../../../graphql/mlPrimaryKey.generated';
+import { EntityType, MlPrimaryKey, SearchResult } from '../../../types.generated';
+import { GenericEntityProperties } from '../../entity/shared/types';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
+import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { FeatureTableTab } from '../shared/tabs/ML/MlPrimaryKeyFeatureTableTab';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
-import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
+import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
-import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
+import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
+import { FeatureTableTab } from '../shared/tabs/ML/MlPrimaryKeyFeatureTableTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
+import { Preview } from './preview/Preview';
 
 /**
  * Definition of the DataHub MLPrimaryKey entity.
@@ -133,6 +134,9 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
         },
         {
             component: SharingAssetSection,
+        },
+        {
+            component: SidebarStructuredProperties,
         },
     ];
 

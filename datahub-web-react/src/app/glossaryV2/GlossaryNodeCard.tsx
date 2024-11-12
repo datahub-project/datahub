@@ -1,10 +1,11 @@
-import { Tooltip, Typography } from 'antd';
-import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components/macro';
+import { Tooltip, Typography } from 'antd';
+import { Maybe } from 'graphql/jsutils/Maybe';
+import { colors } from '@src/alchemy-components';
 import TermIcon from '../../images/collections_bookmark.svg?react';
 import TermGroupIcon from '../../images/glossary_collections_bookmark.svg?react';
-import { DisplayProperties, EntityType } from '../../types.generated';
+import { DisplayProperties } from '../../types.generated';
 import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { generateColorFromPalette } from './colorUtils';
 
@@ -35,25 +36,13 @@ const GlossaryItemCardHeader = styled.div<GlossaryItemCardHeaderProps>`
     }
 `;
 
-const GlossaryItemCount = styled.span<{ count: number }>`
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    border-radius: 20px;
-    background: ${(props) => (props.count > 0 ? ANTD_GRAY_V2[14] : ANTD_GRAY_V2[14])};
-    color: ${(props) => (props.count > 0 ? REDESIGN_COLORS.SUB_TEXT : DISABLED_TEXT_COLOR)};
-    padding: 5px 10px;
-    width: max-content;
-    svg {
-        height: 14px;
-        width: 14px;
-        path {
-            fill: ${(props) => (props.count > 0 ? REDESIGN_COLORS.SUB_TEXT : DISABLED_TEXT_COLOR)};
-        }
-    }
-    border: 1px solid transparent;
-    :hover {
-        border: 1px solid ${(props) => (props.count > 0 ? ANTD_GRAY_V2[13] : 'transparent')};
+const GlossaryItemCardWrapper = styled.div`
+    padding: 12px;
+    border-radius: 13px;
+
+    &:hover {
+        transition: 0.15s;
+        background-color: ${colors.gray[100]};
     }
 `;
 
@@ -75,6 +64,28 @@ const GlossaryItemCard = styled.div`
     &:hover > ${GlossaryItemCardHeader} {
         transition: 0.15s;
         opacity: 0.9 !important;
+    }
+`;
+
+const GlossaryItemCount = styled.span<{ count: number }>`
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    border-radius: 20px;
+    background: ${(props) => (props.count > 0 ? ANTD_GRAY_V2[14] : ANTD_GRAY_V2[14])};
+    color: ${(props) => (props.count > 0 ? REDESIGN_COLORS.SUB_TEXT : DISABLED_TEXT_COLOR)};
+    padding: 5px 10px;
+    width: max-content;
+    svg {
+        height: 14px;
+        width: 14px;
+        path {
+            fill: ${(props) => (props.count > 0 ? REDESIGN_COLORS.SUB_TEXT : DISABLED_TEXT_COLOR)};
+        }
+    }
+    border: 1px solid transparent;
+    :hover {
+        border: 1px solid ${(props) => (props.count > 0 ? ANTD_GRAY_V2[13] : 'transparent')};
     }
 `;
 
@@ -125,7 +136,6 @@ const CountText = styled.span`
 
 interface Props {
     name: string;
-    type: EntityType;
     description: string | undefined;
     termCount: number;
     nodeCount: number;
@@ -144,23 +154,27 @@ const Icons = styled.div`
 const MAX_DEPTH_QUERIED = 4;
 
 const GlossaryNodeCard = (props: Props) => {
-    const { name, type, description, termCount, nodeCount, displayProperties, urn, maxDepth } = props;
+    const { name, description, termCount, nodeCount, displayProperties, urn, maxDepth } = props;
     const glossaryColor = displayProperties?.colorHex || generateColorFromPalette(urn);
 
     const isExceedingMaxDepth = (maxDepth || 0) > MAX_DEPTH_QUERIED;
 
     return (
-        <GlossaryItemCard>
-            <GlossaryItemCardHeader color={glossaryColor}>
-                <TermGroupIcon />
-                <GlossaryCardHeader>{name}</GlossaryCardHeader>
-                <GlossaryItemBadge />
-            </GlossaryItemCardHeader>
-            <GlossaryItemCardDetails>
-                <GlossaryItemCardDescription>{description || '--'}</GlossaryItemCardDescription>
-                {type === EntityType.GlossaryNode && (
+        <GlossaryItemCardWrapper>
+            <GlossaryItemCard>
+                <GlossaryItemCardHeader color={glossaryColor}>
+                    <TermGroupIcon />
+                    <GlossaryCardHeader>{name}</GlossaryCardHeader>
+                    <GlossaryItemBadge />
+                </GlossaryItemCardHeader>
+                <GlossaryItemCardDetails>
+                    <GlossaryItemCardDescription>{description || '--'}</GlossaryItemCardDescription>
                     <Icons>
-                        <Tooltip title="Total number of Folders in this Glossary" placement="top">
+                        <Tooltip
+                            title={`Contains ${nodeCount} ${props.nodeCount === 1 ? 'term group' : 'term groups'}`}
+                            placement="top"
+                            showArrow={false}
+                        >
                             <GlossaryItemCount count={nodeCount}>
                                 <TermGroupIcon />
                                 <CountText>
@@ -170,7 +184,11 @@ const GlossaryNodeCard = (props: Props) => {
                                 </CountText>
                             </GlossaryItemCount>
                         </Tooltip>
-                        <Tooltip title="Total number of Terms in this Glossary" placement="top">
+                        <Tooltip
+                            title={`Contains ${termCount} ${props.termCount === 1 ? 'term' : 'terms'}`}
+                            placement="top"
+                            showArrow={false}
+                        >
                             <GlossaryItemCount count={termCount}>
                                 <TermIcon />
                                 <CountText>
@@ -181,9 +199,9 @@ const GlossaryNodeCard = (props: Props) => {
                             </GlossaryItemCount>
                         </Tooltip>
                     </Icons>
-                )}
-            </GlossaryItemCardDetails>
-        </GlossaryItemCard>
+                </GlossaryItemCardDetails>
+            </GlossaryItemCard>
+        </GlossaryItemCardWrapper>
     );
 };
 

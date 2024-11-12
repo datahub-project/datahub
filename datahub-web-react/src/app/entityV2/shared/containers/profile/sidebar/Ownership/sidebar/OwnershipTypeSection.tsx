@@ -11,6 +11,7 @@ const OwnershipTypeContainer = styled.div`
     display: flex;
     flex-direction: column;
     margin-right 12px;
+    max-width: inherit;
 `;
 
 const OwnershipTypeNameText = styled(Typography.Text)`
@@ -25,6 +26,7 @@ const OwnersContainer = styled.div`
     flex-direction: row;
     flex-wrap: wrap;
     margin-top: 8px;
+    max-width: inherit;
 `;
 
 interface Props {

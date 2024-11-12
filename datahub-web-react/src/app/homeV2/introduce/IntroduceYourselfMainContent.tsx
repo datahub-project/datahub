@@ -1,5 +1,6 @@
 import React, { useContext, useState } from 'react';
-import { Button, Select, Tooltip, message } from 'antd';
+import { Button, Select, message } from 'antd';
+import { Tooltip } from '@components';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { orderBy } from 'lodash';
@@ -421,16 +422,19 @@ export const IntroduceYourselfMainContent = () => {
                     <Select
                         placeholder="Select your Role"
                         suffixIcon={<KeyboardArrowDownOutlinedIcon />}
+                        data-testid="introduce-role-select"
                         size="large"
                         style={selectStyles}
                         onChange={handleRoleChange}
-                        options={updatedRoles.map((key) => ({
-                            value: key,
-                            label: key,
-                        }))}
                         showSearch
                         autoFocus
-                    />
+                    >
+                        {updatedRoles.map((role) => (
+                            <Select.Option key={role} value={role} data-testid={`role-option-${role}`}>
+                                {role}
+                            </Select.Option>
+                        ))}
+                    </Select>
                 </SelectWrapper>
                 <SelectWrapper>
                     <SettingsOutlinedIcon />

@@ -15,6 +15,7 @@ import { DBT_URN } from '@app/ingest/source/builder/constants';
 import ViewComfyOutlinedIcon from '@mui/icons-material/ViewComfyOutlined';
 import * as React from 'react';
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '../../../graphql/dataset.generated';
+import GovernMenuIcon from '../../../images/governMenuIcon.svg?react';
 import { Dataset, DatasetProperties, EntityType, FeatureFlagsConfig, SearchResult } from '../../../types.generated';
 import { GenericEntityProperties } from '../../entity/shared/types';
 import { MatchedFieldList } from '../../searchV2/matches/MatchedFieldList';
@@ -43,7 +44,9 @@ import { getDatasetPopularityTier, isValuePresent } from '../shared/containers/p
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
+import { GovernanceTab } from '../shared/tabs/Dataset/Governance/GovernanceTab';
 import QueriesTab from '../shared/tabs/Dataset/Queries/QueriesTab';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
 import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
@@ -51,6 +54,8 @@ import { AcrylValidationsTab } from '../shared/tabs/Dataset/Validations/AcrylVal
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { EmbedTab } from '../shared/tabs/Embed/EmbedTab';
+import ColumnTabNameHeader from '../shared/tabs/Entity/ColumnTabNameHeader';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
@@ -58,10 +63,6 @@ import { SidebarTitleActionType, getDataProduct, getDatasetLastUpdatedMs, isOutp
 import { Preview } from './preview/Preview';
 import { OperationsTab } from './profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
-import { GovernanceTab } from '../shared/tabs/Dataset/Governance/GovernanceTab';
-import GovernMenuIcon from '../../../images/governMenuIcon.svg?react';
-import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
-import ColumnTabNameHeader from '../shared/tabs/Entity/ColumnTabNameHeader';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -291,6 +292,7 @@ export class DatasetEntity implements Entity<Dataset> {
         { component: SidebarQueryOperationsSection },
         { component: StatusSection },
         { component: SharingAssetSection },
+        { component: SidebarStructuredProperties },
         // {
         //    component: SidebarRecommendationsSection,
         // },

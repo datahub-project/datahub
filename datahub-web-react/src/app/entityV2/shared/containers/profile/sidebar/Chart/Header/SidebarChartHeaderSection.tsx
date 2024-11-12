@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { useEntityData } from '../../../../../../../entity/shared/EntityContext';
 import { SidebarHeaderSectionColumns } from '../../SidebarHeaderSectionColumns';
 import SidebarTopUsersHeaderSection from '../../shared/SidebarTopUsersHeaderSection';

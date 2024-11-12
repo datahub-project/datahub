@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.client.BaseClient;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.restli.client.Client;
@@ -17,7 +18,12 @@ public class RestliMetadataTestClient extends BaseClient implements MetadataTest
   private static final TestRequestBuilders TEST_REQUEST_BUILDERS = new TestRequestBuilders();
 
   public RestliMetadataTestClient(@Nonnull Client restliClient) {
-    super(restliClient, new ExponentialBackoff(1), 1);
+    super(
+        restliClient,
+        EntityClientConfig.builder()
+            .backoffPolicy(new ExponentialBackoff(1))
+            .retryCount(1)
+            .build());
   }
 
   /**

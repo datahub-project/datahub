@@ -1,6 +1,7 @@
 import React from 'react';
 
-import { Typography, Button, Tooltip } from 'antd';
+import { Typography, Button } from 'antd';
+import { Tooltip } from '@components';
 import { LoadingOutlined, ExclamationCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import SwapVertOutlinedIcon from '@mui/icons-material/SwapVertOutlined';
 import { useHistory } from 'react-router';

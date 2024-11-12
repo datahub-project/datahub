@@ -4,7 +4,7 @@ import static com.linkedin.metadata.test.action.ActionUtils.getEntityTypeToUrns;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.service.DomainService;
+import com.linkedin.metadata.service.DomainServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.action.api.ValuesAction;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
@@ -17,7 +17,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public abstract class DomainAbstractAction extends ValuesAction {
 
-  protected final DomainService domainService;
+  protected final DomainServiceAsync domainService;
 
   @Override
   public void apply(@Nonnull OperationContext opContext, List<Urn> urns, ActionParameters params)

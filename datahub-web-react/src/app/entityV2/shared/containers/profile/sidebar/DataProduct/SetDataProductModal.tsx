@@ -8,7 +8,7 @@ import React, { useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../../../../../graphql/search.generated';
-import { DataProduct, EntityType } from '../../../../../../../types.generated';
+import { DataProduct, Entity, EntityType } from '../../../../../../../types.generated';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
 import { IconStyleType } from '../../../../../Entity';
@@ -54,9 +54,16 @@ export default function SetDataProductModal({
     const inputEl = useRef(null);
 
     const [getSearchResults, { data, loading: searchLoading }] = useGetAutoCompleteMultipleResultsLazyQuery();
-    const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([EntityType.DataProduct]);
+    const { recommendedData: recommendedDataProducts, loading: recommendationsLoading } = useGetRecommendations([
+        EntityType.DataProduct,
+    ]);
     const [showRecommendations, setShowRecommendations] = useState(true);
     const loading = recommendationsLoading || searchLoading;
+
+    const displayedDataProducts: Entity[] =
+        !showRecommendations && data?.autoCompleteForMultiple?.suggestions
+            ? data?.autoCompleteForMultiple?.suggestions.flatMap((suggestion) => suggestion.entities)
+            : recommendedDataProducts;
 
     const handleSearch = useMemo(() => {
         const fetch = (text: string) => {
@@ -117,9 +124,7 @@ export default function SetDataProductModal({
         if (inputEl && inputEl.current) {
             (inputEl.current as any).blur();
         }
-        const dataProduct = data?.autoCompleteForMultiple?.suggestions
-            .flatMap((suggestion) => suggestion.entities || [])
-            .find((entity) => entity.urn === urn);
+        const dataProduct = displayedDataProducts?.find((entity) => entity.urn === urn);
         setSelectedDataProduct((dataProduct as DataProduct) || null);
     }
 
@@ -145,12 +150,7 @@ export default function SetDataProductModal({
         value: 'loading',
     };
 
-    const searchResults =
-        !showRecommendations && data?.autoCompleteForMultiple?.suggestions
-            ? data?.autoCompleteForMultiple?.suggestions.flatMap((suggestion) => suggestion.entities)
-            : recommendedData;
-
-    const options = searchResults.map((result) => ({
+    const options = displayedDataProducts.map((result) => ({
         label: (
             <OptionWrapper>
                 {entityRegistry.getIcon(EntityType.DataProduct, 12, IconStyleType.ACCENT, 'black')}

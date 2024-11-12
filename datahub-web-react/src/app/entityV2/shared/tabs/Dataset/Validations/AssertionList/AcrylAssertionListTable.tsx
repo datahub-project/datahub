@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Empty } from 'antd';
+import { Empty } from 'antd';
 import { AssertionType, DataContract, Entity } from '@src/types.generated';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import { DownOutlined } from '@ant-design/icons';
@@ -11,6 +11,7 @@ import { useExpandedRowKeys, useOpenAssertionDetailModal } from '../assertion/bu
 import { AssertionTable, AssertionListFilter } from './types';
 import { useAssertionsTableColumns, usePinnedAssertionTableHeaderProps } from './hooks';
 import { AssertionListStyledTable } from './StyledComponents';
+import { GroupByTable } from './GroupByTable';
 
 type Props = {
     assertionData: AssertionTable;
@@ -83,7 +84,7 @@ export const AcrylAssertionListTable = ({
         return (assertionData?.groupBy && assertionData?.groupBy[groupBy]) || [];
     };
 
-    const rowClassName = (record) => {
+    const rowClassName = (record): string => {
         if (record.groupName) {
             return 'group-header';
         }
@@ -123,13 +124,12 @@ export const AcrylAssertionListTable = ({
                         groupBy
                             ? {
                                   expandedRowRender: (record: any) => (
-                                      <Table
-                                          columns={assertionsTableCols.slice(0, -1)}
-                                          dataSource={record?.assertions || []}
-                                          pagination={false}
-                                          showHeader={false}
-                                          rowClassName={rowClassName}
+                                      <GroupByTable
+                                          groupData={record.assertions}
+                                          columns={assertionsTableCols}
                                           onRow={onRowClick}
+                                          focusUrn={focusAssertionUrn || ''}
+                                          entityType="assertion"
                                       />
                                   ),
                                   onExpand: onAssertionExpand,

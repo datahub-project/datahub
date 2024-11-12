@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Typography, Button, Tooltip, Checkbox } from 'antd';
+import { Typography, Button, Checkbox } from 'antd';
+import { Tooltip } from '@components';
 import { LoadingOutlined, PartitionOutlined, ExclamationCircleOutlined, CloseCircleOutlined } from '@ant-design/icons';
 import { useHistory } from 'react-router';
 import styled from 'styled-components';

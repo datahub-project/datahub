@@ -1,5 +1,6 @@
 import React from 'react';
-import { Divider, Tooltip } from 'antd';
+import { Divider } from 'antd';
+import { Tooltip } from '@components';
 import { PhoneOutlined, SlackOutlined } from '@ant-design/icons';
 import {
     EmptyValue,
@@ -33,7 +34,7 @@ export const UserBasicInfoContainer = ({ name, dataHubRoleName, email, role, sla
                         <Tooltip title={name}>
                             <span>{name || <EmptyValue />}</span>
                         </Tooltip>
-                        ,{dataHubRoleName && <RoleName>{dataHubRoleName}</RoleName>}
+                        {dataHubRoleName ? <RoleName>{dataHubRoleName}</RoleName> : null}
                     </Name>
                     <TitleRole>{role || <EmptyValue color={REDESIGN_COLORS.WHITE} />}</TitleRole>
                 </NameTitleContainer>

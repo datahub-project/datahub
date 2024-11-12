@@ -24,7 +24,9 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.test.definition.operator.Predicate;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.elasticsearch.AcrylSearchUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -111,6 +113,12 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
             String predicateJson = null;
             if (input.getPredicateFilter() != null) {
               predicateJson = input.getPredicateFilter();
+            } else if (input.getConvertToPredicate() != null
+                && input.getConvertToPredicate()
+                && finalFilter != null) {
+              Predicate predicate = AcrylSearchUtils.convertFilterToPredicate(finalFilter);
+              predicateJson =
+                  context.getOperationContext().getObjectMapper().writeValueAsString(predicate);
             }
             /* END SAAS ONLY */
 
@@ -186,6 +194,12 @@ public class SearchAcrossEntitiesResolver implements DataFetcher<CompletableFutu
                             new CriterionArray(
                                 ImmutableList.of(
                                     CriterionUtils.buildCriterion(
-                                        "filterStatus", Condition.EQUAL, "ENABLED")))))));
+                                        "filterStatus", Condition.EQUAL, "ENABLED")))),
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                ImmutableList.of(
+                                    CriterionUtils.buildCriterion(
+                                        "showInSearchFilters", Condition.EQUAL, "true")))))));
   }
 }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Typography, Table, Popover, TablePaginationConfig } from 'antd';
+import { Typography, Table, TablePaginationConfig } from 'antd';
+import { Popover } from '@components';
 import { TooltipPlacement } from 'antd/es/tooltip';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import styled from 'styled-components';

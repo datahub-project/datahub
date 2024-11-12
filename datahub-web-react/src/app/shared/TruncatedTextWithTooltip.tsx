@@ -3,7 +3,8 @@
  */
 
 import React from 'react';
-import { Tooltip, TooltipProps, Typography } from 'antd';
+import { TooltipProps, Typography } from 'antd';
+import { Tooltip } from '@components';
 
 type Props = {
     text: string;

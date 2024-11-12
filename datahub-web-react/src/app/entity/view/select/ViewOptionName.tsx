@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import { ViewOptionTooltipTitle } from './ViewOptionTooltipTitle';
 
 const ViewName = styled.span`

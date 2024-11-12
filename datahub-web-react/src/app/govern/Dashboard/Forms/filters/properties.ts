@@ -34,6 +34,42 @@ export const properties = [
                     id: 'container',
                     displayName: 'Container',
                 },
+                {
+                    id: 'domain',
+                    displayName: 'Domain',
+                },
+                {
+                    id: 'dataProduct',
+                    displayName: 'Data Product',
+                },
+                {
+                    id: 'glossaryTerm',
+                    displayName: 'Glossary Term',
+                },
+                {
+                    id: 'glossaryNode',
+                    displayName: 'Term Group',
+                },
+                {
+                    id: 'mlModel',
+                    displayName: 'ML Model',
+                },
+                {
+                    id: 'mlModelGroup',
+                    displayName: 'ML Model Group',
+                },
+                {
+                    id: 'mlFeature',
+                    displayName: 'ML Feature',
+                },
+                {
+                    id: 'mlFeatureTable',
+                    displayName: 'ML Feature Table',
+                },
+                {
+                    id: 'mlPrimaryKey',
+                    displayName: 'ML Primary Key',
+                },
             ],
         },
     },

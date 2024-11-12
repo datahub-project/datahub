@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { DeleteOutline } from '@mui/icons-material';
-import { Button, Input, Select, Table, Tooltip } from 'antd';
+import { Button, Input, Select, Table } from 'antd';
+import { Tooltip } from '@components';
 import { PlusOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { SchemaAssertionField, SchemaFieldDataType } from '../../../../../../../../../../types.generated';

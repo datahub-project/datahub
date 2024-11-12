@@ -12,7 +12,7 @@ describe("siblings", () => {
   it("will merge metadata to non-primary sibling", () => {
     cy.login();
     cy.visit("/");
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:bigquery,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false",
     );
@@ -31,7 +31,7 @@ describe("siblings", () => {
   it("will merge metadata to primary sibling", () => {
     cy.login();
     cy.visit("/");
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false",
     );
@@ -51,7 +51,7 @@ describe("siblings", () => {
   it("can view individual nodes", () => {
     cy.login();
     cy.visit("/");
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
     const resizeObserverLoopErrRe = /^[^(ResizeObserver loop limit exceeded)]/;
     cy.on("uncaught:exception", (err) => {
       /* returning false here prevents Cypress from failing the test */
@@ -88,7 +88,7 @@ describe("siblings", () => {
   it("can mutate at individual node or combined node level", () => {
     cy.login();
     cy.visit("/");
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
     cy.visit(
       "/dataset/urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.customers,PROD)/?is_lineage_mode=false",
     );
@@ -112,7 +112,7 @@ describe("siblings", () => {
   it("will combine results in search", () => {
     cy.login();
     cy.visit("/");
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
     cy.visit("/search?page=1&query=raw_orders");
     cy.contains("Showing 1 - 2 of ");
 
@@ -131,7 +131,7 @@ describe("siblings", () => {
 
     cy.login();
     cy.visit("/");
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
     cy.goToEntityLineageGraphV2(
       "dataset",
       "urn:li:dataset:(urn:li:dataPlatform:dbt,cypress_project.jaffle_shop.stg_orders,PROD)",

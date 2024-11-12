@@ -44,16 +44,17 @@ public class TestActionApplierFactory {
       @Qualifier("openApiClient") final OpenApiClient openApiClient,
       final ObjectMapper objectMapper) {
     List<Action> appliers = new ArrayList<>();
-    TagService tagService = new TagService(systemEntityClient, openApiClient, objectMapper);
-    GlossaryTermService termsService =
-        new GlossaryTermService(systemEntityClient, openApiClient, objectMapper);
-    OwnerService ownerService =
-        new OwnerService(systemEntityClient, openApiClient, objectMapper, true);
-    DomainService domainService =
-        new DomainService(systemEntityClient, openApiClient, objectMapper);
-    FormService formService =
-        new FormService(
-            systemEntityClient, openApiClient, objectMapper, Constants.METADATA_TESTS_SOURCE, true);
+    TagServiceAsync tagService =
+        new TagServiceAsync(systemEntityClient, openApiClient, objectMapper);
+    GlossaryTermServiceAsync termsService =
+        new GlossaryTermServiceAsync(systemEntityClient, openApiClient, objectMapper);
+    OwnerServiceAsync ownerService =
+        new OwnerServiceAsync(systemEntityClient, openApiClient, objectMapper);
+    DomainServiceAsync domainService =
+        new DomainServiceAsync(systemEntityClient, openApiClient, objectMapper);
+    FormServiceAsync formService =
+        new FormServiceAsync(
+            systemEntityClient, openApiClient, objectMapper, Constants.METADATA_TESTS_SOURCE);
     appliers.add(new AddTagsAction(tagService));
     appliers.add(new RemoveTagsAction(tagService));
     appliers.add(new AddGlossaryTermsAction(termsService));

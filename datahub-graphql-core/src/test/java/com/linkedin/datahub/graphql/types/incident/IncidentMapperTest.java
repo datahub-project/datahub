@@ -13,6 +13,7 @@ import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.datahub.graphql.generated.CorpGroup;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Incident;
@@ -64,7 +65,7 @@ public class IncidentMapperTest {
                     .setActor(UrnUtils.getUrn("urn:li:corpuser:test"))
                     .setAssignedAt(lastStatus),
                 new IncidentAssignee()
-                    .setActor(UrnUtils.getUrn("urn:li:corpuser:test2"))
+                    .setActor(UrnUtils.getUrn("urn:li:corpGroup:test2"))
                     .setAssignedAt(lastStatus))));
     incidentInfo.setEntities(new UrnArray(Collections.singletonList(urn)));
     Long incidentStartedAt = 10L;
@@ -135,7 +136,7 @@ public class IncidentMapperTest {
     assertEquals(incident.getCreated().getActor(), userUrn.toString());
     assertEquals(incident.getAssignees().size(), 2);
     assertEquals(((CorpUser) incident.getAssignees().get(0)).getUrn(), "urn:li:corpuser:test");
-    assertEquals(((CorpUser) incident.getAssignees().get(1)).getUrn(), "urn:li:corpuser:test2");
+    assertEquals(((CorpGroup) incident.getAssignees().get(1)).getUrn(), "urn:li:corpGroup:test2");
 
     assertEquals(incident.getTags().getTags().size(), 1);
     assertEquals(

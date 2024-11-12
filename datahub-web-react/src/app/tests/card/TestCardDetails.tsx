@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { message, Modal, Tooltip, Typography } from 'antd';
+import { message, Modal, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { useApolloClient } from '@apollo/client';
 import { TestCardActions } from './TestCardActions';
 import { Test, TestDefinitionInput } from '../../../types.generated';

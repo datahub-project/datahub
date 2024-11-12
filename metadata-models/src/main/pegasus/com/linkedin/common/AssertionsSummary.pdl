@@ -99,7 +99,6 @@ record AssertionsSummary {
         "fieldName": "erroringAssertions",
         "hasValuesFieldName": "hasErroringAssertions",
         "numValuesFieldName": "numErroringAssertions",
-        "addHasValuesToFilters": true,
         "queryByDefault": false,
       },
       "/*/type" : {

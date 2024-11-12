@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { message, Button, Tooltip } from 'antd';
+import { message, Button } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import lodash from 'lodash';
 import {

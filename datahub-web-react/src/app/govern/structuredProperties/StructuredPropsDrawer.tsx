@@ -18,7 +18,8 @@ import {
     StructuredPropertyFilterStatus,
     UpdateStructuredPropertyInput,
 } from '@src/types.generated';
-import { Form, Tooltip } from 'antd';
+import { Form } from 'antd';
+import { Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import AllowedValuesDrawer from './AllowedValuesDrawer';
 import { updatePropertiesList } from './cacheUtils';
@@ -52,6 +53,7 @@ interface Props {
     refetch: () => void;
     inputs: SearchAcrossEntitiesInput;
     searchAcrossEntities?: SearchResults | null;
+    badgeProperty?: StructuredPropertyEntity;
 }
 
 const StructuredPropsDrawer = ({
@@ -62,6 +64,7 @@ const StructuredPropsDrawer = ({
     refetch,
     inputs,
     searchAcrossEntities,
+    badgeProperty,
 }: Props) => {
     const [form] = Form.useForm();
     const [valuesForm] = Form.useForm();
@@ -123,6 +126,11 @@ const StructuredPropsDrawer = ({
                     allowedValues,
                 };
 
+                let filterStatus: StructuredPropertyFilterStatus | null = null;
+                if (updateValues.settings?.showInSearchFilters === false) {
+                    filterStatus = StructuredPropertyFilterStatus.Disabled;
+                }
+
                 const editInput: UpdateStructuredPropertyInput = {
                     urn: selectedProperty.entity.urn,
                     displayName: updateValues.displayName,
@@ -142,7 +150,14 @@ const StructuredPropsDrawer = ({
                         updateValues,
                     ),
                     setCardinalityAsMultiple: cardinality === PropertyCardinality.Multiple,
-                    filterStatus: updateValues.filterStatus,
+                    filterStatus: filterStatus ?? undefined,
+                    settings: {
+                        isHidden: updateValues.settings?.isHidden ?? false,
+                        showInSearchFilters: updateValues.settings?.showInSearchFilters ?? false,
+                        showAsAssetBadge: updateValues.settings?.showAsAssetBadge ?? false,
+                        showInAssetSummary: updateValues.settings?.showInAssetSummary ?? false,
+                        showInColumnsTable: updateValues.settings?.showInColumnsTable ?? false,
+                    },
                 };
 
                 setIsLoading(true);
@@ -183,6 +198,13 @@ const StructuredPropsDrawer = ({
                     valueType: valueTypes.find((type) => type.value === form.getFieldValue('valueType'))?.urn,
                     allowedValues,
                     cardinality,
+                    settings: {
+                        isHidden: form.getFieldValue(['settings', 'isHidden']) ?? false,
+                        showInSearchFilters: form.getFieldValue(['settings', 'showInSearchFilters']) ?? false,
+                        showAsAssetBadge: form.getFieldValue(['settings', 'showAsAssetBadge']) ?? false,
+                        showInAssetSummary: form.getFieldValue(['settings', 'showInAssetSummary']) ?? false,
+                        showInColumnsTable: form.getFieldValue(['settings', 'showInColumnsTable']) ?? false,
+                    },
                 };
 
                 setIsLoading(true);
@@ -238,6 +260,7 @@ const StructuredPropsDrawer = ({
                     allowedTypes: entity.definition.typeQualifier?.allowedTypes?.map((entityType) => entityType.urn),
                 },
                 immutable: entity.definition.immutable,
+                settings: entity.settings,
                 filterStatus: entity.definition.filterStatus,
             };
 
@@ -361,6 +384,8 @@ const StructuredPropsDrawer = ({
                         allowedValues={allowedValues}
                         valueField={valueField}
                         setShowAllowedValuesDrawer={setShowAllowedValuesDrawer}
+                        refetchProperties={refetch}
+                        badgeProperty={badgeProperty}
                     />
                 )}
             </StyledSpin>

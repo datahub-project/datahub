@@ -1,8 +1,10 @@
 import { Icon, Input, Text, TextArea } from '@src/alchemy-components';
-import { AllowedValue, PropertyCardinality, SearchResult } from '@src/types.generated';
-import { Form, FormInstance, Select, Tooltip } from 'antd';
+import { AllowedValue, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
+import { Form, FormInstance, Select } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import AdvancedOptions from './AdvancedOptions';
+import DisplayPreferences from './DisplayPreferences';
 import StructuredPropsFormSection from './StructuredPropsFormSection';
 import {
     CustomDropdown,
@@ -28,6 +30,8 @@ interface Props {
     allowedValues: AllowedValue[] | undefined;
     valueField: PropValueField;
     setShowAllowedValuesDrawer: React.Dispatch<React.SetStateAction<boolean>>;
+    refetchProperties: () => void;
+    badgeProperty?: StructuredPropertyEntity;
 }
 
 const StructuredPropsForm = ({
@@ -42,8 +46,10 @@ const StructuredPropsForm = ({
     allowedValues,
     valueField,
     setShowAllowedValuesDrawer,
+    refetchProperties,
+    badgeProperty,
 }: Props) => {
-    const { handleTypeUpdate } = useStructuredProp({
+    const { handleTypeUpdate, handleDisplaySettingChange } = useStructuredProp({
         selectedProperty,
         form,
         setFormValues,
@@ -132,6 +138,14 @@ const StructuredPropsForm = ({
                 allowedValues={allowedValues}
                 valueField={valueField}
                 setShowAllowedValuesDrawer={setShowAllowedValuesDrawer}
+            />
+            <DisplayPreferences
+                formValues={formValues}
+                handleDisplaySettingChange={handleDisplaySettingChange}
+                selectedValueType={selectedValueType}
+                refetchProperties={refetchProperties}
+                badgeProperty={badgeProperty}
+                allowedValues={allowedValues}
             />
             <AdvancedOptions isEditMode={isEditMode} />
         </Form>

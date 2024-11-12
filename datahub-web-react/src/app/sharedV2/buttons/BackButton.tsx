@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Button, Tooltip } from 'antd';
+import { Button } from 'antd';
+import { Tooltip } from '@components';
 import KeyboardBackspaceIcon from '@mui/icons-material/KeyboardBackspace';
 import { REDESIGN_COLORS } from '../../entityV2/shared/constants';
 

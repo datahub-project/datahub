@@ -33,7 +33,6 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
     const { name, category, description } = details;
 
     const [showUndoConfirmation, setShowUndoConfirmation] = useState(false);
-    const [status, setStatus] = useState<any>();
     const [state, setState] = useState<any>(details?.state);
 
     const [stopActionPipeline] = useStopActionPipelineMutation();
@@ -44,19 +43,22 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
     const { deleteAutomation } = useAutomationContext();
 
     // TODO: Remove this in favor for returning `status` on `list` query
-    const { data } = useGetActionPipelineStatusQuery({
+    const { data, refetch } = useGetActionPipelineStatusQuery({
         skip: !urn,
-        fetchPolicy: 'no-cache',
+        fetchPolicy: 'cache-first',
         variables: { urn },
     });
 
-    const { status: rawStatus } = data?.actionPipeline || {};
+    const fetchedState = data?.actionPipeline?.details?.state;
 
     // Stop an Action
     const stopAction = () => {
         setState(AutomationStatus.INACTIVE);
         stopActionPipeline({ variables: { urn } })
-            .then(() => openSuccessNotification('Stopped automation!'))
+            .then(() => {
+                openSuccessNotification('Stopped automation!');
+                refetch();
+            })
             .catch((error) => openErrorNotification('Stop Automation', error.message));
     };
 
@@ -64,7 +66,10 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
     const runAction = () => {
         setState(AutomationStatus.ACTIVE);
         startActionPipeline({ variables: { urn } })
-            .then(() => openSuccessNotification('Started automation!'))
+            .then(() => {
+                openSuccessNotification('Started automation!');
+                refetch();
+            })
             .catch((error) => openErrorNotification('Start Automation', error.message));
     };
 
@@ -92,17 +97,17 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
 
     // Set status during poling of refetch
     useEffect(() => {
-        if (rawStatus) setStatus(parseJSON(rawStatus));
-        else setStatus(null);
-        if (details?.state) setState(details?.state);
-        else setState(null);
-    }, [rawStatus, details]);
+        if (fetchedState !== undefined && fetchedState !== null) {
+            setState(fetchedState);
+        }
+    }, [fetchedState]);
 
     // Status States
     const isRunning = state === AutomationStatus.ACTIVE;
     const isStopped = state === AutomationStatus.INACTIVE;
 
     // Sub Status States
+    const status = data?.actionPipeline?.status ? parseJSON(data?.actionPipeline?.status) : undefined;
     const isBootstrapping = status?.bootstrap?.statusCode === AutomationActionStatus.RUNNING;
 
     return (

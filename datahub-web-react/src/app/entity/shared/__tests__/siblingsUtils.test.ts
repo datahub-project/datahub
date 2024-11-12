@@ -290,7 +290,7 @@ describe('siblingUtils', () => {
             ).toBeTruthy();
             expect(
                 combinedData.dataset.health.find((health) => health.type === HealthStatusType.Assertions)?.message ===
-                    'Some failing assertions',
+                    'See failing assertions →',
             ).toBeTruthy();
             expect(
                 combinedData.dataset.health.find((health) => health.type === HealthStatusType.Assertions)?.causes,
@@ -302,7 +302,7 @@ describe('siblingUtils', () => {
             ).toBeTruthy();
             expect(
                 combinedData.dataset.health.find((health) => health.type === HealthStatusType.Incidents)?.message ===
-                    'Some active incidents',
+                    'See active incidents →',
             ).toBeTruthy();
             expect(
                 combinedData.dataset.health.find((health) => health.type === HealthStatusType.Incidents)?.causes,
@@ -314,7 +314,7 @@ describe('siblingUtils', () => {
             ).toBeTruthy();
             expect(
                 combinedData.dataset.health.find((health) => health.type === HealthStatusType.Tests)?.message ===
-                    'Some failing governance tests',
+                    'See failing governance tests →',
             ).toBeTruthy();
             expect(
                 combinedData.dataset.health.find((health) => health.type === HealthStatusType.Tests)?.causes,

@@ -27,8 +27,11 @@ export default function AssetReviewModal() {
 
     const orFilters = formValues.assets?.orFilters;
 
+    const searchFlags = { rewriteQuery: false };
     const { data, loading } = useGetSearchResultsForMultipleQuery({
-        variables: { input: { query: '*', orFilters, count: 0 } },
+        variables: {
+            input: { query: '*', orFilters, count: 0, convertToPredicate: true, searchFlags },
+        },
         skip: !orFilters,
     });
 
@@ -60,6 +63,8 @@ export default function AssetReviewModal() {
                     height="600px"
                     fixedOrFilters={orFilters}
                     onClose={() => setIsModalVisible(false)}
+                    convertToPredicate
+                    searchFlags={searchFlags}
                 />
             )}
         </AssetReviewWrapper>

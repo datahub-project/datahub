@@ -6,7 +6,7 @@ import static com.linkedin.metadata.test.action.ActionUtils.*;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.metadata.service.OwnerService;
+import com.linkedin.metadata.service.OwnerServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.action.api.ValuesAction;
 import com.linkedin.metadata.test.definition.ActionType;
@@ -26,7 +26,7 @@ public class AddOwnersAction extends ValuesAction {
   private static final OwnershipType DEFAULT_OWNERSHIP_TYPE = OwnershipType.TECHNICAL_OWNER;
   private static final String OWNERSHIP_TYPE_PARAM = "ownerType";
 
-  private final OwnerService ownerService;
+  private final OwnerServiceAsync ownerService;
 
   @Override
   public ActionType getActionType() {

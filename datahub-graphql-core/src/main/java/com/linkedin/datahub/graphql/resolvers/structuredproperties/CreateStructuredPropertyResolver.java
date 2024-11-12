@@ -1,7 +1,8 @@
 package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.buildMetadataChangeProposalWithUrn;
+import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
@@ -12,6 +13,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateStructuredPropertyInput;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
+import com.linkedin.datahub.graphql.generated.StructuredPropertySettingsInput;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertyMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -23,8 +25,11 @@ import com.linkedin.structured.PropertyCardinality;
 import com.linkedin.structured.PropertyValue;
 import com.linkedin.structured.StructuredPropertyFilterStatus;
 import com.linkedin.structured.StructuredPropertyKey;
+import com.linkedin.structured.StructuredPropertySettings;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import javax.annotation.Nonnull;
@@ -65,40 +70,17 @@ public class CreateStructuredPropertyResolver
                   "A structured property already exists with this urn");
             }
 
-            StructuredPropertyDefinitionPatchBuilder builder =
-                new StructuredPropertyDefinitionPatchBuilder().urn(propertyUrn);
+            List<MetadataChangeProposal> mcps = new ArrayList<>();
 
-            builder.setQualifiedName(id);
-            builder.setValueType(input.getValueType());
-            input.getEntityTypes().forEach(builder::addEntityType);
-            if (input.getDisplayName() != null) {
-              builder.setDisplayName(input.getDisplayName());
-            }
-            if (input.getDescription() != null) {
-              builder.setDescription(input.getDescription());
-            }
-            if (input.getImmutable() != null) {
-              builder.setImmutable(input.getImmutable());
-            }
-            if (input.getTypeQualifier() != null) {
-              buildTypeQualifier(input, builder);
-            }
-            if (input.getAllowedValues() != null) {
-              buildAllowedValues(input, builder);
-            }
-            if (input.getCardinality() != null) {
-              builder.setCardinality(
-                  PropertyCardinality.valueOf(input.getCardinality().toString()));
-            }
-            if (input.getFilterStatus() != null) {
-              builder.setFilterStatus(
-                  StructuredPropertyFilterStatus.valueOf(input.getFilterStatus().toString()));
-            }
-            builder.setCreated(context.getOperationContext().getAuditStamp());
-            builder.setLastModified(context.getOperationContext().getAuditStamp());
+            // first, create the property definition itself
+            mcps.add(createPropertyDefinition(context, propertyUrn, id, input));
 
-            MetadataChangeProposal mcp = builder.build();
-            _entityClient.ingestProposal(context.getOperationContext(), mcp, false);
+            // then add the settings aspect if we're adding any settings inputs
+            if (input.getSettings() != null) {
+              mcps.add(createPropertySettings(context, propertyUrn, input.getSettings()));
+            }
+
+            _entityClient.batchIngestProposals(context.getOperationContext(), mcps, false);
 
             EntityResponse response =
                 _entityClient.getV2(
@@ -112,6 +94,76 @@ public class CreateStructuredPropertyResolver
                 String.format("Failed to perform update against input %s", input), e);
           }
         });
+  }
+
+  private MetadataChangeProposal createPropertySettings(
+      @Nonnull final QueryContext context,
+      @Nonnull final Urn propertyUrn,
+      final StructuredPropertySettingsInput settingsInput)
+      throws Exception {
+    StructuredPropertySettings settings = new StructuredPropertySettings();
+
+    if (settingsInput.getIsHidden() != null) {
+      settings.setIsHidden(settingsInput.getIsHidden());
+    }
+    if (settingsInput.getShowInSearchFilters() != null) {
+      settings.setShowInSearchFilters(settingsInput.getShowInSearchFilters());
+    }
+    if (settingsInput.getShowInAssetSummary() != null) {
+      settings.setShowInAssetSummary(settingsInput.getShowInAssetSummary());
+    }
+    if (settingsInput.getShowAsAssetBadge() != null) {
+      settings.setShowAsAssetBadge(settingsInput.getShowAsAssetBadge());
+    }
+    if (settingsInput.getShowInColumnsTable() != null) {
+      settings.setShowInColumnsTable(settingsInput.getShowInColumnsTable());
+    }
+    settings.setLastModified(context.getOperationContext().getAuditStamp());
+
+    StructuredPropertyUtils.validatePropertySettings(settings);
+
+    return buildMetadataChangeProposalWithUrn(
+        propertyUrn, STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME, settings);
+  }
+
+  private MetadataChangeProposal createPropertyDefinition(
+      @Nonnull final QueryContext context,
+      @Nonnull final Urn propertyUrn,
+      @Nonnull final String id,
+      final CreateStructuredPropertyInput input)
+      throws Exception {
+    StructuredPropertyDefinitionPatchBuilder builder =
+        new StructuredPropertyDefinitionPatchBuilder().urn(propertyUrn);
+
+    builder.setQualifiedName(id);
+    builder.setValueType(input.getValueType());
+    input.getEntityTypes().forEach(builder::addEntityType);
+    if (input.getDisplayName() != null) {
+      builder.setDisplayName(input.getDisplayName());
+    }
+    if (input.getDescription() != null) {
+      builder.setDescription(input.getDescription());
+    }
+    if (input.getImmutable() != null) {
+      builder.setImmutable(input.getImmutable());
+    }
+    if (input.getTypeQualifier() != null) {
+      buildTypeQualifier(input, builder);
+    }
+    if (input.getAllowedValues() != null) {
+      buildAllowedValues(input, builder);
+    }
+    if (input.getCardinality() != null) {
+      builder.setCardinality(PropertyCardinality.valueOf(input.getCardinality().toString()));
+    }
+    if (input.getFilterStatus() != null) {
+      builder.setFilterStatus(
+          StructuredPropertyFilterStatus.valueOf(input.getFilterStatus().toString()));
+    }
+    builder.setCreated(context.getOperationContext().getAuditStamp());
+    builder.setLastModified(context.getOperationContext().getAuditStamp());
+
+    return builder.build();
   }
 
   private void buildTypeQualifier(

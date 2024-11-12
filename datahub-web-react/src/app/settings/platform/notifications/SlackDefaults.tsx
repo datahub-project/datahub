@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import { Typography, Form, Input, Button, Space, Tooltip } from 'antd';
+import { Typography, Form, Input, Button, Space } from 'antd';
+import { Tooltip } from '@components';
 import { InfoCircleOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { TestNotificationButton } from '@src/app/shared/notifications/TestNotificationButton';
@@ -140,7 +141,7 @@ export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange, botTo
                 )}
             </InputDiv>
             <TestNotificationButton
-                hidden={!isSlackEnabled || editing}
+                hidden={!isSlackEnabled || !inputValue?.length}
                 integration="slack"
                 connectionUrn={SLACK_CONNECTION_URN}
                 destinationSettings={{

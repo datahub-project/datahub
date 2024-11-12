@@ -8,7 +8,6 @@ import useDrawerActions from '../state/actions';
 import {
     selectCheckedKeys,
     selectExpandedKeys,
-    selectHasEnabledSink,
     selectKeysWithFilteringCleared,
     useDrawerSelector,
 } from '../state/selectors';
@@ -71,7 +70,6 @@ const NotificationTypesSection = ({ entityUrn, entityType, forSubResource, subsc
     // ie. if they've cleared all assertion filters for a specific key (EntityChangeType)
     const keysWithFilteringCleared = useDrawerSelector(selectKeysWithFilteringCleared);
 
-    const hasEnabledSink = useDrawerSelector(selectHasEnabledSink);
     const actions = useDrawerActions();
 
     const [alertVisibleForEntityChangeType, setAlertVisibleForEntityChangeType] = useState<EntityChangeType>();
@@ -162,7 +160,6 @@ const NotificationTypesSection = ({ entityUrn, entityType, forSubResource, subsc
             </NotifyActorTitleContainer>
             <TreeContainer>
                 <Tree
-                    disabled={!hasEnabledSink}
                     checkable
                     onExpand={onExpand}
                     expandedKeys={expandedKeys}

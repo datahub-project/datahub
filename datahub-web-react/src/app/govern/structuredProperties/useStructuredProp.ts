@@ -1,11 +1,5 @@
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
-import {
-    EntityType,
-    PropertyCardinality,
-    SearchResult,
-    StructuredPropertyEntity,
-    StructuredPropertyFilterStatus,
-} from '@src/types.generated';
+import { EntityType, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import { FormInstance } from 'antd';
 import { useMemo } from 'react';
 import { getEntityTypeUrn, StructuredProp, valueTypes } from './utils';
@@ -89,15 +83,34 @@ export default function useStructuredProp({
         else setCardinality(PropertyCardinality.Single);
     };
 
-    const handleFilterStatusChange = (showInFilters: boolean) => {
-        const filterStatus = showInFilters
-            ? StructuredPropertyFilterStatus.Enabled
-            : StructuredPropertyFilterStatus.Disabled;
-        handleSelectChange('filterStatus', filterStatus);
-        setFormValues((prev) => ({
-            ...prev,
-            filterStatus,
-        }));
+    const settingsDefault = {
+        isHidden: false,
+        showInSearchFilters: false,
+        showAsAssetBadge: false,
+        showInAssetSummary: false,
+        showInColumnsTable: false,
+    };
+
+    const handleDisplaySettingChange = (settingField: string, value: boolean) => {
+        if (settingField === 'isHidden' && value) {
+            Object.keys(settingsDefault).forEach((settingKey) => form.setFieldValue(['settings', settingKey], false));
+            setFormValues((prev) => ({
+                ...prev,
+                settings: {
+                    ...settingsDefault,
+                    [settingField]: value,
+                },
+            }));
+        } else {
+            setFormValues((prev) => ({
+                ...prev,
+                settings: {
+                    ...(prev?.settings || settingsDefault),
+                    [settingField]: value,
+                },
+            }));
+        }
+        form.setFieldValue(['settings', settingField], value);
     };
 
     const disabledEntityTypeValues = useMemo(() => {
@@ -117,6 +130,6 @@ export default function useStructuredProp({
         getEntitiesListOptions,
         disabledEntityTypeValues,
         disabledTypeQualifierValues,
-        handleFilterStatusChange,
+        handleDisplaySettingChange,
     };
 }

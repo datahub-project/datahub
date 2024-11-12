@@ -1,7 +1,9 @@
-import React, { Dispatch, SetStateAction, useCallback, useEffect, useState } from 'react';
+import { LineageAssetType } from '@app/lineageV2/types';
+import React, { Dispatch, SetStateAction, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 import { useUpdateNodeInternals } from 'reactflow';
-import { Pagination, Tooltip } from 'antd';
+import { Pagination } from 'antd';
+import { Tooltip } from '@components';
 import { PartitionOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { EventType } from '../../analytics';
@@ -12,7 +14,7 @@ import ColumnSearch from './ColumnSearch';
 import { FetchedEntity } from '../../lineage/types';
 import { LineageDisplayColumn } from './useDisplayedColumns';
 import { LINEAGE_COLORS, REDESIGN_COLORS } from '../../entityV2/shared/constants';
-import { onClickPreventSelect, TRANSITION_DURATION_MS } from '../common';
+import { LineageNodesContext, onClickPreventSelect, TRANSITION_DURATION_MS } from '../common';
 
 const MainColumnsWrapper = styled.div<{ isGhost: boolean }>`
     align-items: center;
@@ -47,6 +49,9 @@ const FilterLineageIcon = styled(PartitionOutlined)<{ count: number; selected: b
         position: absolute;
     }
 `;
+
+// Wrap pagination and stop click propagation so that changing page doesn't cause node to be selected
+const ColumnPaginationWrapper = styled.div``;
 
 const ColumnPagination = styled(Pagination)`
     display: flex;
@@ -125,6 +130,7 @@ function Columns(props: Props) {
         updateNodeInternals(entity.urn); // Register new column handle positions with React Flow
     }, [entity.urn, updateNodeInternals, showAllColumns, paginatedColumns, highlightedColumns]);
 
+    const allNeighborsFetched = useComputeAllNeighborsFetched(entity);
     const hasColumnPagination = showAllColumns && numFiltered > NUM_COLUMNS_PER_PAGE;
 
     useDebounce(
@@ -157,6 +163,12 @@ function Columns(props: Props) {
         [onlyWithLineage, setOnlyWithLineage, entity.urn, entity.type, numColumnsWithLineage],
     );
 
+    const columnProps = {
+        parentUrn: entity.urn,
+        entityType: entity.type,
+        allNeighborsFetched,
+    };
+
     return (
         <MainColumnsWrapper isGhost={isGhost}>
             {showAllColumns && (
@@ -171,29 +183,53 @@ function Columns(props: Props) {
                     </Tooltip>
                 </SearchBarWrapper>
             )}
-            {showAllColumns &&
-                paginatedColumns.map((col) => (
-                    <Column key={col.fieldPath} {...col} urn={entity.urn} entityType={entity.type} />
-                ))}
+            {showAllColumns && paginatedColumns.map((col) => <Column key={col.fieldPath} {...col} {...columnProps} />)}
             {showAllColumns && !!paginatedColumns.length && !!highlightedColumns.length && (
                 <HorizontalDivider margin={4} />
             )}
             {highlightedColumns.map((col) => (
-                <Column key={col.fieldPath} {...col} urn={entity.urn} entityType={entity.type} />
+                <Column key={col.fieldPath} {...col} {...columnProps} />
             ))}
             {hasColumnPagination && (
-                <ColumnPagination
-                    className="nodrag"
-                    current={pageIndex + 1}
-                    onChange={(page) => setPageIndex(page - 1)}
-                    total={numFiltered}
-                    pageSize={NUM_COLUMNS_PER_PAGE}
-                    size="small"
-                    simple
-                    showLessItems
-                    showSizeChanger={false}
-                />
+                <ColumnPaginationWrapper onClick={(e) => e.stopPropagation()}>
+                    <ColumnPagination
+                        className="nodrag"
+                        current={pageIndex + 1}
+                        onChange={(page) => setPageIndex(page - 1)}
+                        total={numFiltered}
+                        pageSize={NUM_COLUMNS_PER_PAGE}
+                        size="small"
+                        simple
+                        showLessItems
+                        showSizeChanger={false}
+                    />
+                </ColumnPaginationWrapper>
             )}
         </MainColumnsWrapper>
     );
+}
+
+function useComputeAllNeighborsFetched(entity: FetchedEntity): boolean {
+    const { nodes, dataVersion } = useContext(LineageNodesContext);
+    const allNeighborsFetched = useMemo(
+        () =>
+            [...(entity.upstreamRelationships || []), ...(entity.downstreamRelationships || [])].every(
+                (child) => child.entity?.urn && !!nodes.get(child.entity.urn)?.entity,
+            ),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [entity.upstreamChildren, entity.downstreamChildren, nodes, dataVersion],
+    );
+    useEffect(() => {
+        if (allNeighborsFetched) {
+            const node = nodes.get(entity.urn);
+            node?.entity?.lineageAssets?.forEach((asset) => {
+                if (asset.type === LineageAssetType.Column) {
+                    // eslint-disable-next-line no-param-reassign
+                    asset.lineageCountsFetched = true;
+                }
+            });
+        }
+    }, [allNeighborsFetched, nodes, entity.urn]);
+
+    return allNeighborsFetched;
 }

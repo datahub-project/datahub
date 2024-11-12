@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { Pagination, Tooltip, Typography } from 'antd';
+import { Pagination, Typography } from 'antd';
+import { Tooltip } from '@components';
 import ViewHeadlineOutlinedIcon from '@mui/icons-material/ViewHeadlineOutlined';
 import ViewDayOutlinedIcon from '@mui/icons-material/ViewDayOutlined';
 import styled from 'styled-components/macro';
@@ -29,6 +30,7 @@ import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { PreviewType } from '../entity/Entity';
 import { useSearchContext } from '../search/context/SearchContext';
 import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -84,11 +86,11 @@ const SearchResultsContainer = styled.div`
     height: 100%;
 `;
 
-const SearchResultsScrollContainer = styled.div`
+const SearchResultsScrollContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex-direction: column;
     height: 100%;
-    overflow-y: scroll;
+    ${(props) => !props.$isShowNavBarRedesign && 'overflow-y: scroll;'}
 `;
 
 const LeftControlsContainer = styled.div`
@@ -112,17 +114,18 @@ const SearchMenuContainer = styled.div`
     align-items: center;
 `;
 
-const SearchResultListContainer = styled.div<{ v2Styles: boolean }>`
+const SearchResultListContainer = styled.div<{ v2Styles: boolean; $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex-direction: column;
-    ${({ v2Styles }) =>
+    ${({ v2Styles, $isShowNavBarRedesign }) =>
         v2Styles &&
         `
         flex: 1;
         overflow-x: hidden;        
         overflow-y: auto;
+        ${$isShowNavBarRedesign && 'scrollbar-width: none;'}
     `}
-    margin: 4px 12px 4px 0px;
+    margin: ${(props) => (props.$isShowNavBarRedesign ? '5px 4px 5px 0px' : '4px 12px 4px 0px')};
 `;
 
 const CustomSwitch = styled.div`
@@ -225,6 +228,7 @@ export const SearchResults = ({
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(
         showSeparateSiblings,
         searchResponse?.searchResults,
@@ -266,9 +270,12 @@ export const SearchResults = ({
                         {(error && <ErrorSection />) ||
                             (loading && !combinedSiblingSearchResults.length && <SearchResultsLoadingSection />) ||
                             (combinedSiblingSearchResults && (
-                                <SearchResultsScrollContainer>
+                                <SearchResultsScrollContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
                                     <SearchResultsContainer>
-                                        <SearchResultListContainer v2Styles={showSearchFiltersV2}>
+                                        <SearchResultListContainer
+                                            v2Styles={showSearchFiltersV2}
+                                            $isShowNavBarRedesign={isShowNavBarRedesign}
+                                        >
                                             <PaginationInfoContainer v2Styles={showSearchFiltersV2}>
                                                 <LeftControlsContainer>
                                                     <Typography.Text>

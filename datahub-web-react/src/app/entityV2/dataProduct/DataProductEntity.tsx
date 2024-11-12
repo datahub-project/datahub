@@ -11,26 +11,27 @@ import { GetDatasetQuery } from '../../../graphql/dataset.generated';
 import { DataProduct, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
+import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { EntityProfileTab } from '../shared/constants';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import { SidebarViewDefinitionSection } from '../shared/containers/profile/sidebar/Dataset/View/SidebarViewDefinitionSection';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { EntityActionItem } from '../shared/entity/EntityActions';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
+import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { DataProductEntitiesTab } from './DataProductEntitiesTab';
 import { DataProductSummaryTab } from './DataProductSummaryTab';
 import { Preview } from './preview/Preview';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
-import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
-import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
-import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
 
 const headerDropdownItems = new Set([EntityMenuItems.SUBSCRIBE, EntityMenuItems.SHARE, EntityMenuItems.DELETE]);
 
@@ -161,6 +162,9 @@ export class DataProductEntity implements Entity<DataProduct> {
         },
         {
             component: SharingAssetSection,
+        },
+        {
+            component: SidebarStructuredProperties,
         },
     ];
 

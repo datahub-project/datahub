@@ -1,8 +1,8 @@
-let datasetName = "DatasetToProposeOn";
-let addDescription = "Description to propose";
-let updateDescription = "Description to proposes";
+const datasetName = "DatasetToProposeOn";
+const addDescription = "Description to propose";
+const updateDescription = "Description to proposes";
 
-let datasetUrn = {
+const datasetUrn = {
   dataPlatform:
     "urn:li:dataset:(urn:li:dataPlatform:hive,DatasetToProposeOn,PROD)",
   dataPlatformDocument:
@@ -21,11 +21,9 @@ describe("proposals", () => {
     cy.login();
   });
 
-  Cypress.on("uncaught:exception", (err, runnable) => {
-    return false;
-  });
+  Cypress.on("uncaught:exception", (err, runnable) => false);
 
-  let proposeDatasetDescription = () => {
+  const proposeDatasetDescription = () => {
     cy.visit(datasetUrn.dataPlatformDocument);
     cy.get('[data-testid="empty-tab-description"]').should("exist");
     cy.get('[data-testid="add-documentation"]').click({ force: true });
@@ -35,7 +33,7 @@ describe("proposals", () => {
     cy.contains("Proposed description update!").should("not.exist");
   };
 
-  let proposeGlossaryDescription = () => {
+  const proposeGlossaryDescription = () => {
     cy.visit(datasetUrn.dataPlatformDocument);
     cy.get('[data-testid="add-documentation"]')
       .should("be.visible")
@@ -46,7 +44,7 @@ describe("proposals", () => {
     cy.contains("Proposed description update!").should("not.exist");
   };
 
-  let removeTagSchemaLevel = (tag) => {
+  const removeTagSchemaLevel = (tag) => {
     cy.get("#entity-profile-sidebar").within(() => {
       cy.contains(".ant-tag", tag)
         .find(".ant-tag-close-icon")
@@ -69,7 +67,7 @@ describe("proposals", () => {
       });
   };
 
-  let proposeTagOrTerm = (entityRoute, tagNameOrTermName, dataTestId) => {
+  const proposeTagOrTerm = (entityRoute, tagNameOrTermName, dataTestId) => {
     cy.visit(entityRoute);
     cy.wait(2000);
     deletePreviousEntity(tagNameOrTermName);
@@ -97,25 +95,23 @@ describe("proposals", () => {
     ).should("be.visible");
   };
 
-  let acceptProposalDatasetPage = (to_type, thing) => {
+  const acceptProposalDatasetPage = (to_type, thing) => {
     cy.waitTextVisible(to_type);
-    cy.get('[data-testid="proposed-' + thing + "-" + to_type + '"]')
+    cy.get(`[data-testid="proposed-${thing}-${to_type}"]`)
       .should("be.visible")
       .click({ force: true });
-    cy.get('[data-testid="proposal-accept-button-' + to_type + '"]').click({
+    cy.get(`[data-testid="proposal-accept-button-${to_type}"]`).click({
       force: true,
     });
-    cy.get('[data-testid="proposed-' + thing + "-" + to_type + '"]').should(
-      "not.exist",
-    );
+    cy.get(`[data-testid="proposed-${thing}-${to_type}"]`).should("not.exist");
   };
 
-  let rejectProposalDatasetPage = (to_type, thing) => {
+  const rejectProposalDatasetPage = (to_type, thing) => {
     cy.waitTextVisible(to_type);
-    cy.get('[data-testid="proposed-' + thing + "-" + to_type + '"]')
+    cy.get(`[data-testid="proposed-${thing}-${to_type}"]`)
       .should("be.visible")
       .click({ force: true });
-    cy.get('[data-testid="proposal-reject-button-' + to_type + '"]').click({
+    cy.get(`[data-testid="proposal-reject-button-${to_type}"]`).click({
       force: true,
     });
     cy.get("#entity-profile-sidebar").contains(to_type).should("be.visible");

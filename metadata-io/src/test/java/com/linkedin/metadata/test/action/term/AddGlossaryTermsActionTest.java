@@ -7,7 +7,7 @@ import static org.mockito.Mockito.mock;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.resource.ResourceReference;
-import com.linkedin.metadata.service.GlossaryTermService;
+import com.linkedin.metadata.service.GlossaryTermServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.exception.InvalidActionParamsException;
 import io.datahubproject.metadata.context.OperationContext;
@@ -62,7 +62,7 @@ public class AddGlossaryTermsActionTest {
 
   @Test
   private void testApply() throws Exception {
-    GlossaryTermService service = mock(GlossaryTermService.class);
+    GlossaryTermServiceAsync service = mock(GlossaryTermServiceAsync.class);
 
     AddGlossaryTermsAction action = new AddGlossaryTermsAction(service);
     ActionParameters params = new ActionParameters(VALID_PARAMS);
@@ -89,14 +89,16 @@ public class AddGlossaryTermsActionTest {
 
   @Test
   private void testValidateValidParams() {
-    AddGlossaryTermsAction action = new AddGlossaryTermsAction(mock(GlossaryTermService.class));
+    AddGlossaryTermsAction action =
+        new AddGlossaryTermsAction(mock(GlossaryTermServiceAsync.class));
     ActionParameters params = new ActionParameters(VALID_PARAMS);
     action.validate(params);
   }
 
   @Test
   private void testValidateInvalidParams() {
-    AddGlossaryTermsAction action = new AddGlossaryTermsAction(mock(GlossaryTermService.class));
+    AddGlossaryTermsAction action =
+        new AddGlossaryTermsAction(mock(GlossaryTermServiceAsync.class));
     ActionParameters params = new ActionParameters(Collections.emptyMap());
     Assert.assertThrows(InvalidActionParamsException.class, () -> action.validate(params));
   }

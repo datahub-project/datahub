@@ -1,4 +1,5 @@
-import { Tag as AntTag, Typography, Button, message, Tooltip } from 'antd';
+import { Tag as AntTag, Typography, Button, message } from 'antd';
+import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 import { BookOutlined, ClockCircleOutlined, PlusOutlined } from '@ant-design/icons';

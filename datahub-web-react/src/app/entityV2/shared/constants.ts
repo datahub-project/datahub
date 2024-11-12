@@ -3,6 +3,7 @@ import { EntityType } from '../../../types.generated';
 // TODO(Gabe): integrate this w/ the theme
 export const REDESIGN_COLORS = {
     BACKGROUND: '#F4F5F7',
+    BACKGROUUND_NAVBAR_REDESIGN: '#F9FAFC',
     GREY: '#e5e5e5',
     BLUE: '#1890FF',
     DARK_GREY: '#56668E',
@@ -187,6 +188,9 @@ export const EMPTY_MESSAGES = {
     'inherited by': {
         title: 'Is not Inherited by any Glossary Terms',
         description: 'Terms can be inherited by other terms to represent an "Is A" style relationship.',
+    },
+    structuredProps: {
+        title: 'No value set',
     },
 };
 

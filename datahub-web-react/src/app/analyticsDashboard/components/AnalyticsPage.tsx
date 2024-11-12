@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { Alert, Divider, Input, Select } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { ChartGroup } from './ChartGroup';
 import { useGetAnalyticsChartsQuery, useGetMetadataAnalyticsChartsQuery } from '../../../graphql/analytics.generated';
 import { useGetHighlightsQuery } from '../../../graphql/highlights.generated';
@@ -13,11 +14,26 @@ import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useUserContext } from '../../context/useUserContext';
 import { useIsThemeV2 } from '../../useIsThemeV2';
 
-const PageContainer = styled.div<{ isV2: boolean }>`
+const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
     background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
-    margin-right: ${(props) => (props.isV2 ? '24px' : '0')};
-    margin-bottom: ${(props) => (props.isV2 ? '24px' : '0')};
-    border-radius: ${(props) => (props.isV2 ? '8px' : '0')};
+    ${(props) =>
+        props.$isShowNavBarRedesign &&
+        `
+        height: 100%;
+        margin: 5px;
+        overflow: auto;
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+    `}
+    ${(props) =>
+        !props.$isShowNavBarRedesign &&
+        `
+        margin-right: ${props.isV2 ? '24px' : '0'};
+        margin-bottom: ${props.isV2 ? '24px' : '0'};
+    `}
+    border-radius: ${(props) => {
+        if (props.isV2 && props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
+        return props.isV2 ? '8px' : '0';
+    }};
 `;
 
 const HighlightGroup = styled.div`
@@ -58,6 +74,7 @@ const StyledSearchBar = styled(Input)`
 
 export const AnalyticsPage = () => {
     const isV2 = useIsThemeV2();
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const me = useUserContext();
     const canManageDomains = me?.platformPrivileges?.createDomains;
     const { data: chartData, loading: chartLoading, error: chartError } = useGetAnalyticsChartsQuery();
@@ -99,7 +116,7 @@ export const AnalyticsPage = () => {
 
     const isLoading = highlightLoading || chartLoading || domainLoading || metadataAnalyticsLoading;
     return (
-        <PageContainer isV2={isV2}>
+        <PageContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
             {isLoading && <Message type="loading" content="Loading…" style={{ marginTop: '10%' }} />}
             <HighlightGroup>
                 {highlightError && (

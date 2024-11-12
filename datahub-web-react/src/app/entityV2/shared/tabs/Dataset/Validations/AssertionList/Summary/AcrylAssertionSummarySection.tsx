@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 import { EntityType } from '@src/types.generated';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';

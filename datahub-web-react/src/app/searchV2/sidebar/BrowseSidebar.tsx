@@ -1,7 +1,9 @@
 import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
-import { Button, Divider, Tooltip, Typography } from 'antd';
+import { Button, Divider, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { ProfileSidebarResizer } from '@src/app/entityV2/shared/containers/profile/sidebar/ProfileSidebarResizer';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import EntityBrowse from './EntityBrowse';
 import PlatformBrowse from './PlatformBrowse';
 import { useIsPlatformBrowseMode } from './BrowseContext';
@@ -18,6 +20,7 @@ const StyledEntitySidebarContainer = styled.div<{
     isHidden: boolean;
     $width?: number;
     backgroundColor?: string;
+    $isShowNavBarRedesign?: boolean;
 }>`
     flex: 1;
     overflow: hidden;
@@ -29,13 +32,22 @@ const StyledEntitySidebarContainer = styled.div<{
         display: none;
     }
 
-    margin: ${(props) => (props.isCollapsed ? '12px' : '12px 0 12px 12px')};
+    margin: ${(props) => {
+        if (props.$isShowNavBarRedesign) {
+            return props.isCollapsed ? '8px 4px 5px 5px' : '8px 0px 5px 5px';
+        }
+        return props.isCollapsed ? '12px' : '12px 0 12px 12px';
+    }};
     transition: max-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out,
         min-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
 
     background-color: #ffffff;
-    border-radius: 8px;
-    box-shadow: 0px 0px 5px rgba(0, 0, 0, 0.08);
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
+    box-shadow: ${(props) =>
+        props.$isShowNavBarRedesign
+            ? props.theme.styles['box-shadow-navbar-redesign']
+            : '0px 0px 5px rgba(0, 0, 0, 0.08)'};
 `;
 
 export const StyledSidebar = styled.div`
@@ -108,6 +120,7 @@ const BrowseSidebar = ({ visible }: Props) => {
     const isPlatformBrowseMode = useIsPlatformBrowseMode();
     const [isClosed, setIsClosed] = useState(false);
     const [isHidden, setIsHidden] = useState(false);
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     const [sidebarWidth, setSidebarWidth] = useState(MIN_BROWSWER_WIDTH);
 
@@ -124,6 +137,7 @@ const BrowseSidebar = ({ visible }: Props) => {
                 isCollapsed={isClosed}
                 isHidden={isHidden}
                 $width={sidebarWidth}
+                $isShowNavBarRedesign={isShowNavBarRedesign}
                 id="browse-v2"
             >
                 <Controls isCollapsed={isClosed}>

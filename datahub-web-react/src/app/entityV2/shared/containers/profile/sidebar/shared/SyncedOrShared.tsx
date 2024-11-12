@@ -1,7 +1,8 @@
 import React from 'react';
 import styled from 'styled-components';
 import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import { REDESIGN_COLORS } from '../../../../constants';
 import AcrylIcon from '../../../../../../../images/acryl-logo.svg?react';
 import ShareIcon from '../../../../../../../images/share-icon-custom.svg?react';

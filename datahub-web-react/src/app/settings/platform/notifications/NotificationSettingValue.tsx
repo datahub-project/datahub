@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Checkbox, Tooltip } from 'antd';
+import { Checkbox } from 'antd';
+import { Tooltip } from '@components';
 import styled from 'styled-components';
 
 import { GlobalNotificationSettings, GlobalSettings, NotificationScenarioType } from '../../../../types.generated';

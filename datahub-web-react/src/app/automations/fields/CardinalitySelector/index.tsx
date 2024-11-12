@@ -3,7 +3,8 @@ import styled from 'styled-components';
 
 import type { ComponentBaseProps } from '@app/automations/types';
 import { CardinalityType, CARDINALITY_TYPE_OPTIONS } from '@app/automations/constants';
-import { Checkbox, Tooltip } from 'antd';
+import { Checkbox } from 'antd';
+import { Tooltip } from '@components';
 import { InfoCircleOutlined } from '@ant-design/icons';
 
 const RadiosContainer = styled.div`

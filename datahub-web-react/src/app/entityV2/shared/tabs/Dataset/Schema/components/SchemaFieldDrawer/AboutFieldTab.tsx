@@ -1,3 +1,4 @@
+import SidebarStructuredProperties from '@src/app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
 import moment from 'moment';
 import React, { useMemo } from 'react';
 import styled from 'styled-components';
@@ -90,6 +91,13 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                         <FieldTerms
                             expandedField={expandedField}
                             editableSchemaMetadata={properties.editableSchemaMetadata}
+                        />
+                        <SidebarStructuredProperties
+                            properties={{
+                                isSchemaSidebar: true,
+                                refetch,
+                                fieldEntity: properties.schemaFields[expandedFieldIndex].schemaFieldEntity,
+                            }}
                         />
                         <StatsSection
                             fieldProfile={properties.fieldProfile}

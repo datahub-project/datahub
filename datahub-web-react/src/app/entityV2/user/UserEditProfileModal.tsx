@@ -1,7 +1,8 @@
 import { MoreOutlined } from '@ant-design/icons';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { message, Button, Input, Modal, Typography, Form, Tooltip } from 'antd';
+import { message, Button, Input, Modal, Typography, Form } from 'antd';
+import { Tooltip } from '@components';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { useAppConfig } from '../../useAppConfig';
 
@@ -108,7 +109,7 @@ export default function UserEditProfileModal({ visible, onClose, onSave, editMod
                     <Button onClick={onClose} type="text">
                         Cancel
                     </Button>
-                    <Button id="editUserButton" onClick={onSaveChanges} disabled={saveButtonEnabled}>
+                    <Button type="primary" id="editUserButton" onClick={onSaveChanges} disabled={saveButtonEnabled}>
                         Save Changes
                     </Button>
                 </>

@@ -1,7 +1,7 @@
 import { message, Modal, Tag } from 'antd';
 import React from 'react';
-import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
+import { StyledLink } from '@src/app/previewV2/EntityHeader';
 import { useRemoveOwnerMutation } from '../../../../../../graphql/mutations.generated';
 import { EntityType, Owner } from '../../../../../../types.generated';
 import { getNameFromType } from '../../../containers/profile/sidebar/Ownership/ownershipUtils';
@@ -20,6 +20,8 @@ const OwnerTag = styled(Tag)`
     font-weight: 600;
     border-color: #9da7c0 !important;
     padding: 2px 6px 2px 3px;
+
+    max-width: inherit;
 `;
 
 type Props = {
@@ -99,7 +101,10 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
         <OwnerTag onClose={onClose} closable={!!entityUrn && !readOnly}>
             {readOnly && <OwnerContent name={name} owner={owner} hidePopOver={hidePopOver} pictureLink={pictureLink} />}
             {!readOnly && (
-                <Link to={`${entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}/owner of`} {...linkProps}>
+                <StyledLink
+                    to={`${entityRegistry.getEntityUrl(owner.owner.type, owner.owner.urn)}/owner of`}
+                    {...linkProps}
+                >
                     <OwnerContent
                         name={name}
                         owner={owner}
@@ -107,7 +112,7 @@ export const ExpandedOwner = ({ entityUrn, owner, hidePopOver, refetch, readOnly
                         pictureLink={pictureLink}
                         fontSize={fontSize}
                     />
-                </Link>
+                </StyledLink>
             )}
         </OwnerTag>
     );

@@ -4,6 +4,7 @@ import { THIRD_PARTY_LOGGING_KEY } from './app/analytics/analytics';
 import { checkAuthStatus } from './app/auth/checkAuthStatus';
 import { AppConfigContext, DEFAULT_APP_CONFIG } from './appConfigContext';
 import { useAppConfigQuery } from './graphql/app.generated';
+import { useGlobalSettingsContext } from './app/context/GlobalSettings/GlobalSettingsContext';
 
 function changeFavicon(src) {
     const links = document.querySelectorAll("link[rel~='icon']") as any;
@@ -20,6 +21,8 @@ function changeFavicon(src) {
 
 const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
     const { data: appConfigData, refetch } = useAppConfigQuery({ fetchPolicy: 'no-cache' });
+    const { globalSettings } = useGlobalSettingsContext();
+    const customLogoUrl = globalSettings?.visualSettings?.customLogoUrl;
 
     const refreshAppConfig = () => {
         refetch();
@@ -33,9 +36,9 @@ const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
             } else {
                 localStorage.setItem(THIRD_PARTY_LOGGING_KEY, 'false');
             }
-            changeFavicon(appConfigData.appConfig.visualConfig.faviconUrl);
+            changeFavicon(customLogoUrl || appConfigData.appConfig.visualConfig.faviconUrl);
         }
-    }, [appConfigData]);
+    }, [customLogoUrl, appConfigData]);
 
     return (
         <AppConfigContext.Provider

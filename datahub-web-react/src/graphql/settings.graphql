@@ -150,3 +150,7 @@ mutation updateSsoSettings($input: UpdateSsoSettingsInput!) {
 mutation updateHelpLink($input: UpdateHelpLinkInput!) {
     updateHelpLink(input: $input)
 }
+
+mutation updateOrganizationDisplayPreferences($input: UpdateOrganizationDisplayPreferencesInput!) {
+    updateOrganizationDisplayPreferences(input: $input)
+}

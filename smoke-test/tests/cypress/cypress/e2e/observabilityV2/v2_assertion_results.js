@@ -8,13 +8,13 @@ describe("dataset assertion results test", () => {
   });
 
   it.skip("go to dataset with assertions and verify assertion results", () => {
-    //View assertions list
+    // View assertions list
     cy.login();
     cy.goToDataset(urn, datasetName);
     cy.clickOptionWithText("Quality");
     cy.waitTextVisible("All assertions are passing");
     cy.waitTextVisible("Other");
-    //Click on single assertion to open it up
+    // Click on single assertion to open it up
     cy.clickOptionWithSpecificClass(".assertion-result-dot", 0);
     cy.waitTextVisible("Activity");
     cy.waitTextVisible("Last evaluated");

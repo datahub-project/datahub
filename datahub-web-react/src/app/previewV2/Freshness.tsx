@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Popover } from 'antd';
+import { Popover } from '@components';
 import UpdateOutlinedIcon from '@mui/icons-material/UpdateOutlined';
 import styled from 'styled-components';
 

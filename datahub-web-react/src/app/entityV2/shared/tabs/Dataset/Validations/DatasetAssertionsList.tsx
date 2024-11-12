@@ -1,4 +1,5 @@
-import { Button, Dropdown, Empty, Image, message, Modal, Tag, Tooltip, Typography } from 'antd';
+import { Button, Dropdown, Empty, Image, message, Modal, Tag, Typography } from 'antd';
+import { Tooltip } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 import { DeleteOutlined, DownOutlined, MoreOutlined, RightOutlined, StopOutlined } from '@ant-design/icons';

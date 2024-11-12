@@ -1,4 +1,4 @@
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import React, { useMemo, useState } from 'react';
 import styled from 'styled-components';
 import { ViewBuilderMode } from '../../entityV2/view/builder/types';

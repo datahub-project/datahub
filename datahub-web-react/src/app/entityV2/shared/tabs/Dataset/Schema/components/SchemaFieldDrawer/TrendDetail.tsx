@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Tooltip } from '@components';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { decimalToPercentStr } from '../../utils/statsUtil';
 import { REDESIGN_COLORS } from '../../../../../constants';

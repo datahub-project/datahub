@@ -1,5 +1,6 @@
 import React from 'react';
-import { Popover, Typography } from 'antd';
+import { Typography } from 'antd';
+import { Popover } from '@components';
 import styled from 'styled-components/macro';
 import { Owner } from '../../../../../../types.generated';
 import { CustomAvatar } from '../../../../../shared/avatar';

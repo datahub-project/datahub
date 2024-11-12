@@ -36,8 +36,8 @@ export const StyledTag = styled(Tag)<{
             &:before {
                 display: inline-block;
                 content: '';
-                width: 8px;
-                height: 8px;
+                min-width: 8px;
+                min-height: 8px;
                 background: ${props.$color === null || props.$color === undefined
                     ? generateColor.hex(props.$colorHash)
                     : props.$color};

@@ -1,5 +1,6 @@
 import React, { ReactNode, useState } from 'react';
-import { Divider, Tooltip, Typography } from 'antd';
+import { Divider, Typography } from 'antd';
+import { Tooltip } from '@components';
 import { ArrowRightOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';

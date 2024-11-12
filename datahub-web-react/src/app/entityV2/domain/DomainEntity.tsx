@@ -1,28 +1,29 @@
-import * as React from 'react';
 import { AppstoreOutlined, FileDoneOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { Domain, EntityType, SearchResult } from '../../../types.generated';
-import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
-import { Preview } from './preview/Preview';
-import { EntityProfile } from '../shared/containers/profile/EntityProfile';
-import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
-import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import { getDataForEntityType } from '../shared/containers/profile/utils';
+import * as React from 'react';
 import { useGetDomainQuery } from '../../../graphql/domain.generated';
-import { DomainEntitiesTab } from './DomainEntitiesTab';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
-import { EntityActionItem } from '../shared/entity/EntityActions';
-import DataProductsTab from './DataProductsTab/DataProductsTab';
-import { EntityProfileTab } from '../shared/constants';
+import { Domain, EntityType, SearchResult } from '../../../types.generated';
 import DomainIcon from '../../domain/DomainIcon';
+import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
+import { EntityProfileTab } from '../shared/constants';
+import { EntityProfile } from '../shared/containers/profile/EntityProfile';
+import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
 import SidebarEntitiesSection from '../shared/containers/profile/sidebar/Domain/SidebarEntitiesSection';
-import { DomainSummaryTab } from './summary/DomainSummaryTab';
-import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
+import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
-import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
+import { getDataForEntityType } from '../shared/containers/profile/utils';
+import { EntityActionItem } from '../shared/entity/EntityActions';
+import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
+import { SUMMARY_TAB_ICON } from '../shared/summary/HeaderComponents';
+import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import TabNameWithCount from '../shared/tabs/Entity/TabNameWithCount';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import DataProductsTab from './DataProductsTab/DataProductsTab';
+import { DomainEntitiesTab } from './DomainEntitiesTab';
+import { Preview } from './preview/Preview';
+import { DomainSummaryTab } from './summary/DomainSummaryTab';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
@@ -159,6 +160,9 @@ export class DomainEntity implements Entity<Domain> {
         },
         {
             component: SharingAssetSection,
+        },
+        {
+            component: SidebarStructuredProperties,
         },
     ];
 

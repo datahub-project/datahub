@@ -3,7 +3,7 @@ package com.linkedin.metadata.test.action.form;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.form.FormPromptType;
-import com.linkedin.metadata.service.FormService;
+import com.linkedin.metadata.service.FormServiceAsync;
 import com.linkedin.metadata.test.action.Action;
 import com.linkedin.metadata.test.action.ActionParameters;
 import com.linkedin.metadata.test.definition.ActionType;
@@ -35,7 +35,7 @@ public class SubmitFormPromptAction implements Action {
   private static final String GLOSSARY_TERMS_PARAMETER = "glossaryTerms";
   private static final String DOMAIN_PARAMETER = "domain";
 
-  private final FormService formService;
+  private final FormServiceAsync formService;
 
   @Override
   public ActionType getActionType() {

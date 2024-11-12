@@ -1,5 +1,5 @@
 import React from 'react';
-import { Tooltip } from 'antd';
+import { Tooltip } from '@components';
 import moment from 'moment';
 import styled from 'styled-components';
 import { LabelText } from './styledComponents';

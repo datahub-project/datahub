@@ -10,13 +10,34 @@ import { Proposals } from './proposals/Proposals';
 
 import { useIsThemeV2 } from '../useIsThemeV2';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
+import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
 
-const PageContainer = styled.div<{ isV2: boolean }>`
+const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolean }>`
     padding-top: 20px;
     background-color: ${(props) => (props.isV2 ? '#fff' : 'inherit')};
-    margin-right: ${(props) => (props.isV2 ? '24px' : '0')};
-    margin-bottom: ${(props) => (props.isV2 ? '24px' : '0')};
-    border-radius: ${(props) => (props.isV2 ? '8px' : '0')};
+
+    ${(props) =>
+        !props.$isShowNavBarRedesign &&
+        `
+        margin-right: ${props.isV2 ? '24px' : '0'};
+        margin-bottom: ${props.isV2 ? '24px' : '0'};
+    `}
+
+    border-radius: ${(props) => {
+        if (props.isV2 && props.$isShowNavBarRedesign) return props.theme.styles['border-radius-navbar-redesign'];
+        return props.isV2 ? '8px' : '0';
+    }};
+
+    ${(props) =>
+        props.isV2 &&
+        props.$isShowNavBarRedesign &&
+        `
+        margin: 5px;
+        overflow: hidden;
+        box-shadow: ${props.theme.styles['box-shadow-navbar-redesign']};
+        background: white;
+        height: 100%;
+    `}
 `;
 
 const PageHeaderContainer = styled.div`
@@ -98,9 +119,10 @@ export const TaskCenter = () => {
     } = useUserContext();
     const [activeTab, setActiveTab] = useState('requests');
     const isV2 = useIsThemeV2();
+    const isShowNavBarRedesign = useShowNavBarRedesign();
 
     return (
-        <PageContainer isV2={isV2}>
+        <PageContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <PageHeaderContainer>
                 <PageTitle level={3}>Task Center</PageTitle>
                 <Typography.Paragraph type="secondary">

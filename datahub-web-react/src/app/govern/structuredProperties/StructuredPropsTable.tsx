@@ -1,5 +1,5 @@
 import { useApolloClient } from '@apollo/client';
-import { Icon, Pill, Table, Text } from '@components';
+import { Icon, Pill, Table, Text, Tooltip } from '@components';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
@@ -20,7 +20,7 @@ import {
     SearchResults,
     StructuredPropertyEntity,
 } from '@src/types.generated';
-import { Dropdown, Tooltip } from 'antd';
+import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import { Link } from 'react-router-dom';

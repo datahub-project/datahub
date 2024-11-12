@@ -1,4 +1,5 @@
-import { Popover, Tag } from 'antd';
+import { Tag } from 'antd';
+import { Popover } from '@components';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';

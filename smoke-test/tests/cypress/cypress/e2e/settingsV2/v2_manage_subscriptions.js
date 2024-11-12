@@ -46,7 +46,7 @@ describe("entity subscription test", () => {
     // Configure a slack integration in settings
     setSubscriptionsEnabledFlag(true);
     cy.loginWithCredentials();
-    cy.handleIntroducePage();
+    cy.skipIntroducePage();
     cy.goToIntegrationsSettings();
     cy.waitTextVisible("Users & Groups");
     cy.clickOptionWithText("Slack");
@@ -62,7 +62,7 @@ describe("entity subscription test", () => {
       .find(".ant-dropdown-menu-submenu")
       .contains("Subscribe")
       .click();
-    cy.clickOptionWithText("Subscribe Me");
+    cy.clickOptionWithTestId("subscribe-or-manage-subscription");
     cy.get(".ant-tree-checkbox").click({ multiple: true });
 
     // Slack
@@ -94,7 +94,7 @@ describe("entity subscription test", () => {
       .find(".ant-dropdown-menu-submenu")
       .contains("Subscribe")
       .click();
-    cy.clickOptionWithText("Subscribe Me");
+    cy.clickOptionWithTestId("subscribe-or-manage-subscription").wait(1000);
     cy.clickOptionWithTestId("cancel-button");
     cy.waitTextVisible("You have unsubscribed from this entity.").wait(3000);
     cy.goToSubscriptionsSettings();
@@ -108,7 +108,7 @@ describe("entity subscription test", () => {
       .find(".ant-dropdown-menu-submenu")
       .contains("Subscribe")
       .click();
-    cy.clickOptionWithText("Subscribe Me");
+    cy.clickOptionWithTestId("subscribe-or-manage-subscription");
     cy.get(".ant-tree-checkbox").click({ multiple: true });
 
     // Slack

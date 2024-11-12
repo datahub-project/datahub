@@ -1,10 +1,12 @@
 import { LoadingOutlined } from '@ant-design/icons';
 import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import { useGetLineageUrl } from '@app/lineageV2/lineageUtils';
+import { ColumnAsset } from '@app/lineageV2/types';
 import { useAppConfig } from '@app/useAppConfig';
 import { useGetLineageCountsLazyQuery } from '@graphql/lineage.generated';
 import LinkOut from '@images/link-out.svg?react';
-import { Spin, Tooltip, Typography } from 'antd';
+import { Spin, Typography } from 'antd';
+import { Tooltip } from '@components';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Handle, Position } from 'reactflow';
@@ -26,9 +28,7 @@ import {
 } from '../common';
 import { LineageDisplayColumn } from './useDisplayedColumns';
 
-const CLICK_REQUEST_DELAY = 0;
 const HOVER_REQUEST_DELAY = 300;
-const LOADING_INDICATOR_DELAY = 300;
 
 const LinkOutIcon = styled(LinkOut)``;
 
@@ -36,7 +36,7 @@ const ColumnWrapper = styled.div<{
     selected: boolean;
     highlighted: boolean;
     fromSelect?: boolean;
-    hasLineage: boolean;
+    disabled: boolean;
 }>`
     border: 1px solid transparent;
 
@@ -53,7 +53,7 @@ const ColumnWrapper = styled.div<{
         return 'background-color: white;';
     }}
     border-radius: 4px;
-    color: ${({ hasLineage }) => (hasLineage ? ANTD_GRAY[11] : ANTD_GRAY[7])};
+    color: ${({ disabled }) => (disabled ? ANTD_GRAY[11] : ANTD_GRAY[7])};
     display: flex;
     font-size: 10px;
     gap: 4px;
@@ -104,15 +104,26 @@ const ColumnText = styled(Typography.Text)`
 `;
 
 const StyledLoadingIndicator = styled(LoadingOutlined)`
+    display: flex;
     font-size: inherit;
 `;
 
-type Props = LineageDisplayColumn & { urn: string; entityType: EntityType };
+type Props = LineageDisplayColumn & { parentUrn: string; entityType: EntityType; allNeighborsFetched: boolean };
 
-export default function Column({ urn, entityType, fieldPath, highlighted, hasLineage, type, nativeDataType }: Props) {
+export default function Column({
+    parentUrn,
+    entityType,
+    fieldPath,
+    highlighted,
+    hasLineage,
+    type,
+    nativeDataType,
+    lineageAsset,
+    allNeighborsFetched,
+}: Props) {
     const { config } = useAppConfig();
-    const { selectedColumn, setSelectedColumn, setHoveredColumn } = useContext(LineageDisplayContext);
-    const id = useMemo(() => createColumnRef(urn, fieldPath), [urn, fieldPath]);
+    const { selectedColumn, hoveredColumn, setSelectedColumn, setHoveredColumn } = useContext(LineageDisplayContext);
+    const id = useMemo(() => createColumnRef(parentUrn, fieldPath), [parentUrn, fieldPath]);
     const selected = selectedColumn === id;
 
     let columnName = fieldPath;
@@ -122,44 +133,65 @@ export default function Column({ urn, entityType, fieldPath, highlighted, hasLin
         console.error(`Failed to decode URI for fieldPath: ${fieldPath}`);
     }
 
-    const schemaFieldUrn = generateSchemaFieldUrn(fieldPath, urn) || '';
+    const schemaFieldUrn = generateSchemaFieldUrn(fieldPath, parentUrn) || '';
     const lineageUrl = useGetLineageUrl(schemaFieldUrn, EntityType.SchemaField);
 
-    const { initiateRequest, cancelRequest, loading } = useFetchColumnCounts(urn, schemaFieldUrn, fieldPath);
-    const handleMouseEnter = useCallback(() => {
-        if (hasLineage) {
-            setHoveredColumn(id);
-            initiateRequest(HOVER_REQUEST_DELAY);
-        }
-    }, [hasLineage, id, initiateRequest, setHoveredColumn]);
-    const handleMouseLeave = useCallback(() => {
-        setHoveredColumn(null);
-        cancelRequest();
-    }, [cancelRequest, setHoveredColumn]);
+    const [showDisabledTooltipOnHover, setShowDisabledTooltipOnHover] = useState(false);
+    const [showDisabledTooltipOnSelect, setShowDisabledTooltipOnSelect] = useState(false);
+    const turnOnDisabledTooltipOnHover = useCallback(() => setShowDisabledTooltipOnHover(true), []);
+
+    const { initiateRequest, cancelRequest, loading } = useFetchColumnCounts(
+        schemaFieldUrn,
+        lineageAsset,
+        turnOnDisabledTooltipOnHover,
+    );
+    const isFullyFetched = lineageAsset.lineageCountsFetched || allNeighborsFetched;
+    const showAsDisabled = !hasLineage && isFullyFetched;
 
     useEffect(() => {
-        if (selected) {
-            initiateRequest(CLICK_REQUEST_DELAY);
+        // Deselect if we queried lineage counts and found out it has none
+        if (id === selectedColumn && isFullyFetched && !hasLineage) {
+            setSelectedColumn(null);
+            setShowDisabledTooltipOnSelect(true);
+            setTimeout(() => setShowDisabledTooltipOnSelect(false), 3000);
         }
-        return () => cancelRequest();
-    }, [selected, initiateRequest, cancelRequest]);
+    }, [selectedColumn, id, hasLineage, isFullyFetched, setSelectedColumn]);
+
+    const handleMouseEnter = useCallback(() => {
+        if (!selectedColumn && !showAsDisabled) {
+            setHoveredColumn(id);
+            if (!allNeighborsFetched) {
+                initiateRequest(HOVER_REQUEST_DELAY);
+            }
+        }
+    }, [allNeighborsFetched, showAsDisabled, id, selectedColumn, initiateRequest, setHoveredColumn]);
+    const handleMouseLeave = useCallback(() => {
+        setHoveredColumn(null);
+        if (!selectedColumn) {
+            setShowDisabledTooltipOnHover(false);
+            cancelRequest();
+        }
+    }, [selectedColumn, cancelRequest, setHoveredColumn]);
 
     // TODO: Add hover text if overflowed
-    return (
+    const contents = (
         <ColumnWrapper
-            highlighted={highlighted}
+            highlighted={highlighted && !showAsDisabled}
             fromSelect={!!selectedColumn}
             selected={selected}
-            hasLineage={hasLineage}
+            disabled={!showAsDisabled}
             onClick={(e) => {
-                if (hasLineage) {
+                if (!showAsDisabled) {
                     onClickPreventSelect(e);
+                    if (selectedColumn !== id && !allNeighborsFetched) {
+                        initiateRequest();
+                    }
                     // Toggle if already selected
                     setSelectedColumn((v) => (v === id ? null : id));
                     analytics.event({
                         type: EventType.DrillDownLineageEvent,
                         action: selectedColumn === id ? 'deselect' : 'select',
-                        parentUrn: urn,
+                        parentUrn,
                         parentEntityType: entityType,
                         entityUrn: schemaFieldUrn,
                         entityType: EntityType.SchemaField,
@@ -177,7 +209,7 @@ export default function Column({ urn, entityType, fieldPath, highlighted, hasLin
                 </TypeWrapper>
             )}
             <ColumnText ellipsis={{ tooltip: { showArrow: false } }}>{columnName}</ColumnText>
-            {selected && loading && <Spin delay={LOADING_INDICATOR_DELAY} indicator={<StyledLoadingIndicator />} />}
+            {loading && !hasLineage && <Spin indicator={<StyledLoadingIndicator />} />}
             {config.featureFlags.schemaFieldCLLEnabled && (
                 <ColumnLinkWrapper
                     to={lineageUrl}
@@ -193,14 +225,25 @@ export default function Column({ urn, entityType, fieldPath, highlighted, hasLin
             <CustomHandle id={id} type="source" position={Position.Right} isConnectable={false} />
         </ColumnWrapper>
     );
+
+    return (
+        <Tooltip
+            title="Column has no lineage"
+            open={(showDisabledTooltipOnHover && hoveredColumn === id) || showDisabledTooltipOnSelect}
+            placement="right"
+            showArrow={false}
+        >
+            {contents}
+        </Tooltip>
+    );
 }
 
-function useFetchColumnCounts(entityUrn: string, schemaFieldUrn: string, fieldPath: string) {
-    const { nodes, showGhostEntities, setColumnEdgeVersion } = useContext(LineageNodesContext);
+function useFetchColumnCounts(schemaFieldUrn: string, lineageAsset: ColumnAsset, onDisabled: () => void) {
+    const { showGhostEntities, setColumnEdgeVersion } = useContext(LineageNodesContext);
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
-    const [fetched, setFetched] = useState(false);
 
+    const assetToWrite = lineageAsset;
     const [fetchCounts, { loading }] = useGetLineageCountsLazyQuery({
         variables: {
             urn: schemaFieldUrn,
@@ -210,16 +253,16 @@ function useFetchColumnCounts(entityUrn: string, schemaFieldUrn: string, fieldPa
             includeGhostEntities: showGhostEntities || ignoreSchemaFieldStatus,
         },
         onCompleted: (data) => {
-            setFetched(true);
-            const node = nodes.get(entityUrn);
-            const lineageAsset = node?.entity?.lineageAssets?.get(fieldPath);
-            if (!lineageAsset) return;
-
-            if (data.entity && 'upstream' in data?.entity && data.entity.upstream?.total) {
-                lineageAsset.numUpstream = data.entity.upstream.total - (data.entity.upstream.filtered || 0);
+            assetToWrite.lineageCountsFetched = true;
+            if (data.entity && 'upstream' in data?.entity && data.entity.upstream?.total !== undefined) {
+                assetToWrite.numUpstream = (data.entity.upstream.total || 0) - (data.entity.upstream.filtered || 0);
             }
-            if (data.entity && 'downstream' in data?.entity && data.entity.downstream?.total) {
-                lineageAsset.numDownstream = data.entity.downstream.total - (data.entity.downstream.filtered || 0);
+            if (data.entity && 'downstream' in data?.entity && data.entity.downstream?.total !== undefined) {
+                assetToWrite.numDownstream =
+                    (data.entity.downstream.total || 0) - (data.entity.downstream.filtered || 0);
+            }
+            if (!assetToWrite.numUpstream && !assetToWrite.numDownstream) {
+                onDisabled();
             }
             setColumnEdgeVersion((v) => v + 1);
         },
@@ -227,12 +270,12 @@ function useFetchColumnCounts(entityUrn: string, schemaFieldUrn: string, fieldPa
 
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const initiateRequest = useCallback(
-        (delay: number) => {
-            if (!fetched && !loading) {
+        (delay = 0) => {
+            if (!lineageAsset.lineageCountsFetched && !loading) {
                 timeoutRef.current = setTimeout(() => fetchCounts(), delay);
             }
         },
-        [fetchCounts, fetched, loading],
+        [lineageAsset.lineageCountsFetched, fetchCounts, loading],
     );
     const cancelRequest = useCallback(() => {
         if (timeoutRef.current) {

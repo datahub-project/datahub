@@ -1,4 +1,5 @@
-import { Divider, message, Space, Button, Typography, Row, Col, Tooltip } from 'antd';
+import { Divider, message, Space, Button, Typography, Row, Col } from 'antd';
+import { Tooltip } from '@components';
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { EditOutlined, LockOutlined, MailOutlined, SlackOutlined } from '@ant-design/icons';

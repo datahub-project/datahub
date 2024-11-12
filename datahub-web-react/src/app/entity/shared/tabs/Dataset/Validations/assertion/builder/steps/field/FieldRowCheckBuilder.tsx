@@ -1,7 +1,8 @@
 import React from 'react';
 import Typography from 'antd/lib/typography';
 import styled from 'styled-components';
-import { Radio, RadioChangeEvent, Tooltip } from 'antd';
+import { Radio, RadioChangeEvent } from 'antd';
+import { Tooltip } from '@components';
 import { AssertionMonitorBuilderState } from '../../types';
 import { DatasetFieldAssertionSourceType } from '../../../../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../../../../constants';

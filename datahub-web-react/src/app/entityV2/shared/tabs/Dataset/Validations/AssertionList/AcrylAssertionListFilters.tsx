@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
+import { AcrylListSearch } from '@src/app/entityV2/shared/components/ListSearch/AcrylListSearch';
 import { AcrylAssertionRecommendedFilters } from './AcrylAssertionRecommendedFilters';
-import { AcrylAssertionListSearch } from './AcrylAssertionListSearch';
 import { AcryAssertionTypeSelect } from './AcryAssertionTypeSelect';
 import { AssertionListFilter, AssertionTable } from './types';
 import { AcrylAssertionFilters } from './AcrylAssertionFilters';
@@ -104,11 +104,12 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
         <>
             <SearchFilterContainer>
                 {/* ************Render Search Component ************************* */}
-                <AcrylAssertionListSearch
+                <AcrylListSearch
                     searchText={filter.filterCriteria.searchText}
                     debouncedSetFilterText={handleSearchTextChange}
                     matchResultCount={filteredAssertions.searchMatchesCount || 0}
                     numRows={filteredAssertions.totalCount || 0}
+                    entityTypeName="assertion"
                 />
 
                 {/* ************Render Filter Component ************************* */}

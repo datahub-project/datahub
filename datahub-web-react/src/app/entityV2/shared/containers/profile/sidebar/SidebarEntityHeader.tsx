@@ -2,9 +2,9 @@ import React from 'react';
 import styled from 'styled-components';
 import { Container, DataPlatform, EntityType, Post } from '../../../../../../types.generated';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
+import ContextPath from '../../../../../previewV2/ContextPath';
 import HealthIcon from '../../../../../previewV2/HealthIcon';
 import NotesIcon from '../../../../../previewV2/NotesIcon';
-import ContextPath from '../../../../../previewV2/ContextPath';
 import useContentTruncation from '../../../../../shared/useContentTruncation';
 import HorizontalScroller from '../../../../../sharedV2/carousel/HorizontalScroller';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -13,6 +13,7 @@ import EntityTitleLoadingSection from '../header/EntityHeaderLoadingSection';
 import EntityName from '../header/EntityName';
 import ContainerIcon from '../header/PlatformContent/ContainerIcon';
 import PlatformHeaderIcons from '../header/PlatformContent/PlatformHeaderIcons';
+import StructuredPropertyBadge from '../header/StructuredPropertyBadge';
 import { getDisplayedEntityType } from '../header/utils';
 
 const TitleContainer = styled(HorizontalScroller)`
@@ -68,6 +69,7 @@ const SidebarEntityHeader = () => {
                         <NotesIcon notes={entityData?.notes?.relationships?.map((r) => r.entity as Post) || []} />
                     )}
                     {entityData?.health && <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />}
+                    <StructuredPropertyBadge entityData={entityData} />
                 </NameWrapper>
                 <ContextPath
                     instanceId={entityData?.dataPlatformInstance?.instanceId}

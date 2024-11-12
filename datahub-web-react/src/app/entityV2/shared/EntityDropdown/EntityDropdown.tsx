@@ -13,7 +13,8 @@ import {
     WarningOutlined,
 } from '@ant-design/icons';
 import MoreVertOutlinedIcon from '@mui/icons-material/MoreVertOutlined';
-import { Dropdown, Menu, Tooltip, message } from 'antd';
+import { Dropdown, Menu, message } from 'antd';
+import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import { Redirect, useHistory } from 'react-router';
 import styled from 'styled-components';

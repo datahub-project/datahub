@@ -342,15 +342,8 @@ export const DraftsOutlinedIconStyle = styled(DraftsOutlinedIcon)`
     font-size: 12px !important;
 `;
 
-export const Container = styled.div`
+export const SubscriptionContainer = styled(Row)`
     display: flex;
-    gap: 0.5rem;
-    align-items: center;
-`;
-
-export const SubscriptionContainer = styled.div`
-    display: grid;
-    grid-template-columns: 1fr 1fr;
     gap: 0.5rem;
 `;
 
