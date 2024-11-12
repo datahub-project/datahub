@@ -15,7 +15,6 @@ def validate_parse_tree(
     :return: True or False.
     """
     function_names = [fun.value for fun in resolver.FunctionName]
-
     if not any(fun in expression for fun in function_names):
         return False, "DataAccess function is not present in M-Query expression."
 

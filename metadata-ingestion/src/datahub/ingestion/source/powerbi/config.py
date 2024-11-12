@@ -131,6 +131,7 @@ class Constant:
     STATE = "state"
     ACTIVE = "Active"
     SQL_PARSING_FAILURE = "SQL Parsing Failure"
+    M_QUERY_NULL = '"null"'
 
 
 @dataclass

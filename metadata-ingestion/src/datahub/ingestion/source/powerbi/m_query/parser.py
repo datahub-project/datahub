@@ -45,6 +45,10 @@ def _parse_expression(expression: str, parse_timeout: int = 60) -> Tree:
     # Sometimes PowerBI returns expressions with this character and it breaks the parser.
     expression = expression.replace("\u00a0", " ")
 
+    # Parser resolves the variable=null value to variable='', and in the Tree we get empty string
+    # to distinguish between an empty and null set =null to ="null"
+    expression = expression.replace("=null", '="null"')
+
     logger.debug(f"Parsing expression = {expression}")
     with threading_timeout(parse_timeout):
         parse_tree: Tree = lark_parser.parse(expression)

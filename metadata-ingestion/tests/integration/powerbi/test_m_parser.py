@@ -60,6 +60,30 @@ M_QUERIES = [
 ]
 
 
+def get_data_platform_tables_with_dummy_table(q: str) -> List[resolver.Lineage]:
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    config.enable_advance_lineage_sql_construct = True
+
+    return parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+
 def get_default_instances(
     override_config: dict = {},
 ) -> Tuple[
@@ -686,6 +710,7 @@ def test_redshift_regular_case():
 
 
 def test_redshift_native_query():
+
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[22],
         name="category",
@@ -778,21 +803,13 @@ def test_sqlglot_parser():
 
 
 def test_databricks_multi_cloud():
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        expression=M_QUERIES[25],
-        name="category",
-        full_name="dev.public.category",
-    )
-    reporter = PowerBiDashboardSourceReport()
+    q = M_QUERIES[25]
 
-    ctx, config, platform_instance_resolver = get_default_instances()
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
+    lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
+
+    assert len(lineage) == 1
+
+    data_platform_tables = lineage[0].upstreams
 
     assert len(data_platform_tables) == 1
 
@@ -803,21 +820,13 @@ def test_databricks_multi_cloud():
 
 
 def test_databricks_catalog_pattern_1():
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        expression=M_QUERIES[26],
-        name="category",
-        full_name="dev.public.category",
-    )
-    reporter = PowerBiDashboardSourceReport()
+    q = M_QUERIES[26]
 
-    ctx, config, platform_instance_resolver = get_default_instances()
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
+    lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
+
+    assert len(lineage) == 1
+
+    data_platform_tables = lineage[0].upstreams
 
     assert len(data_platform_tables) == 1
 
@@ -941,27 +950,14 @@ def test_databricks_regular_case_with_view():
 def test_snowflake_double_double_quotes():
     q = M_QUERIES[30]
 
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        columns=[],
-        measures=[],
-        expression=q,
-        name="virtual_order_table",
-        full_name="OrderDataSet.virtual_order_table",
-    )
+    lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
 
-    reporter = PowerBiDashboardSourceReport()
+    assert len(lineage) == 1
 
-    ctx, config, platform_instance_resolver = get_default_instances()
-
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
+    data_platform_tables = lineage[0].upstreams
 
     assert len(data_platform_tables) == 1
+
     assert (
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:snowflake,sl_operations.sale.reports,PROD)"
@@ -970,29 +966,15 @@ def test_snowflake_double_double_quotes():
 
 def test_databricks_multicloud():
     q = M_QUERIES[31]
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        columns=[],
-        measures=[],
-        expression=q,
-        name="virtual_order_table",
-        full_name="OrderDataSet.virtual_order_table",
-    )
 
-    reporter = PowerBiDashboardSourceReport()
+    lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
 
-    ctx, config, platform_instance_resolver = get_default_instances()
+    assert len(lineage) == 1
 
-    config.enable_advance_lineage_sql_construct = True
-
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
+    data_platform_tables = lineage[0].upstreams
 
     assert len(data_platform_tables) == 1
+
     assert (
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:databricks,sales_db.public.slae_history,PROD)"
@@ -1001,29 +983,15 @@ def test_databricks_multicloud():
 
 def test_snowflake_multi_function_call():
     q = M_QUERIES[32]
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        columns=[],
-        measures=[],
-        expression=q,
-        name="virtual_order_table",
-        full_name="OrderDataSet.virtual_order_table",
-    )
 
-    reporter = PowerBiDashboardSourceReport()
+    lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
 
-    ctx, config, platform_instance_resolver = get_default_instances()
+    assert len(lineage) == 1
 
-    config.enable_advance_lineage_sql_construct = True
-
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
+    data_platform_tables = lineage[0].upstreams
 
     assert len(data_platform_tables) == 1
+
     assert (
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:snowflake,database_name.schema_name.table_name,PROD)"
@@ -1033,29 +1001,14 @@ def test_snowflake_multi_function_call():
 def test_mssql_drop_with_select():
     q = M_QUERIES[33]
 
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        columns=[],
-        measures=[],
-        expression=q,
-        name="virtual_order_table",
-        full_name="OrderDataSet.virtual_order_table",
-    )
+    lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
 
-    reporter = PowerBiDashboardSourceReport()
+    assert len(lineage) == 1
 
-    ctx, config, platform_instance_resolver = get_default_instances()
-
-    config.enable_advance_lineage_sql_construct = True
-
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
+    data_platform_tables = lineage[0].upstreams
 
     assert len(data_platform_tables) == 1
+
     assert (
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:mssql,commopsdb.dbo.v_enterprise_invoiced_revenue,PROD)"
@@ -1102,3 +1055,43 @@ def test_unsupported_data_platform():
     assert (
         is_entry_present
     ), 'Info message "Non-Data Platform Expression" should be present in reporter'
+
+
+def test_empty_string_in_m_query():
+    # TRIM(TRIM(TRIM(AGENT_NAME, '\"\"'), '+'), '\\'') is in Query
+    q = "let\n  Source = Value.NativeQuery(Snowflake.Databases(\"bu10758.ap-unknown-2.fakecomputing.com\",\"operations_analytics_warehouse_prod\",[Role=\"OPERATIONS_ANALYTICS_MEMBER\"]){[Name=\"OPERATIONS_ANALYTICS\"]}[Data], \"select #(lf)UPPER(REPLACE(AGENT_NAME,'-','')) AS CLIENT_DIRECTOR,#(lf)TRIM(TRIM(TRIM(AGENT_NAME, '\"\"'), '+'), '\\'') AS TRIM_AGENT_NAME,#(lf)TIER,#(lf)UPPER(MANAGER),#(lf)TEAM_TYPE,#(lf)DATE_TARGET,#(lf)MONTHID,#(lf)TARGET_TEAM,#(lf)SELLER_EMAIL,#(lf)concat((UPPER(REPLACE(AGENT_NAME,'-',''))), MONTHID) as AGENT_KEY,#(lf)UNIT_TARGET AS SME_Quota,#(lf)AMV_TARGET AS Revenue_Quota,#(lf)SERVICE_QUOTA,#(lf)BL_TARGET,#(lf)SOFTWARE_QUOTA as Software_Quota#(lf)#(lf)from OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT_TARGETS inner join OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT #(lf)#(lf)where YEAR_TARGET >= 2022#(lf)and TEAM_TYPE = 'Accounting'#(lf)and TARGET_TEAM = 'Enterprise'#(lf)AND TIER = 'Client Director'\", null, [EnableFolding=true])\nin\n    Source"
+
+    lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
+
+    assert len(lineage) == 1
+
+    data_platform_tables = lineage[0].upstreams
+
+    assert len(data_platform_tables) == 2
+
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,operations_analytics.transformed_prod.v_sme_unit,PROD)"
+    )
+    assert (
+        data_platform_tables[1].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,operations_analytics.transformed_prod.v_sme_unit_targets,PROD)"
+    )
+
+
+def test_double_quotes_in_alias():
+    # SELECT CAST(sales_date AS DATE) AS \"\"Date\"\" in query
+    q = 'let \n Source = Sql.Database("abc.com", "DB", [Query="SELECT CAST(sales_date AS DATE) AS ""Date"",#(lf) SUM(cshintrpret) / 60.0      AS ""Total Order All Items"",#(lf)#(tab)#(tab)#(tab)  SUM(cshintrpret) / 60.0 - LAG(SUM(cshintrpret) / 60.0, 1) OVER (ORDER BY CAST(sales_date AS DATE)) AS ""Total minute difference"",#(lf)#(tab)#(tab)#(tab)  SUM(sale_price)  / 60.0 - LAG(SUM(sale_price)  / 60.0, 1) OVER (ORDER BY CAST(sales_date AS DATE)) AS ""Normal minute difference""#(lf)        FROM   [DB].[dbo].[sales_t]#(lf)        WHERE  sales_date >= GETDATE() - 365#(lf)        GROUP  BY CAST(sales_date AS DATE),#(lf)#(tab)#(tab)CAST(sales_date AS TIME);"]) \n in \n Source'
+
+    lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
+
+    assert len(lineage) == 1
+
+    data_platform_tables = lineage[0].upstreams
+
+    assert len(data_platform_tables) == 1
+
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mssql,db.dbo.sales_t,PROD)"
+    )

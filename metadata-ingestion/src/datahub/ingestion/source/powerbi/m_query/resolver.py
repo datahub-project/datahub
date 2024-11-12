@@ -314,7 +314,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
     (see method resolve_to_data_platform_table_list).
 
     Classes which extended from AbstractDataPlatformTableCreator know how to convert generated DataAccessFunctionDetail instance
-    to respective DataPlatformTable instance as per dataplatform.
+     to the respective DataPlatformTable instance as per dataplatform.
 
     """
 
@@ -1149,23 +1149,30 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         )
 
     def get_db_name(self, data_access_tokens: List[str]) -> Optional[str]:
-        # In-case of DatabricksMultiCloud_SQL the database-name is the catalog name,
-        # and that name is not available in SQL statement
         if (
             data_access_tokens[0]
             != SupportedDataPlatform.DatabricksMultiCloud_SQL.value.powerbi_data_platform_name
         ):
             return None
+        try:
+            if "Database" in data_access_tokens:
+                index = data_access_tokens.index("Database")
+                if data_access_tokens[index + 1] != Constant.M_QUERY_NULL:
+                    # Database name is explicitly set in argument
+                    return data_access_tokens[index + 1]
 
-        if (
-            len(data_access_tokens) >= 13
-        ):  # Explicit catalog name is set in Database argument
-            return tree_function.strip_char(data_access_tokens[9])
+            if "Name" in data_access_tokens:
+                index = data_access_tokens.index("Name")
+                # Next element is value of the Name. It is a database name
+                return data_access_tokens[index + 1]
 
-        if (
-            len(data_access_tokens) >= 6 and data_access_tokens[4] == "Catalog"
-        ):  # use Catalog name is a database
-            return tree_function.strip_char(data_access_tokens[5])
+            if "Catalog" in data_access_tokens:
+                index = data_access_tokens.index("Catalog")
+                # Next element is value of the Catalog. In Databricks Catalog can also be used in place of a database.
+                return data_access_tokens[index + 1]
+
+        except IndexError as e:
+            logger.debug("Database name is not available", exc_info=e)
 
         return None
 
