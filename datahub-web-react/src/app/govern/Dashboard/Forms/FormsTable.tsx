@@ -15,6 +15,7 @@ import { useFormAnalyticsQuery } from '@src/graphql/analytics.generated';
 import { useDeleteFormMutation, useUpdateFormMutation } from '@src/graphql/form.generated';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { Entity, EntityType, FormState, SearchAcrossEntitiesInput } from '@src/types.generated';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { Dropdown, Typography } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
@@ -92,6 +93,8 @@ const FormsTable = ({ searchQuery, searchData, loading, networkStatus, refetch, 
     const history = useHistory();
     const me = useUserContext();
     const canEditForms = me.platformPrivileges?.manageDocumentationForms;
+    const { config } = useAppConfig();
+    const { showFormAnalytics } = config.featureFlags;
     const [showConfirmDelete, setShowConfirmDelete] = useState<boolean>(false);
     const [showConfirmUnpublish, setShowConfirmUnpublish] = useState<boolean>(false);
 
@@ -393,6 +396,7 @@ const FormsTable = ({ searchQuery, searchData, loading, networkStatus, refetch, 
 
                 // Show Analytics button if form analytics are available
                 const areFormAnalyticsAvailable =
+                    showFormAnalytics &&
                     !snapshotLoading &&
                     snapshot?.formAnalytics?.errors !== null &&
                     snapshot?.formAnalytics?.header !== null;
