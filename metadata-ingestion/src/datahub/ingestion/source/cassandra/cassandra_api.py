@@ -1,7 +1,7 @@
-import logging
 from ssl import CERT_NONE, PROTOCOL_TLSv1_2, SSLContext
-from typing import List
+from typing import List, Optional
 
+from cassandra import DriverException, OperationTimedOut
 from cassandra.auth import PlainTextAuthProvider
 from cassandra.cluster import (
     EXEC_PROFILE_DEFAULT,
@@ -18,8 +18,6 @@ from datahub.ingestion.source.cassandra.cassandra_utils import (
     CassandraQueries,
 )
 
-logger = logging.getLogger(__name__)
-
 
 class CassandraAPIInterface:
     def __init__(self, config: CassandraSourceConfig, report: SourceReport):
@@ -31,7 +29,7 @@ class CassandraAPIInterface:
         """Establish a connection to Cassandra and return the session."""
         try:
             if self.config.cloud:
-                cloud_config = self.config.cloud_config
+                cloud_config = self.config.datastax_astra_cloud_config
                 assert cloud_config
                 cluster_cloud_config = {
                     "connect_timeout": cloud_config.connect_timeout,
@@ -49,6 +47,7 @@ class CassandraAPIInterface:
                     execution_profiles={EXEC_PROFILE_DEFAULT: profile},
                     protocol_version=ProtocolVersion.V4,
                 )
+
                 session: Session = cluster.connect()
                 return session
 
@@ -77,8 +76,17 @@ class CassandraAPIInterface:
                 )
             session = cluster.connect()
             return session
+        except OperationTimedOut as e:
+            self.report.warning(
+                message="Failed to Autheticate", context=f"{str(e.errors)}", exc=e
+            )
+            raise
+        except DriverException as e:
+            self.report.warning(
+                message="Failed to Autheticate", context=f"{str(e)}", exc=e
+            )
+            raise
         except Exception as e:
-            logger.error("Failed to authenticate to Cassandra", exc_info=True)
             self.report.report_failure(
                 message="Failed to authenticate to Cassandra", exc=e
             )
@@ -97,8 +105,12 @@ class CassandraAPIInterface:
                 ),
             )
             return keyspaces
+        except DriverException as e:
+            self.report.warning(
+                message="Failed to fetch keyspaces", context=f"{str(e)}", exc=e
+            )
+            return []
         except Exception:
-            logger.error("Failed to fetch keyspaces", exc_info=True)
             self.report.warning(
                 message="Failed to fetch keyspaces",
             )
@@ -117,10 +129,14 @@ class CassandraAPIInterface:
                 ),
             )
             return tables
-        except Exception:
-            logger.error(
-                f"Failed to fetch tables for keyspace {keyspace_name}", exc_info=True
+        except DriverException as e:
+            self.report.warning(
+                message="Failed to fetch tables for keyspace",
+                context=f"{str(e)}",
+                exc=e,
             )
+            return []
+        except Exception:
             self.report.warning(
                 message="Failed to fetch tables for keyspace",
                 context=f"{keyspace_name}",
@@ -135,11 +151,12 @@ class CassandraAPIInterface:
             )
             column_infos = sorted(column_infos, key=lambda c: c.column_name)
             return column_infos
-        except Exception:
-            logger.error(
-                f"Failed to fetch columns for table {table_name} in keyspace {keyspace_name}",
-                exc_info=True,
+        except DriverException as e:
+            self.report.warning(
+                message="Failed to fetch columns for table", context=f"{str(e)}", exc=e
             )
+            return []
+        except Exception:
             self.report.warning(
                 message="Failed to fetch columns for table",
                 context=f"{keyspace_name}.{table_name}",
@@ -159,13 +176,34 @@ class CassandraAPIInterface:
                 ),
             )
             return views
-        except Exception:
-            logger.error(
-                f"Failed to fetch views for keyspace {keyspace_name}", exc_info=True
+        except DriverException as e:
+            self.report.warning(
+                message="Failed to fetch views for keyspace", context=f"{str(e)}", exc=e
             )
+            return []
+        except Exception:
             self.report.warning(
                 message="Failed to fetch views for keyspace",
                 context=f"{keyspace_name}",
+            )
+            return []
+
+    def execute(self, query: str, limit: Optional[int]) -> List:
+        """Fetch stats for cassandra"""
+        try:
+            if limit:
+                query = query + f" LIMIT {limit}"
+            result_set = self.cassandra_session.execute(query).all()
+            return result_set
+        except DriverException as e:
+            self.report.warning(
+                message="Failed to fetch stats for keyspace", context=f"{str(e)}", exc=e
+            )
+            return []
+        except Exception:
+            self.report.warning(
+                message="Failed to fetch stats for keyspace",
+                context=f"{query}",
             )
             return []
 

@@ -26,16 +26,7 @@ SYSTEM_KEYSPACE_LIST = set(
     ["system", "system_auth", "system_schema", "system_distributed", "system_traces"]
 )
 
-# - Referencing https://docs.datastax.com/en/cql-oss/3.x/cql/cql_using/useQuerySystem.html#Table3.ColumnsinSystem_SchemaTables-Cassandra3.0 - #
-# this keyspace contains details about the cassandra cluster's keyspaces, tables, and columns
-SYSTEM_SCHEMA_KESPACE_NAME = "system_schema"
-# these are the names of the tables we're interested in querying metadata from
-CASSANDRA_SYSTEM_SCHEMA_TABLES = {
-    "keyspaces": "keyspaces",
-    "tables": "tables",
-    "views": "views",
-    "columns": "columns",
-}
+
 # these column names are present on the system_schema tables
 CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES = {
     "keyspace_name": "keyspace_name",  # present on all tables
@@ -48,15 +39,23 @@ CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES = {
 }
 
 
+# - Referencing system_schema: https://docs.datastax.com/en/cql-oss/3.x/cql/cql_using/useQuerySystem.html#Table3.ColumnsinSystem_SchemaTables-Cassandra3.0 - #
+# this keyspace contains details about the cassandra cluster's keyspaces, tables, and columns
+
+
 class CassandraQueries:
     # get all keyspaces
-    GET_KEYSPACES_QUERY = f"SELECT * FROM {SYSTEM_SCHEMA_KESPACE_NAME}.{CASSANDRA_SYSTEM_SCHEMA_TABLES['keyspaces']}"
+    GET_KEYSPACES_QUERY = "SELECT * FROM system_schema.keyspaces"
     # get all tables for a keyspace
-    GET_TABLES_QUERY = f"SELECT * FROM {SYSTEM_SCHEMA_KESPACE_NAME}.{CASSANDRA_SYSTEM_SCHEMA_TABLES['tables']} WHERE {CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES['keyspace_name']} = %s"
+    GET_TABLES_QUERY = "SELECT * FROM system_schema.tables WHERE keyspace_name = %s"
     # get all columns for a table
-    GET_COLUMNS_QUERY = f"SELECT * FROM {SYSTEM_SCHEMA_KESPACE_NAME}.{CASSANDRA_SYSTEM_SCHEMA_TABLES['columns']} WHERE {CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES['keyspace_name']} = %s AND {CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES['table_name']} = %s"
+    GET_COLUMNS_QUERY = "SELECT * FROM system_schema.columns WHERE keyspace_name = %s AND table_name = %s"
     # get all views for a keyspace
-    GET_VIEWS_QUERY = f"SELECT * FROM {SYSTEM_SCHEMA_KESPACE_NAME}.{CASSANDRA_SYSTEM_SCHEMA_TABLES['views']} WHERE {CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES['keyspace_name']} = %s"
+    GET_VIEWS_QUERY = "SELECT * FROM system_schema.views WHERE keyspace_name = %s"
+    # Row Count
+    ROW_COUNT = 'SELECT COUNT(*) AS row_count FROM {}."{}"'
+    # Column Count
+    COLUMN_COUNT = "SELECT COUNT(*) AS column_count FROM system_schema.columns WHERE keyspace_name = '{}' AND table_name = '{}'"
 
 
 # This class helps convert cassandra column types to SchemaFieldDataType for use by the datahaub metadata schema
@@ -139,8 +138,7 @@ class CassandraToSchemaFieldConverter:
             cassandra_type: str = column_info[
                 CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES["column_type"]
             ]
-            # if column_info.get("table_name") == "movie_reviews":
-            #     breakpoint()
+
             if cassandra_type is not None:
                 self._prefix_name_stack.append(f"[type={cassandra_type}].{column_name}")
                 schema_field_data_type: SchemaFieldDataType = self.get_column_type(
