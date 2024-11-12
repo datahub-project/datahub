@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from pydantic import BaseModel
 from pydantic.class_validators import validator
 from pydantic.fields import Field
+
 # This import verifies that the dependencies are available.
 from pyhive import hive  # noqa: F401
 from pyhive.sqlalchemy_hive import HiveDate, HiveDecimal, HiveDialect, HiveTimestamp
@@ -70,6 +71,7 @@ register_custom_type(HiveDecimal, NumberTypeClass)
 
 class StoragePlatform(Enum):
     """Enumeration of storage platforms supported for lineage"""
+
     S3 = "s3"
     AZURE = "abs"
     GCS = "gcs"
@@ -84,7 +86,6 @@ STORAGE_SCHEME_MAPPING = {
     "s3": StoragePlatform.S3,
     "s3a": StoragePlatform.S3,
     "s3n": StoragePlatform.S3,
-
     # Azure and derivatives
     "abfs": StoragePlatform.AZURE,
     "abfss": StoragePlatform.AZURE,
@@ -92,17 +93,13 @@ STORAGE_SCHEME_MAPPING = {
     "adls": StoragePlatform.AZURE,
     "wasb": StoragePlatform.AZURE,
     "wasbs": StoragePlatform.AZURE,
-
     # GCS and derivatives
     "gs": StoragePlatform.GCS,
     "gcs": StoragePlatform.GCS,
-
     # DBFS
     "dbfs": StoragePlatform.DBFS,
-
     # Local filesystem
     "file": StoragePlatform.LOCAL,
-
     # HDFS
     "hdfs": StoragePlatform.HDFS,
 }
@@ -125,7 +122,7 @@ class StoragePathParser:
 
         try:
             # Handle special case for local files with no scheme
-            if location.startswith('/'):
+            if location.startswith("/"):
                 return StoragePlatform.LOCAL, location
 
             # Parse the URI
@@ -146,9 +143,9 @@ class StoragePathParser:
                 path = f"{parsed.netloc}/{parsed.path.lstrip('/')}"
 
             elif platform == StoragePlatform.AZURE:
-                if scheme in ('abfs', 'abfss'):
+                if scheme in ("abfs", "abfss"):
                     # Format: abfss://container@account.dfs.core.windows.net/path
-                    container = parsed.netloc.split('@')[0]
+                    container = parsed.netloc.split("@")[0]
                     path = f"{container}/{parsed.path.lstrip('/')}"
                 else:
                     # Handle other Azure schemes
@@ -160,7 +157,7 @@ class StoragePathParser:
 
             elif platform == StoragePlatform.DBFS:
                 # For DBFS, use path as-is
-                path = parsed.path.lstrip('/')
+                path = parsed.path.lstrip("/")
 
             elif platform == StoragePlatform.LOCAL:
                 # For local files, use full path
@@ -174,8 +171,8 @@ class StoragePathParser:
                 return None
 
             # Clean up the path
-            path = path.rstrip('/')  # Remove trailing slashes
-            path = re.sub(r'/+', '/', path)  # Normalize multiple slashes
+            path = path.rstrip("/")  # Remove trailing slashes
+            path = re.sub(r"/+", "/", path)  # Normalize multiple slashes
 
             return platform, path
 
@@ -220,6 +217,7 @@ class HiveStorageLineageConfig(BaseModel):
 
     class Config:
         """Pydantic model config."""
+
         extra = "forbid"
 
     @validator("direction")
@@ -265,10 +263,10 @@ class HiveStorageLineage:
     """Handles storage lineage for Hive tables"""
 
     def __init__(
-            self,
-            config: HiveStorageLineageConfig,
-            env: str,
-            platform_instance: Optional[str] = None,
+        self,
+        config: HiveStorageLineageConfig,
+        env: str,
+        platform_instance: Optional[str] = None,
     ):
         self.config = config
         self.env = env
@@ -276,15 +274,17 @@ class HiveStorageLineage:
         self.report = HiveStorageSourceReport()
 
     def _make_dataset_platform_instance(
-            self,
-            platform: str,
-            instance: Optional[str],
+        self,
+        platform: str,
+        instance: Optional[str],
     ) -> DataPlatformInstanceClass:
         """Create DataPlatformInstance aspect"""
 
         return DataPlatformInstanceClass(
             platform=make_data_platform_urn(platform),
-            instance=make_dataplatform_instance_urn(platform, instance) if instance else None
+            instance=make_dataplatform_instance_urn(platform, instance)
+            if instance
+            else None
         )
 
     def _make_storage_dataset_urn(
@@ -305,16 +305,16 @@ class HiveStorageLineage:
             platform=StoragePathParser.get_platform_name(platform),
             name=path,
             env=self.env,
-            platform_instance=self.config.storage_platform_instance
+            platform_instance=self.config.storage_platform_instance,
         )
         return storage_urn, StoragePathParser.get_platform_name(platform)
 
     def _get_fine_grained_lineages(
-            self,
-            dataset_urn: str,
-            storage_urn: str,
-            dataset_schema: SchemaMetadataClass,
-            storage_schema: SchemaMetadataClass,
+        self,
+        dataset_urn: str,
+        storage_urn: str,
+        dataset_schema: SchemaMetadataClass,
+        storage_schema: SchemaMetadataClass,
     ) -> Optional[List[FineGrainedLineageClass]]:
         """Generate column-level lineage between dataset and storage"""
 
@@ -333,9 +333,12 @@ class HiveStorageLineage:
 
             # Find matching field in storage schema
             matching_field = next(
-                (f for f in storage_schema.fields
-                 if normalize_field_path(f.fieldPath) == dataset_path),
-                None
+                (
+                    f
+                    for f in storage_schema.fields
+                    if normalize_field_path(f.fieldPath) == dataset_path
+                ),
+                None,
             )
 
             if matching_field:
@@ -347,55 +350,47 @@ class HiveStorageLineage:
                                 f"{storage_urn}.{normalize_field_path(matching_field.fieldPath)}"
                             ],
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            downstreams=[
-                                f"{dataset_urn}.{dataset_path}"
-                            ]
+                            downstreams=[f"{dataset_urn}.{dataset_path}"]
                         )
                     )
                 else:
                     fine_grained_lineages.append(
                         FineGrainedLineageClass(
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[
-                                f"{dataset_urn}.{dataset_path}"
-                            ],
+                            upstreams=[f"{dataset_urn}.{dataset_path}"],
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                             downstreams=[
                                 f"{storage_urn}.{normalize_field_path(matching_field.fieldPath)}"
-                            ]
+                            ],
                         )
                     )
 
         return fine_grained_lineages if fine_grained_lineages else None
 
     def _create_lineage_mcp(
-            self,
-            source_urn: str,
-            target_urn: str,
-            fine_grained_lineages: Optional[List[FineGrainedLineageClass]] = None,
+        self,
+        source_urn: str,
+        target_urn: str,
+        fine_grained_lineages: Optional[List[FineGrainedLineageClass]] = None,
     ) -> MetadataChangeProposalWrapper:
         """Create lineage MCP between source and target datasets"""
 
         upstream_lineage = UpstreamLineageClass(
             upstreams=[
-                UpstreamClass(
-                    dataset=source_urn,
-                    type=DatasetLineageTypeClass.COPY
-                )
+                UpstreamClass(dataset=source_urn, type=DatasetLineageTypeClass.COPY)
             ],
-            fineGrainedLineages=fine_grained_lineages
+            fineGrainedLineages=fine_grained_lineages,
         )
 
         return MetadataChangeProposalWrapper(
-            entityUrn=target_urn,
-            aspect=upstream_lineage
+            entityUrn=target_urn, aspect=upstream_lineage
         )
 
     def get_lineage_mcp(
-            self,
-            dataset_urn: str,
-            table: Dict[str, Any],
-            dataset_schema: Optional[SchemaMetadataClass] = None,
+        self,
+        dataset_urn: str,
+        table: Dict[str, Any],
+        dataset_schema: Optional[SchemaMetadataClass] = None,
     ) -> Optional[MetadataWorkUnit]:
         """
         Generate lineage MCP for a Hive table to its storage location.
@@ -427,16 +422,15 @@ class HiveStorageLineage:
         self.report.report_location_scanned()
 
         # Get storage schema if available (implement based on storage system)
-        storage_schema = self._get_storage_schema(storage_location) if dataset_schema else None
+        storage_schema = (
+            self._get_storage_schema(storage_location) if dataset_schema else None
+        )
 
         # Generate fine-grained lineage if schemas available
         fine_grained_lineages = None
         if dataset_schema and storage_schema:
             fine_grained_lineages = self._get_fine_grained_lineages(
-                dataset_urn,
-                storage_urn,
-                dataset_schema,
-                storage_schema
+                dataset_urn, storage_urn, dataset_schema, storage_schema
             )
 
         # Create lineage MCP
@@ -444,7 +438,7 @@ class HiveStorageLineage:
             mcp = self._create_lineage_mcp(
                 source_urn=storage_urn,
                 target_urn=dataset_urn,
-                fine_grained_lineages=fine_grained_lineages
+                fine_grained_lineages=fine_grained_lineages,
             )
         else:
             mcp = self._create_lineage_mcp(
@@ -453,14 +447,11 @@ class HiveStorageLineage:
                 fine_grained_lineages=fine_grained_lineages
             )
 
-        return MetadataWorkUnit(
-            id=f"{dataset_urn}-{storage_urn}-lineage",
-            mcp=mcp
-        )
+        return MetadataWorkUnit(id=f"{dataset_urn}-{storage_urn}-lineage", mcp=mcp)
 
     def _get_storage_schema(
-            self,
-            storage_location: str
+        self,
+        storage_location: str
     ) -> Optional[SchemaMetadataClass]:
         """
         Get schema metadata for storage location.
@@ -501,9 +492,13 @@ class HiveStorageLineage:
                 except Exception as e:
                     logger.debug(f"Could not read with Spark: {e}")
 
-            elif platform in (StoragePlatform.S3, StoragePlatform.GCS, StoragePlatform.AZURE):
+            elif platform in (
+                StoragePlatform.S3,
+                StoragePlatform.GCS,
+                StoragePlatform.AZURE,
+            ):
                 # Try to read as Parquet if the path ends with .parquet
-                if storage_location.lower().endswith('.parquet'):
+                if storage_location.lower().endswith(".parquet"):
                     try:
                         import pyarrow.parquet as pq
 
@@ -522,11 +517,9 @@ class HiveStorageLineage:
 
         return None
 
-    def _schema_from_spark(
-            self,
-            spark_schema
-    ) -> SchemaMetadataClass:
+    def _schema_from_spark(self, spark_schema) -> SchemaMetadataClass:
         """Convert Spark schema to DataHub schema"""
+
         fields = []
 
         for field in spark_schema.fields:
@@ -536,7 +529,7 @@ class HiveStorageLineage:
                     type=self._get_field_type(field.dataType),
                     nativeDataType=str(field.dataType),
                     description=field.metadata.get("description", None),
-                    nullable=field.nullable
+                    nullable=field.nullable,
                 )
             )
 
@@ -546,13 +539,10 @@ class HiveStorageLineage:
             version=0,
             fields=fields,
             hash="",
-            platformSchema=OtherSchemaClass(rawSchema="")
+            platformSchema=OtherSchemaClass(rawSchema=""),
         )
 
-    def _schema_from_arrow(
-            self,
-            arrow_schema
-    ) -> SchemaMetadataClass:
+    def _schema_from_arrow(self, arrow_schema) -> SchemaMetadataClass:
         """Convert PyArrow schema to DataHub schema"""
         fields = []
 
@@ -562,7 +552,7 @@ class HiveStorageLineage:
                     fieldPath=field.name,
                     type=self._get_field_type(field.type),
                     nativeDataType=str(field.type),
-                    nullable=field.nullable
+                    nullable=field.nullable,
                 )
             )
 
@@ -572,7 +562,7 @@ class HiveStorageLineage:
             version=0,
             fields=fields,
             hash="",
-            platformSchema=OtherSchemaClass(rawSchema="")
+            platformSchema=OtherSchemaClass(rawSchema=""),
         )
 
     def _get_field_type(self, data_type: Any) -> SchemaFieldDataTypeClass:
@@ -637,26 +627,20 @@ class HiveStorageLineage:
             customProperties={
                 "platform": StoragePathParser.get_platform_name(platform),
                 "location": storage_location,
-            }
+            },
         )
 
-        mcps.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=storage_urn,
-                aspect=props
-            )
-        )
+        mcps.append(MetadataChangeProposalWrapper(entityUrn=storage_urn, aspect=props))
 
         # Add platform instance
         platform_instance_aspect = self._make_dataset_platform_instance(
             platform=StoragePathParser.get_platform_name(platform),
-            instance=platform_instance or self.config.storage_platform_instance
+            instance=platform_instance or self.config.storage_platform_instance,
         )
 
         mcps.append(
             MetadataChangeProposalWrapper(
-                entityUrn=storage_urn,
-                aspect=platform_instance_aspect
+                entityUrn=storage_urn, aspect=platform_instance_aspect
             )
         )
 
@@ -745,7 +729,7 @@ class HiveConfig(TwoTierSQLAlchemyConfig):
 
     storage_lineage: HiveStorageLineageConfig = Field(
         default_factory=HiveStorageLineageConfig,
-        description="Configuration for storage lineage extraction"
+        description="Configuration for storage lineage extraction",
     )
 
     @validator("host_port")
@@ -776,7 +760,7 @@ class HiveSource(TwoTierSQLAlchemySource):
         self.storage_lineage = HiveStorageLineage(
             config=config.storage_lineage,
             env=config.env,
-            platform_instance=config.platform_instance
+            platform_instance=config.platform_instance,
         )
 
     @classmethod
@@ -813,7 +797,7 @@ class HiveSource(TwoTierSQLAlchemySource):
                     lineage_wu = self.storage_lineage.get_lineage_mcp(
                         dataset_urn=dataset_urn,
                         table=table,
-                        dataset_schema=schema_metadata
+                        dataset_schema=schema_metadata,
                     )
                     if lineage_wu:
                         yield lineage_wu
