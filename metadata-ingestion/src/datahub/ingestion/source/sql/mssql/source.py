@@ -361,15 +361,21 @@ class SQLServerSource(SQLAlchemySource):
         with inspector.engine.connect() as conn:
             jobs = self._get_jobs(conn, db_name)
             for job_name, job_steps in jobs.items():
-                job = MSSQLJob(
-                    name=job_name,
-                    env=sql_config.env,
-                    db=db_name,
-                    platform_instance=sql_config.platform_instance,
-                )
-                data_flow = MSSQLDataFlow(entity=job)
-                yield from self.construct_flow_workunits(data_flow=data_flow)
-                yield from self.loop_job_steps(job, job_steps)
+                try:
+                    job = MSSQLJob(
+                        name=job_name,
+                        env=sql_config.env,
+                        db=db_name,
+                        platform_instance=sql_config.platform_instance,
+                    )
+                    data_flow = MSSQLDataFlow(entity=job)
+                    yield from self.construct_flow_workunits(data_flow=data_flow)
+                    yield from self.loop_job_steps(job, job_steps)
+                except Exception as e:
+                    self.report.report_failure(
+                        "jobs",
+                        f"Failed to list jobs due to error {e}",
+                    )
 
     def loop_job_steps(
         self, job: MSSQLJob, job_steps: Dict[str, Any]
