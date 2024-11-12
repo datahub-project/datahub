@@ -1,6 +1,7 @@
 import { Empty, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components/macro';
+import { SorterResult } from 'antd/lib/table/interface';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import { ANTD_GRAY } from '../../entity/shared/constants';
@@ -41,6 +42,7 @@ interface Props {
     onView: (urn: string) => void;
     onDelete: (urn: string) => void;
     onRefresh: () => void;
+    onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
 }
 
 function IngestionSourceTable({
@@ -52,6 +54,7 @@ function IngestionSourceTable({
     onView,
     onDelete,
     onRefresh,
+    onChangeSort,
 }: Props) {
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
@@ -61,14 +64,14 @@ function IngestionSourceTable({
             dataIndex: 'type',
             key: 'type',
             render: (type: string, record: any) => <TypeColumn type={type} record={record} />,
-            sorter: (sourceA, sourceB) => sourceA.type.localeCompare(sourceB.type),
+            sorter: true,
         },
         {
             title: 'Name',
             dataIndex: 'name',
             key: 'name',
             render: (name: string) => name || '',
-            sorter: (sourceA, sourceB) => sourceA.name.localeCompare(sourceB.name),
+            sorter: true,
         },
         {
             title: 'Schedule',
@@ -81,14 +84,12 @@ function IngestionSourceTable({
             dataIndex: 'execCount',
             key: 'execCount',
             render: (execCount: any) => <Typography.Text>{execCount || '0'}</Typography.Text>,
-            sorter: (sourceA, sourceB) => sourceA.execCount - sourceB.execCount,
         },
         {
             title: 'Last Execution',
             dataIndex: 'lastExecTime',
             key: 'lastExecTime',
             render: LastExecutionColumn,
-            sorter: (sourceA, sourceB) => sourceA.lastExecTime - sourceB.lastExecTime,
         },
         {
             title: 'Last Status',
@@ -97,7 +98,6 @@ function IngestionSourceTable({
             render: (status: any, record) => (
                 <LastStatusColumn status={status} record={record} setFocusExecutionUrn={setFocusExecutionUrn} />
             ),
-            sorter: (sourceA, sourceB) => (sourceA.lastExecStatus || '').localeCompare(sourceB.lastExecStatus || ''),
         },
         {
             title: '',
@@ -139,11 +139,19 @@ function IngestionSourceTable({
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
     }));
 
+    const handleTableChange = (_: any, __: any, sorter: any) => {
+        const sorterTyped: SorterResult<any> = sorter;
+        const field = sorterTyped.field as string;
+        const { order } = sorterTyped;
+        onChangeSort(field, order);
+    };
+
     const FinalStyledSourceTable = isShowNavBarRedesign ? StyledSourceTableWithNavBarRedesign : StyledSourceTable;
 
     return (
         <FinalStyledSourceTable
             columns={tableColumns}
+            onChange={handleTableChange}
             dataSource={tableData}
             scroll={isShowNavBarRedesign ? { y: 'max-content' } : {}}
             rowKey="urn"
