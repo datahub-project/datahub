@@ -28,7 +28,7 @@ const ActionList = styled.div`
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0px 20px;
+    padding: 0px 10px;
 `;
 
 type Props = {

@@ -156,9 +156,9 @@ export default function EditTagTermsModal({
     const [proposeTagMutation] = useProposeTagMutation();
     const [proposeTermMutation] = useProposeTermMutation();
 
-    const [tagTermSearch, { data: tagTermSearchData, loading: searchLoading }] = useGetAutoCompleteResultsLazyQuery();
+    const [tagTermSearch, { data: tagsSearchData, loading: searchLoading }] = useGetAutoCompleteResultsLazyQuery();
 
-    const tagSearchResults: Array<Entity> = tagTermSearchData?.autoComplete?.entities || [];
+    const tagSearchResults: Array<Entity> = tagsSearchData?.autoComplete?.entities || [];
     const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([EntityType.Tag]);
     const loading = (recommendationsLoading as boolean) || searchLoading;
     const inputEl = useRef(null);

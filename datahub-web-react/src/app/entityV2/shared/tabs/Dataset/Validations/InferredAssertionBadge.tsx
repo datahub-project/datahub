@@ -18,7 +18,7 @@ const Logo = styled(Sparkle)`
 export const InferredAssertionBadge = () => {
     return (
         <Container>
-            <Logo />
+            <Logo size={16} />
         </Container>
     );
 };

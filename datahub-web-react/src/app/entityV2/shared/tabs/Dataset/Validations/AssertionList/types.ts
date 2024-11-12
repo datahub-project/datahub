@@ -7,8 +7,8 @@ import {
     AuditStamp,
     DataPlatform,
     EntityType,
-    GlobalTags,
     Monitor,
+    TagAssociation,
 } from '@src/types.generated';
 import { AssertionWithMonitorDetails } from '../acrylUtils';
 import { AssertionGroup } from '../acrylTypes';
@@ -40,7 +40,7 @@ export type AssertionListFilter = {
 export type AssertionListTableRow = {
     type?: AssertionType;
     lastUpdated?: AuditStamp;
-    tags: GlobalTags;
+    tags: TagAssociation[];
     descriptionHTML: JSX.Element | null;
     description: string;
     urn: string;

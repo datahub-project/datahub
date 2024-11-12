@@ -11,8 +11,8 @@ import {
     AssertionSourceType,
     AssertionType,
     AuditStamp,
+    TagAssociation,
     EntityType,
-    GlobalTags,
     Monitor,
 } from '@src/types.generated';
 import { AssertionGroup } from '@src/app/entity/shared/tabs/Dataset/Validations/acrylTypes';
@@ -165,7 +165,7 @@ const mapAssertionData = (assertions: AssertionWithMonitorDetails[] | Assertion[
         const rowData: AssertionListTableRow = {
             type: assertion.info?.type,
             lastUpdated: assertion.info?.lastUpdated as AuditStamp,
-            tags: assertion.tags as GlobalTags,
+            tags: assertion.tags?.tags as TagAssociation[],
             descriptionHTML: null,
             description: primaryPainTextLabel,
             urn: assertion.urn,

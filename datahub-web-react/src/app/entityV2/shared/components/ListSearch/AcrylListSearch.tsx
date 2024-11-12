@@ -11,7 +11,6 @@ const StyledInput = styled(Input)`
     font-size: 14px;
     font-weight: 500;
     line-height: 24px;
-    margin-bottom: 8px;
     color: ${REDESIGN_COLORS.BODY_TEXT};
 `;
 
@@ -19,9 +18,6 @@ const MatchLabelText = styled.span`
     font-size: 12px;
     font-weight: 400;
     color: ${REDESIGN_COLORS.DARK_GREY};
-    bottom: -12px;
-    position: absolute;
-    margin: 0;
 `;
 
 const SearchContainer = styled.div`
@@ -35,8 +31,8 @@ const SearchContainer = styled.div`
     flex-direction: column;
 
     .ant-input-group-wrapper {
-        border-radius: 20px;
-        border: 1px solid ${REDESIGN_COLORS.GREY};
+        border-radius: 8px;
+        border: 1px solid ${REDESIGN_COLORS.SILVER_GREY};
         background: #f3f5fa;
     }
 
@@ -80,32 +76,41 @@ const SearchContainer = styled.div`
     }
 `;
 
-interface AcrylAssertionListSearchProps {
+interface AcrylListSearchProps {
     searchText: string;
     debouncedSetFilterText: (event: React.ChangeEvent<HTMLInputElement>) => void;
     matchResultCount: number;
     numRows: number;
+    options?: {
+        hidePrefix?: boolean;
+        placeholder?: string;
+        allowClear?: boolean;
+        hideMatchCountText?: boolean;
+    };
+    entityTypeName: string;
 }
 
-export const AcrylAssertionListSearch: React.FC<AcrylAssertionListSearchProps> = ({
+export const AcrylListSearch: React.FC<AcrylListSearchProps> = ({
     searchText,
     debouncedSetFilterText,
     matchResultCount,
     numRows,
+    entityTypeName,
+    options,
 }) => {
     return (
         <SearchContainer>
             <StyledInput
                 bordered={false}
-                defaultValue={searchText}
-                placeholder="Search..."
+                value={searchText}
+                placeholder={options?.placeholder || 'Search...'}
                 onChange={debouncedSetFilterText}
                 allowClear
-                prefix={<SearchOutlined />}
+                prefix={!options?.hidePrefix && <SearchOutlined />}
             />
-            {searchText && (
+            {searchText && !options?.hideMatchCountText && (
                 <MatchLabelText>
-                    Matched {matchResultCount} {pluralize(matchResultCount, 'assertion')} of {numRows}
+                    Matched {matchResultCount} {pluralize(matchResultCount, entityTypeName)} of {numRows}
                 </MatchLabelText>
             )}
         </SearchContainer>

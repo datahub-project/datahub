@@ -44,7 +44,6 @@ const Result = styled.div`
 
 const ActionButtonContainer = styled.div`
     display: flex;
-    justify-content: right;
     align-items: center;
 `;
 
