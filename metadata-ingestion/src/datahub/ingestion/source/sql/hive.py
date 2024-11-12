@@ -418,7 +418,9 @@ class HiveStorageLineage:
 
         # Get storage schema if available (implement based on storage system)
         storage_schema = (
-            self._get_storage_schema(storage_location, dataset_schema) if dataset_schema else None
+            self._get_storage_schema(storage_location, dataset_schema)
+            if dataset_schema
+            else None
         )
 
         # Generate fine-grained lineage if schemas available
