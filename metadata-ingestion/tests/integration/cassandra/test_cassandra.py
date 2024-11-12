@@ -30,6 +30,7 @@ def test_cassandra_ingest(docker_compose_runner, pytestconfig, tmp_path):
                     "config": {
                         "contact_point": "localhost",
                         "port": 9042,
+                        "profiling": {"enabled": True},
                     },
                 },
                 "sink": {

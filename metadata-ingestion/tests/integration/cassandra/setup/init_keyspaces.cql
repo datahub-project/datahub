@@ -85,3 +85,47 @@ CREATE MATERIALIZED VIEW IF NOT EXISTS example_view_2 AS
     FROM all_data_types
     WHERE id IS NOT NULL AND ascii_column IS NOT NULL
     PRIMARY KEY (id, ascii_column) WITH COMMENT = 'Example view definition with id and ascii_column';
+
+-- Table created for profilling
+CREATE TABLE IF NOT EXISTS shopping_cart (
+userid text PRIMARY KEY,
+item_count int,
+last_update_timestamp timestamp
+);
+
+-- Insert some data
+INSERT INTO shopping_cart
+(userid, item_count, last_update_timestamp)
+VALUES ('9876', 2, '2024-11-01T00:00:00.000+0000');
+
+INSERT INTO shopping_cart
+(userid, item_count, last_update_timestamp)
+VALUES ('1234', 5, '2024-11-02T00:00:00.000+0000');
+
+INSERT INTO shopping_cart
+(userid, item_count, last_update_timestamp)
+VALUES ('1235', 100, '2024-11-03T00:00:00.000+0000');
+
+INSERT INTO shopping_cart
+(userid, item_count, last_update_timestamp)
+VALUES ('1236', 50, '2024-11-04T00:00:00.000+0000');
+
+INSERT INTO shopping_cart
+(userid, item_count, last_update_timestamp)
+VALUES ('1237', 75, '2024-11-05T00:00:00.000+0000');
+
+INSERT INTO shopping_cart
+(userid, last_update_timestamp)
+VALUES ('1238', '2024-11-06T00:00:00.000+0000');
+
+INSERT INTO shopping_cart
+(userid, last_update_timestamp)
+VALUES ('1239', '2024-11-07T00:00:00.000+0000');
+
+INSERT INTO shopping_cart
+(userid, last_update_timestamp)
+VALUES ('1240', '2024-11-08T00:00:00.000+0000');
+
+INSERT INTO shopping_cart
+(userid, item_count, last_update_timestamp)
+VALUES ('1241', '2024-11-09T00:00:00.000+0000');

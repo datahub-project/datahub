@@ -1599,6 +1599,76 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.shopping_cart,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "shopping_cart",
+            "platform": "urn:li:dataPlatform:cassandra",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.OtherSchema": {
+                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"shopping_cart\", \"column_name\": \"item_count\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"int\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"shopping_cart\", \"column_name\": \"last_update_timestamp\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"timestamp\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"shopping_cart\", \"column_name\": \"userid\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"text\"}]"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=int].item_count",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=timestamp].last_update_timestamp",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "timestamp",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "[version=2.0].[type=text].userid",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "text",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731410842609,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
@@ -1624,6 +1694,40 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.shopping_cart,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731410842611,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.shopping_cart,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731410842610,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "viewProperties",
@@ -1642,6 +1746,34 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.shopping_cart,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "bloom_filter_fp_chance": "0.01",
+                "caching": "{'keys': 'ALL', 'rows_per_partition': 'NONE'}",
+                "cdc": "None",
+                "compaction": "{'class': 'org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy', 'max_threshold': '32', 'min_threshold': '4'}",
+                "compression": "{'chunk_length_in_kb': '16', 'class': 'org.apache.cassandra.io.compress.LZ4Compressor'}",
+                "max_index_interval": "2048",
+                "min_index_interval": "128"
+            },
+            "name": "shopping_cart",
+            "qualifiedName": "example_keyspace.shopping_cart",
+            "description": "",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731410842611,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -1652,6 +1784,43 @@
     },
     "systemMetadata": {
         "lastObserved": 1731310103456,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.shopping_cart,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:305f73c676989511c67d97ace119138c",
+                    "urn": "urn:li:container:305f73c676989511c67d97ace119138c"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731410842612,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.shopping_cart,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:305f73c676989511c67d97ace119138c"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731410842611,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2019,6 +2188,165 @@
     },
     "systemMetadata": {
         "lastObserved": 1731310942175,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1731410997521,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 0,
+            "columnCount": 27,
+            "fieldProfiles": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731410997537,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_1.people,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1731410997579,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 0,
+            "columnCount": 3,
+            "fieldProfiles": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731410997580,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.counter_table,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1731410997537,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 0,
+            "columnCount": 2,
+            "fieldProfiles": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731410997549,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.tasks,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1731410997558,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 0,
+            "columnCount": 4,
+            "fieldProfiles": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731410997570,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_1.information,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1731410997570,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 0,
+            "columnCount": 3,
+            "fieldProfiles": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731410997579,
+        "runId": "cassandra-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.shopping_cart,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1731416224099,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 8,
+            "columnCount": 3,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "item_count",
+                    "uniqueCount": 5,
+                    "min": "2",
+                    "max": "100",
+                    "mean": "46.4",
+                    "stdev": "50.0"
+                },
+                {
+                    "fieldPath": "last_update_timestamp",
+                    "uniqueCount": 8,
+                    "min": "2024-11-01 00:00:00",
+                    "max": "2024-11-08 00:00:00"
+                },
+                {
+                    "fieldPath": "userid",
+                    "uniqueCount": 8,
+                    "min": "1234",
+                    "max": "9876"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1731416224113,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }

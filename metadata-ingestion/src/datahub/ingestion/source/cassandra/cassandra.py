@@ -335,9 +335,8 @@ class CassandraSource(StatefulIngestionSourceBase):
             CassandraToSchemaFieldConverter.get_schema_fields(column_infos)
         )
         if not schema_fields:
-            logger.warning(f"Table {table_name} has no columns, skipping")
             self.report.report_warning(
-                "table", f"Table {table_name} has no columns, skipping"
+                message="Table has no columns, skipping", context=table_name
             )
             return
 
