@@ -1,6 +1,8 @@
 import logging
 import sys
+import time
 from typing import List, Tuple
+from unittest.mock import MagicMock, patch
 
 import pytest
 from lark import Tree
@@ -1095,3 +1097,53 @@ def test_double_quotes_in_alias():
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:mssql,db.dbo.sales_t,PROD)"
     )
+
+
+@patch("datahub.ingestion.source.powerbi.m_query.parser.get_lark_parser")
+def test_m_query_timeout(mock_get_lark_parser):
+
+    q = 'let\n    Source = Value.NativeQuery(Snowflake.Databases("0DD93C6BD5A6.snowflakecomputing.com","sales_analytics_warehouse_prod",[Role="sales_analytics_member_ad"]){[Name="SL_OPERATIONS"]}[Data], "select SALE_NO AS ""\x1b[4mSaleNo\x1b[0m""#(lf)        ,CODE AS ""Code""#(lf)        ,ENDDATE AS ""end_date""#(lf) from SL_OPERATIONS.SALE.REPORTS#(lf)  where ENDDATE > \'2024-02-03\'", null, [EnableFolding=true]),\n    #"selected Row" = Table.SelectRows(Source)\nin\n    #"selected Row"'
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    config.enable_advance_lineage_sql_construct = True
+
+    config.m_query_parse_timeout = 1
+
+    mock_lark_instance = MagicMock()
+
+    mock_get_lark_parser.return_value = mock_lark_instance
+    # sleep for 5 seconds to trigger timeout
+    mock_lark_instance.parse.side_effect = lambda expression: time.sleep(5)
+
+    parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    warn_entries: dict = reporter._structured_logs._entries.get(
+        StructuredLogLevel.WARN, {}
+    )  # type :ignore
+
+    is_entry_present: bool = False
+    for key, entry in warn_entries.items():
+        if entry.title == "M-Query Parsing Timeout":
+            is_entry_present = True
+            break
+
+    assert (
+        is_entry_present
+    ), 'Warning message "M-Query Parsing Timeout" should be present in reporter'

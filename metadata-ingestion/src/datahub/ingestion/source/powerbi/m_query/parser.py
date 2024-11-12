@@ -1,4 +1,3 @@
-import concurrent
 import functools
 import importlib.resources as pkg_resource
 import logging
@@ -21,7 +20,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     TRACE_POWERBI_MQUERY_PARSER,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
-from datahub.utilities.threading_timeout import threading_timeout
+from datahub.utilities.threading_timeout import TimeoutException, threading_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -101,7 +100,7 @@ def get_upstream_tables(
 
     except KeyboardInterrupt:
         raise
-    except concurrent.futures.TimeoutError:
+    except TimeoutException:
         reporter.m_query_parse_timeouts += 1
         reporter.warning(
             title="M-Query Parsing Timeout",
