@@ -480,6 +480,7 @@ class HiveStorageLineage:
             platformSchema=OtherSchemaClass(rawSchema=""),
         )
 
+
 try:
     from databricks_dbapi.sqlalchemy_dialects.hive import DatabricksPyhiveDialect
     from pyhive.sqlalchemy_hive import _type_map
