@@ -231,11 +231,6 @@ class HiveStorageLineageConfig(BaseModel):
 
     @property
     def storage_platform_instance(self) -> Optional[str]:
-        """Get the storage platform instance, defaulting to same as Hive if not specified."""
-        return self.platform_instance
-
-    @property
-    def storage_platform_instance(self) -> Optional[str]:
         """Get the storage platform instance, defaulting to same as Hive if not specified"""
 
         return self.platform_instance
@@ -423,7 +418,7 @@ class HiveStorageLineage:
 
         # Get storage schema if available (implement based on storage system)
         storage_schema = (
-            self._get_storage_schema(storage_location) if dataset_schema else None
+            self._get_storage_schema(storage_location, dataset_schema) if dataset_schema else None
         )
 
         # Generate fine-grained lineage if schemas available
@@ -450,7 +445,9 @@ class HiveStorageLineage:
         return MetadataWorkUnit(id=f"{dataset_urn}-{storage_urn}-lineage", mcp=mcp)
 
     def _get_storage_schema(
-        self, storage_location: str
+        self,
+        storage_location: str,
+        table_schema: Optional[SchemaMetadataClass] = None,
     ) -> Optional[SchemaMetadataClass]:
         """
         Get schema metadata for storage location.
@@ -463,103 +460,20 @@ class HiveStorageLineage:
             SchemaMetadataClass if schema can be inferred, None otherwise
         """
 
+        if not table_schema:
+            return None
+
         storage_info = StoragePathParser.parse_storage_location(storage_location)
         if not storage_info:
             return None
 
-        platform, path = storage_info
-
-        try:
-            if platform == StoragePlatform.DBFS:
-                # Try to get Delta table metadata first
-                try:
-                    from pyspark.sql import SparkSession
-
-                    spark = SparkSession.builder.getOrCreate()
-                    df = spark.read.format("delta").load(storage_location)
-                    return self._schema_from_spark(df.schema)
-                except Exception as exp:
-                    logger.debug(f"Could not read as Delta table: {exp}")
-
-                # Try as regular Spark table/file
-                try:
-                    from pyspark.sql import SparkSession
-
-                    spark = SparkSession.builder.getOrCreate()
-                    df = spark.read.load(storage_location)
-                    return self._schema_from_spark(df.schema)
-                except Exception as e:
-                    logger.debug(f"Could not read with Spark: {e}")
-
-            elif platform in (
-                StoragePlatform.S3,
-                StoragePlatform.GCS,
-                StoragePlatform.AZURE,
-            ):
-                # Try to read as Parquet if the path ends with .parquet
-                if storage_location.lower().endswith(".parquet"):
-                    try:
-                        import pyarrow.parquet as pq
-
-                        metadata = pq.read_metadata(storage_location)
-                        schema = metadata.schema
-                        return self._schema_from_arrow(schema)
-                    except Exception as exp:
-                        logger.debug(f"Could not read Parquet schema: {exp}")
-
-                # Could add other format handlers here (ORC, Avro, etc.)
-
-        except Exception as exp:
-            logger.warning(
-                f"Failed to get schema for storage location {storage_location}: {exp}"
-            )
-
-        return None
-
-    def _schema_from_spark(self, spark_schema) -> SchemaMetadataClass:
-        """Convert Spark schema to DataHub schema"""
-
-        fields = []
-
-        for field in spark_schema.fields:
-            fields.append(
-                SchemaFieldClass(
-                    fieldPath=field.name,
-                    type=self._get_field_type(field.dataType),
-                    nativeDataType=str(field.dataType),
-                    description=field.metadata.get("description", None),
-                    nullable=field.nullable,
-                )
-            )
+        platform, _ = storage_info
 
         return SchemaMetadataClass(
-            schemaName="spark_schema",
-            platform=f"urn:li:dataPlatform:{StoragePlatform.DBFS.value}",
+            schemaName=f"{platform.value}_schema",
+            platform=f"urn:li:dataPlatform:{platform.value}",
             version=0,
-            fields=fields,
-            hash="",
-            platformSchema=OtherSchemaClass(rawSchema=""),
-        )
-
-    def _schema_from_arrow(self, arrow_schema) -> SchemaMetadataClass:
-        """Convert PyArrow schema to DataHub schema"""
-        fields = []
-
-        for field in arrow_schema:
-            fields.append(
-                SchemaFieldClass(
-                    fieldPath=field.name,
-                    type=self._get_field_type(field.type),
-                    nativeDataType=str(field.type),
-                    nullable=field.nullable,
-                )
-            )
-
-        return SchemaMetadataClass(
-            schemaName="parquet_schema",
-            platform=f"urn:li:dataPlatform:parquet",
-            version=0,
-            fields=fields,
+            fields=table_schema.fields,
             hash="",
             platformSchema=OtherSchemaClass(rawSchema=""),
         )
