@@ -51,8 +51,8 @@ dependencies {
 
   implementation project(':metadata-integration:java:openlineage-converter')
 
-  implementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
-  implementation project(path: ':metadata-integration:java:openlineage-converter', configuration: 'shadow')
+  implementation project(path: ':metadata-integration:java:datahub-client')
+  implementation project(path: ':metadata-integration:java:openlineage-converter')
 
   //implementation "io.acryl:datahub-client:0.10.2"
   implementation "io.openlineage:openlineage-spark_2.12:$openLineageVersion"
@@ -123,7 +123,6 @@ shadowJar {
   relocate 'com.sun.activation', 'io.acryl.shaded.com.sun.activation'
   relocate 'com.sun.codemodel', 'io.acryl.shaded.com.sun.codemodel'
   relocate 'com.sun.mail', 'io.acryl.shaded.com.sun.mail'
-  relocate 'com.fasterxml.jackson', 'datahub.spark2.shaded.jackson'
   relocate 'org.slf4j', 'datahub.spark2.shaded.org.slf4j'
   //
   relocate 'org.apache.hc', 'io.acryl.shaded.http'
