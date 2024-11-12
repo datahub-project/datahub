@@ -509,9 +509,9 @@ class PowerBiDashboardSourceConfig(
         "Increase this value if you encounter the 'M-Query Parsing Timeout' message in the connector report.",
     )
 
-    api_call_time_out: int = pydantic.Field(
+    metadata_api_timeout: int = pydantic.Field(
         default=30,
-        description="timeout in seconds for Rest Api Call.",
+        description="timeout in seconds for Metadata Rest Api.",
         hidden_from_docs=True,
     )
 

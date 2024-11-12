@@ -17,11 +17,11 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
 )
 from datahub.ingestion.source.powerbi.m_query import resolver, validator
-
-# from datahub.ingestion.source.powerbi.m_query.data_classes import (
-#     TRACE_POWERBI_MQUERY_PARSER,
-# )
+from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    TRACE_POWERBI_MQUERY_PARSER,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
+from datahub.utilities.threading_timeout import threading_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -38,30 +38,21 @@ def get_lark_parser() -> Lark:
     return Lark(grammar, start="let_expression", regex=True)
 
 
-def _parse_with_lark(expression: str) -> Tree:
-    # logger.debug(f"PID = {os.getpid()}, Expression = {expression}")
-
+def _parse_expression(expression: str, parse_timeout: int = 60) -> Tree:
     lark_parser: Lark = get_lark_parser()
 
     # Replace U+00a0 NO-BREAK SPACE with a normal space.
     # Sometimes PowerBI returns expressions with this character and it breaks the parser.
     expression = expression.replace("\u00a0", " ")
 
-    parse_tree: Tree = lark_parser.parse(expression)
+    logger.debug(f"Parsing expression = {expression}")
+    with threading_timeout(parse_timeout):
+        parse_tree: Tree = lark_parser.parse(expression)
 
-    # if TRACE_POWERBI_MQUERY_PARSER:
-    #     logger.debug(parse_tree.pretty())
+    if TRACE_POWERBI_MQUERY_PARSER:
+        logger.debug(parse_tree.pretty())
 
     return parse_tree
-
-
-def _parse_expression(expression: str, parse_timeout: int = 60) -> Tree:
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(_parse_with_lark, expression)
-        # Try to get the result within the specified timeout
-        result = future.result(timeout=parse_timeout)
-
-        return result
 
 
 def get_upstream_tables(

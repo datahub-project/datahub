@@ -82,7 +82,7 @@ class DataResolverBase(ABC):
         client_id: str,
         client_secret: str,
         tenant_id: str,
-        api_call_timeout: int,
+        metadata_api_timeout: int,
     ):
         self.__access_token: Optional[str] = None
         self.__access_token_expiry_time: Optional[datetime] = None
@@ -99,7 +99,7 @@ class DataResolverBase(ABC):
 
         logger.info(f"Connected to {self._get_authority_url()}")
 
-        self._request_session = SessionWithTimeout(timeout=api_call_timeout)
+        self._request_session = SessionWithTimeout(timeout=metadata_api_timeout)
 
         # set re-try parameter for request_session
         self._request_session.mount(
