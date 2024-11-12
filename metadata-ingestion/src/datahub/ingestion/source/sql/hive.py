@@ -3,7 +3,7 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Iterable, List, Optional, Union, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 from pydantic import BaseModel
@@ -16,9 +16,10 @@ from pyhive.sqlalchemy_hive import HiveDate, HiveDecimal, HiveDialect, HiveTimes
 from sqlalchemy.engine.reflection import Inspector
 
 from datahub.emitter.mce_builder import (
-    make_dataset_urn_with_platform_instance,
-    make_dataplatform_instance_urn,
     make_data_platform_urn,
+    make_dataplatform_instance_urn,
+    make_dataset_urn_with_platform_instance,
+
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.decorators import (
@@ -38,26 +39,26 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemySource,
 )
 from datahub.metadata.schema_classes import (
-    FineGrainedLineageClass,
-    UpstreamLineageClass,
-    UpstreamClass,
+    BooleanTypeClass,
+    BytesTypeClass,
+    DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    DateTypeClass,
+    FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
-    DataPlatformInstanceClass,
-    DateTypeClass,
     NullTypeClass,
     NumberTypeClass,
-    SchemaFieldClass,
-    TimeTypeClass,
-    SchemaMetadataClass,
-    ViewPropertiesClass,
     OtherSchemaClass,
-    StringTypeClass,
-    BytesTypeClass,
-    BooleanTypeClass,
+    SchemaFieldClass,
     SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StringTypeClass,
+    TimeTypeClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+    ViewPropertiesClass,
 )
 from datahub.utilities import config_clean
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
