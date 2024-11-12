@@ -203,6 +203,7 @@ class SnowflakeTagHelper(Closeable):
     def find_column_name(
         self, database: str, schema: str, table: str, column: str
     ) -> str:
+        table_cols: List[str] = []
         cols = self._get_columns(
             database,
             schema,
