@@ -34,6 +34,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
      `datahub delete --platform powerbi --soft` and then re-ingest with the latest CLI version, ensuring the `include_workspace_name_in_dataset_urn` configuration is set to true.
 
 - #11701: The Fivetran `sources_to_database` field is deprecated in favor of setting directly within `sources_to_platform_instance.<key>.database`.
+- #11742: For PowerBi ingestion, `use_powerbi_email` is now enabled by default when extracting ownership information.
 
 ### Breaking Changes
 

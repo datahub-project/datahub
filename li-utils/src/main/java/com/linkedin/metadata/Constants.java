@@ -464,5 +464,7 @@ public class Constants {
   public static final String MDC_ENTITY_TYPE = "entityType";
   public static final String MDC_CHANGE_TYPE = "changeType";
 
+  public static final String RESTLI_SUCCESS = "success";
+
   private Constants() {}
 }
