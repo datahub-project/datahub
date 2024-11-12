@@ -59,6 +59,14 @@ class SoftDeletedEntitiesCleanupConfig(ConfigModel):
         default=None,
         description="Query to filter entities",
     )
+    limit_entities_delete: Optional[int] = Field(
+        10000, description="Max number of entities to delete."
+    )
+
+    runtime_limit_seconds: Optional[int] = Field(
+        None,
+        description="Runtime limit in seconds",
+    )
 
 
 @dataclass
@@ -122,6 +130,10 @@ class SoftDeletedEntitiesCleanup:
             return
 
         self.ctx.graph.delete_entity(urn=urn, hard=True)
+        self.ctx.graph.delete_references_to_urn(
+            urn=urn,
+            dry_run=False,
+        )
 
     def delete_soft_deleted_entity(self, urn: str) -> None:
         assert self.ctx.graph
@@ -145,6 +157,7 @@ class SoftDeletedEntitiesCleanup:
 
     def cleanup_soft_deleted_entities(self) -> None:
         assert self.ctx.graph
+        start_time = time.time()
 
         deleted_count_retention = 0
         urns = self.ctx.graph.get_urns_by_filter(
@@ -158,7 +171,26 @@ class SoftDeletedEntitiesCleanup:
 
         futures = {}
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
+            num_urns_submitted = 0
             for urn in urns:
+                num_urns_submitted += 1
+                if (
+                    self.config.limit_entities_delete
+                    and num_urns_submitted > self.config.limit_entities_delete
+                ):
+                    logger.info(
+                        f"Limit of {self.config.limit_entities_delete} entities reached. Stopping"
+                    )
+                    break
+                if (
+                    self.config.runtime_limit_seconds
+                    and time.time() - start_time > self.config.runtime_limit_seconds
+                ):
+                    logger.info(
+                        f"Runtime limit of {self.config.runtime_limit_seconds} seconds reached. Stopping"
+                    )
+                    break
+
                 future = executor.submit(self.delete_soft_deleted_entity, urn)
                 futures[future] = urn
 

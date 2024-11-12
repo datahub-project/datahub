@@ -7,7 +7,6 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -43,7 +42,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
 )
-from datahub.metadata.schema_classes import StatusClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -76,7 +74,7 @@ class FivetranSource(StatefulIngestionSourceBase):
 
         self.audit_log = FivetranLogAPI(self.config.fivetran_log_config)
 
-    def _extend_lineage(self, connector: Connector, datajob: DataJob) -> None:
+    def _extend_lineage(self, connector: Connector, datajob: DataJob) -> Dict[str, str]:
         input_dataset_urn_list: List[DatasetUrn] = []
         output_dataset_urn_list: List[DatasetUrn] = []
         fine_grained_lineage: List[FineGrainedLineage] = []
@@ -93,8 +91,11 @@ class FivetranSource(StatefulIngestionSourceBase):
                     connector.connector_type
                 ]
             else:
-                logger.info(
-                    f"Fivetran connector source type: {connector.connector_type} is not supported to mapped with Datahub dataset entity."
+                self.report.info(
+                    title="Guessing source platform for lineage",
+                    message="We encountered a connector type that we don't fully support yet. "
+                    "We will attempt to guess the platform based on the connector type.",
+                    context=f"{connector.connector_name} (connector_id: {connector.connector_id}, connector_type: {connector.connector_type})",
                 )
                 source_details.platform = connector.connector_type
 
@@ -170,7 +171,19 @@ class FivetranSource(StatefulIngestionSourceBase):
         datajob.inlets.extend(input_dataset_urn_list)
         datajob.outlets.extend(output_dataset_urn_list)
         datajob.fine_grained_lineages.extend(fine_grained_lineage)
-        return None
+
+        return dict(
+            **{
+                f"source.{k}": str(v)
+                for k, v in source_details.dict().items()
+                if v is not None
+            },
+            **{
+                f"destination.{k}": str(v)
+                for k, v in destination_details.dict().items()
+                if v is not None
+            },
+        )
 
     def _generate_dataflow_from_connector(self, connector: Connector) -> DataFlow:
         return DataFlow(
@@ -196,22 +209,22 @@ class FivetranSource(StatefulIngestionSourceBase):
             owners={owner_email} if owner_email else set(),
         )
 
-        job_property_bag: Dict[str, str] = {}
-        allowed_connection_keys = [
-            Constant.PAUSED,
-            Constant.SYNC_FREQUENCY,
-            Constant.DESTINATION_ID,
-        ]
-        for key in allowed_connection_keys:
-            if hasattr(connector, key) and getattr(connector, key) is not None:
-                job_property_bag[key] = repr(getattr(connector, key))
-        datajob.properties = job_property_bag
-
         # Map connector source and destination table with dataset entity
         # Also extend the fine grained lineage of column if include_column_lineage is True
-        self._extend_lineage(connector=connector, datajob=datajob)
-
+        lineage_properties = self._extend_lineage(connector=connector, datajob=datajob)
         # TODO: Add fine grained lineages of dataset after FineGrainedLineageDownstreamType.DATASET enabled
+
+        connector_properties: Dict[str, str] = {
+            "connector_id": connector.connector_id,
+            "connector_type": connector.connector_type,
+            "paused": str(connector.paused),
+            "sync_frequency": str(connector.sync_frequency),
+            "destination_id": connector.destination_id,
+        }
+        datajob.properties = {
+            **connector_properties,
+            **lineage_properties,
+        }
 
         return datajob
 
@@ -265,15 +278,6 @@ class FivetranSource(StatefulIngestionSourceBase):
         datajob = self._generate_datajob_from_connector(connector)
         for mcp in datajob.generate_mcp(materialize_iolets=False):
             yield mcp.as_workunit()
-
-        # Materialize the upstream referenced datasets.
-        # We assume that the downstreams are materialized by other ingestion sources.
-        for iolet in datajob.inlets:
-            # We don't want these to be tracked by stateful ingestion.
-            yield MetadataChangeProposalWrapper(
-                entityUrn=str(iolet),
-                aspect=StatusClass(removed=False),
-            ).as_workunit(is_primary_source=False)
 
         # Map Fivetran's job/sync history entity with Datahub's data process entity
         if len(connector.jobs) >= MAX_JOBS_PER_CONNECTOR:

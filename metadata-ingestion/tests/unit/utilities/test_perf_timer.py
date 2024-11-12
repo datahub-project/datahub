@@ -8,7 +8,7 @@ from datahub.utilities.perf_timer import PerfTimer
 approx = partial(pytest.approx, rel=2e-2)
 
 
-def test_perf_timer_simple():
+def test_perf_timer_simple() -> None:
     with PerfTimer() as timer:
         time.sleep(0.4)
         assert approx(timer.elapsed_seconds()) == 0.4
@@ -16,7 +16,7 @@ def test_perf_timer_simple():
     assert approx(timer.elapsed_seconds()) == 0.4
 
 
-def test_perf_timer_paused_timer():
+def test_perf_timer_paused_timer() -> None:
     with PerfTimer() as current_timer:
         time.sleep(0.5)
         assert approx(current_timer.elapsed_seconds()) == 0.5
@@ -29,7 +29,7 @@ def test_perf_timer_paused_timer():
     assert approx(current_timer.elapsed_seconds()) == 0.7
 
 
-def test_generator_with_paused_timer():
+def test_generator_with_paused_timer() -> None:
     n = 4
 
     def generator_function():
@@ -46,3 +46,15 @@ def test_generator_with_paused_timer():
         seq = generator_function()
         list([i for i in seq])
         assert approx(outer_timer.elapsed_seconds()) == 1 + 0.2 * n + 0.2 * n
+
+
+def test_perf_timer_reuse() -> None:
+    timer = PerfTimer()
+
+    with timer:
+        time.sleep(0.2)
+
+    with timer:
+        time.sleep(0.3)
+
+    assert approx(timer.elapsed_seconds()) == 0.5

@@ -717,3 +717,13 @@
     displayName: SAP Analytics Cloud
     type: OTHERS
     logoUrl: "/assets/platforms/saclogo.svg"
+- entityUrn: urn:li:dataPlatform:dremio
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: dremio
+    displayName: Dremio
+    type: QUERY_ENGINE
+    logoUrl: "/assets/platforms/dremiologo.png"

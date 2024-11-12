@@ -4,7 +4,10 @@
 #
 #########################################################
 import logging
+from datetime import datetime
 from typing import Iterable, List, Optional, Tuple, Union
+
+import more_itertools
 
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
@@ -59,6 +62,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageUpstreamType,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     BrowsePathsClass,
     ChangeTypeClass,
     ChartInfoClass,
@@ -70,6 +74,7 @@ from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     DatasetProfileClass,
     DatasetPropertiesClass,
+    EdgeClass,
     GlobalTagsClass,
     OtherSchemaClass,
     OwnerClass,
@@ -792,6 +797,11 @@ class Mapper:
             container_key=self.workspace_key,
             name=workspace.name,
             sub_types=[workspace.type],
+            extra_properties={
+                "workspace_id": workspace.id,
+                "workspace_name": workspace.name,
+                "workspace_type": workspace.type,
+            },
         )
         return container_work_units
 
@@ -1006,7 +1016,9 @@ class Mapper:
             )
 
             # Browse path
-            browse_path = BrowsePathsClass(paths=[f"/powerbi/{workspace.name}"])
+            browse_path = BrowsePathsClass(
+                paths=[f"/{Constant.PLATFORM_NAME}/{workspace.name}"]
+            )
             browse_path_mcp = self.new_mcp(
                 entity_urn=chart_urn,
                 aspect=browse_path,
@@ -1251,20 +1263,33 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_allowed_workspaces(self) -> List[powerbi_data_classes.Workspace]:
         all_workspaces = self.powerbi_client.get_workspaces()
-
-        allowed_wrk = [
-            workspace
-            for workspace in all_workspaces
-            if self.source_config.workspace_id_pattern.allowed(workspace.id)
-            and workspace.type in self.source_config.workspace_type_filter
-        ]
-
         logger.info(f"Number of workspaces = {len(all_workspaces)}")
-        self.reporter.report_number_of_workspaces(len(all_workspaces))
-        logger.info(f"Number of allowed workspaces = {len(allowed_wrk)}")
-        logger.debug(f"Workspaces = {all_workspaces}")
+        self.reporter.all_workspace_count = len(all_workspaces)
+        logger.debug(
+            f"All workspaces: {[workspace.format_name_for_logger() for workspace in all_workspaces]}"
+        )
 
-        return allowed_wrk
+        allowed_workspaces = []
+        for workspace in all_workspaces:
+            if not self.source_config.workspace_id_pattern.allowed(workspace.id):
+                self.reporter.filtered_workspace_names.append(
+                    f"{workspace.id} - {workspace.name}"
+                )
+                continue
+            elif workspace.type not in self.source_config.workspace_type_filter:
+                self.reporter.filtered_workspace_types.append(
+                    f"{workspace.id} - {workspace.name} (type = {workspace.type})"
+                )
+                continue
+            else:
+                allowed_workspaces.append(workspace)
+
+        logger.info(f"Number of allowed workspaces = {len(allowed_workspaces)}")
+        logger.debug(
+            f"Allowed workspaces: {[workspace.format_name_for_logger() for workspace in allowed_workspaces]}"
+        )
+
+        return allowed_workspaces
 
     def validate_dataset_type_mapping(self):
         powerbi_data_platforms: List[str] = [
@@ -1306,6 +1331,95 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 )
             )
 
+    def emit_app(
+        self, workspace: powerbi_data_classes.Workspace
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        if workspace.app is None:
+            return
+
+        if not self.source_config.extract_app:
+            self.reporter.info(
+                title="App Ingestion Is Disabled",
+                message="You are missing workspace app metadata. Please set flag `extract_app` to `true` in recipe to ingest workspace app.",
+                context=f"workspace-name={workspace.name}, app-name = {workspace.app.name}",
+            )
+            return
+
+        assets_within_app: List[EdgeClass] = [
+            EdgeClass(
+                destinationUrn=builder.make_dashboard_urn(
+                    platform=self.source_config.platform_name,
+                    platform_instance=self.source_config.platform_instance,
+                    name=powerbi_data_classes.Dashboard.get_urn_part_by_id(
+                        app_dashboard.original_dashboard_id
+                    ),
+                )
+            )
+            for app_dashboard in workspace.app.dashboards
+        ]
+
+        assets_within_app.extend(
+            [
+                EdgeClass(
+                    destinationUrn=builder.make_dashboard_urn(
+                        platform=self.source_config.platform_name,
+                        platform_instance=self.source_config.platform_instance,
+                        name=powerbi_data_classes.Report.get_urn_part_by_id(
+                            app_report.original_report_id
+                        ),
+                    )
+                )
+                for app_report in workspace.app.reports
+            ]
+        )
+
+        if assets_within_app:
+            logger.debug(
+                f"Emitting metadata-workunits for app {workspace.app.name}({workspace.app.id})"
+            )
+
+            app_urn: str = builder.make_dashboard_urn(
+                platform=self.source_config.platform_name,
+                platform_instance=self.source_config.platform_instance,
+                name=powerbi_data_classes.App.get_urn_part_by_id(workspace.app.id),
+            )
+
+            dashboard_info: DashboardInfoClass = DashboardInfoClass(
+                title=workspace.app.name,
+                description=workspace.app.description
+                if workspace.app.description
+                else workspace.app.name,
+                # lastModified=workspace.app.last_update,
+                lastModified=ChangeAuditStamps(
+                    lastModified=AuditStampClass(
+                        actor="urn:li:corpuser:unknown",
+                        time=int(
+                            datetime.strptime(
+                                workspace.app.last_update, "%Y-%m-%dT%H:%M:%S.%fZ"
+                            ).timestamp()
+                        ),
+                    )
+                    if workspace.app.last_update
+                    else None
+                ),
+                dashboards=assets_within_app,
+            )
+
+            # Browse path
+            browse_path: BrowsePathsClass = BrowsePathsClass(
+                paths=[f"/powerbi/{workspace.name}"]
+            )
+
+            yield from MetadataChangeProposalWrapper.construct_many(
+                entityUrn=app_urn,
+                aspects=(
+                    dashboard_info,
+                    browse_path,
+                    StatusClass(removed=False),
+                    SubTypesClass(typeNames=[BIAssetSubTypes.POWERBI_APP]),
+                ),
+            )
+
     def get_workspace_workunit(
         self, workspace: powerbi_data_classes.Workspace
     ) -> Iterable[MetadataWorkUnit]:
@@ -1317,6 +1431,8 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             for workunit in workspace_workunits:
                 # Return workunit to a Datahub Ingestion framework
                 yield workunit
+
+        yield from auto_workunit(self.emit_app(workspace=workspace))
 
         for dashboard in workspace.dashboards:
             try:
@@ -1384,16 +1500,10 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
         # Fetch PowerBi workspace for given workspace identifier
 
         allowed_workspaces = self.get_allowed_workspaces()
-        workspaces_len = len(allowed_workspaces)
 
-        batch_size = (
-            self.source_config.scan_batch_size
-        )  # 100 is the maximum allowed for powerbi scan
-        num_batches = (workspaces_len + batch_size - 1) // batch_size
-        batches = [
-            allowed_workspaces[i * batch_size : (i + 1) * batch_size]
-            for i in range(num_batches)
-        ]
+        batches = more_itertools.chunked(
+            allowed_workspaces, self.source_config.scan_batch_size
+        )
         for batch_workspaces in batches:
             for workspace in self.powerbi_client.fill_workspaces(
                 batch_workspaces, self.reporter
@@ -1402,7 +1512,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
                 if self.source_config.modified_since:
                     # As modified_workspaces is not idempotent, hence we checkpoint for each powerbi workspace
-                    # Because job_id is used as dictionary key, we have to set a new job_id
+                    # Because job_id is used as a dictionary key, we have to set a new job_id
                     # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
                     self.stale_entity_removal_handler.set_job_id(workspace.id)
                     self.state_provider.register_stateful_ingestion_usecase_handler(

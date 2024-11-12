@@ -42,7 +42,6 @@ framework_common = {
     "python-dateutil>=2.8.0",
     "tabulate",
     "progressbar2",
-    "termcolor>=1.0.0",
     "psutil>=5.8.0",
     "Deprecated",
     "humanfriendly",
@@ -142,7 +141,7 @@ sql_common = (
         # https://github.com/great-expectations/great_expectations/pull/5382/files
         # datahub does not depend on traitlets directly but great expectations does.
         # https://github.com/ipython/traitlets/issues/741
-        "traitlets<5.2.2",
+        "traitlets!=5.2.2",
         "greenlet",
         *cachetools_lib,
     }
@@ -174,7 +173,7 @@ path_spec_common = {
 
 looker_common = {
     # Looker Python SDK
-    "looker-sdk==23.0.0",
+    "looker-sdk>=23.0.0",
     # This version of lkml contains a fix for parsing lists in
     # LookML files with spaces between an item and the following comma.
     # See https://github.com/joshtemple/lkml/issues/73.
@@ -193,6 +192,7 @@ bigquery_common = {
     "google-cloud-resource-manager",
     "more-itertools>=8.12.0",
     "sqlalchemy-bigquery>=1.4.1",
+    *path_spec_common,
 }
 
 clickhouse_common = {
@@ -274,6 +274,13 @@ s3_base = {
     # moto 5.0.0 drops support for Python 3.7
     "moto[s3]<5.0.0",
     *path_spec_common,
+}
+
+threading_timeout_common = {
+    "stopit==1.1.2",
+    # stopit uses pkg_resources internally, which means there's an implied
+    # dependency on setuptools.
+    "setuptools",
 }
 
 abs_base = {
@@ -376,11 +383,11 @@ plugins: Dict[str, Set[str]] = {
     "azure-ad": set(),
     "bigquery": sql_common
     | bigquery_common
+    | sqlglot_lib
+    | classification_lib
     | {
-        *sqlglot_lib,
         "google-cloud-datacatalog-lineage==0.2.2",
-    }
-    | classification_lib,
+    },
     "bigquery-queries": sql_common | bigquery_common | sqlglot_lib,
     "clickhouse": sql_common | clickhouse_common,
     "clickhouse-usage": sql_common | usage_common | clickhouse_common,
@@ -390,6 +397,7 @@ plugins: Dict[str, Set[str]] = {
     "delta-lake": {*data_lake_profiling, *delta_lake},
     "dbt": {"requests"} | dbt_common | aws_common,
     "dbt-cloud": {"requests"} | dbt_common,
+    "dremio": {"requests"} | sql_common,
     "druid": sql_common | {"pydruid>=0.6.2"},
     "dynamodb": aws_common | classification_lib,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
@@ -485,11 +493,22 @@ plugins: Dict[str, Set[str]] = {
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
-    | {"teradatasqlalchemy>=17.20.0.0"},
+    | {
+        # On 2024-10-30, teradatasqlalchemy 20.0.0.2 was released. This version seemed to cause issues
+        # in our CI, so we're pinning the version for now.
+        "teradatasqlalchemy>=17.20.0.0,<=20.0.0.2",
+    },
     "trino": sql_common | trino,
     "starburst-trino-usage": sql_common | usage_common | trino,
     "nifi": {"requests", "packaging", "requests-gssapi"},
-    "powerbi": microsoft_common | {"lark[regex]==1.1.4", "sqlparse"} | sqlglot_lib,
+    "powerbi": (
+        (
+            microsoft_common
+            | {"lark[regex]==1.1.4", "sqlparse", "more-itertools"}
+            | sqlglot_lib
+            | threading_timeout_common
+        )
+    ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
     "unity-catalog": databricks | sql_common | sqllineage_lib,
@@ -547,7 +566,6 @@ mypy_stubs = {
     "types-pyOpenSSL",
     "types-click-spinner>=0.1.13.1",
     "types-ujson>=5.2.0",
-    "types-termcolor>=1.0.0",
     "types-Deprecated",
     "types-protobuf>=4.21.0.1",
     "sqlalchemy2-stubs",
@@ -601,6 +619,7 @@ base_dev_requirements = {
             "clickhouse-usage",
             "cockroachdb",
             "delta-lake",
+            "dremio",
             "druid",
             "elasticsearch",
             "feast",
@@ -700,6 +719,7 @@ entry_points = {
         "s3 = datahub.ingestion.source.s3:S3Source",
         "dbt = datahub.ingestion.source.dbt.dbt_core:DBTCoreSource",
         "dbt-cloud = datahub.ingestion.source.dbt.dbt_cloud:DBTCloudSource",
+        "dremio = datahub.ingestion.source.dremio.dremio_source:DremioSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "dynamodb = datahub.ingestion.source.dynamodb.dynamodb:DynamoDBSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
