@@ -9,6 +9,7 @@ from lark import Tree
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
+    Constant,
     DataBricksPlatformDetail,
     DataPlatformPair,
     PlatformDetail,
@@ -238,7 +239,7 @@ class AbstractDataPlatformTableCreator(ABC):
 
         if parsed_result is None:
             self.reporter.info(
-                title="SQL Parsing Failure",
+                title=Constant.SQL_PARSING_FAILURE,
                 message="Fail to parse native sql present in PowerBI M-Query",
                 context=f"table-name={self.table.full_name}, sql={query}",
             )
@@ -246,7 +247,7 @@ class AbstractDataPlatformTableCreator(ABC):
 
         if parsed_result.debug_info and parsed_result.debug_info.table_error:
             self.reporter.warning(
-                title="SQL Parsing fail",
+                title=Constant.SQL_PARSING_FAILURE,
                 message="Fail to parse native sql present in PowerBI M-Query",
                 context=f"table-name={self.table.full_name}, error={parsed_result.debug_info.table_error},sql={query}",
             )

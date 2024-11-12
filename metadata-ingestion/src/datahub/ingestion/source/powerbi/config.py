@@ -130,6 +130,7 @@ class Constant:
     APP_SUB_TYPE = "App"
     STATE = "state"
     ACTIVE = "Active"
+    SQL_PARSING_FAILURE = "SQL Parsing Failure"
 
 
 @dataclass
