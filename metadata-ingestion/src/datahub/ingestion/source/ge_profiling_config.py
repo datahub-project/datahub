@@ -180,6 +180,11 @@ class GEProfilingConfig(ConfigModel):
         ),
     )
 
+    profile_nested_fields: bool = Field(
+        default=False,
+        description="Whether to profile complex types like structs, arrays and maps. ",
+    )
+
     @pydantic.root_validator(pre=True)
     def deprecate_bigquery_temp_table_schema(cls, values):
         # TODO: Update docs to remove mention of this field.

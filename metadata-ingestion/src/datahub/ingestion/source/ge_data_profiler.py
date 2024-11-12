@@ -7,6 +7,7 @@ import dataclasses
 import functools
 import json
 import logging
+import re
 import threading
 import traceback
 import unittest.mock
@@ -123,6 +124,8 @@ ProfilerTypeMapping.BINARY_TYPE_NAMES.append("LargeBinary")
 
 _datasource_connection_injection_lock = threading.Lock()
 
+NORMALIZE_TYPE_PATTERN = re.compile(r"^(.*?)(?:[\[<(].*)?$")
+
 
 @contextlib.contextmanager
 def _inject_connection_into_datasource(conn: Connection) -> Iterator[None]:
@@ -165,11 +168,9 @@ def get_column_unique_count_dh_patch(self: SqlAlchemyDataset, column: str) -> in
         return convert_to_json_serializable(element_values.fetchone()[0])
     elif self.engine.dialect.name.lower() == BIGQUERY:
         element_values = self.engine.execute(
-            sa.select(
-                [
-                    sa.func.coalesce(sa.text(f"APPROX_COUNT_DISTINCT(`{column}`)")),
-                ]
-            ).select_from(self._table)
+            sa.select(sa.func.APPROX_COUNT_DISTINCT(sa.column(column))).select_from(
+                self._table
+            )
         )
         return convert_to_json_serializable(element_values.fetchone()[0])
     elif self.engine.dialect.name.lower() == SNOWFLAKE:
@@ -378,6 +379,9 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
                 f"{self.dataset_name}.{col}"
             ):
                 ignored_columns_by_pattern.append(col)
+            # We try to ignore nested columns as well
+            elif not self.config.profile_nested_fields and "." in col:
+                ignored_columns_by_pattern.append(col)
             elif col_dict.get("type") and self._should_ignore_column(col_dict["type"]):
                 ignored_columns_by_type.append(col)
             else:
@@ -407,9 +411,18 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         return columns_to_profile
 
     def _should_ignore_column(self, sqlalchemy_type: sa.types.TypeEngine) -> bool:
-        return str(sqlalchemy_type) in _get_column_types_to_ignore(
-            self.dataset.engine.dialect.name
-        )
+        # We don't profiles columns with None types
+        if str(sqlalchemy_type) == "NULL":
+            return True
+
+        sql_type = str(sqlalchemy_type)
+
+        match = re.match(NORMALIZE_TYPE_PATTERN, sql_type)
+
+        if match:
+            sql_type = match.group(1)
+
+        return sql_type in _get_column_types_to_ignore(self.dataset.engine.dialect.name)
 
     @_run_with_query_combiner
     def _get_column_type(self, column_spec: _SingleColumnSpec, column: str) -> None:
