@@ -376,82 +376,84 @@ class OracleInspectorObjectWrapper:
     ) -> List[sqlalchemy.engine.Row]:
         params = {"table_name": table_name}
 
-        text = (
-            "SELECT"
-            "\nac.constraint_name,"  # 0
-            "\nac.constraint_type,"  # 1
-            "\nloc.column_name AS local_column,"  # 2
-            "\nrem.table_name AS remote_table,"  # 3
-            "\nrem.column_name AS remote_column,"  # 4
-            "\nrem.owner AS remote_owner,"  # 5
-            "\nloc.position as loc_pos,"  # 6
-            "\nrem.position as rem_pos,"  # 7
-            "\nac.search_condition,"  # 8
-            "\nac.delete_rule"  # 9
-            "\nFROM dba_constraints%(dblink)s ac,"
-            "\ndba_cons_columns%(dblink)s loc,"
-            "\ndba_cons_columns%(dblink)s rem"
-            "\nWHERE ac.table_name = CAST(:table_name AS VARCHAR2(128))"
-            "\nAND ac.constraint_type IN ('R','P', 'U', 'C')"
-        )
+        # Simplified query that's more reliable with SQLAlchemy 1.4
+        text = """
+                SELECT 
+                    ac.constraint_name,
+                    ac.constraint_type,
+                    acc.column_name AS local_column,
+                    NULL AS remote_table,
+                    NULL AS remote_column,
+                    NULL AS remote_owner,
+                    acc.position AS loc_pos,
+                    NULL AS rem_pos,
+                    ac.search_condition,
+                    ac.delete_rule
+                FROM all_constraints ac
+                JOIN all_cons_columns acc 
+                    ON ac.owner = acc.owner 
+                    AND ac.constraint_name = acc.constraint_name
+                    AND ac.table_name = acc.table_name
+                WHERE ac.table_name = :table_name
+                AND ac.constraint_type IN ('R','P', 'U', 'C')
+            """
 
         if schema is not None:
             params["owner"] = schema
-            text += "\nAND ac.owner = CAST(:owner AS VARCHAR2(128))"
+            text += "\nAND ac.owner = :owner"
 
-        text += (
-            "\nAND ac.owner = loc.owner"
-            "\nAND ac.constraint_name = loc.constraint_name"
-            "\nAND ac.r_owner = rem.owner(+)"
-            "\nAND ac.r_constraint_name = rem.constraint_name(+)"
-            "\nAND (rem.position IS NULL or loc.position=rem.position)"
-            "\nORDER BY ac.constraint_name, loc.position"
-        )
+        # For foreign keys, join with the remote columns
+        text += """
+                UNION ALL
+                SELECT 
+                    ac.constraint_name,
+                    ac.constraint_type,
+                    acc.column_name AS local_column,
+                    ac.r_table_name AS remote_table,
+                    rcc.column_name AS remote_column,
+                    ac.r_owner AS remote_owner,
+                    acc.position AS loc_pos,
+                    rcc.position AS rem_pos,
+                    ac.search_condition,
+                    ac.delete_rule
+                FROM all_constraints ac
+                JOIN all_cons_columns acc 
+                    ON ac.owner = acc.owner 
+                    AND ac.constraint_name = acc.constraint_name
+                    AND ac.table_name = acc.table_name
+                LEFT JOIN all_cons_columns rcc
+                    ON ac.r_owner = rcc.owner
+                    AND ac.r_constraint_name = rcc.constraint_name
+                    AND acc.position = rcc.position
+                WHERE ac.table_name = :table_name
+                AND ac.constraint_type = 'R'
+            """
 
-        text = text % {"dblink": dblink}
+        if schema is not None:
+            text += "\nAND ac.owner = :owner"
+
+        text += "\nORDER BY constraint_name, loc_pos"
+
         rp = self._inspector_instance.bind.execute(sql.text(text), params)
-        constraint_data = rp.fetchall()
-        return constraint_data
+        return rp.fetchall()
 
     def get_pk_constraint(
-        self, table_name: str, schema: Optional[str] = None, dblink: str = ""
+            self, table_name: str, schema: Optional[str] = None, dblink: str = ""
     ) -> Dict:
-
-        denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
-            table_name
-        )
-        assert denormalized_table_name
-
-        schema = self._inspector_instance.dialect.denormalize_name(
-            schema or self.default_schema_name
-        )
-
-        if schema is None:
-            schema = self._inspector_instance.dialect.default_schema_name
-
         pkeys = []
         constraint_name = None
-        constraint_data = self._get_constraint_data(
-            denormalized_table_name, schema, dblink
-        )
 
-        for row in constraint_data:
-            (
-                cons_name,
-                cons_type,
-                local_column,
-                remote_table,
-                remote_column,
-                remote_owner,
-            ) = row[0:2] + tuple(
-                [self._inspector_instance.dialect.normalize_name(x) for x in row[2:6]]
-            )
-            if cons_type == "P":
-                if constraint_name is None:
-                    constraint_name = self._inspector_instance.dialect.normalize_name(
-                        cons_name
-                    )
-                pkeys.append(local_column)
+        try:
+            for row in self._get_constraint_data(table_name, schema, dblink):
+                if row[1] == "P":  # constraint_type is 'P' for primary key
+                    if constraint_name is None:
+                        constraint_name = self._inspector_instance.dialect.normalize_name(row[0])
+                    col_name = self._inspector_instance.dialect.normalize_name(row[2])  # local_column
+                    pkeys.append(col_name)
+        except Exception as e:
+            logger.error(f"Error processing PK constraint data for {schema}.{table_name}: {str(e)}")
+            # Return empty constraint if we can't process it
+            return {"constrained_columns": [], "name": None}
 
         return {"constrained_columns": pkeys, "name": constraint_name}
 
