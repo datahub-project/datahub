@@ -3,6 +3,7 @@ import time
 from typing import Any, Dict, Iterable, List, Tuple
 
 import numpy as np
+from cassandra.util import OrderedMapSerializedKey, SortedSet
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -140,34 +141,75 @@ class CassandraProfiler:
     ) -> Dict:
         profile: Dict[str, Any] = {"column_stats": {}}
 
+        # Step 1: Parse overall profile metrics
+        self._parse_overall_metrics(results, profile)
+
+        # Step 2: Process and parse each column
+        if results.get("column_metrics"):
+            metrics = self._initialize_metrics(columns)
+            self._collect_column_data(results, metrics, columns)
+            self._calculate_statistics(metrics, columns, profile)
+
+        return profile
+
+    def _parse_overall_metrics(
+        self, results: Dict[str, Any], profile: Dict[str, Any]
+    ) -> None:
         if self.config.profiling.row_count:
             profile["row_count"] = int(results.get("row_count", 0))
 
         if self.config.profiling.column_count:
             profile["column_count"] = int(results.get("column_count", 0))
 
-        if not results.get("column_metrics", []):
-            return profile
-
-        metrics: Dict[str, Dict[str, Any]] = {
+    def _initialize_metrics(
+        self, columns: List[Tuple[str, str]]
+    ) -> Dict[str, Dict[str, Any]]:
+        return {
             column: {"values": [], "null_count": 0, "total_count": 0}
             for column, _ in columns
         }
 
+    def _collect_column_data(
+        self,
+        results: Dict[str, Any],
+        metrics: Dict[str, Dict[str, Any]],
+        columns: List[Tuple[str, str]],
+    ) -> None:
         for row in results.get("column_metrics", []):
-            for cl_name, _ in columns:
-                value: str = getattr(row, cl_name, "")
+            for cl_name, col_type in columns:
+                if self._is_skippable_type(col_type):
+                    continue
+                value: Any = getattr(row, cl_name, None)
                 metrics[cl_name]["total_count"] += 1
                 if not value:
                     metrics[cl_name]["null_count"] += 1
                 else:
-                    metrics[cl_name]["values"].append(value)
+                    metrics[cl_name]["values"].extend(self._parse_value(value))
 
+    def _is_skippable_type(self, data_type: str) -> bool:
+        return data_type.lower() in ["timeuuid", "blob", "frozen<tuple<tinyint, text>>"]
+
+    def _parse_value(self, value: Any) -> List[Any]:
+        # NOTE for astra db column need to check type
+        if isinstance(value, SortedSet):
+            return list(value)
+        elif isinstance(value, OrderedMapSerializedKey):
+            return list(dict(value).values())
+        elif isinstance(value, list):
+            return value
+        return [value]
+
+    def _calculate_statistics(
+        self,
+        metrics: Dict[str, Dict[str, Any]],
+        columns: List[Tuple[str, str]],
+        profile: Dict[str, Any],
+    ) -> None:
         for column_name, data_type in columns:
-            if not metrics.get(column_name):
+            if column_name not in metrics:
                 continue
 
-            data = metrics.get(column_name)
+            data = metrics[column_name]
             if not data:
                 continue
 
@@ -178,37 +220,44 @@ class CassandraProfiler:
                 column_stats["null_count"] = data.get("null_count", 0)
 
             if values:
-                if self.config.profiling.include_field_distinct_count:
-                    null_distinct = len(set(values)) if values is not None else 0
-                    column_stats["distinct_count"] = null_distinct
+                self._compute_field_statistics(values, data_type, column_stats)
 
-                if self.config.profiling.include_field_min_value:
-                    column_stats["min"] = min(values)
+            profile["column_stats"][column_name] = column_stats
 
-                if self.config.profiling.include_field_max_value:
-                    column_stats["max"] = max(values)
+    def _compute_field_statistics(
+        self, values: List[Any], data_type: str, column_stats: Dict[str, Any]
+    ) -> None:
+        if self.config.profiling.include_field_distinct_count:
+            column_stats["distinct_count"] = len(set(values))
 
-                if data_type.lower() in [
-                    "int",
-                    "counter",
-                    "bigint",
-                    "float",
-                    "double",
-                    "decimal",
-                    "smallint",
-                    "tinyint",
-                    "varint",
-                ]:
-                    if self.config.profiling.include_field_mean_value:
-                        column_stats["mean"] = str(np.mean(values))
-                    if self.config.profiling.include_field_stddev_value:
-                        column_stats["stdev"] = str(np.std(values))
-                    if self.config.profiling.include_field_median_value:
-                        column_stats["stdev"] = str(np.median(values))
-                    if self.config.profiling.include_field_quantiles:
-                        column_stats["quantiles"] = [
-                            str(np.percentile(values, 25)),
-                            str(np.percentile(values, 75)),
-                        ]
-                profile["column_stats"][column_name] = column_stats
-        return profile
+        if self.config.profiling.include_field_min_value:
+            column_stats["min"] = min(values)
+
+        if self.config.profiling.include_field_max_value:
+            column_stats["max"] = max(values)
+
+        if self._is_numeric_type(data_type):
+            if self.config.profiling.include_field_mean_value:
+                column_stats["mean"] = str(np.mean(values))
+            if self.config.profiling.include_field_stddev_value:
+                column_stats["stdev"] = str(np.std(values))
+            if self.config.profiling.include_field_median_value:
+                column_stats["median"] = str(np.median(values))
+            if self.config.profiling.include_field_quantiles:
+                column_stats["quantiles"] = [
+                    str(np.percentile(values, 25)),
+                    str(np.percentile(values, 75)),
+                ]
+
+    def _is_numeric_type(self, data_type: str) -> bool:
+        return data_type.lower() in [
+            "int",
+            "counter",
+            "bigint",
+            "float",
+            "double",
+            "decimal",
+            "smallint",
+            "tinyint",
+            "varint",
+        ]

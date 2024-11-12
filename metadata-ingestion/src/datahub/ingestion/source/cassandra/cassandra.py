@@ -4,10 +4,12 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
+from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
@@ -32,6 +34,7 @@ from datahub.ingestion.source.cassandra.cassandra_profiling import CassandraProf
 from datahub.ingestion.source.cassandra.cassandra_utils import (
     CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES,
     SYSTEM_KEYSPACE_LIST,
+    VERSION,
     CassandraToSchemaFieldConverter,
 )
 from datahub.ingestion.source.common.subtypes import (
@@ -59,6 +62,9 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
     OtherSchemaClass,
     SubTypesClass,
     UpstreamClass,
@@ -440,20 +446,25 @@ class CassandraSource(StatefulIngestionSourceBase):
 
             # Construct and emit lineage off of 'base_table_name'
             # NOTE: we don't need to use 'base_table_id' since table is always in same keyspace, see https://docs.datastax.com/en/cql-oss/3.3/cql/cql_reference/cqlCreateMaterializedView.html#cqlCreateMaterializedView__keyspace-name
+            upstream_urn: str = make_dataset_urn_with_platform_instance(
+                platform=self.platform,
+                name=f"{keyspace_name}.{getattr(view, CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES['base_table_name'])}",
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
+            )
+            fineGrainedLineages = self.get_upstream_fields_of_field_in_datasource(
+                keyspace_name, view_name, dataset_urn, upstream_urn
+            )
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=UpstreamLineageClass(
                     upstreams=[
                         UpstreamClass(
-                            dataset=make_dataset_urn_with_platform_instance(
-                                platform=self.platform,
-                                name=f"{keyspace_name}.{getattr(view, CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES['base_table_name'])}",
-                                env=self.config.env,
-                                platform_instance=self.config.platform_instance,
-                            ),
+                            dataset=upstream_urn,
                             type=DatasetLineageTypeClass.VIEW,
                         )
-                    ]
+                    ],
+                    fineGrainedLineages=fineGrainedLineages,
                 ),
             ).as_workunit()
 
@@ -486,6 +497,28 @@ class CassandraSource(StatefulIngestionSourceBase):
             )
             self.report.set_ingestion_stage(dataset_name, PROFILING)
             yield from self.profiler.get_workunits(dataset_urn, keyspace, table_name)
+
+    def get_upstream_fields_of_field_in_datasource(
+        self, keyspace_name: str, table_name: str, dataset_urn: str, upstream_urn: str
+    ) -> List[FineGrainedLineageClass]:
+        column_infos = self.cassandra_api.get_columns(keyspace_name, table_name)
+        # Collect column-level lineage
+        fine_grained_lineages = []
+        for column_info in column_infos:
+            source_column = column_info.column_name
+            column_type = column_info.type
+            if source_column:
+                field_path = f"{VERSION}.[type={column_type}].{source_column}"
+                field_path_v1 = Dataset._simplify_field_path(field_path)
+                fine_grained_lineages.append(
+                    FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[make_schema_field_urn(dataset_urn, field_path_v1)],
+                        upstreams=[make_schema_field_urn(upstream_urn, field_path_v1)],
+                    )
+                )
+        return fine_grained_lineages
 
     def get_report(self):
         return self.report

@@ -41,12 +41,12 @@ class CassandraCloudConfig(ConfigModel):
     )
 
     connect_timeout: int = Field(
-        default=60,
+        default=600,
         description="Timeout in seconds for establishing new connections to Cassandra.",
     )
 
     request_timeout: int = Field(
-        default=60, description="Timeout in seconds for individual Cassandra requests."
+        default=600, description="Timeout in seconds for individual Cassandra requests."
     )
 
 
@@ -57,11 +57,6 @@ class ProfileConfig(GEProfilingConfig):
 
     # Below Configs inherited from GEProfilingConfig
     # but not used in Dremio so we hide them from docs.
-    include_field_null_count: bool = Field(
-        default=False,
-        hidden_from_docs=True,
-        description="Null count has some issue in cassandra.",
-    )
     partition_profiling_enabled: bool = Field(default=True, hidden_from_docs=True)
     profile_table_row_count_estimate_only: bool = Field(
         default=False, hidden_from_docs=True

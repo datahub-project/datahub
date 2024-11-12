@@ -26,6 +26,7 @@ SYSTEM_KEYSPACE_LIST = set(
     ["system", "system_auth", "system_schema", "system_distributed", "system_traces"]
 )
 
+VERSION: str = "[version=2.0]"
 
 # these column names are present on the system_schema tables
 CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES = {
@@ -60,9 +61,6 @@ class CassandraQueries:
 
 # This class helps convert cassandra column types to SchemaFieldDataType for use by the datahaub metadata schema
 class CassandraToSchemaFieldConverter:
-    # FieldPath format version.
-    version_string: str = "[version=2.0]"
-
     # Mapping from cassandra field types to SchemaFieldDataType.
     # https://cassandra.apache.org/doc/stable/cassandra/cql/types.html (version 4.1)
     _field_type_to_schema_field_type: Dict[str, Type] = {
@@ -115,7 +113,7 @@ class CassandraToSchemaFieldConverter:
         return SchemaFieldDataType(type=type_class())
 
     def __init__(self) -> None:
-        self._prefix_name_stack: List[str] = [self.version_string]
+        self._prefix_name_stack: List[str] = [VERSION]
 
     def _get_cur_field_path(self) -> str:
         return ".".join(self._prefix_name_stack)

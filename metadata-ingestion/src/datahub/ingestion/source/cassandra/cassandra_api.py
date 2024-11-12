@@ -197,7 +197,7 @@ class CassandraAPIInterface:
             return result_set
         except DriverException as e:
             self.report.warning(
-                message="Failed to fetch stats for keyspace", context=f"{str(e)}", exc=e
+                message="Failed to fetch stats for keyspace", context=str(e), exc=e
             )
             return []
         except Exception:
