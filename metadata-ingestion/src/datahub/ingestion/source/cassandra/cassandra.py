@@ -372,7 +372,6 @@ class CassandraSource(StatefulIngestionSourceBase):
             aspect=schema_metadata,
         ).as_workunit()
 
-    # NOTE: this will only emit dataset and lineage info as we can't get columns for views from the sys schema metadata
     def _extract_views_from_keyspace(
         self, keyspace_name: str
     ) -> Iterable[MetadataWorkUnit]:
