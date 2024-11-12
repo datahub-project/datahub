@@ -374,7 +374,8 @@ public class DatahubSparkListener extends SparkListener {
     String disabledFacets;
     if (openLineageConfig.getFacetsConfig() != null
         && openLineageConfig.getFacetsConfig().getDisabledFacets() != null) {
-      disabledFacets = String.join(";", openLineageConfig.getFacetsConfig().getDisabledFacets());
+      disabledFacets =
+          String.join(";", openLineageConfig.getFacetsConfig().getEffectiveDisabledFacets());
     } else {
       disabledFacets = "";
     }
