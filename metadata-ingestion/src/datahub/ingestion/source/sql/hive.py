@@ -6,9 +6,9 @@ from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Union, Tuple
 from urllib.parse import urlparse
 
+from pydantic import BaseModel
 from pydantic.class_validators import validator
 from pydantic.fields import Field
-
 # This import verifies that the dependencies are available.
 from pyhive import hive  # noqa: F401
 from pyhive.sqlalchemy_hive import HiveDate, HiveDecimal, HiveDialect, HiveTimestamp
@@ -52,15 +52,12 @@ from datahub.metadata.schema_classes import (
     TimeTypeClass,
     SchemaMetadataClass,
     ViewPropertiesClass,
-    MetadataChangeEventClass,
-    DatasetSnapshotClass,
     OtherSchemaClass,
     StringTypeClass,
     BytesTypeClass,
     BooleanTypeClass,
     SchemaFieldDataTypeClass,
 )
-
 from datahub.utilities import config_clean
 from datahub.utilities.hive_schema_to_avro import get_avro_schema_for_hive_column
 
@@ -201,25 +198,43 @@ class StoragePathParser:
         return platform_names[platform]
 
 
-class HiveStorageLineageConfig:
-    """Configuration for Hive storage lineage"""
+class HiveStorageLineageConfig(BaseModel):
+    """Configuration for Hive storage lineage."""
 
     enabled: bool = Field(
         default=True,
-        description="Whether to emit storage-to-Hive lineage"
+        description="Whether to emit storage-to-Hive lineage",
     )
     direction: str = Field(
         default="upstream",
-        description="If 'upstream', storage is upstream to Hive. If 'downstream' storage is downstream to Hive"
+        description="If 'upstream', storage is upstream to Hive. If 'downstream' storage is downstream to Hive",
     )
     include_column_lineage: bool = Field(
         default=True,
-        description="When enabled, column-level lineage will be extracted from storage"
+        description="When enabled, column-level lineage will be extracted from storage",
     )
     platform_instance: Optional[str] = Field(
         default=None,
-        description="Platform instance for the storage system"
+        description="Platform instance for the storage system",
     )
+
+    class Config:
+        """Pydantic model config."""
+        extra = "forbid"
+
+    @validator("direction")
+    def _validate_direction(cls, direction: str) -> str:
+        """Validate the lineage direction."""
+        if direction.lower() not in ["upstream", "downstream"]:
+            raise ValueError(
+                "storage_lineage_direction must be either upstream or downstream"
+            )
+        return direction.lower()
+
+    @property
+    def storage_platform_instance(self) -> Optional[str]:
+        """Get the storage platform instance, defaulting to same as Hive if not specified."""
+        return self.platform_instance
 
     @property
     def storage_platform_instance(self) -> Optional[str]:
