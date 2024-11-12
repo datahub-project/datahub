@@ -58,6 +58,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     BytesTypeClass,
     BooleanTypeClass,
+    SchemaFieldDataTypeClass,
 )
 
 from datahub.utilities import config_clean
@@ -530,7 +531,7 @@ class HiveStorageLineage:
             version=0,
             fields=fields,
             hash="",
-            platformSchema={"name": "spark", "version": "1.0"}
+            platformSchema=OtherSchemaClass(rawSchema="")
         )
 
     def _schema_from_arrow(
@@ -559,9 +560,16 @@ class HiveStorageLineage:
             platformSchema=OtherSchemaClass(rawSchema="")
         )
 
-    def _get_field_type(self, data_type: Any) -> SchemaFieldClass.typeClass:
-        """Map storage data types to DataHub types"""
-        # Map Spark/Arrow types to DataHub types
+    def _get_field_type(self, data_type: Any) -> SchemaFieldDataTypeClass:
+        """
+        Map storage data types to DataHub types
+
+        Args:
+            data_type: The source data type (from Spark/Arrow/etc.)
+
+        Returns:
+            DataHub SchemaFieldDataTypeClass instance
+        """
         type_mapping = {
             "string": StringTypeClass,
             "binary": BytesTypeClass,
@@ -580,9 +588,9 @@ class HiveStorageLineage:
         type_str = str(data_type).lower()
         for key, type_class in type_mapping.items():
             if key in type_str:
-                return type_class()
+                return SchemaFieldDataTypeClass(type=type_class())
 
-        return NullTypeClass()
+        return SchemaFieldDataTypeClass(type=NullTypeClass())
 
     def get_storage_dataset_mcp(
         self,
