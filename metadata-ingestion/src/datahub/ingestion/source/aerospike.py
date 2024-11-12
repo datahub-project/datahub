@@ -34,6 +34,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.schema_inference.object import (
     SchemaDescription,
     construct_schema,
@@ -66,7 +67,6 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
 )
 from datahub.metadata.urns import DatasetUrn
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 
 logger = logging.getLogger(__name__)
 
@@ -460,12 +460,14 @@ class AerospikeSource(StatefulIngestionSourceBase):
                 ]
 
     def _infer_schema_metadata(
-            self,
-            dataset_urn: DatasetUrn,
-            as_set: AerospikeSet,
-            dataset_properties: DatasetPropertiesClass,
+        self,
+        dataset_urn: DatasetUrn,
+        as_set: AerospikeSet,
+        dataset_properties: DatasetPropertiesClass,
     ) -> SchemaMetadata:
-        set_schema: Dict[Tuple[str, ...], SchemaDescription] = construct_schema_aerospike(
+        set_schema: Dict[
+            Tuple[str, ...], SchemaDescription
+        ] = construct_schema_aerospike(
             client=self.aerospike_client,
             as_set=as_set,
             delimiter=".",
@@ -498,25 +500,25 @@ class AerospikeSource(StatefulIngestionSourceBase):
             )
             # Add this information to the custom properties so user can know they are looking at downsampled schema
             dataset_properties.customProperties["schema.downsampled"] = "True"
-            dataset_properties.customProperties["schema.totalFields"] = f"{set_schema_size}"
+            dataset_properties.customProperties[
+                "schema.totalFields"
+            ] = f"{set_schema_size}"
 
         logger.debug(f"Size of set fields = {len(set_fields)}")
         # append each schema field (sort so output is consistent)
         for schema_field in sorted(
-                set_fields,
-                key=lambda x: (
-                        -x["count"],
-                        x["delimited_name"],
-                ),  # Negate `count` for descending order, `delimited_name` stays the same for ascending
+            set_fields,
+            key=lambda x: (
+                -x["count"],
+                x["delimited_name"],
+            ),  # Negate `count` for descending order, `delimited_name` stays the same for ascending
         )[0:max_schema_size]:
             field = SchemaField(
                 fieldPath=schema_field["delimited_name"],
                 nativeDataType=self.get_aerospike_type_string(
                     schema_field["type"], dataset_urn.name
                 ),
-                type=self.get_field_type(
-                    schema_field["type"], dataset_urn.name
-                ),
+                type=self.get_field_type(schema_field["type"], dataset_urn.name),
                 description=None,
                 nullable=schema_field["nullable"],
                 recursive=False,
