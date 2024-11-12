@@ -284,12 +284,12 @@ class HiveStorageLineage:
             platform=make_data_platform_urn(platform),
             instance=make_dataplatform_instance_urn(platform, instance)
             if instance
-            else None
+            else None,
         )
 
     def _make_storage_dataset_urn(
-            self,
-            storage_location: str,
+        self,
+        storage_location: str,
     ) -> Optional[Tuple[str, str]]:
         """
         Create storage dataset URN from location.
@@ -350,7 +350,7 @@ class HiveStorageLineage:
                                 f"{storage_urn}.{normalize_field_path(matching_field.fieldPath)}"
                             ],
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            downstreams=[f"{dataset_urn}.{dataset_path}"]
+                            downstreams=[f"{dataset_urn}.{dataset_path}"],
                         )
                     )
                 else:
@@ -444,14 +444,13 @@ class HiveStorageLineage:
             mcp = self._create_lineage_mcp(
                 source_urn=dataset_urn,
                 target_urn=storage_urn,
-                fine_grained_lineages=fine_grained_lineages
+                fine_grained_lineages=fine_grained_lineages,
             )
 
         return MetadataWorkUnit(id=f"{dataset_urn}-{storage_urn}-lineage", mcp=mcp)
 
     def _get_storage_schema(
-        self,
-        storage_location: str
+        self, storage_location: str
     ) -> Optional[SchemaMetadataClass]:
         """
         Get schema metadata for storage location.
@@ -615,7 +614,7 @@ class HiveStorageLineage:
             platform=StoragePathParser.get_platform_name(platform),
             name=path,
             env=self.env,
-            platform_instance=self.config.storage_platform_instance
+            platform_instance=self.config.storage_platform_instance,
         )
 
         mcps = []
