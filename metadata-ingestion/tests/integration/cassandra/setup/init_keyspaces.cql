@@ -127,5 +127,5 @@ INSERT INTO shopping_cart
 VALUES ('1240', '2024-11-08T00:00:00.000+0000');
 
 INSERT INTO shopping_cart
-(userid, item_count, last_update_timestamp)
+(userid, last_update_timestamp)
 VALUES ('1241', '2024-11-09T00:00:00.000+0000');

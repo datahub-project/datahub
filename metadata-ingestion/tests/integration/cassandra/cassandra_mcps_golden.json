@@ -1451,11 +1451,35 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.tasks,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.tasks,PROD),status)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.task_status,PROD),status)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.tasks,PROD),task_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cassandra,cass_test_2.task_status,PROD),task_id)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731310097162,
+        "lastObserved": 1731447296444,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1683,11 +1707,46 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD),ascii_column)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_1,PROD),ascii_column)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD),bigint_column)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_1,PROD),bigint_column)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_1,PROD),id)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731310103459,
+        "lastObserved": 1731447296557,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2068,11 +2127,46 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD)",
                     "type": "VIEW"
                 }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD),ascii_column)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_2,PROD),ascii_column)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD),float_column)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_2,PROD),float_column)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.all_data_types,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:cassandra,example_keyspace.example_view_2,PROD),id)"
+                    ],
+                    "confidenceScore": 1.0
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731310942174,
+        "lastObserved": 1731447296594,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2314,31 +2408,35 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1731416224099,
+            "timestampMillis": 1731447296653,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
             },
-            "rowCount": 8,
+            "rowCount": 9,
             "columnCount": 3,
             "fieldProfiles": [
                 {
                     "fieldPath": "item_count",
                     "uniqueCount": 5,
+                    "nullCount": 4,
                     "min": "2",
                     "max": "100",
                     "mean": "46.4",
-                    "stdev": "50.0"
+                    "median": "50.0",
+                    "stdev": "38.44268460968875"
                 },
                 {
                     "fieldPath": "last_update_timestamp",
-                    "uniqueCount": 8,
+                    "uniqueCount": 9,
+                    "nullCount": 0,
                     "min": "2024-11-01 00:00:00",
-                    "max": "2024-11-08 00:00:00"
+                    "max": "2024-11-09 00:00:00"
                 },
                 {
                     "fieldPath": "userid",
-                    "uniqueCount": 8,
+                    "uniqueCount": 9,
+                    "nullCount": 0,
                     "min": "1234",
                     "max": "9876"
                 }
@@ -2346,7 +2444,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731416224113,
+        "lastObserved": 1731447296653,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
