@@ -3,6 +3,8 @@ from typing import Dict, Iterable, List, Optional, Type, TypeVar
 from pydantic.fields import Field
 from pydantic.main import BaseModel
 
+from datahub.cli.env_utils import get_boolean_env_variable
+from datahub.emitter.enum_helpers import get_enum_options
 from datahub.emitter.mce_builder import (
     Aspect,
     datahub_guid,
@@ -23,6 +25,7 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     DomainsClass,
     EmbedClass,
+    FabricTypeClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
     OwnerClass,
@@ -31,6 +34,16 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     SubTypesClass,
     TagAssociationClass,
+)
+
+# In https://github.com/datahub-project/datahub/pull/11214, we added a
+# new env field to container properties. However, populating this field
+# with servers older than 0.14.1 will cause errors. This environment
+# variable is an escape hatch to avoid this compatibility issue.
+# TODO: Once the model change has been deployed for a while, we can remove this.
+#       Probably can do it at the beginning of 2025.
+_INCLUDE_ENV_IN_CONTAINER_PROPERTIES = get_boolean_env_variable(
+    "DATAHUB_INCLUDE_ENV_IN_CONTAINER_PROPERTIES", default=True
 )
 
 
@@ -190,10 +203,29 @@ def gen_containers(
     created: Optional[int] = None,
     last_modified: Optional[int] = None,
 ) -> Iterable[MetadataWorkUnit]:
+    # Extra validation on the env field.
+    # In certain cases (mainly for backwards compatibility), the env field will actually
+    # have a platform instance name.
+    env = (
+        container_key.env
+        if container_key.env in get_enum_options(FabricTypeClass)
+        else None
+    )
+
     container_urn = container_key.as_urn()
+
+    if parent_container_key:  # Yield Container aspect first for auto_browse_path_v2
+        parent_container_urn = make_container_urn(guid=parent_container_key.guid())
+
+        # Set database container
+        parent_container_mcp = MetadataChangeProposalWrapper(
+            entityUrn=f"{container_urn}",
+            aspect=ContainerClass(container=parent_container_urn),
+        )
+        yield parent_container_mcp.as_workunit()
+
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{container_urn}",
-        # entityKeyAspect=ContainerKeyClass(guid=parent_container_key.guid()),
         aspect=ContainerProperties(
             name=name,
             description=description,
@@ -207,6 +239,7 @@ def gen_containers(
             lastModified=(
                 TimeStamp(time=last_modified) if last_modified is not None else None
             ),
+            env=env if _INCLUDE_ENV_IN_CONTAINER_PROPERTIES else None,
         ),
     ).as_workunit()
 
@@ -253,18 +286,6 @@ def gen_containers(
             entity_urn=container_urn,
             tags=sorted(tags),
         )
-
-    if parent_container_key:
-        parent_container_urn = make_container_urn(
-            guid=parent_container_key.guid(),
-        )
-
-        # Set database container
-        parent_container_mcp = MetadataChangeProposalWrapper(
-            entityUrn=f"{container_urn}",
-            aspect=ContainerClass(container=parent_container_urn),
-        )
-        yield parent_container_mcp.as_workunit()
 
 
 def add_dataset_to_container(

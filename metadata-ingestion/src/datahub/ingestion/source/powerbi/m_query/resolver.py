@@ -9,6 +9,7 @@ from lark import Tree
 import datahub.emitter.mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
+    Constant,
     DataBricksPlatformDetail,
     DataPlatformPair,
     PlatformDetail,
@@ -26,6 +27,7 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     AbstractIdentifierAccessor,
     DataAccessFunctionDetail,
     IdentifierAccessor,
+    ReferencedTable,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
@@ -116,18 +118,24 @@ class AbstractDataPlatformTableCreator(ABC):
     """
 
     ctx: PipelineContext
+    table: Table
     config: PowerBiDashboardSourceConfig
+    reporter: PowerBiDashboardSourceReport
     platform_instance_resolver: AbstractDataPlatformInstanceResolver
 
     def __init__(
         self,
         ctx: PipelineContext,
+        table: Table,
         config: PowerBiDashboardSourceConfig,
+        reporter: PowerBiDashboardSourceReport,
         platform_instance_resolver: AbstractDataPlatformInstanceResolver,
     ) -> None:
         super().__init__()
         self.ctx = ctx
+        self.table = table
         self.config = config
+        self.reporter = reporter
         self.platform_instance_resolver = platform_instance_resolver
 
     @abstractmethod
@@ -157,15 +165,46 @@ class AbstractDataPlatformTableCreator(ABC):
         return arguments[0], arguments[1]
 
     @staticmethod
-    def get_tokens(
+    def create_reference_table(
         arg_list: Tree,
-    ) -> List[str]:
+        table_detail: Dict[str, str],
+    ) -> Optional[ReferencedTable]:
+
         arguments: List[str] = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(arg_list)
             ),
         )
-        return arguments
+
+        logger.debug(f"Processing arguments {arguments}")
+
+        if (
+            len(arguments)
+            >= 4  # [0] is warehouse FQDN.
+            # [1] is endpoint, we are not using it.
+            # [2] is "Catalog" key
+            # [3] is catalog's value
+        ):
+            return ReferencedTable(
+                warehouse=arguments[0],
+                catalog=arguments[3],
+                # As per my observation, database and catalog names are same in M-Query
+                database=table_detail["Database"]
+                if table_detail.get("Database")
+                else arguments[3],
+                schema=table_detail["Schema"],
+                table=table_detail.get("Table") or table_detail["View"],
+            )
+        elif len(arguments) == 2:
+            return ReferencedTable(
+                warehouse=arguments[0],
+                database=table_detail["Database"],
+                schema=table_detail["Schema"],
+                table=table_detail.get("Table") or table_detail["View"],
+                catalog=None,
+            )
+
+        return None
 
     def parse_custom_sql(
         self, query: str, server: str, database: Optional[str], schema: Optional[str]
@@ -182,6 +221,10 @@ class AbstractDataPlatformTableCreator(ABC):
             )
         )
 
+        query = native_sql_parser.remove_drop_statement(
+            native_sql_parser.remove_special_characters(query)
+        )
+
         parsed_result: Optional[
             "SqlParsingResult"
         ] = native_sql_parser.parse_custom_sql(
@@ -195,7 +238,19 @@ class AbstractDataPlatformTableCreator(ABC):
         )
 
         if parsed_result is None:
-            logger.debug("Failed to parse query")
+            self.reporter.info(
+                title=Constant.SQL_PARSING_FAILURE,
+                message="Fail to parse native sql present in PowerBI M-Query",
+                context=f"table-name={self.table.full_name}, sql={query}",
+            )
+            return Lineage.empty()
+
+        if parsed_result.debug_info and parsed_result.debug_info.table_error:
+            self.reporter.warning(
+                title=Constant.SQL_PARSING_FAILURE,
+                message="Fail to parse native sql present in PowerBI M-Query",
+                context=f"table-name={self.table.full_name}, error={parsed_result.debug_info.table_error},sql={query}",
+            )
             return Lineage.empty()
 
         for urn in parsed_result.in_tables:
@@ -258,8 +313,8 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
     Once DataAccessFunctionDetail instance is initialized thereafter MQueryResolver generates the DataPlatformTable with the help of AbstractDataPlatformTableCreator
     (see method resolve_to_data_platform_table_list).
 
-    Classes which extended from AbstractDataPlatformTableCreator knows how to convert generated DataAccessFunctionDetail instance
-    to respective DataPlatformTable instance as per dataplatform.
+    Classes which extended from AbstractDataPlatformTableCreator know how to convert generated DataAccessFunctionDetail instance
+     to the respective DataPlatformTable instance as per dataplatform.
 
     """
 
@@ -311,6 +366,22 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
 
         return argument_list
 
+    def take_first_argument(self, expression: Tree) -> Optional[Tree]:
+
+        # function is not data-access function, lets process function argument
+        first_arg_tree: Optional[Tree] = tree_function.first_arg_list_func(expression)
+
+        if first_arg_tree is None:
+            logger.debug(
+                f"Function invocation without argument in expression = {expression.pretty()}"
+            )
+            self.reporter.report_warning(
+                f"{self.table.full_name}-variable-statement",
+                "Function invocation without argument",
+            )
+            return None
+        return first_arg_tree
+
     def _process_invoke_expression(
         self, invoke_expression: Tree
     ) -> Union[DataAccessFunctionDetail, List[str], None]:
@@ -318,14 +389,18 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         data_access_func: str = tree_function.make_function_name(letter_tree)
         # The invoke function is either DataAccess function like PostgreSQL.Database(<argument-list>) or
         # some other function like Table.AddColumn or Table.Combine and so on
+
+        logger.debug(f"function-name: {data_access_func}")
+
         if data_access_func in self.data_access_functions:
             arg_list: Optional[Tree] = MQueryResolver.get_argument_list(
                 invoke_expression
             )
             if arg_list is None:
                 self.reporter.report_warning(
-                    f"{self.table.full_name}-arg-list",
-                    f"Argument list not found for data-access-function {data_access_func}",
+                    title="M-Query Resolver Error",
+                    message="Unable to extract lineage from parsed M-Query expression (missing argument list)",
+                    context=f"{self.table.full_name}: argument list not found for data-access-function {data_access_func}",
                 )
                 return None
 
@@ -335,19 +410,8 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 identifier_accessor=None,
             )
 
-        # function is not data-access function, lets process function argument
-        first_arg_tree: Optional[Tree] = tree_function.first_arg_list_func(
-            invoke_expression
-        )
-
+        first_arg_tree: Optional[Tree] = self.take_first_argument(invoke_expression)
         if first_arg_tree is None:
-            logger.debug(
-                f"Function invocation without argument in expression = {invoke_expression.pretty()}"
-            )
-            self.reporter.report_warning(
-                f"{self.table.full_name}-variable-statement",
-                "Function invocation without argument",
-            )
             return None
 
         flat_arg_list: List[Tree] = tree_function.flat_argument_list(first_arg_tree)
@@ -356,6 +420,40 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             return None
 
         first_argument: Tree = flat_arg_list[0]  # take first argument only
+
+        # Detect nested function calls in the first argument
+        # M-Query's data transformation pipeline:
+        # 1. Functions typically operate on tables/columns
+        # 2. First argument must be either:
+        #    - A table variable name (referencing data source)
+        #    - Another function that eventually leads to a table
+        #
+        # Example of nested functions:
+        #   #"Split Column by Delimiter2" = Table.SplitColumn(
+        #       Table.TransformColumnTypes(#"Removed Columns1", "KB")
+        #   )
+        #
+        # In this example:
+        # - The inner function Table.TransformColumnTypes takes #"Removed Columns1"
+        #   (a table reference) as its first argument
+        # - Its result is then passed as the first argument to Table.SplitColumn
+        second_invoke_expression: Optional[
+            Tree
+        ] = tree_function.first_invoke_expression_func(first_argument)
+        if second_invoke_expression:
+            # 1. The First argument is function call
+            # 2. That function's first argument references next table variable
+            first_arg_tree = self.take_first_argument(second_invoke_expression)
+            if first_arg_tree is None:
+                return None
+
+            flat_arg_list = tree_function.flat_argument_list(first_arg_tree)
+            if len(flat_arg_list) == 0:
+                logger.debug("flat_arg_list is zero")
+                return None
+
+            first_argument = flat_arg_list[0]  # take first argument only
+
         expression: Optional[Tree] = tree_function.first_list_expression_func(
             first_argument
         )
@@ -371,8 +469,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                     f"Either list_expression or type_expression is not found = {invoke_expression.pretty()}"
                 )
                 self.reporter.report_warning(
-                    f"{self.table.full_name}-variable-statement",
-                    "Function argument expression is not supported",
+                    title="M-Query Resolver Error",
+                    message="Unable to extract lineage from parsed M-Query expression (function argument expression is not supported)",
+                    context=f"{self.table.full_name}: function argument expression is not supported",
                 )
                 return None
 
@@ -441,8 +540,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
             )
             if v_statement is None:
                 self.reporter.report_warning(
-                    f"{self.table.full_name}-variable-statement",
-                    f"output variable ({current_identifier}) statement not found in table expression",
+                    title="Unable to extract lineage from M-Query expression",
+                    message="Lineage will be incomplete.",
+                    context=f"table-full-name={self.table.full_name}, expression = {self.table.expression}, output-variable={current_identifier} not found in table expression",
                 )
                 return None
 
@@ -543,7 +643,9 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 AbstractDataPlatformTableCreator
             ) = supported_resolver.get_table_full_name_creator()(
                 ctx=ctx,
+                table=self.table,
                 config=config,
+                reporter=self.reporter,
                 platform_instance_resolver=platform_instance_resolver,
             )
 
@@ -644,8 +746,10 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
                 database = db_name
                 schema = MSSqlDataPlatformTableCreator.DEFAULT_SCHEMA
             else:
-                logger.warning(
-                    f"Unsupported table format found {parsed_table} in query {query}"
+                self.reporter.warning(
+                    title="Invalid table format",
+                    message="The advanced SQL lineage feature (enable_advance_lineage_sql_construct) is disabled. Please either enable this feature or ensure the table is referenced as <db-name>.<schema-name>.<table-name> in the SQL.",
+                    context=f"table-name={self.table.full_name}",
                 )
                 continue
 
@@ -679,7 +783,7 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
         )
 
         if len(arguments) == 2:
-            # It is regular case of MS-SQL
+            # It is a regular case of MS-SQL
             logger.debug("Handling with regular case")
             return self.two_level_access_pattern(data_access_func_detail)
 
@@ -774,32 +878,22 @@ class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
 class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
     def form_qualified_table_name(
         self,
-        value_dict: Dict[Any, Any],
-        catalog_name: str,
+        table_reference: ReferencedTable,
         data_platform_pair: DataPlatformPair,
-        server: str,
     ) -> str:
-        # database and catalog names are same in M-Query
-        db_name: str = (
-            catalog_name if "Database" not in value_dict else value_dict["Database"]
-        )
-
-        schema_name: str = value_dict["Schema"]
-
-        table_name: str = value_dict["Table"]
 
         platform_detail: PlatformDetail = (
             self.platform_instance_resolver.get_platform_instance(
                 PowerBIPlatformDetail(
                     data_platform_pair=data_platform_pair,
-                    data_platform_server=server,
+                    data_platform_server=table_reference.warehouse,
                 )
             )
         )
 
         metastore: Optional[str] = None
 
-        qualified_table_name: str = f"{db_name}.{schema_name}.{table_name}"
+        qualified_table_name: str = f"{table_reference.database}.{table_reference.schema}.{table_reference.table}"
 
         if isinstance(platform_detail, DataBricksPlatformDetail):
             metastore = platform_detail.metastore
@@ -815,7 +909,7 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         logger.debug(
             f"Processing Databrick data-access function detail {data_access_func_detail}"
         )
-        value_dict: Dict[str, str] = {}
+        table_detail: Dict[str, str] = {}
         temp_accessor: Optional[
             Union[IdentifierAccessor, AbstractIdentifierAccessor]
         ] = data_access_func_detail.identifier_accessor
@@ -823,15 +917,15 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         while temp_accessor:
             if isinstance(temp_accessor, IdentifierAccessor):
                 # Condition to handle databricks M-query pattern where table, schema and database all are present in
-                # same invoke statement
+                # the same invoke statement
                 if all(
                     element in temp_accessor.items
                     for element in ["Item", "Schema", "Catalog"]
                 ):
-                    value_dict["Schema"] = temp_accessor.items["Schema"]
-                    value_dict["Table"] = temp_accessor.items["Item"]
+                    table_detail["Schema"] = temp_accessor.items["Schema"]
+                    table_detail["Table"] = temp_accessor.items["Item"]
                 else:
-                    value_dict[temp_accessor.items["Kind"]] = temp_accessor.items[
+                    table_detail[temp_accessor.items["Kind"]] = temp_accessor.items[
                         "Name"
                     ]
 
@@ -845,42 +939,36 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
                 )
                 return Lineage.empty()
 
-        arguments = self.get_tokens(data_access_func_detail.arg_list)
-        if len(arguments) < 4:
-            logger.info(
-                f"Databricks workspace and catalog information in arguments({arguments}). "
-                f"Skipping upstream table"
+        table_reference = self.create_reference_table(
+            arg_list=data_access_func_detail.arg_list,
+            table_detail=table_detail,
+        )
+
+        if table_reference:
+            qualified_table_name: str = self.form_qualified_table_name(
+                table_reference=table_reference,
+                data_platform_pair=self.get_platform_pair(),
             )
-            return Lineage.empty()
 
-        workspace_fqdn: str = arguments[0]
+            urn = urn_creator(
+                config=self.config,
+                platform_instance_resolver=self.platform_instance_resolver,
+                data_platform_pair=self.get_platform_pair(),
+                server=table_reference.warehouse,
+                qualified_table_name=qualified_table_name,
+            )
 
-        catalog_name: str = arguments[3]
+            return Lineage(
+                upstreams=[
+                    DataPlatformTable(
+                        data_platform_pair=self.get_platform_pair(),
+                        urn=urn,
+                    )
+                ],
+                column_lineage=[],
+            )
 
-        qualified_table_name: str = self.form_qualified_table_name(
-            value_dict=value_dict,
-            catalog_name=catalog_name,
-            data_platform_pair=self.get_platform_pair(),
-            server=workspace_fqdn,
-        )
-
-        urn = urn_creator(
-            config=self.config,
-            platform_instance_resolver=self.platform_instance_resolver,
-            data_platform_pair=self.get_platform_pair(),
-            server=workspace_fqdn,
-            qualified_table_name=qualified_table_name,
-        )
-
-        return Lineage(
-            upstreams=[
-                DataPlatformTable(
-                    data_platform_pair=self.get_platform_pair(),
-                    urn=urn,
-                )
-            ],
-            column_lineage=[],
-        )
+        return Lineage.empty()
 
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.DATABRICK_SQL.value
@@ -1012,6 +1100,7 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
     SUPPORTED_NATIVE_QUERY_DATA_PLATFORM: dict = {
         SupportedDataPlatform.SNOWFLAKE.value.powerbi_data_platform_name: SupportedDataPlatform.SNOWFLAKE,
         SupportedDataPlatform.AMAZON_REDSHIFT.value.powerbi_data_platform_name: SupportedDataPlatform.AMAZON_REDSHIFT,
+        SupportedDataPlatform.DatabricksMultiCloud_SQL.value.powerbi_data_platform_name: SupportedDataPlatform.DatabricksMultiCloud_SQL,
     }
     current_data_platform: SupportedDataPlatform = SupportedDataPlatform.SNOWFLAKE
 
@@ -1059,6 +1148,34 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
             column_lineage=[],
         )
 
+    def get_db_name(self, data_access_tokens: List[str]) -> Optional[str]:
+        if (
+            data_access_tokens[0]
+            != SupportedDataPlatform.DatabricksMultiCloud_SQL.value.powerbi_data_platform_name
+        ):
+            return None
+        try:
+            if "Database" in data_access_tokens:
+                index = data_access_tokens.index("Database")
+                if data_access_tokens[index + 1] != Constant.M_QUERY_NULL:
+                    # Database name is explicitly set in argument
+                    return data_access_tokens[index + 1]
+
+            if "Name" in data_access_tokens:
+                index = data_access_tokens.index("Name")
+                # Next element is value of the Name. It is a database name
+                return data_access_tokens[index + 1]
+
+            if "Catalog" in data_access_tokens:
+                index = data_access_tokens.index("Catalog")
+                # Next element is value of the Catalog. In Databricks Catalog can also be used in place of a database.
+                return data_access_tokens[index + 1]
+
+        except IndexError as e:
+            logger.debug("Database name is not available", exc_info=e)
+
+        return None
+
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> Lineage:
@@ -1073,6 +1190,7 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
             )
             logger.debug(f"Flat argument list = {flat_argument_list}")
             return Lineage.empty()
+
         data_access_tokens: List[str] = tree_function.remove_whitespaces_from_list(
             tree_function.token_values(flat_argument_list[0])
         )
@@ -1085,6 +1203,8 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
                 f"NativeQuery is supported only for {self.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM}"
             )
 
+            return Lineage.empty()
+
         if len(data_access_tokens[0]) < 3:
             logger.debug(
                 f"Server is not available in argument list for data-platform {data_access_tokens[0]}. Returning empty "
@@ -1095,8 +1215,7 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         self.current_data_platform = self.SUPPORTED_NATIVE_QUERY_DATA_PLATFORM[
             data_access_tokens[0]
         ]
-
-        # First argument is the query
+        # The First argument is the query
         sql_query: str = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(flat_argument_list[1])
@@ -1114,10 +1233,12 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
                 server=server,
             )
 
+        database_name: Optional[str] = self.get_db_name(data_access_tokens)
+
         return self.parse_custom_sql(
             query=sql_query,
             server=server,
-            database=None,  # database and schema is available inside custom sql as per PowerBI Behavior
+            database=database_name,
             schema=None,
         )
 

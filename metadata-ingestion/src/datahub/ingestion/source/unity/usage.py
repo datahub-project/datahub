@@ -22,6 +22,7 @@ from datahub.ingestion.source.unity.proxy_types import (
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.usage.usage_common import UsageAggregator
 from datahub.metadata.schema_classes import OperationClass
+from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 
 logger = logging.getLogger(__name__)
 
@@ -76,25 +77,38 @@ class UnityCatalogUsageExtractor:
         self, table_refs: Set[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
         table_map = defaultdict(list)
+        query_hashes = set()
         for ref in table_refs:
             table_map[ref.table].append(ref)
             table_map[f"{ref.schema}.{ref.table}"].append(ref)
             table_map[ref.qualified_table_name].append(ref)
 
-        for query in self._get_queries():
-            self.report.num_queries += 1
-            table_info = self._parse_query(query, table_map)
-            if table_info is not None:
-                if self.config.include_operational_stats:
-                    yield from self._generate_operation_workunit(query, table_info)
-                for source_table in table_info.source_tables:
-                    self.usage_aggregator.aggregate_event(
-                        resource=source_table,
-                        start_time=query.start_time,
-                        query=query.query_text,
-                        user=query.user_name,
-                        fields=[],
-                    )
+        with self.report.usage_perf_report.get_queries_timer as current_timer:
+            for query in self._get_queries():
+                self.report.num_queries += 1
+                with current_timer.pause():
+                    with self.report.usage_perf_report.query_fingerprinting_timer:
+                        query_hashes.add(
+                            get_query_fingerprint(
+                                query.query_text, "databricks", fast=True
+                            )
+                        )
+                        self.report.num_unique_queries = len(query_hashes)
+                    table_info = self._parse_query(query, table_map)
+                    if table_info is not None:
+                        if self.config.include_operational_stats:
+                            yield from self._generate_operation_workunit(
+                                query, table_info
+                            )
+                        for source_table in table_info.source_tables:
+                            with self.report.usage_perf_report.aggregator_add_event_timer:
+                                self.usage_aggregator.aggregate_event(
+                                    resource=source_table,
+                                    start_time=query.start_time,
+                                    query=query.query_text,
+                                    user=query.user_name,
+                                    fields=[],
+                                )
 
         if not self.report.num_queries:
             logger.warning("No queries found in the given time range.")
@@ -117,29 +131,34 @@ class UnityCatalogUsageExtractor:
     def _generate_operation_workunit(
         self, query: Query, table_info: QueryTableInfo
     ) -> Iterable[MetadataWorkUnit]:
-        if (
-            not query.statement_type
-            or query.statement_type not in OPERATION_STATEMENT_TYPES
-        ):
-            return None
+        with self.report.usage_perf_report.gen_operation_timer:
+            if (
+                not query.statement_type
+                or query.statement_type not in OPERATION_STATEMENT_TYPES
+            ):
+                return None
 
-        # Not sure about behavior when there are multiple target tables. This is a best attempt.
-        for target_table in table_info.target_tables:
-            operation_aspect = OperationClass(
-                timestampMillis=int(time.time() * 1000),
-                lastUpdatedTimestamp=int(query.end_time.timestamp() * 1000),
-                actor=(
-                    self.user_urn_builder(query.user_name) if query.user_name else None
-                ),
-                operationType=OPERATION_STATEMENT_TYPES[query.statement_type],
-                affectedDatasets=[
-                    self.table_urn_builder(table) for table in table_info.source_tables
-                ],
-            )
-            self.report.num_operational_stats_workunits_emitted += 1
-            yield MetadataChangeProposalWrapper(
-                entityUrn=self.table_urn_builder(target_table), aspect=operation_aspect
-            ).as_workunit()
+            # Not sure about behavior when there are multiple target tables. This is a best attempt.
+            for target_table in table_info.target_tables:
+                operation_aspect = OperationClass(
+                    timestampMillis=int(time.time() * 1000),
+                    lastUpdatedTimestamp=int(query.end_time.timestamp() * 1000),
+                    actor=(
+                        self.user_urn_builder(query.user_name)
+                        if query.user_name
+                        else None
+                    ),
+                    operationType=OPERATION_STATEMENT_TYPES[query.statement_type],
+                    affectedDatasets=[
+                        self.table_urn_builder(table)
+                        for table in table_info.source_tables
+                    ],
+                )
+                self.report.num_operational_stats_workunits_emitted += 1
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=self.table_urn_builder(target_table),
+                    aspect=operation_aspect,
+                ).as_workunit()
 
     def _get_queries(self) -> Iterable[Query]:
         try:
@@ -153,18 +172,24 @@ class UnityCatalogUsageExtractor:
     def _parse_query(
         self, query: Query, table_map: TableMap
     ) -> Optional[QueryTableInfo]:
-        table_info = self._parse_query_via_lineage_runner(query.query_text)
-        if table_info is None and query.statement_type == QueryStatementType.SELECT:
-            table_info = self._parse_query_via_spark_sql_plan(query.query_text)
+        with self.report.usage_perf_report.sql_parsing_timer:
+            table_info = self._parse_query_via_lineage_runner(query.query_text)
+            if table_info is None and query.statement_type == QueryStatementType.SELECT:
+                with self.report.usage_perf_report.spark_sql_parsing_timer:
+                    table_info = self._parse_query_via_spark_sql_plan(query.query_text)
 
-        if table_info is None:
-            self.report.num_queries_dropped_parse_failure += 1
-            return None
-        else:
-            return QueryTableInfo(
-                source_tables=self._resolve_tables(table_info.source_tables, table_map),
-                target_tables=self._resolve_tables(table_info.target_tables, table_map),
-            )
+            if table_info is None:
+                self.report.num_queries_dropped_parse_failure += 1
+                return None
+            else:
+                return QueryTableInfo(
+                    source_tables=self._resolve_tables(
+                        table_info.source_tables, table_map
+                    ),
+                    target_tables=self._resolve_tables(
+                        table_info.target_tables, table_map
+                    ),
+                )
 
     def _parse_query_via_lineage_runner(self, query: str) -> Optional[StringTableInfo]:
         try:

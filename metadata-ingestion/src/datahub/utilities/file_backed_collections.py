@@ -350,6 +350,13 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             self[key] = default
             return default
 
+    def setdefault(self, key: str, default: _VT) -> _VT:
+        # In almost all cases where setdefault is used, we want to always mark the
+        # value as dirty, even if the key already exists. While `for_mutation` is
+        # preferred, it's easy to accidentally use the default `setdefault`
+        # implementation in a subtly unsafe way, so we override it here.
+        return self.for_mutation(key, default=default)
+
     def __delitem__(self, key: str) -> None:
         in_cache = False
         if key in self._active_object_cache:

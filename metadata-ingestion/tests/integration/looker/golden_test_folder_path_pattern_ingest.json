@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "folder_id": "a"
             },
-            "name": "A"
+            "name": "A",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -102,7 +103,8 @@
                 "env": "PROD",
                 "folder_id": "b"
             },
-            "name": "B"
+            "name": "B",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -193,7 +195,8 @@
                 "env": "PROD",
                 "folder_id": "c"
             },
-            "name": "C"
+            "name": "C",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -284,6 +287,7 @@
                         "description": "third",
                         "charts": [],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1586847600000,
@@ -510,7 +514,8 @@
                 "env": "PROD",
                 "model_name": "data"
             },
-            "name": "data"
+            "name": "data",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -609,7 +614,10 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "project": "lkml_samples",
+                            "model": "data",
                             "looker.explore.label": "My Explore View",
+                            "looker.explore.name": "my_view",
                             "looker.explore.file": "test_source_file.lkml"
                         },
                         "externalUrl": "https://looker.company.com/explore/data/my_view",

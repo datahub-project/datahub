@@ -64,6 +64,13 @@
   .productTourButton {
     text-align: center!important;
   }
+
+  .hideOnMobile{
+    display: none;
+  }
+  .hero__title, .hero__subtitle {
+    text-align: center!important;
+  }
 }
 
 @media screen  and (min-width: 1000px){

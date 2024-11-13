@@ -1,6 +1,7 @@
 package com.linkedin.metadata.utils;
 
 import com.datahub.util.RecordUtils;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
@@ -59,9 +60,21 @@ public class GenericRecordUtils {
 
   @Nonnull
   public static GenericAspect serializeAspect(@Nonnull RecordTemplate aspect) {
+    return serializeAspect(RecordUtils.toJsonString(aspect));
+  }
+
+  @Nonnull
+  public static GenericAspect serializeAspect(@Nonnull String str) {
     GenericAspect genericAspect = new GenericAspect();
-    genericAspect.setValue(
-        ByteString.unsafeWrap(RecordUtils.toJsonString(aspect).getBytes(StandardCharsets.UTF_8)));
+    genericAspect.setValue(ByteString.unsafeWrap(str.getBytes(StandardCharsets.UTF_8)));
+    genericAspect.setContentType(GenericRecordUtils.JSON);
+    return genericAspect;
+  }
+
+  @Nonnull
+  public static GenericAspect serializeAspect(@Nonnull JsonNode json) {
+    GenericAspect genericAspect = new GenericAspect();
+    genericAspect.setValue(ByteString.unsafeWrap(json.toString().getBytes(StandardCharsets.UTF_8)));
     genericAspect.setContentType(GenericRecordUtils.JSON);
     return genericAspect;
   }

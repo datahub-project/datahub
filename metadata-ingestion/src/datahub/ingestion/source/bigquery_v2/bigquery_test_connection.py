@@ -113,7 +113,7 @@ class BigQueryTestConnection:
                     project_id=project_id,
                     dataset_name=result[0].name,
                     tables={},
-                    with_data_read_permission=config.have_table_data_read_permission,
+                    with_partitions=config.have_table_data_read_permission,
                     report=BigQueryV2Report(),
                 )
                 if len(list(tables)) == 0:

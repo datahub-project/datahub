@@ -38,9 +38,39 @@ class DatasetKey(ContainerKey):
 
 
 @dataclass
+class AppDashboard:
+    id: str
+    original_dashboard_id: str
+
+
+@dataclass
+class AppReport:
+    id: str
+    original_report_id: str
+
+
+@dataclass
+class App:
+    id: str
+    name: str
+    description: Optional[str]
+    last_update: Optional[str]
+    dashboards: List["AppDashboard"]
+    reports: List["AppReport"]
+
+    def get_urn_part(self):
+        return App.get_urn_part_by_id(self.id)
+
+    @staticmethod
+    def get_urn_part_by_id(id_: str) -> str:
+        return f"apps.{id_}"
+
+
+@dataclass
 class Workspace:
     id: str
     name: str
+    type: str  # This is used as a subtype of the Container entity.
     dashboards: List["Dashboard"]
     reports: List["Report"]
     datasets: Dict[str, "PowerBIDataset"]
@@ -48,6 +78,7 @@ class Workspace:
     dashboard_endorsements: Dict[str, List[str]]
     scan_result: dict
     independent_datasets: List["PowerBIDataset"]
+    app: Optional["App"]
 
     def get_urn_part(self, workspace_id_as_urn_part: Optional[bool] = False) -> str:
         # shouldn't use workspace name, as they can be the same?
@@ -64,6 +95,9 @@ class Workspace:
             platform=platform_name,
             instance=platform_instance,
         )
+
+    def format_name_for_logger(self) -> str:
+        return f"{self.name} ({self.id})"
 
 
 @dataclass
@@ -141,6 +175,7 @@ class PowerBIDataset:
     description: str
     webUrl: Optional[str]
     workspace_id: str
+    workspace_name: str
     parameters: Dict[str, str]
 
     # Table in datasets
@@ -194,7 +229,7 @@ class User:
     groupUserAccessRight: Optional[str] = None
 
     def get_urn_part(self, use_email: bool, remove_email_suffix: bool) -> str:
-        if use_email:
+        if use_email and self.emailAddress:
             if remove_email_suffix:
                 return self.emailAddress.split("@")[0]
             else:
@@ -211,20 +246,33 @@ class User:
         return hash(self.__members())
 
 
+class ReportType(Enum):
+    PaginatedReport = "PaginatedReport"
+    PowerBIReport = "Report"
+
+
 @dataclass
 class Report:
     id: str
     name: str
+    type: ReportType
     webUrl: Optional[str]
     embedUrl: str
     description: str
-    dataset: Optional["PowerBIDataset"]
+    dataset_id: Optional[str]  # dataset_id is coming from REST API response
+    dataset: Optional[
+        "PowerBIDataset"
+    ]  # This the dataclass later initialise by powerbi_api.py
     pages: List["Page"]
     users: List["User"]
     tags: List[str]
 
     def get_urn_part(self):
-        return f"reports.{self.id}"
+        return Report.get_urn_part_by_id(self.id)
+
+    @staticmethod
+    def get_urn_part_by_id(id_: str) -> str:
+        return f"reports.{id_}"
 
 
 @dataclass
@@ -259,10 +307,14 @@ class Dashboard:
     tiles: List["Tile"]
     users: List["User"]
     tags: List[str]
-    webUrl: Optional[str] = None
+    webUrl: Optional[str]
 
     def get_urn_part(self):
-        return f"dashboards.{self.id}"
+        return Dashboard.get_urn_part_by_id(self.id)
+
+    @staticmethod
+    def get_urn_part_by_id(id_: str) -> str:
+        return f"dashboards.{id_}"
 
     def __members(self):
         return (self.id,)
@@ -276,7 +328,7 @@ class Dashboard:
         return hash(self.__members())
 
 
-def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset:
+def new_powerbi_dataset(workspace: Workspace, raw_instance: dict) -> PowerBIDataset:
     return PowerBIDataset(
         id=raw_instance["id"],
         name=raw_instance.get("name"),
@@ -286,7 +338,8 @@ def new_powerbi_dataset(workspace_id: str, raw_instance: dict) -> PowerBIDataset
             if raw_instance.get("webUrl") is not None
             else None
         ),
-        workspace_id=workspace_id,
+        workspace_id=workspace.id,
+        workspace_name=workspace.name,
         parameters={},
         tables=[],
         tags=[],

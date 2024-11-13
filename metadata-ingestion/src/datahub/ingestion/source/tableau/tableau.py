@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import time
@@ -26,6 +27,8 @@ from pydantic import root_validator, validator
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter
 from tableauserverclient import (
+    GroupItem,
+    PermissionsRule,
     PersonalAccessTokenAuth,
     Server,
     ServerResponseError,
@@ -216,6 +219,11 @@ class TableauConnectionConfig(ConfigModel):
         description="Whether to verify SSL certificates. If using self-signed certificates, set to false or provide the path to the .pem certificate bundle.",
     )
 
+    session_trust_env: bool = Field(
+        False,
+        description="Configures the trust_env property in the requests session. If set to false (default value) it will bypass proxy settings. See https://requests.readthedocs.io/en/latest/api/#requests.Session.trust_env for more information.",
+    )
+
     extract_column_level_lineage: bool = Field(
         True,
         description="When enabled, extracts column-level lineage from Tableau Datasources",
@@ -265,8 +273,7 @@ class TableauConnectionConfig(ConfigModel):
                 },
             )
 
-            # From https://stackoverflow.com/a/50159273/5004662.
-            server._session.trust_env = False
+            server._session.trust_env = self.session_trust_env
 
             # Setup request retries.
             adapter = HTTPAdapter(
@@ -298,6 +305,23 @@ class TableauConnectionConfig(ConfigModel):
             ) from e
 
 
+class PermissionIngestionConfig(ConfigModel):
+    enable_workbooks: bool = Field(
+        default=True,
+        description="Whether or not to enable group permission ingestion for workbooks. "
+        "Default: True",
+    )
+
+    group_name_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Filter for Tableau group names when ingesting group permissions. "
+        "For example, you could filter for groups that include the term 'Consumer' in their name by adding '^.*Consumer$' to the allow list."
+        "By default, all groups will be ingested. "
+        "You can both allow and deny groups based on their name using their name, or a Regex pattern. "
+        "Deny patterns always take precedence over allow patterns. ",
+    )
+
+
 class TableauConfig(
     DatasetLineageProviderConfigBase,
     StatefulIngestionConfigBase,
@@ -313,11 +337,21 @@ class TableauConfig(
     # Tableau project pattern
     project_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Filter for specific Tableau projects. For example, use 'My Project' to ingest a root-level Project with name 'My Project', or 'My Project/Nested Project' to ingest a nested Project with name 'Nested Project'. "
+        description="[deprecated] Use project_path_pattern instead. Filter for specific Tableau projects. For example, use 'My Project' to ingest a root-level Project with name 'My Project', or 'My Project/Nested Project' to ingest a nested Project with name 'Nested Project'. "
         "By default, all Projects nested inside a matching Project will be included in ingestion. "
         "You can both allow and deny projects based on their name using their name, or a Regex pattern. "
         "Deny patterns always take precedence over allow patterns. "
         "By default, all projects will be ingested.",
+    )
+    _deprecate_projects_pattern = pydantic_field_deprecated("project_pattern")
+
+    project_path_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Filters Tableau projects by their full path. For instance, 'My Project/Nested Project' targets a specific nested project named 'Nested Project'."
+        " This is also useful when you need to exclude all nested projects under a particular project."
+        " You can allow or deny projects by specifying their path or a regular expression pattern."
+        " Deny patterns always override allow patterns."
+        " By default, all projects are ingested.",
     )
 
     project_path_separator: str = Field(
@@ -449,22 +483,33 @@ class TableauConfig(
         description="When enabled, sites are added as containers and therefore visible in the folder structure within Datahub.",
     )
 
+    permission_ingestion: Optional[PermissionIngestionConfig] = Field(
+        default=None,
+        description="Configuration settings for ingesting Tableau groups and their capabilities as custom properties.",
+    )
+
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
         projects = values.get("projects")
         project_pattern = values.get("project_pattern")
-        if project_pattern is None and projects:
+        project_path_pattern = values.get("project_path_pattern")
+        if project_pattern is None and project_path_pattern is None and projects:
             logger.warning(
-                "project_pattern is not set but projects is set. projects is deprecated, please use "
-                "project_pattern instead."
+                "projects is deprecated, please use " "project_path_pattern instead."
             )
             logger.info("Initializing project_pattern from projects")
             values["project_pattern"] = AllowDenyPattern(
                 allow=[f"^{prj}$" for prj in projects]
             )
-        elif project_pattern != AllowDenyPattern.allow_all() and projects:
-            raise ValueError("projects is deprecated. Please use project_pattern only.")
+        elif (project_pattern or project_path_pattern) and projects:
+            raise ValueError(
+                "projects is deprecated. Please use project_path_pattern only."
+            )
+        elif project_path_pattern and project_pattern:
+            raise ValueError(
+                "project_pattern is deprecated. Please use project_path_pattern only."
+            )
 
         return values
 
@@ -716,6 +761,8 @@ class TableauSiteSource:
         self.workbook_project_map: Dict[str, str] = {}
         self.datasource_project_map: Dict[str, str] = {}
 
+        self.group_map: Dict[str, GroupItem] = {}
+
         # This map keeps track of the database server connection hostnames.
         self.database_server_hostname_map: Dict[str, str] = {}
         # This list keeps track of sheets in workbooks so that we retrieve those
@@ -850,12 +897,13 @@ class TableauSiteSource:
 
     def _is_allowed_project(self, project: TableauProject) -> bool:
         # Either project name or project path should exist in allow
-        is_allowed: bool = self.config.project_pattern.allowed(
-            project.name
-        ) or self.config.project_pattern.allowed(self._get_project_path(project))
+        is_allowed: bool = (
+            self.config.project_pattern.allowed(project.name)
+            or self.config.project_pattern.allowed(self._get_project_path(project))
+        ) and self.config.project_path_pattern.allowed(self._get_project_path(project))
         if is_allowed is False:
             logger.info(
-                f"project({project.name}) is not allowed as per project_pattern"
+                f"Project ({project.name}) is not allowed as per project_pattern or project_path_pattern"
             )
         return is_allowed
 
@@ -887,28 +935,29 @@ class TableauSiteSource:
             logger.debug(f"Project {project.name} is added in project registry")
             projects_to_ingest[project.id] = project
 
-        # We rely on automatic browse paths (v2) when creating containers. That's why we need to sort the projects here.
-        # Otherwise, nested projects will not have the correct browse paths if not created in correct order / hierarchy.
-        self.tableau_project_registry = OrderedDict(
-            sorted(projects_to_ingest.items(), key=lambda item: len(item[1].path))
-        )
-
         if self.config.extract_project_hierarchy is False:
             logger.debug(
                 "Skipping project hierarchy processing as configuration extract_project_hierarchy is "
                 "disabled"
             )
-            return
+        else:
+            logger.debug(
+                "Reevaluating projects as extract_project_hierarchy is enabled"
+            )
 
-        logger.debug("Reevaluating projects as extract_project_hierarchy is enabled")
+            for project in list_of_skip_projects:
+                if (
+                    project.parent_id in projects_to_ingest
+                    and self._is_denied_project(project) is False
+                ):
+                    logger.debug(f"Project {project.name} is added in project registry")
+                    projects_to_ingest[project.id] = project
 
-        for project in list_of_skip_projects:
-            if (
-                project.parent_id in self.tableau_project_registry
-                and self._is_denied_project(project) is False
-            ):
-                logger.debug(f"Project {project.name} is added in project registry")
-                self.tableau_project_registry[project.id] = project
+        # We rely on automatic browse paths (v2) when creating containers. That's why we need to sort the projects here.
+        # Otherwise, nested projects will not have the correct browse paths if not created in correct order / hierarchy.
+        self.tableau_project_registry = OrderedDict(
+            sorted(projects_to_ingest.items(), key=lambda item: len(item[1].path))
+        )
 
     def _init_datasource_registry(self) -> None:
         if self.server is None:
@@ -2113,7 +2162,7 @@ class TableauSiteSource:
 
         fine_grained_lineages: List[FineGrainedLineage] = []
         if self.config.extract_column_level_lineage:
-            logger.info("Extracting CLL from custom sql")
+            logger.debug("Extracting CLL from custom sql")
             fine_grained_lineages = make_fine_grained_lineage_class(
                 parsed_result, csql_urn, out_columns
             )
@@ -2785,6 +2834,18 @@ class TableauSiteSource:
                 f"Could not load project hierarchy for workbook {workbook_name}({workbook_id}). Please check permissions."
             )
 
+        custom_props = None
+        if (
+            self.config.permission_ingestion
+            and self.config.permission_ingestion.enable_workbooks
+        ):
+            logger.debug(f"Ingest access roles of workbook-id='{workbook.get(c.LUID)}'")
+            workbook_instance = self.server.workbooks.get_by_id(workbook.get(c.LUID))
+            self.server.workbooks.populate_permissions(workbook_instance)
+            custom_props = self._create_workbook_properties(
+                workbook_instance.permissions
+            )
+
         yield from gen_containers(
             container_key=workbook_container_key,
             name=workbook.get(c.NAME) or "",
@@ -2793,6 +2854,7 @@ class TableauSiteSource:
             sub_types=[BIContainerSubTypes.TABLEAU_WORKBOOK],
             owner_urn=owner_urn,
             external_url=workbook_external_url,
+            extra_properties=custom_props,
             tags=tags,
         )
 
@@ -3150,10 +3212,52 @@ class TableauSiteSource:
             sub_types=[c.SITE],
         )
 
+    def _fetch_groups(self):
+        for group in TSC.Pager(self.server.groups):
+            self.group_map[group.id] = group
+
+    def _get_allowed_capabilities(self, capabilities: Dict[str, str]) -> List[str]:
+        if not self.config.permission_ingestion:
+            return []
+
+        allowed_capabilities = [
+            key for key, value in capabilities.items() if value == "Allow"
+        ]
+        return allowed_capabilities
+
+    def _create_workbook_properties(
+        self, permissions: List[PermissionsRule]
+    ) -> Optional[Dict[str, str]]:
+        if not self.config.permission_ingestion:
+            return None
+
+        groups = []
+        for rule in permissions:
+            if rule.grantee.tag_name == "group":
+                group = self.group_map.get(rule.grantee.id)
+                if not group or not group.name:
+                    logger.debug(f"Group {rule.grantee.id} not found in group map.")
+                    continue
+                if not self.config.permission_ingestion.group_name_pattern.allowed(
+                    group.name
+                ):
+                    logger.info(
+                        f"Skip permission '{group.name}' as it's excluded in group_name_pattern."
+                    )
+                    continue
+
+                capabilities = self._get_allowed_capabilities(rule.capabilities)
+                groups.append({"group": group.name, "capabilities": capabilities})
+
+        return {"permissions": json.dumps(groups)} if len(groups) > 0 else None
+
     def ingest_tableau_site(self):
         # Initialise the dictionary to later look-up for chart and dashboard stat
         if self.config.extract_usage_stats:
             self._populate_usage_stat_registry()
+
+        if self.config.permission_ingestion:
+            self._fetch_groups()
 
         # Populate the map of database names and database hostnames to be used later to map
         # databases to platform instances.

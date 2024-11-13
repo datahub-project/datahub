@@ -338,8 +338,8 @@
       ],
       "json": [
         {
-          "timestamp": 1723245258298,
-          "actor": "urn:li:corpuser:__datahub_system",
+          "timestamp": 1726608877854,
+          "actor": "urn:li:corpuser:datahub",
           "semVer": "0.0.0-computed",
           "semVerChange": "MINOR",
           "changeEvents": [
@@ -431,8 +431,8 @@
           "versionStamp": "browsePathsV2:0;dataPlatformInstance:0;datasetKey:0;schemaMetadata:1"
         },
         {
-          "timestamp": 1723245269788,
-          "actor": "urn:li:corpuser:__datahub_system",
+          "timestamp": 1726608915493,
+          "actor": "urn:li:corpuser:datahub",
           "semVer": "1.0.0-computed",
           "semVerChange": "MAJOR",
           "changeEvents": [
@@ -482,8 +482,8 @@
           "versionStamp": "browsePathsV2:0;dataPlatformInstance:0;datasetKey:0;schemaMetadata:2"
         },
         {
-          "timestamp": 1723245279320,
-          "actor": "urn:li:corpuser:__datahub_system",
+          "timestamp": 1726608930642,
+          "actor": "urn:li:corpuser:datahub",
           "semVer": "2.0.0-computed",
           "semVerChange": "MAJOR",
           "changeEvents": [

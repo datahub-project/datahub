@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import atexit
 import collections
 import functools
 import logging
 import queue
 import threading
 import time
+import weakref
 from concurrent.futures import Future, ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from threading import BoundedSemaphore
@@ -26,7 +28,6 @@ from datahub.ingestion.api.closeable import Closeable
 
 logger = logging.getLogger(__name__)
 _R = TypeVar("_R")
-_Args = TypeVar("_Args", bound=tuple)
 _PARTITION_EXECUTOR_FLUSH_SLEEP_INTERVAL = 0.05
 _DEFAULT_BATCHER_MIN_PROCESS_INTERVAL = timedelta(seconds=30)
 
@@ -52,7 +53,10 @@ class PartitionExecutor(Closeable):
         self.max_workers = max_workers
         self.max_pending = max_pending
 
-        self._executor = ThreadPoolExecutor(max_workers=max_workers)
+        self._executor = ThreadPoolExecutor(
+            max_workers=max_workers,
+            thread_name_prefix=self.__class__.__name__,
+        )
 
         # Each pending or executing request will acquire a permit from this semaphore.
         self._semaphore = BoundedSemaphore(max_pending + max_workers)
@@ -173,6 +177,55 @@ def _now() -> datetime:
     return datetime.now(tz=timezone.utc)
 
 
+_live_executors: weakref.WeakSet[BatchPartitionExecutor] = weakref.WeakSet()
+
+
+def _shutdown_executors() -> None:
+    # Create a copy of the set, to avoid issues with the set being mutated while we're iterating over it.
+    executors = list(_live_executors)
+
+    for executor in executors:
+        executor.shutdown()
+
+
+# The order of Python shutdown hooks is:
+# 1. execute threading._register_atexit handlers (only exists in Python 3.9+)
+# 2. calls `thread.join` on all non-daemon threads.
+# 3. interpreter shutdown: atexit handlers run.
+#
+# There was also discussion of making the threading._register_atexit method public,
+# but that hasn't happened yet. See https://github.com/python/cpython/issues/86128.
+#
+# The BatchPartitionExecutor uses a ThreadPoolExecutor internally.
+# As of Python 3.9, the ThreadPoolExecutor no longer uses daemon threads.
+# See https://bugs.python.org/issue39812. In 3.9+, it uses the newly
+# added threading._register_atexit method to register its own shutdown
+# logic, and uses the standard atexit module on prior versions of Python.
+#
+# Our main requirement is that our shutdown logic must run before
+# the thread pool executor's shutdown logic. We need this because the
+# clearinghouse thread must get a signal to shut down before it is
+# joined. Otherwise it'll stall indefinitely while waiting for work items.
+# For all shutdown hooks, they're executed in reverse order of registration.
+# As long as we use the same shutdown method as the ThreadPoolExecutor and
+# register our shutdown hook after the ThreadPoolExecutor's shutdown hook,
+# we're guaranteed that our shutdown logic runs first.
+#
+# Some other posts had suggested using threading.main_thread().join().
+# See https://stackoverflow.com/a/63075281.
+# I couldn't get this to work reliably, and so opted for this approach.
+# Based on my reading of https://github.com/python/cpython/pull/19149,
+# it should've worked. But not worth the effort to debug.
+#
+# This entire shutdown hook is largely a backstop mechanism to protect against
+# improper usage of the BatchPartitionExecutor. In proper usage that uses
+# a context manager or calls shutdown() explicitly, this will be a no-op.
+if hasattr(threading, "_register_atexit"):
+    threading._register_atexit(_shutdown_executors)
+else:
+    atexit.register(_shutdown_executors)
+
+
 class BatchPartitionExecutor(Closeable):
     def __init__(
         self,
@@ -211,17 +264,28 @@ class BatchPartitionExecutor(Closeable):
         self.min_process_interval = min_process_interval
         assert self.max_workers > 1
 
-        # We add one here to account for the clearinghouse worker thread.
-        self._executor = ThreadPoolExecutor(max_workers=max_workers + 1)
+        self._executor = ThreadPoolExecutor(
+            # We add one here to account for the clearinghouse worker thread.
+            max_workers=max_workers + 1,
+            thread_name_prefix=self.__class__.__name__,
+        )
         self._clearinghouse_started = False
 
+        # pending_count includes the length of the pending list, plus the
+        # number of items sitting in the clearinghouse's internal queue.
         self._pending_count = BoundedSemaphore(max_pending)
+
         self._pending: "queue.Queue[Optional[_BatchPartitionWorkItem]]" = queue.Queue(
             maxsize=max_pending
         )
 
+        # If this is true, that means shutdown() has been called.
+        self._shutting_down = False
+
         # If this is true, that means shutdown() has been called and self._pending is empty.
         self._queue_empty_for_shutdown = False
+
+        _live_executors.add(self)
 
     def _clearinghouse_worker(self) -> None:  # noqa: C901
         # This worker will pull items off the queue, and submit them into the executor
@@ -240,6 +304,9 @@ class BatchPartitionExecutor(Closeable):
             batch: List[_BatchPartitionWorkItem], future: Future
         ) -> None:
             with clearinghouse_state_lock:
+                nonlocal workers_available
+                workers_available += 1
+
                 for item in batch:
                     keys_no_longer_in_flight.add(item.key)
                     self._pending_count.release()
@@ -291,11 +358,19 @@ class BatchPartitionExecutor(Closeable):
                     blocking = False
 
                 try:
-                    next_item: Optional[_BatchPartitionWorkItem] = self._pending.get(
-                        block=blocking,
-                        timeout=self.min_process_interval.total_seconds(),
-                    )
-                    if next_item is None:
+                    next_item: Optional[_BatchPartitionWorkItem]
+                    if not blocking:
+                        next_item = self._pending.get_nowait()
+                    else:
+                        # Why 3 seconds? It's somewhat arbitrary.
+                        # We don't want it to be too high, since then liveness suffers,
+                        # particularly during a dirty shutdown. If it's too low, then we'll
+                        # waste CPU cycles rechecking the timer, only to call get again.
+                        next_item = self._pending.get(
+                            timeout=3,  # seconds
+                        )
+
+                    if next_item is None:  # None is the shutdown signal
                         self._queue_empty_for_shutdown = True
                         break
 
@@ -349,6 +424,21 @@ class BatchPartitionExecutor(Closeable):
             # We could wait for the in-flight items to complete,
             # but the executor will take care of waiting for them to complete.
         except Exception as e:
+            if isinstance(e, RuntimeError) and "shutdown" in str(e):
+                # This comes from the thread pool executor. It happens when
+                # (1) shutdown() is not called explicitly, or via the context manager,
+                # (2) submit() was called at least once, and
+                # (3) the program is now terminating (either normally or via an exception like KeyboardInterrupt)
+                # This means that the submit calls will not go through, and instead
+                # will be lost. That's ok though, since it's the caller's fault for not
+                # calling shutdown() properly.
+                logger.error(
+                    f"{self.__class__.__name__}: submit() was called but the executor was not cleaned up properly. "
+                    "The data from the submit() calls will be lost. Use a context manager or call shutdown() explicitly "
+                    "to ensure all submitted work is processed."
+                )
+                return
+
             # This represents a fatal error that makes the entire executor defunct.
             logger.exception(
                 "Threaded executor's clearinghouse worker failed.", exc_info=e
@@ -357,6 +447,11 @@ class BatchPartitionExecutor(Closeable):
             self._clearinghouse_started = False
 
     def _ensure_clearinghouse_started(self) -> None:
+        if self._shutting_down:
+            raise RuntimeError(
+                f"{self.__class__.__name__} is shutting down; cannot submit new work items."
+            )
+
         # Lazily start the clearinghouse worker.
         if not self._clearinghouse_started:
             self._clearinghouse_started = True
@@ -376,6 +471,8 @@ class BatchPartitionExecutor(Closeable):
         self._pending.put(_BatchPartitionWorkItem(key, args, done_callback))
 
     def shutdown(self) -> None:
+        self._shutting_down = True
+
         if not self._clearinghouse_started:
             # This is required to make shutdown() idempotent, which is important
             # when it's called explicitly and then also by a context manager.
@@ -398,7 +495,9 @@ class BatchPartitionExecutor(Closeable):
         while self._clearinghouse_started:
             time.sleep(_PARTITION_EXECUTOR_FLUSH_SLEEP_INTERVAL)
 
-        self._executor.shutdown(wait=False)
+        self._executor.shutdown(wait=True)
+        assert not self._clearinghouse_started
+        _live_executors.remove(self)
 
     def close(self) -> None:
         self.shutdown()

@@ -41,6 +41,8 @@ import io.ebean.RawSqlBuilder;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
 import io.ebean.annotation.TxIsolation;
+import jakarta.persistence.PersistenceException;
+import jakarta.persistence.Table;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.time.Clock;
@@ -62,8 +64,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.persistence.PersistenceException;
-import javax.persistence.Table;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -790,9 +790,42 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     return result.isEmpty() ? -1 : result.get(0).getVersion();
   }
 
+  /**
+   * This method is only used as a fallback. It does incur an extra read-lock that is naturally a
+   * result of getLatestAspects(, forUpdate=true)
+   *
+   * @param urnAspects urn and aspect names to fetch
+   * @return map of the aspect's next version
+   */
   public Map<String, Map<String, Long>> getNextVersions(
       @Nonnull Map<String, Set<String>> urnAspects) {
     validateConnection();
+
+    List<EbeanAspectV2.PrimaryKey> forUpdateKeys = new ArrayList<>();
+
+    // initialize with default next version of 0
+    Map<String, Map<String, Long>> result =
+        new HashMap<>(
+            urnAspects.entrySet().stream()
+                .map(
+                    entry -> {
+                      Map<String, Long> defaultNextVersion = new HashMap<>();
+                      entry
+                          .getValue()
+                          .forEach(
+                              aspectName -> {
+                                defaultNextVersion.put(aspectName, ASPECT_LATEST_VERSION);
+                                forUpdateKeys.add(
+                                    new EbeanAspectV2.PrimaryKey(
+                                        entry.getKey(), aspectName, ASPECT_LATEST_VERSION));
+                              });
+                      return Map.entry(entry.getKey(), defaultNextVersion);
+                    })
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+
+    // forUpdate is required to avoid duplicate key violations (it is used as an indication that the
+    // max(version) was invalidated
+    _server.find(EbeanAspectV2.class).where().idIn(forUpdateKeys).forUpdate().findList();
 
     Junction<EbeanAspectV2> queryJunction =
         _server
@@ -811,21 +844,11 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       }
     }
 
-    Map<String, Map<String, Long>> result = new HashMap<>();
-    // Default next version 0
-    urnAspects.forEach(
-        (key, value) -> {
-          Map<String, Long> defaultNextVersion = new HashMap<>();
-          value.forEach(aspectName -> defaultNextVersion.put(aspectName, 0L));
-          result.put(key, defaultNextVersion);
-        });
-
     if (exp == null) {
       return result;
     }
 
-    // forUpdate is required to avoid duplicate key violations
-    List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().forUpdate().findIds();
+    List<EbeanAspectV2.PrimaryKey> dbResults = exp.endOr().findIds();
 
     for (EbeanAspectV2.PrimaryKey key : dbResults) {
       if (result.get(key.getUrn()).get(key.getAspect()) <= key.getVersion()) {

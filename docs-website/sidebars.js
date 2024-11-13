@@ -101,6 +101,7 @@ module.exports = {
         {
           label: "Automations",
           type: "category",
+          collapsed: false,
           items: [
             {
               label: "Documentation Propagation",
@@ -108,9 +109,27 @@ module.exports = {
               id: "docs/automations/docs-propagation",
             },
             {
+              label: "BigQuery Metadata Sync",
+              type: "doc",
+              id: "docs/automations/bigquery-metadata-sync",
+              className: "saasOnly",
+            },
+            {
               label: "Snowflake Tag Sync",
               type: "doc",
               id: "docs/automations/snowflake-tag-propagation",
+              className: "saasOnly",
+            },
+            {
+              label: "AI Classification",
+              type: "doc",
+              id: "docs/automations/ai-term-suggestion",
+              className: "saasOnly",
+            },
+            {
+              label: "AI Documentation",
+              type: "doc",
+              id: "docs/automations/ai-docs",
               className: "saasOnly",
             },
           ],
@@ -231,9 +250,18 @@ module.exports = {
       items: [
         "docs/managed-datahub/welcome-acryl",
         {
-          type: "doc",
-          id: "docs/managed-datahub/approval-workflows",
-          className: "saasOnly",
+          "Configure Single Sign-On": [
+            {
+              type: "doc",
+              id: "docs/authentication/guides/sso/initialize-oidc",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/integrations/oidc-sso-integration",
+              className: "saasOnly",
+            },
+          ],
         },
         {
           "DataHub API": [
@@ -246,20 +274,6 @@ module.exports = {
               "GraphQL API": [
                 "docs/managed-datahub/datahub-api/graphql-api/getting-started",
               ],
-            },
-          ],
-        },
-        {
-          Integrations: [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/integrations/aws-privatelink",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/integrations/oidc-sso-integration",
-              className: "saasOnly",
             },
           ],
         },
@@ -283,7 +297,7 @@ module.exports = {
           ],
         },
         {
-          "Operator Guide": [
+          "Operator Guides": [
             {
               type: "doc",
               id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
@@ -294,7 +308,17 @@ module.exports = {
               id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
               className: "saasOnly",
             },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/integrations/aws-privatelink",
+              className: "saasOnly",
+            },
           ],
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/approval-workflows",
+          className: "saasOnly",
         },
         {
           type: "doc",
@@ -307,6 +331,8 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_7",
+            "docs/managed-datahub/release-notes/v_0_3_6",
             "docs/managed-datahub/release-notes/v_0_3_5",
             "docs/managed-datahub/release-notes/v_0_3_4",
             "docs/managed-datahub/release-notes/v_0_3_3",
@@ -530,6 +556,7 @@ module.exports = {
         {
           "Frontend Authentication": [
             "docs/authentication/guides/jaas",
+            "docs/authentication/guides/sso/initialize-oidc",
             "docs/authentication/guides/sso/configure-oidc-react",
             "docs/authentication/guides/sso/configure-oidc-behind-proxy",
           ],
@@ -635,6 +662,7 @@ module.exports = {
         "docs/advanced/browse-paths-upgrade",
         "docs/browseV2/browse-paths-v2",
         "docs/plugins",
+        "docs/advanced/bootstrap-mcps",
       ],
     },
     {

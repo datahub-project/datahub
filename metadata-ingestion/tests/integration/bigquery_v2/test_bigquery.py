@@ -1,12 +1,16 @@
 import random
 import string
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from unittest.mock import MagicMock, patch
 
 from freezegun import freeze_time
 from google.cloud.bigquery.table import TableListItem
 
+from datahub.api.entities.platformresource.platform_resource import (
+    PlatformResource,
+    PlatformResourceKey,
+)
 from datahub.ingestion.glossary.classifier import (
     ClassificationConfig,
     DynamicTypedClassifierConfig,
@@ -14,6 +18,10 @@ from datahub.ingestion.glossary.classifier import (
 from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfig
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_data_reader import BigQueryDataReader
+from datahub.ingestion.source.bigquery_v2.bigquery_platform_resource_helper import (
+    BigQueryLabelInfo,
+    BigQueryPlatformResourceHelper,
+)
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryColumn,
     BigqueryDataset,
@@ -51,9 +59,18 @@ def recipe(mcp_output_path: str, source_config_override: dict = {}) -> dict:
             "type": "bigquery",
             "config": {
                 "project_ids": ["project-id-1"],
+                "credential": {
+                    "project_id": "project-id-1",
+                    "private_key_id": "private_key_id",
+                    "private_key": "private_key",
+                    "client_email": "client_email",
+                    "client_id": "client_id",
+                },
                 "include_usage_statistics": False,
                 "include_table_lineage": True,
                 "include_data_platform_instance": True,
+                "capture_table_label_as_tag": True,
+                "capture_dataset_label_as_tag": True,
                 "classification": ClassificationConfig(
                     enabled=True,
                     classifiers=[
@@ -81,6 +98,7 @@ def recipe(mcp_output_path: str, source_config_override: dict = {}) -> dict:
 @patch.object(BigQuerySchemaApi, "get_datasets_for_project_id")
 @patch.object(BigQuerySchemaApi, "get_columns_for_dataset")
 @patch.object(BigQueryDataReader, "get_sample_data_for_table")
+@patch.object(BigQueryPlatformResourceHelper, "get_platform_resource")
 @patch("google.cloud.bigquery.Client")
 @patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
 @patch("google.cloud.resourcemanager_v3.ProjectsClient")
@@ -88,6 +106,7 @@ def test_bigquery_v2_ingest(
     client,
     policy_tag_manager_client,
     projects_client,
+    get_platform_resource,
     get_sample_data_for_table,
     get_columns_for_dataset,
     get_datasets_for_project_id,
@@ -103,7 +122,31 @@ def test_bigquery_v2_ingest(
     mcp_output_path = "{}/{}".format(tmp_path, "bigquery_mcp_output.json")
 
     dataset_name = "bigquery-dataset-1"
-    get_datasets_for_project_id.return_value = [BigqueryDataset(name=dataset_name)]
+
+    def side_effect(*args: Any) -> Optional[PlatformResource]:
+        if args[0].primary_key == "mixedcasetag":
+            return PlatformResource.create(
+                key=PlatformResourceKey(
+                    primary_key="mixedcasetag",
+                    resource_type="BigQueryLabelInfo",
+                    platform="bigquery",
+                ),
+                value=BigQueryLabelInfo(
+                    datahub_urn="urn:li:tag:MixedCaseTag",
+                    managed_by_datahub=True,
+                    key="mixedcasetag",
+                    value="",
+                ),
+            )
+        return None
+
+    get_platform_resource.side_effect = side_effect
+    get_datasets_for_project_id.return_value = [
+        # BigqueryDataset(name=dataset_name, location="US")
+        BigqueryDataset(
+            name=dataset_name, location="US", labels={"priority": "medium:test"}
+        )
+    ]
 
     table_list_item = TableListItem(
         {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
@@ -153,6 +196,11 @@ def test_bigquery_v2_ingest(
         last_altered=None,
         size_in_bytes=None,
         rows_count=None,
+        labels={
+            "priority": "high",
+            "purchase": "",
+            "mixedcasetag": "",
+        },
     )
     get_tables_for_dataset.return_value = iter([bigquery_table])
     snapshot_table = BigqueryTableSnapshot(
@@ -317,11 +365,13 @@ def test_bigquery_queries_v2_ingest(
     tmp_path,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/bigquery_v2"
-    mcp_golden_path = f"{test_resources_dir}/bigquery_mcp_golden.json"
-    mcp_output_path = "{}/{}".format(tmp_path, "bigquery_mcp_output.json")
+    mcp_golden_path = f"{test_resources_dir}/bigquery_mcp_queries_golden.json"
+    mcp_output_path = "{}/{}".format(tmp_path, "bigquery_mcp_queries_output.json")
 
     dataset_name = "bigquery-dataset-1"
-    get_datasets_for_project_id.return_value = [BigqueryDataset(name=dataset_name)]
+    get_datasets_for_project_id.return_value = [
+        BigqueryDataset(name=dataset_name, location="US")
+    ]
 
     table_list_item = TableListItem(
         {"tableReference": {"projectId": "", "datasetId": "", "tableId": ""}}
