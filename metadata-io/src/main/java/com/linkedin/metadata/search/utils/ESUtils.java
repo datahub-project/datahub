@@ -100,7 +100,7 @@ public class ESUtils {
   // top-level properties
   // to field level properties
   public static final Map<String, List<String>> FIELDS_TO_EXPANDED_FIELDS_LIST =
-      new HashMap<String, List<String>>() {
+      new HashMap<>() {
         {
           put("tags", ImmutableList.of("tags", "fieldTags", "editedFieldTags"));
           put(
@@ -117,6 +117,8 @@ public class ESUtils {
           put(
               "businessAttribute",
               ImmutableList.of("businessAttributeRef", "businessAttributeRef.urn"));
+          put("origin", ImmutableList.of("origin", "env"));
+          put("env", ImmutableList.of("env", "origin"));
         }
       };
 

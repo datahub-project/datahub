@@ -213,6 +213,17 @@ def gen_containers(
     )
 
     container_urn = container_key.as_urn()
+
+    if parent_container_key:  # Yield Container aspect first for auto_browse_path_v2
+        parent_container_urn = make_container_urn(guid=parent_container_key.guid())
+
+        # Set database container
+        parent_container_mcp = MetadataChangeProposalWrapper(
+            entityUrn=f"{container_urn}",
+            aspect=ContainerClass(container=parent_container_urn),
+        )
+        yield parent_container_mcp.as_workunit()
+
     yield MetadataChangeProposalWrapper(
         entityUrn=f"{container_urn}",
         aspect=ContainerProperties(
@@ -275,18 +286,6 @@ def gen_containers(
             entity_urn=container_urn,
             tags=sorted(tags),
         )
-
-    if parent_container_key:
-        parent_container_urn = make_container_urn(
-            guid=parent_container_key.guid(),
-        )
-
-        # Set database container
-        parent_container_mcp = MetadataChangeProposalWrapper(
-            entityUrn=f"{container_urn}",
-            aspect=ContainerClass(container=parent_container_urn),
-        )
-        yield parent_container_mcp.as_workunit()
 
 
 def add_dataset_to_container(
