@@ -373,6 +373,17 @@ export const IngestionSourceList = () => {
         setFocusSourceUrn(undefined);
     };
 
+    const onChangeSort = (field, order) => {
+        setSort(
+            order
+                ? {
+                      sortOrder: order === 'ascend' ? SortOrder.Ascending : SortOrder.Descending,
+                      field,
+                  }
+                : undefined,
+        );
+    };
+
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading ingestion sources..." />}
@@ -435,6 +446,7 @@ export const IngestionSourceList = () => {
                     onView={onView}
                     onDelete={onDelete}
                     onRefresh={onRefresh}
+                    onChangeSort={onChangeSort}
                 />
                 <SourcePaginationContainer>
                     <Pagination
