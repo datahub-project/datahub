@@ -16,8 +16,12 @@ from datahub.api.entities.forms.forms_graphql_constants import (
 )
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import (
+    make_container_urn,
     make_data_platform_urn,
+    make_domain_urn,
     make_group_urn,
+    make_tag_urn,
+    make_term_urn,
     make_user_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -35,6 +39,16 @@ from datahub.utilities.urns.urn import Urn
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+FILTER_CRITERION_TYPES = "_entityType"
+FILTER_CRITERION_SUB_TYPES = "typeNames.keyword"
+FILTER_CRITERION_PLATFORMS = "platform.keyword"
+FILTER_CRITERION_PLATFORM_INSTANCES = "dataPlatformInstance.keyword"
+FILTER_CRITERION_DOMAINS = "domains.keyword"
+FILTER_CRITERION_CONTAINERS = "container.keyword"
+FILTER_CRITERION_OWNERS = "owners.keyword"
+FILTER_CRITERION_TAGS = "tags.keyword"
+FILTER_CRITERION_GLOSSARY_TERMS = "glossaryTerms.keyword"
 
 
 class PromptType(Enum):
@@ -73,9 +87,14 @@ class FormType(Enum):
 
 class Filters(ConfigModel):
     types: Optional[List[str]] = None
+    sub_types: Optional[List[str]] = None
     platforms: Optional[List[str]] = None
+    platform_instances: Optional[List[str]] = None
     domains: Optional[List[str]] = None
     containers: Optional[List[str]] = None
+    owners: Optional[List[str]] = None
+    tags: Optional[List[str]] = None
+    terms: Optional[List[str]] = None
 
 
 class Entities(ConfigModel):
@@ -105,7 +124,8 @@ class Forms(ConfigModel):
     @validator("urn", pre=True, always=True)
     def urn_must_be_present(cls, v, values):
         if not v:
-            assert values.get("id") is not None, "Form id must be present if urn is not"
+            if values.get("id") is None:
+                raise ValueError("Form id must be present if urn is not")
             return f"urn:li:form:{values['id']}"
         return v
 
@@ -249,29 +269,70 @@ class Forms(ConfigModel):
         # Loop through each entity and assign a filter for it
         if self.entities and self.entities.filters:
             filters = self.entities.filters
+
             if filters.types:
                 filters_raw.append(
-                    Forms.format_form_filter("_entityType", filters.types)
+                    Forms.format_form_filter(FILTER_CRITERION_TYPES, filters.types)
                 )
+
+            if filters.sub_types:
+                filters_raw.append(
+                    Forms.format_form_filter(
+                        FILTER_CRITERION_SUB_TYPES, filters.sub_types
+                    )
+                )
+
             if filters.platforms:
                 urns = [
                     make_data_platform_urn(platform) for platform in filters.platforms
                 ]
-                filters_raw.append(Forms.format_form_filter("platform", urns))
+                filters_raw.append(
+                    Forms.format_form_filter(FILTER_CRITERION_PLATFORMS, urns)
+                )
+
+            if filters.platform_instances:
+                urns = []
+                for platform_instance in filters.platform_instances:
+                    platform_instance_urn = Forms.validate_platform_instance_urn(
+                        platform_instance
+                    )
+                    if platform_instance_urn:
+                        urns.append(platform_instance_urn)
+                filters_raw.append(
+                    Forms.format_form_filter(FILTER_CRITERION_PLATFORM_INSTANCES, urns)
+                )
+
             if filters.domains:
-                urns = []
-                for domain in filters.domains:
-                    domain_urn = Forms.validate_domain_urn(domain)
-                    if domain_urn:
-                        urns.append(domain_urn)
-                filters_raw.append(Forms.format_form_filter("domains", urns))
+                urns = [make_domain_urn(domain) for domain in filters.domains]
+                filters_raw.append(
+                    Forms.format_form_filter(FILTER_CRITERION_DOMAINS, urns)
+                )
+
             if filters.containers:
-                urns = []
-                for container in filters.containers:
-                    container_urn = Forms.validate_container_urn(container)
-                    if container_urn:
-                        urns.append(container_urn)
-                filters_raw.append(Forms.format_form_filter("container", urns))
+                urns = [
+                    make_container_urn(container) for container in filters.containers
+                ]
+                filters_raw.append(
+                    Forms.format_form_filter(FILTER_CRITERION_CONTAINERS, urns)
+                )
+
+            if filters.owners:
+                urns = [make_user_urn(owner) for owner in filters.owners]
+                filters_raw.append(
+                    Forms.format_form_filter(FILTER_CRITERION_OWNERS, urns)
+                )
+
+            if filters.tags:
+                urns = [make_tag_urn(tag) for tag in filters.tags]
+                filters_raw.append(
+                    Forms.format_form_filter(FILTER_CRITERION_TAGS, urns)
+                )
+
+            if filters.terms:
+                urns = [make_term_urn(term) for term in filters.terms]
+                filters_raw.append(
+                    Forms.format_form_filter(FILTER_CRITERION_GLOSSARY_TERMS, urns)
+                )
 
         filters_str = ", ".join(item for item in filters_raw)
         result = emitter.execute_graphql(
@@ -279,6 +340,7 @@ class Forms(ConfigModel):
                 form_urn=self.urn, filters=filters_str
             )
         )
+
         if not result:
             return Exception(
                 f"Could not bulk upload urns or filters for form {self.urn}."
@@ -314,25 +376,20 @@ class Forms(ConfigModel):
         return FIELD_FILTER_TEMPLATE.format(field=field, values=formatted_urns)
 
     @staticmethod
-    def validate_domain_urn(domain: str) -> Union[str, None]:
-        if domain.startswith("urn:li:domain:"):
-            return domain
+    def validate_platform_instance_urn(instance: str) -> Union[str, None]:
+        if instance.startswith("urn:li:dataPlatformInstance:"):
+            return instance
 
-        logger.warning(f"{domain} is not an urn. Unable to create domain filter.")
-        return None
-
-    @staticmethod
-    def validate_container_urn(container: str) -> Union[str, None]:
-        if container.startswith("urn:li:container:"):
-            return container
-
-        logger.warning(f"{container} is not an urn. Unable to create container filter.")
+        logger.warning(
+            f"{instance} is not an urn. Unable to create platform instance filter."
+        )
         return None
 
     @staticmethod
     def from_datahub(graph: DataHubGraph, urn: str) -> "Forms":
         form: Optional[FormInfoClass] = graph.get_aspect(urn, FormInfoClass)
-        assert form is not None
+        if form is None:
+            raise Exception("FormInfo aspect is None. Unable to create form.")
         prompts = []
         for prompt_raw in form.prompts:
             prompts.append(

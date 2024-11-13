@@ -164,6 +164,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private final Integer ebeanMaxTransactionRetry;
   private final boolean enableBrowseV2;
 
+  private static final long DB_TIMER_LOG_THRESHOLD_MS = 50;
+
   @Getter
   private final Map<Set<ThrottleType>, ThrottleEvent> throttleEvents = new ConcurrentHashMap<>();
 
@@ -997,10 +999,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               if (txContext != null) {
                 txContext.commitAndContinue();
               }
-              long took = ingestToLocalDBTimer.stop();
-              log.info(
-                  "Ingestion of aspects batch to database took {} ms",
-                  TimeUnit.NANOSECONDS.toMillis(took));
+              long took = TimeUnit.NANOSECONDS.toMillis(ingestToLocalDBTimer.stop());
+              if (took > DB_TIMER_LOG_THRESHOLD_MS) {
+                log.info("Ingestion of aspects batch to database took {} ms", took);
+              }
 
               // Retention optimization and tx
               if (retentionService != null) {
