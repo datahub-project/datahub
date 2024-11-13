@@ -203,29 +203,28 @@ class CassandraSource(StatefulIngestionSourceBase):
 
         # Profiling
         if self.config.is_profiling_enabled():
-            with ThreadPoolExecutor(
-                max_workers=self.config.profiling.max_workers
-            ) as executor:
-                future_to_dataset = {
-                    executor.submit(
-                        self.generate_profiles,
-                        keyspace,
-                        self.cassandra_data.tables.get(keyspace, []),
-                    ): keyspace
-                    for keyspace in self.cassandra_data.keyspaces
-                }
-
-                for future in as_completed(future_to_dataset):
-                    dataset_info = future_to_dataset[future]
-                    try:
-                        yield from future.result()
-                    except Exception as exc:
-                        self.report.profiling_skipped_other[dataset_info] += 1
-                        self.report.report_failure(
-                            message="Failed to profile for keyspace",
-                            context=dataset_info,
-                            exc=exc,
-                        )
+            for keyspace in self.cassandra_data.keyspaces:
+                tables = self.cassandra_data.tables.get(keyspace, [])
+                with ThreadPoolExecutor(
+                    max_workers=self.config.profiling.max_workers
+                ) as executor:
+                    future_to_dataset = {
+                        executor.submit(
+                            self.generate_profiles, keyspace, table_name
+                        ): table_name
+                        for table_name in tables
+                    }
+                    for future in as_completed(future_to_dataset):
+                        table_name = future_to_dataset[future]
+                        try:
+                            yield from future.result()
+                        except Exception as exc:
+                            self.report.profiling_skipped_other[table_name] += 1
+                            self.report.report_failure(
+                                message="Failed to profile for table",
+                                context=f"{keyspace}.{table_name}",
+                                exc=exc,
+                            )
 
     def _generate_keyspace_container(
         self, keyspace_name: str
@@ -484,18 +483,17 @@ class CassandraSource(StatefulIngestionSourceBase):
                 ).as_workunit()
 
     def generate_profiles(
-        self, keyspace: str, tables: List[str]
+        self, keyspace: str, table_name: str
     ) -> Iterable[MetadataWorkUnit]:
-        for table_name in tables:
-            dataset_name: str = f"{keyspace}.{table_name}"
-            dataset_urn = make_dataset_urn_with_platform_instance(
-                platform=self.platform,
-                name=dataset_name,
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
-            )
-            self.report.set_ingestion_stage(dataset_name, PROFILING)
-            yield from self.profiler.get_workunits(dataset_urn, keyspace, table_name)
+        dataset_name: str = f"{keyspace}.{table_name}"
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_name,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+        self.report.set_ingestion_stage(dataset_name, PROFILING)
+        yield from self.profiler.get_workunits(dataset_urn, keyspace, table_name)
 
     def get_upstream_fields_of_field_in_datasource(
         self, keyspace_name: str, table_name: str, dataset_urn: str, upstream_urn: str
