@@ -80,17 +80,17 @@ public class BulkListener implements BulkProcessor.Listener {
 
     if (unwrappedFailure instanceof DocumentMissingException) {
       log.warn(
-              "Attempting to bulk load a missing document. executionId: {}.  No retries left. Request: {}",
-              executionId,
-              buildBulkRequestSummary(request),
-              failure);
+          "Attempting to bulk load a missing document. executionId: {}.  No retries left. Request: {}",
+          executionId,
+          buildBulkRequestSummary(request),
+          failure);
     } else {
       // Exception raised outside this method
       log.error(
-              "Error feeding bulk request {}. No retries left. Request: {}",
-              executionId,
-              buildBulkRequestSummary(request),
-              failure);
+          "Error feeding bulk request {}. No retries left. Request: {}",
+          executionId,
+          buildBulkRequestSummary(request),
+          failure);
       incrementMetrics(request, failure);
     }
   }

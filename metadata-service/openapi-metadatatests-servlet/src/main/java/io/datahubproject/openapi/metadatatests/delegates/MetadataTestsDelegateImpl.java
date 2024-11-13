@@ -142,7 +142,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
               auth,
               true);
 
-      if (!AuthUtil.isAPIAuthorized(opContext, MANAGE_TESTS_PRIVILEGE)) {
+      if (!AuthUtil.isAPIOperationsAuthorized(opContext, MANAGE_TESTS_PRIVILEGE)) {
         throw new UnauthorizedException(
             auth.getActor().toUrnStr() + " is unauthorized evaluate tests.");
       }
@@ -204,7 +204,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
               auth,
               true);
 
-      if (!AuthUtil.isAPIAuthorized(opContext, MANAGE_TESTS_PRIVILEGE)) {
+      if (!AuthUtil.isAPIOperationsAuthorized(opContext, MANAGE_TESTS_PRIVILEGE)) {
         throw new UnauthorizedException(
             auth.getActor().toUrnStr() + " is unauthorized evaluate tests.");
       }
