@@ -324,22 +324,17 @@ class HiveStorageLineage:
         if not self.config.include_column_lineage:
             return None
 
-        def normalize_field_path(field_path: str) -> str:
-            """Normalize field paths for comparison"""
-
-            return field_path.lower().replace(".[version]", "").replace("[version]", "")
-
         fine_grained_lineages: List[FineGrainedLineageClass] = []
 
         for dataset_field in dataset_schema.fields:
-            dataset_path = normalize_field_path(dataset_field.fieldPath)
+            dataset_path = dataset_field.fieldPath
 
             # Find matching field in storage schema
             matching_field = next(
                 (
                     f
                     for f in storage_schema.fields
-                    if normalize_field_path(f.fieldPath) == dataset_path
+                    if f.fieldPath == dataset_path
                 ),
                 None,
             )
@@ -352,9 +347,7 @@ class HiveStorageLineage:
                             upstreams=[
                                 make_schema_field_urn(
                                     parent_urn=storage_urn,
-                                    field_path=normalize_field_path(
-                                        matching_field.fieldPath
-                                    ),
+                                    field_path=matching_field.fieldPath,
                                 )
                             ],
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
@@ -380,9 +373,7 @@ class HiveStorageLineage:
                             downstreams=[
                                 make_schema_field_urn(
                                     parent_urn=storage_urn,
-                                    field_path=normalize_field_path(
-                                        matching_field.fieldPath
-                                    ),
+                                    field_path=matching_field.fieldPath,
                                 )
                             ],
                         )
