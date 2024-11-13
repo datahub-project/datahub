@@ -1512,7 +1512,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
                 if self.source_config.modified_since:
                     # As modified_workspaces is not idempotent, hence we checkpoint for each powerbi workspace
-                    # Because job_id is used as dictionary key, we have to set a new job_id
+                    # Because job_id is used as a dictionary key, we have to set a new job_id
                     # Refer to https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/ingestion/source/state/stateful_ingestion_base.py#L390
                     self.stale_entity_removal_handler.set_job_id(workspace.id)
                     self.state_provider.register_stateful_ingestion_usecase_handler(
