@@ -1,6 +1,6 @@
 plugins {
   id("com.palantir.git-version") apply false
-  id 'java'
+  id 'java-library'
   id 'com.github.johnrengelman.shadow'
   id 'jacoco'
   id 'signing'
@@ -12,7 +12,9 @@ apply from: "../versioning.gradle"
 import org.apache.tools.ant.filters.ReplaceTokens
 
 
-jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
+jar {
+  archiveClassifier = "lib"
+}
 
 dependencies {
   implementation project(':entity-registry')
