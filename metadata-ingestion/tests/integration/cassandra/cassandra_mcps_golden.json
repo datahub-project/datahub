@@ -113,7 +113,7 @@
             },
             "fields": [
                 {
-                    "fieldPath": "[version=2.0].[type=text].details",
+                    "fieldPath": "details",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -125,7 +125,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=timestamp].last_updated",
+                    "fieldPath": "last_updated",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -137,7 +137,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=int].person_id",
+                    "fieldPath": "person_id",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -152,7 +152,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731309924404,
+        "lastObserved": 1731504327378,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -245,7 +245,7 @@
             },
             "fields": [
                 {
-                    "fieldPath": "[version=2.0].[type=ascii].ascii_column",
+                    "fieldPath": "ascii_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -257,7 +257,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=bigint].bigint_column",
+                    "fieldPath": "bigint_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -269,7 +269,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=blob].blob_column",
+                    "fieldPath": "blob_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -281,7 +281,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=boolean].boolean_column",
+                    "fieldPath": "boolean_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -293,7 +293,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=date].date_column",
+                    "fieldPath": "date_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -305,7 +305,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=decimal].decimal_column",
+                    "fieldPath": "decimal_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -317,7 +317,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=double].double_column",
+                    "fieldPath": "double_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -329,7 +329,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=float].float_column",
+                    "fieldPath": "float_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -341,7 +341,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=frozen<list<text>>].frozen_list_column",
+                    "fieldPath": "frozen_list_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -353,7 +353,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=frozen<map<text, text>>].frozen_map_column",
+                    "fieldPath": "frozen_map_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -365,7 +365,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=frozen<set<text>>].frozen_set_column",
+                    "fieldPath": "frozen_set_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -377,7 +377,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=uuid].id",
+                    "fieldPath": "id",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -389,7 +389,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=inet].inet_column",
+                    "fieldPath": "inet_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -401,7 +401,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=int].int_column",
+                    "fieldPath": "int_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -413,7 +413,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=list<text>].list_column",
+                    "fieldPath": "list_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -425,7 +425,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=map<text, text>].map_column",
+                    "fieldPath": "map_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -437,7 +437,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=set<text>].set_column",
+                    "fieldPath": "set_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -449,7 +449,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=smallint].smallint_column",
+                    "fieldPath": "smallint_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -461,7 +461,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=text].text_column",
+                    "fieldPath": "text_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -473,7 +473,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=time].time_column",
+                    "fieldPath": "time_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -485,7 +485,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=timestamp].timestamp_column",
+                    "fieldPath": "timestamp_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -497,7 +497,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=timeuuid].timeuuid_column",
+                    "fieldPath": "timeuuid_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -509,7 +509,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=tinyint].tinyint_column",
+                    "fieldPath": "tinyint_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -521,7 +521,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=frozen<tuple<int, text>>].tuple_column",
+                    "fieldPath": "tuple_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -533,7 +533,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=uuid].uuid_column",
+                    "fieldPath": "uuid_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -545,7 +545,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=text].varchar_column",
+                    "fieldPath": "varchar_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -557,7 +557,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=varint].varint_column",
+                    "fieldPath": "varint_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -572,7 +572,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731310097190,
+        "lastObserved": 1731504327435,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -619,7 +619,7 @@
             },
             "fields": [
                 {
-                    "fieldPath": "[version=2.0].[type=text].email",
+                    "fieldPath": "email",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -631,7 +631,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=text].name",
+                    "fieldPath": "name",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -643,7 +643,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=int].person_id",
+                    "fieldPath": "person_id",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -658,7 +658,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731309924411,
+        "lastObserved": 1731504327384,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -879,7 +879,7 @@
             },
             "fields": [
                 {
-                    "fieldPath": "[version=2.0].[type=text].details",
+                    "fieldPath": "details",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -891,7 +891,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=timestamp].last_updated",
+                    "fieldPath": "last_updated",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -903,7 +903,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=text].status",
+                    "fieldPath": "status",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -915,7 +915,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=int].task_id",
+                    "fieldPath": "task_id",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -930,7 +930,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731309924425,
+        "lastObserved": 1731504327398,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1128,7 +1128,7 @@
             },
             "fields": [
                 {
-                    "fieldPath": "[version=2.0].[type=text].status",
+                    "fieldPath": "status",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -1140,7 +1140,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=int].task_id",
+                    "fieldPath": "task_id",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -1155,7 +1155,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731310883287,
+        "lastObserved": 1731504327408,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1269,7 +1269,7 @@
             },
             "fields": [
                 {
-                    "fieldPath": "[version=2.0].[type=counter].counter_column",
+                    "fieldPath": "counter_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -1281,7 +1281,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=uuid].id",
+                    "fieldPath": "id",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -1296,7 +1296,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731310097198,
+        "lastObserved": 1731504327444,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1647,7 +1647,7 @@
             },
             "fields": [
                 {
-                    "fieldPath": "[version=2.0].[type=int].item_count",
+                    "fieldPath": "item_count",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -1659,7 +1659,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=timestamp].last_update_timestamp",
+                    "fieldPath": "last_update_timestamp",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -1671,7 +1671,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=text].userid",
+                    "fieldPath": "userid",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -1686,7 +1686,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731410842609,
+        "lastObserved": 1731504327451,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1928,7 +1928,7 @@
             },
             "fields": [
                 {
-                    "fieldPath": "[version=2.0].[type=ascii].ascii_column",
+                    "fieldPath": "ascii_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -1940,7 +1940,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=bigint].bigint_column",
+                    "fieldPath": "bigint_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -1952,7 +1952,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=uuid].id",
+                    "fieldPath": "id",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -1967,7 +1967,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731310942152,
+        "lastObserved": 1731504327462,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2226,7 +2226,7 @@
             },
             "fields": [
                 {
-                    "fieldPath": "[version=2.0].[type=ascii].ascii_column",
+                    "fieldPath": "ascii_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -2238,7 +2238,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=float].float_column",
+                    "fieldPath": "float_column",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -2250,7 +2250,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=uuid].id",
+                    "fieldPath": "id",
                     "nullable": true,
                     "type": {
                         "type": {
@@ -2265,7 +2265,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731310942173,
+        "lastObserved": 1731504327495,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }

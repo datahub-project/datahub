@@ -39,9 +39,9 @@ schema_test_cases: Dict[str, Tuple[str, List[str]]] = {
             ]
         }""",
         [
-            "[version=2.0].[type=timestamp].birthday",
-            "[version=2.0].[type=text].email",
-            "[version=2.0].[type=text].name",
+            "birthday",
+            "email",
+            "name",
         ],
     )
 }
