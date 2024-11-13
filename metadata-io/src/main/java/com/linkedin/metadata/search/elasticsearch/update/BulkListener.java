@@ -6,11 +6,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.ExceptionsHelper;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BulkProcessor;
 import org.opensearch.action.bulk.BulkRequest;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.action.support.WriteRequest;
+import org.opensearch.index.engine.DocumentMissingException;
 
 @Slf4j
 public class BulkListener implements BulkProcessor.Listener {
@@ -73,13 +75,24 @@ public class BulkListener implements BulkProcessor.Listener {
 
   @Override
   public void afterBulk(long executionId, BulkRequest request, Throwable failure) {
-    // Exception raised outside this method
-    log.error(
-        "Error feeding bulk request {}. No retries left. Request: {}",
-        executionId,
-        buildBulkRequestSummary(request),
-        failure);
-    incrementMetrics(request, failure);
+
+    Throwable unwrappedFailure = ExceptionsHelper.unwrapCause(failure);
+
+    if (unwrappedFailure instanceof DocumentMissingException) {
+      log.warn(
+              "Attempting to bulk load a missing document. executionId: {}.  No retries left. Request: {}",
+              executionId,
+              buildBulkRequestSummary(request),
+              failure);
+    } else {
+      // Exception raised outside this method
+      log.error(
+              "Error feeding bulk request {}. No retries left. Request: {}",
+              executionId,
+              buildBulkRequestSummary(request),
+              failure);
+      incrementMetrics(request, failure);
+    }
   }
 
   private static void incrementMetrics(BulkResponse response) {
