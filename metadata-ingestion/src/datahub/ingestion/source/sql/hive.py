@@ -39,7 +39,6 @@ from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemySource,
 )
 from datahub.metadata.schema_classes import (
-    BrowsePathsV2Class,
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
@@ -566,17 +565,6 @@ class HiveStorageLineage:
             fine_grained_lineages = self._get_fine_grained_lineages(
                 dataset_urn, storage_urn, dataset_schema, storage_schema
             )
-
-        mcp = MetadataChangeProposalWrapper(
-            entityUrn=storage_urn, aspect=BrowsePathsV2Class(path=[])
-        )
-
-        workunits.append(
-            MetadataWorkUnit(
-                id=f"{dataset_urn}-{storage_urn}-browsePathV2",
-                mcp=mcp,
-            )
-        )
 
         # Create lineage MCP
         if self.config.direction == "upstream":
