@@ -193,39 +193,25 @@ class StoragePathParser:
         return platform_names[platform]
 
 
-class HiveStorageLineageConfig(BaseModel):
+class HiveStorageLineageConfig:
     """Configuration for Hive storage lineage."""
 
-    enabled: bool = Field(
-        default=True,
-        description="Whether to emit storage-to-Hive lineage",
-    )
-    direction: str = Field(
-        default="upstream",
-        description="If 'upstream', storage is upstream to Hive. If 'downstream' storage is downstream to Hive",
-    )
-    include_column_lineage: bool = Field(
-        default=True,
-        description="When enabled, column-level lineage will be extracted from storage",
-    )
-    storage_platform_instance: Optional[str] = Field(
-        default=None,
-        description="Platform instance for the storage system",
-    )
-
-    class Config:
-        """Pydantic model config."""
-
-        extra = "forbid"
-
-    @validator("direction")
-    def _validate_direction(cls, direction: str) -> str:
-        """Validate the lineage direction."""
-        if direction.lower() not in ["upstream", "downstream"]:
+    def __init__(
+            self,
+            emit_storage_lineage: bool,
+            hive_storage_lineage_direction: str,
+            include_column_lineage: bool,
+            storage_platform_instance: Optional[str],
+    ):
+        if hive_storage_lineage_direction.lower() not in ["upstream", "downstream"]:
             raise ValueError(
-                "storage_lineage_direction must be either upstream or downstream"
+                "hive_storage_lineage_direction must be either upstream or downstream"
             )
-        return direction.lower()
+
+        self.emit_storage_lineage = emit_storage_lineage
+        self.hive_storage_lineage_direction = hive_storage_lineage_direction.lower()
+        self.include_column_lineage = include_column_lineage
+        self.storage_platform_instance = storage_platform_instance
 
 
 @dataclass
@@ -296,9 +282,7 @@ class HiveStorageLineage:
             platform_name = platform_name.lower()
             path = path.lower()
             if self.config.storage_platform_instance:
-                platform_instance = (
-                    self.config.storage_platform_instance.lower()
-                )
+                platform_instance = self.config.storage_platform_instance.lower()
 
         try:
             storage_urn = make_dataset_urn_with_platform_instance(
@@ -340,7 +324,7 @@ class HiveStorageLineage:
             )
 
             if matching_field:
-                if self.config.direction == "upstream":
+                if self.config.hive_storage_lineage_direction == "upstream":
                     fine_grained_lineages.append(
                         FineGrainedLineageClass(
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
@@ -425,9 +409,7 @@ class HiveStorageLineage:
             platform_name = platform_name.lower()
             path = path.lower()
             if self.config.storage_platform_instance:
-                platform_instance = (
-                    self.config.storage_platform_instance.lower()
-                )
+                platform_instance = self.config.storage_platform_instance.lower()
 
         try:
             storage_urn = make_dataset_urn_with_platform_instance(
@@ -504,7 +486,7 @@ class HiveStorageLineage:
 
         platform_instance = None
 
-        if not self.config.enabled:
+        if not self.config.emit_storage_lineage:
             return None
 
         # Get storage location from table
@@ -522,9 +504,7 @@ class HiveStorageLineage:
         self.report.report_location_scanned()
 
         if self.config.storage_platform_instance:
-            platform_instance = (
-                self.config.storage_platform_instance.lower()
-            )
+            platform_instance = self.config.storage_platform_instance.lower()
 
         workunits = []
 
@@ -558,7 +538,7 @@ class HiveStorageLineage:
             )
 
         # Create lineage MCP
-        if self.config.direction == "upstream":
+        if self.config.hive_storage_lineage_direction == "upstream":
             mcp = self._create_lineage_mcp(
                 source_urn=storage_urn,
                 target_urn=dataset_urn,
@@ -695,14 +675,44 @@ class HiveConfig(TwoTierSQLAlchemyConfig):
     # defaults
     scheme: str = Field(default="hive", hidden_from_docs=True)
 
-    storage_lineage: HiveStorageLineageConfig = Field(
-        default_factory=HiveStorageLineageConfig,
-        description="Configuration for storage lineage extraction",
+    emit_storage_lineage: bool = Field(
+        default=False,
+        description="Whether to emit storage-to-Hive lineage",
+    )
+    hive_storage_lineage_direction: str = Field(
+        default="upstream",
+        description="If 'upstream', storage is upstream to Hive. If 'downstream' storage is downstream to Hive",
+    )
+    include_column_lineage: bool = Field(
+        default=True,
+        description="When enabled, column-level lineage will be extracted from storage",
+    )
+    storage_platform_instance: Optional[str] = Field(
+        default=None,
+        description="Platform instance for the storage system",
     )
 
     @validator("host_port")
     def clean_host_port(cls, v):
         return config_clean.remove_protocol(v)
+
+    @validator("hive_storage_lineage_direction")
+    def _validate_direction(cls, v: str) -> str:
+        """Validate the lineage direction."""
+        if v.lower() not in ["upstream", "downstream"]:
+            raise ValueError(
+                "storage_lineage_direction must be either upstream or downstream"
+            )
+        return v.lower()
+
+    def get_storage_lineage_config(self) -> HiveStorageLineageConfig:
+        """Convert base config parameters to HiveStorageLineageConfig"""
+        return HiveStorageLineageConfig(
+            emit_storage_lineage=self.emit_storage_lineage,
+            hive_storage_lineage_direction=self.hive_storage_lineage_direction,
+            include_column_lineage=self.include_storage_column_lineage,
+            storage_platform_instance=self.storage_platform_instance
+        )
 
 
 @platform_name("Hive")
@@ -726,7 +736,7 @@ class HiveSource(TwoTierSQLAlchemySource):
     def __init__(self, config, ctx):
         super().__init__(config, ctx, "hive")
         self.storage_lineage = HiveStorageLineage(
-            config=config.storage_lineage,
+            config=config.get_storage_lineage_config(),
             env=config.env,
             convert_urns_to_lowercase=config.convert_urns_to_lowercase,
         )
