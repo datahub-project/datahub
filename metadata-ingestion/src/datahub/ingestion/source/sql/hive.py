@@ -394,12 +394,86 @@ class HiveStorageLineage:
             entityUrn=target_urn, aspect=upstream_lineage
         )
 
+    def get_storage_dataset_mcp(
+            self,
+            storage_location: str,
+            platform_instance: Optional[str] = None,
+            schema_metadata: Optional[SchemaMetadataClass] = None,
+    ) -> Optional[List[MetadataChangeProposalWrapper]]:
+        """
+        Generate MCPs for storage dataset if needed.
+        This creates the storage dataset entity in DataHub.
+        """
+
+        storage_info = StoragePathParser.parse_storage_location(
+            storage_location,
+        )
+        if not storage_info:
+            return None
+
+        platform, path = storage_info
+        platform_name = StoragePathParser.get_platform_name(platform)
+
+        if self.convert_urns_to_lowercase:
+            platform_name = platform_name.lower()
+            path = path.lower()
+            if platform_instance:
+                platform_instance = platform_instance.lower()
+
+        try:
+            storage_urn = make_dataset_urn_with_platform_instance(
+                platform=platform_name,
+                name=path,
+                env=self.env,
+                platform_instance=platform_instance,
+            )
+
+            mcps = []
+
+            # Add platform instance
+            platform_instance_aspect = self._make_dataset_platform_instance(
+                platform=platform_name,
+                instance=platform_instance,
+            )
+
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=storage_urn,
+                    aspect=platform_instance_aspect,
+                )
+            )
+
+            # Add schema if available
+            if schema_metadata:
+                storage_schema = SchemaMetadataClass(
+                    schemaName=f"{platform.value}_schema",
+                    platform=f"urn:li:dataPlatform:{platform.value}",
+                    version=0,
+                    fields=schema_metadata.fields,  # Use the same fields as the table
+                    hash="",
+                    platformSchema=OtherSchemaClass(rawSchema=""),
+                )
+
+                mcps.append(
+                    MetadataChangeProposalWrapper(
+                        entityUrn=storage_urn,
+                        aspect=storage_schema
+                    )
+                )
+
+            return mcps
+        except Exception as e:
+            logger.error(
+                f"Failed to create storage dataset MCPs for {storage_location}: {e}"
+            )
+            return None
+
     def get_lineage_mcp(
         self,
         dataset_urn: str,
         table: Dict[str, Any],
         dataset_schema: Optional[SchemaMetadataClass] = None,
-    ) -> Optional[MetadataWorkUnit]:
+    ) -> Optional[List[MetadataWorkUnit]]:
         """
         Generate lineage MCP for a Hive table to its storage location.
 
@@ -429,6 +503,23 @@ class HiveStorageLineage:
         storage_urn, storage_platform = storage_info
         self.report.report_location_scanned()
 
+        workunits = []
+
+        # Create storage dataset entity
+        storage_mcps = self.get_storage_dataset_mcp(
+            storage_location=storage_location,
+            platform_instance=self.config.storage_platform_instance,
+            schema_metadata=dataset_schema,
+        )
+        if storage_mcps:
+            for mcp in storage_mcps:
+                workunits.append(
+                    MetadataWorkUnit(
+                        id=f"storage-{storage_urn}",
+                        mcp=mcp,
+                    )
+                )
+
         # Get storage schema if available (implement based on storage system)
         storage_schema = (
             self._get_storage_schema(storage_location, dataset_schema)
@@ -457,7 +548,13 @@ class HiveStorageLineage:
                 fine_grained_lineages=fine_grained_lineages,
             )
 
-        return MetadataWorkUnit(id=f"{dataset_urn}-{storage_urn}-lineage", mcp=mcp)
+        workunits.append(
+            MetadataWorkUnit(
+                id=f"{dataset_urn}-{storage_urn}-lineage", mcp=mcp,
+            )
+        )
+
+        return workunits
 
     def _get_storage_schema(
         self,
@@ -642,13 +739,14 @@ class HiveSource(TwoTierSQLAlchemySource):
                 }
 
                 if table.get("StorageDescriptor", {}).get("Location"):
-                    lineage_wu = self.storage_lineage.get_lineage_mcp(
+                    lineage_wus = self.storage_lineage.get_lineage_mcp(
                         dataset_urn=dataset_urn,
                         table=table,
                         dataset_schema=schema_metadata,
                     )
-                    if lineage_wu:
-                        yield lineage_wu
+                    if lineage_wus:
+                        for lineage_wu in lineage_wus:
+                            yield lineage_wu
 
     def get_schema_names(self, inspector):
         assert isinstance(self.config, HiveConfig)
