@@ -457,8 +457,7 @@ class HiveStorageLineage:
 
                 mcps.append(
                     MetadataChangeProposalWrapper(
-                        entityUrn=storage_urn,
-                        aspect=storage_schema
+                        entityUrn=storage_urn, aspect=storage_schema
                     )
                 )
 
