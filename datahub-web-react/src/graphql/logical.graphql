@@ -1,0 +1,3 @@
+mutation setLogicalParent($input: SetLogicalParentInput!) {
+    setLogicalParent(input: $input)
+}

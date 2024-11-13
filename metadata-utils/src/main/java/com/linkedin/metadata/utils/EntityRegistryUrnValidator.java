@@ -83,8 +83,9 @@ public class EntityRegistryUrnValidator implements Validator {
         if (!relationshipSpecs.isEmpty()) {
           for (RelationshipFieldSpec relationshipFieldSpec : relationshipSpecs) {
             boolean isValidDestination =
-                relationshipFieldSpec.getValidDestinationTypes().stream()
-                    .anyMatch(destinationType -> destinationType.equals(urn.getEntityType()));
+                relationshipFieldSpec.getValidDestinationTypes().isEmpty()
+                    || relationshipFieldSpec.getValidDestinationTypes().stream()
+                        .anyMatch(destinationType -> destinationType.equals(urn.getEntityType()));
             if (!isValidDestination) {
               throw new IllegalArgumentException(
                   "Entity type for urn: "

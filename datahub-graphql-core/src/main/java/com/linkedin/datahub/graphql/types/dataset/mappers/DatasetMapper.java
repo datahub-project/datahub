@@ -42,6 +42,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.SiblingsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UpstreamLineagesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
@@ -60,6 +61,7 @@ import com.linkedin.dataset.ViewProperties;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.logical.LogicalParent;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
@@ -197,6 +199,12 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         (entity, dataMap) ->
             entity.setVersionProperties(
                 VersionPropertiesMapper.map(context, new VersionProperties(dataMap))));
+    mappingHelper.mapToResult(
+        LOGICAL_PARENT_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setLogicalParent(
+                UrnToEntityMapper.map(
+                    context, new LogicalParent(dataMap).getParent().getDestinationUrn())));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Dataset.class);
