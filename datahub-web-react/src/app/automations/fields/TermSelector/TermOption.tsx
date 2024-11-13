@@ -248,10 +248,21 @@ export const TermOption = ({
     };
 
     // Build radio button options
-    const options = allowedRadios.map((item) => ({
-        label: item === 'all' ? `All ${typeName}` : capitalizeFirstLetterOnly(`${typeName} in a specific set`),
-        value: item,
-    }));
+    const options = allowedRadios.map((item) => {
+        let label;
+        if (item === 'all') {
+            label = `All ${typeName}`;
+        } else if (item === 'none') {
+            label = 'None';
+        } else {
+            label = capitalizeFirstLetterOnly(`${typeName} in a specific set`);
+        }
+
+        return {
+            label,
+            value: item,
+        };
+    });
 
     return (
         <Wrapper className={shouldUseGlossaryTermComponent ? 'termOptionSingleContainer' : undefined}>
