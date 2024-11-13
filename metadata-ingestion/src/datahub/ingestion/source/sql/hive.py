@@ -19,6 +19,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.decorators import (
@@ -357,20 +358,36 @@ class HiveStorageLineage:
                         FineGrainedLineageClass(
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                             upstreams=[
-                                f"{storage_urn}.{normalize_field_path(matching_field.fieldPath)}"
+                                make_schema_field_urn(
+                                    parent_urn=storage_urn,
+                                    field_path=normalize_field_path(matching_field.fieldPath),
+                                )
                             ],
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            downstreams=[f"{dataset_urn}.{dataset_path}"],
+                            downstreams=[
+                                make_schema_field_urn(
+                                    parent_urn=dataset_urn,
+                                    field_path=dataset_path,
+                                )
+                            ],
                         )
                     )
                 else:
                     fine_grained_lineages.append(
                         FineGrainedLineageClass(
                             upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[f"{dataset_urn}.{dataset_path}"],
+                            upstreams=[
+                                make_schema_field_urn(
+                                    parent_urn=dataset_urn,
+                                    field_path=dataset_path,
+                                )
+                            ],
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
                             downstreams=[
-                                f"{storage_urn}.{normalize_field_path(matching_field.fieldPath)}"
+                                make_schema_field_urn(
+                                    parent_urn=storage_urn,
+                                    field_path=normalize_field_path(matching_field.fieldPath),
+                                )
                             ],
                         )
                     )
@@ -431,6 +448,15 @@ class HiveStorageLineage:
             )
 
             mcps = []
+
+            props = DatasetPropertiesClass(name=path)
+
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=storage_urn,
+                    aspect=props,
+                )
+            )
 
             # Add platform instance
             platform_instance_aspect = self._make_dataset_platform_instance(
