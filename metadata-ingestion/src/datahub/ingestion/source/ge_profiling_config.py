@@ -112,12 +112,16 @@ class GEProfilingConfig(ConfigModel):
 
     profile_table_size_limit: Optional[int] = Field(
         default=5,
-        description="Profile tables only if their size is less then specified GBs. If set to `null`, no limit on the size of tables to profile. Supported only in `snowflake` and `BigQuery`",
+        description="Profile tables only if their size is less than specified GBs. If set to `null`, "
+        "no limit on the size of tables to profile. Supported only in `snowflake` and `BigQuery`"
+        "Supported for `oracle` based on calculated size from gathered stats.",
     )
 
     profile_table_row_limit: Optional[int] = Field(
         default=5000000,
-        description="Profile tables only if their row count is less then specified count. If set to `null`, no limit on the row count of tables to profile. Supported only in `snowflake` and `BigQuery`",
+        description="Profile tables only if their row count is less than specified count. If set to `null`, "
+        "no limit on the row count of tables to profile. Supported only in `snowflake` and `BigQuery`"
+        "Supported for `oracle` based on gathered stats.",
     )
 
     profile_table_row_count_estimate_only: bool = Field(

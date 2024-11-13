@@ -649,29 +649,28 @@ class OracleSource(SQLAlchemySource):
         tables_table_name = (
             "ALL_TABLES" if self.config.data_dictionary_mode == "ALL" else "DBA_TABLES"
         )
-        segments_table_name = (
-            "ALL_TABLES"
-            if self.config.data_dictionary_mode == "ALL"
-            else "DBA_SEGMENTS"
-        )
 
+        # If stats are available , they are used even if they are stale.
+        # Assuming that the table would typically grow over time, this will ensure to filter
+        # large tables known at stats collection time from profiling candidates.
+        # If stats are not available (NULL), such tables are not filtered and are considered
+        # as profiling candidates.
         cursor = inspector.bind.execute(
             sql.text(
                 f"""SELECT
                             t.OWNER,
                             t.TABLE_NAME,
                             t.NUM_ROWS,
-                            COALESCE(s.BYTES, 0) / (1024 * 1024 * 1024) AS SIZE_GB
+                            t.LAST_ANALYZED,
+                            COALESCE(t.NUM_ROWS * t.AVG_ROW_LEN, 0) / (1024 * 1024 * 1024) AS SIZE_GB
                         FROM {tables_table_name} t
-                        LEFT JOIN {segments_table_name} s
-                        ON t.TABLE_NAME = s.SEGMENT_NAME
-                        AND t.OWNER = s.OWNER
-                        WHERE (t.NUM_ROWS < :table_row_limit OR t.NUM_ROWS IS NULL)
-                        AND COALESCE(s.BYTES, 0) < (:table_size_limit * 1024 * 1024 * 1024)
-                        AND (s.SEGMENT_TYPE = 'TABLE' OR s.SEGMENT_TYPE IS NULL);
+                        WHERE t.OWNER = :owner
+                        AND (t.NUM_ROWS < :table_row_limit OR t.NUM_ROWS IS NULL)
+                        AND COALESCE(t.NUM_ROWS * t.AVG_ROW_LEN, 0) / (1024 * 1024 * 1024) < :table_size_limit
                 """
             ),
             dict(
+                owner=inspector.dialect.denormalize_name(schema),
                 table_row_limit=self.config.profiling.profile_table_row_limit,
                 table_size_limit=self.config.profiling.profile_table_size_limit,
             ),
@@ -682,7 +681,9 @@ class OracleSource(SQLAlchemySource):
             self.get_identifier(
                 schema=schema,
                 entity=inspector.dialect.normalize_name(row[TABLE_NAME_COL_LOC])
-                or _raise_err(ValueError(f"Invalid table name: {row[0]}")),
+                or _raise_err(
+                    ValueError(f"Invalid table name: {row[TABLE_NAME_COL_LOC]}")
+                ),
                 inspector=inspector,
             )
             for row in cursor
