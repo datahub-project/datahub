@@ -141,7 +141,7 @@ class CassandraSourceConfig(
         description="Password credential associated with the specified username.",
     )
 
-    datastax_astra_cloud_config: Optional[CassandraCloudConfig] = Field(
+    cloud_config: Optional[CassandraCloudConfig] = Field(
         default=None,
         description="Configuration for cloud-based Cassandra, such as DataStax Astra DB.",
     )
@@ -175,15 +175,4 @@ class CassandraSourceConfig(
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
-        )
-
-    @property
-    def cloud(self) -> bool:
-        """
-        Returns True if datastax_astra_cloud_config is present.
-        """
-        return (
-            self.datastax_astra_cloud_config is not None
-            and bool(self.datastax_astra_cloud_config.secure_connect_bundle)
-            and bool(self.datastax_astra_cloud_config.token)
         )

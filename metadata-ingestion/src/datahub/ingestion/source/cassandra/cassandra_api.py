@@ -14,7 +14,7 @@ from cassandra.cluster import (
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.cassandra.cassandra_config import CassandraSourceConfig
 from datahub.ingestion.source.cassandra.cassandra_utils import (
-    CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES,
+    COL_NAMES,
     CassandraQueries,
 )
 
@@ -28,8 +28,8 @@ class CassandraAPIInterface:
     def authenticate(self) -> Session:
         """Establish a connection to Cassandra and return the session."""
         try:
-            if self.config.cloud:
-                cloud_config = self.config.datastax_astra_cloud_config
+            if self.config.cloud_config:
+                cloud_config = self.config.cloud_config
                 assert cloud_config
                 cluster_cloud_config = {
                     "connect_timeout": cloud_config.connect_timeout,
@@ -51,22 +51,12 @@ class CassandraAPIInterface:
                 session: Session = cluster.connect()
                 return session
 
-            auth_provider = None
-            ssl_context = None
             if self.config.username and self.config.password:
                 ssl_context = SSLContext(PROTOCOL_TLSv1_2)
                 ssl_context.verify_mode = CERT_NONE
                 auth_provider = PlainTextAuthProvider(
                     username=self.config.username, password=self.config.password
                 )
-
-            cluster = Cluster(
-                [self.config.contact_point],
-                port=self.config.port,
-                load_balancing_policy=None,
-            )
-
-            if auth_provider:
                 cluster = Cluster(
                     [self.config.contact_point],
                     port=self.config.port,
@@ -74,17 +64,22 @@ class CassandraAPIInterface:
                     ssl_context=ssl_context,
                     load_balancing_policy=None,
                 )
+            else:
+                cluster = Cluster(
+                    [self.config.contact_point],
+                    port=self.config.port,
+                    load_balancing_policy=None,
+                )
+
             session = cluster.connect()
             return session
         except OperationTimedOut as e:
             self.report.warning(
-                message="Failed to Autheticate", context=f"{str(e.errors)}", exc=e
+                message="Failed to Authenticate", context=f"{str(e.errors)}", exc=e
             )
             raise
         except DriverException as e:
-            self.report.warning(
-                message="Failed to Autheticate", context=f"{str(e)}", exc=e
-            )
+            self.report.warning(message="Failed to Authenticate", exc=e)
             raise
         except Exception as e:
             self.report.report_failure(
@@ -100,9 +95,7 @@ class CassandraAPIInterface:
             )
             keyspaces = sorted(
                 keyspaces,
-                key=lambda k: getattr(
-                    k, CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES["keyspace_name"]
-                ),
+                key=lambda k: getattr(k, COL_NAMES["keyspace_name"]),
             )
             return keyspaces
         except DriverException as e:
@@ -110,10 +103,8 @@ class CassandraAPIInterface:
                 message="Failed to fetch keyspaces", context=f"{str(e)}", exc=e
             )
             return []
-        except Exception:
-            self.report.warning(
-                message="Failed to fetch keyspaces",
-            )
+        except Exception as e:
+            self.report.warning(message="Failed to fetch keyspaces", exc=e)
             return []
 
     def get_tables(self, keyspace_name: str) -> List:
@@ -124,9 +115,7 @@ class CassandraAPIInterface:
             )
             tables = sorted(
                 tables,
-                key=lambda t: getattr(
-                    t, CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES["table_name"]
-                ),
+                key=lambda t: getattr(t, COL_NAMES["table_name"]),
             )
             return tables
         except DriverException as e:
@@ -136,10 +125,11 @@ class CassandraAPIInterface:
                 exc=e,
             )
             return []
-        except Exception:
+        except Exception as e:
             self.report.warning(
                 message="Failed to fetch tables for keyspace",
                 context=f"{keyspace_name}",
+                exc=e,
             )
             return []
 
@@ -156,10 +146,11 @@ class CassandraAPIInterface:
                 message="Failed to fetch columns for table", context=f"{str(e)}", exc=e
             )
             return []
-        except Exception:
+        except Exception as e:
             self.report.warning(
                 message="Failed to fetch columns for table",
                 context=f"{keyspace_name}.{table_name}",
+                exc=e,
             )
             return []
 
@@ -171,9 +162,7 @@ class CassandraAPIInterface:
             )
             views = sorted(
                 views,
-                key=lambda v: getattr(
-                    v, CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES["view_name"]
-                ),
+                key=lambda v: getattr(v, COL_NAMES["view_name"]),
             )
             return views
         except DriverException as e:
@@ -181,14 +170,15 @@ class CassandraAPIInterface:
                 message="Failed to fetch views for keyspace", context=f"{str(e)}", exc=e
             )
             return []
-        except Exception:
+        except Exception as e:
             self.report.warning(
                 message="Failed to fetch views for keyspace",
                 context=f"{keyspace_name}",
+                exc=e,
             )
             return []
 
-    def execute(self, query: str, limit: Optional[int]) -> List:
+    def execute(self, query: str, limit: Optional[int] = None) -> List:
         """Fetch stats for cassandra"""
         try:
             if limit:

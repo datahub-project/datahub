@@ -1,24 +1,23 @@
 source:
   type: "cassandra"
   config:
-    # Coordinates
+    # Credentials for on prem cassandra
     contact_point: "localhost"
     port: 9042
-
-    # Credentials
     username: "admin"
     password: "password"
 
-    #datastax astra db
-    #datastax_astra_cloud_config:
+    # Or
+    # Credentials Astra Cloud
+    #cloud_config:
     #  secure_connect_bundle: "Path to Secure Connect Bundle (.zip)"
     #  token: "Application Token"
 
-    # Optional
+    # Optional Allow / Deny extraction of particular keyspaces.
     keyspace_pattern:
       allow: [".*"]
 
-    # Optional
+    # Optional Allow / Deny extraction of particular tables.
     table_pattern:
       allow: [".*"]
 

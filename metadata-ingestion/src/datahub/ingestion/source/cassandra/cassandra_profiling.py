@@ -115,7 +115,7 @@ class CassandraProfiler:
 
         if self.config.profiling.row_count:
             resp = self.api.execute(
-                CassandraQueries.ROW_COUNT.format(keyspace_name, table_name), limit
+                CassandraQueries.ROW_COUNT.format(keyspace_name, table_name)
             )
             if resp:
                 results["row_count"] = resp[0].row_count

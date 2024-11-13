@@ -32,7 +32,7 @@ from datahub.ingestion.source.cassandra.cassandra_api import CassandraAPIInterfa
 from datahub.ingestion.source.cassandra.cassandra_config import CassandraSourceConfig
 from datahub.ingestion.source.cassandra.cassandra_profiling import CassandraProfiler
 from datahub.ingestion.source.cassandra.cassandra_utils import (
-    CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES,
+    COL_NAMES,
     SYSTEM_KEYSPACE_LIST,
     VERSION,
     CassandraToSchemaFieldConverter,
@@ -99,12 +99,12 @@ class CassandraSourceReport(
         else:
             raise KeyError(f"Unknown entity {ent_type}.")
 
-    def set_ingestion_stage(self, dataset: str, stage: str) -> None:
-        self.report_ingestion_stage_start(f"{dataset}: {stage}")
+    def set_ingestion_stage(self, keyspace: str, stage: str) -> None:
+        self.report_ingestion_stage_start(f"{keyspace}: {stage}")
 
 
 @dataclass
-class CassandraEntites:
+class CassandraEntities:
     keyspaces: List[str] = field(default_factory=list)
     tables: Dict[str, List[str]] = field(
         default_factory=dict
@@ -144,7 +144,7 @@ class CassandraSource(StatefulIngestionSourceBase):
         self.config = config
         self.report = CassandraSourceReport()
         self.cassandra_api = CassandraAPIInterface(config, self.report)
-        self.cassandra_data = CassandraEntites()
+        self.cassandra_data = CassandraEntities()
         # For profiling
         self.profiler = CassandraProfiler(config, self.report, self.cassandra_api)
 
@@ -169,9 +169,7 @@ class CassandraSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         keyspaces = self.cassandra_api.get_keyspaces()
         for keyspace in keyspaces:
-            keyspace_name: str = getattr(
-                keyspace, CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES["keyspace_name"]
-            )
+            keyspace_name: str = getattr(keyspace, COL_NAMES["keyspace_name"])
             if keyspace_name in SYSTEM_KEYSPACE_LIST:
                 continue
 
@@ -205,6 +203,7 @@ class CassandraSource(StatefulIngestionSourceBase):
         if self.config.is_profiling_enabled():
             for keyspace in self.cassandra_data.keyspaces:
                 tables = self.cassandra_data.tables.get(keyspace, [])
+                self.report.set_ingestion_stage(keyspace, PROFILING)
                 with ThreadPoolExecutor(
                     max_workers=self.config.profiling.max_workers
                 ) as executor:
@@ -252,9 +251,7 @@ class CassandraSource(StatefulIngestionSourceBase):
         tables = self.cassandra_api.get_tables(keyspace_name)
         for table in tables:
             # define the dataset urn for this table to be used downstream
-            table_name: str = getattr(
-                table, CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES["table_name"]
-            )
+            table_name: str = getattr(table, COL_NAMES["table_name"])
             dataset_name: str = f"{keyspace_name}.{table_name}"
 
             if not self.config.table_pattern.allowed(dataset_name):
@@ -377,9 +374,7 @@ class CassandraSource(StatefulIngestionSourceBase):
 
         views = self.cassandra_api.get_views(keyspace_name)
         for view in views:
-            view_name: str = getattr(
-                view, CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES["view_name"]
-            )
+            view_name: str = getattr(view, COL_NAMES["view_name"])
             dataset_name: str = f"{keyspace_name}.{view_name}"
             self.report.report_entity_scanned(dataset_name)
             dataset_urn: str = make_dataset_urn_with_platform_instance(
@@ -446,7 +441,7 @@ class CassandraSource(StatefulIngestionSourceBase):
             # NOTE: we don't need to use 'base_table_id' since table is always in same keyspace, see https://docs.datastax.com/en/cql-oss/3.3/cql/cql_reference/cqlCreateMaterializedView.html#cqlCreateMaterializedView__keyspace-name
             upstream_urn: str = make_dataset_urn_with_platform_instance(
                 platform=self.platform,
-                name=f"{keyspace_name}.{getattr(view, CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES['base_table_name'])}",
+                name=f"{keyspace_name}.{getattr(view, COL_NAMES['base_table_name'])}",
                 env=self.config.env,
                 platform_instance=self.config.platform_instance,
             )
@@ -492,7 +487,6 @@ class CassandraSource(StatefulIngestionSourceBase):
             env=self.config.env,
             platform_instance=self.config.platform_instance,
         )
-        self.report.set_ingestion_stage(dataset_name, PROFILING)
         yield from self.profiler.get_workunits(dataset_urn, keyspace, table_name)
 
     def get_upstream_fields_of_field_in_datasource(

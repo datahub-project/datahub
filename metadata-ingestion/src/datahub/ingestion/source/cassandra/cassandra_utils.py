@@ -29,7 +29,7 @@ SYSTEM_KEYSPACE_LIST = set(
 VERSION: str = "[version=2.0]"
 
 # these column names are present on the system_schema tables
-CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES = {
+COL_NAMES = {
     "keyspace_name": "keyspace_name",  # present on all tables
     "table_name": "table_name",  # present on tables table
     "column_name": "column_name",  # present on columns table
@@ -129,13 +129,8 @@ class CassandraToSchemaFieldConverter:
                 if hasattr(column_info, "_asdict")
                 else column_info
             )
-            column_info["column_name_bytes"] = None
-            column_name: str = column_info[
-                CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES["column_name"]
-            ]
-            cassandra_type: str = column_info[
-                CASSANDRA_SYSTEM_SCHEMA_COLUMN_NAMES["column_type"]
-            ]
+            column_name: str = column_info[COL_NAMES["column_name"]]
+            cassandra_type: str = column_info[COL_NAMES["column_type"]]
 
             if cassandra_type is not None:
                 self._prefix_name_stack.append(f"[type={cassandra_type}].{column_name}")
