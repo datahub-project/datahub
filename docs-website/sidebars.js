@@ -331,6 +331,7 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_7",
             "docs/managed-datahub/release-notes/v_0_3_6",
             "docs/managed-datahub/release-notes/v_0_3_5",
             "docs/managed-datahub/release-notes/v_0_3_4",
