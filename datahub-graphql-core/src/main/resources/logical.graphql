@@ -12,6 +12,13 @@ extend type Dataset implements HasLogicalParent {
   logicalParent: Entity
 }
 
+extend type SchemaFieldEntity implements HasLogicalParent {
+  """
+  If this entity represents a physical asset, this is its logical parent, from which metadata can propagate.
+  """
+  logicalParent: Entity
+}
+
 input SetLogicalParentInput {
   resourceUrn: String!
   parentUrn: String

@@ -66,6 +66,7 @@ import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.schema.EditableSchemaMetadata;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.structured.StructuredProperties;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -203,8 +204,11 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         LOGICAL_PARENT_ASPECT_NAME,
         (entity, dataMap) ->
             entity.setLogicalParent(
-                UrnToEntityMapper.map(
-                    context, new LogicalParent(dataMap).getParent().getDestinationUrn())));
+                Optional.ofNullable(new LogicalParent(dataMap).getParent())
+                    .map(
+                        logicalParent ->
+                            UrnToEntityMapper.map(context, logicalParent.getDestinationUrn()))
+                    .orElse(null)));
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Dataset.class);

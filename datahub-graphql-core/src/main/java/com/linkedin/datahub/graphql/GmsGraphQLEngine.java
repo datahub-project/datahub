@@ -1931,6 +1931,14 @@ public class GmsGraphQLEngine {
                     "parent",
                     new EntityTypeResolver(
                         entityTypes, (env) -> ((SchemaFieldEntity) env.getSource()).getParent()))
+                .dataFetcher(
+                    "logicalParent",
+                    new EntityTypeResolver(
+                        entityTypes,
+                        (env) ->
+                            Optional.ofNullable((Dataset) env.getSource())
+                                .map(Dataset::getLogicalParent)
+                                .orElse(null)))
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher(
                     "lineage",

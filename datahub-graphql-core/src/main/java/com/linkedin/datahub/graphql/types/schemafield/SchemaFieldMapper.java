@@ -20,7 +20,9 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.logical.LogicalParent;
 import com.linkedin.structured.StructuredProperties;
+import java.util.Optional;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -64,6 +66,15 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
         ((schemaField, dataMap) ->
             schemaField.setDeprecation(
                 DeprecationMapper.map(context, new Deprecation((dataMap))))));
+    mappingHelper.mapToResult(
+        LOGICAL_PARENT_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setLogicalParent(
+                Optional.ofNullable(new LogicalParent(dataMap).getParent())
+                    .map(
+                        logicalParent ->
+                            UrnToEntityMapper.map(context, logicalParent.getDestinationUrn()))
+                    .orElse(null)));
 
     return result;
   }
