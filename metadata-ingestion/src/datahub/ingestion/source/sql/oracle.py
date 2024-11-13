@@ -688,10 +688,3 @@ class OracleSource(SQLAlchemySource):
             )
             for row in cursor
         ]
-
-    def add_profile_metadata(self, inspector: Inspector) -> None:
-        """
-        Method to add profile metadata in a sub-class that can be used to enrich profile metadata.
-        This is meant to change self.profile_metadata_info in the sub-class.
-        """
-        pass
