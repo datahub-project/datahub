@@ -6,7 +6,6 @@ from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
-from pydantic import BaseModel
 from pydantic.class_validators import validator
 from pydantic.fields import Field
 
