@@ -197,11 +197,11 @@ class HiveStorageLineageConfig:
     """Configuration for Hive storage lineage."""
 
     def __init__(
-            self,
-            emit_storage_lineage: bool,
-            hive_storage_lineage_direction: str,
-            include_column_lineage: bool,
-            storage_platform_instance: Optional[str],
+        self,
+        emit_storage_lineage: bool,
+        hive_storage_lineage_direction: str,
+        include_column_lineage: bool,
+        storage_platform_instance: Optional[str],
     ):
         if hive_storage_lineage_direction.lower() not in ["upstream", "downstream"]:
             raise ValueError(
@@ -315,11 +315,7 @@ class HiveStorageLineage:
 
             # Find matching field in storage schema
             matching_field = next(
-                (
-                    f
-                    for f in storage_schema.fields
-                    if f.fieldPath == dataset_path
-                ),
+                (f for f in storage_schema.fields if f.fieldPath == dataset_path),
                 None,
             )
 
@@ -711,7 +707,7 @@ class HiveConfig(TwoTierSQLAlchemyConfig):
             emit_storage_lineage=self.emit_storage_lineage,
             hive_storage_lineage_direction=self.hive_storage_lineage_direction,
             include_column_lineage=self.include_storage_column_lineage,
-            storage_platform_instance=self.storage_platform_instance
+            storage_platform_instance=self.storage_platform_instance,
         )
 
 
