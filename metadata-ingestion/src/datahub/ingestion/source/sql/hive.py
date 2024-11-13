@@ -303,7 +303,9 @@ class HiveStorageLineage:
             platform_name = platform_name.lower()
             path = path.lower()
             if self.config.storage_platform_instance:
-                self.config.platform_instance = self.config.storage_platform_instance.lower()
+                self.config.platform_instance = (
+                    self.config.storage_platform_instance.lower()
+                )
 
         try:
             storage_urn = make_dataset_urn_with_platform_instance(
@@ -395,10 +397,10 @@ class HiveStorageLineage:
         )
 
     def get_storage_dataset_mcp(
-            self,
-            storage_location: str,
-            platform_instance: Optional[str] = None,
-            schema_metadata: Optional[SchemaMetadataClass] = None,
+        self,
+        storage_location: str,
+        platform_instance: Optional[str] = None,
+        schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> Optional[List[MetadataChangeProposalWrapper]]:
         """
         Generate MCPs for storage dataset if needed.
@@ -438,8 +440,7 @@ class HiveStorageLineage:
 
             mcps.append(
                 MetadataChangeProposalWrapper(
-                    entityUrn=storage_urn,
-                    aspect=platform_instance_aspect,
+                    entityUrn=storage_urn, aspect=platform_instance_aspect
                 )
             )
 
@@ -550,7 +551,8 @@ class HiveStorageLineage:
 
         workunits.append(
             MetadataWorkUnit(
-                id=f"{dataset_urn}-{storage_urn}-lineage", mcp=mcp,
+                id=f"{dataset_urn}-{storage_urn}-lineage",
+                mcp=mcp,
             )
         )
 
