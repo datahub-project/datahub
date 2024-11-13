@@ -266,6 +266,7 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
         SchemaField renamedField =
             findRenamedField(
                 curBaseField,
+                new HashSet<>(baseFields.subList(baseFieldIdx, baseFields.size())),
                 targetFields.subList(targetFieldIdx, targetFields.size()),
                 renamedFields);
         if (renamedField == null) {
@@ -289,7 +290,10 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
         // minor version bump for both.
         SchemaField renamedField =
             findRenamedField(
-                curTargetField, baseFields.subList(baseFieldIdx, baseFields.size()), renamedFields);
+                curTargetField,
+                new HashSet<>(targetFields.subList(targetFieldIdx, targetFields.size())),
+                baseFields.subList(baseFieldIdx, baseFields.size()),
+                renamedFields);
         if (renamedField == null) {
           processAdd(changeCategories, changeEvents, datasetUrn, curTargetField, auditStamp);
           ++targetFieldIdx;
@@ -348,10 +352,14 @@ public class SchemaMetadataChangeEventGenerator extends EntityChangeEventGenerat
   }
 
   private static SchemaField findRenamedField(
-      SchemaField curField, List<SchemaField> targetFields, Set<SchemaField> renamedFields) {
+      SchemaField curField,
+      Set<SchemaField> baseFields,
+      List<SchemaField> targetFields,
+      Set<SchemaField> renamedFields) {
     return targetFields.stream()
         .filter(schemaField -> isRenamed(curField, schemaField))
         .filter(field -> !renamedFields.contains(field))
+        .filter(field -> !baseFields.contains(field)) // Filter out fields that will match later
         .findFirst()
         .orElse(null);
   }
