@@ -1,4 +1,3 @@
-import json
 import logging
 from typing import Dict, Generator, List, Optional, Type
 
@@ -26,7 +25,6 @@ SYSTEM_KEYSPACE_LIST = set(
     ["system", "system_auth", "system_schema", "system_distributed", "system_traces"]
 )
 
-VERSION: str = "[version=2.0]"
 
 # these column names are present on the system_schema tables
 COL_NAMES = {
@@ -112,12 +110,6 @@ class CassandraToSchemaFieldConverter:
 
         return SchemaFieldDataType(type=type_class())
 
-    def __init__(self) -> None:
-        self._prefix_name_stack: List[str] = [VERSION]
-
-    def _get_cur_field_path(self) -> str:
-        return ".".join(self._prefix_name_stack)
-
     def _get_schema_fields(
         self, cassandra_column_infos: List
     ) -> Generator[SchemaField, None, None]:
@@ -132,28 +124,18 @@ class CassandraToSchemaFieldConverter:
             column_name: str = column_info[COL_NAMES["column_name"]]
             cassandra_type: str = column_info[COL_NAMES["column_type"]]
 
-            if cassandra_type is not None:
-                self._prefix_name_stack.append(f"[type={cassandra_type}].{column_name}")
-                schema_field_data_type: SchemaFieldDataType = self.get_column_type(
-                    cassandra_type
-                )
-                schema_field: SchemaField = SchemaField(
-                    fieldPath=self._get_cur_field_path(),
-                    nativeDataType=cassandra_type,
-                    type=schema_field_data_type,
-                    description=None,
-                    nullable=True,
-                    recursive=False,
-                )
-                yield schema_field
-                self._prefix_name_stack.pop()
-            else:
-                # Unexpected! Log a warning.
-                logger.warning(
-                    f"Cassandra schema does not have 'type'!"
-                    f" Schema={json.dumps(column_info)}"
-                )
-                continue
+            schema_field_data_type: SchemaFieldDataType = self.get_column_type(
+                cassandra_type
+            )
+            schema_field: SchemaField = SchemaField(
+                fieldPath=column_name,
+                nativeDataType=cassandra_type,
+                type=schema_field_data_type,
+                description=None,
+                nullable=True,
+                recursive=False,
+            )
+            yield schema_field
 
     @classmethod
     def get_schema_fields(

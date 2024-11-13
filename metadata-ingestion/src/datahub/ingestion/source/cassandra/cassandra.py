@@ -4,7 +4,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
-from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -34,7 +33,6 @@ from datahub.ingestion.source.cassandra.cassandra_profiling import CassandraProf
 from datahub.ingestion.source.cassandra.cassandra_utils import (
     COL_NAMES,
     SYSTEM_KEYSPACE_LIST,
-    VERSION,
     CassandraToSchemaFieldConverter,
 )
 from datahub.ingestion.source.common.subtypes import (
@@ -497,16 +495,13 @@ class CassandraSource(StatefulIngestionSourceBase):
         fine_grained_lineages = []
         for column_info in column_infos:
             source_column = column_info.column_name
-            column_type = column_info.type
             if source_column:
-                field_path = f"{VERSION}.[type={column_type}].{source_column}"
-                field_path_v1 = Dataset._simplify_field_path(field_path)
                 fine_grained_lineages.append(
                     FineGrainedLineageClass(
                         upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
                         downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                        downstreams=[make_schema_field_urn(dataset_urn, field_path_v1)],
-                        upstreams=[make_schema_field_urn(upstream_urn, field_path_v1)],
+                        downstreams=[make_schema_field_urn(dataset_urn, source_column)],
+                        upstreams=[make_schema_field_urn(upstream_urn, source_column)],
                     )
                 )
         return fine_grained_lineages
