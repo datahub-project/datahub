@@ -169,6 +169,7 @@ class StoragePathParser:
             # Clean up the path
             path = path.rstrip("/")  # Remove trailing slashes
             path = re.sub(r"/+", "/", path)  # Normalize multiple slashes
+            path = f"/{path}"
 
             return platform, path
 
