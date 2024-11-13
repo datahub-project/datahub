@@ -1,12 +1,15 @@
 # Defining environment
 ARG APP_ENV=prod
+ARG BASE_IMAGE=acryldata/datahub-ingestion
+ARG DOCKER_VERSION=head-slim
 # ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
 # ARG PIP_MIRROR_URL=https://pypi.python.org/simple
 ARG RELEASE_VERSION
 
 FROM powerman/dockerize:0.19 AS dockerize-binary
 
-FROM python:3.10 AS build
+FROM $BASE_IMAGE:$DOCKER_VERSION AS build
+USER 0
 
 # # Optionally set corporate mirror for deb
 # ARG DEBIAN_REPO_URL
@@ -42,18 +45,14 @@ COPY --from=dockerize-binary /usr/local/bin/dockerize /usr/local/bin
 # to make duckdb work with the CA certificates in the image.
 RUN mkdir -p /etc/pki/tls/certs && ln -s /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt
 RUN wget https://github.com/duckdb/duckdb/releases/download/v0.10.0/duckdb_cli-linux-amd64.zip && \
-    unzip duckdb_cli-linux-amd64.zip
+    unzip duckdb_cli-linux-amd64.zip && \
+    chown -R datahub /datahub-ingestion
 
 COPY --chmod=755 ./docker/datahub-integrations-service/start.sh /start_datahub_integrations_service.sh
 
-RUN addgroup --gid 1000 datahub && \
-    adduser --disabled-password --uid 1000 --gid 1000 --home /datahub-home datahub
-USER datahub
-
 ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
-ENV VIRTUAL_ENV=/datahub-home/.venv
+ENV VIRTUAL_ENV=/datahub-ingestion/.venv
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
-RUN python3 -m venv $VIRTUAL_ENV
 
 COPY --chown=datahub:datahub ./datahub-integrations-service /datahub-integrations-service
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
@@ -61,11 +60,12 @@ COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 ARG RELEASE_VERSION=1!0.0.0.dev0
 WORKDIR /datahub-integrations-service
 
+USER datahub
 
 # Note that the requirements file contains editable installs for
 # metadata-ingestion and datahub-integrations-service
-RUN --mount=type=cache,target=/datahub-home/.cache/uv,uid=1000,gid=1000 \
-    uv pip sync requirements.txt
+RUN --mount=type=cache,target=/datahub-ingestion/.cache/uv,uid=1000,gid=1000 \
+   UV_LINK_MODE=copy uv pip sync requirements.txt
 
 # Production Image Built From Build Image
 FROM build AS prod-install
