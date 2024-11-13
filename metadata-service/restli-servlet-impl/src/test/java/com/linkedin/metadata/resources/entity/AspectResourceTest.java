@@ -25,6 +25,7 @@ import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
@@ -66,6 +67,7 @@ public class AspectResourceTest {
     aspectResource.setEntityService(entityService);
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     aspectResource.setSystemOperationContext(opContext);
+    aspectResource.setEntitySearchService(mock(EntitySearchService.class));
     entityRegistry = opContext.getEntityRegistry();
   }
 
