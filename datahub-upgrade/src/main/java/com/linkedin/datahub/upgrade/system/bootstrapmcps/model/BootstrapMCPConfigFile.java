@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade.system.bootstrapmcps.model;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import java.io.IOException;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -7,6 +9,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @AllArgsConstructor
 @NoArgsConstructor
@@ -23,6 +26,7 @@ public class BootstrapMCPConfigFile {
     private List<MCPTemplate> templates;
   }
 
+  @Slf4j
   @AllArgsConstructor
   @NoArgsConstructor
   @Data
@@ -36,5 +40,19 @@ public class BootstrapMCPConfigFile {
     @Builder.Default private boolean optional = false;
     @Nonnull private String mcps_location;
     @Nullable private String values_env;
+    @Nullable private String revision_env;
+
+    public MCPTemplate withOverride(ObjectMapper objectMapper) {
+      if (revision_env != null) {
+        String overrideJson = System.getenv().getOrDefault(revision_env, "{}");
+        try {
+          return objectMapper.readerForUpdating(this).readValue(overrideJson);
+        } catch (IOException e) {
+          log.error("Error applying override {} to {}", overrideJson, this);
+          throw new RuntimeException(e);
+        }
+      }
+      return this;
+    }
   }
 }

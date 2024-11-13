@@ -14,6 +14,7 @@ import { useUpdateIncidentStatusMutation } from '../../../../../../graphql/mutat
 import { ResolveIncidentModal } from './ResolveIncidentModal';
 import handleGraphQLError from '../../../../../shared/handleGraphQLError';
 import { MenuItemStyle } from '../../../../view/menu/item/styledComponent';
+import MarkdownViewer from '../../../components/legacy/MarkdownViewer';
 
 type Props = {
     incident: any;
@@ -227,7 +228,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                             </TitleContainer>
                             <DescriptionContainer>
                                 <IncidentDescriptionLabel>Description</IncidentDescriptionLabel>
-                                <IncidentDescriptionText>{incident?.description}</IncidentDescriptionText>
+                                <MarkdownViewer source={incident?.description} />
                                 {incident.status.state === IncidentState.Resolved ? (
                                     <>
                                         <IncidentDescriptionLabel>Resolution Note</IncidentDescriptionLabel>
