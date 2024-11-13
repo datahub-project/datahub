@@ -69,12 +69,14 @@ class PowerBiAPI:
             client_id=self.__config.client_id,
             client_secret=self.__config.client_secret,
             tenant_id=self.__config.tenant_id,
+            metadata_api_timeout=self.__config.metadata_api_timeout,
         )
 
         self.__admin_api_resolver = AdminAPIResolver(
             client_id=self.__config.client_id,
             client_secret=self.__config.client_secret,
             tenant_id=self.__config.tenant_id,
+            metadata_api_timeout=self.__config.metadata_api_timeout,
         )
 
         self.reporter: PowerBiDashboardSourceReport = reporter
@@ -90,6 +92,14 @@ class PowerBiAPI:
         _, e, _ = sys.exc_info()
         if isinstance(e, requests.exceptions.HTTPError):
             logger.warning(f"HTTP status-code = {e.response.status_code}")
+
+        if isinstance(e, requests.exceptions.Timeout):
+            url: str = e.request.url if e.request else "URL not available"
+            self.reporter.warning(
+                title="Metadata API Timeout",
+                message=f"Metadata endpoints are not reachable. Check network connectivity to PowerBI Service.",
+                context=f"url={url}",
+            )
 
         logger.debug(msg=message, exc_info=e)
 
@@ -253,7 +263,7 @@ class PowerBiAPI:
 
         except:
             self.log_http_error(message="Unable to fetch list of workspaces")
-            raise  # we want this exception to bubble up
+            # raise  # we want this exception to bubble up
 
         workspaces = [
             Workspace(

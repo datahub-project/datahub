@@ -521,7 +521,6 @@ class BigQuerySchemaGenerator:
                     logger.warning(
                         f"Could not create table ref for {table_item.path}: {e}"
                     )
-            yield from []
             return
 
         if self.config.include_tables:

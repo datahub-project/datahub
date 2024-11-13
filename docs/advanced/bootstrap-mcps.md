@@ -149,6 +149,28 @@ to the required json structure and stored as a string.
       executorId: default
 ```
 
+## `bootstrap_mcps.yaml` Override
+
+Additionally, the `bootstrap_mcps.yaml` can be overridden.
+This might be useful for applying changes to the version when using helm defined template values.
+
+```yaml
+bootstrap:
+  templates:
+    - name: myMCPTemplate
+      version: v1
+      mcps_location: <classpath or file location>
+      values_env: <value environment variable>
+      revision_env: REVISION_ENV
+```
+
+In the above example, we've added a `revision_env` which allows overriding the MCP bootstrap definition itself (excluding `revision_env`).
+
+In this example we could configure `REVISION_ENV` to contain a timestamp or hash: `{"version":"2024060600"}` 
+This value can be changed/incremented each time the helm supplied template values change. This ensures the MCP is updated
+with the latest values during deployment.
+
+
 ## Known Limitations
 
 * Supported change types: 
