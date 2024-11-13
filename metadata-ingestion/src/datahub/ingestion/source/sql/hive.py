@@ -705,7 +705,7 @@ class HiveConfig(TwoTierSQLAlchemyConfig):
         return HiveStorageLineageConfig(
             emit_storage_lineage=self.emit_storage_lineage,
             hive_storage_lineage_direction=self.hive_storage_lineage_direction,
-            include_column_lineage=self.include_storage_column_lineage,
+            include_column_lineage=self.include_column_lineage,
             storage_platform_instance=self.storage_platform_instance,
         )
 
