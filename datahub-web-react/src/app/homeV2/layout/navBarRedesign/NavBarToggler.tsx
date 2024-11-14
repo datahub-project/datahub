@@ -1,10 +1,10 @@
 import { Sidebar } from '@phosphor-icons/react';
 import React from 'react';
 import styled from 'styled-components';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
+import { colors } from '@src/alchemy-components';
 import { useNavBarContext } from './NavBarContext';
 
-const Toggler = styled.button<{ $isCollapsed?: boolean; $iconSize: number }>`
+const Toggler = styled.button<{ $isCollapsed?: boolean }>`
     cursor: pointer;
     margin: 0 0 0 auto;
     padding: 8px;
@@ -13,28 +13,24 @@ const Toggler = styled.button<{ $isCollapsed?: boolean; $iconSize: number }>`
     display: flex;
     transition: left 250ms ease-in-out;
     transition: background 300ms ease-in;
-    background: ${REDESIGN_COLORS.BACKGROUUND_NAVBAR_REDESIGN};
+    background: ${colors.gray[1500]};
 
     &: hover {
         background: #ebecf080;
     }
 
     & svg {
-        height: ${(props) => `${props.$iconSize}px`};
-        width: ${(props) => `${props.$iconSize}px`};
-        color: ${REDESIGN_COLORS.GREY_300};
+        height: 20px;
+        width: 20px;
+        color: ${colors.gray[1700]};
     }
 `;
 
-type Props = {
-    iconSize: number;
-};
-
-export default function NavBarToggler({ iconSize }: Props) {
+export default function NavBarToggler() {
     const { toggle } = useNavBarContext();
 
     return (
-        <Toggler onClick={toggle} $iconSize={iconSize}>
+        <Toggler onClick={toggle}>
             <Sidebar />
         </Toggler>
     );

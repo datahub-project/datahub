@@ -71,11 +71,11 @@ const ViewHeader = styled.div<{ $isShowNavBarRedesign?: boolean }>`
             color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1700] : REDESIGN_COLORS.BLACK)};
             display: flex;
             gap: 0.5rem;
-            background: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1400] : ANTD_GRAY[1])};
+            background: ${(props) => (props.$isShowNavBarRedesign ? colors.white : ANTD_GRAY[1])};
             border-radius: 30px;
-            padding: 2px;
+            padding: ${(props) => (props.$isShowNavBarRedesign ? '4px' : '2px')};
             > div {
-                padding: 5px 4px;
+                padding: ${(props) => (props.$isShowNavBarRedesign ? '3px' : '5px 4px')};
                 display: flex;
                 align-item: center;
                 border-radius: 100px;
@@ -104,16 +104,16 @@ const ViewHeader = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     }
 `;
 
-const GridViewIconStyle = styled(GridViewIcon)`
-    font-size: 13px !important;
+const GridViewIconStyle = styled(GridViewIcon)<{ $isShowNavBarRedesign?: boolean }>`
+    font-size: ${(props) => (props.$isShowNavBarRedesign ? '14px' : '13px')} !important;
 `;
 
-const LockOutlinedIconStyle = styled(LockOutlinedIcon)`
-    font-size: 13px !important;
+const LockOutlinedIconStyle = styled(LockOutlinedIcon)<{ $isShowNavBarRedesign?: boolean }>`
+    font-size: ${(props) => (props.$isShowNavBarRedesign ? '14px' : '13px')} !important;
 `;
 
-const PublicIconStyle = styled(PublicIcon)`
-    font-size: 13px !important;
+const PublicIconStyle = styled(PublicIcon)<{ $isShowNavBarRedesign?: boolean }>`
+    font-size: ${(props) => (props.$isShowNavBarRedesign ? '14px' : '13px')} !important;
 `;
 
 const SearchOutlinedStyle = styled(SearchOutlined)`
@@ -147,7 +147,7 @@ export const ViewSelectHeader = ({
                         role="none"
                     >
                         <Tooltip placement="bottom" showArrow title="All">
-                            <GridViewIconStyle />
+                            <GridViewIconStyle $isShowNavBarRedesign={isShowNavBarRedesign} />
                         </Tooltip>
                     </div>
                     <div
@@ -156,7 +156,7 @@ export const ViewSelectHeader = ({
                         role="none"
                     >
                         <Tooltip placement="bottom" showArrow title="Private">
-                            <LockOutlinedIconStyle />
+                            <LockOutlinedIconStyle $isShowNavBarRedesign={isShowNavBarRedesign} />
                         </Tooltip>
                     </div>
                     <div
@@ -165,7 +165,7 @@ export const ViewSelectHeader = ({
                         role="none"
                     >
                         <Tooltip placement="bottom" showArrow title="Public">
-                            <PublicIconStyle />
+                            <PublicIconStyle $isShowNavBarRedesign={isShowNavBarRedesign} />
                         </Tooltip>
                     </div>
                 </div>

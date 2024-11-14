@@ -140,7 +140,7 @@ export const SearchHeader = ({
             <HeaderBackground $isShowNavBarRedesign={isShowNavBarRedesign} />
             <Wrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <Header $isShowNavBarRedesign={isShowNavBarRedesign} $isNavBarCollapsed={isCollapsed}>
-                    {isShowNavBarRedesign && isCollapsed && <NavBarToggler iconSize={20} />}
+                    {isShowNavBarRedesign && isCollapsed && <NavBarToggler />}
                     <SearchBarContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
                         <SearchBar
                             isLoading={isUserInitializing || !appConfig.loaded}

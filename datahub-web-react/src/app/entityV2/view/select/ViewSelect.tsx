@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useHistory } from 'react-router';
-import { Popover } from '@components';
+import { colors, Popover } from '@components';
 import styled from 'styled-components';
 import { debounce } from 'lodash';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
@@ -97,10 +97,10 @@ const getOverlayInnerStyle = (isShowNavBarRedesign?: boolean) => {
             display: 'flex',
             width: '100%',
             opacity: 0.97,
-            backgroundColor: '#F9FAFC',
+            backgroundColor: colors.gray[1500],
             borderRadius: '0 0 12px 12px',
-            paddingTop: '7px',
-            boxShadow: '0px 520px 20px 500px rgba(0, 0, 0, 0.12), 0px 60px 60px 0px rgba(0, 0, 0, 0.12)',
+            paddingTop: '1px',
+            boxShadow: '0px 525px 20px 500px rgba(0, 0, 0, 0.12), 0px 65px 60px 0px rgba(0, 0, 0, 0.12)',
         };
 
     return overlayInnerStyle;
@@ -120,6 +120,7 @@ const getOverlayStyle = (isShowNavBarRedesign?: boolean) => {
         return {
             left: '0px',
             zIndex: 13,
+            paddingTop: '5px',
             'transform-origin': '0',
         };
 

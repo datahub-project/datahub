@@ -64,7 +64,7 @@ export default function NavBarHeader({ logotype }: Props) {
                 <Logotype>{logotype}</Logotype>
                 {!isCollapsed ? <Title>{customName || 'Acryl Data'}</Title> : null}
             </StyledLink>
-            {!isCollapsed && <NavBarToggler iconSize={15} />}
+            {!isCollapsed && <NavBarToggler />}
         </Container>
     );
 }
