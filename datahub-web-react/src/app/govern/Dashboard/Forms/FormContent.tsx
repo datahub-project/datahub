@@ -24,7 +24,7 @@ const FormContent = ({ mode }: Props) => {
 
     return (
         <ContentContainer $showV1Styles={!isThemeV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
-            <ContentWrapper>
+            <ContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <StyledSpin spinning={isFormLoading} indicator={<LoadingOutlined />}>
                     <CreateFormHeader />
                     <DetailsForm />

@@ -11,6 +11,7 @@ import { FormState, FormType, SearchAcrossEntitiesInput, SearchResults } from '@
 import React, { useContext, useEffect, useState } from 'react';
 import { useHistory, useParams } from 'react-router';
 import { Link } from 'react-router-dom';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { updateFormsList } from './cacheUtils';
 import {
     mapPromptsToCreatePromptInput,
@@ -28,6 +29,7 @@ interface Props {
 }
 
 const FormFooter = ({ inputs, searchAcrossEntities }: Props) => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const history = useHistory();
     const isThemeV2 = useIsThemeV2();
     const me = useUserContext();
@@ -195,7 +197,7 @@ const FormFooter = ({ inputs, searchAcrossEntities }: Props) => {
     };
 
     return (
-        <FooterContainer $showV1Styles={!isThemeV2}>
+        <FooterContainer $showV1Styles={!isThemeV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <Link to={`${PageRoutes.GOVERN_DASHBOARD}?documentationTab=forms`}>
                 <Button variant="outline">Cancel</Button>
             </Link>

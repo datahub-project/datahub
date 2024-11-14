@@ -1,5 +1,6 @@
 import React from 'react';
 import { useLocation } from 'react-router';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import FormContent from './FormContent';
 import FormFooter from './FormFooter';
 import { FormMode } from './formUtils';
@@ -11,11 +12,12 @@ interface Props {
 }
 
 const CreateForm = ({ mode }: Props) => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
     const location = useLocation();
     const { inputs, searchAcrossEntities } = location.state || {};
     return (
         <ManageFormContextProvider>
-            <CreateFormContainer>
+            <CreateFormContainer $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <FormContent mode={mode} />
                 <FormFooter inputs={inputs} searchAcrossEntities={searchAcrossEntities} />
             </CreateFormContainer>

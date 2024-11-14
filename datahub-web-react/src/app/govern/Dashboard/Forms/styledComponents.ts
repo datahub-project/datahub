@@ -7,10 +7,10 @@ import { applyOpacity } from '@src/app/shared/styleUtils';
 import { Checkbox, Divider, Modal, Radio, Select, Spin, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 
-export const CreateFormContainer = styled.div`
+export const CreateFormContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: ${(props) => (props.$isShowNavBarRedesign ? '6px' : '20px')};
     height: 100%;
 `;
 
@@ -18,36 +18,47 @@ export const ContentContainer = styled.div<{ $showV1Styles?: boolean; $isShowNav
     display: flex;
     flex-direction: column;
     padding: 16px 0;
-    margin-right: ${(props) => (!props.$showV1Styles && props.$isShowNavBarRedesign ? '0' : '16px')};
-    border-radius: 12px;
+
+    ${(props) => !props.$isShowNavBarRedesign && 'margin-right: 16px;'}
+    ${(props) => !props.$showV1Styles && props.$isShowNavBarRedesign && 'margin: 5px;'}
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '12px'};
     flex: 1;
     background-color: ${colors.white};
     gap: 12px;
     max-height: calc(100vh - 152px);
     overflow: auto;
-    box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) =>
+        props.$isShowNavBarRedesign
+            ? props.theme.styles['box-shadow-navbar-redesign']
+            : '0px 0px 24px 0px rgba(0, 0, 0, 0.1)'};
 
     ${(props) => props.$showV1Styles && `margin: 8px 24px 0 24px;`}
 `;
 
-export const ContentWrapper = styled.div`
+export const ContentWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     overflow: auto;
-    padding: 0 16px;
+    padding: 0 ${(props) => (props.$isShowNavBarRedesign ? '20px' : '16px')};
 `;
 
-export const FooterContainer = styled.div<{ $showV1Styles?: boolean }>`
+export const FooterContainer = styled.div<{ $showV1Styles?: boolean; $isShowNavBarRedesign?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 20px;
     margin-right: 16px;
     height: 64px;
-    padding: 16px;
+    padding: ${(props) => (props.$isShowNavBarRedesign ? '16px 20px' : '16px')};
     background-color: ${colors.white};
-    border-radius: 12px 12px 0px 0px;
-    box-shadow: 0px 0px 24px 0px rgba(0, 0, 0, 0.1);
+    border-radius: ${(props) =>
+        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '12px 12px 0px 0px'};
+    box-shadow: ${(props) =>
+        props.$isShowNavBarRedesign
+            ? props.theme.styles['box-shadow-navbar-redesign']
+            : '0px 0px 24px 0px rgba(0, 0, 0, 0.1)'};
 
     ${(props) => props.$showV1Styles && `margin: 0 24px;`}
+    ${(props) => props.$isShowNavBarRedesign && 'margin: 5px;'}
 `;
 
 export const AddElementContainer = styled.div`
