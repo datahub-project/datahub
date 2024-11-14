@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from ssl import CERT_NONE, PROTOCOL_TLSv1_2, SSLContext
 from typing import Any, Dict, List, Optional
 
@@ -37,7 +37,6 @@ class CassandraTable:
     default_time_to_live: Optional[int]
     extensions: Optional[Dict[str, Any]]
     gc_grace_seconds: Optional[int]
-    id: Optional[str]
     max_index_interval: Optional[int]
     memtable_flush_period_in_ms: Optional[int]
     min_index_interval: Optional[int]
@@ -61,6 +60,17 @@ class CassandraView(CassandraTable):
     view_name: str
     include_all_columns: Optional[bool]
     where_clause: str = ""
+
+
+@dataclass
+class CassandraEntities:
+    keyspaces: List[str] = field(default_factory=list)
+    tables: Dict[str, List[str]] = field(
+        default_factory=dict
+    )  # Maps keyspace -> tables
+    columns: Dict[str, List[CassandraColumn]] = field(
+        default_factory=dict
+    )  # Maps tables -> columns
 
 
 # - Referencing system_schema: https://docs.datastax.com/en/cql-oss/3.x/cql/cql_using/useQuerySystem.html#Table3.ColumnsinSystem_SchemaTables-Cassandra3.0 - #
@@ -193,7 +203,6 @@ class CassandraAPI:
                     default_time_to_live=row.default_time_to_live,
                     extensions=dict(row.extensions),
                     gc_grace_seconds=row.gc_grace_seconds,
-                    id=str(row.id) if row.id else None,
                     max_index_interval=row.max_index_interval,
                     memtable_flush_period_in_ms=row.memtable_flush_period_in_ms,
                     min_index_interval=row.min_index_interval,
@@ -258,7 +267,6 @@ class CassandraAPI:
             )
             view_list = [
                 CassandraView(
-                    id=row.base_table_id,
                     table_name=row.base_table_name,
                     keyspace_name=row.keyspace_name,
                     view_name=row.view_name,

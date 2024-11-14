@@ -1,8 +1,6 @@
 import dataclasses
 import json
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
 from datahub.emitter.mce_builder import (
@@ -31,6 +29,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.cassandra.cassandra_api import (
     CassandraAPI,
     CassandraColumn,
+    CassandraEntities,
     CassandraKeyspace,
     CassandraTable,
     CassandraView,
@@ -39,23 +38,18 @@ from datahub.ingestion.source.cassandra.cassandra_config import CassandraSourceC
 from datahub.ingestion.source.cassandra.cassandra_profiling import CassandraProfiler
 from datahub.ingestion.source.cassandra.cassandra_utils import (
     SYSTEM_KEYSPACE_LIST,
+    CassandraSourceReport,
     CassandraToSchemaFieldConverter,
 )
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
 )
-from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
-    StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
-)
-from datahub.ingestion.source_report.ingestion_stage import (
-    PROFILING,
-    IngestionStageReport,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -85,39 +79,6 @@ class KeyspaceKey(ContainerKey):
     keyspace: str
 
 
-@dataclass
-class CassandraSourceReport(
-    ProfilingSqlReport, StaleEntityRemovalSourceReport, IngestionStageReport
-):
-    num_tables_failed: int = 0
-    num_views_failed: int = 0
-
-    def report_entity_scanned(self, name: str, ent_type: str = "View") -> None:
-        """
-        Entity could be a view or a table
-        """
-        if ent_type == "Table":
-            self.tables_scanned += 1
-        elif ent_type == "View":
-            self.views_scanned += 1
-        else:
-            raise KeyError(f"Unknown entity {ent_type}.")
-
-    def set_ingestion_stage(self, keyspace: str, stage: str) -> None:
-        self.report_ingestion_stage_start(f"{keyspace}: {stage}")
-
-
-@dataclass
-class CassandraEntities:
-    keyspaces: List[str] = field(default_factory=list)
-    tables: Dict[str, List[str]] = field(
-        default_factory=dict
-    )  # Maps keyspace -> tables
-    columns: Dict[str, List[CassandraColumn]] = field(
-        default_factory=dict
-    )  # Maps tables -> columns
-
-
 @platform_name("Cassandra")
 @config_class(CassandraSourceConfig)
 @support_status(SupportStatus.TESTING)
@@ -141,7 +102,6 @@ class CassandraSource(StatefulIngestionSourceBase):
 
     config: CassandraSourceConfig
     report: CassandraSourceReport
-    # cassandra_session: Session
     platform: str
 
     def __init__(self, ctx: PipelineContext, config: CassandraSourceConfig):
@@ -207,29 +167,7 @@ class CassandraSource(StatefulIngestionSourceBase):
 
         # Profiling
         if self.config.is_profiling_enabled():
-            for keyspace_name in self.cassandra_data.keyspaces:
-                tables = self.cassandra_data.tables.get(keyspace_name, [])
-                self.report.set_ingestion_stage(keyspace_name, PROFILING)
-                with ThreadPoolExecutor(
-                    max_workers=self.config.profiling.max_workers
-                ) as executor:
-                    future_to_dataset = {
-                        executor.submit(
-                            self.generate_profiles, keyspace_name, table_name
-                        ): table_name
-                        for table_name in tables
-                    }
-                    for future in as_completed(future_to_dataset):
-                        table_name = future_to_dataset[future]
-                        try:
-                            yield from future.result()
-                        except Exception as exc:
-                            self.report.profiling_skipped_other[table_name] += 1
-                            self.report.report_failure(
-                                message="Failed to profile for table",
-                                context=f"{keyspace_name}.{table_name}",
-                                exc=exc,
-                            )
+            yield from self.profiler.get_workunits(self.cassandra_data)
 
     def _generate_keyspace_container(
         self, keyspace: CassandraKeyspace
@@ -314,7 +252,6 @@ class CassandraSource(StatefulIngestionSourceBase):
                     qualifiedName=f"{keyspace_name}.{table_name}",
                     description=table.comment,
                     customProperties={
-                        "id": str(table.id),
                         "bloom_filter_fp_chance": str(table.bloom_filter_fp_chance),
                         "caching": json.dumps(table.caching),
                         "compaction": json.dumps(table.compaction),
@@ -436,7 +373,6 @@ class CassandraSource(StatefulIngestionSourceBase):
                     qualifiedName=f"{keyspace_name}.{view_name}",
                     description=view.comment,
                     customProperties={
-                        "base_table_id": str(view.id),
                         "bloom_filter_fp_chance": str(view.bloom_filter_fp_chance),
                         "caching": json.dumps(view.caching),
                         "compaction": json.dumps(view.compaction),
@@ -510,23 +446,6 @@ class CassandraSource(StatefulIngestionSourceBase):
                         ),
                     ),
                 ).as_workunit()
-
-    def generate_profiles(
-        self, keyspace: str, table_name: str
-    ) -> Iterable[MetadataWorkUnit]:
-        dataset_name: str = f"{keyspace}.{table_name}"
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=dataset_name,
-            env=self.config.env,
-            platform_instance=self.config.platform_instance,
-        )
-        yield from self.profiler.get_workunits(
-            dataset_urn,
-            keyspace,
-            table_name,
-            self.cassandra_data.columns.get(table_name, []),
-        )
 
     def get_upstream_fields_of_field_in_datasource(
         self, table_name: str, dataset_urn: str, upstream_urn: str

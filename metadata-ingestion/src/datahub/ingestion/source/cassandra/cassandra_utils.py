@@ -1,7 +1,13 @@
 import logging
+from dataclasses import dataclass
 from typing import Dict, Generator, List, Optional, Type
 
 from datahub.ingestion.source.cassandra.cassandra_api import CassandraColumn
+from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalSourceReport,
+)
+from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaFieldDataType,
@@ -25,6 +31,28 @@ logger = logging.getLogger(__name__)
 SYSTEM_KEYSPACE_LIST = set(
     ["system", "system_auth", "system_schema", "system_distributed", "system_traces"]
 )
+
+
+@dataclass
+class CassandraSourceReport(
+    ProfilingSqlReport, StaleEntityRemovalSourceReport, IngestionStageReport
+):
+    num_tables_failed: int = 0
+    num_views_failed: int = 0
+
+    def report_entity_scanned(self, name: str, ent_type: str = "View") -> None:
+        """
+        Entity could be a view or a table
+        """
+        if ent_type == "Table":
+            self.tables_scanned += 1
+        elif ent_type == "View":
+            self.views_scanned += 1
+        else:
+            raise KeyError(f"Unknown entity {ent_type}.")
+
+    def set_ingestion_stage(self, keyspace: str, stage: str) -> None:
+        self.report_ingestion_stage_start(f"{keyspace}: {stage}")
 
 
 # This class helps convert cassandra column types to SchemaFieldDataType for use by the datahaub metadata schema

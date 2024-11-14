@@ -1,20 +1,24 @@
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
 import numpy as np
 from cassandra.util import OrderedMapSerializedKey, SortedSet
 
+from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.cassandra.cassandra_api import (
     CassandraAPI,
     CassandraColumn,
+    CassandraEntities,
     CassandraQueries,
 )
 from datahub.ingestion.source.cassandra.cassandra_config import CassandraSourceConfig
-from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source.cassandra.cassandra_utils import CassandraSourceReport
+from datahub.ingestion.source_report.ingestion_stage import PROFILING
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
@@ -49,12 +53,12 @@ class ProfileData:
 
 class CassandraProfiler:
     config: CassandraSourceConfig
-    report: ProfilingSqlReport
+    report: CassandraSourceReport
 
     def __init__(
         self,
         config: CassandraSourceConfig,
-        report: ProfilingSqlReport,
+        report: CassandraSourceReport,
         api: CassandraAPI,
     ) -> None:
         self.api = api
@@ -62,12 +66,49 @@ class CassandraProfiler:
         self.report = report
 
     def get_workunits(
+        self, cassandra_data: CassandraEntities
+    ) -> Iterable[MetadataWorkUnit]:
+        for keyspace_name in cassandra_data.keyspaces:
+            tables = cassandra_data.tables.get(keyspace_name, [])
+            self.report.set_ingestion_stage(keyspace_name, PROFILING)
+            with ThreadPoolExecutor(
+                max_workers=self.config.profiling.max_workers
+            ) as executor:
+                future_to_dataset = {
+                    executor.submit(
+                        self.generate_profile,
+                        keyspace_name,
+                        table_name,
+                        cassandra_data.columns.get(table_name, []),
+                    ): table_name
+                    for table_name in tables
+                }
+                for future in as_completed(future_to_dataset):
+                    table_name = future_to_dataset[future]
+                    try:
+                        yield from future.result()
+                    except Exception as exc:
+                        self.report.profiling_skipped_other[table_name] += 1
+                        self.report.report_failure(
+                            message="Failed to profile for table",
+                            context=f"{keyspace_name}.{table_name}",
+                            exc=exc,
+                        )
+
+    def generate_profile(
         self,
-        dataset_urn: str,
         keyspace_name: str,
         table_name: str,
         columns: List[CassandraColumn],
     ) -> Iterable[MetadataWorkUnit]:
+        dataset_name: str = f"{keyspace_name}.{table_name}"
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform="cassandra",
+            name=dataset_name,
+            env=self.config.env,
+            platform_instance=self.config.platform_instance,
+        )
+
         if not columns:
             self.report.warning(
                 message="Skipping profiling as no columns found for table",
@@ -77,14 +118,22 @@ class CassandraProfiler:
             return
 
         if not self.config.profile_pattern.allowed(f"{keyspace_name}.{table_name}"):
-            self.report.profiling_skipped_table_profile_pattern[table_name] += 1
-            self.report.warning(
-                message="Profiling is restricted due to the specified profile pattern.",
-                context=f"{keyspace_name}.{table_name}",
+            self.report.profiling_skipped_table_profile_pattern[keyspace_name] += 1
+            logger.info(
+                f"Table {table_name} in {keyspace_name}, not allowed for profiling"
             )
             return
 
-        profile_data = self.profile_table(keyspace_name, table_name, columns)
+        try:
+            profile_data = self.profile_table(keyspace_name, table_name, columns)
+        except Exception as e:
+            self.report.warning(
+                message="Profiling Failed",
+                context=f"{keyspace_name}.{table_name}",
+                exc=e,
+            )
+            return
+
         profile_aspect = self.populate_profile_aspect(profile_data)
 
         if profile_aspect:
@@ -152,10 +201,17 @@ class CassandraProfiler:
         return self._parse_profile_results(profile_data)
 
     def _parse_profile_results(self, profile_data: ProfileData) -> ProfileData:
-        for _, column_metrics in profile_data.column_metrics.items():
+        for cl_name, column_metrics in profile_data.column_metrics.items():
             if column_metrics.values:
-                self._compute_field_statistics(column_metrics)
-
+                try:
+                    self._compute_field_statistics(column_metrics)
+                except Exception as e:
+                    self.report.warning(
+                        message="Profiling Failed For Column Stats",
+                        context=cl_name,
+                        exc=e,
+                    )
+                    raise e
         return profile_data
 
     def _collect_column_data(
