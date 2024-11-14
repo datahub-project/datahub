@@ -29,6 +29,7 @@ from datahub_executor.config import (
     DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS,
     DATAHUB_EXECUTOR_LIVENESS_HEARTBEAT_FILE,
     DATAHUB_EXECUTOR_READINESS_HEARTBEAT_FILE,
+    DATAHUB_EXECUTOR_SQS_VISIBILITY_TIMEOUT,
     DATAHUB_EXECUTOR_WORKER_ID,
     DATAHUB_EXECUTOR_WORKER_MONITOR_INTERVAL,
 )
@@ -64,6 +65,27 @@ def touch_heartbeat_file(path: str) -> None:
         Path(path).touch()
     except Exception as e:
         logger.error(f"Failed to update heartbeat file {path}: {e}")
+
+
+# These methods improve handling of SQS visibility timeout: since thread pool submit operation is blocking,
+# celery can not delete the message it just read from SQS when it blocks. If it's blocked for longer than
+# the visibility timeout, the message is sent back to the queue and another worker may pick it up. However,
+# the worker that originally picked it up will resume processing the message when thread pool becomes
+# available again, so the message may be processed more than once, thus wasting resources and in worst case
+# may create an infinite loop.
+
+
+def is_visibility_timeout_exceeded(submitted_at: float) -> bool:
+    discard_threshold = DATAHUB_EXECUTOR_SQS_VISIBILITY_TIMEOUT * 0.9
+    wait_time = time.time() - submitted_at
+    return wait_time > discard_threshold
+
+
+def safe_execute_ingestion(er: ExecutionRequest, submitted_at: float) -> None:
+    global ingestion_executor
+
+    if ingestion_executor and not is_visibility_timeout_exceeded(submitted_at):
+        ingestion_executor.execute(er)
 
 
 def monitor_thread() -> None:
@@ -174,8 +196,15 @@ def ingestion_request(event: MetadataChangeLogClass) -> None:
         global tp
         global ingestion_executor
         if ingestion_executor and tp:
+            submitted_at = time.time()
+            tp.submit(safe_execute_ingestion, execution_request, submitted_at)
+
+            # Do not delete message if visibility timeout exceeded -- another worker will handle it after it's re-enqueued.
+            if is_visibility_timeout_exceeded(submitted_at):
+                raise RuntimeError(
+                    f"ExecutionRequest {execution_request.exec_id} dropped due to exceeded SQS visibility timeout."
+                )
             STATS_WORKER_INGESTION_REQUESTS.labels(DATAHUB_EXECUTOR_WORKER_ID).inc()
-            tp.submit(ingestion_executor.execute, execution_request)
 
 
 @typing.no_type_check
