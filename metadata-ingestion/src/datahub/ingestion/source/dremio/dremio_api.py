@@ -781,7 +781,9 @@ class DremioAPIOperations:
         context_array = self.get(
             url=f"/catalog/{resource_id}",
         ).get("sqlContext")
-
-        return ".".join(
-            f'"{part}"' if "." in part else f"{part}" for part in context_array
-        )
+        if context_array:
+            return ".".join(
+                f'"{part}"' if "." in part else f"{part}" for part in context_array
+            )
+        else:
+            return ""
