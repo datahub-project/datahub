@@ -1,5 +1,5 @@
-import { Typography } from 'antd';
-import { Tooltip } from '@components';
+import { MarkAsDeprecatedButtonContents } from '@src/app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
+import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
@@ -32,6 +32,11 @@ const FieldPathContainer = styled.div`
     vertical-align: top;
     display: inline-block;
 `;
+
+const DeprecatedContainer = styled.div`
+    color: ${REDESIGN_COLORS.DARK_GREY};
+`;
+
 const FieldPathText = styled(Typography.Text)<{ $isCompact: boolean }>`
     font-size: 12px;
     line-height: ${(props) => (props.$isCompact ? '14px' : '24px')};
@@ -60,6 +65,7 @@ export const InteriorTitleContent = ({
 }: InteriorTitleProps) => {
     const fieldPathWithoutAnnotations = translateFieldPath(fieldPath);
     const parentPathWithoutAnnotations = translateFieldPath(record.parent?.fieldPath || '');
+    const isDeprecated = !!record.schemaFieldEntity?.deprecation?.deprecated;
     let pathToDisplay = fieldPathWithoutAnnotations;
 
     // if the parent path is a prefix of the field path, remove it for display purposes
@@ -78,6 +84,15 @@ export const InteriorTitleContent = ({
 
     return (
         <FieldTitleWrapper $isCompact={!!isCompact}>
+            {isDeprecated && !isCompact && (
+                <DeprecatedContainer>
+                    <Tooltip title="This column has been deprecated.">
+                        <span>
+                            <MarkAsDeprecatedButtonContents internalText=" " />
+                        </span>
+                    </Tooltip>
+                </DeprecatedContainer>
+            )}
             <FieldPathContainer>
                 <FieldPathText $isCompact={!!isCompact}>
                     {isCompact ? (

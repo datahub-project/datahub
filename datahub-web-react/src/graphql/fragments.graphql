@@ -206,6 +206,14 @@ fragment deprecationFields on Deprecation {
         type
         ...entityDisplayNameFields
     }
+    replacement {
+        ...entityDisplayNameFields
+        ... on Dataset {
+            platform {
+                ...platformFields
+            }
+        }
+    }
 }
 
 fragment parentContainersFields on ParentContainersResult {
@@ -910,6 +918,9 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
 }
 
 fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
+    deprecation {
+        ...deprecationFields
+    }
     urn
     fieldPath
     type

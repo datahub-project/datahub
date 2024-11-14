@@ -1,10 +1,13 @@
 import SchemaEditableContext from '@app/shared/SchemaEditableContext';
-import React, { useState } from 'react';
+import MarkAsDeprecatedButton from '@src/app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 import { Button, Typography } from 'antd';
+import React, { useState } from 'react';
 import styled from 'styled-components';
-import { UsageQueryResult } from '../../../../../../../../types.generated';
+import { Deprecation, SubResourceType, UsageQueryResult } from '../../../../../../../../types.generated';
 import { useMutationUrn } from '../../../../../../../entity/shared/EntityContext';
+import { UpdateDeprecationModal } from '../../../../../EntityDropdown/UpdateDeprecationModal';
 import CreateEntityAnnouncementModal from '../../../../../announce/CreateEntityAnnouncementModal';
+import { DeprecationPill } from '../../../../../components/styled/DeprecationPill';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { FieldPopularity } from './FieldPopularity';
 
@@ -22,7 +25,7 @@ const FieldDetailsContent = styled.div`
 const PopularityContainer = styled.div`
     display: flex;
     flex-direction: column;
-    flex: 2;
+    flex: 1;
     gap: 5px;
 `;
 
@@ -30,8 +33,20 @@ const NotesWrapper = styled.div`
     align-items: start;
     display: flex;
     flex-direction: column;
-    flex: 3;
-    gap: 10px;
+    flex: 1;
+    gap: 8px;
+`;
+
+const DeprecationWrapper = styled.div`
+    align-items: start;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: 8px;
+`;
+
+const MarkAsDeprecatedButtonContainer = styled.div`
+    margin-left: -4px;
 `;
 
 const DetailLabel = styled(Typography.Text)`
@@ -52,18 +67,34 @@ const DetailValue = styled(Typography.Text)`
 
 type FieldDetailsProps = {
     fieldPath: string | null;
+    deprecation?: Deprecation | null;
     usageStats?: UsageQueryResult | null;
     refetch?: () => void;
 };
 
-export const FieldDetails = ({ fieldPath, usageStats, refetch }: FieldDetailsProps) => {
+export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch }: FieldDetailsProps) => {
     const isSchemaEditable = React.useContext(SchemaEditableContext);
+    const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
     const [isPostModalVisible, setIsPostModalVisible] = useState(false);
 
     const datasetUrn = useMutationUrn();
 
     return (
         <FieldDetailsWrapper>
+            {isDeprecationModalVisible && (
+                <UpdateDeprecationModal
+                    urns={[datasetUrn || '']}
+                    resourceRefs={[
+                        {
+                            resourceUrn: datasetUrn,
+                            subResource: fieldPath,
+                            subResourceType: SubResourceType.DatasetField,
+                        },
+                    ]}
+                    onClose={() => setIsDeprecationModalVisible(false)}
+                    refetch={refetch}
+                />
+            )}
             {isPostModalVisible && (
                 <CreateEntityAnnouncementModal
                     subResource={fieldPath}
@@ -103,6 +134,26 @@ export const FieldDetails = ({ fieldPath, usageStats, refetch }: FieldDetailsPro
                         </Button>
                     )}
                 </NotesWrapper>
+                <DeprecationWrapper>
+                    <DetailLabel>Deprecation</DetailLabel>
+                    {!deprecation?.deprecated && (
+                        <MarkAsDeprecatedButtonContainer>
+                            <MarkAsDeprecatedButton onClick={() => setIsDeprecationModalVisible(true)} />
+                        </MarkAsDeprecatedButtonContainer>
+                    )}
+                    {!!deprecation?.deprecated && (
+                        <DeprecationPill
+                            urn={datasetUrn}
+                            subResource={fieldPath}
+                            subResourceType={SubResourceType.DatasetField}
+                            deprecation={deprecation}
+                            showUndeprecate
+                            refetch={refetch}
+                            // default zIndex of the popover
+                            zIndexOverride={1030}
+                        />
+                    )}
+                </DeprecationWrapper>
             </FieldDetailsContent>
         </FieldDetailsWrapper>
     );

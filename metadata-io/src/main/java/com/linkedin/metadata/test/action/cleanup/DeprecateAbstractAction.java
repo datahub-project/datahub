@@ -32,7 +32,8 @@ public abstract class DeprecateAbstractAction extends NoValidationAction {
             METADATA_TEST_ACTOR_URN,
             "Deprecated via metadata tests",
             deprecate,
-            System.currentTimeMillis());
+            System.currentTimeMillis(),
+            null);
     return TestUtils.buildProposalForUrn(urn, Constants.DEPRECATION_ASPECT_NAME, deprecation);
   }
 

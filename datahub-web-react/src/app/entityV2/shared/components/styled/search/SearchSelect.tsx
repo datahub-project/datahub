@@ -46,6 +46,7 @@ type Props = {
     placeholderText?: string | null;
     selectedEntities: EntityAndType[];
     setSelectedEntities: (Entities: EntityAndType[]) => void;
+    limit?: number;
 };
 
 /**
@@ -55,7 +56,13 @@ type Props = {
  * This component provides easy ways to filter for a specific set of entity types, and provides a set of entity urns
  * when the selection is complete.
  */
-export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntities, setSelectedEntities }: Props) => {
+export const SearchSelect = ({
+    fixedEntityTypes,
+    placeholderText,
+    selectedEntities,
+    setSelectedEntities,
+    limit,
+}: Props) => {
     const entityRegistry = useEntityRegistry();
 
     // Component state
@@ -173,6 +180,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                     refetch={refetch}
                     selectedEntities={selectedEntities}
                     setSelectedEntities={setSelectedEntities}
+                    limit={limit}
                 />
             </TabToolbar>
             <EmbeddedListSearchResults
@@ -191,6 +199,7 @@ export const SearchSelect = ({ fixedEntityTypes, placeholderText, selectedEntiti
                 isSelectMode
                 selectedEntities={selectedEntities}
                 setSelectedEntities={setSelectedEntities}
+                selectLimit={limit}
             />
         </Container>
     );

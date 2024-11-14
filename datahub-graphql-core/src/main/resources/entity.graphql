@@ -3548,6 +3548,11 @@ type SchemaFieldEntity implements EntityWithRelationships & Entity {
     The status of the SchemaFieldEntity
     """
     status: Status
+
+    """
+    deprecation status of the schema field
+    """
+    deprecation: Deprecation
 }
 
 """
@@ -8860,6 +8865,11 @@ type Deprecation {
     The hydrated user who will be credited for modifying this deprecation content
     """
     actorEntity: Entity
+
+    """
+    The optional replacement entity
+    """
+    replacement: Entity
 }
 
 """
@@ -9385,6 +9395,16 @@ input UpdateDeprecationInput {
     urn: String!
 
     """
+    An optional type of a sub resource to set the deprecation for
+    """
+    subResourceType: SubResourceType
+
+    """
+    An optional sub resource identifier to set the deprecation for
+    """
+    subResource: String
+
+    """
     Whether the Entity is marked as deprecated.
     """
     deprecated: Boolean!
@@ -9398,6 +9418,11 @@ input UpdateDeprecationInput {
     Optional - Additional information about the entity deprecation plan
     """
     note: String
+
+    """
+    Optional - URN to replace the entity with
+    """
+    replacement: String
 }
 
 
@@ -9424,6 +9449,11 @@ input BatchUpdateDeprecationInput {
     The target assets to attach the tags to
     """
     resources: [ResourceRefInput]!
+
+    """
+    Optional - URN to replace the entity with
+    """
+    replacement: String
 }
 
 """

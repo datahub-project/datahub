@@ -1,8 +1,11 @@
 package com.linkedin.datahub.graphql.types.schemafield;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.DEPRECATION_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 
 import com.linkedin.businessattribute.BusinessAttributes;
+import com.linkedin.common.Deprecation;
 import com.linkedin.common.Documentation;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
@@ -10,6 +13,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.datahub.graphql.types.businessattribute.mappers.BusinessAttributesMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DocumentationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.LineageFeaturesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
@@ -64,6 +68,11 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
     mappingHelper.mapToResult(
         STATUS_ASPECT_NAME,
         (entity, dataMap) -> entity.setStatus(StatusMapper.map(context, new Status(dataMap))));
+    mappingHelper.mapToResult(
+        DEPRECATION_ASPECT_NAME,
+        ((schemaField, dataMap) ->
+            schemaField.setDeprecation(
+                DeprecationMapper.map(context, new Deprecation((dataMap))))));
 
     return result;
   }
@@ -75,6 +84,7 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
       result.setType(EntityType.SCHEMA_FIELD);
       result.setFieldPath(urn.getEntityKey().get(1));
       Urn parentUrn = Urn.createFromString(urn.getEntityKey().get(0));
+
       result.setParent(UrnToEntityMapper.map(context, parentUrn));
       return result;
     } catch (Exception e) {

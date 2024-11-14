@@ -2,7 +2,6 @@ import {
     BellFilled,
     BellOutlined,
     DeleteOutlined,
-    ExclamationCircleOutlined,
     FolderAddOutlined,
     FolderOpenOutlined,
     LinkOutlined,
@@ -21,13 +20,14 @@ import styled from 'styled-components';
 import { useUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
 import { EntityType } from '../../../../types.generated';
 import { useUserContext } from '../../../context/useUserContext';
+import Loading from '../../../shared/Loading';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
 import ShareButtonMenu from '../../../shared/share/v2/ShareButtonMenu';
 import SubscribeButtonMenu from '../../../shared/subscribe/v2/SubscribeButtonMenu';
-import Loading from '../../../shared/Loading';
 import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CreateEntityAnnouncementModal from '../announce/CreateEntityAnnouncementModal';
+import { MarkAsDeprecatedButtonContents } from '../components/styled/MarkAsDeprecatedButton';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../constants';
 import { getEntityPath } from '../containers/profile/utils';
 import { AddIncidentModal } from '../tabs/Incident/components/AddIncidentModal';
@@ -215,13 +215,11 @@ const EntityDropdown = (props: Props) => {
                             <Menu.Item key="1">
                                 {!entityData?.deprecation?.deprecated ? (
                                     <MenuItem onClick={() => setIsDeprecationModalVisible(true)}>
-                                        <ExclamationCircleOutlined />
-                                        &nbsp; Mark as deprecated
+                                        <MarkAsDeprecatedButtonContents />
                                     </MenuItem>
                                 ) : (
                                     <MenuItem onClick={() => handleUpdateDeprecation(false)}>
-                                        <ExclamationCircleOutlined />
-                                        &nbsp; Mark as un-deprecated
+                                        <MarkAsDeprecatedButtonContents internalText="Mark as un-deprecated" />
                                     </MenuItem>
                                 )}
                             </Menu.Item>
@@ -230,7 +228,7 @@ const EntityDropdown = (props: Props) => {
                             <Menu.Item key="1-1">
                                 <MenuItem onClick={() => setIsEntityAnnouncementModalVisible(true)}>
                                     <NotificationOutlined />
-                                    &nbsp; Add Note
+                                    &nbsp;Add Note
                                 </MenuItem>
                             </Menu.Item>
                         )}

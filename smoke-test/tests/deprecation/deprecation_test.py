@@ -139,3 +139,118 @@ def test_update_deprecation_partial_fields(auth_session, ingest_cleanup_data):
         "actor": get_root_urn(),
         "decommissionTime": None,
     }
+
+
+@pytest.mark.dependency(depends=["test_update_deprecation_all_fields"])
+def test_update_deprecation_with_replacement(auth_session, ingest_cleanup_data):
+    dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,test-tags-terms-sample-kafka,PROD)"
+    )
+    replacement_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,replacement-dataset,PROD)"
+    )
+
+    # Add replacement
+    update_deprecation_json = {
+        "query": """mutation updateDeprecation($input: UpdateDeprecationInput!) {\n
+            updateDeprecation(input: $input)
+        }""",
+        "variables": {
+            "input": {
+                "urn": dataset_urn,
+                "deprecated": True,
+                "note": "Replaced by new dataset",
+                "decommissionTime": 0,
+                "replacement": replacement_urn,
+            }
+        },
+    }
+
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=update_deprecation_json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["updateDeprecation"] is True
+
+    # Verify replacement was set
+    dataset_json = {
+        "query": """query getDataset($urn: String!) {\n
+            dataset(urn: $urn) {\n
+                deprecation {\n
+                    deprecated\n
+                    decommissionTime\n
+                    note\n
+                    actor\n
+                    replacement {\n
+                        urn\n
+                    }\n
+                }\n
+            }\n
+        }""",
+        "variables": {"urn": dataset_urn},
+    }
+
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["dataset"]
+    assert res_data["data"]["dataset"]["deprecation"] == {
+        "deprecated": True,
+        "decommissionTime": 0,
+        "note": "Replaced by new dataset",
+        "actor": get_root_urn(),
+        "replacement": {"urn": replacement_urn},
+    }
+
+    # Now remove replacement
+    update_deprecation_json = {
+        "query": """mutation updateDeprecation($input: UpdateDeprecationInput!) {\n
+            updateDeprecation(input: $input)
+        }""",
+        "variables": {
+            "input": {
+                "urn": dataset_urn,
+                "deprecated": True,
+                "note": "No longer replaced",
+                "decommissionTime": 0,
+                "replacement": None,
+            }
+        },
+    }
+
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=update_deprecation_json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["updateDeprecation"] is True
+
+    # Verify replacement was removed
+    response = auth_session.post(
+        f"{auth_session.frontend_url()}/api/v2/graphql", json=dataset_json
+    )
+    response.raise_for_status()
+    res_data = response.json()
+
+    assert res_data
+    assert res_data["data"]
+    assert res_data["data"]["dataset"]
+    assert res_data["data"]["dataset"]["deprecation"] == {
+        "deprecated": True,
+        "decommissionTime": 0,
+        "note": "No longer replaced",
+        "actor": get_root_urn(),
+        "replacement": None,
+    }

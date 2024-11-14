@@ -1,10 +1,8 @@
 import { LoadingOutlined } from '@ant-design/icons';
-import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
-import { combineSiblingsInSearchResults } from '@src/app/searchV2/utils/combineSiblingsInSearchResults';
+import LanguageIcon from '@mui/icons-material/Language';
 import { Pagination, Spin, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import LanguageIcon from '@mui/icons-material/Language';
 import { SearchCfg } from '../../../../../../conf';
 import {
     DataHubView,
@@ -15,6 +13,8 @@ import {
 import { EntityAndType } from '../../../../../entity/shared/types';
 import { SearchFiltersSection } from '../../../../../search/SearchFiltersSection';
 import { UnionType } from '../../../../../search/utils/constants';
+import { combineSiblingsInSearchResults } from '../../../../../searchV2/utils/combineSiblingsInSearchResults';
+import { useIsShowSeparateSiblingsEnabled } from '../../../../../useAppConfig';
 import { ANTD_GRAY, REDESIGN_COLORS } from '../../../constants';
 import { EntityActionProps, EntitySearchResults } from './EntitySearchResults';
 import MatchingViewsLabel from './MatchingViewsLabel';
@@ -155,6 +155,7 @@ interface Props {
     allSearchCount?: number;
     view?: DataHubView;
     errorMessage?: string;
+    selectLimit?: number;
 }
 
 export const EmbeddedListSearchResults = ({
@@ -183,6 +184,7 @@ export const EmbeddedListSearchResults = ({
     allSearchCount = 0,
     view,
     errorMessage,
+    selectLimit,
 }: Props) => {
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(
@@ -251,6 +253,7 @@ export const EmbeddedListSearchResults = ({
                                 })) || []
                             }
                             isSelectMode={isSelectMode}
+                            selectLimit={selectLimit}
                             selectedEntities={selectedEntities}
                             setSelectedEntities={setSelectedEntities}
                             bordered={false}

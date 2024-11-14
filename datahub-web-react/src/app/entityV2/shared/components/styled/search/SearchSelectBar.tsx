@@ -40,6 +40,7 @@ type Props = {
     totalResults?: number;
     selectedEntities?: EntityAndType[];
     setSelectedEntities: (entities: EntityAndType[]) => void;
+    limit?: number;
     showCancel?: boolean;
     showActions?: boolean;
     onChangeSelectAll: (selected: boolean) => void;
@@ -59,6 +60,7 @@ export const SearchSelectBar = ({
     totalResults = 0,
     selectedEntities = [],
     setSelectedEntities,
+    limit,
     showCancel = true,
     showActions = true,
     onChangeSelectAll,
@@ -99,6 +101,7 @@ export const SearchSelectBar = ({
                         onChangeSelectAll(e.target.checked as boolean);
                         setAreAllEntitiesSelected?.(false);
                     }}
+                    disabled={limit !== undefined && limit > 0}
                 />
                 <Typography.Text strong type="secondary">
                     {areAllEntitiesSelected ? (

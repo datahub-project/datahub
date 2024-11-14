@@ -1192,6 +1192,10 @@
       "type" : "string",
       "doc" : "Additional information about the entity deprecation plan, such as the wiki, doc, RB."
     }, {
+      "name" : "replacement",
+      "type" : "Urn",
+      "optional" : true
+    }, {
       "name" : "actor",
       "type" : "Urn",
       "doc" : "The user URN which will be credited for modifying this deprecation content."

@@ -23,6 +23,9 @@ public class DeprecationMapper
     result.setActorEntity(UrnToEntityMapper.map(context, input.getActor()));
     result.setDeprecated(input.isDeprecated());
     result.setDecommissionTime(input.getDecommissionTime());
+    if (input.getReplacement() != null) {
+      result.setReplacement(UrnToEntityMapper.map(context, input.getReplacement()));
+    }
     result.setNote(input.getNote());
     return result;
   }

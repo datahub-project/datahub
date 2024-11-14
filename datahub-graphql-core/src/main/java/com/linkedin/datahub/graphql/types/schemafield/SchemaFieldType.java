@@ -32,6 +32,7 @@ public class SchemaFieldType
   public static final Set<String> ASPECTS_TO_FETCH =
       ImmutableSet.of(
           STRUCTURED_PROPERTIES_ASPECT_NAME,
+          DEPRECATION_ASPECT_NAME,
           BUSINESS_ATTRIBUTE_ASPECT,
           DOCUMENTATION_ASPECT_NAME,
           LINEAGE_FEATURES_ASPECT_NAME,

@@ -1,17 +1,18 @@
-import React from 'react';
-import styled from 'styled-components';
 import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material';
 import { Collapse, Typography } from 'antd';
-import { REDESIGN_COLORS } from '../../../../constants';
-import { useEntityData } from '../../../../../../entity/shared/EntityContext';
-import { getPlatformName } from '../../../../utils';
-import TimeProperty from './TimeProperty';
+import React from 'react';
+import styled from 'styled-components';
 import { DataPlatformInstance, EntityType, SyncMechanism } from '../../../../../../../types.generated';
-import SyncedOrShared from './SyncedOrShared';
-import { Entity } from '../../../../../Entity';
+import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
-import { ACRYL_PLATFORM, ActionType } from './utils';
+import { Entity } from '../../../../../Entity';
+import { REDESIGN_COLORS } from '../../../../constants';
+import { getPlatformName } from '../../../../utils';
 import { SidebarSection } from '../SidebarSection';
+import EntityProperty from './EntityProperty';
+import SyncedOrShared from './SyncedOrShared';
+import TimeProperty from './TimeProperty';
+import { ACRYL_PLATFORM, ActionType } from './utils';
 
 const SyncedAssetContainer = styled.div`
     display: flex;
@@ -84,6 +85,7 @@ const StatusSection = () => {
     const deprecatedByEntityName =
         deprecatedByEntity?.type && entityRegistry.getDisplayName(deprecatedByEntity.type, deprecatedByEntity);
     const decommissionTime = entityData?.deprecation?.decommissionTime;
+    const deprecationReplacement = entityData?.deprecation?.replacement;
 
     const hasTimeProperties = !!(
         created ||
@@ -136,6 +138,9 @@ const StatusSection = () => {
                                 }
                                 key={1}
                             >
+                                {deprecationReplacement && (
+                                    <EntityProperty labelText="Replacement:" entity={deprecationReplacement} />
+                                )}
                                 {decommissionTime ? (
                                     <TimeProperty
                                         labelText="Scheduled Decommission:"

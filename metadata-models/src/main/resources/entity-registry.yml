@@ -576,6 +576,7 @@ entities:
       - testResults
       - schemaFieldProfile
       - lineageFeatures
+      - deprecation
   - name: globalSettings
     doc: Global settings for an the platform
     category: internal

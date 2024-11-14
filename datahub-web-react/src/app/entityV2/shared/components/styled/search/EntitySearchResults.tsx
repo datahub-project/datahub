@@ -82,6 +82,7 @@ type Props = {
     entityAction?: React.FC<EntityActionProps>;
     compactUserSearchCardStyle?: boolean;
     noResultsMessage?: string;
+    selectLimit?: number;
 };
 
 const MatchContextAndEntityContainer = styled.div`
@@ -100,6 +101,7 @@ export const EntitySearchResults = ({
     entityAction,
     compactUserSearchCardStyle,
     noResultsMessage,
+    selectLimit,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities?.map((entity) => entity.urn) || [];
@@ -170,6 +172,11 @@ export const EntitySearchResults = ({
                                 {isSelectMode && (
                                     <StyledCheckbox
                                         checked={selectedEntityUrns.indexOf(entity.urn) >= 0}
+                                        disabled={
+                                            selectLimit !== undefined &&
+                                            selectedEntities.length >= selectLimit &&
+                                            !selectedEntityUrns.includes(entity.urn)
+                                        }
                                         onChange={(e) =>
                                             onSelectEntity({ urn: entity.urn, type: entity.type }, e.target.checked)
                                         }

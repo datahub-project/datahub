@@ -66,6 +66,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                 <>
                     <FieldDetails
                         usageStats={properties.usageStats}
+                        deprecation={expandedField?.schemaFieldEntity?.deprecation}
                         fieldPath={properties.expandedDrawerFieldPath}
                         refetch={() => setTimeout(() => refetch?.(), 2000)}
                     />

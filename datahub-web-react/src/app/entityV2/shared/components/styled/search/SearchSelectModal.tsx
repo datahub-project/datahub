@@ -21,6 +21,7 @@ type Props = {
     continueText?: string | null;
     onContinue: (entityUrns: string[]) => void;
     onCancel?: () => void;
+    limit?: number;
 };
 
 /**
@@ -36,6 +37,7 @@ export const SearchSelectModal = ({
     continueText,
     onContinue,
     onCancel,
+    limit,
 }: Props) => {
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
 
@@ -88,6 +90,7 @@ export const SearchSelectModal = ({
                     placeholderText={placeholderText}
                     selectedEntities={selectedEntities}
                     setSelectedEntities={setSelectedEntities}
+                    limit={limit}
                 />
             </StyledModal>
         </ClickOutside>

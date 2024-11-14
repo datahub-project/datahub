@@ -1772,6 +1772,13 @@ public class GmsGraphQLEngine {
                         (env) ->
                             ((ForeignKeyConstraint) env.getSource()).getForeignDataset().getUrn())))
         .type(
+            "Deprecation",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "replacement",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((Deprecation) env.getSource()).getReplacement())))
+        .type(
             "SiblingProperties",
             typeWiring ->
                 typeWiring.dataFetcher(

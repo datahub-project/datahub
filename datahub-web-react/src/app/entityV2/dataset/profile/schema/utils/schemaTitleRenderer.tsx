@@ -1,7 +1,7 @@
 import React from 'react';
-import { ExtendedSchemaFields } from './types';
 import { SchemaMetadata } from '../../../../../../types.generated';
 import { InteriorTitleContent } from '../components/InteriorTitleContent';
+import { ExtendedSchemaFields } from './types';
 
 export default function useSchemaTitleRenderer(
     schemaMetadata: SchemaMetadata | undefined | null,

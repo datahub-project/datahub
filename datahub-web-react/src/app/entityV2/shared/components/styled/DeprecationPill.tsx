@@ -1,13 +1,15 @@
+import { Popover, Tooltip } from '@components';
+import { Divider, Modal, Typography, message } from 'antd';
+import moment from 'moment';
 import React from 'react';
 import styled from 'styled-components';
-import { InfoCircleOutlined } from '@ant-design/icons';
-import { Divider, message, Modal, Typography } from 'antd';
-import { Tooltip, Popover } from '@components';
-import moment from 'moment';
 import { useBatchUpdateDeprecationMutation } from '../../../../../graphql/mutations.generated';
-import { Deprecation } from '../../../../../types.generated';
+import { Deprecation, SubResourceType } from '../../../../../types.generated';
+import { EntityLink } from '../../../../homeV2/reference/sections/EntityLink';
+import { getFieldPathFromSchemaFieldUrn } from '../../../../lineageV2/lineageUtils';
 import { getLocaleTimezone } from '../../../../shared/time/timeUtils';
 import { REDESIGN_COLORS } from '../../constants';
+import MarkAsDeprecatedButton from './MarkAsDeprecatedButton';
 
 const DeprecatedContainer = styled.div`
     background-color: ${REDESIGN_COLORS.WHITE};
@@ -40,6 +42,7 @@ const DeprecatedSubTitle = styled(Typography.Text)`
     display: block;
     margin-bottom: 5px;
     color: ${REDESIGN_COLORS.TEXT_HEADING};
+    white-space: nowrap;
 `;
 
 const LastEvaluatedAtLabel = styled.div`
@@ -55,12 +58,8 @@ const ThinDivider = styled(Divider)`
     margin-bottom: 8px;
 `;
 
-const UndeprecatedIcon = styled(InfoCircleOutlined)`
-    font-size: 14px;
-    padding-right: 6px;
-`;
-
 const IconGroup = styled.div`
+    padding-top: 10px;
     font-size: 12px;
     color: ${REDESIGN_COLORS.TEXT_HEADING};
 
@@ -72,12 +71,23 @@ const IconGroup = styled.div`
 
 type Props = {
     urn: string;
+    subResource?: string | null;
+    subResourceType?: SubResourceType;
     deprecation: Deprecation;
     refetch?: () => void;
     showUndeprecate: boolean | null;
+    zIndexOverride?: number;
 };
 
-export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: Props) => {
+export const DeprecationPill = ({
+    deprecation,
+    urn,
+    subResource,
+    subResourceType,
+    refetch,
+    showUndeprecate,
+    zIndexOverride,
+}: Props) => {
     const [batchUpdateDeprecationMutation] = useBatchUpdateDeprecationMutation();
     const localeTimezone = getLocaleTimezone(); // Deprecation Decommission Timestamp
 
@@ -106,7 +116,7 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
         batchUpdateDeprecationMutation({
             variables: {
                 input: {
-                    resources: [{ resourceUrn: urn }],
+                    resources: [{ resourceUrn: urn, subResource, subResourceType }],
                     deprecated: false,
                 },
             },
@@ -126,16 +136,32 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
             });
     };
 
+    const isReplacementSchemaField = deprecation?.replacement?.urn?.startsWith('urn:li:schemaField');
+
     return (
         <Popover
             overlayStyle={{ maxWidth: 240 }}
-            zIndex={999} // set to 999 to ensure it is below the 1000 mark of the entity popover
+            zIndex={zIndexOverride || 999} // set to 999 to ensure it is below the 1000 mark of the entity popover if on the entity level
             placement="bottom"
             content={
                 hasDetails ? (
                     <>
                         {deprecation?.note !== '' && <DeprecatedTitle>Deprecation note</DeprecatedTitle>}
                         {isDividerNeeded && <ThinDivider />}
+                        {deprecation.replacement && (
+                            <DeprecatedSubTitle>
+                                {isReplacementSchemaField ? (
+                                    <>
+                                        <b>Replacement: </b>
+                                        {getFieldPathFromSchemaFieldUrn(deprecation.replacement.urn)}
+                                    </>
+                                ) : (
+                                    <>
+                                        <b>Replacement:</b> <EntityLink entity={deprecation.replacement} />
+                                    </>
+                                )}
+                            </DeprecatedSubTitle>
+                        )}
                         {deprecation?.note !== '' && <DeprecatedSubTitle>{deprecation.note}</DeprecatedSubTitle>}
                         {deprecation?.decommissionTime !== null && (
                             <Typography.Text type="secondary">
@@ -161,8 +187,7 @@ export const DeprecationPill = ({ deprecation, urn, refetch, showUndeprecate }: 
                                     })
                                 }
                             >
-                                <UndeprecatedIcon />
-                                Mark as un-deprecated
+                                <MarkAsDeprecatedButton internalText="Mark as un-deprecated" />
                             </IconGroup>
                         )}
                     </>
