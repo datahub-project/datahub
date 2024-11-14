@@ -119,6 +119,7 @@ def construct_schema(
         """
 
         for key, value in doc.items():
+            key = str(key)
             new_parent_prefix = parent_prefix + (key,)
 
             # if nested value, look at the types within

@@ -1,0 +1,5 @@
+[
+  {"name": "apple", "rating": 10.0, "varieties": ["honey crisp", "red delicious", "fuji"], "tasty": true, "mixedType": 2, "nullMixedType": "a"},
+  {"name": "orange", "rating": 9, "varieties": ["clementine", "navel"], "tasty": true, "mixedType": "abc", "nullMixedType": true},
+  {"name": "kiwi", "rating": 1000000000000000000, "tasty": true, "mixedType": {"fieldA": "a", "fieldTwo": 2}}
+]

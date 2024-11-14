@@ -21,6 +21,16 @@
     displayName: Azure Data Lake (Gen 2)
     type: FILE_SYSTEM
     logoUrl: "/assets/platforms/adlslogo.png"
+- entityUrn: urn:li:dataPlatform:aerospike
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: aerospike
+    displayName: Aerospike
+    type: KEY_VALUE_STORE
+    logoUrl: "/assets/platforms/aerospike.png"
 - entityUrn: urn:li:dataPlatform:airflow
   entityType: dataPlatform
   aspectName: dataPlatformInfo
