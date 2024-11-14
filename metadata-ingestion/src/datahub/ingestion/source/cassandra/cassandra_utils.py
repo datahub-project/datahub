@@ -1,6 +1,7 @@
 import logging
 from typing import Dict, Generator, List, Optional, Type
 
+from datahub.ingestion.source.cassandra.cassandra_api import CassandraColumn
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     SchemaField,
     SchemaFieldDataType,
@@ -24,37 +25,6 @@ logger = logging.getLogger(__name__)
 SYSTEM_KEYSPACE_LIST = set(
     ["system", "system_auth", "system_schema", "system_distributed", "system_traces"]
 )
-
-
-# these column names are present on the system_schema tables
-COL_NAMES = {
-    "keyspace_name": "keyspace_name",  # present on all tables
-    "table_name": "table_name",  # present on tables table
-    "column_name": "column_name",  # present on columns table
-    "column_type": "type",  # present on columns table
-    "view_name": "view_name",  # present on views table
-    "base_table_name": "base_table_name",  # present on views table
-    "where_clause": "where_clause",  # present on views table
-}
-
-
-# - Referencing system_schema: https://docs.datastax.com/en/cql-oss/3.x/cql/cql_using/useQuerySystem.html#Table3.ColumnsinSystem_SchemaTables-Cassandra3.0 - #
-# this keyspace contains details about the cassandra cluster's keyspaces, tables, and columns
-
-
-class CassandraQueries:
-    # get all keyspaces
-    GET_KEYSPACES_QUERY = "SELECT * FROM system_schema.keyspaces"
-    # get all tables for a keyspace
-    GET_TABLES_QUERY = "SELECT * FROM system_schema.tables WHERE keyspace_name = %s"
-    # get all columns for a table
-    GET_COLUMNS_QUERY = "SELECT * FROM system_schema.columns WHERE keyspace_name = %s AND table_name = %s"
-    # get all views for a keyspace
-    GET_VIEWS_QUERY = "SELECT * FROM system_schema.views WHERE keyspace_name = %s"
-    # Row Count
-    ROW_COUNT = 'SELECT COUNT(*) AS row_count FROM {}."{}"'
-    # Column Count
-    COLUMN_COUNT = "SELECT COUNT(*) AS column_count FROM system_schema.columns WHERE keyspace_name = '{}' AND table_name = '{}'"
 
 
 # This class helps convert cassandra column types to SchemaFieldDataType for use by the datahaub metadata schema
@@ -111,18 +81,12 @@ class CassandraToSchemaFieldConverter:
         return SchemaFieldDataType(type=type_class())
 
     def _get_schema_fields(
-        self, cassandra_column_infos: List
+        self, cassandra_column_infos: List[CassandraColumn]
     ) -> Generator[SchemaField, None, None]:
         # append each schema field (sort so output is consistent)
         for column_info in cassandra_column_infos:
-            # convert namedtuple to dictionary if it isn't already one
-            column_info = (
-                column_info._asdict()
-                if hasattr(column_info, "_asdict")
-                else column_info
-            )
-            column_name: str = column_info[COL_NAMES["column_name"]]
-            cassandra_type: str = column_info[COL_NAMES["column_type"]]
+            column_name: str = column_info.column_name
+            cassandra_type: str = column_info.type
 
             schema_field_data_type: SchemaFieldDataType = self.get_column_type(
                 cassandra_type
@@ -139,7 +103,7 @@ class CassandraToSchemaFieldConverter:
 
     @classmethod
     def get_schema_fields(
-        cls, cassandra_column_infos: List
+        cls, cassandra_column_infos: List[CassandraColumn]
     ) -> Generator[SchemaField, None, None]:
         converter = cls()
         yield from converter._get_schema_fields(cassandra_column_infos)
