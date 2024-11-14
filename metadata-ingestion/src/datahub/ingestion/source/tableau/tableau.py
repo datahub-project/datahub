@@ -1034,7 +1034,7 @@ class TableauSiteSource:
             ),
         )
 
-    def _is_hidden_view(self, dashboard_or_view: Dict):
+    def _is_hidden_view(self, dashboard_or_view: Dict) -> bool:
         # LUID is blank if the view is hidden in the workbook.
         # More info here: https://help.tableau.com/current/api/metadata_api/en-us/reference/view.doc.html
         return not dashboard_or_view.get(c.LUID)
@@ -3042,7 +3042,9 @@ class TableauSiteSource:
         dashboard_snapshot.aspects.append(dashboard_info_class)
 
         tags = self.get_tags(dashboard)
-        if len(self.config.tags_for_hidden_assets) > 0 and self._is_hidden_view(dashboard):
+        if len(self.config.tags_for_hidden_assets) > 0 and self._is_hidden_view(
+            dashboard
+        ):
             tags.extend(self.config.tags_for_hidden_assets)
 
         dashboard_snapshot.aspects.append(
