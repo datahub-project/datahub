@@ -111,7 +111,7 @@
             "hash": "",
             "platformSchema": {
                 "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": "[{\"keyspace_name\": \"cass_test_1\", \"table_name\": \"information\", \"column_name\": \"details\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"text\"}, {\"keyspace_name\": \"cass_test_1\", \"table_name\": \"information\", \"column_name\": \"last_updated\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"timestamp\"}, {\"keyspace_name\": \"cass_test_1\", \"table_name\": \"information\", \"column_name\": \"person_id\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"int\"}]"
+                    "rawSchema": "[{\"keyspace_name\": \"cass_test_1\", \"table_name\": \"information\", \"column_name\": \"details\", \"type\": \"text\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"cass_test_1\", \"table_name\": \"information\", \"column_name\": \"last_updated\", \"type\": \"timestamp\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"cass_test_1\", \"table_name\": \"information\", \"column_name\": \"person_id\", \"type\": \"int\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0}]"
                 }
             },
             "fields": [
@@ -155,7 +155,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731504327378,
+        "lastObserved": 1731591019538,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -202,7 +202,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "id": "ca9b3c30-a271-11ef-bb04-8d57c2f7cd04",
                 "bloom_filter_fp_chance": "0.01",
                 "caching": "{\"keys\": \"ALL\", \"rows_per_partition\": \"NONE\"}",
                 "compaction": "{\"class\": \"org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy\", \"max_threshold\": \"32\", \"min_threshold\": \"4\"}",
@@ -225,7 +224,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731579516876,
+        "lastObserved": 1731591019540,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -251,7 +250,7 @@
             "hash": "",
             "platformSchema": {
                 "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"ascii_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"ascii\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"bigint_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"bigint\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"blob_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"blob\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"boolean_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"boolean\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"date_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"date\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"decimal_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"decimal\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"double_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"double\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"float_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"float\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"frozen_list_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"frozen<list<text>>\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"frozen_map_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"frozen<map<text, text>>\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"frozen_set_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"frozen<set<text>>\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"id\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"uuid\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"inet_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"inet\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"int_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"int\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"list_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"list<text>\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"map_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"map<text, text>\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"set_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"set<text>\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"smallint_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"smallint\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"text_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"text\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"time_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"time\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"timestamp_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"timestamp\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"timeuuid_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"timeuuid\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"tinyint_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"tinyint\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"tuple_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"frozen<tuple<int, text>>\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"uuid_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"uuid\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"varchar_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"text\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"varint_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"varint\"}]"
+                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"ascii_column\", \"type\": \"ascii\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"bigint_column\", \"type\": \"bigint\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"blob_column\", \"type\": \"blob\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"boolean_column\", \"type\": \"boolean\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"date_column\", \"type\": \"date\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"decimal_column\", \"type\": \"decimal\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"double_column\", \"type\": \"double\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"float_column\", \"type\": \"float\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"frozen_list_column\", \"type\": \"frozen<list<text>>\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"frozen_map_column\", \"type\": \"frozen<map<text, text>>\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"frozen_set_column\", \"type\": \"frozen<set<text>>\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"id\", \"type\": \"uuid\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"inet_column\", \"type\": \"inet\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"int_column\", \"type\": \"int\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"list_column\", \"type\": \"list<text>\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"map_column\", \"type\": \"map<text, text>\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"set_column\", \"type\": \"set<text>\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"smallint_column\", \"type\": \"smallint\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"text_column\", \"type\": \"text\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"time_column\", \"type\": \"time\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"timestamp_column\", \"type\": \"timestamp\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"timeuuid_column\", \"type\": \"timeuuid\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"tinyint_column\", \"type\": \"tinyint\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"tuple_column\", \"type\": \"frozen<tuple<int, text>>\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"uuid_column\", \"type\": \"uuid\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"varchar_column\", \"type\": \"text\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"all_data_types\", \"column_name\": \"varint_column\", \"type\": \"varint\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}]"
                 }
             },
             "fields": [
@@ -583,7 +582,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731504327435,
+        "lastObserved": 1731591019435,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -625,7 +624,7 @@
             "hash": "",
             "platformSchema": {
                 "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": "[{\"keyspace_name\": \"cass_test_1\", \"table_name\": \"people\", \"column_name\": \"email\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"text\"}, {\"keyspace_name\": \"cass_test_1\", \"table_name\": \"people\", \"column_name\": \"name\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"text\"}, {\"keyspace_name\": \"cass_test_1\", \"table_name\": \"people\", \"column_name\": \"person_id\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"int\"}]"
+                    "rawSchema": "[{\"keyspace_name\": \"cass_test_1\", \"table_name\": \"people\", \"column_name\": \"email\", \"type\": \"text\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"cass_test_1\", \"table_name\": \"people\", \"column_name\": \"name\", \"type\": \"text\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"cass_test_1\", \"table_name\": \"people\", \"column_name\": \"person_id\", \"type\": \"int\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0}]"
                 }
             },
             "fields": [
@@ -669,7 +668,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731504327384,
+        "lastObserved": 1731591019563,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -716,7 +715,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "id": "caa79840-a271-11ef-bb04-8d57c2f7cd04",
                 "bloom_filter_fp_chance": "0.01",
                 "caching": "{\"keys\": \"ALL\", \"rows_per_partition\": \"NONE\"}",
                 "compaction": "{\"class\": \"org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy\", \"max_threshold\": \"32\", \"min_threshold\": \"4\"}",
@@ -739,7 +737,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731579516906,
+        "lastObserved": 1731591019564,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -896,7 +894,7 @@
             "hash": "",
             "platformSchema": {
                 "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": "[{\"keyspace_name\": \"cass_test_2\", \"table_name\": \"tasks\", \"column_name\": \"details\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"text\"}, {\"keyspace_name\": \"cass_test_2\", \"table_name\": \"tasks\", \"column_name\": \"last_updated\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"timestamp\"}, {\"keyspace_name\": \"cass_test_2\", \"table_name\": \"tasks\", \"column_name\": \"status\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"text\"}, {\"keyspace_name\": \"cass_test_2\", \"table_name\": \"tasks\", \"column_name\": \"task_id\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"int\"}]"
+                    "rawSchema": "[{\"keyspace_name\": \"cass_test_2\", \"table_name\": \"tasks\", \"column_name\": \"details\", \"type\": \"text\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"cass_test_2\", \"table_name\": \"tasks\", \"column_name\": \"last_updated\", \"type\": \"timestamp\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"cass_test_2\", \"table_name\": \"tasks\", \"column_name\": \"status\", \"type\": \"text\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"cass_test_2\", \"table_name\": \"tasks\", \"column_name\": \"task_id\", \"type\": \"int\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0}]"
                 }
             },
             "fields": [
@@ -952,7 +950,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731504327398,
+        "lastObserved": 1731591019516,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -999,7 +997,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "id": "cab0e710-a271-11ef-bb04-8d57c2f7cd04",
                 "bloom_filter_fp_chance": "0.01",
                 "caching": "{\"keys\": \"ALL\", \"rows_per_partition\": \"NONE\"}",
                 "compaction": "{\"class\": \"org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy\", \"max_threshold\": \"32\", \"min_threshold\": \"4\"}",
@@ -1022,7 +1019,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731579516856,
+        "lastObserved": 1731591019518,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1153,7 +1150,7 @@
             "hash": "",
             "platformSchema": {
                 "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": "[{\"keyspace_name\": \"cass_test_2\", \"table_name\": \"task_status\", \"column_name\": \"status\", \"clustering_order\": \"asc\", \"kind\": \"clustering\", \"position\": 0, \"type\": \"text\"}, {\"keyspace_name\": \"cass_test_2\", \"table_name\": \"task_status\", \"column_name\": \"task_id\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"int\"}]"
+                    "rawSchema": "[{\"keyspace_name\": \"cass_test_2\", \"table_name\": \"task_status\", \"column_name\": \"status\", \"type\": \"text\", \"clustering_order\": \"asc\", \"kind\": \"clustering\", \"position\": 0}, {\"keyspace_name\": \"cass_test_2\", \"table_name\": \"task_status\", \"column_name\": \"task_id\", \"type\": \"int\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0}]"
                 }
             },
             "fields": [
@@ -1185,7 +1182,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731504327408,
+        "lastObserved": 1731591019525,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1219,7 +1216,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "id": "cad537f0-a271-11ef-bb04-8d57c2f7cd04",
                 "bloom_filter_fp_chance": "0.01",
                 "caching": "{\"keys\": \"ALL\", \"rows_per_partition\": \"NONE\"}",
                 "compaction": "{\"class\": \"org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy\", \"max_threshold\": \"32\", \"min_threshold\": \"4\"}",
@@ -1242,7 +1238,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731579516812,
+        "lastObserved": 1731591019440,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1302,7 +1298,7 @@
             "hash": "",
             "platformSchema": {
                 "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"counter_table\", \"column_name\": \"counter_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"counter\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"counter_table\", \"column_name\": \"id\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"uuid\"}]"
+                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"counter_table\", \"column_name\": \"counter_column\", \"type\": \"counter\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"counter_table\", \"column_name\": \"id\", \"type\": \"uuid\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0}]"
                 }
             },
             "fields": [
@@ -1334,7 +1330,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731504327444,
+        "lastObserved": 1731591019446,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1347,7 +1343,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "base_table_id": "cab0e710-a271-11ef-bb04-8d57c2f7cd04",
                 "bloom_filter_fp_chance": "0.01",
                 "caching": "{\"keys\": \"ALL\", \"rows_per_partition\": \"NONE\"}",
                 "compaction": "{\"class\": \"org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy\", \"max_threshold\": \"32\", \"min_threshold\": \"4\"}",
@@ -1371,7 +1366,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731579516861,
+        "lastObserved": 1731591019524,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1559,7 +1554,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "id": "cae16cf0-a271-11ef-bb04-8d57c2f7cd04",
                 "bloom_filter_fp_chance": "0.01",
                 "caching": "{\"keys\": \"ALL\", \"rows_per_partition\": \"NONE\"}",
                 "compaction": "{\"class\": \"org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy\", \"max_threshold\": \"32\", \"min_threshold\": \"4\"}",
@@ -1582,7 +1576,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731579516819,
+        "lastObserved": 1731591019447,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1699,7 +1693,7 @@
             "hash": "",
             "platformSchema": {
                 "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"shopping_cart\", \"column_name\": \"item_count\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"int\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"shopping_cart\", \"column_name\": \"last_update_timestamp\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"timestamp\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"shopping_cart\", \"column_name\": \"userid\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"text\"}]"
+                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"shopping_cart\", \"column_name\": \"item_count\", \"type\": \"int\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"shopping_cart\", \"column_name\": \"last_update_timestamp\", \"type\": \"timestamp\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"shopping_cart\", \"column_name\": \"userid\", \"type\": \"text\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0}]"
                 }
             },
             "fields": [
@@ -1743,7 +1737,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731504327451,
+        "lastObserved": 1731591019453,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1868,7 +1862,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "id": "cb0b8a30-a271-11ef-bb04-8d57c2f7cd04",
                 "bloom_filter_fp_chance": "0.01",
                 "caching": "{\"keys\": \"ALL\", \"rows_per_partition\": \"NONE\"}",
                 "compaction": "{\"class\": \"org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy\", \"max_threshold\": \"32\", \"min_threshold\": \"4\"}",
@@ -1891,7 +1884,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731579516825,
+        "lastObserved": 1731591019455,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1988,7 +1981,7 @@
             "hash": "",
             "platformSchema": {
                 "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_1\", \"column_name\": \"ascii_column\", \"clustering_order\": \"asc\", \"kind\": \"clustering\", \"position\": 0, \"type\": \"ascii\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_1\", \"column_name\": \"bigint_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"bigint\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_1\", \"column_name\": \"id\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"uuid\"}]"
+                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_1\", \"column_name\": \"ascii_column\", \"type\": \"ascii\", \"clustering_order\": \"asc\", \"kind\": \"clustering\", \"position\": 0}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_1\", \"column_name\": \"bigint_column\", \"type\": \"bigint\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_1\", \"column_name\": \"id\", \"type\": \"uuid\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0}]"
                 }
             },
             "fields": [
@@ -2032,7 +2025,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731504327462,
+        "lastObserved": 1731591019464,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2082,7 +2075,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "base_table_id": "cad537f0-a271-11ef-bb04-8d57c2f7cd04",
                 "bloom_filter_fp_chance": "0.01",
                 "caching": "{\"keys\": \"ALL\", \"rows_per_partition\": \"NONE\"}",
                 "compaction": "{\"class\": \"org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy\", \"max_threshold\": \"32\", \"min_threshold\": \"4\"}",
@@ -2106,7 +2098,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731579516832,
+        "lastObserved": 1731591019464,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2252,7 +2244,6 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "base_table_id": "cad537f0-a271-11ef-bb04-8d57c2f7cd04",
                 "bloom_filter_fp_chance": "0.01",
                 "caching": "{\"keys\": \"ALL\", \"rows_per_partition\": \"NONE\"}",
                 "compaction": "{\"class\": \"org.apache.cassandra.db.compaction.SizeTieredCompactionStrategy\", \"max_threshold\": \"32\", \"min_threshold\": \"4\"}",
@@ -2276,7 +2267,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731579516840,
+        "lastObserved": 1731591019474,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -2302,7 +2293,7 @@
             "hash": "",
             "platformSchema": {
                 "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_2\", \"column_name\": \"ascii_column\", \"clustering_order\": \"asc\", \"kind\": \"clustering\", \"position\": 0, \"type\": \"ascii\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_2\", \"column_name\": \"float_column\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1, \"type\": \"float\"}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_2\", \"column_name\": \"id\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0, \"type\": \"uuid\"}]"
+                    "rawSchema": "[{\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_2\", \"column_name\": \"ascii_column\", \"type\": \"ascii\", \"clustering_order\": \"asc\", \"kind\": \"clustering\", \"position\": 0}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_2\", \"column_name\": \"float_column\", \"type\": \"float\", \"clustering_order\": \"none\", \"kind\": \"regular\", \"position\": -1}, {\"keyspace_name\": \"example_keyspace\", \"table_name\": \"example_view_2\", \"column_name\": \"id\", \"type\": \"uuid\", \"clustering_order\": \"none\", \"kind\": \"partition_key\", \"position\": 0}]"
                 }
             },
             "fields": [
@@ -2346,7 +2337,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1731504327495,
+        "lastObserved": 1731591019474,
         "runId": "cassandra-test",
         "lastRunId": "no-run-id-provided"
     }
