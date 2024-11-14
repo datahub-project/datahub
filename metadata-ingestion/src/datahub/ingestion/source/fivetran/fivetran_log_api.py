@@ -259,20 +259,23 @@ class FivetranLogAPI:
             logger.info("Fetching connector list")
             connector_list = self._query(self.fivetran_log_query.get_connectors_query())
             for connector in connector_list:
+                connector_id = connector[Constant.CONNECTOR_ID]
                 connector_name = connector[Constant.CONNECTOR_NAME]
                 if not connector_patterns.allowed(connector_name):
-                    report.report_connectors_dropped(connector_name)
+                    report.report_connectors_dropped(
+                        f"{connector_name} (connector_id: {connector_id}, dropped due to filter pattern)"
+                    )
                     continue
                 if not destination_patterns.allowed(
                     destination_id := connector[Constant.DESTINATION_ID]
                 ):
                     report.report_connectors_dropped(
-                        f"{connector_name} (destination_id: {destination_id})"
+                        f"{connector_name} (connector_id: {connector_id}, destination_id: {destination_id})"
                     )
                     continue
                 connectors.append(
                     Connector(
-                        connector_id=connector[Constant.CONNECTOR_ID],
+                        connector_id=connector_id,
                         connector_name=connector_name,
                         connector_type=connector[Constant.CONNECTOR_TYPE_ID],
                         paused=connector[Constant.PAUSED],

@@ -27,6 +27,22 @@ class DatasetTransformer(BaseTransformer, SingleAspectTransformer, metaclass=ABC
         return ["dataset"]
 
 
+class OwnershipTransformer(
+    DatasetTransformer, SingleAspectTransformer, metaclass=ABCMeta
+):
+    def aspect_name(self) -> str:
+        return "ownership"
+
+    def entity_types(self) -> List[str]:
+        return [
+            "dataset",
+            "dataJob",
+            "dataFlow",
+            "chart",
+            "dashboard",
+        ]
+
+
 class TagTransformer(BaseTransformer, SingleAspectTransformer, metaclass=ABCMeta):
     """Transformer that does transform sequentially on each tag."""
 
@@ -45,11 +61,6 @@ class ContainerTransformer(BaseTransformer, SingleAspectTransformer, metaclass=A
 
     def entity_types(self) -> List[str]:
         return ["container"]
-
-
-class DatasetOwnershipTransformer(DatasetTransformer, metaclass=ABCMeta):
-    def aspect_name(self) -> str:
-        return "ownership"
 
 
 class DatasetDomainTransformer(DatasetTransformer, metaclass=ABCMeta):

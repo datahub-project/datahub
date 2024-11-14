@@ -163,6 +163,7 @@ public class EntityController
           Map.Entry<String, JsonNode> aspect = aspectItr.next();
 
           AspectSpec aspectSpec = lookupAspectSpec(entityUrn, aspect.getKey()).get();
+          JsonNode jsonNodeAspect = aspect.getValue().get("value");
 
           if (opContext.getValidationContext().isAlternateValidation()) {
             ProposedItem.ProposedItemBuilder builder =
@@ -173,7 +174,7 @@ public class EntityController
                             .setAspectName(aspect.getKey())
                             .setEntityType(entityUrn.getEntityType())
                             .setChangeType(ChangeType.UPSERT)
-                            .setAspect(GenericRecordUtils.serializeAspect(aspect.getValue()))
+                            .setAspect(GenericRecordUtils.serializeAspect(jsonNodeAspect))
                             .setSystemMetadata(SystemMetadataUtils.createDefaultSystemMetadata()))
                     .auditStamp(AuditStampUtils.createAuditStamp(actor.toUrnStr()))
                     .entitySpec(
@@ -191,7 +192,7 @@ public class EntityController
                     .recordTemplate(
                         GenericRecordUtils.deserializeAspect(
                             ByteString.copyString(
-                                objectMapper.writeValueAsString(aspect.getValue().get("value")),
+                                objectMapper.writeValueAsString(jsonNodeAspect),
                                 StandardCharsets.UTF_8),
                             GenericRecordUtils.JSON,
                             aspectSpec));
@@ -282,11 +283,10 @@ public class EntityController
         true);
   }
 
-  @Override
   protected List<GenericEntityV2> buildEntityList(
+      OperationContext opContext,
       Collection<IngestResult> ingestResults,
-      boolean withSystemMetadata,
-      boolean isAsyncAlternateValidation) {
+      boolean withSystemMetadata) {
     List<GenericEntityV2> responseList = new LinkedList<>();
 
     Map<Urn, List<IngestResult>> entityMap =
@@ -305,7 +305,10 @@ public class EntityController
       responseList.add(
           GenericEntityV2.builder()
               .urn(urnAspects.getKey().toString())
-              .build(objectMapper, aspectsMap, isAsyncAlternateValidation));
+              .build(
+                  objectMapper,
+                  aspectsMap,
+                  opContext.getValidationContext().isAlternateValidation()));
     }
     return responseList;
   }
