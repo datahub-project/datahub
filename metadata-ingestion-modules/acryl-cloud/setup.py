@@ -18,7 +18,14 @@ plugins = {
     "datahub-reporting-extract-sql": stats_common | aws_common,
     "datahub-usage-feature-reporting": stats_common
     | aws_common
-    | {"opensearch-py==2.4.2", "polars", "elasticsearch==7.13.4", "numpy<2", "scipy", "pyarrow"},
+    | {
+        "opensearch-py==2.4.2",
+        "polars<=1.12.0",
+        "elasticsearch==7.13.4",
+        "numpy<2",
+        "scipy<=1.14.1",
+        "pyarrow<=18.0.0",
+    },
     "acryl-cs-issues": {"zenpy", "openai", "jinja2", "slack-sdk"},
 }
 
