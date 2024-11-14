@@ -1,6 +1,11 @@
 import logging
+import math
 import time
 from concurrent.futures import Future
+
+import pytest
+from pydantic.schema import timedelta
+from scipy.constants import milli
 
 from datahub.utilities.partition_executor import (
     BatchPartitionExecutor,
@@ -129,7 +134,9 @@ def test_batch_partition_executor_sequential_key_execution():
     }
 
 
+@pytest.mark.timeout(10)
 def test_batch_partition_executor_max_batch_size():
+    n = 20  # Exceed max_pending to test for deadlocks when max_pending exceeded
     batches_processed = []
 
     def process_batch(batch):
@@ -137,15 +144,20 @@ def test_batch_partition_executor_max_batch_size():
         time.sleep(0.1)  # Simulate batch processing time
 
     with BatchPartitionExecutor(
-        max_workers=5, max_pending=20, process_batch=process_batch, max_per_batch=2
+        max_workers=5,
+        max_pending=10,
+        process_batch=process_batch,
+        max_per_batch=2,
+        min_process_interval=timedelta(seconds=1),
+        read_from_pending_interval=timedelta(seconds=1),
     ) as executor:
         # Submit more tasks than the max_per_batch to test batching limits.
-        for i in range(5):
+        for i in range(n):
             executor.submit("key3", "key3", f"task{i}")
 
     # Check the batches.
     logger.info(f"batches_processed: {batches_processed}")
-    assert len(batches_processed) == 3
+    assert len(batches_processed) == math.ceil(n / 2), "Incorrect number of batches"
     for batch in batches_processed:
         assert len(batch) <= 2, "Batch size exceeded max_per_batch limit"
 
