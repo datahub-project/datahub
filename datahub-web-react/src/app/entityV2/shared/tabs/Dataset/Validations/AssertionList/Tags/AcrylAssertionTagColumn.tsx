@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Popover, Tooltip } from 'antd';
+import { Popover } from 'antd';
 import Tag from '@src/app/sharedV2/tags/tag/Tag';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { Plus } from 'phosphor-react';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
-import { EntityType, GlobalTags } from '@src/types.generated';
+import { EntityType, GlobalTags, TagAssociation } from '@src/types.generated';
 import { getColor } from '@src/alchemy-components/theme/utils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import DataHubTooltip from '@src/alchemy-components/components/Tooltip/Tooltip';
 import { AcrylAssertionSelectTags } from './AcrylAssertionSelectTags';
 
 const StyledTagContainer = styled.div`
@@ -46,6 +47,17 @@ const AdditionalPillCount = styled.div`
     color: ${REDESIGN_COLORS.BODY_TEXT};
 `;
 
+const TooltipTitleWrapper = styled.div`
+    cursor: pointer;
+    padding: 8px 4px 0px;
+`;
+
+const TooltipMoreText = styled.div`
+    color: ${getColor('gray', 500)};
+    font-size: 12px;
+    margin-bottom: 4px;
+`;
+
 const StyledPopover = styled(Popover)`
     .ant-popover-inner-content {
         padding-right: 0 !important; /* Remove right padding */
@@ -53,6 +65,8 @@ const StyledPopover = styled(Popover)`
     display: flex;
     justify-content: flex-start;
 `;
+
+const MAX_TAGS_FOR_HOVER = 5;
 
 interface AcrylAssertionTagColumnProps {
     record: any;
@@ -85,22 +99,30 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
                 />
             ))}
             {remainingTagsCount > 0 ? (
-                <Tooltip
+                <DataHubTooltip
+                    overlayInnerStyle={{ backgroundColor: 'white' }}
+                    open={popoverVisible ? false : undefined}
                     title={
-                        remainingTagsCount === 1 ? (
-                            <b>{maybeSecondTagName}</b>
-                        ) : (
-                            <span>
-                                <b>{maybeSecondTagName}</b> and {remainingTagsCount - 1} more.
-                            </span>
-                        )
+                        <TooltipTitleWrapper onClick={() => setPopoverVisible(true)}>
+                            {record?.tags?.slice(1, MAX_TAGS_FOR_HOVER).map((tag) => (
+                                <Tag
+                                    tag={{ tag: tag.tag } as TagAssociation}
+                                    options={{ shouldNotOpenDrawerOnClick: true }}
+                                    maxWidth={120}
+                                    tagStyle={{ marginBottom: 4 }}
+                                />
+                            ))}
+                            {(record?.tags?.length ?? 0) > MAX_TAGS_FOR_HOVER ? (
+                                <TooltipMoreText>+ {record.tags.length - MAX_TAGS_FOR_HOVER} more</TooltipMoreText>
+                            ) : null}
+                        </TooltipTitleWrapper>
                     }
                 >
                     <AdditionalPillCount>
                         <Plus />
                         <span>{remainingTagsCount}</span>
                     </AdditionalPillCount>
-                </Tooltip>
+                </DataHubTooltip>
             ) : (
                 <StyledPill>
                     <Plus />

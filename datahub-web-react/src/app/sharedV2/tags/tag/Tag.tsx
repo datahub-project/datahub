@@ -53,6 +53,7 @@ interface Props {
     showOneAndCount?: boolean;
     context?: string | null;
     maxWidth?: number;
+    tagStyle?: React.CSSProperties;
     options?: {
         shouldNotOpenDrawerOnClick?: boolean;
         shouldNotAddBottomMargin?: boolean;
@@ -73,6 +74,7 @@ export default function Tag({
     showOneAndCount,
     context,
     maxWidth,
+    tagStyle,
     options,
 }: Props) {
     const entityRegistry = useEntityRegistry();
@@ -148,7 +150,7 @@ export default function Tag({
                                 showTagProfileDrawer(tag?.tag?.urn);
                             }
                         }}
-                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', ...tagStyle }}
                         $colorHash={tag?.tag?.urn}
                         $color={tag?.tag?.properties?.colorHex}
                         closable={canRemove && !readOnly}
