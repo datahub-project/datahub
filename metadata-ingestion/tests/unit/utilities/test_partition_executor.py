@@ -5,7 +5,6 @@ from concurrent.futures import Future
 
 import pytest
 from pydantic.schema import timedelta
-from scipy.constants import milli
 
 from datahub.utilities.partition_executor import (
     BatchPartitionExecutor,
