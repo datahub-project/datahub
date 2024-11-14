@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Tuple
 import pytest
 
 from datahub.ingestion.source.cassandra.cassandra import CassandraToSchemaFieldConverter
+from datahub.ingestion.source.cassandra.cassandra_api import CassandraColumn
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
 
 logger = logging.getLogger(__name__)
@@ -55,11 +56,23 @@ schema_test_cases: Dict[str, Tuple[str, List[str]]] = {
 def test_cassandra_schema_conversion(
     schema: str, expected_field_paths: List[str]
 ) -> None:
+
     schema_dict: Dict[str, List[Any]] = json.loads(schema)
     column_infos: List = schema_dict["column_infos"]
-    actual_fields = list(
-        CassandraToSchemaFieldConverter.get_schema_fields(column_infos)
-    )
+
+    column_list: List[CassandraColumn] = [
+        CassandraColumn(
+            keyspace_name=row["keyspace_name"],
+            table_name=row["table_name"],
+            column_name=row["column_name"],
+            clustering_order=row["clustering_order"],
+            kind=row["kind"],
+            position=row["position"],
+            type=row["type"],
+        )
+        for row in column_infos
+    ]
+    actual_fields = list(CassandraToSchemaFieldConverter.get_schema_fields(column_list))
     assert_field_paths_match(actual_fields, expected_field_paths)
 
 

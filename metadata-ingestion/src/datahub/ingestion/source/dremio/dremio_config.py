@@ -99,6 +99,11 @@ class ProfileConfig(GEProfilingBaseConfig):
     query_timeout: int = Field(
         default=300, description="Time before cancelling Dremio profiling query"
     )
+    include_field_median_value: bool = Field(
+        default=False,
+        hidden_from_docs=True,
+        description="Median causes a number of issues in Dremio.",
+    )
 
 
 class DremioSourceMapping(EnvConfigMixin, PlatformInstanceConfigMixin, ConfigModel):
