@@ -17,7 +17,7 @@ import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { IngestionSourceBuilderModal } from './builder/IngestionSourceBuilderModal';
 import { addToListIngestionSourcesCache, CLI_EXECUTOR_ID, removeFromListIngestionSourcesCache } from './utils';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from './builder/types';
-import { IngestionSource, UpdateIngestionSourceInput } from '../../../types.generated';
+import { IngestionSource, SortCriterion, SortOrder, UpdateIngestionSourceInput } from '../../../types.generated';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ExecutionDetailsModal } from './executions/ExecutionRequestDetailsModal';
@@ -60,16 +60,6 @@ export enum IngestionSourceType {
     CLI,
 }
 
-export function shouldIncludeSource(source: any, sourceFilter: IngestionSourceType) {
-    if (sourceFilter === IngestionSourceType.CLI) {
-        return source.config.executorId === CLI_EXECUTOR_ID;
-    }
-    if (sourceFilter === IngestionSourceType.UI) {
-        return source.config.executorId !== CLI_EXECUTOR_ID;
-    }
-    return true;
-}
-
 const DEFAULT_PAGE_SIZE = 25;
 
 const removeExecutionsFromIngestionSource = (source) => {
@@ -105,6 +95,7 @@ export const IngestionSourceList = () => {
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
+    const [sort, setSort] = useState<SortCriterion>();
     const [hideSystemSources, setHideSystemSources] = useState(true);
 
     /**
@@ -115,7 +106,14 @@ export const IngestionSourceList = () => {
     // Ingestion Source Default Filters
     const filters = hideSystemSources
         ? [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }]
-        : undefined;
+        : [];
+    if (sourceFilter !== IngestionSourceType.ALL) {
+        filters.push({
+            field: 'sourceExecutorId',
+            values: [CLI_EXECUTOR_ID],
+            negated: sourceFilter !== IngestionSourceType.CLI,
+        });
+    }
 
     // Ingestion Source Queries
     const { loading, error, data, client, refetch } = useListIngestionSourcesQuery({
@@ -123,8 +121,9 @@ export const IngestionSourceList = () => {
             input: {
                 start,
                 count: pageSize,
-                query: (query?.length && query) || undefined,
-                filters,
+                query: query?.length ? query : undefined,
+                filters: filters.length ? filters : undefined,
+                sort,
             },
         },
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
@@ -138,9 +137,7 @@ export const IngestionSourceList = () => {
 
     const totalSources = data?.listIngestionSources?.total || 0;
     const sources = data?.listIngestionSources?.ingestionSources || [];
-    const filteredSources = sources.filter(
-        (source) => !removedUrns.includes(source.urn) && shouldIncludeSource(source, sourceFilter),
-    ) as IngestionSource[];
+    const filteredSources = sources.filter((source) => !removedUrns.includes(source.urn)) as IngestionSource[];
     const focusSource =
         (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined;
 
@@ -376,6 +373,17 @@ export const IngestionSourceList = () => {
         setFocusSourceUrn(undefined);
     };
 
+    const onChangeSort = (field, order) => {
+        setSort(
+            order
+                ? {
+                      sortOrder: order === 'ascend' ? SortOrder.Ascending : SortOrder.Descending,
+                      field,
+                  }
+                : undefined,
+        );
+    };
+
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading ingestion sources..." />}
@@ -438,6 +446,7 @@ export const IngestionSourceList = () => {
                     onView={onView}
                     onDelete={onDelete}
                     onRefresh={onRefresh}
+                    onChangeSort={onChangeSort}
                 />
                 <SourcePaginationContainer>
                     <Pagination
