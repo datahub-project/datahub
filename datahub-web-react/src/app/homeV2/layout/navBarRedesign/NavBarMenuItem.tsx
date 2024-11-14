@@ -2,11 +2,12 @@ import React from 'react';
 import { Menu, MenuItemProps, Tooltip } from 'antd';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
-import { Text } from '@src/alchemy-components';
+import { colors, Badge, Text } from '@src/alchemy-components';
 import { NavBarMenuBaseItem } from './types';
 
 const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
     &&& {
+        position: relative;
         padding: 4px 8px;
         margin: 0;
         margin-bottom: 0;
@@ -18,19 +19,9 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
         ${(props) => props.isCollapsed && 'width: 36px;'}
     }
 
-    && svg {
-        color: #8088a3;
-        width: 20px;
-        height: 20px;
-    }
-
     && .ant-menu-title-content {
+        width: 100%;
         color: #5f6685;
-        font-family: Mulish;
-        font-size: 14px;
-        font-style: normal;
-        font-weight: 500;
-        line-height: 36px;
         display: flex;
         gap: 8px;
         align-items: center;
@@ -56,22 +47,45 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
             rgba(112, 94, 228, 0.04) 100%
         );
         box-shadow: 0px 0px 0px 1px rgba(108, 71, 255, 0.08);
-
-        && .ant-menu-title-content {
-            background: linear-gradient(#7565d6 20%, #5340cc 80%);
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-
-        && svg {
-            fill: url(#menu-item-selected-gradient) #533fd1;
-        }
     }
 `;
 
-const Icon = styled.div`
+const Icon = styled.div<{ $isSelected?: boolean }>`
     width: 20px;
     height: 20px;
+
+    && svg {
+        ${(props) => (props.$isSelected ? 'fill: url(#menu-item-selected-gradient) #533fd1;' : 'color: #8088a3;')}
+        width: 20px;
+        height: 20px;
+    }
+`;
+
+const StyledText = styled(Text)<{ $isSelected?: boolean }>`
+    ${(props) =>
+        props.$isSelected &&
+        `
+        background: linear-gradient(#7565d6 20%, #5340cc 80%);
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+    `}
+`;
+
+const ItemTitleContentWrapper = styled.div`
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+`;
+
+const PillDot = styled.div<{ $isSelected?: boolean }>`
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    background: ${colors.violet[500]};
+    border-radius: 6px;
+    border: 2px solid ${(props) => (props.$isSelected ? '#f9fafc' : '#f2f3fa')};
+    top: 6px;
+    left: 22px;
 `;
 
 type Props = {
@@ -92,11 +106,16 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, ...props
     const component = (
         <Tooltip title={isCollapsed ? item.title : null} placement="right" showArrow={false}>
             <StyledMenuItem isCollapsed={isCollapsed} onClick={onClick} {...props}>
-                <Icon>{isSelected ? item.selectedIcon || item.icon : item.icon}</Icon>
-                {!isCollapsed && (
-                    <Text size="md" type="div" weight="semiBold">
-                        {item.title}
-                    </Text>
+                <Icon $isSelected={isSelected}>{isSelected ? item.selectedIcon || item.icon : item.icon}</Icon>
+                {isCollapsed ? (
+                    <>{item?.badge?.show && <PillDot />}</>
+                ) : (
+                    <ItemTitleContentWrapper>
+                        <StyledText size="md" type="div" weight="semiBold" $isSelected={isSelected}>
+                            {item.title}
+                        </StyledText>
+                        {item?.badge?.show && <Badge count={item.badge.count} clickable={false} colorScheme="violet" />}
+                    </ItemTitleContentWrapper>
                 )}
             </StyledMenuItem>
         </Tooltip>

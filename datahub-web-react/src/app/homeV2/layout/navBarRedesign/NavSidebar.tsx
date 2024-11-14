@@ -116,6 +116,10 @@ export const NavSidebar = () => {
     const hasCustomLogo = customLogoUrl && customLogoUrl !== DEFAULT_LOGO;
     const logoComponent = hasCustomLogo ? <CustomLogo alt="logo" src={customLogoUrl} /> : <AcrylIcon />;
 
+    const {
+        state: { unfinishedTaskCount },
+    } = userContext;
+
     const HelpContentMenuItems = themeConfig.content.menu.items.map((value) => ({
         title: value.label,
         description: value.description || '',
@@ -153,6 +157,10 @@ export const NavSidebar = () => {
                 key: 'tasks',
                 isHidden: !showActionRequests,
                 link: PageRoutes.ACTION_REQUESTS,
+                badge: {
+                    count: unfinishedTaskCount,
+                    show: unfinishedTaskCount > 0,
+                },
             },
             {
                 type: NavBarMenuItemTypes.Item,

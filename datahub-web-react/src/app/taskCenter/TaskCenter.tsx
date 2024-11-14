@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 
-import { Tabs, Badge, Typography } from 'antd';
+import { Badge as BadgeAntd, Tabs, Typography } from 'antd';
 import styled from 'styled-components';
+import { Badge } from '@src/alchemy-components/components/Badge';
 
 import { useUserContext } from '../context/useUserContext';
 
@@ -86,7 +87,7 @@ interface TabTitleProps {
 
 const badgeBoxSize = '14px';
 
-const StyledBadge = styled(Badge)`
+const StyledBadge = styled(BadgeAntd)`
     position: relative;
     margin-left: 0.25rem;
     margin-bottom: 0.2rem;
@@ -106,12 +107,26 @@ const StyledBadge = styled(Badge)`
     }
 `;
 
-const TabTitle = ({ title, count }: TabTitleProps) => (
-    <>
-        {title}
-        {count > 0 && <StyledBadge count={count} overflowCount={99} size="small" color="red" />}
-    </>
-);
+const TabContainer = styled.div`
+    display: flex;
+    gap: 8px;
+`;
+
+const TabTitle = ({ title, count }: TabTitleProps) => {
+    const isShowNavBarRedesign = useShowNavBarRedesign();
+
+    const Container = isShowNavBarRedesign ? TabContainer : React.Fragment;
+
+    return (
+        <Container>
+            {title}
+            {count > 0 && !isShowNavBarRedesign && (
+                <StyledBadge count={10} overflowCount={99} size="small" color="red" />
+            )}
+            {isShowNavBarRedesign && <Badge count={count} size="xs" colorScheme="violet" clickable={false} />}
+        </Container>
+    );
+};
 
 export const TaskCenter = () => {
     const {

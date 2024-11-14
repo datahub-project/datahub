@@ -23,10 +23,16 @@ export interface NavBarMenuBaseElement {
     disabled?: boolean;
 }
 
+export type Badge = {
+    count: number;
+    show?: boolean;
+};
+
 export interface NavBarMenuBaseItem extends NavBarMenuBaseElement {
     icon: React.ReactNode;
     selectedIcon?: React.ReactNode;
     title: string;
+    badge?: Badge;
 }
 
 export type NavBarMenuLinkItem = NavBarMenuBaseItem & {
