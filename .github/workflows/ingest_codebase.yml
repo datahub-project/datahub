@@ -1,0 +1,44 @@
+name: Ingest Codebase
+
+on:
+  schedule:
+    - cron: "0 2 * * *"  # Runs daily at 2:00 AM UTC
+  workflow_dispatch:
+
+jobs:
+  call-lambda:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Send payload to Lambda
+      env:
+        LAMBDA_URI: "https://9feitwzg95.execute-api.us-east-1.amazonaws.com/dev/ingest-codebase"
+      run: |
+        # Dynamically get the repository name
+        REPO_NAME="${{ github.repository }}"
+        
+        # Manually construct the payload (plain string)
+        PAYLOAD="$REPO_NAME"
+        
+        # Debug: Print the payload
+        echo "Payload being sent to Lambda:"
+        echo "$PAYLOAD"
+
+        # Make the POST request to the Lambda function
+        curl -X POST "$LAMBDA_URI" \
+          -H "Content-Type: text/plain" \
+          -d "$PAYLOAD" \
+          -o response.json -s -w "%{http_code}\n" > status_code.txt
+
+        # Capture the HTTP status code
+        HTTP_STATUS=$(cat status_code.txt)
+
+        # Print response for debugging
+        echo "Lambda response:"
+        cat response.json
+
+        # Exit with error if the status code is not 200
+        if [ "$HTTP_STATUS" -ne 200 ]; then
+          echo "Error: Lambda returned HTTP $HTTP_STATUS"
+          exit 1
+        fi
+        

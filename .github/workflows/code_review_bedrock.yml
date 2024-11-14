@@ -1,0 +1,106 @@
+name: Code Review with AWS Bedrock
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  code-review-bedrock:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: 'us-east-1'
+      MODEL_TYPE: 'claude' # Options: local, llama, jamba
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: |
+          pip install boto3 requests
+
+      # Conditional Step for Local Bedrock Function
+      - name: Run AWS Bedrock Code Reviewer (Local)
+        if: env.MODEL_TYPE == 'local'
+        run: python workflow_scripts/code_reviewer_bedrock.py
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PERSONAL_GITHUB_TOKEN: ${{ secrets.PERSONAL_GITHUB_TOKEN }}
+
+      - name: Set API Gateway URL based on model type
+        id: set-url
+        if: env.MODEL_TYPE != 'local'
+        run: |
+          if [ "$MODEL_TYPE" == "claude" ]; then
+            echo "::set-output name=url::https://9feitwzg95.execute-api.us-east-1.amazonaws.com/dev/invoke-lambda"
+          elif [ "$MODEL_TYPE" == "jamba" ]; then
+            echo "::set-output name=url::https://2wp6x0ctc0.execute-api.us-east-1.amazonaws.com/dev/invoke-lambda"
+          else
+            echo "::set-output name=url::https://default-url-for-other-models.com/dev/invoke-lambda"
+          fi
+
+      - name: Debug GITHUB_EVENT_PATH
+        run: |
+          echo "GITHUB_EVENT_PATH: $GITHUB_EVENT_PATH"
+          if [ -f "$GITHUB_EVENT_PATH" ]; then
+            echo "GITHUB_EVENT_PATH is valid."
+          else
+            echo "GITHUB_EVENT_PATH does not exist."
+            exit 1
+          fi
+        
+      - name: Debug API Gateway URL
+        run: echo ${{ steps.set-url.outputs.url }}
+
+      - name: Send Data to Lambda via API Gateway
+        if: env.MODEL_TYPE != 'local'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          API_GATEWAY_URL: ${{ steps.set-url.outputs.url }}
+        run: |
+          # Ensure GITHUB_EVENT_PATH exists
+          if [ -z "$GITHUB_EVENT_PATH" ]; then
+            echo "GITHUB_EVENT_PATH is not set."
+            exit 1
+          elif [ ! -f "$GITHUB_EVENT_PATH" ]; then
+            echo "Event file does not exist at $GITHUB_EVENT_PATH."
+            exit 1
+          else
+            echo "GITHUB_EVENT_PATH is set and the event file exists."
+          fi
+
+          # Read the event data
+          GITHUB_EVENT_DATA=$(cat "$GITHUB_EVENT_PATH")
+
+          # Log content size for debugging
+          echo "Event data size: ${#GITHUB_EVENT_DATA} characters"
+          echo "API Gateway URL: $API_GATEWAY_URL"
+
+          # Escape the JSON payload for curl
+          ESCAPED_EVENT_DATA=$(echo "$GITHUB_EVENT_DATA" | jq -c '.')
+
+          if [ -z "$ESCAPED_EVENT_DATA" ]; then
+            echo "Error: Escaped event data is empty."
+            exit 1
+          fi
+
+          # Debug: Log that the event data is being sent (without printing it)
+          echo "Sending event data to Lambda via API Gateway."
+
+          # Send the event data to Lambda
+          curl -X POST "$API_GATEWAY_URL" \
+          -H "Content-Type: application/json" \
+          -d '{
+                "GITHUB_TOKEN": "'"$GITHUB_TOKEN"'",
+                "GITHUB_REPOSITORY": "'"$GITHUB_REPOSITORY"'",
+                "GITHUB_EVENT_DATA": '"$ESCAPED_EVENT_DATA"'
+              }'
