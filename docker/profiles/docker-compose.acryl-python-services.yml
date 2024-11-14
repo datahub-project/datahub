@@ -95,6 +95,13 @@ services:
     profiles:
       - head-pyservices
       - quickstart
+  datahub-integrations-quickstart-postgres-head:
+    <<: *datahub-integrations-service
+    profiles:
+      - quickstart-postgres
+    depends_on:
+      datahub-gms-quickstart-postgres:
+        condition: service_healthy
   #################################
   # Executor Service
   #################################
@@ -123,3 +130,10 @@ services:
     <<: *datahub-executor-dev-head
     profiles:
       - debug-pyservices
+  datahub-executor-quickstart-postgres-head:
+    <<: *datahub-executor-dev-head
+    profiles:
+      - quickstart-postgres
+    depends_on:
+      datahub-gms-quickstart-postgres:
+        condition: service_healthy
