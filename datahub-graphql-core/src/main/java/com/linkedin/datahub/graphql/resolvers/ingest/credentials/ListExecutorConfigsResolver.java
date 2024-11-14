@@ -51,8 +51,7 @@ public class ListExecutorConfigsResolver
             queueUrl -> {
               String[] urlParts = queueUrl.split("/");
               String urlName = urlParts[urlParts.length - 1];
-              String[] nameParts = urlName.split("-");
-              String executorId = nameParts[nameParts.length - 1];
+              String executorId = urlName.substring(queueNamePrefix.length() + 1);
 
               final ExecutorConfigs executorConfig = new ExecutorConfigs();
               executorConfig.setExecutorId(executorId);
