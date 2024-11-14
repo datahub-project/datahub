@@ -3,6 +3,7 @@ import { Input, AutoComplete, Button, Skeleton } from 'antd';
 import { CloseCircleFilled, SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { useHistory } from 'react-router';
+import { colors } from '@src/alchemy-components';
 import { AutoCompleteResultForEntity, FacetFilterInput, ScenarioType } from '../../types.generated';
 import { EntityRegistry } from '../../entityRegistryContext';
 import filterSearchQuery from './utils/filterSearchQuery';
@@ -59,7 +60,7 @@ const AutoCompleteContainer = styled.div<{ viewsEnabled?: boolean; $isShowNavBar
         `
         border-radius: 8px;
         &:focus-within {
-            border-color: ${props.theme.styles['primary-color']};
+            border-color: ${props.$isShowNavBarRedesign ? colors.violet[500] : props.theme.styles['primary-color']};
         }
     `}
 `;
