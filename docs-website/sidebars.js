@@ -109,6 +109,11 @@ module.exports = {
               id: "docs/automations/docs-propagation",
             },
             {
+              label: "Glossary Term Propagation",
+              type: "doc",
+              id: "docs/automations/glossary-term-propagation",
+            },
+            {
               label: "BigQuery Metadata Sync",
               type: "doc",
               id: "docs/automations/bigquery-metadata-sync",
