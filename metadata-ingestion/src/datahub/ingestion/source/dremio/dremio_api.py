@@ -783,5 +783,5 @@ class DremioAPIOperations:
         ).get("sqlContext")
 
         return '.'.join(
-            f'"{part}"' if '.' in part else f"{part}" for part in context_array
+            f'"{part}"' if "." in part else f"{part}" for part in context_array
         )
