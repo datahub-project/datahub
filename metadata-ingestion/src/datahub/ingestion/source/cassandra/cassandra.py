@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -371,8 +372,7 @@ class CassandraSource(StatefulIngestionSourceBase):
         jsonable_column_infos: List[Dict[str, Any]] = []
         for column in column_infos:
             self.cassandra_data.columns.setdefault(table_name, []).append(column)
-            column_dict = column._asdict()
-            jsonable_column_infos.append(column_dict)
+            jsonable_column_infos.append(dataclasses.asdict(column))
 
         schema_metadata: SchemaMetadata = SchemaMetadata(
             schemaName=table_name,

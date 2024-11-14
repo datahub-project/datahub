@@ -55,17 +55,6 @@ class CassandraColumn:
     kind: Optional[str]
     position: Optional[int]
 
-    def _asdict(self):
-        return {
-            "keyspace_name": self.keyspace_name,
-            "table_name": self.table_name,
-            "column_name": self.column_name,
-            "clustering_order": self.clustering_order,
-            "kind": self.kind,
-            "position": self.position,
-            "type": self.type,
-        }
-
 
 @dataclass
 class CassandraView(CassandraTable):
@@ -104,7 +93,6 @@ class CassandraAPI:
         try:
             if self.config.cloud_config:
                 cloud_config = self.config.cloud_config
-                assert cloud_config
                 cluster_cloud_config = {
                     "connect_timeout": cloud_config.connect_timeout,
                     "use_default_tempdir": True,

@@ -135,19 +135,13 @@ class CassandraProfiler:
     ) -> ProfileData:
         profile_data = ProfileData()
 
-        if self.config.profiling.row_count:
-            resp = self.api.execute(
-                CassandraQueries.ROW_COUNT.format(keyspace_name, table_name)
-            )
-            if resp:
-                profile_data.row_count = resp[0].row_count
+        resp = self.api.execute(
+            CassandraQueries.ROW_COUNT.format(keyspace_name, table_name)
+        )
+        if resp:
+            profile_data.row_count = resp[0].row_count
 
-        if self.config.profiling.column_count:
-            resp = self.api.execute(
-                CassandraQueries.COLUMN_COUNT.format(keyspace_name, table_name)
-            )
-            if resp:
-                profile_data.column_count = resp[0].column_count
+        profile_data.column_count = len(columns)
 
         if not self.config.profiling.profile_table_level_only:
             resp = self.api.execute(

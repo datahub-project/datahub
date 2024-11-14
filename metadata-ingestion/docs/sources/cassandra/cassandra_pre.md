@@ -25,3 +25,16 @@ You’ll need to have a Cassandra instance or an Astra DB setup with appropriate
 3. **Verify Database Access**:
    - For Astra DB: Ensure the **Secure Connect Bundle** is used and configured correctly.
    - For Cassandra EE: Verify SSL/TLS settings if required, and ensure the **contact point** and **port** are accessible.
+
+
+:::caution 
+
+When enabling profiling, make sure to set a limit on the number of rows to sample. Profiling large tables without a limit may lead to excessive resource consumption and slow performance.
+
+:::
+
+:::note
+
+For cloud configuration with Astra DB, it is necessary to specify the Secure Connect Bundle path in the configuration. For that reason, use the CLI to ingest metadata into DataHub.
+
+:::
