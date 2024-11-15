@@ -1,5 +1,7 @@
 package com.linkedin.metadata.kafka.batch;
 
+import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCP_EVENT_CONSUMER_NAME;
+
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
 import com.codahale.metrics.Timer;
@@ -72,7 +74,7 @@ public class BatchMetadataChangeProposalsProcessor {
   @KafkaListener(
       id = CONSUMER_GROUP_ID_VALUE,
       topics = "${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.METADATA_CHANGE_PROPOSAL + "}",
-      containerFactory = "kafkaEventConsumer",
+      containerFactory = MCP_EVENT_CONSUMER_NAME,
       batch = "true")
   public void consume(final List<ConsumerRecord<String, GenericRecord>> consumerRecords) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "consume").time()) {
