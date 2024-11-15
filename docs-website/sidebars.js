@@ -109,6 +109,11 @@ module.exports = {
               id: "docs/automations/docs-propagation",
             },
             {
+              label: "Glossary Term Propagation",
+              type: "doc",
+              id: "docs/automations/glossary-term-propagation",
+            },
+            {
               label: "BigQuery Metadata Sync",
               type: "doc",
               id: "docs/automations/bigquery-metadata-sync",
@@ -331,6 +336,7 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_7",
             "docs/managed-datahub/release-notes/v_0_3_6",
             "docs/managed-datahub/release-notes/v_0_3_5",
             "docs/managed-datahub/release-notes/v_0_3_4",
