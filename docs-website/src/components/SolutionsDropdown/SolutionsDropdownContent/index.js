@@ -30,10 +30,6 @@ function SolutionsDropdownContent() {
                   </div>
                   <div className={clsx(styles.description)}>{item.description}</div>
                 </div>
-                {/* <div 
-                  className={clsx(styles.cardImgWrapper)}
-                  style={{ backgroundImage: `url(${item.backgroundImage})` }}>
-                </div> */}
               </div>
             </Link>
           </div>

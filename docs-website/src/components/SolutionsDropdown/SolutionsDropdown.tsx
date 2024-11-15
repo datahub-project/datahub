@@ -53,7 +53,7 @@ function DropdownNavbarItemDesktop({
   ...props
 }: DesktopOrMobileNavBarItemProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [showDropdown, setShowDropdown] = useState(true); // false
+  const [showDropdown, setShowDropdown] = useState(false); 
 
   useEffect(() => {
     const handleClickOutside = (

@@ -1,6 +1,7 @@
 .container {
     width: 100%;
-    padding: 2rem;
+    padding: 1rem;
+    border-radius: 30px;
   }
   
   .row {
@@ -28,8 +29,6 @@
     background-repeat: no-repeat;  
     background-size: contain;
     background-position: bottom right;
-    overflow: hidden;
-    min-height: 200px;
     height: 100%;
   }
 
