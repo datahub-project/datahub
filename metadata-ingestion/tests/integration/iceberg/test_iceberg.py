@@ -1,5 +1,5 @@
 import subprocess
-from typing import Any, Dict, List
+from typing import Any, Dict
 from unittest.mock import patch
 
 import pytest
@@ -20,7 +20,7 @@ GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
 # These paths change from one instance run of the clickhouse docker to the other, and the FROZEN_TIME does not apply to
 # these.
-PATHS_IN_GOLDEN_FILE_TO_IGNORE=[
+PATHS_IN_GOLDEN_FILE_TO_IGNORE = [
     r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['created-at'\]",
     r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['snapshot-id'\]",
     r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['manifest-list'\]",
@@ -43,11 +43,13 @@ def spark_submit(file_path: str, args: str = "") -> None:
 
 
 @freeze_time(FROZEN_TIME)
-def test_multiprocessing_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_multiprocessing_iceberg_ingest(
+    docker_compose_runner, pytestconfig, tmp_path, mock_time
+):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
 
     with docker_compose_runner(
-            test_resources_dir / "docker-compose.yml", "iceberg"
+        test_resources_dir / "docker-compose.yml", "iceberg"
     ) as docker_services:
         wait_for_port(docker_services, "spark-iceberg", 8888, timeout=120)
 
@@ -55,7 +57,9 @@ def test_multiprocessing_iceberg_ingest(docker_compose_runner, pytestconfig, tmp
         spark_submit("/home/iceberg/setup/create.py", "nyc.taxis")
 
         # Run the metadata ingestion pipeline.
-        config_file = (test_resources_dir / "iceberg_multiprocessing_to_file.yml").resolve()
+        config_file = (
+            test_resources_dir / "iceberg_multiprocessing_to_file.yml"
+        ).resolve()
         run_datahub_cmd(
             ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
         )
