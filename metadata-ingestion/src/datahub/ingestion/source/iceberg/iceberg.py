@@ -141,6 +141,7 @@ class IcebergSource(StatefulIngestionSourceBase):
         LOGGER.debug(
             f"Retrieved {len(namespaces)} namespaces, first 10: {namespaces[:10]}"
         )
+        self.report.report_no_listed_namespaces(len(namespaces))
         tables_count = 0
         for namespace in namespaces:
             try:
@@ -148,6 +149,9 @@ class IcebergSource(StatefulIngestionSourceBase):
                 tables_count += len(tables)
                 LOGGER.debug(
                     f"Retrieved {len(tables)} tables for namespace: {namespace}, in total retrieved {tables_count}, first 10: {tables[:10]}"
+                )
+                self.report.report_listed_tables_for_namespace(
+                    ".".join(namespace), len(tables)
                 )
                 yield from tables
             except NoSuchNamespaceError:

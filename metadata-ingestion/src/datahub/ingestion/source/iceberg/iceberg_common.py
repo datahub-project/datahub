@@ -175,6 +175,18 @@ class IcebergSourceReport(StaleEntityRemovalSourceReport):
     load_table_timings: TimingClass = field(default_factory=TimingClass)
     processing_table_timings: TimingClass = field(default_factory=TimingClass)
     profiling_table_timings: TimingClass = field(default_factory=TimingClass)
+    listed_namespaces: int = 0
+    total_listed_tables: int = 0
+    tables_listed_per_namespace: Dict = field(default_factory=dict)
+
+    def report_listed_tables_for_namespace(
+        self, namespace: str, no_tables: int
+    ) -> None:
+        self.tables_listed_per_namespace[namespace] = no_tables
+        self.total_listed_tables += no_tables
+
+    def report_no_listed_namespaces(self, amount: int) -> None:
+        self.listed_namespaces = amount
 
     def report_table_scanned(self, name: str) -> None:
         self.tables_scanned += 1
