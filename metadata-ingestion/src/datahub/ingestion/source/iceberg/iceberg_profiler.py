@@ -114,7 +114,7 @@ class IcebergProfiler:
             Iterator[Iterable[MetadataWorkUnit]]: Workunits related to datasetProfile.
         """
         with PerfTimer() as timer:
-            LOGGER.debug("Starting profiling of dataset: %s", dataset_name)
+            LOGGER.debug(f"Starting profiling of dataset: {dataset_name}")
             current_snapshot = table.current_snapshot()
             if not current_snapshot:
                 # Table has no data, cannot profile, or we can't get current_snapshot.
@@ -206,7 +206,7 @@ class IcebergProfiler:
             time_taken = timer.elapsed_seconds()
             self.report.report_table_profiling_time(time_taken)
             LOGGER.debug(
-                "Finished profiling of dataset: %s in %s", dataset_name, time_taken
+                f"Finished profiling of dataset: {dataset_name} in {time_taken}"
             )
 
         yield MetadataChangeProposalWrapper(

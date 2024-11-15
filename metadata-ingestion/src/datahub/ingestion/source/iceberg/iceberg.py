@@ -149,8 +149,8 @@ class IcebergSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         thread_local = threading.local()
 
-        def _process_dataset(dataset_path):
-            LOGGER.debug("Processing dataset for path %s", dataset_path)
+        def _process_dataset(dataset_path: Identifier) -> Iterable[MetadataWorkUnit]:
+            LOGGER.debug(f"Processing dataset for path {dataset_path}")
             dataset_name = ".".join(dataset_path)
             if not self.config.table_pattern.allowed(dataset_name):
                 # Dataset name is rejected by pattern, report as dropped.
@@ -159,8 +159,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             try:
                 if not hasattr(thread_local, "local_catalog"):
                     LOGGER.debug(
-                        "Didn't find local_catalog in thread_local (%s), initializing new catalog",
-                        thread_local,
+                        f"Didn't find local_catalog in thread_local ({thread_local}), initializing new catalog"
                     )
                     thread_local.local_catalog = self.config.get_catalog()
 
@@ -169,7 +168,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                     time_taken = timer.elapsed_seconds()
                     self.report.report_table_load_time(time_taken)
                 LOGGER.debug(
-                    "Loaded table: %s, time taken: %s", table.identifier, time_taken
+                    f"Loaded table: {table.identifier}, time taken: {time_taken}"
                 )
                 yield from self._create_iceberg_workunit(dataset_name, table)
             except NoSuchPropertyException as e:
@@ -193,7 +192,6 @@ class IcebergSource(StatefulIngestionSourceBase):
                 LOGGER.exception(
                     f"Exception while processing table {dataset_path}, skipping it.",
                 )
-            return []
 
         try:
             catalog = self.config.get_catalog()
@@ -213,7 +211,7 @@ class IcebergSource(StatefulIngestionSourceBase):
     ) -> Iterable[MetadataWorkUnit]:
         with PerfTimer() as timer:
             self.report.report_table_scanned(dataset_name)
-            LOGGER.debug("Processing table %s", dataset_name)
+            LOGGER.debug(f"Processing table {dataset_name}")
             dataset_urn: str = make_dataset_urn_with_platform_instance(
                 self.platform,
                 dataset_name,
@@ -248,9 +246,7 @@ class IcebergSource(StatefulIngestionSourceBase):
             dataset_ownership = self._get_ownership_aspect(table)
             if dataset_ownership:
                 LOGGER.debug(
-                    "Adding ownership: %s to the dataset %s",
-                    dataset_ownership,
-                    dataset_name,
+                    f"Adding ownership: {dataset_ownership} to the dataset {dataset_name}"
                 )
                 dataset_snapshot.aspects.append(dataset_ownership)
 
