@@ -1,5 +1,4 @@
 function openViewEditDropDownAndClickId(data_id) {
-  cy.get('[data-testid="view-select-item"]').first().trigger("mouseover");
   cy.get('[data-testid="views-table-dropdown"]').first().click({ force: true });
   cy.clickOptionWithTestId(data_id);
 }
@@ -76,14 +75,13 @@ describe("view select", () => {
     cy.waitTextVisible("of 1 result");
     cy.get("[class*=dataset]").should("have.length", 1);
     cy.clickOptionWithId("#v2-search-bar-views");
-    cy.get('[data-testid="CloseIcon"]').last().click();
+    cy.get('[data-testid="CloseIcon"]').last().click({ force: true });
     cy.clickOptionWithTestId("views-icon");
     cy.ensureElementPresent(".select-view-icon");
     openViewEditDropDownAndClickId("view-dropdown-remove-user-default");
 
     // Now delete the View
     cy.clickOptionWithId("#v2-search-bar-views");
-    cy.get('[data-testid="CloseIcon"]').last().click();
     cy.clickOptionWithTestId("views-icon");
     cy.ensureElementPresent(".select-view-icon");
     openViewEditDropDownAndClickId("view-dropdown-delete");

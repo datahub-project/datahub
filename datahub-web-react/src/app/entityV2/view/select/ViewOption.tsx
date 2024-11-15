@@ -72,6 +72,7 @@ type Props = {
     onClickEdit: () => void;
     onClickPreview: () => void;
     onClickClear: () => void;
+    selectView: () => void;
 };
 
 export const ViewOption = ({
@@ -85,6 +86,7 @@ export const ViewOption = ({
     onClickEdit,
     onClickPreview,
     onClickClear,
+    selectView,
 }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const onClear = (e) => {
@@ -111,6 +113,7 @@ export const ViewOption = ({
                     onClickEdit={onClickEdit}
                     onClickPreview={onClickPreview}
                     selected={selectedUrn}
+                    selectView={selectView}
                 />
                 {selectedUrn && (
                     <div className="close-container" onClick={(e) => onClear(e)} role="none">

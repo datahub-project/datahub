@@ -117,10 +117,8 @@ export const renderSelectedView = ({ selectedViewName, isShowNavBarRedesign, onC
         <SelectButtonContainer>
             <SelectButton $selectedViewName={selectedViewName} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <Tooltip showArrow={false} title={selectedViewName} placement="bottom">
-                    <ViewLabel>
-                        {selectedViewName || (
-                            <StyledViewIcon data-testid="views-icon" $isShowNavBarRedesign={isShowNavBarRedesign} />
-                        )}
+                    <ViewLabel data-testid="views-icon">
+                        {selectedViewName || <StyledViewIcon $isShowNavBarRedesign={isShowNavBarRedesign} />}
                     </ViewLabel>
                 </Tooltip>
             </SelectButton>

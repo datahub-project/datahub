@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { Tooltip } from '@components';
+import { colors, Tooltip } from '@components';
 import FilterCenterFocusOutlinedIcon from '@mui/icons-material/FilterCenterFocusOutlined';
 import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import PublicIcon from '@mui/icons-material/Public';
@@ -23,14 +23,14 @@ import {
 
 const ICON_WIDTH = 30;
 
-const IconPlaceholder = styled.div`
+const IconPlaceholder = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     width: ${ICON_WIDTH}px;
     display: flex;
     align-items: center;
     justify-content: end;
     position: absolute;
     right: 5px;
-    top: -5px;
+    top: ${(props) => (props.$isShowNavBarRedesign ? '0px' : '-5px')};
     gap: 0.2rem;
 `;
 
@@ -46,9 +46,14 @@ const ViewType = styled.span`
     padding: 5px 4px;
 `;
 
-const DefaultViewIconContainer = styled.div<{ selected?: boolean }>`
+const DefaultViewIconContainer = styled.div<{ selected?: boolean; $isShowNavBarRedesign?: boolean }>`
     border: 1px solid
-        ${(props) => (props.selected ? SEARCH_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK)};
+        ${(props) => {
+            if (props.$isShowNavBarRedesign) {
+                return props.selected ? colors.violet[500] : 'transparent';
+            }
+            return props.selected ? SEARCH_COLORS.TITLE_PURPLE : REDESIGN_COLORS.BACKGROUND_OVERLAY_BLACK;
+        }};
     border-radius: 100%;
 `;
 
@@ -83,7 +88,13 @@ type Props = {
     // Custom Action Handlers - useful if you do NOT want the Menu to handle Modal rendering.
     onClickEdit?: () => void;
     onClickPreview?: () => void;
+    selectView: () => void;
 };
+
+const ViewIconContainerNavBarRedesign = styled.div`
+    display: flex;
+    position: relative;
+`;
 
 export const ViewOptionName = ({
     name,
@@ -97,18 +108,49 @@ export const ViewOptionName = ({
     selected,
     onClickEdit,
     onClickPreview,
+    selectView,
 }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     const renderViewIcon = () => {
         if (isShowNavBarRedesign) {
             return (
-                <Tooltip placement="bottom" showArrow title={type === 'GLOBAL' ? 'Public' : 'Private'}>
-                    <ViewIconNavBarRedesign $selected={selected}>
-                        {type === 'GLOBAL' && <GlobeHemisphereEast size={22} />}
-                        {type === 'PERSONAL' && <Lock size={22} />}
-                    </ViewIconNavBarRedesign>
-                </Tooltip>
+                <ViewIconContainerNavBarRedesign>
+                    {(isUserDefault || isGlobalDefault) && (
+                        <IconPlaceholder $isShowNavBarRedesign={isShowNavBarRedesign}>
+                            {isGlobalDefault && (
+                                <DefaultViewIconContainer
+                                    selected={selected}
+                                    $isShowNavBarRedesign={isShowNavBarRedesign}
+                                >
+                                    <GlobalDefaultViewIcon
+                                        title="Your organization's default View."
+                                        color={colors.gray[200]}
+                                        size={5}
+                                    />
+                                </DefaultViewIconContainer>
+                            )}
+                            {isUserDefault && (
+                                <DefaultViewIconContainer
+                                    selected={selected}
+                                    $isShowNavBarRedesign={isShowNavBarRedesign}
+                                >
+                                    <UserDefaultViewIcon
+                                        title="Your default View."
+                                        color={colors.violet[500]}
+                                        size={5}
+                                    />
+                                </DefaultViewIconContainer>
+                            )}
+                        </IconPlaceholder>
+                    )}
+                    <Tooltip placement="bottom" showArrow title={type === 'GLOBAL' ? 'Public' : 'Private'}>
+                        <ViewIconNavBarRedesign $selected={selected}>
+                            {type === 'GLOBAL' && <GlobeHemisphereEast size={22} />}
+                            {type === 'PERSONAL' && <Lock size={22} />}
+                        </ViewIconNavBarRedesign>
+                    </Tooltip>
+                </ViewIconContainerNavBarRedesign>
             );
         }
 
@@ -163,6 +205,7 @@ export const ViewOptionName = ({
                     visible={visible}
                     onClickEdit={onClickEdit}
                     onClickPreview={onClickPreview}
+                    selectView={selectView}
                 />
             </ViewDropdownMenuContainer>
         </ViewContainer>

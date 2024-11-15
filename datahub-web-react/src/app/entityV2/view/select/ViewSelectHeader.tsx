@@ -28,12 +28,9 @@ const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean }>`
         border-color: ${colors.gray[100]};
         box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07);
 
-        
-
         &&:hover {
             border-color: ${colors.violet[500]};
         }
-
 
         &.ant-input-affix-wrapper-focused {
             border-color: ${colors.violet[500]};
@@ -96,7 +93,7 @@ const ViewHeader = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         gap: 1rem;
         align-items: center;
         .manage {
-            color: ${colors.gray[1600]};
+            color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1600] : REDESIGN_COLORS.VIEW_PURPLE)};
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;

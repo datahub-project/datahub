@@ -62,6 +62,7 @@ type Props = {
     onClickEdit?: () => void;
     onClickPreview?: () => void;
     onClickDelete?: () => void;
+    selectView?: () => void;
 };
 
 export const ViewDropdownMenu = ({
@@ -72,6 +73,7 @@ export const ViewDropdownMenu = ({
     onClickEdit,
     onClickPreview,
     onClickDelete,
+    selectView,
 }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const userContext = useUserContext();
@@ -98,6 +100,8 @@ export const ViewDropdownMenu = ({
         })
             .then(({ errors }) => {
                 if (!errors) {
+                    if (viewUrn && selectView) selectView();
+
                     userContext.updateState({
                         ...userContext.state,
                         views: {
