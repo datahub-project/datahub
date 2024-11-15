@@ -559,8 +559,8 @@ class OracleInspectorObjectWrapper:
         text = "SELECT text FROM dba_views WHERE view_name=:view_name"
 
         if schema is not None:
-            text += " AND owner = :schema"
-            params["schema"] = schema
+            params["owner"] = schema
+            text += "\nAND ac.owner = CAST(:owner AS VARCHAR2(128))"
 
         rp = self._inspector_instance.bind.execute(sql.text(text), params).scalar()
 
