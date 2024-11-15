@@ -486,9 +486,15 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
         # Case 2: Propagate for Datasets
         elif entity_urn.startswith("urn:li:dataset"):
             downstream_datasets = [
-                x for x in downstreams if x.startswith("urn:li:dataset")
+                x
+                for x in downstreams
+                if x.startswith("urn:li:dataset") and x != entity_urn
             ]
-            sibling_datasets = [x for x in siblings if x.startswith("urn:li:dataset")]
+            sibling_datasets = [
+                x
+                for x in siblings
+                if x.startswith("urn:li:dataset") and x != entity_urn
+            ]
             self._handle_dataset_propagation(
                 term_propagation_directive,
                 downstream_datasets,
