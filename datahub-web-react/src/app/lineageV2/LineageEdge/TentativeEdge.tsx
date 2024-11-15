@@ -6,7 +6,7 @@ export const TENTATIVE_EDGE_NAME = 'tentative';
 
 const StyledPath = styled.path`
     stroke-dasharray: 3, 2;
-    animation: dash-move 300ms linear infinite;
+    // animation: dash-move 300ms linear infinite;
     @keyframes dash-move {
         0% {
             stroke-dashoffset: 0;
