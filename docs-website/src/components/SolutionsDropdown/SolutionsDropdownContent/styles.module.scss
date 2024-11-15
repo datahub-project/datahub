@@ -1,0 +1,90 @@
+.container {
+    width: 100%;
+    padding: 2rem;
+  }
+  
+  .row {
+    display: flex;
+    gap: 1rem;
+  }
+  
+  .card {
+    display: flex;
+    text-align: left;
+    border-radius: 11px;
+    background-color: #f7f7f7;
+    color: #333;
+    text-decoration: none;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    width: 220px;
+    margin-bottom: 1rem;
+  }
+
+  .header { 
+    display: inline-flex;
+  }
+
+  .fullSizeCard {
+    background-repeat: no-repeat;  
+    background-size: contain;
+    background-position: bottom right;
+    overflow: hidden;
+    min-height: 200px;
+    height: 100%;
+  }
+
+  .halfSizeCard {
+    height: 100%;
+  }
+  
+  .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+    text-decoration: none;
+    color: inherit;
+  }
+  
+  .cardText {
+    padding: 1.5rem;
+  }
+  
+  .icon {
+    width: 20px;
+    height: 20px;
+    margin-right: 0.7rem;
+  }
+  
+  .title {
+    font-size: 1rem;
+    font-weight: semibold;
+    margin-bottom: 0.5rem;
+    color: 1e1e1e;
+    display: flex;
+
+    &:hover {
+      color: 1e1e1e !important;
+    }
+  }
+  
+  .description {
+    font-size: 0.9rem;
+    color: #757575;
+    font-weight: 300;
+    margin-left: 2rem;
+  }
+
+  
+  @media (max-width: 768px) {
+    .col {
+      flex: 1 1 48%;
+      max-width: 48%;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .col {
+      flex: 1 1 100%;
+      max-width: 100%;
+    }
+  }
+  

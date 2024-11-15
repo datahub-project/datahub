@@ -20,6 +20,7 @@ import type {
   Props,
 } from '@theme/NavbarItem/DropdownNavbarItem';
 import styles from './styles.module.css';
+import SolutionsDropdownContent from './SolutionsDropdownContent';
 
 function isItemActive(
   item: LinkLikeNavbarItemProps,
@@ -52,7 +53,7 @@ function DropdownNavbarItemDesktop({
   ...props
 }: DesktopOrMobileNavBarItemProps) {
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [showDropdown, setShowDropdown] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(true); // false
 
   useEffect(() => {
     const handleClickOutside = (
@@ -115,6 +116,7 @@ function DropdownNavbarItemDesktop({
             key={i}
           />
         ))} */}
+        <SolutionsDropdownContent />
       </ul>
     </div>
   );
