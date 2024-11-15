@@ -438,7 +438,7 @@ class OracleInspectorObjectWrapper:
         return rp.fetchall()
 
     def get_pk_constraint(
-            self, table_name: str, schema: Optional[str] = None, dblink: str = ""
+        self, table_name: str, schema: Optional[str] = None, dblink: str = ""
     ) -> Dict:
         pkeys = []
         constraint_name = None
