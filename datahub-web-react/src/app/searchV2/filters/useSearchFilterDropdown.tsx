@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useAggregateAcrossEntitiesLazyQuery } from '@src/graphql/search.generated';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
-import { combineAggregations, filterEmptyAggregations, getNewFilters, getNumActiveFiltersForFilter } from './utils';
+import { filterEmptyAggregations, getNewFilters, getNumActiveFiltersForFilter } from './utils';
 import useGetSearchQueryInputs from '../useGetSearchQueryInputs';
 import { ENTITY_FILTER_NAME } from '../utils/constants';
 
@@ -13,6 +13,7 @@ interface Props {
 
 export default function useSearchFilterDropdown({ filter, activeFilters, onChangeFilters }: Props) {
     const numActiveFilters = getNumActiveFiltersForFilter(activeFilters, filter);
+    const shouldFetchAggregations: boolean = !!filter.field && numActiveFilters > 0;
 
     const { entityFilters, query, orFilters, viewUrn } = useGetSearchQueryInputs(
         useMemo(() => [filter.field], [filter.field]),
@@ -23,7 +24,7 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
     useEffect(() => {
         // Fetch the aggregates of the current facet only if there are active filters
         // Otherwise, the aggregates are already fetched by the search query
-        if (numActiveFilters > 0 && filter.field) {
+        if (shouldFetchAggregations) {
             aggregateAcrossEntities({
                 variables: {
                     input: {
@@ -36,15 +37,13 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
                 },
             });
         }
-    }, [aggregateAcrossEntities, entityFilters, filter.field, numActiveFilters, orFilters, query, viewUrn]);
+    }, [aggregateAcrossEntities, entityFilters, filter.field, orFilters, query, viewUrn, shouldFetchAggregations]);
 
-    const combinedAggregations = combineAggregations(
-        filter.field,
-        filter.aggregations,
-        data?.aggregateAcrossEntities?.facets,
-    );
+    const aggregations = shouldFetchAggregations
+        ? data?.aggregateAcrossEntities?.facets?.[0].aggregations
+        : filter.aggregations;
 
-    const finalAggregations = filterEmptyAggregations(combinedAggregations, activeFilters);
+    const finalAggregations = filterEmptyAggregations(aggregations || [], activeFilters);
 
     function updateFilters(newFilters) {
         onChangeFilters(

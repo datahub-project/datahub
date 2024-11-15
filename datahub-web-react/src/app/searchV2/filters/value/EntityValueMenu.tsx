@@ -4,13 +4,7 @@ import OptionsDropdownMenu from '../OptionsDropdownMenu';
 import { mapFilterOption } from '../mapFilterOption';
 import { EntityFilterField, FilterValue, FilterValueOption } from '../types';
 import { OptionMenu } from './styledComponents';
-import {
-    deduplicateOptions,
-    mapFilterCountsToZero,
-    useFilterOptionsBySearchQuery,
-    useLoadAggregationOptions,
-    useLoadSearchOptions,
-} from './utils';
+import { deduplicateOptions, useFilterOptionsBySearchQuery, useLoadSearchOptions } from './utils';
 
 interface Props {
     field: EntityFilterField;
@@ -41,26 +35,15 @@ export default function EntityValueMenu({
     // Ideally we would not have staged values, and filters would update automatically.
     const [searchQuery, setSearchQuery] = useState<string | undefined>(undefined);
 
-    // Here we optionally load the aggregation options, which are the options that are displayed by default.
-    const { options: aggOptionsWithTooHighCounts, loading: aggLoading } = useLoadAggregationOptions(
-        field,
-        true,
-        includeCount,
-    );
     // Here we optionally load the search options, which are the options that are displayed when the user searches.
     const { options: searchOptions, loading: searchLoading } = useLoadSearchOptions(field, searchQuery, !isSearchable);
 
-    // agg options are generated from a * query and their counts will be off as a result.
-    const aggOptionsWithEmptyCounts = mapFilterCountsToZero(aggOptionsWithTooHighCounts);
-
-    const allOptions = [...defaultOptions, ...deduplicateOptions(defaultOptions, aggOptionsWithEmptyCounts)];
-
-    const localSearchOptions = useFilterOptionsBySearchQuery(allOptions, searchQuery);
+    const localSearchOptions = useFilterOptionsBySearchQuery(defaultOptions, searchQuery);
 
     const finalSearchOptions = [...localSearchOptions, ...deduplicateOptions(localSearchOptions, searchOptions)];
 
     // Compute the final options to show to the user.
-    const finalOptions = searchQuery ? finalSearchOptions : allOptions;
+    const finalOptions = searchQuery ? finalSearchOptions : defaultOptions;
 
     // Finally, create the option set.
     // TODO: Add an option set for "no x".
@@ -93,7 +76,7 @@ export default function EntityValueMenu({
             updateFilters={onApply}
             searchQuery={searchQuery || ''}
             updateSearchQuery={setSearchQuery}
-            isLoading={searchLoading || aggLoading}
+            isLoading={searchLoading}
             searchPlaceholder={`Search for ${displayName}`}
             type={type}
             className={className}
