@@ -1,14 +1,14 @@
 package com.linkedin.datahub.graphql.types.dataset.mappers;
 
 import com.linkedin.common.AuditStamp;
-import com.linkedin.dataforge.dataquality.DataQuality;
-import com.linkedin.dataforge.dataquality.DataQualityDimensionInfo;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.ChangeAuditStamps;
 import com.linkedin.datahub.graphql.generated.DimensionScore;
 import com.linkedin.datahub.graphql.generated.SchemaFieldQualityDimensionInfo;
 import com.linkedin.datahub.graphql.generated.ScoreType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.dataquality.DataQuality;
+import com.linkedin.dataquality.DataQualityDimensionInfo;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;

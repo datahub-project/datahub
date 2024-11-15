@@ -56,14 +56,15 @@ public class ListDimensionNameResolver
               input.getFilters() == null ? Collections.emptyList() : input.getFilters();
 
           try {
-
+            List<SortCriterion> sortCriterionFiler = new ArrayList<>();
+            sortCriterionFiler.add(DEFAULT_SORT_CRITERION);
             final SearchResult gmsResult =
                 _entityClient.search(
                     context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     Constants.DIMENSION_TYPE_ENTITY_NAME,
                     query,
                     buildFilter(filters, Collections.emptyList()),
-                    DEFAULT_SORT_CRITERION,
+                    sortCriterionFiler,
                     start,
                     count);
 

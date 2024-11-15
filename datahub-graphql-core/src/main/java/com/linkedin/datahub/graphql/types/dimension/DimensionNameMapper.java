@@ -44,8 +44,8 @@ public class DimensionNameMapper implements ModelMapper<EntityResponse, Dimensio
 
   private void mapDimensionNameInfo(
       @Nonnull DimensionNameEntity dimensionNameEntity, @Nonnull DataMap dataMap) {
-    final com.linkedin.dataforge.dataquality.DimensionTypeInfo gmsDimensionTypeInfo =
-        new com.linkedin.dataforge.dataquality.DimensionTypeInfo(dataMap);
+    final com.linkedin.dataquality.DimensionTypeInfo gmsDimensionTypeInfo =
+        new com.linkedin.dataquality.DimensionTypeInfo(dataMap);
 
     final DimensionNameInfo dimensionNameInfo = new DimensionNameInfo();
 

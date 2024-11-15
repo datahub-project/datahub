@@ -60,6 +60,7 @@ import com.linkedin.datahub.graphql.generated.DataQualityContract;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetStatsSummary;
 import com.linkedin.datahub.graphql.generated.Deprecation;
+import com.linkedin.datahub.graphql.generated.DimensionNameEntity;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipProperties;
@@ -80,6 +81,7 @@ import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.ListAccessTokenResult;
 import com.linkedin.datahub.graphql.generated.ListBusinessAttributesResult;
+import com.linkedin.datahub.graphql.generated.ListDimensionNameResult;
 import com.linkedin.datahub.graphql.generated.ListDomainsResult;
 import com.linkedin.datahub.graphql.generated.ListGroupsResult;
 import com.linkedin.datahub.graphql.generated.ListOwnershipTypesResult;
@@ -161,6 +163,10 @@ import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolve
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetUsageStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.IsAssignedToMeResolver;
 import com.linkedin.datahub.graphql.resolvers.deprecation.UpdateDeprecationResolver;
+import com.linkedin.datahub.graphql.resolvers.dimension.CreateDimensionNameResolver;
+import com.linkedin.datahub.graphql.resolvers.dimension.DeleteDimensionNameResolver;
+import com.linkedin.datahub.graphql.resolvers.dimension.ListDimensionNameResolver;
+import com.linkedin.datahub.graphql.resolvers.dimension.UpdateDimensionNameResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.CreateDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DeleteDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.domain.DomainEntitiesResolver;
@@ -258,10 +264,6 @@ import com.linkedin.datahub.graphql.resolvers.ownership.CreateOwnershipTypeResol
 import com.linkedin.datahub.graphql.resolvers.ownership.DeleteOwnershipTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.ownership.ListOwnershipTypesResolver;
 import com.linkedin.datahub.graphql.resolvers.ownership.UpdateOwnershipTypeResolver;
-import com.linkedin.datahub.graphql.resolvers.dimension.CreateDimensionNameResolver;
-import com.linkedin.datahub.graphql.resolvers.dimension.DeleteDimensionNameResolver;
-import com.linkedin.datahub.graphql.resolvers.dimension.ListDimensionNameResolver;
-import com.linkedin.datahub.graphql.resolvers.dimension.UpdateDimensionNameResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
@@ -353,6 +355,7 @@ import com.linkedin.datahub.graphql.types.dataset.DatasetType;
 import com.linkedin.datahub.graphql.types.dataset.VersionedDatasetType;
 import com.linkedin.datahub.graphql.types.dataset.mappers.DatasetProfileMapper;
 import com.linkedin.datahub.graphql.types.datatype.DataTypeType;
+import com.linkedin.datahub.graphql.types.dimension.DimensionNameType;
 import com.linkedin.datahub.graphql.types.domain.DomainType;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeType;
 import com.linkedin.datahub.graphql.types.ermodelrelationship.CreateERModelRelationshipResolver;
@@ -369,7 +372,6 @@ import com.linkedin.datahub.graphql.types.mlmodel.MLModelType;
 import com.linkedin.datahub.graphql.types.mlmodel.MLPrimaryKeyType;
 import com.linkedin.datahub.graphql.types.notebook.NotebookType;
 import com.linkedin.datahub.graphql.types.ownership.OwnershipType;
-import com.linkedin.datahub.graphql.types.dimension.DimensionNameType;
 import com.linkedin.datahub.graphql.types.policy.DataHubPolicyType;
 import com.linkedin.datahub.graphql.types.query.QueryType;
 import com.linkedin.datahub.graphql.types.restricted.RestrictedType;
@@ -400,11 +402,11 @@ import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataProductService;
+import com.linkedin.metadata.service.DimensionTypeService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.OwnershipTypeService;
-import com.linkedin.metadata.service.DimensionTypeService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ViewService;
@@ -862,7 +864,8 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(ASSERTIONS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(CONTRACTS_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(COMMON_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(COMMON_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(DATAQUALITY_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1381,7 +1384,8 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateDimensionName", new UpdateDimensionNameResolver(this.dimensionTypeService))
               .dataFetcher(
-                  "deleteDimensionName", new DeleteDimensionNameResolver(this.dimensionTypeService));
+                  "deleteDimensionName",
+                  new DeleteDimensionNameResolver(this.dimensionTypeService));
           if (featureFlags.isBusinessAttributeEntityEnabled()) {
             typeWiring
                 .dataFetcher(
@@ -3020,6 +3024,21 @@ public class GmsGraphQLEngine {
                                 .getOwnershipTypes().stream()
                                     .map(OwnershipTypeEntity::getUrn)
                                     .collect(Collectors.toList()))));
+  }
+
+  private void configureDimensionNameResolver(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "ListDimensionNameResult",
+        typeWiring ->
+            typeWiring.dataFetcher(
+                "dimensionNames",
+                new LoadableTypeBatchResolver<>(
+                    dimensionNameType,
+                    (env) ->
+                        ((ListDimensionNameResult) env.getSource())
+                            .getDimensionNames().stream()
+                                .map(DimensionNameEntity::getUrn)
+                                .collect(Collectors.toList()))));
   }
 
   private void configureDataProcessInstanceResolvers(final RuntimeWiring.Builder builder) {

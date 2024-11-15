@@ -137,9 +137,7 @@ export const DatasetMetricsChart = ({ metrics }: DatasetMetricsProps) => {
                     },
                 }
             });
-            console.log('Response from useListDimensionNamesQuery Datasetmetrics', listDimensionNameEntity)
             const customDimensionNames: DimensionNameEntity[] = (listDimensionNameEntity?.listDimensionNames?.dimensionNames) as DimensionNameEntity[]
-            console.log('Response from customDimensionInfo Datasetmetrics', customDimensionNames)
             return (
                 <Descriptions column={customDimensionNames?.length + 1} className="legend-table">
                     <Descriptions.Item key={'title'}>

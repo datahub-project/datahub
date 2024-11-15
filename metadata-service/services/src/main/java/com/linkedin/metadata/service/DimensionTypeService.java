@@ -5,14 +5,13 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.dataforge.dataquality.DimensionTypeInfo;
+import com.linkedin.dataquality.DimensionTypeInfo;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.DimensionTypeKey;
 import com.linkedin.metadata.utils.EntityKeyUtils;
-import com.linkedin.ownership.OwnershipTypeInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Objects;
 import java.util.UUID;
@@ -23,11 +22,6 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * This class is used to permit easy CRUD operations on a DataHub Dimension Name. Currently it
  * supports creating, updating, and removing a Dimension Name.
- *
- * <p>Note that no Authorization is performed within the service. The expectation is that the caller
- * has already verified the permissions of the active Actor.
- *
- * <p>TODO: Ideally we have some basic caching of the view information inside of this class.
  */
 @Slf4j
 public class DimensionTypeService extends BaseService {
@@ -48,13 +42,15 @@ public class DimensionTypeService extends BaseService {
    * @param currentTimeMs the current time in millis
    * @return the urn of the newly created Ownership Type
    */
+  @Nullable
   public Urn createDimensionName(
       @Nonnull final OperationContext opContext,
       String name,
       @Nullable String description,
       long currentTimeMs) {
     Objects.requireNonNull(name, "name must not be null");
-    Objects.requireNonNull(opContext, "operation context must not be null");
+    Objects.requireNonNull(
+        opContext.getSessionAuthentication(), "operation context must not be null");
 
     // 1. Generate a unique id for the new Ownership Type.
     final DimensionTypeKey key = new DimensionTypeKey();
@@ -106,9 +102,9 @@ public class DimensionTypeService extends BaseService {
       @Nullable String description,
       long currentTimeMs) {
     Objects.requireNonNull(urn, "urn must not be null");
-    Objects.requireNonNull(opContext, "operational context must not be null");
+    Objects.requireNonNull(
+        opContext.getSessionAuthentication(), "operational context must not be null");
 
-    // 1. Check whether the Ownership Type exists
     DimensionTypeInfo info = getDimensionTypeInfo(opContext, urn);
 
     if (info == null) {
@@ -156,7 +152,8 @@ public class DimensionTypeService extends BaseService {
   public void deleteDimensionType(
       @Nonnull OperationContext opContext, @Nonnull Urn urn, boolean deleteReferences) {
     Objects.requireNonNull(urn, "Dimension TypeUrn must not be null");
-    Objects.requireNonNull(opContext, "operational context must not be null");
+    Objects.requireNonNull(
+        opContext.getSessionAuthentication(), "operational context must not be null");
     try {
       this.entityClient.deleteEntity(opContext, urn);
       if (deleteReferences) {
@@ -181,7 +178,8 @@ public class DimensionTypeService extends BaseService {
   public DimensionTypeInfo getDimensionTypeInfo(
       @Nonnull OperationContext opContext, @Nonnull final Urn dimensionTypeUrn) {
     Objects.requireNonNull(dimensionTypeUrn, "dimensionTypeUrn must not be null");
-    Objects.requireNonNull(opContext, "operational context must not be null");
+    Objects.requireNonNull(
+        opContext.getSessionAuthentication(), "operational context must not be null");
     final EntityResponse response = getDimensionTypeEntityResponse(opContext, dimensionTypeUrn);
     if (response != null
         && response.getAspects().containsKey(Constants.DIMENSION_NAME_INFO_ASPECT_NAME)) {
@@ -205,7 +203,8 @@ public class DimensionTypeService extends BaseService {
   public EntityResponse getDimensionTypeEntityResponse(
       @Nonnull OperationContext opContext, @Nonnull final Urn dimensionTypeUrn) {
     Objects.requireNonNull(dimensionTypeUrn, "dimensionTypeUrn must not be null");
-    Objects.requireNonNull(opContext, "Operational context must not be null");
+    Objects.requireNonNull(
+        opContext.getSessionAuthentication(), "Operational context must not be null");
     try {
       return this.entityClient.getV2(
           opContext,

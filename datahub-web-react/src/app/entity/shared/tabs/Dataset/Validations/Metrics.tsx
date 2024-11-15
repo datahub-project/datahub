@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import './MetricsTab.less';
 import { DatasetMetrics } from './DatasetMetrics';
 import { DataQuality, ScoreType, DimensionNameEntity } from '../../../../../../types.generated';
-import { toTitleCaseChangeCase } from '../../../../../dataforge/shared';
+//import { toTitleCaseChangeCase } from '../../../../../dataforge/shared';
 import { toLocalDateString } from '../../../../../shared/time/timeUtils';
 import { countFormatter } from '../../../../../../utils/formatter';
 import { Divider } from 'antd';
@@ -40,11 +40,8 @@ export type DatasetMetricsProps = {
 export const NO_DIMENSION = 'NoDimension';
 export const NO_SCORE_DASH = ' - ';
 export function getDimensionScoreType(metricDimensions, dimensionNameEntity): [number, number, string, string, string] {
-    console.log("getDimensionScoreType2 ", dimensionNameEntity?.urn)
-    console.log("metric dimensions metrics ", metricDimensions)
     const result = metricDimensions?.filter((obj) => obj.dimensionUrn === dimensionNameEntity?.urn);
     if (result && result?.length > 0) {
-        console.log("getDimensionScoreType3 ", result?.length)
         return [
             result[0].currentScore || '',
             result[0].historicalWeightedScore || '',
@@ -53,7 +50,6 @@ export function getDimensionScoreType(metricDimensions, dimensionNameEntity): [n
             '',
         ];
     }
-    console.log("getDimensionScoreType4 ")
     // default to no score since we must render all dimensions regardless of whether they are present in the data or not.
     // we will differentiate a no score verus a score of 0 by adding a special string called NoDimension.
     return [0, 0, NO_SCORE_DASH, NO_SCORE_DASH, NO_DIMENSION];
@@ -89,7 +85,6 @@ export const Metrics = ({ metrics }: MetricsProps) => {
 
     let data: QualityMetrics[] = [];
     if (metricDimensions !== null && metricDimensions?.length > 0) {
-        console.log("Get metrics dimensions ", metricDimensions)
          // dimension; read custom dimension from urn.
         const { data: listDimensionNameEntity } = useListDimensionNamesQuery({
             variables: {
@@ -100,9 +95,7 @@ export const Metrics = ({ metrics }: MetricsProps) => {
                 },
             }
         });
-        console.log('Response from useListDimensionNamesQuery Metrics', listDimensionNameEntity)
         const customDimensionNames: DimensionNameEntity[] = (listDimensionNameEntity?.listDimensionNames?.dimensionNames) as DimensionNameEntity[]
-        console.log('Response from customDimensionInfo Metrics', customDimensionNames)
         // read the dimensionTypeName as it is found instead of filter.
         data = customDimensionNames?.map((dimensionNameEntity) => {
             let [currentScore, historicalWeightedScore, scoreType, note, addlInfo] = getDimensionScoreType(
@@ -110,7 +103,7 @@ export const Metrics = ({ metrics }: MetricsProps) => {
                 dimensionNameEntity
             );
             return {
-                metric: toTitleCaseChangeCase(dimensionNameEntity?.info?.name) || '',
+                metric: (dimensionNameEntity?.info?.name) || '',
                 current: currentScore,
                 historical: historicalWeightedScore,
                 scoreType: scoreType || '',

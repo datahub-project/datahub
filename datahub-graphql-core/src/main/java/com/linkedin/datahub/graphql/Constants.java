@@ -32,6 +32,7 @@ public class Constants {
   public static final String BROWSE_PATH_V2_DELIMITER = "␟";
   public static final String VERSION_STAMP_FIELD_NAME = "versionStamp";
   public static final String ENTITY_FILTER_NAME = "_entityType";
+  public static final String DATAQUALITY_SCHEMA_FILE = "dataquality.graphql";
 
   public static final Set<String> DEFAULT_PERSONA_URNS =
       ImmutableSet.of(

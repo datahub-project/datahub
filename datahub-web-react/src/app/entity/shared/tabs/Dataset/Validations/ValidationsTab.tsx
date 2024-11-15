@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from 'antd';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
@@ -34,22 +34,23 @@ enum TabPaths {
  * Component used for rendering the Entity Validations Tab.
  */
 export const ValidationsTab = () => {
-    const { entityData } = useEntityData();
+    const { entityData, loading } = useEntityData();
     const history = useHistory();
     const { pathname } = useLocation();
     const appConfig = useAppConfig();
 
     const { selectedTab, basePath } = useGetValidationsTab(pathname, Object.values(TabPaths));
-    let totalAssertions = 0;
-    let dataQuality: DataQuality = {};
-    let qualityMetrics = 0;
+    const [totalAssertions, setTotalAssertions] = useState(0);
+    const [dataQuality, setDataQuality] = useState({});
+    const [qualityMetrics, setQualityMetrics] = useState(0);
 
     let defaultTab = '';
     // If no tab was selected, select a default tab.
     useEffect(() => {
-        totalAssertions = (entityData as any)?.assertions?.total;
-        dataQuality = (entityData as any)?.dataQuality || [];
-        qualityMetrics = Object.keys(dataQuality)?.length;
+        setTotalAssertions((entityData as any)?.assertions?.total || 0);
+        const quality = (entityData as any)?.dataQuality || [];
+        setDataQuality(quality);
+        setQualityMetrics(Object.keys(quality)?.length || 0);
 
         if (totalAssertions !== 0) {
             defaultTab = TabPaths.ASSERTIONS;
@@ -61,7 +62,7 @@ export const ValidationsTab = () => {
             // Route to the default tab.s
             history.replace(`${basePath}/${defaultTab}`);
         }
-    }, [selectedTab, basePath, history, entityData]);
+    }, [selectedTab, basePath, history, entityData, loading]);
 
     /**
      * The top-level Toolbar tabs to display.
@@ -87,7 +88,7 @@ export const ValidationsTab = () => {
             ),
             path: TabPaths.METRICS,
             disabled: qualityMetrics === 0,
-            content: <Metrics metrics={(entityData as any)?.dataQuality} />,
+            content: <Metrics metrics={dataQuality} />,
         },
     ];
 

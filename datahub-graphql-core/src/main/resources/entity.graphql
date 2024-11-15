@@ -1793,6 +1793,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Structured properties about this Dataset
     """
     structuredProperties: StructuredProperties
+
+    """
+    Data about quality
+    """
+    dataQuality: DataQuality
 }
 
 type RoleAssociation {

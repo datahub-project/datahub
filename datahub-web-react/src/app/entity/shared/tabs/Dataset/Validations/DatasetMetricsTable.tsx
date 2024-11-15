@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import './MetricsTab.less';
 import { Table } from 'antd';
 import { DatasetMetricsProps, getFormattedScore } from './Metrics';
-import { toTitleCaseChangeCase } from '../../../../../dataforge/shared';
+//import { toTitleCaseChangeCase } from '../../../../../dataforge/shared';
 import MetricNotesField from './MetricNotesField';
 
 export const DatasetMetricsTable = ({ metrics }: DatasetMetricsProps) => {
     const [expandedRows, setExpandedRows] = useState({});
     const getDimensionName = (dimensionName: string): string => {
-        return toTitleCaseChangeCase(dimensionName.replace(/_/g, ' '));
+        //return toTitleCaseChangeCase(dimensionName.replace(/_/g, ' '));
+        return (dimensionName.replace(/_/g, ' '));
     };
 
     const notesColumn = {

@@ -1,4 +1,4 @@
-namespace com.linkedin.dataforge.dataquality
+namespace com.linkedin.dataquality
 
 import com.linkedin.common.AuditStamp
 

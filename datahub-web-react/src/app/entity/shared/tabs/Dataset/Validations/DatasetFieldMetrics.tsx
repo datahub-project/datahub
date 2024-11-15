@@ -7,7 +7,7 @@ import { MetricsProps, getFormattedScore } from './Metrics';
 import styled from 'styled-components';
 import { SearchOutlined } from '@ant-design/icons';
 import { toLocalDateString } from '../../../../../shared/time/timeUtils';
-import { toTitleCaseChangeCase } from '../../../../../dataforge/shared';
+//import { toTitleCaseChangeCase } from '../../../../../dataforge/shared';
 import Icon from '../../../../../../images/Icon.png';
 import { useListDimensionNamesQuery } from '../../../../../../graphql/dimensionname.generated';
 import { DimensionNameEntity} from '../../../../../../types.generated';
@@ -56,11 +56,9 @@ export const FieldMetricsTable = ({ fieldMetrics }: any) => {
                 },
             }
         });
-        console.log('Response from useListDimensionNamesQuery datasetfieldmetrics', listDimensionNameEntity)
         const customDimensionNames: DimensionNameEntity[] = (listDimensionNameEntity?.listDimensionNames?.dimensionNames) as DimensionNameEntity[]
-        console.log('Response from customDimensionInfo', customDimensionNames)
         customDimensionNames?.forEach((dimensionNameEntity) => {
-            const dimensionTitle = toTitleCaseChangeCase(dimensionNameEntity?.info?.name.replace(/_/g, ' '));
+            const dimensionTitle = (dimensionNameEntity?.info?.name.replace(/_/g, ' '));
             const dimensionVal: string = dimensionNameEntity?.info?.name.toLowerCase() as string;
             metricColumns.push(
                 <ColumnGroup title={dimensionTitle} dataIndex={dimensionVal} key={dimensionVal}>
@@ -156,6 +154,16 @@ export const DatasetFieldMetrics = ({ metrics }: MetricsProps) => {
         return '';
     }
 
+    const { data: listDimensionNameEntity } = useListDimensionNamesQuery({
+        variables: {
+            input: {
+                query: "*",
+                start: 0,
+                count: 100,
+            },
+        }
+    });
+    const customDimensionNamesEntitys: DimensionNameEntity[] = (listDimensionNameEntity?.listDimensionNames?.dimensionNames) as DimensionNameEntity[]
     let fieldMetrics: any[] = [];
     if (filteredQualityMetrics !== null) {
         filteredQualityMetrics?.forEach((d) => {
@@ -164,10 +172,18 @@ export const DatasetFieldMetrics = ({ metrics }: MetricsProps) => {
                 fieldName: getFieldNameFromUrn(d?.schemaFieldURN || ''),
                 recordCount: d?.schemaFieldDimensionInfo?.recordCount?.toLocaleString() || '',
                 obj: d?.schemaFieldDimensionInfo?.dimensions?.map((dimension) => {
-                    const currentKey = dimension.dimensionName.toLowerCase().concat('_currentScore');
-                    const historicalKey = dimension.dimensionName.toLowerCase().concat('_historicalScore');
+                    const customDimensionNameEntity = Array.isArray(customDimensionNamesEntitys)
+                            ? customDimensionNamesEntitys.filter(customDimensionNameEntity => customDimensionNameEntity?.urn === dimension.dimensionUrn)[0]
+                            : undefined;
+
+                    if (!customDimensionNameEntity) {
+                        console.error('customDimensionNameEntity is undefined or not found');
+                    }
+                    const dimensionName = customDimensionNameEntity?.info?.name || '';
+                    const currentKey = dimensionName.toLowerCase().concat('_currentScore');
+                    const historicalKey = dimensionName.toLowerCase().concat('_historicalScore');
                     return {
-                        dimension_name: dimension.dimensionName,
+                        dimension_name: customDimensionNameEntity?.info?.name,
                         [currentKey]: getFormattedScore(dimension.scoreType, dimension.currentScore),
                         [historicalKey]: getFormattedScore(dimension.scoreType, dimension.historicalWeightedScore),
                     };
