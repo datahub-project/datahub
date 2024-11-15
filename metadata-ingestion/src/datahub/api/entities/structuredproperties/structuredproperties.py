@@ -41,25 +41,28 @@ class AllowedValue(ConfigModel):
     description: Optional[str] = None
 
 
+VALID_ENTITY_TYPES_PREFIX_STRING = ", ".join(
+    [
+        f"urn:li:entityType:datahub.{x}"
+        for x in ["dataset", "dashboard", "dataFlow", "schemaField"]
+    ]
+)
+VALID_ENTITY_TYPES_STRING = f"Valid entity type urns are {VALID_ENTITY_TYPES_PREFIX_STRING}, etc... Ensure that the entity type is valid."
+
+
 class TypeQualifierAllowedTypes(ConfigModel):
     allowed_types: List[str]
 
-    @validator("allowed_types")
+    @validator("allowed_types", each_item=True)
     def validate_allowed_types(cls, v):
-        validated_entity_type_urns = []
         if v:
             with get_default_graph() as graph:
-                for et in v:
-                    validated_urn = Urn.make_entity_type_urn(et)
-                    if graph.exists(validated_urn):
-                        validated_entity_type_urns.append(validated_urn)
-                    else:
-                        logger.warn(
-                            f"Input {et} is not a valid entity type urn. Skipping."
-                        )
-        v = validated_entity_type_urns
-        if not v:
-            logger.warn("No allowed_types given within type_qualifier.")
+                validated_urn = Urn.make_entity_type_urn(v)
+                if not graph.exists(validated_urn):
+                    raise ValueError(
+                        f"Input {v} is not a valid entity type urn. {VALID_ENTITY_TYPES_STRING}"
+                    )
+                v = str(validated_urn)
         return v
 
 
@@ -76,6 +79,18 @@ class StructuredProperties(ConfigModel):
     allowed_values: Optional[List[AllowedValue]] = None
     type_qualifier: Optional[TypeQualifierAllowedTypes] = None
     immutable: Optional[bool] = False
+
+    @validator("entity_types", each_item=True)
+    def validate_entity_types(cls, v):
+        if v:
+            with get_default_graph() as graph:
+                validated_urn = Urn.make_entity_type_urn(v)
+                if not graph.exists(validated_urn):
+                    raise ValueError(
+                        f"Input {v} is not a valid entity type urn. {VALID_ENTITY_TYPES_STRING}"
+                    )
+                v = str(validated_urn)
+        return v
 
     @property
     def fqn(self) -> str:
