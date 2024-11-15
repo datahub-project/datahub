@@ -430,7 +430,7 @@ class OracleInspectorObjectWrapper:
             )
 
         if schema is not None:
-            text += "\nAND ac.owner = :owner"
+            text += "\nAND ac.owner = CAST(:owner AS VARCHAR2(128))"
 
         text += "\nORDER BY constraint_name, loc_pos"
 
