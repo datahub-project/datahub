@@ -88,40 +88,8 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
     logging.WARNING
 )
 
-faulthandler.enable()
-
-
-def thread_dump():
-    """Function purely for testing purposes"""
-    # deduplicate threads with same stack trace
-    stack_traces = defaultdict(list)
-    frames = sys._current_frames()  # pylint: disable=protected-access
-
-    for t in threading.enumerate():
-        try:
-            assert t.ident is not None
-            stack_trace = "".join(traceback.format_stack(frames[t.ident]))
-        except KeyError:
-            # the thread may have been destroyed already while enumerating, in such
-            # case, skip to next thread.
-            continue
-        thread_ident_name = (t.ident, t.name)
-        stack_traces[stack_trace].append(thread_ident_name)
-
-    all_traces = ["=" * 10 + " THREAD DUMP " + "=" * 10]
-    for stack, identity in stack_traces.items():
-        ident, name = identity[0]
-        trace = "--- Thread #%s name: %s %s---\n" % (
-            ident,
-            name,
-            "and other %d threads" % (len(identity) - 1) if len(identity) > 1 else "",
-        )
-        if len(identity) > 1:
-            trace += "threads: %s\n" % identity
-        trace += stack
-        all_traces.append(trace)
-    all_traces.append("=" * 30)
-    return "\n".join(all_traces)
+# allows for printing better stacks in case of a crash, doesn't work well with pytest
+# faulthandler.enable()
 
 
 @platform_name("Iceberg")
