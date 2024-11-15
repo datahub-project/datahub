@@ -1,9 +1,8 @@
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, Generator, List, Optional, Type
 
 from datahub.ingestion.source.cassandra.cassandra_api import CassandraColumn
-from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
@@ -23,6 +22,8 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     TimeTypeClass,
 )
+from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +35,13 @@ SYSTEM_KEYSPACE_LIST = set(
 
 
 @dataclass
-class CassandraSourceReport(
-    ProfilingSqlReport, StaleEntityRemovalSourceReport, IngestionStageReport
-):
+class CassandraSourceReport(StaleEntityRemovalSourceReport, IngestionStageReport):
     num_tables_failed: int = 0
     num_views_failed: int = 0
+    tables_scanned: int = 0
+    views_scanned: int = 0
+    entities_profiled: int = 0
+    filtered: LossyList[str] = field(default_factory=LossyList)
 
     def report_entity_scanned(self, name: str, ent_type: str = "View") -> None:
         """
@@ -53,6 +56,18 @@ class CassandraSourceReport(
 
     def set_ingestion_stage(self, keyspace: str, stage: str) -> None:
         self.report_ingestion_stage_start(f"{keyspace}: {stage}")
+
+    # TODO Need to create seperate common config for profiling report
+    profiling_skipped_other: TopKDict[str, int] = field(default_factory=int_top_k_dict)
+    profiling_skipped_table_profile_pattern: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
+
+    def report_entity_profiled(self, name: str) -> None:
+        self.entities_profiled += 1
+
+    def report_dropped(self, ent_name: str) -> None:
+        self.filtered.append(ent_name)
 
 
 # This class helps convert cassandra column types to SchemaFieldDataType for use by the datahaub metadata schema

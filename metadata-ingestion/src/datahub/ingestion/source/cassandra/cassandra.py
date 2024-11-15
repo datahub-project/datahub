@@ -134,6 +134,8 @@ class CassandraSource(StatefulIngestionSourceBase):
     def get_workunits_internal(
         self,
     ) -> Iterable[MetadataWorkUnit]:
+        if not self.cassandra_api.authenticate():
+            return
         keyspaces: List[CassandraKeyspace] = self.cassandra_api.get_keyspaces()
         for keyspace in keyspaces:
             keyspace_name: str = keyspace.keyspace_name
@@ -150,7 +152,7 @@ class CassandraSource(StatefulIngestionSourceBase):
                 yield from self._extract_tables_from_keyspace(keyspace_name)
             except Exception as e:
                 self.report.num_tables_failed += 1
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to extract table metadata for keyspace",
                     context=keyspace_name,
                     exc=e,
@@ -159,7 +161,7 @@ class CassandraSource(StatefulIngestionSourceBase):
                 yield from self._extract_views_from_keyspace(keyspace_name)
             except Exception as e:
                 self.report.num_views_failed += 1
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to extract view metadata for keyspace ",
                     context=keyspace_name,
                     exc=e,
@@ -225,7 +227,7 @@ class CassandraSource(StatefulIngestionSourceBase):
                     keyspace_name, table_name, dataset_urn
                 )
             except Exception as e:
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to extract columns from table",
                     context=table_name,
                     exc=e,
@@ -401,7 +403,7 @@ class CassandraSource(StatefulIngestionSourceBase):
                     keyspace_name, view_name, dataset_urn
                 )
             except Exception as e:
-                self.report.report_failure(
+                self.report.failure(
                     message="Failed to extract columns from views",
                     context=view_name,
                     exc=e,

@@ -89,7 +89,7 @@ class CassandraProfiler:
                         yield from future.result()
                     except Exception as exc:
                         self.report.profiling_skipped_other[table_name] += 1
-                        self.report.report_failure(
+                        self.report.failure(
                             message="Failed to profile for table",
                             context=f"{keyspace_name}.{table_name}",
                             exc=exc,

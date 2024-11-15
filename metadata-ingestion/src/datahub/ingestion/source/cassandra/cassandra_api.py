@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from ssl import CERT_NONE, PROTOCOL_TLSv1_2, SSLContext
 from typing import Any, Dict, List, Optional
 
 from cassandra import DriverException, OperationTimedOut
@@ -96,9 +95,9 @@ class CassandraAPI:
     def __init__(self, config: CassandraSourceConfig, report: SourceReport):
         self.config = config
         self.report = report
-        self.cassandra_session = self.authenticate()
+        self._cassandra_session: Optional[Session] = None
 
-    def authenticate(self) -> Session:
+    def authenticate(self) -> bool:
         """Establish a connection to Cassandra and return the session."""
         try:
             if self.config.cloud_config:
@@ -120,12 +119,9 @@ class CassandraAPI:
                     protocol_version=ProtocolVersion.V4,
                 )
 
-                session: Session = cluster.connect()
-                return session
-
+                self._cassandra_session = cluster.connect()
+                return True
             if self.config.username and self.config.password:
-                ssl_context = SSLContext(PROTOCOL_TLSv1_2)
-                ssl_context.verify_mode = CERT_NONE
                 auth_provider = PlainTextAuthProvider(
                     username=self.config.username, password=self.config.password
                 )
@@ -133,7 +129,6 @@ class CassandraAPI:
                     [self.config.contact_point],
                     port=self.config.port,
                     auth_provider=auth_provider,
-                    ssl_context=ssl_context,
                     load_balancing_policy=None,
                 )
             else:
@@ -143,28 +138,31 @@ class CassandraAPI:
                     load_balancing_policy=None,
                 )
 
-            session = cluster.connect()
-            return session
+            self._cassandra_session = cluster.connect()
+            return True
         except OperationTimedOut as e:
-            self.report.warning(
+            self.report.failure(
                 message="Failed to Authenticate", context=f"{str(e.errors)}", exc=e
             )
-            raise
+            return False
         except DriverException as e:
-            self.report.warning(message="Failed to Authenticate", exc=e)
-            raise
+            self.report.failure(message="Failed to Authenticate", exc=e)
+            return False
         except Exception as e:
-            self.report.report_failure(
-                message="Failed to authenticate to Cassandra", exc=e
-            )
-            raise
+            self.report.failure(message="Failed to authenticate to Cassandra", exc=e)
+            return False
+
+    def get(self, query: str, parameters: Optional[List] = []) -> List:
+        if not self._cassandra_session:
+            return []
+
+        resp = self._cassandra_session.execute(query, parameters)
+        return resp
 
     def get_keyspaces(self) -> List[CassandraKeyspace]:
         """Fetch all keyspaces."""
         try:
-            keyspaces = self.cassandra_session.execute(
-                CassandraQueries.GET_KEYSPACES_QUERY
-            )
+            keyspaces = self.get(CassandraQueries.GET_KEYSPACES_QUERY)
             keyspace_list = [
                 CassandraKeyspace(
                     keyspace_name=row.keyspace_name,
@@ -186,9 +184,7 @@ class CassandraAPI:
     def get_tables(self, keyspace_name: str) -> List[CassandraTable]:
         """Fetch all tables for a given keyspace."""
         try:
-            tables = self.cassandra_session.execute(
-                CassandraQueries.GET_TABLES_QUERY, [keyspace_name]
-            )
+            tables = self.get(CassandraQueries.GET_TABLES_QUERY, [keyspace_name])
             table_list = [
                 CassandraTable(
                     keyspace_name=row.keyspace_name,
@@ -230,7 +226,7 @@ class CassandraAPI:
     def get_columns(self, keyspace_name: str, table_name: str) -> List[CassandraColumn]:
         """Fetch all columns for a given table."""
         try:
-            column_infos = self.cassandra_session.execute(
+            column_infos = self.get(
                 CassandraQueries.GET_COLUMNS_QUERY, [keyspace_name, table_name]
             )
             column_list = [
@@ -262,9 +258,7 @@ class CassandraAPI:
     def get_views(self, keyspace_name: str) -> List[CassandraView]:
         """Fetch all views for a given keyspace."""
         try:
-            views = self.cassandra_session.execute(
-                CassandraQueries.GET_VIEWS_QUERY, [keyspace_name]
-            )
+            views = self.get(CassandraQueries.GET_VIEWS_QUERY, [keyspace_name])
             view_list = [
                 CassandraView(
                     table_name=row.base_table_name,
@@ -307,9 +301,11 @@ class CassandraAPI:
     def execute(self, query: str, limit: Optional[int] = None) -> List:
         """Fetch stats for cassandra"""
         try:
+            if not self._cassandra_session:
+                return []
             if limit:
                 query = query + f" LIMIT {limit}"
-            result_set = self.cassandra_session.execute(query).all()
+            result_set = self._cassandra_session.execute(query).all()
             return result_set
         except DriverException as e:
             self.report.warning(
@@ -325,5 +321,5 @@ class CassandraAPI:
 
     def close(self):
         """Close the Cassandra session."""
-        if self.cassandra_session:
-            self.cassandra_session.shutdown()
+        if self._cassandra_session:
+            self._cassandra_session.shutdown()
