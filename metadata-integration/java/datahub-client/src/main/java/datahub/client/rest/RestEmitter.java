@@ -1,6 +1,7 @@
 package datahub.client.rest;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.apache.hc.core5.http.HttpHeaders.*;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.StreamReadConstraints;
@@ -26,6 +27,7 @@ import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.annotation.concurrent.ThreadSafe;
@@ -97,17 +99,21 @@ public class RestEmitter implements Emitter {
     this.config = config;
     HttpAsyncClientBuilder httpClientBuilder = this.config.getAsyncHttpClientBuilder();
     httpClientBuilder.setRetryStrategy(new DatahubHttpRequestRetryStrategy());
+    if ((config.getTimeoutSec() != null) || (config.isDisableChunkedEncoding())) {
+      RequestConfig.Builder requestConfigBuilder = RequestConfig.custom();
+      // Override httpClient settings with RestEmitter configs if present
+      if (config.getTimeoutSec() != null) {
+        requestConfigBuilder
+            .setConnectionRequestTimeout(config.getTimeoutSec() * 1000, TimeUnit.MILLISECONDS)
+            .setResponseTimeout(config.getTimeoutSec() * 1000, TimeUnit.MILLISECONDS);
+      }
+      if (config.isDisableChunkedEncoding()) {
+        requestConfigBuilder.setContentCompressionEnabled(false);
+      }
 
-    // Override httpClient settings with RestEmitter configs if present
-    if (config.getTimeoutSec() != null) {
-      httpClientBuilder.setDefaultRequestConfig(
-          RequestConfig.custom()
-              .setConnectionRequestTimeout(
-                  config.getTimeoutSec() * 1000, java.util.concurrent.TimeUnit.MILLISECONDS)
-              .setResponseTimeout(
-                  config.getTimeoutSec() * 1000, java.util.concurrent.TimeUnit.MILLISECONDS)
-              .build());
+      httpClientBuilder.setDefaultRequestConfig(requestConfigBuilder.build());
     }
+
     PoolingAsyncClientConnectionManagerBuilder poolingAsyncClientConnectionManagerBuilder =
         PoolingAsyncClientConnectionManagerBuilder.create();
 
@@ -225,6 +231,7 @@ public class RestEmitter implements Emitter {
     }
 
     simpleRequestBuilder.setBody(payloadJson, ContentType.APPLICATION_JSON);
+
     AtomicReference<MetadataWriteResponse> responseAtomicReference = new AtomicReference<>();
     CountDownLatch responseLatch = new CountDownLatch(1);
     FutureCallback<SimpleHttpResponse> httpCallback =

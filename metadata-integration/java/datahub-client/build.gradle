@@ -17,8 +17,8 @@ jar {
 }
 
 dependencies {
-  implementation project(':entity-registry')
-  implementation project(':metadata-integration:java:datahub-event')
+  api project(':entity-registry')
+  api project(':metadata-integration:java:datahub-event')
   implementation(externalDependency.kafkaAvroSerializer) {
     exclude group: "org.apache.avro"
   }
