@@ -276,18 +276,23 @@ class BigQueryQueriesExtractor(Closeable):
             logger.info(f"Found {self.report.num_unique_queries} unique queries")
 
         with self.report.audit_log_load_timer, queries_deduped:
-            i = 0
-            for _, query_instances in queries_deduped.items():
+            last_log_time = datetime.now()
+            last_report_time = datetime.now()
+            for i, (_, query_instances) in enumerate(queries_deduped.items()):
                 for query in query_instances.values():
-                    if i > 0 and i % 10000 == 0:
+                    now = datetime.now()
+                    if (now - last_log_time).total_seconds() >= 60:
                         logger.info(
-                            f"Added {i} query log equeries_dedupedntries to SQL aggregator"
+                            f"Added {i} deduplicated query log entries to SQL aggregator"
                         )
+                        last_log_time = now
+
+                    if (now - last_report_time).total_seconds() >= 300:
                         if self.report.sql_aggregator:
                             logger.info(self.report.sql_aggregator.as_string())
+                        last_report_time = now
 
                     self.aggregator.add(query)
-                    i += 1
 
         yield from auto_workunit(self.aggregator.gen_metadata())
 
