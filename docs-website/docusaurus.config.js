@@ -87,25 +87,25 @@ module.exports = {
         srcDark: `img/${isSaas ? "acryl" : "datahub"}-logo-color-dark-horizontal.svg`,
       },
       items: [
-        {
-          type: "dropdown",
-          label: "Solutions",
-          position: "right",
-          items: [
-            {
-              to: "/solutions/discovery",
-              label: "Discovery",
-            },
-            {
-              to: "/solutions/observability",
-              label: "Observability",
-            },
-            {
-              to: "/solutions/governance",
-              label: "Governance",
-            },
-          ]
-        },
+//        {
+//          type: "dropdown",
+//          label: "Solutions",
+//          position: "right",
+//          items: [
+//            {
+//              to: "/solutions/discovery",
+//              label: "Discovery",
+//            },
+//            {
+//              to: "/solutions/observability",
+//              label: "Observability",
+//            },
+//            {
+//              to: "/solutions/governance",
+//              label: "Governance",
+//            },
+//          ]
+//        },
         {
           to: "/cloud",
           activeBasePath: "cloud",
@@ -327,6 +327,7 @@ module.exports = {
             require.resolve("./src/styles/sphinx.scss"),
             require.resolve("./src/styles/config-table.scss"),
             require.resolve("./src/components/SecondNavbar/styles.module.scss"),
+            require.resolve("./src/components/SolutionsDropdown/styles.module.css"),
           ],
         },
         pages: {
