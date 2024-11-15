@@ -5,7 +5,11 @@ import uuid
 from typing import Any, Dict, Iterable, List, Optional
 
 from pyiceberg.catalog import Catalog
-from pyiceberg.exceptions import NoSuchIcebergTableError, NoSuchPropertyException
+from pyiceberg.exceptions import (
+    NoSuchIcebergTableError,
+    NoSuchNamespaceError,
+    NoSuchPropertyException,
+)
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
 from pyiceberg.typedef import Identifier
@@ -139,12 +143,29 @@ class IcebergSource(StatefulIngestionSourceBase):
         )
         tables_count = 0
         for namespace in namespaces:
-            tables = catalog.list_tables(namespace)
-            tables_count += len(tables)
-            LOGGER.debug(
-                f"Retrieved {len(tables)} tables for namespace: {namespace}, in total retrieved {tables_count}, first 10: {tables[:10]}"
-            )
-            yield from tables
+            try:
+                tables = catalog.list_tables(namespace)
+                tables_count += len(tables)
+                LOGGER.debug(
+                    f"Retrieved {len(tables)} tables for namespace: {namespace}, in total retrieved {tables_count}, first 10: {tables[:10]}"
+                )
+                yield from tables
+            except NoSuchNamespaceError:
+                self.report.report_warning(
+                    "no-such-namespace",
+                    f"Couldn't list tables for namespace {namespace} due to NoSuchNamespaceError exception",
+                )
+                LOGGER.warning(
+                    f"NoSuchNamespaceError exception while trying to get list of tables from namespace {namespace}, skipping it",
+                )
+            except Exception as e:
+                self.report.report_failure(
+                    "listing-tables-exception",
+                    f"Couldn't list tables for namespace {namespace} due to {e}",
+                )
+                LOGGER.exception(
+                    f"Unexpected exception while trying to get list of tables for namespace {namespace}, skipping it"
+                )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         thread_local = threading.local()
