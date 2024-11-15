@@ -24,7 +24,7 @@ You’ll need to have a Cassandra instance or an Astra DB setup with appropriate
 
 3. **Verify Database Access**:
    - For Astra DB: Ensure the **Secure Connect Bundle** is used and configured correctly.
-   - For Cassandra EE: Verify SSL/TLS settings if required, and ensure the **contact point** and **port** are accessible.
+   - For Cassandra Opensource: Ensure the **contact point** and **port** are accessible.
 
 
 :::caution 

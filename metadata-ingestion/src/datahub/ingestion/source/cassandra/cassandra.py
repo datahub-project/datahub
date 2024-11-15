@@ -81,7 +81,7 @@ class KeyspaceKey(ContainerKey):
 
 @platform_name("Cassandra")
 @config_class(CassandraSourceConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
