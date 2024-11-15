@@ -561,6 +561,21 @@ class MockCatalogExceptionListingTables(MockCatalog):
         return super().list_tables(namespace)
 
 
+class MockCatalogExceptionListingNamespaces(MockCatalog):
+    def list_namespaces(self) -> Iterable[str]:
+        raise Exception()
+
+
+def test_exception_while_listing_namespaces() -> None:
+    source = with_iceberg_source(processing_threads=2)
+    mock_catalog = MockCatalogExceptionListingNamespaces({})
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog, pytest.raises(Exception):
+        get_catalog.return_value = mock_catalog
+        [*source.get_workunits_internal()]
+
+
 def test_known_exception_while_listing_tables() -> None:
     source = with_iceberg_source(processing_threads=2)
     mock_catalog = MockCatalogExceptionListingTables(
