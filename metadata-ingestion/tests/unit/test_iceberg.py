@@ -1,10 +1,15 @@
 import uuid
 from decimal import Decimal
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Tuple
+from unittest.mock import patch
 
 import pytest
 from pydantic import ValidationError
+from pyiceberg.io.pyarrow import PyArrowFileIO
+from pyiceberg.partitioning import PartitionSpec
 from pyiceberg.schema import Schema
+from pyiceberg.table import Table
+from pyiceberg.table.metadata import TableMetadataV2
 from pyiceberg.types import (
     BinaryType,
     BooleanType,
@@ -29,16 +34,19 @@ from pyiceberg.types import (
 )
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.iceberg.iceberg import (
     IcebergProfiler,
     IcebergSource,
     IcebergSourceConfig,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import ArrayType, SchemaField
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
+    DatasetSnapshotClass,
     DateTypeClass,
     FixedTypeClass,
     NumberTypeClass,
@@ -48,11 +56,13 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def with_iceberg_source() -> IcebergSource:
+def with_iceberg_source(processing_threads: int = 1) -> IcebergSource:
     catalog = {"test": {"type": "rest"}}
     return IcebergSource(
         ctx=PipelineContext(run_id="iceberg-source-test"),
-        config=IcebergSourceConfig(catalog=catalog),
+        config=IcebergSourceConfig(
+            catalog=catalog, processing_threads=processing_threads
+        ),
     )
 
 
@@ -515,3 +525,65 @@ def test_avro_decimal_bytes_nullable() -> None:
     print(
         f"After avro parsing, _nullable attribute is preserved:  {boolean_avro_schema}"
     )
+
+
+class MockCatalog:
+    def __init__(self, tables: Dict[str, Dict[str, Table]]):
+        """
+
+        :param tables: Dictionary containing namespaces as keys and dictionaries containing names of tables (keys) and
+                       their metadata as values
+        """
+        self.tables = tables
+
+    def list_namespaces(self) -> Iterable[str]:
+        return [*self.tables.keys()]
+
+    def list_tables(self, namespace: str) -> Iterable[Tuple[str, str]]:
+        return [(namespace, table) for table in self.tables[namespace].keys()]
+
+    def load_table(self, dataset_path: Tuple[str, str]) -> Table:
+        return self.tables[dataset_path[0]][dataset_path[1]]
+
+
+def get_mock_catalog(tables):
+    def _get_catalog():
+        return MockCatalog(tables)
+
+    return _get_catalog
+
+
+def test_proper_run_with_multiple_namespaces() -> None:
+    source = with_iceberg_source(processing_threads=3)
+    mock_catalog = MockCatalog(
+        {
+            "namespaceA": {
+                "table1": Table(
+                    identifier=("namespaceA", "table1"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespaceA/table1",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespaceA/table1",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                )
+            },
+            "namespaceB": {},
+        }
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog:
+        get_catalog.return_value = mock_catalog
+        wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
+        assert len(wu) == 1  # only one table processed as an MCE
+        assert isinstance(wu[0].metadata, MetadataChangeEvent)
+        assert isinstance(wu[0].metadata.proposedSnapshot, DatasetSnapshotClass)
+        snapshot: DatasetSnapshotClass = wu[0].metadata.proposedSnapshot
+        assert (
+            snapshot.urn
+            == "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table1,PROD)"
+        )
