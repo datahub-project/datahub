@@ -84,9 +84,6 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
     logging.WARNING
 )
 
-# allows for printing better stacks in case of a crash, doesn't work well with pytest
-# faulthandler.enable()
-
 
 @platform_name("Iceberg")
 @support_status(SupportStatus.TESTING)
