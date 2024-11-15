@@ -390,7 +390,7 @@ class OracleInspectorObjectWrapper:
             "\nac.search_condition,"
             "\nac.delete_rule"
             "\nFROM all_constraints ac"
-            "\nJOIN all_cons_columns acc" 
+            "\nJOIN all_cons_columns acc"
             "\nON ac.owner = acc.owner"
             "\nAND ac.constraint_name = acc.constraint_name"
             "\nAND ac.table_name = acc.table_name"
@@ -403,7 +403,7 @@ class OracleInspectorObjectWrapper:
             text += "\nAND ac.owner = :owner"
 
         # For foreign keys, join with the remote columns
-        text +=(
+        text += (
             "\nUNION ALL"
             "\nSELECT"
             "\nac.constraint_name,"
@@ -427,7 +427,7 @@ class OracleInspectorObjectWrapper:
             "\nAND acc.position = rcc.position"
             "\nWHERE ac.table_name = :table_name"
             "\nAND ac.constraint_type = 'R'"
-            )
+        )
 
         if schema is not None:
             text += "\nAND ac.owner = CAST(:owner AS VARCHAR2(128))"
@@ -447,11 +447,17 @@ class OracleInspectorObjectWrapper:
             for row in self._get_constraint_data(table_name, schema, dblink):
                 if row[1] == "P":  # constraint_type is 'P' for primary key
                     if constraint_name is None:
-                        constraint_name = self._inspector_instance.dialect.normalize_name(row[0])
-                    col_name = self._inspector_instance.dialect.normalize_name(row[2])  # local_column
+                        constraint_name = (
+                            self._inspector_instance.dialect.normalize_name(row[0])
+                        )
+                    col_name = self._inspector_instance.dialect.normalize_name(
+                        row[2]
+                    )  # local_column
                     pkeys.append(col_name)
         except Exception as e:
-            logger.error(f"Error processing PK constraint data for {schema}.{table_name}: {str(e)}")
+            logger.error(
+                f"Error processing PK constraint data for {schema}.{table_name}: {str(e)}"
+            )
             # Return empty constraint if we can't process it
             return {"constrained_columns": [], "name": None}
 
