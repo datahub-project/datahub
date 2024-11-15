@@ -417,7 +417,7 @@ class OracleInspectorObjectWrapper:
             "\nac.search_condition,"
             "\nac.delete_rule"
             "\nFROM all_constraints ac"
-            "\nJOIN all_cons_columns acc" 
+            "\nJOIN all_cons_columns acc"
             "\nON ac.owner = acc.owner"
             "\nAND ac.constraint_name = acc.constraint_name"
             "\nAND ac.table_name = acc.table_name"
