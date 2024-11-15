@@ -203,7 +203,13 @@ export function ActionsColumn({
                     DETAILS
                 </Button>
             )}
-            <Button data-testid="delete-button" onClick={() => onDelete(record.urn)} type="text" shape="circle" danger>
+            <Button
+                data-testid={`delete-ingestion-source-${record.name}`}
+                onClick={() => onDelete(record.urn)}
+                type="text"
+                shape="circle"
+                danger
+            >
                 <DeleteOutlined />
             </Button>
         </ActionButtonContainer>

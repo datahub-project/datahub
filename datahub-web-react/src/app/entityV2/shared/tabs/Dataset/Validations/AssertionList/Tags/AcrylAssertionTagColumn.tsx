@@ -7,7 +7,6 @@ import { Plus } from 'phosphor-react';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
 import { EntityType, GlobalTags, TagAssociation } from '@src/types.generated';
 import { getColor } from '@src/alchemy-components/theme/utils';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import DataHubTooltip from '@src/alchemy-components/components/Tooltip/Tooltip';
 import { AcrylAssertionSelectTags } from './AcrylAssertionSelectTags';
 
@@ -74,7 +73,6 @@ interface AcrylAssertionTagColumnProps {
 }
 
 export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = ({ record, refetch }) => {
-    const entityRegistry = useEntityRegistry();
     const [popoverVisible, setPopoverVisible] = useState(false);
 
     const { recommendedData: allGlobalTags } = useGetRecommendations([EntityType.Tag]);
@@ -82,8 +80,6 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
     // just take first tag if there are more than 1 tag
     const displayTags = totalTagsLength >= 2 ? [record.tags[0]] : record.tags;
     const remainingTagsCount = totalTagsLength - displayTags?.length || 0;
-    const secondTag = record?.tags?.[1];
-    const maybeSecondTagName = secondTag?.tag && entityRegistry.getDisplayName(EntityType.Tag, secondTag.tag);
 
     const tagsPreview = (
         <>

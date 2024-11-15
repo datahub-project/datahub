@@ -38,7 +38,7 @@ describe("run managed ingestion", () => {
       .parent()
       .within(() => {
         cy.contains("Succeeded", { timeout: 180000 });
-        cy.clickOptionWithTestId("delete-button");
+        cy.clickOptionWithTestId(`delete-ingestion-source-${testName}`);
       });
     cy.clickOptionWithText("Yes");
     cy.ensureTextNotPresent(testName);

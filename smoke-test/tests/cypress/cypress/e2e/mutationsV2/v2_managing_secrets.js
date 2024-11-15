@@ -68,7 +68,9 @@ describe("managing secrets for ingestion creation", () => {
     // Remove ingestion source
     cy.goToIngestionPage();
     cy.get('[data-node-key="Sources"]').click();
-    cy.get('[data-testid="delete-button"]').first().click();
+    cy.get(
+      `[data-testid="delete-ingestion-source-${ingestion_source_name}"]`,
+    ).click();
     cy.waitTextVisible("Confirm Ingestion Source Removal");
     cy.get("button").contains("Yes").click();
     cy.waitTextVisible("Removed ingestion source.");
@@ -109,7 +111,9 @@ describe("managing secrets for ingestion creation", () => {
     // Remove ingestion source and secret
     cy.goToIngestionPage();
     cy.get('[data-node-key="Sources"]').click();
-    cy.get('[data-testid="delete-button"]').first().click();
+    cy.get(
+      `[data-testid="delete-ingestion-source-${ingestion_source_name}"]`,
+    ).click();
     cy.waitTextVisible("Confirm Ingestion Source Removal");
     cy.get("button").contains("Yes").click();
     cy.waitTextVisible("Removed ingestion source.");

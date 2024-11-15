@@ -287,7 +287,7 @@ export const SecretsList = () => {
                 </TabToolbar>
                 <FinalStyledTable
                     columns={tableColumns}
-                    dataSource={[...tableData, ...tableData]}
+                    dataSource={tableData}
                     scroll={isShowNavBarRedesign ? { y: 'max-content' } : {}}
                     rowKey="urn"
                     locale={{
