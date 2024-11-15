@@ -66,7 +66,7 @@ try:
 
     has_name_positional_arg = packaging.version.parse(
         GX_VERSION
-    ) >= packaging.version.Version("0.18.0")
+    ) >= packaging.version.Version("0.18.14")
 except Exception:
     has_name_positional_arg = False
 
@@ -89,7 +89,7 @@ class DataHubValidationAction(ValidationAction):
     def __init__(
         self,
         data_context: AbstractDataContext,
-        # this would capture `name` positional arg added in GX 0.18.0
+        # this would capture `name` positional arg added in GX 0.18.14
         *args: Union[str, Any],
         server_url: str,
         env: str = builder.DEFAULT_ENV,

@@ -237,6 +237,11 @@ class BatchPartitionExecutor(Closeable):
         process_batch: Callable[[List], None],
         max_per_batch: int = 100,
         min_process_interval: timedelta = _DEFAULT_BATCHER_MIN_PROCESS_INTERVAL,
+        # Why 3 seconds? It's somewhat arbitrary.
+        # We don't want it to be too high, since then liveness suffers,
+        # particularly during a dirty shutdown. If it's too low, then we'll
+        # waste CPU cycles rechecking the timer, only to call get again.
+        read_from_pending_interval: timedelta = timedelta(seconds=3),
     ) -> None:
         """Similar to PartitionExecutor, but with batching.
 
@@ -262,8 +267,10 @@ class BatchPartitionExecutor(Closeable):
         self.max_per_batch = max_per_batch
         self.process_batch = process_batch
         self.min_process_interval = min_process_interval
+        self.read_from_pending_interval = read_from_pending_interval
         assert self.max_workers > 1
 
+        self.state_lock = threading.Lock()
         self._executor = ThreadPoolExecutor(
             # We add one here to account for the clearinghouse worker thread.
             max_workers=max_workers + 1,
@@ -362,12 +369,8 @@ class BatchPartitionExecutor(Closeable):
                     if not blocking:
                         next_item = self._pending.get_nowait()
                     else:
-                        # Why 3 seconds? It's somewhat arbitrary.
-                        # We don't want it to be too high, since then liveness suffers,
-                        # particularly during a dirty shutdown. If it's too low, then we'll
-                        # waste CPU cycles rechecking the timer, only to call get again.
                         next_item = self._pending.get(
-                            timeout=3,  # seconds
+                            timeout=self.read_from_pending_interval.total_seconds(),
                         )
 
                     if next_item is None:  # None is the shutdown signal
@@ -379,6 +382,9 @@ class BatchPartitionExecutor(Closeable):
                             pending_key_completion.append(next_item)
                         else:
                             next_batch.append(next_item)
+
+                    if not next_batch:
+                        next_batch = _find_ready_items()
                 except queue.Empty:
                     if not blocking:
                         break
@@ -452,10 +458,11 @@ class BatchPartitionExecutor(Closeable):
                 f"{self.__class__.__name__} is shutting down; cannot submit new work items."
             )
 
-        # Lazily start the clearinghouse worker.
-        if not self._clearinghouse_started:
-            self._clearinghouse_started = True
-            self._executor.submit(self._clearinghouse_worker)
+        with self.state_lock:
+            # Lazily start the clearinghouse worker.
+            if not self._clearinghouse_started:
+                self._clearinghouse_started = True
+                self._executor.submit(self._clearinghouse_worker)
 
     def submit(
         self,

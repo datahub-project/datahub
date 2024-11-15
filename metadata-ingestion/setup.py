@@ -573,6 +573,7 @@ mypy_stubs = {
 
 test_api_requirements = {
     "pytest>=6.2.2",
+    "pytest-timeout",
     # Missing numpy requirement in 8.0.0
     "deepdiff!=8.0.0",
     "PyYAML",
