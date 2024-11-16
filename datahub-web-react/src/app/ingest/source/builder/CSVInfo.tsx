@@ -1,7 +1,7 @@
 import React from 'react';
 import { Alert } from 'antd';
 
-const CSV_FORMAT_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/csv';
+const CSV_FORMAT_LINK = 'https://datahubproject.io/docs/generated/ingestion/sources/csv-enricher';
 
 export const CSVInfo = () => {
     const link = (
