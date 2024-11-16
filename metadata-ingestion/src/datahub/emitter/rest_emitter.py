@@ -92,7 +92,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._session.headers.update(
             {
                 "X-RestLi-Protocol-Version": "2.0.0",
-                "X-Datahub-Cli-Version": nice_version_name(),
+                "X-DataHub-Py-Cli-Version": nice_version_name(),
                 "Content-Type": "application/json",
             }
         )
