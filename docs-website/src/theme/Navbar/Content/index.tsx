@@ -18,7 +18,7 @@ import NavbarMobileSidebarToggle from '@theme/Navbar/MobileSidebar/Toggle';
 import NavbarLogo from '@theme/Navbar/Logo';
 import NavbarSearch from '@theme/Navbar/Search';
 import SolutionsDropdown from '../../../components/SolutionsDropdown/SolutionsDropdown';
-import CardDropdown from '../../../components/CardDropDown/CardDropdown';
+import CardDropdown from '../../../components/CardDropdown/CardDropdown';
 import learnCardDropdownContent from '../learnCardDropdownContent';
 import communityCardDropdownContent from '../communityCardDropdownContent';
 
