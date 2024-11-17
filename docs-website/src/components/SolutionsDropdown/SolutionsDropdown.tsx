@@ -106,7 +106,7 @@ function DropdownNavbarItemDesktop({
         }}>
         {props.children ?? props.label}
       </NavbarNavLink>
-      <ul className="dropdown__menu">
+      <ul className={clsx("dropdown__menu", styles.dropdown__menu)}>
         <></>
         {/* {items.map((childItemProps, i) => (
           <NavbarItem

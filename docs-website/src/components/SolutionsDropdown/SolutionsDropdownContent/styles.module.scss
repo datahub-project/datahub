@@ -1,7 +1,5 @@
 .container {
-    width: 100%;
-    padding: 1rem;
-    border-radius: 30px;
+    display: flex;
   }
   
   .row {
@@ -11,18 +9,36 @@
   
   .card {
     display: flex;
+    width: 12.4375rem;
+    height: 12.5rem;
+    padding: 0;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+    border-radius: 0.72681rem;
+    background: #F7F7F7;
     text-align: left;
-    border-radius: 11px;
-    background-color: #f7f7f7;
-    color: #333;
     text-decoration: none;
     transition: transform 0.3s ease, box-shadow 0.3s ease;
-    width: 220px;
-    margin-bottom: 1rem;
   }
 
   .header { 
     display: inline-flex;
+  }
+
+  .title {
+    color: #1E1E1E;
+    font-family: Manrope;
+    font-style: normal;
+    font-weight: 600;
+  }
+
+  .description {
+    color: #757575;
+    font-family: Manrope;
+    font-style: normal;
+    font-weight: 300;
   }
 
   .fullSizeCard {
@@ -30,10 +46,71 @@
     background-size: contain;
     background-position: bottom right;
     height: 100%;
+    padding: 1.4rem;
+
+    .icon {
+        width: 1.7rem;
+        height: 1.7rem;
+        display: block;
+    }
+
+    .title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        line-height: 150%; /* 1.6875rem */
+        letter-spacing: -0.01238rem;
+        margin-top: 0.5rem;
+    }
+
+    .description {
+        font-size: 0.95rem;
+        line-height: 150%; /* 1.5rem */
+        letter-spacing: -0.011rem;
+    };
+  }
+  
+  .halfSizeWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.98rem; 
   }
 
   .halfSizeCard {
-    height: 100%;
+    display: flex;
+    height: 5.75rem;
+    padding: 1.4rem;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    align-self: stretch;
+
+    .icon {
+        display: flex;
+        width: 1.26806rem;
+        height: 1.26806rem;
+        padding: 0.13206rem 0.13725rem 0.13213rem 0.13213rem;
+        justify-content: center;
+        align-items: center;
+        flex-shrink: 0;
+        margin-right: 0.65rem;
+    }
+
+    .title {
+        color: #1E1E1E;
+        font-family: Manrope;
+        font-size: 0.95rem;
+        font-style: normal;
+        font-weight: 600;
+        line-height: 150%; /* 1.5rem */
+        letter-spacing: -0.011rem;
+    }
+
+    .description {
+        font-size: 0.75rem;
+        line-height: 150%; /* 1.125rem */
+        letter-spacing: -0.00825rem;
+        margin-left: 2rem;
+    }
   }
   
   .card:hover {
@@ -43,35 +120,6 @@
     color: inherit;
   }
   
-  .cardText {
-    padding: 1.5rem;
-  }
-  
-  .icon {
-    width: 20px;
-    height: 20px;
-    margin-right: 0.7rem;
-  }
-  
-  .title {
-    font-size: 1rem;
-    font-weight: semibold;
-    margin-bottom: 0.5rem;
-    color: 1e1e1e;
-    display: flex;
-
-    &:hover {
-      color: 1e1e1e !important;
-    }
-  }
-  
-  .description {
-    font-size: 0.9rem;
-    color: #757575;
-    font-weight: 300;
-    margin-left: 2rem;
-  }
-
   
   @media (max-width: 768px) {
     .col {

@@ -16,16 +16,15 @@ function SolutionsDropdownContent() {
             <Link
               className={clsx(styles.card, styles.fullSizeCard)}
               to={item.href}
-              style={{ backgroundImage: `url(${item.backgroundImage})` }}
             >
               <div className={clsx(styles.cardContent)}>
                 <div className={clsx(styles.cardText)}>
-                  <div className={clsx(styles.header)}>
-                    <img
+                  <img
                       src={item.iconImage}
                       alt={item.title}
                       className={clsx(styles.icon)}
-                    />
+                  />
+                  <div className={clsx(styles.header)}>
                     <div className={clsx(styles.title)}>{item.title}</div>
                   </div>
                   <div className={clsx(styles.description)}>{item.description}</div>

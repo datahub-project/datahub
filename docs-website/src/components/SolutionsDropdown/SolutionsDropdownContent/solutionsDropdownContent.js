@@ -2,22 +2,19 @@ const solutionsDropdownContent = {
     fullSizeCards: [
         {
             title: "Data Discovery",
-            description: "Join 11,000+ Data Practitioners sharing",
-            backgroundImage: "/img/solutions/bg-dropdown-discovery.png",
+            description: "Search, Browse, Lineage, and more.",
             iconImage: "/img/solutions/icon-dropdown-discovery.png",
             href: "/solutions/discovery",
         },
         {
             title: "Data Observability",
-            description: "Join 11,000+ Data Practitioners sharing",
-            backgroundImage: "/img/solutions/bg-dropdown-observe.png",
+            description: "Detect and Resolve Data Quality issues",
             iconImage: "/img/solutions/icon-dropdown-observe.png",
             href: "/solutions/observability",
         },    
         {
             title: "Data Governance",
-            description: "Join 11,000+ Data Practitioners sharing",
-            backgroundImage: "/img/solutions/bg-dropdown-governance.png",
+            description: "Automate Classifying and Governing data.",
             iconImage: "/img/solutions/icon-dropdown-governance.png",
             href: "/solutions/governance",
         },
@@ -25,13 +22,13 @@ const solutionsDropdownContent = {
     halfSizeCards: [
         {
             title: "DataHub Core",
-            description: "Join 11,000+ Data Practitioners sharing",
+            description: "Get started with the Open Source platform.",
             iconImage: "/img/solutions/icon-dropdown-core.png",
             href: "/",
         },
         {
             title: "Cloud vs Core",
-            description: "Join 11,000+ Data Practitioners sharing",
+            description: "Understand the differences.",
             iconImage: "/img/solutions/icon-dropdown-cloud.png",
             href: "/cloud",
         },
