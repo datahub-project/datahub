@@ -71,6 +71,20 @@ export default function NavbarContent(): JSX.Element {
   const items = useNavbarItems();
   const [leftItems, rightItems] = splitNavbarItems(items);
 
+  // among the right items, pick items except "Solution", "Learn", "Community"
+  const rightItemsDropdown = rightItems.filter(
+    (item) =>
+      item.label == 'Cloud' ||
+      item.label == 'Docs' ||
+      item.label == 'Integrations'
+  );
+
+  // pick items without labels 
+  const rightItemsCTA = rightItems.filter(
+    (item) =>
+      item.label == undefined
+  );
+
   const searchBarItem = items.find((item) => item.type === 'search');
 
   return (
@@ -88,9 +102,10 @@ export default function NavbarContent(): JSX.Element {
         // Ask the user to add the respective navbar items => more flexible
         <>
           <SolutionsDropdown />
+          <NavbarItems items={rightItemsDropdown} />
           <CardDropdown label="Learn" items={learnCardDropdownContent} />
           <CardDropdown label= "Community" items={communityCardDropdownContent} />
-          <NavbarItems items={rightItems} />
+          <NavbarItems items={rightItemsCTA} />
           <NavbarColorModeToggle className={styles.colorModeToggle} />
           {!searchBarItem && (
             <NavbarSearch>

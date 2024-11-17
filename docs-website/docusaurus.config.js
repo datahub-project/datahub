@@ -87,25 +87,25 @@ module.exports = {
         srcDark: `img/${isSaas ? "acryl" : "datahub"}-logo-color-dark-horizontal.svg`,
       },
       items: [
-//        {
-//          type: "dropdown",
-//          label: "Solutions",
-//          position: "right",
-//          items: [
-//            {
-//              to: "/solutions/discovery",
-//              label: "Discovery",
-//            },
-//            {
-//              to: "/solutions/observability",
-//              label: "Observability",
-//            },
-//            {
-//              to: "/solutions/governance",
-//              label: "Governance",
-//            },
-//          ]
-//        },
+       {
+         type: "dropdown",
+         label: "Solutions",
+         position: "right",
+         items: [
+           {
+             to: "/solutions/discovery",
+             label: "Discovery",
+           },
+           {
+             to: "/solutions/observability",
+             label: "Observability",
+           },
+           {
+             to: "/solutions/governance",
+             label: "Governance",
+           },
+         ]
+       },
         {
           to: "/cloud",
           activeBasePath: "cloud",
@@ -124,61 +124,61 @@ module.exports = {
           label: "Integrations",
           position: "right",
         },
-        // {
-        //   type: "dropdown",
-        //   activeBasePath: "learn",
-        //   label: "Learn",
-        //   position: "right",
-        //   items: [
-        //     {
-        //       to: "https://www.acryldata.io/webinars/weekly-live-demo",
-        //       label: "Weekly Demo",
-        //     },
-        //     {
-        //       to: "/learn",
-        //       label: "Use Cases",
-        //     },
-        //     {
-        //       to: "/adoption-stories",
-        //       label: "Adoption Stories",
-        //     },
-        //     {
-        //       href: "https://blog.datahubproject.io/",
-        //       label: "Blog",
-        //     },
-        //     {
-        //       href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
-        //       label: "YouTube",
-        //     },
-        //   ],
-        // },
-        // {
-        //   type: "dropdown",
-        //   label: "Community",
-        //   position: "right",
-        //   items: [
-        //     {
-        //       to: "/slack",
-        //       label: "Join Slack",
-        //     },
-        //     {
-        //       href: "https://forum.datahubproject.io/",
-        //       label: "Community Forum",
-        //     },
-        //     {
-        //       to: "/events",
-        //       label: "Events",
-        //     },
-        //     {
-        //       to: "/champions",
-        //       label: "Champions",
-        //     },
-        //     {
-        //       label: "Share Your Journey",
-        //       href: "/customer-stories-survey",
-        //     },
-        //   ],
-        // },
+        {
+          type: "dropdown",
+          activeBasePath: "learn",
+          label: "Learn",
+          position: "right",
+          items: [
+            {
+              to: "https://www.acryldata.io/webinars/weekly-live-demo",
+              label: "Weekly Demo",
+            },
+            {
+              to: "/learn",
+              label: "Use Cases",
+            },
+            {
+              to: "/adoption-stories",
+              label: "Adoption Stories",
+            },
+            {
+              href: "https://blog.datahubproject.io/",
+              label: "Blog",
+            },
+            {
+              href: "https://www.youtube.com/channel/UC3qFQC5IiwR5fvWEqi_tJ5w",
+              label: "YouTube",
+            },
+          ],
+        },
+        {
+          type: "dropdown",
+          label: "Community",
+          position: "right",
+          items: [
+            {
+              to: "/slack",
+              label: "Join Slack",
+            },
+            {
+              href: "https://forum.datahubproject.io/",
+              label: "Community Forum",
+            },
+            {
+              to: "/events",
+              label: "Events",
+            },
+            {
+              to: "/champions",
+              label: "Champions",
+            },
+            {
+              label: "Share Your Journey",
+              href: "/customer-stories-survey",
+            },
+          ],
+        },
         {
           href: "/slack",
           html: `
