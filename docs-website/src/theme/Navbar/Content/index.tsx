@@ -18,6 +18,9 @@ import NavbarMobileSidebarToggle from '@theme/Navbar/MobileSidebar/Toggle';
 import NavbarLogo from '@theme/Navbar/Logo';
 import NavbarSearch from '@theme/Navbar/Search';
 import SolutionsDropdown from '../../../components/SolutionsDropdown/SolutionsDropdown';
+import CardDropdown from '../../../components/CardDropDown/CardDropdown';
+import learnCardDropdownContent from '../learnCardDropdownContent';
+import communityCardDropdownContent from '../communityCardDropdownContent';
 
 import styles from './styles.module.css';
 
@@ -85,6 +88,8 @@ export default function NavbarContent(): JSX.Element {
         // Ask the user to add the respective navbar items => more flexible
         <>
           <SolutionsDropdown />
+          <CardDropdown label="Learn" items={learnCardDropdownContent} />
+          <CardDropdown label= "Community" items={communityCardDropdownContent} />
           <NavbarItems items={rightItems} />
           <NavbarColorModeToggle className={styles.colorModeToggle} />
           {!searchBarItem && (
