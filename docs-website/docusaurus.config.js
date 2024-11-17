@@ -87,25 +87,25 @@ module.exports = {
         srcDark: `img/${isSaas ? "acryl" : "datahub"}-logo-color-dark-horizontal.svg`,
       },
       items: [
-       {
-         type: "dropdown",
-         label: "Solutions",
-         position: "right",
-         items: [
-           {
-             to: "/solutions/discovery",
-             label: "Discovery",
-           },
-           {
-             to: "/solutions/observability",
-             label: "Observability",
-           },
-           {
-             to: "/solutions/governance",
-             label: "Governance",
-           },
-         ]
-       },
+        {
+          type: "dropdown",
+          label: "Solutions",
+          position: "right",
+          items: [
+            {
+              to: "/solutions/discovery",
+              label: "Discovery",
+            },
+            {
+              to: "/solutions/observability",
+              label: "Observability",
+            },
+            {
+              to: "/solutions/governance",
+              label: "Governance",
+            },
+          ]
+        },
         {
           to: "/cloud",
           activeBasePath: "cloud",
