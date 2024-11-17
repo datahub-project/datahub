@@ -19,6 +19,7 @@ import datahub.event.MetadataChangeProposalWrapper;
 import datahub.event.UpsertAspectRequest;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -110,7 +111,6 @@ public class RestEmitter implements Emitter {
       if (config.isDisableChunkedEncoding()) {
         requestConfigBuilder.setContentCompressionEnabled(false);
       }
-
       httpClientBuilder.setDefaultRequestConfig(requestConfigBuilder.build());
     }
 
@@ -229,8 +229,12 @@ public class RestEmitter implements Emitter {
     if (this.config.getToken() != null) {
       simpleRequestBuilder.setHeader("Authorization", "Bearer " + this.config.getToken());
     }
-
-    simpleRequestBuilder.setBody(payloadJson, ContentType.APPLICATION_JSON);
+    if (this.config.isDisableChunkedEncoding()) {
+      byte[] payloadBytes = payloadJson.getBytes(StandardCharsets.UTF_8);
+      simpleRequestBuilder.setBody(payloadBytes, ContentType.APPLICATION_JSON);
+    } else {
+      simpleRequestBuilder.setBody(payloadJson, ContentType.APPLICATION_JSON);
+    }
 
     AtomicReference<MetadataWriteResponse> responseAtomicReference = new AtomicReference<>();
     CountDownLatch responseLatch = new CountDownLatch(1);
