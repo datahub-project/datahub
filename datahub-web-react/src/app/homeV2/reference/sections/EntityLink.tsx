@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import styled, { CSSObject } from 'styled-components';
 import HealthIcon from '@src/app/previewV2/HealthIcon';
 import { useEmbeddedProfileLinkProps } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import PlatformHeaderIcons from '@src/app/entityV2/shared/containers/profile/header/PlatformContent/PlatformHeaderIcons';
+import { getEntityPlatforms } from '@src/app/entityV2/shared/containers/profile/header/utils';
 import { Entity, EntityType } from '../../../../types.generated';
 import { GenericEntityProperties } from '../../../entity/shared/types';
 import { HoverEntityTooltip } from '../../../recommendations/renderer/component/HoverEntityTooltip';
-import PlatformIcon from '../../../sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { GlossaryPreviewCardDecoration } from '../../../entityV2/shared/containers/profile/header/GlossaryPreviewCardDecoration';
 
@@ -95,12 +96,15 @@ export const EntityLink = ({ entity, styles, render, displayTextStyle, onClick, 
                 </RibbonDecoration>
             );
         }
-        return entityData?.platform ? (
-            <PlatformIcon
-                platform={entityData?.platform}
+        const { platform, platforms } = getEntityPlatforms(entityData.type || null, entityData);
+        return platform || !!platforms?.length ? (
+            <PlatformHeaderIcons
+                platform={platform || undefined}
+                platforms={platforms || undefined}
                 size={17}
                 styles={{
                     padding: '4px',
+                    borderRadius: '8px',
                     ...styles,
                 }}
             />

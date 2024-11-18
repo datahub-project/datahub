@@ -28,7 +28,7 @@ import IconColorPicker from './IconPicker/IconColorPicker';
 import ContainerIcon from './PlatformContent/ContainerIcon';
 import PlatformHeaderIcons from './PlatformContent/PlatformHeaderIcons';
 import StructuredPropertyBadge from './StructuredPropertyBadge';
-import { getDisplayedEntityType } from './utils';
+import { getDisplayedEntityType, getEntityPlatforms } from './utils';
 
 export const TitleWrapper = styled.div`
     display: flex;
@@ -99,6 +99,10 @@ export const StyledDivider = styled(Divider)`
     }
 `;
 
+const HeaderIconsWrapper = styled.span`
+    margin-right: 8px;
+`;
+
 export type Props = {
     urn: string;
     entityType: EntityType;
@@ -142,10 +146,7 @@ export const DefaultEntityHeader = ({
         );
 
     const displayedEntityType = getDisplayedEntityType(entityData, entityRegistry, entityType);
-
-    const platform = entityType === EntityType.SchemaField ? entityData?.parent?.platform : entityData?.platform;
-    const platforms =
-        entityType === EntityType.SchemaField ? entityData?.parent?.siblingPlatforms : entityData?.siblingPlatforms;
+    const { platform, platforms } = getEntityPlatforms(entityType, entityData);
 
     return (
         <>
@@ -162,10 +163,12 @@ export const DefaultEntityHeader = ({
                     {(loading && <EntityTitleLoadingSection />) || (
                         <>
                             <TitleWrapper>
-                                <PlatformHeaderIcons
-                                    platform={platform as DataPlatform}
-                                    platforms={platforms as DataPlatform[]}
-                                />
+                                <HeaderIconsWrapper>
+                                    <PlatformHeaderIcons
+                                        platform={platform as DataPlatform}
+                                        platforms={platforms as DataPlatform[]}
+                                    />
+                                </HeaderIconsWrapper>
                                 {(isIconEditable || isColorEditable) && (
                                     <div
                                         style={{

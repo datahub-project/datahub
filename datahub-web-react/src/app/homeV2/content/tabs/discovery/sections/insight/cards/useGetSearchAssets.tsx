@@ -1,3 +1,5 @@
+import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
+import { combineSiblingsInSearchResults } from '@src/app/search/utils/combineSiblingsInSearchResults';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../../../graphql/search.generated';
 import { EntityType, SortCriterion } from '../../../../../../../../types.generated';
 import { FilterSet } from '../../../../../../../entityV2/shared/components/styled/search/types';
@@ -47,9 +49,13 @@ export const useGetSearchAssets = (
         fetchPolicy: 'cache-first',
     });
 
-    const assets =
-        data?.searchAcrossEntities?.searchResults?.filter((result) => result.entity).map((result) => result.entity) ||
-        [];
+    const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
+    const searchResults = combineSiblingsInSearchResults(
+        showSeparateSiblings,
+        data?.searchAcrossEntities?.searchResults,
+    );
+
+    const assets = searchResults?.filter((result) => result.entity).map((result) => result.entity) || [];
 
     return { assets, loading };
 };

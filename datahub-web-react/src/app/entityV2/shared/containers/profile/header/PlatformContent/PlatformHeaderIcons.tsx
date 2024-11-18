@@ -1,5 +1,5 @@
 import React from 'react';
-import styled from 'styled-components';
+import styled, { CSSObject } from 'styled-components';
 import { DataPlatform } from '../../../../../../../types.generated';
 import StackPlatformImages from './StackPlatformImages';
 import PlatformIcon from '../../../../../../sharedV2/icons/PlatformIcon';
@@ -13,7 +13,6 @@ const LogoIcon = styled.span`
 const PlatformContentWrapper = styled.div`
     display: flex;
     align-items: center;
-    margin: 0px 8px 0px 0;
     flex-wrap: nowrap;
 `;
 
@@ -27,17 +26,24 @@ interface Props {
     platform?: DataPlatform;
     platforms?: DataPlatform[];
     size?: number;
+    styles?: CSSObject;
 }
 
 function PlatformHeaderIcons(props: Props) {
-    const { platform, platforms, size = 28 } = props;
+    const { platform, platforms, size = 28, styles } = props;
 
     return (
         <PlatformContentWrapper>
             {platform && (
                 <LogoIcon>
-                    {!platforms && <PlatformIcon platform={platform} size={size} styles={iconStyles} />}
-                    {!!platforms && <StackPlatformImages platforms={platforms} />}
+                    {!platforms && (
+                        <PlatformIcon
+                            platform={platform}
+                            size={size}
+                            styles={styles ? { ...iconStyles, ...styles } : iconStyles}
+                        />
+                    )}
+                    {!!platforms && <StackPlatformImages platforms={platforms} size={size} styles={styles} />}
                 </LogoIcon>
             )}
         </PlatformContentWrapper>

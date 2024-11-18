@@ -15,3 +15,11 @@ export function getDisplayedEntityType(
         ''
     );
 }
+
+export function getEntityPlatforms(entityType: EntityType | null, entityData: GenericEntityProperties | null) {
+    const platform = entityType === EntityType.SchemaField ? entityData?.parent?.platform : entityData?.platform;
+    const platforms =
+        entityType === EntityType.SchemaField ? entityData?.parent?.siblingPlatforms : entityData?.siblingPlatforms;
+
+    return { platform, platforms };
+}

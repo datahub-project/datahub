@@ -371,6 +371,9 @@ export class DatasetEntity implements Entity<Dataset> {
 
     renderPreview = (previewType: PreviewType, data: Dataset) => {
         const genericProperties = this.getGenericEntityProperties(data);
+        const platformNames = genericProperties?.siblingPlatforms?.map(
+            (platform) => platform.properties?.displayName || capitalizeFirstLetterOnly(platform.name),
+        );
         return (
             <Preview
                 urn={data.urn}
@@ -382,7 +385,9 @@ export class DatasetEntity implements Entity<Dataset> {
                 platformName={
                     data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)
                 }
+                platformNames={platformNames}
                 platformLogo={data.platform.properties?.logoUrl}
+                platformLogos={genericProperties?.siblingPlatforms?.map((platform) => platform.properties?.logoUrl)}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 owners={data.ownership?.owners}
                 globalTags={data.globalTags}

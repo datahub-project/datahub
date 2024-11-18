@@ -1,7 +1,8 @@
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 import { Tooltip } from '@components';
-import { Entity } from '../../../../types.generated';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { Entity, EntityType } from '../../../../types.generated';
 import { EntityLink } from './EntityLink';
 import { EntityLinkListSkeleton } from './EntityLinkListSkeleton';
 import { DefaultEmptyEntityList } from './DefaultEmptyEntityList';
@@ -63,6 +64,7 @@ export const EntityLinkList = ({
     onClickTitle,
     render,
 }: Props) => {
+    const entityRegistry = useEntityRegistryV2();
     const isEmpty = entities.length === 0 && !loading;
     const { isUserInitializing } = useContext(OnboardingContext);
 
@@ -85,7 +87,11 @@ export const EntityLinkList = ({
                         return (
                             <EntityLink
                                 key={`${title}-${entity?.urn}`}
-                                entity={entity ?? null}
+                                entity={
+                                    entity
+                                        ? entityRegistry.getGenericEntityProperties(entity.type as EntityType, entity)
+                                        : null
+                                }
                                 render={render}
                                 showHealthIcon={showHealthIcon}
                             />
