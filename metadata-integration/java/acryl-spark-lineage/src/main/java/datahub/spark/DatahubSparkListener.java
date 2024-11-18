@@ -120,7 +120,9 @@ public class DatahubSparkListener extends SparkListener {
         boolean disableSslVerification =
             sparkConf.hasPath(SparkConfigParser.DISABLE_SSL_VERIFICATION_KEY)
                 && sparkConf.getBoolean(SparkConfigParser.DISABLE_SSL_VERIFICATION_KEY);
-
+        boolean disableChunkedEncoding =
+            sparkConf.hasPath(SparkConfigParser.REST_DISABLE_CHUNKED_ENCODING)
+                && sparkConf.getBoolean(SparkConfigParser.REST_DISABLE_CHUNKED_ENCODING);
         int retry_interval_in_sec =
             sparkConf.hasPath(SparkConfigParser.RETRY_INTERVAL_IN_SEC)
                 ? sparkConf.getInt(SparkConfigParser.RETRY_INTERVAL_IN_SEC)
@@ -150,6 +152,7 @@ public class DatahubSparkListener extends SparkListener {
                 .disableSslVerification(disableSslVerification)
                 .maxRetries(max_retries)
                 .retryIntervalSec(retry_interval_in_sec)
+                .disableChunkedEncoding(disableChunkedEncoding)
                 .build();
         return Optional.of(new RestDatahubEmitterConfig(restEmitterConf));
       case "kafka":
