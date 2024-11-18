@@ -2,7 +2,8 @@ import { Tag as AntTag, Typography, Button, message } from 'antd';
 import { Tooltip } from '@components';
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { BookOutlined, ClockCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { ClockCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { BookmarkSimple } from '@phosphor-icons/react';
 import Highlight from 'react-highlighter';
 
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -212,7 +213,7 @@ export default function TagTermGroup({
                         setShowProposalDecisionModal(true);
                     }}
                 >
-                    <BookOutlined style={{ marginRight: '3%' }} />
+                    <BookmarkSimple style={{ marginRight: '3%' }} />
                     {entityRegistry.getDisplayName(
                         EntityType.GlossaryTerm,
                         actionRequest.params?.glossaryTermProposal?.glossaryTerm,

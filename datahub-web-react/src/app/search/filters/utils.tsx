@@ -1,6 +1,4 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
 import {
-    BookOutlined,
     DatabaseOutlined,
     FileOutlined,
     FolderFilled,
@@ -8,6 +6,7 @@ import {
     TagOutlined,
     UserOutlined,
 } from '@ant-design/icons';
+import { BookmarkSimple, Globe } from '@phosphor-icons/react';
 import { STRUCTURED_PROPERTIES_FILTER_NAME } from '@src/app/searchV2/utils/constants';
 import { getStructuredPropFilterDisplayName } from '@src/app/searchV2/filters/utils';
 import { STRUCTURED_PROPERTY_FILTER } from '@src/app/searchV2/filters/field/fields';
@@ -42,7 +41,6 @@ import {
 } from '../utils/constants';
 import EntityRegistry from '../../entity/EntityRegistry';
 import { ANTD_GRAY } from '../../entity/shared/constants';
-import DomainsIcon from '../../../images/domain.svg?react';
 import { GetAutoCompleteMultipleResultsQuery } from '../../../graphql/search.generated';
 import { FACETS_TO_ENTITY_TYPES } from './constants';
 import { FilterOptionType } from './types';
@@ -289,7 +287,7 @@ export function getFilterDropdownIcon(field: string) {
         case TYPE_NAMES_FILTER_NAME:
             return <FileOutlined />;
         case GLOSSARY_TERMS_FILTER_NAME:
-            return <BookOutlined />;
+            return <BookmarkSimple />;
         case TAGS_FILTER_NAME:
             return <TagOutlined />;
         case OWNERS_FILTER_NAME:
@@ -297,7 +295,7 @@ export function getFilterDropdownIcon(field: string) {
         case CONTAINER_FILTER_NAME:
             return <FolderOutlined />;
         case DOMAINS_FILTER_NAME:
-            return <Icon component={DomainsIcon} />;
+            return <Globe />;
         default:
             return null;
     }

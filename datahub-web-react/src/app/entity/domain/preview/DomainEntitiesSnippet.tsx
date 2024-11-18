@@ -13,6 +13,7 @@ const Wrapper = styled.div`
     font-size: 12px;
     display: flex;
     align-items: center;
+    line-height: 20px;
 
     svg {
         margin-right: 4px;

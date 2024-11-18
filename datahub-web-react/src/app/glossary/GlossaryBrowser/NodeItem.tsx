@@ -1,6 +1,7 @@
-import { FolderOutlined, RightOutlined, DownOutlined, LoadingOutlined } from '@ant-design/icons';
+import { RightOutlined, DownOutlined, LoadingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import React, { useState, useEffect } from 'react';
+import { BookmarksSimple } from '@phosphor-icons/react';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { EntityType, GlossaryNode, GlossaryTerm } from '../../../types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -35,7 +36,7 @@ const StyledDownOutlined = styled(DownOutlined)`
     font-size: 10px;
 `;
 
-const StyledFolderOutlined = styled(FolderOutlined)`
+const StyledGlossaryNodeIcon = styled(BookmarksSimple)`
     margin-right: 6px;
 `;
 
@@ -144,13 +145,13 @@ function NodeItem(props: Props) {
                         to={`${entityRegistry.getEntityUrl(node.type, node.urn)}`}
                         $isSelected={entityData?.urn === node.urn}
                     >
-                        <StyledFolderOutlined />
+                        <StyledGlossaryNodeIcon />
                         {entityRegistry.getDisplayName(node.type, isOnEntityPage ? entityData : node)}
                     </NodeLink>
                 )}
                 {isSelecting && (
                     <NameWrapper showSelectStyles={!!selectNode} onClick={handleSelectNode}>
-                        <StyledFolderOutlined />
+                        <StyledGlossaryNodeIcon />
                         {entityRegistry.getDisplayName(node.type, isOnEntityPage ? entityData : node)}
                     </NameWrapper>
                 )}

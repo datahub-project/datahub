@@ -14,10 +14,11 @@ const TermWrapper = styled.div`
 
 const nameStyles = `
     color: #262626;
-    display: inline-block;
+    display: inline-flex;
     height: 100%;
     padding: 3px 4px;
     width: 100%;
+    align-items: center;
 `;
 
 export const TermLink = styled(Link)<{ $isSelected }>`

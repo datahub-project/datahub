@@ -1,13 +1,7 @@
-import Icon, {
-    AppstoreOutlined,
-    FileOutlined,
-    FolderFilled,
-    FolderOutlined,
-    UnorderedListOutlined,
-} from '@ant-design/icons';
+import { AppstoreOutlined, FileOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import React from 'react';
+import { BookmarksSimple } from '@phosphor-icons/react';
 import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
-import GlossaryNodeIcon from '../../../images/glossary_collections_bookmark.svg?react';
 import { EntityType, GlossaryNode, SearchResult } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
@@ -40,19 +34,25 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <FolderOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
+            return <BookmarksSimple className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FolderFilled className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
+            return (
+                <BookmarksSimple
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || '#B37FEB' }}
+                    weight="fill"
+                />
+            );
         }
 
         if (styleType === IconStyleType.ACCENT) {
-            return <Icon style={{ fontSize: 10, color: '#6C6B88' }} component={GlossaryNodeIcon} />;
+            return <BookmarksSimple style={{ fontSize: fontSize || 10, color: color || '#6C6B88' }} />;
         }
 
         return (
-            <FolderOutlined
+            <BookmarksSimple
                 className={TYPE_ICON_CLASS_NAME}
                 style={{
                     fontSize,

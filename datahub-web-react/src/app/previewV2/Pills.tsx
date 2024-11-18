@@ -4,9 +4,9 @@ import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined
 import FindInPageOutlinedIcon from '@mui/icons-material/FindInPageOutlined';
 import SellOutlinedIcon from '@mui/icons-material/SellOutlined';
 import styled from 'styled-components';
+import { BookmarkSimple } from '@phosphor-icons/react';
 import { useMatchedFieldsForList } from '../search/context/SearchResultContext';
 import { EntityPath, EntityType, GlobalTags, GlossaryTerms, LineageDirection, Owner } from '../../types.generated';
-import GlossaryTermV2Icon from '../../images/glossary_term_material_logo.svg?react';
 import { EntityCapabilityType } from '../entityV2/Entity';
 import MatchesContext, { PreviewSection } from '../shared/MatchesContext';
 import SearchPill from './SearchPill';
@@ -51,7 +51,7 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityT
         <PillsContainer>
             {showGlossaryTermsBadge && glossaryTerms && (
                 <SearchPill
-                    icon={<GlossaryTermV2Icon />}
+                    icon={<BookmarkSimple />}
                     count={glossaryTerms.terms?.length || 0}
                     enabled={!!glossaryTerms.terms?.length}
                     active={expandedSection === PreviewSection.GLOSSARY_TERMS}

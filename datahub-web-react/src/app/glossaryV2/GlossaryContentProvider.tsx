@@ -1,12 +1,10 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import { Button } from 'antd';
 import { PageTitle } from '@src/alchemy-components/components/PageTitle';
+import { Button } from '@components';
 import { GlossaryNodeFragment } from '../../graphql/fragments.generated';
 import { ChildGlossaryTermFragment } from '../../graphql/glossaryNode.generated';
-import AddGlossaryIcon from '../../images/add-term-group.svg?react';
 import { GlossaryNode, GlossaryTerm } from '../../types.generated';
-import { ANTD_GRAY, REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID } from '../onboarding/config/BusinessGlossaryOnboardingConfig';
 import EmptyGlossarySection from './EmptyGlossarySection';
 import GlossaryEntitiesList from './GlossaryEntitiesList';
@@ -27,33 +25,6 @@ export const HeaderWrapper = styled.div`
 const ButtonContainer = styled.div`
     display: flex;
     gap: 9px;
-`;
-
-const PrimaryButton = styled(Button)`
-    color: ${ANTD_GRAY[1]};
-    box-shadow: none;
-    border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    transition: 0.15s;
-    display: flex;
-    align-items: center;
-
-    &:hover {
-        transition: 0.15s;
-        opacity: 0.9;
-        background-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-        border-color: ${REDESIGN_COLORS.TITLE_PURPLE};
-    }
-
-    svg > g > path {
-        fill: ${REDESIGN_COLORS.WHITE};
-    }
-`;
-
-const ButtonContent = styled.div`
-    display: flex;
-    gap: 5px;
-    align-items: center;
 `;
 
 const ListWrapper = styled.div`
@@ -92,19 +63,16 @@ const GlossaryContentProvider = (props: Props) => {
                     subTitle="Classify your data assets and columns using data dictionaries"
                 />
                 <ButtonContainer>
-                    <PrimaryButton
+                    <Button
                         data-testid="add-term-group-button-v2"
                         id={BUSINESS_GLOSSARY_CREATE_TERM_GROUP_ID}
-                        type="primary"
-                        size="large"
+                        size="lg"
+                        icon="Add"
                         // can not be disabled on acryl-main due to ability to propose
                         onClick={() => setIsCreateNodeModalVisible(true)}
                     >
-                        <ButtonContent>
-                            <AddGlossaryIcon />
-                            Glossary
-                        </ButtonContent>
-                    </PrimaryButton>
+                        Create Glossary
+                    </Button>
                 </ButtonContainer>
             </HeaderWrapper>
             <ListWrapper>

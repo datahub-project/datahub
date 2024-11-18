@@ -1,5 +1,5 @@
-import { FolderFilled, FolderOutlined } from '@ant-design/icons';
 import React from 'react';
+import { BookmarksSimple } from '@phosphor-icons/react';
 import { useGetGlossaryNodeQuery } from '../../../graphql/glossaryNode.generated';
 import { EntityType, GlossaryNode, SearchResult } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
@@ -22,15 +22,15 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <FolderOutlined style={{ fontSize, color }} />;
+            return <BookmarksSimple style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <FolderFilled style={{ fontSize, color: color || '#B37FEB' }} />;
+            return <BookmarksSimple style={{ fontSize, color: color || '#B37FEB' }} weight="fill" />;
         }
 
         return (
-            <FolderOutlined
+            <BookmarksSimple
                 style={{
                     fontSize,
                     color: color || '#BFBFBF',

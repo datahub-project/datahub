@@ -2,7 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import * as Muicon from '@mui/icons-material';
-// import { BookOutlined } from '@ant-design/icons';
 
 import { EntityType, GlossaryTerm } from '../../../../types.generated';
 import { useEntityRegistry } from '../../../useEntityRegistry';

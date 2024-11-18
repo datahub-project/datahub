@@ -1,7 +1,6 @@
 import {
     ApiOutlined,
     BarChartOutlined,
-    BookOutlined,
     DatabaseOutlined,
     DownOutlined,
     EyeOutlined,
@@ -15,6 +14,7 @@ import {
 } from '@ant-design/icons';
 import { Button, Dropdown, Menu } from 'antd';
 import { Tooltip } from '@components';
+import { BookBookmark } from '@phosphor-icons/react';
 import * as React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
@@ -62,6 +62,10 @@ const NavTitleContainer = styled.span`
     align-items: center;
     justify-content: left;
     padding: 2px;
+`;
+
+const NavSubItemTitleContainer = styled(NavTitleContainer)`
+    line-height: 20px;
 `;
 
 const NavTitleText = styled.span`
@@ -130,10 +134,10 @@ export function HeaderLinks(props: Props) {
             key: 0,
             label: (
                 <Link to="/glossary">
-                    <NavTitleContainer>
-                        <BookOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                    <NavSubItemTitleContainer>
+                        <BookBookmark style={{ fontSize: '14px', fontWeight: 'bold' }} />
                         <NavTitleText>Glossary</NavTitleText>
-                    </NavTitleContainer>
+                    </NavSubItemTitleContainer>
                     <NavTitleDescription>View and modify your data dictionary</NavTitleDescription>
                 </Link>
             ),
@@ -142,7 +146,7 @@ export function HeaderLinks(props: Props) {
             key: 1,
             label: (
                 <Link to="/domains">
-                    <NavTitleContainer>
+                    <NavSubItemTitleContainer>
                         <DomainIcon
                             style={{
                                 fontSize: 14,
@@ -150,7 +154,7 @@ export function HeaderLinks(props: Props) {
                             }}
                         />
                         <NavTitleText>Domains</NavTitleText>
-                    </NavTitleContainer>
+                    </NavSubItemTitleContainer>
                     <NavTitleDescription>Manage related groups of data assets</NavTitleDescription>
                 </Link>
             ),
@@ -161,7 +165,7 @@ export function HeaderLinks(props: Props) {
                       key: 2,
                       label: (
                           <Link to="/business-attribute">
-                              <NavTitleContainer>
+                              <NavSubItemTitleContainer>
                                   <GlobalOutlined
                                       style={{
                                           fontSize: 14,
@@ -169,7 +173,7 @@ export function HeaderLinks(props: Props) {
                                       }}
                                   />
                                   <NavTitleText>Business Attribute</NavTitleText>
-                              </NavTitleContainer>
+                              </NavSubItemTitleContainer>
                               <NavTitleDescription>Universal field for data consistency</NavTitleDescription>
                           </Link>
                       ),
@@ -182,7 +186,7 @@ export function HeaderLinks(props: Props) {
                       key: 3,
                       label: (
                           <Link to="/tests">
-                              <NavTitleContainer>
+                              <NavSubItemTitleContainer>
                                   <FileDoneOutlined
                                       style={{
                                           fontSize: 14,
@@ -190,7 +194,7 @@ export function HeaderLinks(props: Props) {
                                       }}
                                   />
                                   <NavTitleText>Tests</NavTitleText>
-                              </NavTitleContainer>
+                              </NavSubItemTitleContainer>
                               <NavTitleDescription>
                                   Monitor policies & automate actions across data assets
                               </NavTitleDescription>
@@ -205,7 +209,7 @@ export function HeaderLinks(props: Props) {
                       key: 4,
                       label: (
                           <Link to="/govern/dashboard">
-                              <NavTitleContainer>
+                              <NavSubItemTitleContainer>
                                   <FormOutlined
                                       style={{
                                           fontSize: 14,
@@ -213,7 +217,7 @@ export function HeaderLinks(props: Props) {
                                       }}
                                   />
                                   <NavTitleText>Compliance Forms</NavTitleText>
-                              </NavTitleContainer>
+                              </NavSubItemTitleContainer>
                               <NavTitleDescription>
                                   Manage compliance initiatives for your data assets
                               </NavTitleDescription>
@@ -228,10 +232,10 @@ export function HeaderLinks(props: Props) {
                       key: 5,
                       label: (
                           <Link to={PageRoutes.STRUCTURED_PROPERTIES}>
-                              <NavTitleContainer>
+                              <NavSubItemTitleContainer>
                                   <UnorderedListOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
                                   <NavTitleText>Structured Properties</NavTitleText>
-                              </NavTitleContainer>
+                              </NavSubItemTitleContainer>
                               <NavTitleDescription>Manage custom properties for your data assets</NavTitleDescription>
                           </Link>
                       ),
@@ -281,10 +285,10 @@ export function HeaderLinks(props: Props) {
                             {showDatasetHealth && (
                                 <MenuItem key="1">
                                     <Link to={PageRoutes.DATASET_HEALTH_DASHBOARD}>
-                                        <NavTitleContainer>
+                                        <NavSubItemTitleContainer>
                                             <StyledDatabaseOutlined />
                                             <NavTitleText>Dataset Health</NavTitleText>
-                                        </NavTitleContainer>
+                                        </NavSubItemTitleContainer>
                                         <NavTitleDescription>
                                             Monitor active incidents & failing assertions across your
                                             organization&apos;s datasets

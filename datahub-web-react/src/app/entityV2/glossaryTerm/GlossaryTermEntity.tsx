@@ -1,14 +1,7 @@
-import Icon, {
-    AppstoreOutlined,
-    BookFilled,
-    FileOutlined,
-    LayoutOutlined,
-    UnorderedListOutlined,
-} from '@ant-design/icons';
+import { AppstoreOutlined, FileOutlined, LayoutOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import * as React from 'react';
+import { BookmarkSimple } from '@phosphor-icons/react';
 import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '../../../graphql/glossaryTerm.generated';
-import GlossaryTermIcon from '../../../images/collections_bookmark.svg?react';
-import BookOutlined from '../../../images/glossary_term_material_logo.svg?react';
 import { EntityType, GlossaryTerm, SearchResult } from '../../../types.generated';
 import { GenericEntityProperties } from '../../entity/shared/types';
 import { FetchedEntity } from '../../lineage/types';
@@ -53,21 +46,25 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     icon = (fontSize?: number, styleType?: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <BookOutlined className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
+            return <BookmarkSimple className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <BookFilled className={TYPE_ICON_CLASS_NAME} style={{ fontSize, color: color || '#B37FEB' }} />;
-        }
-
-        if (styleType === IconStyleType.ACCENT) {
             return (
-                <Icon style={{ fontSize: fontSize ?? 10, color: color || '#6C6B88' }} component={GlossaryTermIcon} />
+                <BookmarkSimple
+                    className={TYPE_ICON_CLASS_NAME}
+                    style={{ fontSize, color: color || '#B37FEB' }}
+                    weight="fill"
+                />
             );
         }
 
+        if (styleType === IconStyleType.ACCENT) {
+            return <BookmarkSimple style={{ fontSize: fontSize ?? 10, color: color || '#6C6B88' }} />;
+        }
+
         return (
-            <BookOutlined
+            <BookmarkSimple
                 className={TYPE_ICON_CLASS_NAME}
                 style={{
                     fontSize,
@@ -139,7 +136,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                             );
                         },
                         component: GlossayRelatedTerms,
-                        icon: () => <BookOutlined style={{ marginRight: 6 }} />,
+                        icon: () => <BookmarkSimple style={{ marginRight: 6 }} />,
                     },
                     {
                         name: 'Properties',

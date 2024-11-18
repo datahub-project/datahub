@@ -104,6 +104,7 @@ const CloseIconStyle = styled(CloseIcon)`
 
 const StyledViewIcon = styled(FadersHorizontal)<{ $isShowNavBarRedesign?: boolean }>`
     font-size: ${(props) => (props.$isShowNavBarRedesign ? '20px' : '18px')} !important;
+    color: ${ANTD_GRAY[1]};
 `;
 
 type Props = {

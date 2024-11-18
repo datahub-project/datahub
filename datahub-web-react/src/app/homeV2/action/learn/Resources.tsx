@@ -3,7 +3,8 @@ import { Col, Row, Skeleton } from 'antd';
 import styled from 'styled-components';
 import { ApiOutlined } from '@ant-design/icons';
 import AutoStoriesOutlinedIcon from '@mui/icons-material/AutoStoriesOutlined';
-import { BookOutlined, HelpCenterOutlined, OndemandVideoOutlined } from '@mui/icons-material';
+import { HelpCenterOutlined, OndemandVideoOutlined } from '@mui/icons-material';
+import { BookmarkSimple } from '@phosphor-icons/react';
 import { ANTD_GRAY } from '../../../entity/shared/constants';
 import { PersonaType } from '../../shared/types';
 import { useUserPersona } from '../../persona/useUserPersona';
@@ -26,7 +27,7 @@ const Title = styled.div`
     align-items: center;
 `;
 
-const Icon = styled(BookOutlined)`
+const Icon = styled(BookmarkSimple)`
     margin-right: 8px;
     color: #9884d4;
     font-size: 16px;

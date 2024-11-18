@@ -1,5 +1,5 @@
 import * as React from 'react';
-import { BookFilled, BookOutlined } from '@ant-design/icons';
+import { BookmarkSimple } from '@phosphor-icons/react';
 import { EntityType, GlossaryTerm, SearchResult } from '../../../types.generated';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { Preview } from './preview/Preview';
@@ -31,15 +31,15 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     icon = (fontSize: number, styleType: IconStyleType, color?: string) => {
         if (styleType === IconStyleType.TAB_VIEW) {
-            return <BookOutlined style={{ fontSize, color }} />;
+            return <BookmarkSimple style={{ fontSize, color }} />;
         }
 
         if (styleType === IconStyleType.HIGHLIGHT) {
-            return <BookFilled style={{ fontSize, color: color || '#B37FEB' }} />;
+            return <BookmarkSimple style={{ fontSize, color: color || '#B37FEB' }} weight="fill" />;
         }
 
         return (
-            <BookOutlined
+            <BookmarkSimple
                 style={{
                     fontSize,
                     color: color || '#BFBFBF',

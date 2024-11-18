@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOutlined } from '@ant-design/icons';
+import { BookmarkSimple } from '@phosphor-icons/react';
 import { Deprecation, Domain, EntityType, Owner, ParentNodesResult } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
@@ -35,7 +35,7 @@ export const Preview = ({
             urn={urn}
             description={description || ''}
             owners={owners}
-            logoComponent={<BookOutlined style={{ fontSize: '20px' }} />}
+            logoComponent={<BookmarkSimple style={{ fontSize: '20px' }} />}
             type="Glossary Term"
             typeIcon={entityRegistry.getIcon(EntityType.GlossaryTerm, 14, IconStyleType.ACCENT)}
             deprecation={deprecation}

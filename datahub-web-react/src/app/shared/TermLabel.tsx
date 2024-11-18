@@ -1,9 +1,8 @@
 import React from 'react';
-import { BookOutlined } from '@ant-design/icons';
+import { BookmarkSimple, BookmarksSimple } from '@phosphor-icons/react';
 import styled from 'styled-components';
 
 import { EntityType } from '@src/types.generated';
-import GlossaryIcon from '@images/glossary_collections_bookmark.svg';
 
 type Props = {
     name: string;
@@ -17,10 +16,8 @@ const TermName = styled.span`
 export default function TermLabel({ name, type }: Props) {
     return (
         <div>
-            {!type || (type === EntityType.GlossaryTerm && <BookOutlined />)}
-            {type === EntityType.GlossaryNode && (
-                <img src={GlossaryIcon} alt="Glossary Node" style={{ width: '16px', height: '16px' }} />
-            )}
+            {!type || (type === EntityType.GlossaryTerm && <BookmarkSimple />)}
+            {type === EntityType.GlossaryNode && <BookmarksSimple size={16} />}
             <TermName>{name}</TermName>
         </div>
     );

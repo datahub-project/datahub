@@ -3,8 +3,7 @@ import styled from 'styled-components/macro';
 import { Tooltip, Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import { colors } from '@src/alchemy-components';
-import TermIcon from '../../images/collections_bookmark.svg?react';
-import TermGroupIcon from '../../images/glossary_collections_bookmark.svg?react';
+import { BookmarkSimple, BookmarksSimple } from '@phosphor-icons/react';
 import { DisplayProperties } from '../../types.generated';
 import { ANTD_GRAY, ANTD_GRAY_V2, REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { generateColorFromPalette } from './colorUtils';
@@ -163,7 +162,7 @@ const GlossaryNodeCard = (props: Props) => {
         <GlossaryItemCardWrapper>
             <GlossaryItemCard>
                 <GlossaryItemCardHeader color={glossaryColor}>
-                    <TermGroupIcon />
+                    <BookmarksSimple style={{ flexShrink: 0 }} />
                     <GlossaryCardHeader>{name}</GlossaryCardHeader>
                     <GlossaryItemBadge />
                 </GlossaryItemCardHeader>
@@ -176,7 +175,7 @@ const GlossaryNodeCard = (props: Props) => {
                             showArrow={false}
                         >
                             <GlossaryItemCount count={nodeCount}>
-                                <TermGroupIcon />
+                                <BookmarksSimple />
                                 <CountText>
                                     {' '}
                                     {nodeCount}
@@ -190,7 +189,7 @@ const GlossaryNodeCard = (props: Props) => {
                             showArrow={false}
                         >
                             <GlossaryItemCount count={termCount}>
-                                <TermIcon />
+                                <BookmarkSimple />
                                 <CountText>
                                     {' '}
                                     {termCount}

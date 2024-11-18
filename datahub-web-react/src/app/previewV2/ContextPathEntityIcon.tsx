@@ -9,8 +9,6 @@ const IconWrapper = styled.span`
     svg {
         height: 12px;
     }
-
-    margin-right: 6px;
 `;
 
 const DefaultIcon = styled(FolderOpenOutlined)`
@@ -25,6 +23,7 @@ interface Props {
 
 function ContextPathEntityIcon({ entity }: Props) {
     if (!entity) return null;
+
     // For now, we keep it simple - each parent shares the same icon within the context path.
     return (
         <IconWrapper>

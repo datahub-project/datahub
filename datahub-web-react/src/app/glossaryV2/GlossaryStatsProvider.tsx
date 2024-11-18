@@ -2,7 +2,7 @@ import React from 'react';
 import Icon from '@ant-design/icons';
 import styled from 'styled-components/macro';
 import { Typography } from 'antd';
-import GlossaryTermIcon from '../../../src/images/glossary_collections_bookmark.svg?react';
+import { BookmarksSimple } from '@phosphor-icons/react';
 import ActiveGlossaryTermIcon from '../../../src/images/glossary_bookmark_added.svg?react';
 import ApprovedGlossaryTermIcon from '../../../src/images/glossary_verified.svg?react';
 import OwnersIcon from '../../../src/images/glossary_account_circle.svg?react';
@@ -58,7 +58,7 @@ const GlossaryStatsProvider = (props: Props) => {
         <StatusWrapper>
             <div>
                 <IconWrapper>
-                    <Icon style={{ fontSize: 26 }} component={GlossaryTermIcon} />
+                    <BookmarksSimple style={{ fontSize: 26 }} />
                     <CountTerms>{totalGlossaryTerms} +</CountTerms>
                 </IconWrapper>
                 <HeaderTitle>Total Glossary Terms</HeaderTitle>

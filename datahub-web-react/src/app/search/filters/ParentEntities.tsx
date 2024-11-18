@@ -12,8 +12,8 @@ const ParentNodesWrapper = styled.div`
     color: ${ANTD_GRAY[7]};
     display: flex;
     align-items: center;
-    margin-bottom: 3px;
     overflow: hidden;
+    line-height: 22px;
 `;
 
 const ParentNode = styled(Typography.Text)<{ color?: string }>`

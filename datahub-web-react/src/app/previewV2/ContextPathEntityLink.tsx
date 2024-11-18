@@ -3,6 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { Entity } from '@types';
+import { colors } from '@src/alchemy-components';
 import { REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { useEntityRegistry } from '../useEntityRegistry';
 import ContextPathEntityIcon from './ContextPathEntityIcon';
@@ -33,10 +34,21 @@ const StyledLink = styled(Link)`
     overflow: hidden;
     text-overflow: ellipsis;
     display: flex;
-    line-height: 10px;
+    gap: 4px;
+    align-items: center;
+    line-height: 22px;
     color: ${REDESIGN_COLORS.LINK_GREY};
+
+    && svg {
+        color: ${REDESIGN_COLORS.LINK_GREY};
+    }
+
     :hover {
-        color: ${REDESIGN_COLORS.TITLE_PURPLE};
+        color: ${colors.violet[500]};
+
+        && svg {
+            color: ${colors.violet[500]};
+        }
     }
 `;
 

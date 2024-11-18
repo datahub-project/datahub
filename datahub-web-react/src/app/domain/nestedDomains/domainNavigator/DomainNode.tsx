@@ -22,6 +22,12 @@ const RowWrapper = styled.div`
 `;
 
 const NameWrapper = styled(Typography.Text)<{ $isSelected: boolean; $addLeftPadding: boolean }>`
+    && {
+        display: flex;
+        align-items: center;
+        vertical-align: middle;
+    }
+
     flex: 1;
     overflow: hidden;
     padding: 2px;

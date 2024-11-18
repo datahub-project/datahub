@@ -3,7 +3,6 @@ import { TimerOutlined } from '@mui/icons-material';
 import TableIcon from '@src/images/table-icon.svg?react';
 import React from 'react';
 import {
-    BookOutlined,
     CloseCircleOutlined,
     EnvironmentOutlined,
     DatabaseOutlined,
@@ -16,7 +15,7 @@ import {
     UserOutlined,
     WarningOutlined,
 } from '@ant-design/icons';
-import DomainsIcon from '@images/domain.svg?react';
+import { BookmarkSimple, Globe } from '@phosphor-icons/react';
 import { EntityType } from '../../../../types.generated';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
@@ -88,7 +87,7 @@ export const DOMAINS_FILTER: FilterField = {
     displayName: FIELD_TO_LABEL[DOMAINS_FILTER_NAME],
     type: FieldType.ENTITY,
     entityTypes: [EntityType.Domain],
-    icon: <Icon component={DomainsIcon} />,
+    icon: <Globe />,
 };
 
 export const TAGS_FILTER: FilterField = {
@@ -104,7 +103,7 @@ export const GLOSSARY_TERMS_FILTER: FilterField = {
     displayName: FIELD_TO_LABEL[GLOSSARY_TERMS_FILTER_NAME],
     type: FieldType.ENTITY,
     entityTypes: [EntityType.GlossaryTerm],
-    icon: <BookOutlined />,
+    icon: <BookmarkSimple />,
 };
 
 export const CONTAINER_FILTER: FilterField = {
@@ -135,7 +134,7 @@ export const FIELD_GLOSSARY_TERMS_FILTER: FilterField = {
     displayName: FIELD_TO_LABEL[FIELD_GLOSSARY_TERMS_FILTER_NAME],
     type: FieldType.ENTITY,
     entityTypes: [EntityType.GlossaryTerm],
-    icon: <BookOutlined />,
+    icon: <BookmarkSimple />,
 };
 
 export const DESCRIPTION_FILTER: FilterField = {

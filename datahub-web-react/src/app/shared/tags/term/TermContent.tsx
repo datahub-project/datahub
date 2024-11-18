@@ -3,8 +3,8 @@ import { message, Modal, Tag } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
+import { BookmarkSimple } from '@phosphor-icons/react';
 import { useRemoveTermMutation } from '../../../../graphql/mutations.generated';
-import BookOutlined from '../../../../images/glossary_term_material_logo.svg?react';
 import { EntityType, GlossaryTermAssociation, SubResourceType } from '../../../../types.generated';
 import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
 import { useHasMatchedFieldByUrn } from '../../../search/context/SearchResultContext';
@@ -121,7 +121,7 @@ export default function TermContent({
             $highlightTerm={highlightTerm}
             $showOneAndCount={showOneAndCount}
         >
-            <BookOutlined style={{ fill: '#56668E', marginRight: '4px', marginBottom: 4, verticalAlign: 'middle' }} />
+            <BookmarkSimple style={{ fill: '#56668E', marginRight: '4px', marginBottom: 4, verticalAlign: 'middle' }} />
             <Highlight style={{ marginLeft: 0 }} matchStyle={highlightMatchStyle} search={highlightText}>
                 {entityRegistry.getDisplayName(EntityType.GlossaryTerm, term.term)}
             </Highlight>

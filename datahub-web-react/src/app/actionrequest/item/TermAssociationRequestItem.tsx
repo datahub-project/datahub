@@ -1,6 +1,6 @@
-import { BookOutlined } from '@ant-design/icons';
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { BookmarkSimple } from '@phosphor-icons/react';
 import { ActionRequest, EntityType } from '../../../types.generated';
 import { StyledTag } from '../../entity/shared/components/styled/StyledTag';
 import { useEntityRegistry } from '../../useEntityRegistry';
@@ -27,7 +27,7 @@ export default function TermAssociationRequestItem({ actionRequest, showActionsB
         <Link to={`/${entityRegistry.getPathName(EntityType.GlossaryTerm)}/${term.urn}`}>
             <StyledTag noMargin $color={null} style={{ marginRight: 2, marginLeft: 2 }}>
                 {termName}
-                <BookOutlined style={{ marginLeft: '2%' }} />
+                <BookmarkSimple style={{ marginLeft: '2%' }} />
             </StyledTag>
         </Link>
     );

@@ -1,11 +1,8 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 import { colors } from '@src/alchemy-components';
-import { BookOutlined } from '@ant-design/icons';
 import { Tooltip } from 'antd';
-import GroupBookmarkIconWhite from '../../images/glossary_collections_bookmark_white.svg?react';
-import TermIcon from '../../images/collections_bookmark.svg?react';
-import TermGroupIcon from '../../images/glossary_collections_bookmark.svg?react';
+import { BookmarkSimple, BookmarksSimple } from '@phosphor-icons/react';
 import { ANTD_GRAY_V2, REDESIGN_COLORS } from '../entityV2/shared/constants';
 import { EntityType, Maybe } from '../../types.generated';
 import { generateColorFromPalette } from './colorUtils';
@@ -109,11 +106,6 @@ const BookmarkRibbon = styled.span<{ urnText: string }>`
     background-color: rgba(0, 0, 0, 0.2);
 `;
 
-const WhiteBookOutlined = styled(BookOutlined)`
-    color: #ffffff;
-    font-size: 16px;
-`;
-
 const GlossaryItemCount = styled.span<{ count: number }>`
     display: flex;
     align-items: center;
@@ -174,7 +166,7 @@ const GlossaryListCard = (props: Props) => {
                 <EntityTitleWrapper>
                     <BookmarkIconWrapper urnText={entityData?.urn || ''}>
                         <BookmarkRibbon urnText={entityData?.urn || ''} />
-                        <GroupBookmarkIconWhite />
+                        <BookmarksSimple color="white" size="16px" weight="bold" />
                     </BookmarkIconWrapper>
                     <NameAndDescription>
                         <EntityName>{name}</EntityName>
@@ -192,7 +184,7 @@ const GlossaryListCard = (props: Props) => {
                 <EntityTitleWrapper>
                     <BookmarkIconWrapper urnText={entityData?.urn || ''}>
                         <BookmarkRibbon urnText={entityData?.urn || ''} />
-                        <WhiteBookOutlined />
+                        <BookmarkSimple color="white" size="16px" weight="bold" />
                     </BookmarkIconWrapper>
                     <NameAndDescription>
                         <EntityName>{name}</EntityName>
@@ -215,7 +207,7 @@ const GlossaryListCard = (props: Props) => {
                         showArrow={false}
                     >
                         <GlossaryItemCount count={props.nodeCount || 0}>
-                            <TermGroupIcon />
+                            <BookmarksSimple />
                             <CountText>
                                 {' '}
                                 {props.nodeCount}
@@ -229,7 +221,7 @@ const GlossaryListCard = (props: Props) => {
                         showArrow={false}
                     >
                         <GlossaryItemCount count={props.termCount || 0}>
-                            <TermIcon />
+                            <BookmarkSimple />
                             <CountText>
                                 {' '}
                                 {props.termCount}
