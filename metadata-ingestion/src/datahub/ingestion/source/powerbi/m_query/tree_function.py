@@ -46,8 +46,8 @@ def get_variable_statement(parse_tree: Tree, variable: str) -> Optional[Tree]:
 
 def get_first_rule(tree: Tree, rule: str) -> Optional[Tree]:
     """
-    Lark library doesn't have advance search function.
-    This function will return the first tree of provided rule
+    Lark library doesn't have an advance search function.
+    This function will return the first tree of the provided rule
     :param tree: Tree to search for the expression rule
     :return: Tree
     """
@@ -99,7 +99,6 @@ def token_values(tree: Tree, parameters: Dict[str, str] = {}) -> List[str]:
                 logger.debug(f"Unable to resolve parameter reference to {ref}")
                 values.append(ref)
         elif isinstance(node, Token):
-            # This means we're probably looking at a literal.
             values.append(cast(Token, node).value)
             return
         else:
@@ -120,10 +119,14 @@ def remove_whitespaces_from_list(values: List[str]) -> List[str]:
     return result
 
 
+def strip_char(value: str, char: str = '"') -> str:
+    return value.strip(char)
+
+
 def strip_char_from_list(values: List[str], char: str = '"') -> List[str]:
     result: List[str] = []
     for item in values:
-        result.append(item.strip(char))
+        result.append(strip_char(item.strip(char), char=char))
 
     return result
 
