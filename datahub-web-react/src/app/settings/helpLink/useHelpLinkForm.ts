@@ -1,4 +1,6 @@
 import { message } from 'antd';
+import handleGraphQLError from '@src/app/shared/handleGraphQLError';
+import { ErrorResponse } from '@apollo/client/link/error';
 import { useUpdateHelpLinkMutation } from '../../../graphql/settings.generated';
 import { useGlobalSettingsContext } from '../../context/GlobalSettings/GlobalSettingsContext';
 
@@ -13,15 +15,25 @@ export default function useHelpLinkForm() {
         message.success('Successfully updated custom help link!');
     }
 
+    function onError(error: ErrorResponse) {
+        resetHelpLinkState();
+        handleGraphQLError({
+            error,
+            defaultMessage: 'Failed to update the custom help link. An unexpected error occurred',
+            permissionMessage:
+                'Unauthorized to update the custom help link. Please contact your DataHub administrator.',
+        });
+    }
+
     function toggleHelpLink() {
         if (isEnabled && globalSettings?.visualSettings?.helpLink?.isEnabled) {
             updateHelpLink({ variables: { input: { isEnabled: false } } })
                 .then(onSuccess)
-                .catch(resetHelpLinkState);
+                .catch(onError);
         } else if (!isEnabled && link && label) {
             updateHelpLink({ variables: { input: { isEnabled: true, label, link } } })
                 .then(onSuccess)
-                .catch(resetHelpLinkState);
+                .catch(onError);
         }
         setIsEnabled(!isEnabled);
     }
@@ -29,7 +41,7 @@ export default function useHelpLinkForm() {
     function saveHelpLink() {
         updateHelpLink({ variables: { input: { isEnabled, label, link } } })
             .then(onSuccess)
-            .catch(resetHelpLinkState);
+            .catch(onError);
     }
 
     return {
