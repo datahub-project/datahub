@@ -769,8 +769,11 @@ public class JavaEntityClient implements EntityClient {
                 opContext.getValidationContext().isAlternateValidation())
             .build();
 
+    List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
+    entitySearchService.appendRunId(opContext, results);
+
     Map<Pair<Urn, String>, List<IngestResult>> resultMap =
-        entityService.ingestProposal(opContext, batch, async).stream()
+        results.stream()
             .collect(
                 Collectors.groupingBy(
                     result ->
@@ -864,8 +867,7 @@ public class JavaEntityClient implements EntityClient {
   private void tryIndexRunId(
       @Nonnull OperationContext opContext, Urn entityUrn, @Nullable SystemMetadata systemMetadata) {
     if (systemMetadata != null && systemMetadata.hasRunId()) {
-      entitySearchService.appendRunId(
-          opContext, entityUrn.getEntityType(), entityUrn, systemMetadata.getRunId());
+      entitySearchService.appendRunId(opContext, entityUrn, systemMetadata.getRunId());
     }
   }
 
