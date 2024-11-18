@@ -88,10 +88,14 @@ _field_type_mapping: Dict[Union[ValueType, feast.types.FeastType], str] = {
 
 # FIXME: Update to have more owners
 _owner_mapping: Dict[str, Dict[str, Any]] = {
-    "Datahub": {
+    "MLOPs": {
         "owner_type": builder.OwnerType.GROUP,
-        "owner_ship_type_class": OwnershipTypeClass.DATAOWNER,
-    }
+        "owner_ship_type_class": OwnershipTypeClass.TECHNICAL_OWNER,
+    },
+    "ML": {
+        "owner_type": builder.OwnerType.GROUP,
+        "owner_ship_type_class": OwnershipTypeClass.TECHNICAL_OWNER,
+    },
 }
 
 
