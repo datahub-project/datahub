@@ -41,4 +41,4 @@ There are a few restrictions when creating an urn:
 2. Parentheses are reserved characters in URN fields: `( , )`
 3. Colons are reserved characters in URN fields: `:`
 
-Please do not use these characters when creating or generating urns.
+Please do not use these characters when creating or generating urns. One approach is to use URL encoding for the characters.
