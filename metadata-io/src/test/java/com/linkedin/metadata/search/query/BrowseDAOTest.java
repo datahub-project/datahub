@@ -18,6 +18,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.search.config.SearchCommonTestConfiguration;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -105,7 +106,7 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     assertEquals(browsePaths.get(0), "foo");
 
     // Test the case of null browsePaths field
-    sourceMap.put("browsePaths", null);
+    sourceMap.put("browsePaths", new ArrayList<>(null));
     when(mockSearchHit.getSourceAsMap()).thenReturn(sourceMap);
     when(mockSearchHits.getHits()).thenReturn(new SearchHit[] {mockSearchHit});
     when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
