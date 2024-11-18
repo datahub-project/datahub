@@ -36,6 +36,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -425,7 +426,10 @@ public class ESBrowseDAO {
     if (!sourceMap.containsKey(BROWSE_PATH)) {
       return Collections.emptyList();
     }
-    return (List<String>) sourceMap.get(BROWSE_PATH);
+    List<String> browsePaths =
+        ((List<String>) sourceMap.get(BROWSE_PATH))
+            .stream().filter(Objects::nonNull).collect(Collectors.toList());
+    return browsePaths;
   }
 
   public BrowseResultV2 browseV2(
