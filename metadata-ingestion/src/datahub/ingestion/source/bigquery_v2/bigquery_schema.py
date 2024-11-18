@@ -152,6 +152,15 @@ class BigqueryDataset:
     snapshots: List[BigqueryTableSnapshot] = field(default_factory=list)
     columns: List[BigqueryColumn] = field(default_factory=list)
 
+    # Some INFORMATION_SCHEMA views are not available for BigLake tables
+    # based on Amazon S3 and Blob Storage data.
+    # https://cloud.google.com/bigquery/docs/omni-introduction#limitations
+    # Omni Locations - https://cloud.google.com/bigquery/docs/omni-introduction#locations
+    def is_biglake_dataset(self) -> bool:
+        return self.location is not None and self.location.lower().startswith(
+            ("aws-", "azure-")
+        )
+
 
 @dataclass
 class BigqueryProject:
@@ -541,18 +550,26 @@ class BigQuerySchemaApi:
                         table_name=constraint.table_name,
                         type=constraint.constraint_type,
                         field_path=constraint.column_name,
-                        referenced_project_id=constraint.referenced_catalog
-                        if constraint.constraint_type == "FOREIGN KEY"
-                        else None,
-                        referenced_dataset=constraint.referenced_schema
-                        if constraint.constraint_type == "FOREIGN KEY"
-                        else None,
-                        referenced_table_name=constraint.referenced_table
-                        if constraint.constraint_type == "FOREIGN KEY"
-                        else None,
-                        referenced_column_name=constraint.referenced_column
-                        if constraint.constraint_type == "FOREIGN KEY"
-                        else None,
+                        referenced_project_id=(
+                            constraint.referenced_catalog
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_dataset=(
+                            constraint.referenced_schema
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_table_name=(
+                            constraint.referenced_table
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_column_name=(
+                            constraint.referenced_column
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
                     )
                 )
             self.report.num_get_table_constraints_for_dataset_api_requests += 1
