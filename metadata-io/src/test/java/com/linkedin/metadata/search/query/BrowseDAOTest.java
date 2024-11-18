@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.query;
 
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.mock;
@@ -102,5 +103,15 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     List<String> browsePaths = browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn);
     assertEquals(browsePaths.size(), 1);
     assertEquals(browsePaths.get(0), "foo");
+
+    // Test the case of null browsePaths field
+    sourceMap.put("browsePaths", null);
+    when(mockSearchHit.getSourceAsMap()).thenReturn(sourceMap);
+    when(mockSearchHits.getHits()).thenReturn(new SearchHit[] {mockSearchHit});
+    when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
+    when(mockClient.search(any(), eq(RequestOptions.DEFAULT))).thenReturn(mockSearchResponse);
+    List<String> nullBrowsePaths = browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn);
+    assertEquals(nullBrowsePaths.size(), 1);
+    assertTrue(nullBrowsePaths.get(0).isEmpty());
   }
 }
