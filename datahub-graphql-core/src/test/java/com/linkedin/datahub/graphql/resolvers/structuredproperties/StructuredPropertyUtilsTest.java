@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.structuredproperties;
 
 import static org.testng.Assert.*;
 
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import java.util.UUID;
 import org.testng.annotations.Test;
 

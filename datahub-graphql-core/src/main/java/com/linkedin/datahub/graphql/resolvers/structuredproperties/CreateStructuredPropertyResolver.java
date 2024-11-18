@@ -18,6 +18,7 @@ import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertyM
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.aspect.patch.builder.StructuredPropertyDefinitionPatchBuilder;
+import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.structured.PrimitivePropertyValue;
@@ -120,7 +121,7 @@ public class CreateStructuredPropertyResolver
     }
     settings.setLastModified(context.getOperationContext().getAuditStamp());
 
-    StructuredPropertyUtils.validatePropertySettings(settings);
+    StructuredPropertyUtils.validatePropertySettings(settings, true);
 
     return buildMetadataChangeProposalWithUrn(
         propertyUrn, STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME, settings);
