@@ -1,4 +1,5 @@
 import logging
+import traceback
 from typing import Optional, Union
 
 from datahub_executor.common.assertion.engine.evaluator.utils.errors import (
@@ -189,10 +190,15 @@ class AssertionEvaluator:
             logger.exception(
                 f"An unknown error occurred when attempting to evaluate assertion with urn {assertion.urn} and parameters {parameters}. Caused by: {e}"
             )
+            stack_trace_string = traceback.format_exc(limit=2)
             return AssertionEvaluationResult(
                 AssertionResultType.ERROR,
                 error=AssertionEvaluationResultError(
                     type=AssertionResultErrorType.UNKNOWN_ERROR,
-                    properties={"assertion_urn": assertion.urn},
+                    properties={
+                        "assertion_urn": assertion.urn,
+                        "message": repr(e),
+                        "stacktrace": stack_trace_string,
+                    },
                 ),
             )
