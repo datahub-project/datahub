@@ -82,6 +82,7 @@ shadowJar {
       '**/LICENSE', '**/LICENSE*.txt', '**/NOTICE', '**/NOTICE.txt', 'licenses/**', 'log4j2.*', 'log4j.*')
   dependencies {
     exclude(dependency("org.slf4j::"))
+    exclude(dependency("antlr::"))
     exclude("org/apache/commons/logging/**")
   }
   mergeServiceFiles()
@@ -94,7 +95,7 @@ shadowJar {
   relocate 'javassist', 'datahub.shaded.javassist'
   relocate 'edu.umd.cs.findbugs', 'datahub.shaded.findbugs'
   relocate 'org.antlr', 'datahub.shaded.org.antlr'
-  relocate 'antlr', 'datahub.shaded.antlr'
+  //relocate 'antlr', 'datahub.shaded.antlr'
   relocate 'com.google.common', 'datahub.shaded.com.google.common'
   relocate 'org.apache.commons', 'datahub.shaded.org.apache.commons'
   relocate 'org.apache.maven', 'datahub.shaded.org.apache.maven'
