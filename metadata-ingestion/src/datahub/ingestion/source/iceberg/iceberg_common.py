@@ -19,6 +19,7 @@ from datahub.ingestion.source_config.operation_config import (
     OperationConfig,
     is_profiling_enabled,
 )
+from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 logger = logging.getLogger(__name__)
 
@@ -177,7 +178,9 @@ class IcebergSourceReport(StaleEntityRemovalSourceReport):
     profiling_table_timings: TimingClass = field(default_factory=TimingClass)
     listed_namespaces: int = 0
     total_listed_tables: int = 0
-    tables_listed_per_namespace: Dict = field(default_factory=dict)
+    tables_listed_per_namespace: TopKDict[str, int] = field(
+        default_factory=int_top_k_dict
+    )
 
     def report_listed_tables_for_namespace(
         self, namespace: str, no_tables: int
