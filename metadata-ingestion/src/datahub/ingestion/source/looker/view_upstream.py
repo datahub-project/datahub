@@ -237,6 +237,14 @@ class AbstractViewUpstream(ABC):
     def create_fields(self) -> List[ViewField]:
         return []  # it is for the special case
 
+    def convert_upstream_column_to_lowercase(self, columns: List[str]) -> List[str]:
+        return [
+            column.lower()
+            if self.config.convert_upstream_column_to_lowercase
+            else column
+            for column in columns
+        ]
+
 
 class SqlBasedDerivedViewUpstream(AbstractViewUpstream, ABC):
     """
@@ -380,7 +388,9 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream, ABC):
                     ],  # 0th index has table of from clause
                     column=column,
                 )
-                for column in field_context.column_name_in_sql_attribute()
+                for column in self.convert_upstream_column_to_lowercase(
+                    field_context.column_name_in_sql_attribute()
+                )
             ]
 
         # fix any derived view reference present in urn
@@ -489,7 +499,9 @@ class NativeDerivedViewUpstream(AbstractViewUpstream):
 
         explore_urn: str = self._get_upstream_dataset_urn()[0]
 
-        for column in field_context.column_name_in_sql_attribute():
+        for column in self.convert_upstream_column_to_lowercase(
+            field_context.column_name_in_sql_attribute()
+        ):
             if column in self._get_explore_column_mapping():
                 explore_column: Dict = self._get_explore_column_mapping()[column]
                 upstream_column_refs.append(
@@ -551,7 +563,9 @@ class RegularViewUpstream(AbstractViewUpstream):
     ) -> List[ColumnRef]:
         upstream_column_ref: List[ColumnRef] = []
 
-        for column_name in field_context.column_name_in_sql_attribute():
+        for column_name in self.convert_upstream_column_to_lowercase(
+            field_context.column_name_in_sql_attribute()
+        ):
             upstream_column_ref.append(
                 ColumnRef(table=self._get_upstream_dataset_urn(), column=column_name)
             )
@@ -613,7 +627,9 @@ class DotSqlTableNameViewUpstream(AbstractViewUpstream):
         if not self._get_upstream_dataset_urn():
             return upstream_column_ref
 
-        for column_name in field_context.column_name_in_sql_attribute():
+        for column_name in self.convert_upstream_column_to_lowercase(
+            field_context.column_name_in_sql_attribute()
+        ):
             upstream_column_ref.append(
                 ColumnRef(table=self._get_upstream_dataset_urn()[0], column=column_name)
             )

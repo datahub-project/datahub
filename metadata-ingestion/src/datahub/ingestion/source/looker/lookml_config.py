@@ -178,6 +178,12 @@ class LookMLSourceConfig(
         "All if comments are evaluated to true for configured looker_environment value",
     )
 
+    convert_upstream_column_to_lowercase: bool = Field(
+        default=True,
+        description="Indicates whether to convert upstream column names to lowercase (default: True). "
+        "Enable this option if column-level lineage is not functioning correctly and retry the ingestion process.",
+    )
+
     @validator("connection_to_platform_map", pre=True)
     def convert_string_to_connection_def(cls, conn_map):
         # Previous version of config supported strings in connection map. This upconverts strings to ConnectionMap

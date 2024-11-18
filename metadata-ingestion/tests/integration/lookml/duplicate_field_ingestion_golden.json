@@ -176,7 +176,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),entity)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),ENTITY)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -187,7 +187,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),metadata)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),METADATA)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -198,7 +198,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),urn)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),URN)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -209,7 +209,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),version)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),VERSION)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -220,7 +220,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),createdon)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),CREATEDON)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [

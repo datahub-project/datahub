@@ -842,6 +842,8 @@ def test_duplicate_field_ingest(pytestconfig, tmp_path, mock_time):
         f"{test_resources_dir}/lkml_samples_duplicate_field",
     )
 
+    new_recipe["source"]["config"]["convert_upstream_column_to_lowercase"] = False
+
     pipeline = Pipeline.create(new_recipe)
     pipeline.run()
     pipeline.pretty_print_summary()
