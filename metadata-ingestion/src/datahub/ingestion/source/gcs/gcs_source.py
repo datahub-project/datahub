@@ -88,6 +88,7 @@ class GCSSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = GCSSourceReport()
+        self.platform: str = PLATFORM_GCS
         self.s3_source = self.create_equivalent_s3_source(ctx)
 
     @classmethod
@@ -135,7 +136,7 @@ class GCSSource(StatefulIngestionSourceBase):
 
     def create_equivalent_s3_source(self, ctx: PipelineContext) -> S3Source:
         config = self.create_equivalent_s3_config()
-        return self.s3_source_overrides(S3Source(config, ctx))
+        return self.s3_source_overrides(S3Source(config, PipelineContext(ctx.run_id)))
 
     def s3_source_overrides(self, source: S3Source) -> S3Source:
         source.source_config.platform = PLATFORM_GCS
