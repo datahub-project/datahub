@@ -324,9 +324,6 @@ class BatchPartitionExecutor(Closeable):
                     item.done_callback(future)
 
         def _find_ready_items(max_to_add: int) -> List[_BatchPartitionWorkItem]:
-            if not max_to_add:
-                return []
-
             with clearinghouse_state_lock:
                 # First, update the keys in flight.
                 for key in keys_no_longer_in_flight:
@@ -393,7 +390,6 @@ class BatchPartitionExecutor(Closeable):
             return next_batch
 
         def _submit_batch(next_batch: List[_BatchPartitionWorkItem]) -> None:
-            print("SUBMITTING BATCH", next_batch)
             with clearinghouse_state_lock:
                 for item in next_batch:
                     keys_in_flight.add(item.key)
