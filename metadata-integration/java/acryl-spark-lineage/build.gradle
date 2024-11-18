@@ -130,8 +130,8 @@ shadowJar {
   //
   relocate 'org.apache.hc', 'io.acryl.shaded.http'
   relocate 'org.apache.commons.codec', 'io.acryl.shaded.org.apache.commons.codec'
-  relocate 'org.apache.commons.codec', 'io.acryl.shaded.org.apache.commons.compress'
-  relocate 'org.apache.commons.codec', 'io.acryl.shaded.org.apache.commons.lang3'
+  relocate 'org.apache.commons.compress', 'io.acryl.shaded.org.apache.commons.compress'
+  relocate 'org.apache.commons.lang3', 'io.acryl.shaded.org.apache.commons.lang3'
   relocate 'mozilla', 'datahub.spark2.shaded.mozilla'
   relocate 'com.typesafe', 'io.acryl.shaded.com.typesafe'
   relocate 'io.opentracing', 'io.acryl.shaded.io.opentracing'
