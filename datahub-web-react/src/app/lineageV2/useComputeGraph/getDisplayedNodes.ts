@@ -91,7 +91,12 @@ function applyFilters(
     let filteredChildren = contents.slice();
 
     if (filters?.searchUrns) {
-        filteredChildren = filteredChildren.filter((n) => filters.searchUrns?.has(n.urn));
+        filteredChildren = filteredChildren.filter(
+            (n) =>
+                filters.searchUrns?.has(n.urn) ||
+                // Required until search results include schema fields
+                (n.entity?.parent?.urn && filters.searchUrns?.has(n.entity.parent.urn)),
+        );
     }
 
     filters?.facetFilters?.forEach((values, facet) => {
