@@ -230,6 +230,14 @@ class SweeperJob:
         latest_pending: Dict[str, ExecutionRequestStatus] = {}
 
         for ingestion in ingestions:
+            # Request status may change while paginating over results and ES does not provide stable view of the resultset.
+            # Do a secondary filtering of irrelevant requests here to suppress unnecessary exceptions.
+            if ingestion.status not in [
+                DATAHUB_EXECUTION_REQUEST_STATUS_PENDING,
+                DATAHUB_EXECUTION_REQUEST_STATUS_RUNNING,
+            ]:
+                continue
+
             is_stale = self._is_stale_ingestion(ingestion)
 
             # Save oldest non-stale running and latest pending ingestions for the filter pass
