@@ -1,15 +1,9 @@
-import { Input, Text, TextArea } from '@src/alchemy-components';
+import { Input, SimpleSelect, TextArea } from '@src/alchemy-components';
 import { FormState, FormType } from '@src/types.generated';
-import { Form, Select } from 'antd';
+import { Form } from 'antd';
 import React, { useContext } from 'react';
 import ManageFormContext from './ManageFormContext';
-import {
-    CustomDropdown,
-    FieldLabel,
-    FormFieldsContainer,
-    SelectOptionContainer,
-    StyledSelect,
-} from './styledComponents';
+import { FieldLabel, FormFieldsContainer } from './styledComponents';
 import { useFormHandlers } from './useFormHandlers';
 
 const DetailsForm = () => {
@@ -52,27 +46,16 @@ const DetailsForm = () => {
                         },
                     ]}
                 >
-                    <StyledSelect
+                    <SimpleSelect
+                        onUpdate={(values) => handleSelectChange('formType', values[0])}
                         placeholder="Select Form Type"
-                        onChange={(value) => handleSelectChange('formType', value)}
-                        disabled={formValues.state !== FormState.Draft}
-                        dropdownRender={(menu) => <CustomDropdown>{menu}</CustomDropdown>}
-                    >
-                        {formTypes.map((option) => {
-                            return (
-                                <Select.Option key={option.value} value={option.value}>
-                                    <SelectOptionContainer>
-                                        <Text color="gray" weight="semiBold" size="md">
-                                            {option.label}
-                                        </Text>
-                                        <Text color="gray" size="sm">
-                                            {option.description}
-                                        </Text>
-                                    </SelectOptionContainer>
-                                </Select.Option>
-                            );
-                        })}
-                    </StyledSelect>
+                        options={formTypes}
+                        values={formValues?.formType ? [formValues?.formType] : [FormType.Completion]}
+                        isDisabled={formValues.state !== FormState.Draft}
+                        width="full"
+                        showDescriptions
+                        showClear={false}
+                    />
                 </Form.Item>
             </FormFieldsContainer>
         </Form>

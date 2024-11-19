@@ -131,6 +131,33 @@ const meta: Meta = {
                 defaultValue: { summary: selectDefaults.disabledValues?.toString() },
             },
         },
+        showSelectAll: {
+            description: 'Whether the multi select component shows Select All button.',
+            control: {
+                type: 'boolean',
+            },
+            table: {
+                defaultValue: { summary: selectDefaults.showSelectAll?.toString() },
+            },
+        },
+        selectAllLabel: {
+            description: 'Label for Select All button.',
+            control: {
+                type: 'text',
+            },
+            table: {
+                defaultValue: { summary: selectDefaults.selectAllLabel },
+            },
+        },
+        showDescriptions: {
+            description: 'Whether to show descriptions with the select options.',
+            control: {
+                type: 'boolean',
+            },
+            table: {
+                defaultValue: { summary: selectDefaults.showDescriptions?.toString() },
+            },
+        },
     },
 
     // Define defaults
@@ -153,6 +180,9 @@ const meta: Meta = {
         isMultiSelect: selectDefaults.isMultiSelect,
         placeholder: selectDefaults.placeholder,
         disabledValues: undefined,
+        showSelectAll: false,
+        selectAllLabel: 'Select All',
+        showDescriptions: false,
     },
 } satisfies Meta<typeof Select>;
 
@@ -244,6 +274,31 @@ export const simpleSelectWithDisabledValues = () => (
         values={['2']}
         isMultiSelect
         disabledValues={['2']}
+    />
+);
+
+export const simpleSelectWithSelectAll = () => (
+    <SimpleSelect
+        options={[
+            { label: 'Option 1', value: '1' },
+            { label: 'Option 2', value: '2' },
+            { label: 'Option 3', value: '3' },
+        ]}
+        label="Simple Select with Select All"
+        isMultiSelect
+        showSelectAll
+    />
+);
+
+export const simpleSelectWithDescriptions = () => (
+    <SimpleSelect
+        options={[
+            { label: 'Option 1', value: '1', description: 'Description of option 1' },
+            { label: 'Option 2', value: '2', description: 'Description of option 2 is  longgggggg' },
+            { label: 'Option 3', value: '3', description: 'Description of option 3' },
+        ]}
+        label="Simple Select with descriptions"
+        showDescriptions
     />
 );
 

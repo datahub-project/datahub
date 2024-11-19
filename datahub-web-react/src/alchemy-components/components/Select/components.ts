@@ -20,7 +20,7 @@ export const SelectBase = styled.div<SelectStyleProps>(({ isDisabled, isReadOnly
     justifyContent: 'space-between',
     alignItems: 'center',
     overflow: 'auto',
-    backgroundColor: 'white',
+    backgroundColor: isDisabled ? colors.gray[100] : 'white',
 }));
 
 /**
@@ -134,11 +134,28 @@ export const LabelContainer = styled.div({
     width: '100%',
 });
 
+export const OptionContainer = styled.div({
+    display: 'flex',
+    flexDirection: 'column',
+});
+
+export const DescriptionContainer = styled.span({
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    width: '100%',
+    color: colors.gray[500],
+    lineHeight: 'normal',
+    fontSize: typography.fontSizes.sm,
+    marginTop: spacing.xxsm,
+});
+
 export const LabelsWrapper = styled.div({
     display: 'flex',
     flexWrap: 'wrap',
     gap: spacing.xxsm,
     maxHeight: '150px',
+    maxWidth: 'calc(100% - 54px)',
 });
 
 export const OptionLabel = styled.label<{ isSelected: boolean; isMultiSelect?: boolean; isDisabled?: boolean }>(

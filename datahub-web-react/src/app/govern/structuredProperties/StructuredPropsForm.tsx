@@ -1,20 +1,12 @@
-import { Icon, Input, Text, TextArea } from '@src/alchemy-components';
+import { Icon, Input, SimpleSelect, Text, TextArea } from '@src/alchemy-components';
 import { AllowedValue, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
-import { Form, FormInstance, Select } from 'antd';
+import { Form, FormInstance } from 'antd';
 import { Tooltip } from '@components';
 import React from 'react';
 import AdvancedOptions from './AdvancedOptions';
 import DisplayPreferences from './DisplayPreferences';
 import StructuredPropsFormSection from './StructuredPropsFormSection';
-import {
-    CustomDropdown,
-    FieldLabel,
-    FlexContainer,
-    GridFormItem,
-    RowContainer,
-    SelectOptionContainer,
-    StyledSelect,
-} from './styledComponents';
+import { FieldLabel, FlexContainer, GridFormItem, RowContainer } from './styledComponents';
 import useStructuredProp from './useStructuredProp';
 import { PropValueField, StructuredProp, valueTypes } from './utils';
 
@@ -99,29 +91,16 @@ const StructuredPropsForm = ({
                             },
                         ]}
                     >
-                        <StyledSelect
-                            onChange={(value: any) => {
-                                handleTypeUpdate(value);
+                        <SimpleSelect
+                            onUpdate={(values: any) => {
+                                handleTypeUpdate(values[0]);
                             }}
                             placeholder="Select Property Type"
-                            disabled={isEditMode}
-                            dropdownRender={(menu) => <CustomDropdown>{menu}</CustomDropdown>}
-                        >
-                            {valueTypes.map((valType) => {
-                                return (
-                                    <Select.Option key={valType.value} value={valType.value}>
-                                        <SelectOptionContainer>
-                                            <Text color="gray" weight="medium" size="md">
-                                                {valType.label}
-                                            </Text>
-                                            <Text color="gray" weight="normal" size="sm">
-                                                {valType.description}
-                                            </Text>
-                                        </SelectOptionContainer>
-                                    </Select.Option>
-                                );
-                            })}
-                        </StyledSelect>
+                            options={valueTypes}
+                            values={formValues?.valueType ? [formValues?.valueType] : undefined}
+                            isDisabled={isEditMode}
+                            showDescriptions
+                        />
                     </GridFormItem>
                 </Tooltip>
             </RowContainer>

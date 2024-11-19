@@ -3,6 +3,7 @@ export type SelectSizeOptions = 'sm' | 'md' | 'lg';
 export interface SelectOption {
     value: string;
     label: string;
+    description?: string;
 }
 
 export interface SelectProps {
@@ -16,12 +17,14 @@ export interface SelectProps {
     isDisabled?: boolean;
     isReadOnly?: boolean;
     isRequired?: boolean;
+    showClear?: boolean;
     width?: number | 'full';
     isMultiSelect?: boolean;
     placeholder?: string;
     disabledValues?: string[];
     showSelectAll?: boolean;
     selectAllLabel?: string;
+    showDescriptions?: boolean;
 }
 
 export interface SelectStyleProps {
@@ -38,6 +41,7 @@ export interface ActionButtonsProps {
     isOpen: boolean;
     isDisabled: boolean;
     isReadOnly: boolean;
+    showClear: boolean;
     handleClearSelection: () => void;
 }
 
@@ -48,6 +52,7 @@ export interface SelectLabelDisplayProps {
     isMultiSelect?: boolean;
     removeOption?: (option: SelectOption) => void;
     disabledValues?: string[];
+    showDescriptions?: boolean;
 }
 
 export interface SearchInputProps extends React.InputHTMLAttributes<HTMLInputElement> {

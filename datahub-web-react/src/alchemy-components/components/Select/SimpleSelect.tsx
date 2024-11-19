@@ -1,12 +1,14 @@
-import { Icon, Pill } from '@components';
+import { Icon, Pill, Text } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActionButtonsContainer,
     Container,
+    DescriptionContainer,
     Dropdown,
     LabelContainer,
     LabelsWrapper,
+    OptionContainer,
     OptionLabel,
     OptionList,
     Placeholder,
@@ -29,6 +31,7 @@ const SelectLabelDisplay = ({
     isMultiSelect,
     removeOption,
     disabledValues,
+    showDescriptions,
 }: SelectLabelDisplayProps) => {
     const selectedOptions = options.filter((opt) => selectedValues.includes(opt.value));
     return (
@@ -52,7 +55,14 @@ const SelectLabelDisplay = ({
                     );
                 })}
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
-            {!isMultiSelect && <SelectValue>{selectedOptions[0]?.label}</SelectValue>}
+            {!isMultiSelect && (
+                <>
+                    <SelectValue>{selectedOptions[0]?.label}</SelectValue>
+                    {showDescriptions && !!selectedValues.length && (
+                        <DescriptionContainer>{selectedOptions[0]?.description}</DescriptionContainer>
+                    )}
+                </>
+            )}
         </LabelsWrapper>
     );
 };
@@ -62,12 +72,13 @@ const SelectActionButtons = ({
     isOpen,
     isDisabled,
     isReadOnly,
+    showClear,
     handleClearSelection,
     fontSize = 'md',
 }: ActionButtonsProps) => {
     return (
         <ActionButtonsContainer>
-            {selectedValues.length > 0 && !isDisabled && !isReadOnly && (
+            {showClear && selectedValues.length > 0 && !isDisabled && !isReadOnly && (
                 <StyledClearButton icon="Close" isCircle onClick={handleClearSelection} size={fontSize} />
             )}
             <Icon icon="ChevronLeft" rotate={isOpen ? '90' : '270'} size="xl" color="gray" />
@@ -83,11 +94,13 @@ export const selectDefaults: SelectProps = {
     isDisabled: false,
     isReadOnly: false,
     isRequired: false,
+    showClear: true,
     width: 255,
     isMultiSelect: false,
     placeholder: 'Select an option ',
     showSelectAll: false,
     selectAllLabel: 'Select All',
+    showDescriptions: false,
 };
 
 export const SimpleSelect = ({
@@ -99,12 +112,14 @@ export const SimpleSelect = ({
     isDisabled = selectDefaults.isDisabled,
     isReadOnly = selectDefaults.isReadOnly,
     isRequired = selectDefaults.isRequired,
+    showClear = selectDefaults.showClear,
     size = selectDefaults.size,
     isMultiSelect = selectDefaults.isMultiSelect,
     placeholder = selectDefaults.placeholder,
     disabledValues = [],
     showSelectAll = selectDefaults.showSelectAll,
     selectAllLabel = selectDefaults.selectAllLabel,
+    showDescriptions = selectDefaults.showDescriptions,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -202,6 +217,7 @@ export const SimpleSelect = ({
                     isMultiSelect={isMultiSelect}
                     removeOption={handleOptionChange}
                     disabledValues={disabledValues}
+                    showDescriptions={showDescriptions}
                 />
                 <SelectActionButtons
                     selectedValues={selectedValues}
@@ -210,6 +226,7 @@ export const SimpleSelect = ({
                     isReadOnly={!!isReadOnly}
                     handleClearSelection={handleClearSelection}
                     fontSize={size}
+                    showClear={!!showClear}
                 />
             </SelectBase>
             {isOpen && (
@@ -260,7 +277,16 @@ export const SimpleSelect = ({
                                         />
                                     </LabelContainer>
                                 ) : (
-                                    <>{option.label}</>
+                                    <OptionContainer>
+                                        <Text color="gray" weight="semiBold" size="md">
+                                            {option.label}
+                                        </Text>
+                                        {!!option.description && (
+                                            <Text color="gray" weight="normal" size="sm">
+                                                {option.description}
+                                            </Text>
+                                        )}
+                                    </OptionContainer>
                                 )}
                             </OptionLabel>
                         ))}

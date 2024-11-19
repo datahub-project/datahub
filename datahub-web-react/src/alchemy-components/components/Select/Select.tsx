@@ -15,6 +15,9 @@ export const selectDefaults: SelectProps = {
     isMultiSelect: false,
     placeholder: 'Select an option',
     disabledValues: undefined,
+    showSelectAll: false,
+    selectAllLabel: 'Select All',
+    showDescriptions: false,
 };
 
 export const Select = ({
@@ -32,6 +35,9 @@ export const Select = ({
     isMultiSelect = selectDefaults.isMultiSelect,
     placeholder = selectDefaults.placeholder,
     disabledValues = selectDefaults.disabledValues,
+    showSelectAll = selectDefaults.showSelectAll,
+    selectAllLabel = selectDefaults.selectAllLabel,
+    showDescriptions = selectDefaults.showDescriptions,
     ...props
 }: SelectProps) => {
     return (
@@ -50,6 +56,9 @@ export const Select = ({
             isMultiSelect={isMultiSelect}
             placeholder={placeholder}
             disabledValues={disabledValues}
+            showSelectAll={showSelectAll}
+            selectAllLabel={selectAllLabel}
+            showDescriptions={showDescriptions}
             {...props}
         />
     );
