@@ -86,18 +86,6 @@ _field_type_mapping: Dict[Union[ValueType, feast.types.FeastType], str] = {
     feast.types.Invalid: MLFeatureDataType.UNKNOWN,
 }
 
-# FIXME: Update to have more owners
-_owner_mapping: Dict[str, Dict[str, Any]] = {
-    "MLOPs": {
-        "owner_type": builder.OwnerType.GROUP,
-        "owner_ship_type_class": OwnershipTypeClass.TECHNICAL_OWNER,
-    },
-    "ML": {
-        "owner_type": builder.OwnerType.GROUP,
-        "owner_ship_type_class": OwnershipTypeClass.TECHNICAL_OWNER,
-    },
-}
-
 
 class FeastRepositorySourceConfig(ConfigModel):
     path: str = Field(description="Path to Feast repository")
@@ -107,6 +95,9 @@ class FeastRepositorySourceConfig(ConfigModel):
     )
     environment: str = Field(
         default=DEFAULT_ENV, description="Environment to use when constructing URNs"
+    )
+    owner_mappings: List[Dict[str, str]]  = Field(
+        default={}, description="Mapping of owner names to owner types"
     )
 
 
@@ -389,14 +380,13 @@ class FeastRepositorySource(Source):
 
     def _create_owner_association(self, owner: str) -> OwnerClass:
 
-        owner_type: builder.OwnerType = _owner_mapping[owner]["owner_type"]
-        owner_ship_type_class: OwnershipTypeClass = _owner_mapping[owner][
-            "owner_ship_type_class"
-        ]
-        return OwnerClass(
-            owner=builder.make_owner_urn(owner, owner_type=owner_type),
-            type=owner_ship_type_class,
-        )
+        for mapping in self.source_config.owner_mappings:
+            if mapping["feast_owner_name"] == owner:
+                ownership_type_class: OwnershipTypeClass = mapping["ownership_type"]
+                return OwnerClass(
+                    owner=mapping["datahub_owner_urn"],
+                    type=ownership_type_class,
+                )
 
     @classmethod
     def create(cls, config_dict, ctx):
