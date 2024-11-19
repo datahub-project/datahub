@@ -3,8 +3,16 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import EditStructuredPropertyModal from '@src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
-import { getDisplayName, getEntityTypeUrn } from '@src/app/govern/structuredProperties/utils';
-import { ENTITY_TYPES_FILTER_NAME } from '@src/app/searchV2/utils/constants';
+import {
+    getDisplayName,
+    getEntityTypesPropertyFilter,
+    getNotHiddenPropertyFilter,
+    getPropertyRowFromSearchResult,
+} from '@src/app/govern/structuredProperties/utils';
+import {
+    SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
+    SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME,
+} from '@src/app/searchV2/utils/constants';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import {
@@ -23,16 +31,15 @@ import { SidebarSection } from '../containers/profile/sidebar/SidebarSection';
 import { StyledDivider } from '../tabs/Dataset/Schema/components/SchemaFieldDrawer/components';
 import StructuredPropertyValue from '../tabs/Properties/StructuredPropertyValue';
 import { PropertyRow } from '../tabs/Properties/types';
-import { mapStructuredPropertyToPropertyRow } from '../tabs/Properties/useStructuredProperties';
 
-interface Properties {
+interface FieldProperties {
     isSchemaSidebar?: boolean;
     refetch?: () => void;
     fieldEntity?: Maybe<SchemaFieldEntity>;
 }
 
 interface Props {
-    properties?: Properties;
+    properties?: FieldProperties;
 }
 
 const SidebarStructuredProperties = ({ properties }: Props) => {
@@ -53,19 +60,12 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
         orFilters: [
             {
                 and: [
+                    getEntityTypesPropertyFilter(entityRegistry, isSchemaSidebar, entityType),
+                    getNotHiddenPropertyFilter(),
                     {
-                        field: ENTITY_TYPES_FILTER_NAME,
-                        values: [
-                            getEntityTypeUrn(entityRegistry, isSchemaSidebar ? EntityType.SchemaField : entityType),
-                        ],
-                    },
-                    {
-                        field: 'isHidden',
-                        values: ['true'],
-                        negated: true,
-                    },
-                    {
-                        field: isSchemaSidebar ? 'showInColumnsTable' : 'showInAssetSummary',
+                        field: isSchemaSidebar
+                            ? SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME
+                            : SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
                         values: ['true'],
                     },
                 ],
@@ -83,20 +83,18 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
 
     const entityTypeProperties = data?.searchAcrossEntities?.searchResults;
 
-    const getPropertyRowFromSearchResult = (property: SearchResult) => {
-        const allProperties = isSchemaSidebar
-            ? properties?.fieldEntity?.structuredProperties
-            : entityData?.structuredProperties;
-        const entityProp = allProperties?.properties?.filter(
-            (prop) => prop.structuredProperty.urn === property.entity.urn,
-        )[0];
-        return entityProp ? mapStructuredPropertyToPropertyRow(entityProp) : undefined;
-    };
+    const allProperties = isSchemaSidebar
+        ? properties?.fieldEntity?.structuredProperties
+        : entityData?.structuredProperties;
+
+    const selectedPropertyValues = selectedProperty
+        ? getPropertyRowFromSearchResult(selectedProperty, allProperties)?.values
+        : undefined;
 
     return (
         <>
             {entityTypeProperties?.map((property) => {
-                const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property);
+                const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
                 const isRichText = propertyRow?.dataType?.info.type === StdDataType.RichText;
                 const values = propertyRow?.values;
 
@@ -145,8 +143,8 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                         setSelectedProperty(undefined);
                     }}
                     structuredProperty={selectedProperty?.entity as StructuredPropertyEntity}
-                    isAddMode={!getPropertyRowFromSearchResult(selectedProperty)?.values}
-                    values={getPropertyRowFromSearchResult(selectedProperty)?.values?.map((val) => val.value)}
+                    isAddMode={!selectedPropertyValues}
+                    values={selectedPropertyValues?.map((val) => val.value)}
                     refetch={isSchemaSidebar ? properties?.refetch : undefined}
                     associatedUrn={isSchemaSidebar ? properties?.fieldEntity?.urn : undefined}
                 />

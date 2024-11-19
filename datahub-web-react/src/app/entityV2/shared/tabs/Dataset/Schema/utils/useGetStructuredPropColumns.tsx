@@ -12,7 +12,8 @@ export const useGetStructuredPropColumns = (properties: SearchResult[] | undefin
                 title: name,
                 dataIndex: 'schemaFieldEntity',
                 key: prop.entity.urn,
-                render: (record) => <StructuredPropValues record={record} propColumn={prop} />,
+                render: (record) => <StructuredPropValues schemaFieldEntity={record} propColumn={prop} />,
+                ellipsis: true,
             };
         });
     }, [properties]);

@@ -1,8 +1,20 @@
-import EntityRegistry from '@src/app/entityV2/EntityRegistry';
+import EntityRegistry from '@src/app/entity/EntityRegistry';
+import EntityRegistryV2 from '@src/app/entityV2/EntityRegistry';
+import { mapStructuredPropertyToPropertyRow } from '@src/app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import {
+    ENTITY_TYPES_FILTER_NAME,
+    IS_HIDDEN_PROPERTY_FILTER_NAME,
+    SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
+    SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME,
+} from '@src/app/searchV2/utils/constants';
 import {
     AllowedValue,
     EntityType,
+    FacetFilterInput,
+    Maybe,
     PropertyCardinality,
+    SearchResult,
+    StructuredProperties,
     StructuredPropertyEntity,
     StructuredPropertyFilterStatus,
     StructuredPropertySettings,
@@ -124,7 +136,7 @@ export const APPLIES_TO_ENTITIES = [
     EntityType.SchemaField,
 ];
 
-export const getEntityTypeUrn = (entityRegistry: EntityRegistry, entityType: EntityType) => {
+export const getEntityTypeUrn = (entityRegistry: EntityRegistry | EntityRegistryV2, entityType: EntityType) => {
     return `urn:li:entityType:datahub.${entityRegistry.getGraphNameFromType(entityType)}`;
 };
 
@@ -184,4 +196,53 @@ export type PropValueField = 'stringValue' | 'numberValue';
 export const getStringOrNumberValueField = (selectedType: string) => {
     if (selectedType === 'number' || selectedType === 'numberList') return 'numberValue' as PropValueField;
     return 'stringValue' as PropValueField;
+};
+
+export const getPropertyRowFromSearchResult = (
+    property: SearchResult,
+    structuredProperties: Maybe<StructuredProperties> | undefined,
+) => {
+    const entityProp = structuredProperties?.properties?.find(
+        (prop) => prop.structuredProperty.urn === property.entity.urn,
+    );
+    return entityProp ? mapStructuredPropertyToPropertyRow(entityProp) : undefined;
+};
+
+export const getNotHiddenPropertyFilter = () => {
+    const isHiddenFilter: FacetFilterInput = {
+        field: IS_HIDDEN_PROPERTY_FILTER_NAME,
+        values: ['true'],
+        negated: true,
+    };
+    return isHiddenFilter;
+};
+
+export const getShowInColumnsTablePropertyFilter = () => {
+    const columnsTableFilter: FacetFilterInput = {
+        field: SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME,
+        values: ['true'],
+    };
+    return columnsTableFilter;
+};
+
+export const getShowInAssetSummaryPropertyFilter = () => {
+    const assetSummaryFilter: FacetFilterInput = {
+        field: SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
+        values: ['true'],
+    };
+    return assetSummaryFilter;
+};
+
+export const getEntityTypesPropertyFilter = (
+    entityRegistry: EntityRegistry | EntityRegistryV2,
+    isSchemaField: boolean,
+    entityType?: EntityType,
+) => {
+    const type = isSchemaField ? EntityType.SchemaField : entityType;
+
+    const entityTypesFilter: FacetFilterInput = {
+        field: ENTITY_TYPES_FILTER_NAME,
+        values: [getEntityTypeUrn(entityRegistry, type || EntityType.SchemaField)],
+    };
+    return entityTypesFilter;
 };

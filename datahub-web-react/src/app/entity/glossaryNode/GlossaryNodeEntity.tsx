@@ -14,6 +14,7 @@ import ChildrenTab from './ChildrenTab';
 import { Preview } from './preview/Preview';
 import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
     getLineageVizConfig?: ((entity: GlossaryNode) => FetchedEntity) | undefined;
@@ -106,6 +107,9 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
         },
         {
             component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 

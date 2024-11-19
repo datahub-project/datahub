@@ -58,6 +58,7 @@ export const PropertiesTab = ({ properties }: Props) => {
         },
         {
             title: 'Value',
+            ellipsis: true,
             render: (propertyRow: PropertyRow) => <ValuesColumn propertyRow={propertyRow} filterText={filterText} />,
         },
     ];

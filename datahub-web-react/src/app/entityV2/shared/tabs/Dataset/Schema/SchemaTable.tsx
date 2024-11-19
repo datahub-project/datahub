@@ -1,13 +1,12 @@
-import { message } from 'antd';
 import { ColumnsType } from 'antd/es/table';
+import type { FixedType } from 'rc-table/lib/interface';
 import { SorterResult } from 'antd/lib/table/interface';
 import ResizeObserver from 'rc-resize-observer';
-import type { FixedType } from 'rc-table/lib/interface';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useDebounce } from 'react-use';
 import styled from 'styled-components';
 import { useVT } from 'virtualizedtableforantd4';
-
+import { useDebounce } from 'react-use';
+import { message } from 'antd';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import {
     EditableSchemaMetadata,
@@ -15,27 +14,27 @@ import {
     SchemaMetadata,
     UsageQueryResult,
 } from '../../../../../../types.generated';
-import { ProposedTag, ProposedTerm } from '../../../../../sharedV2/tags/TagTermGroup';
 import SchemaRow from '../../../../dataset/profile/schema/components/SchemaRow';
 import useSchemaTitleRenderer from '../../../../dataset/profile/schema/utils/schemaTitleRenderer';
 import useSchemaTypeRenderer from '../../../../dataset/profile/schema/utils/schemaTypeRenderer';
 import translateFieldPath from '../../../../dataset/profile/schema/utils/translateFieldPath';
 import { ExtendedSchemaFields } from '../../../../dataset/profile/schema/utils/types';
-import { findIndexOfFieldPathExcludingCollapsedFields } from '../../../../dataset/profile/schema/utils/utils';
-import { useInferDocumentationForItem } from '../../../components/inferredDocs/utils';
 import { StyledTable } from '../../../components/styled/StyledTable';
 import { REDESIGN_COLORS } from '../../../constants';
 import ExpandIcon from './components/ExpandIcon';
 import SchemaFieldDrawer from './components/SchemaFieldDrawer/SchemaFieldDrawer';
-import useKeyboardControls from './useKeyboardControls';
 import useDescriptionRenderer from './utils/useDescriptionRenderer';
-import useExtractFieldDescriptionInfo from './utils/useExtractFieldDescriptionInfo';
-import useExtractFieldGlossaryTermsInfo from './utils/useExtractFieldGlossaryTermsInfo';
-import useExtractFieldTagsInfo from './utils/useExtractFieldTagsInfo';
-import { useGetStructuredPropColumns } from './utils/useGetStructuredPropColumns';
-import { useGetTableColumnProperties } from './utils/useGetTableColumnProperties';
 import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
 import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
+import useKeyboardControls from './useKeyboardControls';
+import { ProposedTag, ProposedTerm } from '../../../../../sharedV2/tags/TagTermGroup';
+import { useInferDocumentationForItem } from '../../../components/inferredDocs/utils';
+import { findIndexOfFieldPathExcludingCollapsedFields } from '../../../../dataset/profile/schema/utils/utils';
+import useExtractFieldGlossaryTermsInfo from './utils/useExtractFieldGlossaryTermsInfo';
+import useExtractFieldTagsInfo from './utils/useExtractFieldTagsInfo';
+import useExtractFieldDescriptionInfo from './utils/useExtractFieldDescriptionInfo';
+import { useGetTableColumnProperties } from './utils/useGetTableColumnProperties';
+import { useGetStructuredPropColumns } from './utils/useGetStructuredPropColumns';
 
 const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: boolean }>`
     overflow: inherit;

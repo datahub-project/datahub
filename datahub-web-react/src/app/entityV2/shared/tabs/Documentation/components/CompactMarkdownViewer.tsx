@@ -1,5 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react';
 import { Button } from 'antd';
+import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { REDESIGN_COLORS } from '../../../constants';
 import { Editor } from './editor/Editor';
@@ -98,6 +98,7 @@ export type Props = {
     customStyle?: React.CSSProperties;
     scrollableY?: boolean; // Whether the viewer is vertically scrollable.
     handleShowMore?: () => void;
+    hideShowMore?: boolean;
 };
 
 export default function CompactMarkdownViewer({
@@ -108,6 +109,7 @@ export default function CompactMarkdownViewer({
     customStyle = {},
     scrollableY = true,
     handleShowMore,
+    hideShowMore,
 }: Props) {
     const [isShowingMore, setIsShowingMore] = useState(false);
     const [isTruncated, setIsTruncated] = useState(false);
@@ -142,16 +144,19 @@ export default function CompactMarkdownViewer({
                     readOnly
                 />
             </MarkdownViewContainer>
-            {(isShowingMore || isTruncated) && ( // "show more" when isTruncated, "show less" when isShowingMore
-                <ShowMoreWrapper>
-                    <CustomButton
-                        type="link"
-                        onClick={() => (handleShowMore ? handleShowMore() : setIsShowingMore(!isShowingMore))}
-                    >
-                        {isShowingMore ? 'show less' : 'show more'}
-                    </CustomButton>
-                </ShowMoreWrapper>
-            )}
+            {hideShowMore && <>...</>}
+
+            {!hideShowMore &&
+                (isShowingMore || isTruncated) && ( // "show more" when isTruncated, "show less" when isShowingMore
+                    <ShowMoreWrapper>
+                        <CustomButton
+                            type="link"
+                            onClick={() => (handleShowMore ? handleShowMore() : setIsShowingMore(!isShowingMore))}
+                        >
+                            {isShowingMore ? 'show less' : 'show more'}
+                        </CustomButton>
+                    </ShowMoreWrapper>
+                )}
         </MarkdownContainer>
     );
 }

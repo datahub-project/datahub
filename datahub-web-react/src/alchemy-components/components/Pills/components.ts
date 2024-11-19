@@ -15,6 +15,7 @@ export const PillContainer = styled.div(
         cursor: 'pointer',
         padding: '0px 8px',
         borderRadius: '200px',
+        maxWidth: '100%',
 
         // Base Disabled styles
         '&:disabled': {
@@ -22,3 +23,11 @@ export const PillContainer = styled.div(
         },
     },
 );
+
+export const PillText = styled.span({
+    maxWidth: '100%',
+    display: 'block',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+});

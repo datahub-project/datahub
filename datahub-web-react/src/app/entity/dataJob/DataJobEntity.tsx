@@ -24,6 +24,7 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { getDataProduct } from '../shared/utils';
 import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
     return (
@@ -147,6 +148,9 @@ export class DataJobEntity implements Entity<DataJob> {
         },
         {
             component: DataProductSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 

@@ -4,8 +4,11 @@ import { Tabs } from 'antd';
 import { Tooltip } from '@components';
 import { EntitySidebarTab } from '../../../../../types';
 
+export const TABS_WIDTH = 56;
+
 const UnborderedTabs = styled(Tabs)`
     height: 100%;
+    width: ${TABS_WIDTH}px;
     &&& .ant-tabs-nav {
         margin-bottom: 0;
     }

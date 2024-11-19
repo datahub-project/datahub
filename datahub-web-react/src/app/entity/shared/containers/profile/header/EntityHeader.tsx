@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components/macro';
+import StructuredPropertyBadge from '@src/app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { useEntityData, useRefetch } from '../../../EntityContext';
 import EntityDropdown, { EntityMenuItems } from '../../../EntityDropdown/EntityDropdown';
 import PlatformContent from './PlatformContent';
@@ -137,6 +138,7 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
                                         baseUrl={entityRegistry.getEntityUrl(entityType, urn)}
                                     />
                                 )}
+                                <StructuredPropertyBadge entityData={entityData} />
                             </TitleWrapper>
                             <EntityCount
                                 entityCount={entityCount}

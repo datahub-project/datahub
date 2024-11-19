@@ -32,6 +32,7 @@ import { LOOKER_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
 import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -163,6 +164,9 @@ export class DashboardEntity implements Entity<Dashboard> {
                 },
                 {
                     component: DataProductSection,
+                },
+                {
+                    component: SidebarStructuredPropsSection,
                 },
             ]}
         />

@@ -16,6 +16,8 @@ const ValueText = styled(Typography.Text)`
     font-size: 12px;
     color: ${ANTD_GRAY[9]};
     display: block;
+    width: 100%;
+    margin-bottom: 2px;
 
     .remirror-editor.ProseMirror {
         font-size: 12px;
@@ -28,30 +30,56 @@ const StyledIcon = styled(Icon)`
 
 const IconWrapper = styled.span`
     margin-right: 4px;
+    display: flex;
 `;
 
-const StyledHighlight = styled(Highlight)`
+const EntityWrapper = styled.div`
+    display: flex;
+    align-items: center;
+`;
+
+const EntityName = styled(Typography.Text)`
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+`;
+
+const StyledHighlight = styled(Highlight)<{ truncateText?: boolean }>`
     line-height: 1.5;
     text-wrap: wrap;
+
+    ${(props) =>
+        props.truncateText &&
+        `
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 100%;
+        display: block;
+    `}
 `;
 
 interface Props {
     value: ValueColumnData;
     isRichText?: boolean;
     filterText?: string;
+    truncateText?: boolean;
+    isFieldColumn?: boolean;
 }
 
-export default function StructuredPropertyValue({ value, isRichText, filterText }: Props) {
+export default function StructuredPropertyValue({ value, isRichText, filterText, truncateText, isFieldColumn }: Props) {
     const entityRegistry = useEntityRegistry();
 
     return (
         <ValueText>
             {value.entity ? (
-                <>
+                <EntityWrapper>
                     <IconWrapper>
                         <EntityIcon entity={value.entity} size={12} />
                     </IconWrapper>
-                    {entityRegistry.getDisplayName(value.entity.type, value.entity)}
+                    <EntityName ellipsis={{ tooltip: true }}>
+                        {entityRegistry.getDisplayName(value.entity.type, value.entity)}
+                    </EntityName>
                     <Typography.Link
                         href={entityRegistry.getEntityUrl(value.entity.type, value.entity.urn)}
                         target="_blank"
@@ -59,15 +87,28 @@ export default function StructuredPropertyValue({ value, isRichText, filterText 
                     >
                         <StyledIcon component={ExternalLink} />
                     </Typography.Link>
-                </>
+                </EntityWrapper>
             ) : (
                 <>
                     {isRichText ? (
-                        <CompactMarkdownViewer content={value.value?.toString() ?? ''} />
+                        <CompactMarkdownViewer
+                            content={value.value?.toString() ?? ''}
+                            lineLimit={isFieldColumn ? 1 : undefined}
+                            hideShowMore={isFieldColumn}
+                            scrollableY={!isFieldColumn}
+                        />
                     ) : (
-                        <StyledHighlight search={filterText}>
-                            {value.value?.toString() || <div style={{ minHeight: 22 }} />}
-                        </StyledHighlight>
+                        <>
+                            {truncateText ? (
+                                <Typography.Text ellipsis={{ tooltip: true }}>
+                                    {value.value?.toString() || <div style={{ minHeight: 22 }} />}
+                                </Typography.Text>
+                            ) : (
+                                <StyledHighlight search={filterText} truncateText={truncateText}>
+                                    {value.value?.toString() || <div style={{ minHeight: 22 }} />}
+                                </StyledHighlight>
+                            )}
+                        </>
                     )}
                 </>
             )}

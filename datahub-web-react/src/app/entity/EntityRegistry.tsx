@@ -1,6 +1,7 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
 import React from 'react';
 import { Entity as EntityInterface, EntityType, Exact, SearchResult } from '../../types.generated';
+import PreviewContext from '../entityV2/shared/PreviewContext';
 import { FetchedEntity } from '../lineage/types';
 import { SearchResultProvider } from '../search/context/SearchResultContext';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from './Entity';
@@ -145,7 +146,12 @@ export default class EntityRegistry {
 
     renderPreview<T>(entityType: EntityType, type: PreviewType, data: T): JSX.Element {
         const entity = validatedGet(entityType, this.entityTypeToEntity);
-        return entity.renderPreview(type, data);
+        const genericEntityData = entity.getGenericEntityProperties(data);
+        return (
+            <PreviewContext.Provider value={genericEntityData}>
+                {entity.renderPreview(type, data)}
+            </PreviewContext.Provider>
+        );
     }
 
     renderSearchResult(
@@ -155,9 +161,13 @@ export default class EntityRegistry {
         onCardClick?: (any: any) => any,
     ): JSX.Element {
         const entity = validatedGet(type, this.entityTypeToEntity);
+        const genericEntityData = entity.getGenericEntityProperties(searchResult.entity);
+
         return (
             <SearchResultProvider searchResult={searchResult}>
-                {entity.renderSearch(searchResult, previewType, onCardClick)}
+                <PreviewContext.Provider value={genericEntityData}>
+                    {entity.renderSearch(searchResult, previewType, onCardClick)}
+                </PreviewContext.Provider>
             </SearchResultProvider>
         );
     }

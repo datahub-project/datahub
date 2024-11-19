@@ -1,7 +1,7 @@
+import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material';
+import { Collapse, Typography } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Collapse } from 'antd';
-import { KeyboardArrowDown, KeyboardArrowRight } from '@mui/icons-material';
 
 import { REDESIGN_COLORS } from '../../../constants';
 import { CountStyle } from '../../../SidebarStyledComponents';
@@ -38,16 +38,26 @@ const StyledCollapse = styled(Collapse)`
             cursor: pointer;
         }
     }
+
+    .ant-collapse-header-text {
+        max-width: calc(100% - 50px);
+    }
 `;
 
-const SectionHeader = styled.div<{ collapsible?: boolean }>`
+const SectionHeader = styled.span<{ collapsible?: boolean }>`
     display: flex;
     align-items: center;
+    ${(props) => !props.collapsible && 'margin-left: 8px;'}
+`;
+
+const Title = styled(Typography.Text)`
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
     color: ${REDESIGN_COLORS.DARK_GREY};
     font-weight: 700;
     line-height: 20px;
     font-size: 14px;
-    ${(props) => !props.collapsible && 'margin-left: 8px;'}
 `;
 
 const StyledIcon = styled.div`
@@ -91,7 +101,8 @@ export const SidebarSection = ({
                 header={
                     <>
                         <SectionHeader collapsible={collapsible}>
-                            {title} {count > 0 && <CountStyle> {count > 10 ? '10+' : count}</CountStyle>}
+                            <Title ellipsis={{ tooltip: true }}>{title}</Title>
+                            {count > 0 && <CountStyle> {count > 10 ? '10+' : count}</CountStyle>}
                         </SectionHeader>
                         {collapsedContent}
                     </>

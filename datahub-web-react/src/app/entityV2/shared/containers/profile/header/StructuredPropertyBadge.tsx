@@ -1,9 +1,10 @@
 import { colors, Pill, Text, Tooltip } from '@src/alchemy-components';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import { getStructuredPropertyValue } from '@src/app/entity/shared/utils';
 import { getDisplayName } from '@src/app/govern/structuredProperties/utils';
+import { useIsThemeV2 } from '@src/app/useIsThemeV2';
 import React from 'react';
 import styled from 'styled-components';
-import { getStructuredPropertyValue } from '@src/app/entity/shared/utils';
 import { mapStructuredPropertyToPropertyRow } from '../../../tabs/Properties/useStructuredProperties';
 
 const StyledTooltip = styled(Tooltip)`
@@ -23,14 +24,20 @@ const ValueContainer = styled.div`
     gap: 4px;
 `;
 
+const BadgeContainer = styled.div<{ $isThemeV2?: boolean }>`
+    max-width: 150px;
+    margin-left: ${(props) => !props.$isThemeV2 && '8px'};
+`;
+
 interface Props {
     entityData?: GenericEntityProperties | null;
 }
 
 const StructuredPropertyBadge = ({ entityData }: Props) => {
-    const badgeStructuredProperty = entityData?.structuredProperties?.properties?.filter(
+    const isThemeV2 = useIsThemeV2();
+    const badgeStructuredProperty = entityData?.structuredProperties?.properties?.find(
         (prop) => prop.structuredProperty.settings?.showAsAssetBadge && !prop.structuredProperty.settings?.isHidden,
-    )[0];
+    );
 
     const propRow = badgeStructuredProperty ? mapStructuredPropertyToPropertyRow(badgeStructuredProperty) : undefined;
 
@@ -72,14 +79,14 @@ const StructuredPropertyBadge = ({ entityData }: Props) => {
             color={colors.white}
             overlayInnerStyle={{ width: 250, padding: 16 }}
         >
-            <>
+            <BadgeContainer $isThemeV2={isThemeV2}>
                 <Pill
                     label={propRow?.values[0].value?.toString() || ''}
                     size="sm"
                     colorScheme="violet"
                     clickable={false}
                 />
-            </>
+            </BadgeContainer>
         </StyledTooltip>
     );
 };

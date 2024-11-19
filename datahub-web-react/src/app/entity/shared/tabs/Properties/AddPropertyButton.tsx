@@ -2,8 +2,7 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { colors, Icon, Input as InputComponent, Text } from '@src/alchemy-components';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { getEntityTypeUrn } from '@src/app/govern/structuredProperties/utils';
-import { ENTITY_TYPES_FILTER_NAME } from '@src/app/searchV2/utils/constants';
+import { getEntityTypesPropertyFilter, getNotHiddenPropertyFilter } from '@src/app/govern/structuredProperties/utils';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useIsThemeV2 } from '@src/app/useIsThemeV2';
 import { PageRoutes } from '@src/conf/Global';
@@ -95,15 +94,8 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
         orFilters: [
             {
                 and: [
-                    {
-                        field: ENTITY_TYPES_FILTER_NAME,
-                        values: [getEntityTypeUrn(entityRegistry, fieldUrn ? EntityType.SchemaField : entityType)],
-                    },
-                    {
-                        field: 'isHidden',
-                        values: ['true'],
-                        negated: true,
-                    },
+                    getEntityTypesPropertyFilter(entityRegistry, !!fieldUrn, entityType),
+                    getNotHiddenPropertyFilter(),
                 ],
             },
         ],

@@ -68,7 +68,7 @@ export default function DataProductSection({ readOnly }: Props) {
     };
 
     return (
-        <>
+        <div>
             <SidebarHeader title="Data Product" />
             {dataProduct && (
                 <DataProductLink
@@ -102,6 +102,6 @@ export default function DataProductSection({ readOnly }: Props) {
                     setDataProduct={setDataProduct}
                 />
             )}
-        </>
+        </div>
     );
 }

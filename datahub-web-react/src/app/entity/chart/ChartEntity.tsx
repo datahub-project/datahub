@@ -30,6 +30,7 @@ import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFiel
 import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { ChartQueryTab } from './ChartQueryTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -102,6 +103,9 @@ export class ChartEntity implements Entity<Chart> {
         },
         {
             component: DataProductSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 

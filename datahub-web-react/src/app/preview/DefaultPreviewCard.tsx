@@ -4,7 +4,6 @@ import { Tooltip } from '@components';
 import { ArrowRightOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-
 import {
     GlobalTags,
     Owner,
@@ -40,6 +39,8 @@ import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
 import { getUniqueOwners } from './utils';
 import { FORM_CHECK_RESPONSES_ID } from '../onboarding/config/FormOnboardingConfig';
 import { useEmbeddedProfileLinkProps } from '../shared/useEmbeddedProfileLinkProps';
+import { usePreviewData } from '../entityV2/shared/PreviewContext';
+import StructuredPropertyBadge from '../entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -271,6 +272,7 @@ export default function DefaultPreviewCard({
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
     const { entityData } = useEntityData();
+    const previewData = usePreviewData();
     const linkProps = useEmbeddedProfileLinkProps();
     const insightViews: Array<ReactNode> = [
         ...(insights?.map((insight) => (
@@ -340,6 +342,7 @@ export default function DefaultPreviewCard({
                             <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} />
                         )}
                         {health && health.length > 0 ? <EntityHealth urn={urn} baseUrl={url} health={health} /> : null}
+                        <StructuredPropertyBadge entityData={previewData} />
                         {externalUrl && (
                             <ExternalUrlButton
                                 externalUrl={externalUrl}

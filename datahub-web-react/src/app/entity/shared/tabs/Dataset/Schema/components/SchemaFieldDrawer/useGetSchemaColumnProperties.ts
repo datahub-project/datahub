@@ -1,13 +1,10 @@
-import {
-    getEntityTypesPropertyFilter,
-    getNotHiddenPropertyFilter,
-    getShowInColumnsTablePropertyFilter,
-} from '@src/app/govern/structuredProperties/utils';
+import { getEntityTypesPropertyFilter, getNotHiddenPropertyFilter } from '@src/app/govern/structuredProperties/utils';
+import { SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME } from '@src/app/searchV2/utils/constants';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
-import { EntityType } from '@src/types.generated';
+import { EntityType, SearchResult } from '@src/types.generated';
 
-export const useGetTableColumnProperties = () => {
+export default function useGetSchemaColumnProperties() {
     const entityRegistry = useEntityRegistryV2();
 
     const inputs = {
@@ -19,9 +16,12 @@ export const useGetTableColumnProperties = () => {
         orFilters: [
             {
                 and: [
-                    getEntityTypesPropertyFilter(entityRegistry, true),
+                    getEntityTypesPropertyFilter(entityRegistry, true, EntityType.SchemaField),
                     getNotHiddenPropertyFilter(),
-                    getShowInColumnsTablePropertyFilter(),
+                    {
+                        field: SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME,
+                        values: ['true'],
+                    },
                 ],
             },
         ],
@@ -35,5 +35,5 @@ export const useGetTableColumnProperties = () => {
         fetchPolicy: 'cache-first',
     });
 
-    return data?.searchAcrossEntities?.searchResults;
-};
+    return data?.searchAcrossEntities?.searchResults || ([] as SearchResult[]);
+}

@@ -21,7 +21,7 @@ import { SchemaTimelineSection } from '../../../Timeline/SchemaTimelineSection';
 import { AboutFieldTab } from './AboutFieldTab';
 import DrawerFooter from './DrawerFooter';
 import FieldHeader from './FieldHeader';
-import { SchemaFieldDrawerTabs } from './SchemaFieldDrawerTabs';
+import { SchemaFieldDrawerTabs, TABS_WIDTH } from './SchemaFieldDrawerTabs';
 import SchemaFieldQueriesSidebarTab from './SchemaFieldQueriesSidebarTab';
 import StatsSidebarView from './StatsSidebarView';
 
@@ -69,6 +69,7 @@ const Body = styled.div`
 const Content = styled.div`
     flex: 1;
     border-right: 1px solid #e8e8e8;
+    max-width: calc(100% - ${TABS_WIDTH}px);
 `;
 const Tabs = styled.div``;
 

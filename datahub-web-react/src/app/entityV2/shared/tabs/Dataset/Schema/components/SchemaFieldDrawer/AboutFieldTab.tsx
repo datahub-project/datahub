@@ -97,7 +97,7 @@ export function AboutFieldTab({ properties }: AboutFieldTabProps) {
                             properties={{
                                 isSchemaSidebar: true,
                                 refetch,
-                                fieldEntity: properties.schemaFields[expandedFieldIndex].schemaFieldEntity,
+                                fieldEntity: expandedField.schemaFieldEntity,
                             }}
                         />
                         <StatsSection

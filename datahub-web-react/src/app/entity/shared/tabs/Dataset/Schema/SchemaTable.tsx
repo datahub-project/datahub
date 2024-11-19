@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useGetStructuredPropColumns } from '@src/app/entityV2/shared/tabs/Dataset/Schema/utils/useGetStructuredPropColumns';
+import { useGetTableColumnProperties } from '@src/app/entityV2/shared/tabs/Dataset/Schema/utils/useGetTableColumnProperties';
 import { ColumnsType } from 'antd/es/table';
-import { useVT } from 'virtualizedtableforantd4';
 import ResizeObserver from 'rc-resize-observer';
+import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
+import { useVT } from 'virtualizedtableforantd4';
 import {
     EditableSchemaMetadata,
     ForeignKeyConstraint,
@@ -11,25 +13,25 @@ import {
     SchemaMetadata,
     UsageQueryResult,
 } from '../../../../../../types.generated';
+import { useBusinessAttributesFlag } from '../../../../../useAppConfig';
 import useSchemaTitleRenderer from '../../../../dataset/profile/schema/utils/schemaTitleRenderer';
-import { ExtendedSchemaFields } from '../../../../dataset/profile/schema/utils/types';
-import useDescriptionRenderer from './utils/useDescriptionRenderer';
-import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
-import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
-import ExpandIcon from './components/ExpandIcon';
-import { StyledTable } from '../../../components/styled/StyledTable';
-import { SchemaRow } from './components/SchemaRow';
-import { FkContext } from './utils/selectedFkContext';
-import useSchemaBlameRenderer from './utils/useSchemaBlameRenderer';
-import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../../constants';
 import translateFieldPath from '../../../../dataset/profile/schema/utils/translateFieldPath';
+import { ExtendedSchemaFields } from '../../../../dataset/profile/schema/utils/types';
+import { StyledTable } from '../../../components/styled/StyledTable';
+import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../../constants';
+import ExpandIcon from './components/ExpandIcon';
 import PropertiesColumn from './components/PropertiesColumn';
 import SchemaFieldDrawer from './components/SchemaFieldDrawer/SchemaFieldDrawer';
+import { SchemaRow } from './components/SchemaRow';
+import { FkContext } from './utils/selectedFkContext';
 import useBusinessAttributeRenderer from './utils/useBusinessAttributeRenderer';
-import { useBusinessAttributesFlag } from '../../../../../useAppConfig';
+import useDescriptionRenderer from './utils/useDescriptionRenderer';
+import useExtractFieldDescriptionInfo from './utils/useExtractFieldDescriptionInfo';
 import useExtractFieldGlossaryTermsInfo from './utils/useExtractFieldGlossaryTermsInfo';
 import useExtractFieldTagsInfo from './utils/useExtractFieldTagsInfo';
-import useExtractFieldDescriptionInfo from './utils/useExtractFieldDescriptionInfo';
+import useSchemaBlameRenderer from './utils/useSchemaBlameRenderer';
+import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
+import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
 
 const TableContainer = styled.div`
     overflow: inherit;
@@ -131,6 +133,9 @@ export default function SchemaTable({
     const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath, filterText);
     const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);
+
+    const tableColumnStructuredProps = useGetTableColumnProperties();
+    const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps);
 
     const fieldColumn = {
         width: '22%',
@@ -238,6 +243,10 @@ export default function SchemaTable({
 
     if (hasProperties) {
         allColumns = [...allColumns, propertiesColumn];
+    }
+
+    if (structuredPropColumns) {
+        allColumns = [...allColumns, ...structuredPropColumns];
     }
 
     if (hasUsageStats) {

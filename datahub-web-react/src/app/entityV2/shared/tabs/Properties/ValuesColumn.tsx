@@ -1,7 +1,7 @@
 import React from 'react';
-import { PropertyRow } from './types';
 import { StdDataType } from '../../../../../types.generated';
 import StructuredPropertyValue from './StructuredPropertyValue';
+import { PropertyRow } from './types';
 
 interface Props {
     propertyRow: PropertyRow;
@@ -15,7 +15,9 @@ export default function ValuesColumn({ propertyRow, filterText }: Props) {
     return (
         <>
             {values ? (
-                values.map((v) => <StructuredPropertyValue value={v} isRichText={isRichText} filterText={filterText} />)
+                values.map((v) => (
+                    <StructuredPropertyValue value={v} isRichText={isRichText} filterText={filterText} truncateText />
+                ))
             ) : (
                 <span />
             )}

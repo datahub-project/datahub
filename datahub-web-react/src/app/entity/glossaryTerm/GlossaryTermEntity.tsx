@@ -20,6 +20,7 @@ import { FetchedEntity } from '../../lineage/types';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { PageRoutes } from '../../../conf/Global';
 import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -135,6 +136,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             properties: {
                 hideOwnerType: true,
             },
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 

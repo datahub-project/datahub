@@ -34,9 +34,10 @@ interface Props {
     associatedUrn?: string;
     values?: (string | number | null)[];
     refetch?: () => void;
+    isAddMode?: boolean;
 }
 
-export function EditColumn({ structuredProperty, associatedUrn, values, refetch }: Props) {
+export function EditColumn({ structuredProperty, associatedUrn, values, refetch, isAddMode }: Props) {
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const { refetch: entityRefetch } = useEntityContext();
     const { entityType } = useEntityData();
@@ -95,11 +96,13 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch 
                         setIsEditModalVisible(true);
                     }}
                 >
-                    Edit
+                    {isAddMode ? 'Add' : 'Edit'}
                 </MenuItem>
             ),
         },
-        {
+    ];
+    if (values && values?.length > 0) {
+        items.push({
             key: '1',
             label: (
                 <MenuItem
@@ -110,8 +113,8 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch 
                     <Text color="red"> Remove </Text>
                 </MenuItem>
             ),
-        },
-    ];
+        });
+    }
 
     return (
         <>
@@ -127,6 +130,7 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch 
                 values={values}
                 closeModal={() => setIsEditModalVisible(false)}
                 refetch={refetch}
+                isAddMode={isAddMode}
             />
             <ConfirmationModal
                 isOpen={showConfirmRemove}

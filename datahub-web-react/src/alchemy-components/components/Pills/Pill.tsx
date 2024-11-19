@@ -1,7 +1,7 @@
 import { Icon } from '@components';
 import React from 'react';
 
-import { PillContainer } from './components';
+import { PillContainer, PillText } from './components';
 import { PillProps } from './types';
 
 export const pillDefault: PillProps = {
@@ -35,7 +35,7 @@ export function Pill({
             onClick={onPillClick}
         >
             {leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} />}
-            {label}
+            <PillText>{label}</PillText>
             {rightIcon && <Icon icon={rightIcon} size={size} onClick={onClickRightIcon} />}
         </PillContainer>
     );

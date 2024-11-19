@@ -1,7 +1,7 @@
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import React from 'react';
 import styled from 'styled-components';
-import { SchemaField, StdDataType } from '../../../../../../../../types.generated';
+import { SchemaField, SearchResult, StdDataType } from '../../../../../../../../types.generated';
 import AddPropertyButton from '../../../../Properties/AddPropertyButton';
 import { EditColumn } from '../../../../Properties/Edit/EditColumn';
 import StructuredPropertyValue from '../../../../Properties/StructuredPropertyValue';
@@ -9,27 +9,27 @@ import { mapStructuredPropertyValues } from '../../../../Properties/useStructure
 import { useGetEntityWithSchema } from '../../useGetEntitySchema';
 import { StyledDivider } from './components';
 
-const PropertyTitle = styled.div`
+export const PropertyTitle = styled.div`
     font-size: 14px;
     font-weight: 700;
     margin-bottom: 4px;
 `;
 
-const PropertyWrapper = styled.div`
+export const PropertyWrapper = styled.div`
     margin-bottom: 12px;
     display: flex;
     justify-content: space-between;
 `;
 
-const PropertiesWrapper = styled.div`
+export const PropertiesWrapper = styled.div`
     padding-left: 16px;
 `;
 
-const StyledList = styled.ul`
+export const StyledList = styled.ul`
     padding-left: 24px;
 `;
 
-const Header = styled.div`
+export const Header = styled.div`
     font-size: 16px;
     font-weight: 600;
     margin-bottom: 16px;
@@ -40,14 +40,20 @@ const Header = styled.div`
 
 interface Props {
     expandedField: SchemaField;
+    schemaColumnProperties?: SearchResult[];
 }
 
-export default function FieldProperties({ expandedField }: Props) {
+export default function FieldProperties({ expandedField, schemaColumnProperties }: Props) {
     const { schemaFieldEntity } = expandedField;
     const { refetch } = useGetEntityWithSchema(true);
     const { entityData } = useEntityData();
     const properties =
-        schemaFieldEntity?.structuredProperties?.properties?.filter((prop) => prop.structuredProperty.exists) || [];
+        schemaFieldEntity?.structuredProperties?.properties?.filter(
+            (prop) =>
+                prop.structuredProperty.exists &&
+                !prop.structuredProperty.settings?.isHidden &&
+                !schemaColumnProperties?.find((p) => p.entity.urn === prop.structuredProperty.urn),
+        ) || [];
 
     const canEditProperties =
         entityData?.parent?.privileges?.canEditProperties || entityData?.privileges?.canEditProperties;
