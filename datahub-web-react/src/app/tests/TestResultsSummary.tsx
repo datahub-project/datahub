@@ -1,8 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { Button, Tag, Typography } from 'antd';
-import { Tooltip } from '@components';
-import RefreshIcon from '@mui/icons-material/Refresh';
 import { SUCCESS_COLOR_HEX } from '../entity/shared/tabs/Incident/incidentUtils';
 import { useGetTestResultsSummaryQuery } from '../../graphql/test.generated';
 import { formatNumberWithoutAbbreviation } from '../shared/formatNumber';
@@ -54,8 +52,8 @@ const Title = styled.div`
 const LastComputed = styled.div`
     display: flex;
     align-items: center;
-    font-size: 8px;
-    justify-content: space-between; // Adjust as needed to fit your layout
+    font-size: 10px;
+    margin-top: 4px;
 `;
 
 const ButtonContainer = styled.div`
@@ -81,10 +79,17 @@ export const TestResultsSummary = ({ urn, name }: Props) => {
         },
     });
 
-    // Handler for the refresh button click
-    const handleRefreshClick = () => {
-        refetch(); // This will re-execute the query and update the component's state with the new data
-    };
+    // Refetch every 3-6s
+    // TODO: Do this in the parent as a batch API call for all tests instead of getting it one test at a time...
+    useEffect(() => {
+        const intervalId = setInterval(() => {
+            refetch();
+            // NOTE: we randomize so the test cards stagger their polling API calls
+        }, 3000 + Math.random() * 3000);
+
+        // Clean up interval on component unmount
+        return () => clearInterval(intervalId);
+    }, [refetch]);
 
     const hasResults = results?.test?.results?.passingCount || results?.test?.results?.failingCount;
     const passingCount =
@@ -99,10 +104,9 @@ export const TestResultsSummary = ({ urn, name }: Props) => {
     const testDefinitionMd5 =
         results?.test?.results?.testDefinitionMd5 !== undefined ? results?.test?.results?.testDefinitionMd5 : '-';
 
-    const lastComputed =
-        results?.test?.results?.lastRunTimestampMillis !== undefined
-            ? toRelativeTimeString(results?.test?.results?.lastRunTimestampMillis || 0)
-            : 'unknown';
+    const lastComputedLabel = results?.test?.results?.lastRunTimestampMillis
+        ? `Last computed: ${toRelativeTimeString(results.test.results.lastRunTimestampMillis)}`
+        : 'Pending compute';
 
     return (
         <Container>
@@ -150,12 +154,7 @@ export const TestResultsSummary = ({ urn, name }: Props) => {
                     />
                 )}
             </ButtonContainer>
-            <LastComputed>
-                Last computed: {lastComputed}
-                <Tooltip title="Refresh summary results">
-                    <RefreshIcon fontSize="small" onClick={handleRefreshClick} /> {/* Adjust fontSize as needed */}
-                </Tooltip>
-            </LastComputed>
+            <LastComputed>{lastComputedLabel}</LastComputed>
         </Container>
     );
 };
