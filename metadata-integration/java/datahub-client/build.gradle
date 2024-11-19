@@ -1,6 +1,6 @@
 plugins {
   id("com.palantir.git-version") apply false
-  id 'java'
+  id 'java-library'
   id 'com.github.johnrengelman.shadow'
   id 'jacoco'
   id 'signing'
@@ -12,11 +12,13 @@ apply from: "../versioning.gradle"
 import org.apache.tools.ant.filters.ReplaceTokens
 
 
-jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
+jar {
+  archiveClassifier = "lib"
+}
 
 dependencies {
-  implementation project(':entity-registry')
-  implementation project(':metadata-integration:java:datahub-event')
+  api project(':entity-registry')
+  api project(':metadata-integration:java:datahub-event')
   implementation(externalDependency.kafkaAvroSerializer) {
     exclude group: "org.apache.avro"
   }
@@ -33,7 +35,7 @@ dependencies {
   implementation externalDependency.jacksonDataBind
   runtimeOnly externalDependency.jna
 
-  implementation externalDependency.slf4jApi
+  api externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
   // VisibleForTesting
@@ -78,6 +80,11 @@ shadowJar {
   // https://github.com/johnrengelman/shadow/issues/729
   exclude('module-info.class', 'META-INF/versions/**',
       '**/LICENSE', '**/LICENSE*.txt', '**/NOTICE', '**/NOTICE.txt', 'licenses/**', 'log4j2.*', 'log4j.*')
+  dependencies {
+    exclude(dependency("org.slf4j::"))
+    exclude(dependency("antlr::"))
+    exclude("org/apache/commons/logging/**")
+  }
   mergeServiceFiles()
   // we relocate namespaces manually, because we want to know exactly which libs we are exposing and why
   // we can move to automatic relocation using ConfigureShadowRelocation after we get to a good place on these first
@@ -88,15 +95,20 @@ shadowJar {
   relocate 'javassist', 'datahub.shaded.javassist'
   relocate 'edu.umd.cs.findbugs', 'datahub.shaded.findbugs'
   relocate 'org.antlr', 'datahub.shaded.org.antlr'
-  relocate 'antlr', 'datahub.shaded.antlr'
+  //relocate 'antlr', 'datahub.shaded.antlr'
   relocate 'com.google.common', 'datahub.shaded.com.google.common'
-  relocate 'org.apache.commons', 'datahub.shaded.org.apache.commons'
+  relocate 'org.apache.commons.codec', 'datahub.shaded.org.apache.commons.codec'
+  relocate 'org.apache.commons.compress', 'datahub.shaded.org.apache.commons.compress'
+  relocate 'org.apache.commons.lang3', 'datahub.shaded.org.apache.commons.lang3'
+  relocate 'org.apache.commons.lang', 'datahub.shaded.org.apache.commons.lang'
+  relocate 'org.apache.commons.cli', 'datahub.shaded.org.apache.commons.cli'
+  relocate 'org.apache.commons.text', 'datahub.shaded.org.apache.commons.text'
+  relocate 'org.apache.commons.io', 'datahub.shaded.org.apache.commons.io'
   relocate 'org.apache.maven', 'datahub.shaded.org.apache.maven'
   relocate 'org.reflections', 'datahub.shaded.org.reflections'
   relocate 'st4hidden', 'datahub.shaded.st4hidden'
   relocate 'org.stringtemplate', 'datahub.shaded.org.stringtemplate'
   relocate 'org.abego.treelayout', 'datahub.shaded.treelayout'
-  relocate 'org.slf4j', 'datahub.shaded.slf4j'
   relocate 'javax.annotation', 'datahub.shaded.javax.annotation'
   relocate 'com.github.benmanes.caffeine', 'datahub.shaded.com.github.benmanes.caffeine'
   relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
