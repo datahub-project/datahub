@@ -123,7 +123,7 @@ const SearchResultListContainer = styled.div<{ v2Styles: boolean; $isShowNavBarR
         flex: 1;
         overflow-x: hidden;        
         overflow-y: auto;
-        ${$isShowNavBarRedesign && 'scrollbar-width: none;'}
+        ${$isShowNavBarRedesign ? 'scrollbar-width: none;' : ''}
     `}
     margin: ${(props) => (props.$isShowNavBarRedesign ? '5px 4px 5px 0px' : '4px 12px 4px 0px')};
 `;
