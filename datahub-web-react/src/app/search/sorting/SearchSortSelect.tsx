@@ -7,12 +7,12 @@ import useGetSortOptions from '@src/app/searchV2/sorting/useGetSortOptions';
 import SortIcon from '../../../images/sort.svg?react';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { DEFAULT_SORT_OPTION } from '../context/constants';
-import { useSearchContext } from '../context/SearchContext';
 
 const SelectWrapper = styled.span`
     display: inline-flex;
     align-items: center;
     margin-right: 8px;
+    margin-left: 15px;
 
     .ant-select-selection-item {
         // !important is necessary because updating Select styles for antd is impossible
@@ -32,8 +32,12 @@ const StyledIcon = styled(Icon)`
     margin-right: -8px;
 `;
 
-export default function SearchSortSelect() {
-    const { selectedSortOption, setSelectedSortOption } = useSearchContext();
+type Props = {
+    selectedSortOption: string | undefined;
+    setSelectedSortOption: (option: string) => void;
+};
+
+export default function SearchSortSelect({ selectedSortOption, setSelectedSortOption }: Props) {
     const sortOptions = useGetSortOptions();
 
     const options = Object.entries(sortOptions).map(([value, option]) => ({ value, label: option.label }));

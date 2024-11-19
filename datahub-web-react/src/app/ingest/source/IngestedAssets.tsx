@@ -137,7 +137,7 @@ export default function IngestedAssets({ id }: Props) {
             {showAssetSearch && (
                 <EmbeddedListSearchModal
                     title="View Ingested Assets"
-                    searchBarStyle={{ width: 600, marginRight: 40 }}
+                    searchBarStyle={{ width: 525, marginRight: 40 }}
                     fixedFilters={{
                         unionType: UnionType.AND,
                         filters: [{ field: 'runId', values: [id] }],

@@ -97,7 +97,7 @@ export const SidebarSiblingsSection = () => {
             {showAllSiblings && (
                 <EmbeddedListSearchModal
                     title="View All Siblings"
-                    searchBarStyle={{ width: 600, marginRight: 40 }}
+                    searchBarStyle={{ width: 525, marginRight: 40 }}
                     fixedFilters={{
                         unionType: UnionType.OR,
                         filters: [{ field: 'siblings', values: [urn] }],

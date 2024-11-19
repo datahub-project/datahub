@@ -5,7 +5,6 @@ import { Tooltip } from '@components';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { DEFAULT_SORT_OPTION } from '../context/constants';
-import { useSearchContext } from '../../search/context/SearchContext';
 import useGetSortOptions from './useGetSortOptions';
 
 const SelectWrapper = styled.span`
@@ -28,8 +27,12 @@ const SelectWrapper = styled.span`
     }
 `;
 
-export default function SearchSortSelect() {
-    const { selectedSortOption, setSelectedSortOption } = useSearchContext();
+type Props = {
+    selectedSortOption: string | undefined;
+    setSelectedSortOption: (option: string) => void;
+};
+
+export default function SearchSortSelect({ selectedSortOption, setSelectedSortOption }: Props) {
     const sortOptions = useGetSortOptions();
     const options = Object.entries(sortOptions).map(([value, option]) => ({ value, label: option.label }));
 
@@ -41,7 +44,7 @@ export default function SearchSortSelect() {
                     value={selectedSortOption === DEFAULT_SORT_OPTION ? null : selectedSortOption}
                     options={options}
                     bordered={false}
-                    onChange={(sortOption) => setSelectedSortOption(sortOption)}
+                    onChange={(option) => setSelectedSortOption(option)}
                     dropdownStyle={{ minWidth: 'max-content' }}
                     placement="bottomRight"
                     suffixIcon={<CaretDownFilled />}

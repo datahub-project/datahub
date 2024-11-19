@@ -4,6 +4,8 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { useDebounce } from 'react-use';
 
+import useSortInput from '@src/app/searchV2/sorting/useSortInput';
+import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
 import { SearchCfg } from '../../../../../../conf';
 import { useGetSearchResultsForMultipleQuery } from '../../../../../../graphql/search.generated';
 import { EntityType, FacetFilterInput, FilterOperator } from '../../../../../../types.generated';
@@ -73,6 +75,8 @@ export const SearchSelect = ({
     const [unionType, setUnionType] = useState(UnionType.AND);
     const [showFilters, setShowFilters] = useState(false);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
+    const [sortOption, setSortOption] = useState<string | undefined>();
+    const sortInput = useSortInput(sortOption);
 
     useDebounce(() => setSearchQuery(query), 300, [query]);
 
@@ -101,6 +105,7 @@ export const SearchSelect = ({
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
                 filters: [...filtersWithoutEntities, finalEntityFilter],
+                sortInput,
             },
         },
     });
@@ -170,6 +175,7 @@ export const SearchSelect = ({
                     onQueryChange={onSearch}
                     entityRegistry={entityRegistry}
                 />
+                <SearchSortSelect selectedSortOption={sortOption} setSelectedSortOption={setSortOption} />
             </SearchBarContainer>
             <TabToolbar>
                 <SearchSelectBar

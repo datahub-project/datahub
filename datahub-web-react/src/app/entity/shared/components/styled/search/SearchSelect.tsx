@@ -3,6 +3,8 @@ import { Button, message, Typography } from 'antd';
 import styled from 'styled-components';
 import { FilterOutlined } from '@ant-design/icons';
 
+import useSortInput from '@src/app/search/sorting/useSortInput';
+import SearchSortSelect from '@src/app/search/sorting/SearchSortSelect';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { EntityType, FacetFilterInput, FilterOperator } from '../../../../../../types.generated';
 import { ENTITY_FILTER_NAME, UnionType } from '../../../../../search/utils/constants';
@@ -73,6 +75,8 @@ export const SearchSelect = ({
     const [unionType, setUnionType] = useState(UnionType.AND);
     const [showFilters, setShowFilters] = useState(false);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
+    const [sortOption, setSortOption] = useState<string | undefined>();
+    const sortInput = useSortInput(sortOption);
 
     // Compute search filters
     const filtersWithoutEntities: Array<FacetFilterInput> = filters.filter(
@@ -99,6 +103,7 @@ export const SearchSelect = ({
                 start: (page - 1) * numResultsPerPage,
                 count: numResultsPerPage,
                 filters: [...filtersWithoutEntities, finalEntityFilter],
+                sortInput,
             },
         },
     });
@@ -168,6 +173,7 @@ export const SearchSelect = ({
                     onQueryChange={onSearch}
                     entityRegistry={entityRegistry}
                 />
+                <SearchSortSelect selectedSortOption={sortOption} setSelectedSortOption={setSortOption} />
             </SearchBarContainer>
             {!hideToolbar && (
                 <TabToolbar>

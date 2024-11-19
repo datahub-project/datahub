@@ -31,6 +31,7 @@ import { formatNumberWithoutAbbreviation } from '../shared/formatNumber';
 import SearchResultsLoadingSection from './SearchResultsLoadingSection';
 import { PreviewType } from '../entity/Entity';
 import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
+import { useSearchContext } from './context/SearchContext';
 
 const SearchResultsWrapper = styled.div<{ v2Styles: boolean }>`
     display: flex;
@@ -198,6 +199,7 @@ export const SearchResults = ({
         showSeparateSiblings,
         searchResponse?.searchResults,
     );
+    const { selectedSortOption, setSelectedSortOption } = useSearchContext();
 
     const searchResultUrns = combinedSiblingSearchResults.map((result) => result.entity.urn) || [];
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
@@ -249,7 +251,10 @@ export const SearchResults = ({
                                 </Typography.Text>
                             </LeftControlsContainer>
                             <SearchMenuContainer>
-                                <SearchSortSelect />
+                                <SearchSortSelect
+                                    selectedSortOption={selectedSortOption}
+                                    setSelectedSortOption={setSelectedSortOption}
+                                />
                                 <SearchExtendedMenu
                                     downloadSearchResults={downloadSearchResults}
                                     filters={generateOrFilters(unionType, selectedFilters)}

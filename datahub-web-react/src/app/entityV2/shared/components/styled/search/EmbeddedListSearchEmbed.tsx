@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { ApolloError } from '@apollo/client';
+import useSortInput from '@src/app/searchV2/sorting/useSortInput';
+import { useSelectedSortOption } from '@src/app/search/context/SearchContext';
 import { FacetFilterInput } from '../../../../../../types.generated';
 import { FilterSet, GetSearchResultsParams, SearchResultsInterface } from './types';
 import { EmbeddedListSearch } from './EmbeddedListSearch';
@@ -67,6 +69,8 @@ export const EmbeddedListSearchEmbed = ({
     const [unionType, setUnionType] = useState(UnionType.AND);
 
     const [filters, setFilters] = useState<Array<FacetFilterInput>>([]);
+    const selectedSortOption = useSelectedSortOption();
+    const sortInput = useSortInput(selectedSortOption);
 
     const onChangeQuery = (q: string) => {
         setQuery(q);
@@ -106,6 +110,7 @@ export const EmbeddedListSearchEmbed = ({
             resetShouldRefetch={resetShouldRefetch}
             applyView={applyView}
             showFilterBar={showFilterBar}
+            sort={sortInput?.sortCriterion}
         />
     );
 };

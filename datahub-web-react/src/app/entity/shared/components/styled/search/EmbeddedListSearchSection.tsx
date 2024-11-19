@@ -14,6 +14,7 @@ import {
     DownloadSearchResultsInput,
     DownloadSearchResultsParams,
 } from '../../../../../search/utils/types';
+import { decodeComma } from '../../../utils';
 
 const FILTER = 'filter';
 
@@ -78,7 +79,7 @@ export const EmbeddedListSearchSection = ({
     const location = useLocation();
     const entityQueryParams = useEntityQueryParams();
 
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const params = QueryString.parse(decodeComma(location.search), { arrayFormat: 'comma' });
     const paramsWithoutFilters = getParamsWithoutFilters(params);
     const baseParams = { ...entityQueryParams, ...paramsWithoutFilters };
     const query: string = params?.query as string;

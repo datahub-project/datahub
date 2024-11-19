@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { ApolloError } from '@apollo/client';
+import { useSearchContext } from '@src/app/search/context/SearchContext';
+import useSortInput from '@src/app/search/sorting/useSortInput';
 import {
     EntityType,
     FacetFilterInput,
@@ -155,6 +157,9 @@ export const EmbeddedListSearch = ({
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>([]);
     const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
 
+    const { selectedSortOption } = useSearchContext();
+    const sortInput = useSortInput(selectedSortOption);
+
     // This hook is simply used to generate a refetch callback that the DownloadAsCsv component can use to
     // download the correct results given the current context.
     // TODO: Use the loading indicator to log a message to the user should download to CSV fail.
@@ -182,6 +187,7 @@ export const EmbeddedListSearch = ({
         count: numResultsPerPage,
         orFilters: finalFilters,
         viewUrn: applyView ? selectedViewUrn : undefined,
+        sortInput,
     };
     if (skipCache) {
         searchInput = { ...searchInput, searchFlags: { skipCache: true } };

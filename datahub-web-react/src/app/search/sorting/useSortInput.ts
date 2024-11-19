@@ -1,8 +1,7 @@
-import { useSelectedSortOption } from '../context/SearchContext';
 import { RELEVANCE, SORT_OPTIONS } from '../context/constants';
 
-export default function useSortInput() {
-    const selectedSortOption = useSelectedSortOption();
+export default function useSortInput(selectedSortOption: string | undefined) {
+    // const selectedSortOption = useSelectedSortOption();
 
     // do not return a sortInput if the option is our default/recommended
     if (!selectedSortOption || selectedSortOption === RELEVANCE) return undefined;

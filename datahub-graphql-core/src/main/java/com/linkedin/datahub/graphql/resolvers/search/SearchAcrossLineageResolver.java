@@ -26,6 +26,7 @@ import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.LineageSearchResult;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.r2.RemoteInvocationException;
@@ -170,6 +171,7 @@ public class SearchAcrossLineageResolver
             } else {
               searchFlags = new SearchFlags().setFulltext(true).setSkipHighlighting(true);
             }
+            List<SortCriterion> sortCriteria = SearchUtils.getSortCriteria(input.getSortInput());
             LineageSearchResult salResults =
                 _entityClient.searchAcrossLineage(
                     context
@@ -182,7 +184,7 @@ public class SearchAcrossLineageResolver
                     sanitizedQuery,
                     maxHops,
                     filter,
-                    null,
+                    sortCriteria,
                     start,
                     count);
 

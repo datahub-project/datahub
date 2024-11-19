@@ -7,6 +7,7 @@ import { useUserContext } from '../context/useUserContext';
 import useFilters from './utils/useFilters';
 import { generateOrFilters } from './utils/generateOrFilters';
 import useSortInput from './sorting/useSortInput';
+import { useSelectedSortOption } from '../search/context/SearchContext';
 
 export default function useGetSearchQueryInputs(excludedFilterFields?: Array<string>) {
     const userContext = useUserContext();
@@ -17,7 +18,8 @@ export default function useGetSearchQueryInputs(excludedFilterFields?: Array<str
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const unionType: UnionType = Number(params.unionType as any as UnionType) || UnionType.AND;
     const viewUrn = userContext.localState?.selectedViewUrn;
-    const sortInput = useSortInput();
+    const selectedSortOption = useSelectedSortOption();
+    const sortInput = useSortInput(selectedSortOption);
 
     const filters: Array<FacetFilterInput> = useFilters(params);
     const entityFilters: Array<EntityType> = useMemo(

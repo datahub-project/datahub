@@ -27,7 +27,7 @@ export default function generateUseSearchResultsViaRelationshipHook({
     return function useGetSearchResultsViaSearchAcrossLineage(params: GetSearchResultsParams) {
         const {
             variables: {
-                input: { types, query, start, count, filters, orFilters },
+                input: { types, query, start, count, filters, orFilters, sortInput },
             },
         } = params;
         const inputFields = {
@@ -41,6 +41,7 @@ export default function generateUseSearchResultsViaRelationshipHook({
             orFilters,
             startTimeMillis: startTimeMillis || undefined,
             endTimeMillis: endTimeMillis || undefined,
+            sortInput,
         };
 
         const { data, loading, error, refetch } = useSearchAcrossLineageQuery({

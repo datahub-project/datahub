@@ -118,7 +118,7 @@ public class SearchAcrossLineageResolverTest {
             eq(QUERY),
             eq(null),
             any(),
-            eq(null),
+            eq(Collections.emptyList()),
             eq(START),
             eq(COUNT)))
         .thenReturn(lineageSearchResult);

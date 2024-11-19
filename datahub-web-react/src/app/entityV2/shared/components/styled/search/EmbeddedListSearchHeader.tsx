@@ -2,6 +2,8 @@ import React from 'react';
 import { Button, Typography } from 'antd';
 import { FilterOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+import SearchSortSelect from '@src/app/searchV2/sorting/SearchSortSelect';
+import { useSearchContext } from '@src/app/search/context/SearchContext';
 import TabToolbar from '../TabToolbar';
 import { SearchBar } from '../../../../../search/SearchBar';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
@@ -67,6 +69,7 @@ export default function EmbeddedListSearchHeader({
     searchBarInputStyle,
 }: Props) {
     const entityRegistry = useEntityRegistry();
+    const { selectedSortOption, setSelectedSortOption } = useSearchContext();
 
     return (
         <>
@@ -100,6 +103,10 @@ export default function EmbeddedListSearchHeader({
                             hideRecommendations
                         />
                         <SearchMenuContainer>
+                            <SearchSortSelect
+                                selectedSortOption={selectedSortOption}
+                                setSelectedSortOption={setSelectedSortOption}
+                            />
                             <SearchMenuItems
                                 downloadSearchResults={downloadSearchResults}
                                 filters={filters}

@@ -2,6 +2,8 @@ import React from 'react';
 import * as QueryString from 'query-string';
 import { useHistory, useLocation } from 'react-router';
 import { ApolloError } from '@apollo/client';
+import useSortInput from '@src/app/searchV2/sorting/useSortInput';
+import { useSelectedSortOption } from '@src/app/search/context/SearchContext';
 import { FacetFilterInput } from '../../../../../../types.generated';
 import useFilters from '../../../../../search/utils/useFilters';
 import { navigateToEntitySearchUrl } from './navigateToEntitySearchUrl';
@@ -14,6 +16,7 @@ import {
     DownloadSearchResultsInput,
     DownloadSearchResultsParams,
 } from '../../../../../search/utils/types';
+import { decodeComma } from '../../../utils';
 
 const FILTER = 'filter';
 
@@ -82,12 +85,14 @@ export const EmbeddedListSearchSection = ({
     const location = useLocation();
     const entityQueryParams = useEntityQueryParams();
 
-    const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
+    const params = QueryString.parse(decodeComma(location.search), { arrayFormat: 'comma' });
     const paramsWithoutFilters = getParamsWithoutFilters(params);
     const baseParams = { ...entityQueryParams, ...paramsWithoutFilters };
     const query: string = params?.query as string;
     const page: number = params.page && Number(params.page as string) > 0 ? Number(params.page as string) : 1;
     const unionType: UnionType = Number(params.unionType as any as UnionType) || UnionType.AND;
+    const selectedSortOption = useSelectedSortOption();
+    const sortInput = useSortInput(selectedSortOption);
 
     const filters: Array<FacetFilterInput> = useFilters(params);
 
@@ -165,6 +170,7 @@ export const EmbeddedListSearchSection = ({
             resetShouldRefetch={resetShouldRefetch}
             applyView={applyView}
             showFilterBar={showFilterBar}
+            sort={sortInput?.sortCriterion}
         />
     );
 };

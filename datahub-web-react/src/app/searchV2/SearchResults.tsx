@@ -233,6 +233,7 @@ export const SearchResults = ({
         showSeparateSiblings,
         searchResponse?.searchResults,
     );
+    const { selectedSortOption, setSelectedSortOption } = useSearchContext();
     // For vertical sidebar
     const [highlightedIndex, setHighlightedIndex] = useState<number | null>(0);
     const { isFullViewCard, setIsFullViewCard } = useSearchContext();
@@ -294,7 +295,10 @@ export const SearchResults = ({
                                                     </Typography.Text>
                                                 </LeftControlsContainer>
                                                 <SearchMenuContainer>
-                                                    <SearchSortSelect />
+                                                    <SearchSortSelect
+                                                        selectedSortOption={selectedSortOption}
+                                                        setSelectedSortOption={setSelectedSortOption}
+                                                    />
                                                     <SearchMenuItems
                                                         downloadSearchResults={downloadSearchResults}
                                                         filters={generateOrFilters(unionType, selectedFilters)}
