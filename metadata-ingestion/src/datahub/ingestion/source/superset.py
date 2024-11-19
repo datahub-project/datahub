@@ -397,10 +397,10 @@ class SupersetSource(StatefulIngestionSourceBase):
     def parse_owner_payload(self, payload, owners_dict):
         for owner_data in payload.get("result", []):
             email = owner_data.get("extra", {}).get("email")
-            value = owner_data.get("value")
+            owner_id = owner_data.get("value")
 
-            if value and email and value not in owners_dict:
-                owners_dict[value] = email
+            if owner_id and email:
+                owners_dict[owner_id] = email
 
     def build_preset_owner_dict(self): 
         owners_dict = {}
@@ -419,7 +419,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         for owner in data.get("owners", []):
             owner_id = owner.get("id")
             owner_email = self.owners_dict.get(owner_id)
-            if owner_email is not None:
+            if owner_email:
                 owners_urn = make_user_urn(owner_email)
                 owners_urn_list.append(owners_urn)
         return owners_urn_list
@@ -472,7 +472,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         total_dashboard_owners = PAGE_SIZE
         all_dashboard_owners = []
 
-        while current_dashboard_page * PAGE_SIZE <= total_dashboard_owners:
+        while (current_dashboard_page - 1) * PAGE_SIZE <= total_dashboard_owners:
             full_owners_response = self.session.get(
                 f"{self.config.connect_uri}/api/v1/dashboard/related/owners",
                 params=f"q=(page:{current_dashboard_page},page_size:{PAGE_SIZE})",
