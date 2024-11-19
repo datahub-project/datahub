@@ -221,6 +221,7 @@ class FeastRepositorySource(Source):
         """
         Generate an MLPrimaryKey work unit for a Feast entity.
         """
+
         feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
         aspects = [StatusClass(removed=False)] + self._get_tags_and_owners(entity)
 
@@ -228,6 +229,7 @@ class FeastRepositorySource(Source):
             urn=builder.make_ml_primary_key_urn(feature_view_name, entity.name),
             aspects=aspects,
         )
+
         entity_snapshot.aspects.append(
             MLPrimaryKeyPropertiesClass(
                 description=entity.description,
@@ -271,7 +273,7 @@ class FeastRepositorySource(Source):
                         builder.make_dataset_urn(
                             source_platform,
                             source_name,
-                            self.source_config.environment
+                            self.source_config.environment,
                         )
                     )
 
