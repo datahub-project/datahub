@@ -1,0 +1,21 @@
+namespace com.linkedin.dataset
+
+import com.linkedin.common.Uri
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+import com.linkedin.common.TimeStamp
+
+/**
+ * Iceberg metadata associated with an Iceberg table/view
+ */
+@Aspect = {
+  "name": "icebergMetadata"
+}
+record IcebergMetadata {
+
+  metadataPointer: string
+
+  view: boolean
+
+  // tableProperties: map[string, string] = { }
+}

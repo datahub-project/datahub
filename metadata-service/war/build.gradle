@@ -23,6 +23,7 @@ dependencies {
   implementation project(':metadata-service:openapi-entity-servlet')
   implementation project(':metadata-service:openapi-analytics-servlet')
   implementation project(':metadata-service:schema-registry-servlet')
+  implementation project(':metadata-service:iceberg-catalog')
   runtimeOnly project(':metadata-jobs:mce-consumer')
   runtimeOnly project(':metadata-jobs:mae-consumer')
   runtimeOnly project(':metadata-jobs:pe-consumer')
