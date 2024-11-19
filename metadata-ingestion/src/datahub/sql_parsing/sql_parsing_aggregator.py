@@ -55,6 +55,7 @@ from datahub.sql_parsing.sqlglot_utils import (
 )
 from datahub.sql_parsing.tool_meta_extractor import (
     ToolMetaExtractor,
+    ToolMetaExtractorConfig,
     ToolMetaExtractorReport,
 )
 from datahub.utilities.cooperative_timeout import CooperativeTimeoutError
@@ -331,6 +332,7 @@ class SqlParsingAggregator(Closeable):
         generate_query_usage_statistics: bool = False,
         generate_operations: bool = False,
         usage_config: Optional[BaseUsageConfig] = None,
+        bi_tools_config: ToolMetaExtractorConfig = ToolMetaExtractorConfig(),
         is_temp_table: Optional[Callable[[str], bool]] = None,
         is_allowed_table: Optional[Callable[[str], bool]] = None,
         format_queries: bool = True,
@@ -490,7 +492,7 @@ class SqlParsingAggregator(Closeable):
             self._exit_stack.push(self._query_usage_counts)
 
         # Tool Extractor
-        self._tool_meta_extractor = ToolMetaExtractor()
+        self._tool_meta_extractor = ToolMetaExtractor.create(bi_tools_config, graph)
         self.report.tool_meta_report = self._tool_meta_extractor.report
 
     def close(self) -> None:

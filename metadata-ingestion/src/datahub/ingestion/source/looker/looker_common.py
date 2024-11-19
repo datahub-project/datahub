@@ -35,6 +35,11 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, create_embed_mcp
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.source.common.resource import (
+    ResourceType,
+    generate_user_id_mapping_resource_urn,
+    to_serialized_value,
+)
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.looker.looker_config import (
     LookerCommonConfig,
@@ -60,6 +65,7 @@ from datahub.ingestion.source.sql.sql_types import (
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
+from datahub.metadata._schema_classes import DataPlatformInstanceClass
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
@@ -93,6 +99,7 @@ from datahub.metadata.schema_classes import (
     EnumTypeClass,
     FineGrainedLineageClass,
     GlobalTagsClass,
+    PlatformResourceInfoClass,
     SchemaMetadataClass,
     StatusClass,
     SubTypesClass,
@@ -106,7 +113,7 @@ from datahub.utilities.lossy_collections import LossyList, LossySet
 from datahub.utilities.url_util import remove_port_from_url
 
 CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
-
+LOOKER = "looker"
 logger = logging.getLogger(__name__)
 
 
@@ -1424,6 +1431,7 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     user_resolution_latency: Dict[str, datetime.timedelta] = dataclasses_field(
         default_factory=dict
     )
+    user_cache_file: Optional[str] = None
 
     def report_total_dashboards(self, total_dashboards: int) -> None:
         self.total_dashboards = total_dashboards
@@ -1619,9 +1627,11 @@ class LookerDashboard:
 class LookerUserRegistry:
     looker_api_wrapper: LookerAPI
     fields: str = ",".join(["id", "email", "display_name", "first_name", "last_name"])
+    _user_email_cache: Dict[str, str] = {}
 
     def __init__(self, looker_api: LookerAPI):
         self.looker_api_wrapper = looker_api
+        self._user_email_cache = {}
 
     def get_by_id(self, id_: str) -> Optional[LookerUser]:
         if not id_:
@@ -1636,4 +1646,29 @@ class LookerUserRegistry:
             return None
 
         looker_user = LookerUser.create_looker_user(raw_user)
+        if looker_user.email:
+            self._user_email_cache[id_] = looker_user.email
         return looker_user
+
+    def to_platform_resource(
+        self, platform_instance: Optional[str], env: str
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+
+        dpi = DataPlatformInstanceClass(
+            platform=builder.make_data_platform_urn(LOOKER),
+            instance=platform_instance,
+        )
+        resource_urn = generate_user_id_mapping_resource_urn(
+            LOOKER, platform_instance, env
+        )
+        # TODO: Make sure all users from looker platform
+        # would be present in this cacne for every run
+        resource_info = PlatformResourceInfoClass(
+            resourceType=ResourceType.USER_ID_MAPPING,
+            value=to_serialized_value(self._user_email_cache),
+            primaryKey=platform_instance or "",
+        )
+
+        yield from MetadataChangeProposalWrapper.construct_many(
+            resource_urn, aspects=[dpi, resource_info]
+        )
