@@ -36,6 +36,7 @@ import csvLogo from '../../../../images/csv-logo.png';
 import qlikLogo from '../../../../images/qliklogo.png';
 import sigmaLogo from '../../../../images/sigmalogo.png';
 import sacLogo from '../../../../images/saclogo.svg';
+import cassandraLogo from '../../../../images/cassandralogo.png';
 import datahubLogo from '../../../../images/datahublogo.png';
 import neo4j from '../../../../images/neo4j.png'
 
@@ -130,6 +131,8 @@ export const SIGMA = 'sigma';
 export const SIGMA_URN = `urn:li:dataPlatform:${SIGMA}`;
 export const SAC = 'sac';
 export const SAC_URN = `urn:li:dataPlatform:${SAC}`;
+export const CASSANDRA = 'cassandra';
+export const CASSANDRA_URN = `urn:li:dataPlatform:${CASSANDRA}`;
 export const DATAHUB = 'datahub';
 export const DATAHUB_GC = 'datahub-gc';
 export const DATAHUB_LINEAGE_FILE = 'datahub-lineage-file';
@@ -178,6 +181,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [QLIK_SENSE_URN]: qlikLogo,
     [SIGMA_URN]: sigmaLogo,
     [SAC_URN]: sacLogo,
+    [CASSANDRA_URN]: cassandraLogo,
     [DATAHUB_URN]: datahubLogo,
     [NEO4J_URN]: neo4j
 };

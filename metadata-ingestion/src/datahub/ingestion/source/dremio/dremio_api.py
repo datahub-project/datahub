@@ -249,7 +249,7 @@ class DremioAPIOperations:
         )
         return response.json()
 
-    def execute_query(self, query: str, timeout: int = 300) -> List[Dict[str, Any]]:
+    def execute_query(self, query: str, timeout: int = 3600) -> List[Dict[str, Any]]:
         """Execute SQL query with timeout and error handling"""
         try:
             response = self.post(url="/sql", data=json.dumps({"sql": query}))
