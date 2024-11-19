@@ -4,9 +4,7 @@ source:
         uri: 'neo4j+ssc://host:7687'
         username: 'neo4j'
         password: 'password'
-        node_tag: 'Node'
-        relationship_tag: 'Relationship'
-        environment: 'PROD'
+        env: 'PROD'
 
 sink:
   type: "datahub-rest"

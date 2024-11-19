@@ -8,11 +8,7 @@ from neo4j import GraphDatabase
 from pydantic.fields import Field
 
 from datahub.configuration.source_common import EnvConfigMixin
-from datahub.emitter.mce_builder import (
-    make_data_platform_urn,
-    make_dataset_urn,
-    make_tag_urn,
-)
+from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -23,20 +19,19 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import Source, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
+from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaFieldDataType
 from datahub.metadata.schema_classes import (
     AuditStampClass,
     BooleanTypeClass,
     DatasetPropertiesClass,
     DateTypeClass,
-    GlobalTagsClass,
     NumberTypeClass,
     OtherSchemaClass,
     SchemaFieldClass,
     SchemaMetadataClass,
     StringTypeClass,
-    TagAssociationClass,
+    SubTypesClass,
     UnionTypeClass,
 )
 
@@ -60,15 +55,7 @@ class Neo4jConfig(EnvConfigMixin):
     username: str = Field(default=None, description="Neo4j Username")
     password: str = Field(default=None, description="Neo4j Password")
     uri: str = Field(default=None, description="The URI for the Neo4j server")
-    environment: str = Field(default=None, description="Neo4j env")
-    node_tag: str = Field(
-        default="Node",
-        description="The tag that will be used to show that the Neo4j object is a Node",
-    )
-    relationship_tag: str = Field(
-        default="Relationship",
-        description="The tag that will be used to show that the Neo4j object is a Relationship",
-    )
+    env: str = Field(default=None, description="Neo4j env")
     platform: str = Field(default="neo4j", description="Neo4j platform")
 
 
@@ -124,7 +111,7 @@ class Neo4jSource(Source):
         )
         return MetadataChangeProposalWrapper(
             entityUrn=make_dataset_urn(
-                platform=self.config.platform, name=dataset, env=self.config.environment
+                platform=self.config.platform, name=dataset, env=self.config.env
             ),
             aspect=dataset_properties,
         )
@@ -140,7 +127,7 @@ class Neo4jSource(Source):
             ]
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=make_dataset_urn(
-                    platform=platform, name=dataset, env=self.config.environment
+                    platform=platform, name=dataset, env=self.config.env
                 ),
                 aspect=SchemaMetadataClass(
                     schemaName=dataset,
@@ -154,41 +141,12 @@ class Neo4jSource(Source):
                     ),
                     fields=fields,
                 ),
-                systemMetadata=DatasetPropertiesClass(
-                    customProperties={"properties": "property on object"}
-                ),
             )
             self.report.obj_created += 1
             return mcp
         except Exception as e:
             log.error(e)
             self.report.obj_failures += 1
-
-    def add_tag_to_dataset(
-        self, table_name: str, tag_name: str
-    ) -> MetadataChangeProposalWrapper:
-        graph = DataHubGraph(
-            DatahubClientConfig(server=self.ctx.pipeline_config.sink.config["server"])
-        )
-        dataset_urn = make_dataset_urn(
-            platform=self.config.platform, name=table_name, env=self.config.environment
-        )
-        current_tags: Optional[GlobalTagsClass] = graph.get_aspect(
-            entity_urn=dataset_urn,
-            aspect_type=GlobalTagsClass,
-        )
-        tag_to_add = make_tag_urn(tag_name)
-        tag_association_to_add = TagAssociationClass(tag=tag_to_add)
-
-        if current_tags:
-            if tag_to_add not in [x.tag for x in current_tags.tags]:
-                current_tags.tags.append(TagAssociationClass(tag_to_add))
-        else:
-            current_tags = GlobalTagsClass(tags=[tag_association_to_add])
-        return MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=current_tags,
-        )
 
     def get_neo4j_metadata(self, query: str) -> pd.DataFrame:
         driver = GraphDatabase.driver(
@@ -211,18 +169,23 @@ class Neo4jSource(Source):
 
         See the docs for examples of metadata:  metadata-ingestion/docs/sources/neo4j/neo4j.md
         """
-        log.info(f"{query}")
-        with driver.session() as session:
-            result = session.run(query)
-            data = [record for record in result]
-        log.info("Closing Neo4j driver")
-        driver.close()
+        try:
+            log.info(f"{query}")
+            with driver.session() as session:
+                result = session.run(query)
+                data = [record for record in result]
+            log.info("Closing Neo4j driver")
+            driver.close()
 
-        node_df = self.process_nodes(data)
-        rel_df = self.process_relationships(data, node_df)
+            node_df = self.process_nodes(data)
+            rel_df = self.process_relationships(data, node_df)
 
-        union_cols = ["key", "obj_type", "property_data_types", "description"]
-        df = pd.concat([node_df[union_cols], rel_df[union_cols]])
+            union_cols = ["key", "obj_type", "property_data_types", "description"]
+            df = pd.concat([node_df[union_cols], rel_df[union_cols]])
+        except Exception as e:
+            self.report.failure(
+                exc=e,
+            )
 
         return df
 
@@ -326,11 +289,19 @@ class Neo4jSource(Source):
 
                 yield MetadataWorkUnit(
                     id=row["key"],
-                    mcp=self.add_tag_to_dataset(
-                        table_name=row["key"],
-                        tag_name=self.config.node_tag
-                        if row["obj_type"] == "node"
-                        else self.config.relationship_tag,
+                    mcp=MetadataChangeProposalWrapper(
+                        entityUrn=make_dataset_urn(
+                            platform=self.config.platform,
+                            name=row["key"],
+                            env=self.config.env,
+                        ),
+                        aspect=SubTypesClass(
+                            typeNames=[
+                                DatasetSubTypes.NEO4J_NODE
+                                if row["obj_type"] == "node"
+                                else DatasetSubTypes.NEO4J_RELATIONSHIP
+                            ]
+                        ),
                     ),
                 )
 

@@ -37,6 +37,7 @@ import qlikLogo from '../../../../images/qliklogo.png';
 import sigmaLogo from '../../../../images/sigmalogo.png';
 import sacLogo from '../../../../images/saclogo.svg';
 import datahubLogo from '../../../../images/datahublogo.png';
+import neo4j from '../../../../images/neo4j.png'
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
@@ -134,6 +135,8 @@ export const DATAHUB_GC = 'datahub-gc';
 export const DATAHUB_LINEAGE_FILE = 'datahub-lineage-file';
 export const DATAHUB_BUSINESS_GLOSSARY = 'datahub-business-glossary';
 export const DATAHUB_URN = `urn:li:dataPlatform:${DATAHUB}`;
+export const NEO4J = "neo4j"
+export const NEO4J_URN = `urn:li:dataPlatform:${NEO4J}`
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
@@ -176,6 +179,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [SIGMA_URN]: sigmaLogo,
     [SAC_URN]: sacLogo,
     [DATAHUB_URN]: datahubLogo,
+    [NEO4J_URN]: neo4j
 };
 
 export const SOURCE_TO_PLATFORM_URN = {

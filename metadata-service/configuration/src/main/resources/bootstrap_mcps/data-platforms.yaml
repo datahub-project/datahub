@@ -717,3 +717,14 @@
     displayName: Dremio
     type: QUERY_ENGINE
     logoUrl: "/assets/platforms/dremiologo.png"
+- entityUrn: urn:li:dataPlatform:neo4j
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: neo4j
+    displayName: Neo4j
+    type: OTHER
+    logoUrl: "/assets/platforms/neo4j.png"
+
