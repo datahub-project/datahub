@@ -62,7 +62,7 @@ function normalizeObjectKeys(object: Record<string, unknown>, isSchemaField = fa
         Object.entries(object).map(([key, value]) => {
             let normalizedKey = key.toLowerCase();
             if (isSchemaField) {
-                normalizedKey = downgradeV2FieldPath(key) || key;
+                normalizedKey = downgradeV2FieldPath(normalizedKey) || normalizedKey;
             }
             return [normalizedKey, value];
         }),
