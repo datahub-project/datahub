@@ -24,6 +24,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source import StructuredLogLevel
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.mssql.job_models import (
     JobStep,
@@ -35,6 +37,9 @@ from datahub.ingestion.source.sql.mssql.job_models import (
     ProcedureLineageStream,
     ProcedureParameter,
     StoredProcedure,
+)
+from datahub.ingestion.source.sql.mssql.stored_procedure_lineage import (
+    add_procedure_to_aggregator,
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -51,6 +56,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     UnionTypeClass,
 )
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -98,6 +104,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     convert_urns_to_lowercase: bool = Field(
         default=False,
         description="Enable to convert the SQL Server assets urns to lowercase",
+    )
+    include_lineage: bool = Field(
+        default=True,
+        description="Enable lineage extraction for views and stored procedures",
     )
 
     @pydantic.validator("uri_args")
@@ -161,6 +171,17 @@ class SQLServerSource(SQLAlchemySource):
         self.current_database = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
+        self.sql_aggregator = SqlParsingAggregator(
+            platform=self.platform,
+            env=self.config.env,
+            schema_resolver=self.schema_resolver,
+            graph=ctx.graph,
+            generate_lineage=self.config.include_lineage,
+            generate_queries=True,
+            generate_usage_statistics=False,
+            generate_operations=False,
+            generate_query_usage_statistics=False,
+        )
         if self.config.include_descriptions:
             for inspector in self.get_inspectors():
                 db_name: str = self.get_db_name(inspector)
@@ -429,8 +450,22 @@ class SQLServerSource(SQLAlchemySource):
                 )
                 if procedure_definition:
                     data_job.add_property("definition", procedure_definition)
-                if sql_config.include_stored_procedures_code and procedure_code:
-                    data_job.add_property("code", procedure_code)
+                if procedure_code:
+                    if self.config.include_lineage:
+                        with self.report.report_exc(
+                            message="Failed to parse stored procedure lineage",
+                            context=procedure.full_name,
+                            level=StructuredLogLevel.WARN,
+                        ):
+                            add_procedure_to_aggregator(
+                                aggregator=self.sql_aggregator,
+                                procedure_code=procedure_code,
+                                default_db=db_name,
+                                default_schema=schema,
+                                procedure_job_urn=data_job.urn,
+                            )
+                    if self.config.include_stored_procedures_code:
+                        data_job.add_property("code", procedure_code)
                 procedure_inputs = self._get_procedure_inputs(conn, procedure)
                 properties = self._get_procedure_properties(conn, procedure)
                 data_job.add_property(
@@ -664,3 +699,7 @@ class SQLServerSource(SQLAlchemySource):
             if self.config.convert_urns_to_lowercase
             else qualified_table_name
         )
+
+    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        yield from super().get_workunits_internal()
+        yield from auto_workunit(self.sql_aggregator.gen_metadata())
