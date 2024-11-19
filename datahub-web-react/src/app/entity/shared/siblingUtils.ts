@@ -57,7 +57,7 @@ const combineMerge = (target, source, options) => {
 };
 
 // this function is responsible for normalizing object keys to make sure merging on key matches keys appropriately
-function normalizeObjectKeys(object: Record<string, unknown>, isSchemaField: boolean = false) {
+function normalizeObjectKeys(object: Record<string, unknown>, isSchemaField = false) {
     return Object.fromEntries(
         Object.entries(object).map(([key, value]) => {
             let normalizedKey = key.toLowerCase();
@@ -70,12 +70,7 @@ function normalizeObjectKeys(object: Record<string, unknown>, isSchemaField: boo
 }
 
 // use when you want to merge an array of objects by key in the object as opposed to by index of array
-const mergeArrayOfObjectsByKey = (
-    destinationArray: any[],
-    sourceArray: any[],
-    key: string,
-    isSchemaField: boolean = false,
-) => {
+const mergeArrayOfObjectsByKey = (destinationArray: any[], sourceArray: any[], key: string, isSchemaField = false) => {
     const destination = normalizeObjectKeys(keyBy(destinationArray, key), isSchemaField);
     const source = normalizeObjectKeys(keyBy(sourceArray, key), isSchemaField);
 
@@ -132,7 +127,7 @@ function getArrayMergeFunction(key) {
     }
 }
 
-const customMerge = (isPrimary, key) => {
+function customMerge(isPrimary, key) {
     if (key === 'upstream' || key === 'downstream') {
         return (_secondary, primary) => primary;
     }
@@ -165,7 +160,7 @@ const customMerge = (isPrimary, key) => {
             customMerge: customMerge.bind({}, isPrimary),
         });
     };
-};
+}
 
 export const getEntitySiblingData = <T>(baseEntity: T): Maybe<SiblingProperties> => {
     if (!baseEntity) {
