@@ -8,7 +8,7 @@ import requests
 from OpenSSL.crypto import FILETYPE_PEM, load_certificate
 from pydantic.types import SecretStr
 
-from datahub.configuration.oauth import OAuthIdentityProvider
+from datahub.ingestion.source.snowflake.oauth_config import OAuthIdentityProvider
 
 logger = logging.getLogger(__name__)
 
