@@ -318,7 +318,10 @@ class FeastRepositorySource(Source):
         feature_view_snapshot.aspects.append(
             MLFeatureTablePropertiesClass(
                 mlFeatures=[
-                    builder.make_ml_feature_urn(feature_view_name, feature.name)
+                    builder.make_ml_feature_urn(
+                        feature_view_name,
+                        feature.name,
+                    )
                     for feature in feature_view.features
                 ],
                 mlPrimaryKeys=[
