@@ -72,7 +72,7 @@ export const SearchInputContainer = styled.div({
 });
 
 export const SearchInput = styled.input({
-    width: '90%',
+    width: '100%',
     borderRadius: radius.md,
     border: `1px solid ${colors.gray[200]}`,
     color: colors.gray[500],

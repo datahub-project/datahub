@@ -1,7 +1,8 @@
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';
-import { Form, Select } from 'antd';
+import { Form } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { SimpleSelect } from '@src/alchemy-components';
 import { FieldLabel } from '../styledComponents';
 
 const StructuredPropertyQuestion = () => {
@@ -49,8 +50,16 @@ const StructuredPropertyQuestion = () => {
                         message: 'Please select the structured property',
                     },
                 ]}
+                trigger="onUpdate"
+                valuePropName="values"
+                normalize={(value) => value?.[0]}
             >
-                <Select placeholder="Select Structured Property" options={structuredProperties} />
+                <SimpleSelect
+                    placeholder="Select Structured Property"
+                    options={structuredProperties ?? []}
+                    width="full"
+                    showSearch
+                />
             </Form.Item>
         </>
     );
