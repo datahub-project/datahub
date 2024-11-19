@@ -63,9 +63,9 @@ def before_cursor_execute(conn, cursor, statement, parameters, context, executem
 
 
 class OracleConfig(BasicSQLAlchemyConfig):
-    # defaults
+    # TODO: Change scheme to oracle+oracledb when sqlalchemy>=2 is supported
     scheme: str = Field(
-        default="oracle+oracledb",
+        default="oracle",
         description="Will be set automatically to default value.",
     )
     service_name: Optional[str] = Field(
