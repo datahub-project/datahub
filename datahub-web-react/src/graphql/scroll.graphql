@@ -393,6 +393,25 @@ fragment downloadSearchResults on Entity {
     ... on DataPlatform {
         ...nonConflictingPlatformFields
     }
+    ... on DataProduct {
+        properties {
+            name
+            description
+            externalUrl
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+        domain {
+            ...entityDomain
+        }
+    }
 }
 
 fragment downloadScrollResult on ScrollResults {
