@@ -575,8 +575,8 @@ featureFlags:
   businessAttributeEntityEnabled: ${BUSINESS_ATTRIBUTE_ENTITY_ENABLED:false} # Enables business attribute entity which can be associated with field of dataset
   dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:true} # Enables the Data Contracts feature (Tab) in the UI
   alternateMCPValidation: ${ALTERNATE_MCP_VALIDATION:false} # Enables alternate MCP validation flow
-  themeV2Enabled: ${THEME_V2_ENABLED:false} # Acryl only! Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be true for this to have any effect.
-  themeV2Default: ${THEME_V2_DEFAULT:false} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
+  themeV2Enabled: ${THEME_V2_ENABLED:true} # Acryl only! Allows theme v2 to be turned on. One of themeV2Default and themeV2Toggleable must be true for this to have any effect.
+  themeV2Default: ${THEME_V2_DEFAULT:true} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
   themeV2Toggleable: ${THEME_V2_TOGGLEABLE:true} # Acryl only! Allows theme v2 to be toggled on / off by users.
   metadataShareEnabled: ${METADATA_SHARE_ENABLED:false} # Enables the metadata sharing feature to share entities between instances
   documentationFormsEnabled: ${FEATURE_DOCUMENTATION_FORMS_ENABLED:false} # Enables the documentation forms feature and shows/hides everything for it in the UI
