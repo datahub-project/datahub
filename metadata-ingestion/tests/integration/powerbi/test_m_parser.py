@@ -1083,8 +1083,9 @@ def test_empty_string_in_m_query():
 
 def test_double_quotes_in_alias():
     # SELECT CAST(sales_date AS DATE) AS \"\"Date\"\" in query
-    q = 'let \n Source = Sql.Database("abc.com", "DB", [Query="SELECT CAST(sales_date AS DATE) AS ""Date"",#(lf) SUM(cshintrpret) / 60.0      AS ""Total Order All Items"",#(lf)#(tab)#(tab)#(tab)  SUM(cshintrpret) / 60.0 - LAG(SUM(cshintrpret) / 60.0, 1) OVER (ORDER BY CAST(sales_date AS DATE)) AS ""Total minute difference"",#(lf)#(tab)#(tab)#(tab)  SUM(sale_price)  / 60.0 - LAG(SUM(sale_price)  / 60.0, 1) OVER (ORDER BY CAST(sales_date AS DATE)) AS ""Normal minute difference""#(lf)        FROM   [DB].[dbo].[sales_t]#(lf)        WHERE  sales_date >= GETDATE() - 365#(lf)        GROUP  BY CAST(sales_date AS DATE),#(lf)#(tab)#(tab)CAST(sales_date AS TIME);"]) \n in \n Source'
+    #q = 'let \n Source = Sql.Database("abc.com", "DB", [Query="SELECT CAST(sales_date AS DATE) AS ""Date"",#(lf) SUM(cshintrpret) / 60.0      AS ""Total Order All Items"",#(lf)#(tab)#(tab)#(tab)  SUM(cshintrpret) / 60.0 - LAG(SUM(cshintrpret) / 60.0, 1) OVER (ORDER BY CAST(sales_date AS DATE)) AS ""Total minute difference"",#(lf)#(tab)#(tab)#(tab)  SUM(sale_price)  / 60.0 - LAG(SUM(sale_price)  / 60.0, 1) OVER (ORDER BY CAST(sales_date AS DATE)) AS ""Normal minute difference""#(lf)        FROM   [DB].[dbo].[sales_t]#(lf)        WHERE  sales_date >= GETDATE() - 365#(lf)        GROUP  BY CAST(sales_date AS DATE),#(lf)#(tab)#(tab)CAST(sales_date AS TIME);"]) \n in \n Source'
 
+    q = 'let\n    Source = Sql.Databases("svrs-prod-crm-sqlsvr.database.windows.net"),\n    #"crm-data-export" = Source{[Name="crm-data-export"]}[Data],\n    reports_v_account = #"crm-data-export"{[Schema="reports",Item="v_account"]}[Data],\n    #"Renamed Columns" = Table.RenameColumns(reports_v_account,{{"name", "Name"}}),\n    #"Changed Type" = Table.TransformColumnTypes(#"Renamed Columns",{{"Customer_ID", Int64.Type}})\nin\n    #"Changed Type"'
     lineage: List[resolver.Lineage] = get_data_platform_tables_with_dummy_table(q=q)
 
     assert len(lineage) == 1

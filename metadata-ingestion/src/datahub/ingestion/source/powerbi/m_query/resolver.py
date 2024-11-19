@@ -680,7 +680,8 @@ class DefaultTwoStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
         logger.debug(
             f"Processing {self.get_platform_pair().powerbi_data_platform_name} data-access function detail {data_access_func_detail}"
         )
-
+        import pdb
+        pdb.set_trace()
         server, db_name = self.get_db_detail_from_argument(
             data_access_func_detail.arg_list
         )
@@ -1002,7 +1003,6 @@ class DefaultThreeStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
         logger.debug(
             f"Processing {self.get_platform_pair().datahub_data_platform_name} function detail {data_access_func_detail}"
         )
-
         arguments: List[str] = tree_function.remove_whitespaces_from_list(
             tree_function.token_values(data_access_func_detail.arg_list)
         )
@@ -1048,6 +1048,22 @@ class SnowflakeDataPlatformTableCreator(DefaultThreeStepDataAccessSources):
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.SNOWFLAKE.value
 
+
+class MsSqlThreeStepsDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
+    """
+    PowerBI M-Query has two DataAccess function
+    1.  Sql.Database
+    2.  Sql.Databases
+    For #2 database detail is not available in argument and accessing database, schema and table name
+    is as per DefaultThreeStepDataAccessSources implementation
+    """
+    def create_lineage(
+        self, data_access_func_detail: DataAccessFunctionDetail
+    ) -> Lineage:
+        return self.two_level_access_pattern(data_access_func_detail)
+
+    def get_platform_pair(self) -> DataPlatformPair:
+        return SupportedDataPlatform.MS_SQL.value
 
 class GoogleBigQueryDataPlatformTableCreator(DefaultThreeStepDataAccessSources):
     def get_platform_pair(self) -> DataPlatformPair:
@@ -1257,6 +1273,7 @@ class FunctionName(Enum):
     ORACLE_DATA_ACCESS = "Oracle.Database"
     SNOWFLAKE_DATA_ACCESS = "Snowflake.Databases"
     MSSQL_DATA_ACCESS = "Sql.Database"
+    MSSQL_THREE_STEP_DATA_ACCESS = "Sql.Databases"
     DATABRICK_DATA_ACCESS = "Databricks.Catalogs"
     GOOGLE_BIGQUERY_DATA_ACCESS = "GoogleBigQuery.Database"
     AMAZON_REDSHIFT_DATA_ACCESS = "AmazonRedshift.Database"
@@ -1292,6 +1309,11 @@ class SupportedResolver(Enum):
     MS_SQL = (
         MSSqlDataPlatformTableCreator,
         FunctionName.MSSQL_DATA_ACCESS,
+    )
+
+    MS_Three_Step_SQL = (
+        MsSqlThreeStepsDataPlatformTableCreator,
+        FunctionName.MSSQL_THREE_STEP_DATA_ACCESS,
     )
 
     GOOGLE_BIG_QUERY = (
