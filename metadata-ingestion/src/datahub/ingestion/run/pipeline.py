@@ -428,6 +428,7 @@ class Pipeline:
     def _time_to_print(self) -> bool:
         self.num_intermediate_workunits += 1
         current_time = int(time.time())
+        # TODO: Replace with ProgressTimer.
         if current_time - self.last_time_printed > _REPORT_PRINT_INTERVAL_SECONDS:
             # we print
             self.num_intermediate_workunits = 0
