@@ -570,6 +570,9 @@ class DataHubListener:
     def on_dag_start(self, dag_run: "DagRun") -> None:
         dag = dag_run.dag
         if not dag:
+            logger.warning(
+                f"DataHub listener could not find DAG for {dag_run.dag_id} - {dag_run.run_id}. Dag won't be captured"
+            )
             return
 
         dataflow = AirflowGenerator.generate_dataflow(
@@ -577,6 +580,7 @@ class DataHubListener:
             dag=dag,
         )
         dataflow.emit(self.emitter, callback=self._make_emit_callback())
+        logger.debug(f"Emitted DataHub DataFlow: {dataflow}")
 
         event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
             entityUrn=str(dataflow.urn), aspect=StatusClass(removed=False)
