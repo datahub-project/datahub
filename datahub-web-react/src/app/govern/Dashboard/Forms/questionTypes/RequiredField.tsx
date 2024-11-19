@@ -24,10 +24,7 @@ const RequiredField = ({ form, isRequired, setIsRequired }: Props) => {
                     />
                 </Form.Item>
                 <StyledLabel>Requires response</StyledLabel>
-                <Tooltip
-                    title="People filling out this form must provide an answer to complete the form"
-                    showArrow={false}
-                >
+                <Tooltip title="An answer must be provided for this question" showArrow={false}>
                     <Icon icon="Info" color="violet" size="lg" />
                 </Tooltip>
             </RequiredFieldContainer>
