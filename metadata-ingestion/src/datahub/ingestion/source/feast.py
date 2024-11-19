@@ -237,10 +237,12 @@ class FeastRepositorySource(Source):
         )
 
         mce = MetadataChangeEvent(proposedSnapshot=entity_snapshot)
+
         return MetadataWorkUnit(id=entity.name, mce=mce)
 
     def _get_feature_workunit(
         self,
+        # FIXME: FeatureView and OnDemandFeatureView cannot be used as a type
         feature_view: Union[FeatureView, OnDemandFeatureView],
         field: FeastField,
     ) -> MetadataWorkUnit:
@@ -259,23 +261,28 @@ class FeastRepositorySource(Source):
         if isinstance(feature_view, FeatureView):
             feature_sources = self._get_data_sources(feature_view)
         elif isinstance(feature_view, OnDemandFeatureView):
-            if feature_view.source_request_sources:
+            if feature_view.source_request_sources is not None:
                 for request_source in feature_view.source_request_sources.values():
                     source_platform, source_name = self._get_data_source_details(
                         request_source
                     )
+
                     feature_sources.append(
                         builder.make_dataset_urn(
-                            source_platform, source_name, self.source_config.environment
+                            source_platform,
+                            source_name,
+                            self.source_config.environment
                         )
                     )
-            if feature_view.source_feature_view_projections:
+
+            if feature_view.source_feature_view_projections is not None:
                 for (
                     feature_view_projection
                 ) in feature_view.source_feature_view_projections.values():
                     feature_view_source = self.feature_store.get_feature_view(
                         feature_view_projection.name
                     )
+
                     feature_sources.extend(self._get_data_sources(feature_view_source))
 
         feature_snapshot.aspects.append(
@@ -287,12 +294,14 @@ class FeastRepositorySource(Source):
         )
 
         mce = MetadataChangeEvent(proposedSnapshot=feature_snapshot)
+
         return MetadataWorkUnit(id=field.name, mce=mce)
 
     def _get_feature_view_workunit(self, feature_view: FeatureView) -> MetadataWorkUnit:
         """
         Generate an MLFeatureTable work unit for a Feast feature view.
         """
+
         feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
         aspects = [
             BrowsePathsClass(paths=[f"/feast/{self.feature_store.project}"]),
@@ -318,6 +327,7 @@ class FeastRepositorySource(Source):
         )
 
         mce = MetadataChangeEvent(proposedSnapshot=feature_view_snapshot)
+
         return MetadataWorkUnit(id=feature_view_name, mce=mce)
 
     def _get_on_demand_feature_view_workunit(
@@ -394,7 +404,6 @@ class FeastRepositorySource(Source):
         return cls(config, ctx)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-
         for feature_view in self.feature_store.list_feature_views():
             for entity_name in feature_view.entities:
                 entity = self.feature_store.get_entity(entity_name)
