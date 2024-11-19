@@ -283,23 +283,21 @@ class LookMLSource(StatefulIngestionSourceBase):
     """
 
     platform = "lookml"
-    source_config: LookMLSourceConfig
-    reporter: LookMLSourceReport
-    looker_client: Optional[LookerAPI] = None
-
-    # This is populated during the git clone step.
-    base_projects_folder: Dict[str, pathlib.Path] = {}
-    remote_projects_git_info: Dict[str, GitInfo] = {}
 
     def __init__(self, config: LookMLSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
-        self.source_config = config
+        self.source_config: LookMLSourceConfig = config
         self.ctx = ctx
         self.reporter = LookMLSourceReport()
 
         # To keep track of projects (containers) which have already been ingested
         self.processed_projects: List[str] = []
 
+        # This is populated during the git clone step.
+        self.base_projects_folder: Dict[str, pathlib.Path] = {}
+        self.remote_projects_git_info: Dict[str, GitInfo] = {}
+
+        self.looker_client: Optional[LookerAPI] = None
         if self.source_config.api:
             self.looker_client = LookerAPI(self.source_config.api)
             self.reporter._looker_api = self.looker_client
