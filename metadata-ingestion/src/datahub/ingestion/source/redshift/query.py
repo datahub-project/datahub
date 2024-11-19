@@ -307,7 +307,7 @@ FROM (
         c.file_name AS filename,
         ROW_NUMBER() OVER (
             PARTITION BY sti."schema", sti."table"
-            ORDER BY si.start_time ASC
+            ORDER BY si.start_time DESC
         ) AS rn
     FROM
         SYS_QUERY_DETAIL AS si
