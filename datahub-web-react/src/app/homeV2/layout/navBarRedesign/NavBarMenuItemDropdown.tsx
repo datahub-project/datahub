@@ -18,7 +18,7 @@ const StyledDropDownOption = styled.div<{ $disabled?: boolean }>`
     border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
     ${(props) =>
         props.$disabled
-            ? `color: ${colors.gray[1700]};`
+            ? `color: ${colors.gray[1800]};`
             : `
                 cursor: pointer;
                 &:hover {
@@ -47,6 +47,8 @@ export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, 
         const clickedItem = item.items?.filter((dropdownItem) => dropdownItem.key === key)?.[0];
         if (!clickedItem) return null;
 
+        if (clickedItem.disabled) return null;
+
         if (clickedItem.onClick) return clickedItem.onClick();
 
         if (clickedItem.link && clickedItem.isExternalLink)
@@ -66,6 +68,9 @@ export default function NavBarMenuItemDropdown({ item, isCollapsed, isSelected, 
                                 <StyledDropDownOption
                                     key={dropdownItem.key}
                                     $disabled={dropdownItem.disabled}
+                                    role="menuitem"
+                                    aria-label={dropdownItem.title}
+                                    aria-disabled={dropdownItem.disabled}
                                     onClick={() => onItemClick(dropdownItem.key)}
                                 >
                                     <Text>{dropdownItem.title}</Text>

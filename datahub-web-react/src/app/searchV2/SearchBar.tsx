@@ -50,7 +50,7 @@ const SkeletonButton = styled(Skeleton.Button)`
 const AutoCompleteContainer = styled.div<{ viewsEnabled?: boolean; $isShowNavBarRedesign?: boolean }>`
     padding: 0 30px;
     align-items: center;
-    border: ${(props) => (props.$isShowNavBarRedesign ? '1px solid #EBECF0' : '2px solid transparent')};
+    border: ${(props) => (props.$isShowNavBarRedesign ? `2px solid ${colors.gray[100]}` : '2px solid transparent')};
     ${(props) => props.$isShowNavBarRedesign && 'box-shadow: 0px 1px 2px 0px rgba(33, 23, 95, 0.07)'};
 
     transition: border-color 0.3s ease;
@@ -120,13 +120,13 @@ const ViewSelectContainer = styled.div`
 `;
 
 const SearchIcon = styled(SearchOutlined)<{ $isShowNavBarRedesign?: boolean }>`
-    color: ${(props) => (props.$isShowNavBarRedesign ? REDESIGN_COLORS.GREY_300 : '#dcdcdc')};
+    color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1800] : '#dcdcdc')};
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
         && svg {
-            width: 20px;
-            height: 20px;
+            width: 16px;
+            height: 16px;
         }    
     `}
 `;
@@ -466,6 +466,7 @@ export const SearchBar = ({
                         maxHeight: 1000,
                         overflowY: 'visible',
                         position: (fixAutoComplete && 'fixed') || 'relative',
+                        ...(isShowNavBarRedesign ? { minWidth: '435px' } : {}),
                     }}
                     onDropdownVisibleChange={(isOpen) => {
                         if (!isOpen) {

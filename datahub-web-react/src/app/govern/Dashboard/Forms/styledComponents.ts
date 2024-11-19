@@ -197,7 +197,7 @@ export const StyledModal = styled(Modal)`
 
 export const StyledRadioGroup = styled(Radio.Group)`
     span {
-        color: ${colors.gray[1600]};
+        color: ${colors.gray[1700]};
     }
     .ant-radio-checked .ant-radio-inner {
         border-color: ${theme.semanticTokens.colors.primary} !important;
@@ -369,7 +369,7 @@ ${(props) =>
 `;
 
 export const StyledLabel = styled.label`
-    color: ${colors.gray[1600]};
+    color: ${colors.gray[1700]};
     margin-left: 8px;
 `;
 
@@ -379,7 +379,7 @@ export const WarningWrapper = styled.div`
     border-radius: 4px;
     padding: 6px 4px;
     font-size: 14px;
-    color: ${colors.gray[1600]};
+    color: ${colors.gray[1700]};
     margin: 0 0 20px 0;
     display: flex;
     align-items: center;

@@ -18,9 +18,9 @@ type Props = {
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     display: flex;
     width: 100%;
-    ${(props) => !props.$isShowNavBarRedesign && 'padding: 0px 20px 0px 80px;'}
+    padding: ${(props) => (props.$isShowNavBarRedesign ? '0 8px 8px 8px' : '0px 20px 0px 80px')};
     color: ${ANTD_GRAY[1]};
-    gap: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '0.5rem')};
+    gap: ${(props) => (props.$isShowNavBarRedesign ? '4px' : '0.5rem')};
     flex-direction: column;
     position: relative;
     &:hover {

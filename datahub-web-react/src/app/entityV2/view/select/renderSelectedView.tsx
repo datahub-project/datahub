@@ -22,13 +22,13 @@ const SelectButton = styled(Button)<{ $selectedViewName: string; $isShowNavBarRe
         return props.$selectedViewName ? SEARCH_COLORS.TITLE_PURPLE : 'transparent';
     }};
     color: ${(props) => (props.$isShowNavBarRedesign ? colors.violet[500] : ANTD_GRAY[1])};
-    max-width: 150px;
+    max-width: ${(props) => (props.$isShowNavBarRedesign ? '120px' : '150px')};
 
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
         height: 28px;
-        padding: 4px 8px;
+        padding: 3px 8px;
         display: flex;
         box-shadow: none;
         line-height: 20px;

@@ -2,17 +2,18 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
+import { colors } from '@src/alchemy-components';
 import NavBarToggler from './NavBarToggler';
 import { useNavBarContext } from './NavBarContext';
 
-const Container = styled.div<{ isCollapsed?: boolean }>`
+const Container = styled.div`
     display: flex;
     width: 100%;
     height: 40px;
     min-height: 40px;
     align-items: center;
     gap: 8px;
-    ${(props) => props.isCollapsed && 'padding-left: 4px;'}
+    padding-left: 4px;
     transition: padding 250ms ease-in-out;
 `;
 
@@ -23,10 +24,13 @@ const Logotype = styled.div`
     width: 28px;
     height: 28px;
     border-radius: 4px;
-    background: white;
+    background: ${colors.white};
+    padding: 4px;
+    position: relative;
 
     & svg {
         height: 20px;
+        width: 20px;
     }
 `;
 
@@ -59,7 +63,7 @@ export default function NavBarHeader({ logotype }: Props) {
     const customName = globalSettings?.visualSettings?.customOrgName;
 
     return (
-        <Container isCollapsed={isCollapsed}>
+        <Container>
             <StyledLink to="/">
                 <Logotype>{logotype}</Logotype>
                 {!isCollapsed ? <Title>{customName || 'Acryl Data'}</Title> : null}

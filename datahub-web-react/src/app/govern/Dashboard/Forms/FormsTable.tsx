@@ -42,7 +42,7 @@ const FormName = styled(Typography.Text)`
 const FormDescription = styled(Typography.Text)`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1600]};
+    color: ${colors.gray[1700]};
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

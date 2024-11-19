@@ -29,7 +29,7 @@ export const DataProducts = () => {
         <div id={HOME_PAGE_DATA_PRODUCTS_ID}>
             {loading && <HorizontalListSkeletons Component={SkeletonCard} />}
             {!loading && dataProducts && !!dataProducts.length && (
-                <Section title="Data Products" actionText="view all" onClickAction={navigateToDataProducts}>
+                <Section title="Data Products" actionText="View all" onClickAction={navigateToDataProducts}>
                     <Carousel>
                         {dataProducts.map((item) => {
                             const { dataProduct, domain } = item;

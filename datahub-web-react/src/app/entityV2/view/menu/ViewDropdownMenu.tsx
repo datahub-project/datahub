@@ -4,6 +4,7 @@ import { useApolloClient } from '@apollo/client';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { Dropdown, Menu, message, Modal } from 'antd';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { colors } from '@src/alchemy-components';
 import { DataHubView, DataHubViewType } from '../../../../types.generated';
 import { useUserContext } from '../../../context/useUserContext';
 import { useUpdateCorpUserViewsSettingsMutation } from '../../../../graphql/user.generated';
@@ -24,7 +25,7 @@ import analytics, { EventType } from '../../../analytics';
 
 const MenuButton = styled(MoreVertIcon)<{ $isShowNavBarRedesign?: boolean }>`
     width: 20px;
-    ${(props) => props.$isShowNavBarRedesign && 'color: black;'}
+    ${(props) => props.$isShowNavBarRedesign && `color: ${colors.gray[1800]};`}
     &&& {
         padding-left: 0px;
         padding-right: 0px;

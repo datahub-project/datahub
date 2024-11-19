@@ -1,6 +1,5 @@
 import React, { useContext, useEffect } from 'react';
 import { useGlobalSettingsContext } from '@src/app/context/GlobalSettings/GlobalSettingsContext';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '@src/app/onboarding/config/HomePageOnboardingConfig';
 import { useHandleOnboardingTour } from '@src/app/onboarding/useHandleOnboardingTour';
 import { useUpdateEducationStepsAllowList } from '@src/app/onboarding/useUpdateEducationStepsAllowList';
@@ -26,6 +25,8 @@ import {
 } from '@phosphor-icons/react';
 import styled, { useTheme } from 'styled-components';
 import useGetLogoutHandler from '@src/app/auth/useGetLogoutHandler';
+import { generateReleaseNotesLink } from '@src/conf/utils';
+import { colors } from '@src/alchemy-components';
 import AcrylIcon from '../../../../images/acryl-light-mark.svg?react';
 import { useUserContext } from '../../../context/useUserContext';
 import OnboardingContext from '../../../onboarding/OnboardingContext';
@@ -39,7 +40,7 @@ import useSelectedKey from './useSelectedKey';
 
 const Container = styled.div`
     height: 100vh;
-    background-color: ${REDESIGN_COLORS.BACKGROUUND_NAVBAR_REDESIGN};
+    background-color: ${colors.gray[1600]};
     display: flex;
     flex: column;
     align-items: center;
@@ -48,9 +49,9 @@ const Container = styled.div`
 const Content = styled.div<{ isCollapsed: boolean }>`
     display: flex;
     flex-direction: column;
-    padding: 17px 9px 17px 17px;
+    padding: 17px 8px 17px 16px;
     height: 100%;
-    width: ${(props) => (props.isCollapsed ? '60px' : '267px')};
+    width: ${(props) => (props.isCollapsed ? '60px' : '264px')};
     transition: width 250ms ease-in-out;
     overflow-x: hidden;
 `;
@@ -69,7 +70,7 @@ const Spacer = styled.div`
 const DEFAULT_LOGO = '/assets/logos/acryl-dark-mark.svg';
 
 const MenuWrapper = styled.div`
-    margin-top: 40px;
+    margin-top: 14px;
     height: 100%;
 `;
 
@@ -129,6 +130,8 @@ export const NavSidebar = () => {
         key: `helpMenu${value.label}`,
     })) as NavBarMenuDropdownItemElement[];
 
+    const versionLink = generateReleaseNotesLink(config?.appVersion);
+
     const mainMenu: NavBarMenuItems = {
         items: [
             {
@@ -142,15 +145,6 @@ export const NavSidebar = () => {
             },
             {
                 type: NavBarMenuItemTypes.Item,
-                title: 'Data Sources',
-                key: 'dataSources',
-                isHidden: !showDataSources,
-                icon: <Plugs />,
-                selectedIcon: <Plugs weight="fill" />,
-                link: PageRoutes.INGESTION,
-            },
-            {
-                type: NavBarMenuItemTypes.Item,
                 title: 'Tasks',
                 icon: <ListChecks />,
                 selectedIcon: <ListChecks weight="fill" />,
@@ -161,15 +155,6 @@ export const NavSidebar = () => {
                     count: unfinishedTaskCount,
                     show: unfinishedTaskCount > 0,
                 },
-            },
-            {
-                type: NavBarMenuItemTypes.Item,
-                title: 'Analytics',
-                icon: <TrendUp />,
-                selectedIcon: <TrendUp weight="fill" />,
-                key: 'analytics',
-                isHidden: !showAnalytics,
-                link: PageRoutes.ANALYTICS,
             },
             {
                 type: NavBarMenuItemTypes.Group,
@@ -252,6 +237,31 @@ export const NavSidebar = () => {
                 ],
             },
             {
+                type: NavBarMenuItemTypes.Group,
+                key: 'admin',
+                title: 'Admin',
+                items: [
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Data Sources',
+                        key: 'dataSources',
+                        isHidden: !showDataSources,
+                        icon: <Plugs />,
+                        selectedIcon: <Plugs weight="fill" />,
+                        link: PageRoutes.INGESTION,
+                    },
+                    {
+                        type: NavBarMenuItemTypes.Item,
+                        title: 'Analytics',
+                        icon: <TrendUp />,
+                        selectedIcon: <TrendUp weight="fill" />,
+                        key: 'analytics',
+                        isHidden: !showAnalytics,
+                        link: PageRoutes.ANALYTICS,
+                    },
+                ],
+            },
+            {
                 type: NavBarMenuItemTypes.Custom,
                 key: 'spacer',
                 render: () => <Spacer />,
@@ -322,8 +332,10 @@ export const NavSidebar = () => {
                         type: NavBarMenuItemTypes.DropdownElement,
                         title: config?.appVersion || '',
                         isHidden: !config?.appVersion,
+                        link: versionLink,
+                        isExternalLink: true,
                         key: 'helpAppVersion',
-                        disabled: true,
+                        disabled: !versionLink,
                     },
                 ],
             },

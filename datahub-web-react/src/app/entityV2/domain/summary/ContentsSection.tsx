@@ -64,7 +64,7 @@ export const ContentsSection = () => {
             <SummaryTabHeaderWrapper>
                 <SummaryTabHeaderTitle icon={<AppstoreOutlined />} title={`Assets (${contentsCount})`} />
                 <ViewAllButton onClick={() => navigateToDomainEntities(urn, entityType, history, entityRegistry)}>
-                    view all
+                    View all
                 </ViewAllButton>
             </SummaryTabHeaderWrapper>
             {loading && <ContentSectionLoading />}

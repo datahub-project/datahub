@@ -9,7 +9,7 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
     &&& {
         position: relative;
         padding: 4px 8px;
-        margin: 0;
+        margin: 8px 0;
         margin-bottom: 0;
         height: 36px;
         border-radius: 6px;
@@ -19,9 +19,20 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
         ${(props) => props.isCollapsed && 'width: 36px;'}
     }
 
+    && svg {
+        color: ${colors.gray[1800]};
+        width: 20px;
+        height: 20px;
+    }
+
     && .ant-menu-title-content {
         width: 100%;
-        color: #5f6685;
+        color: ${colors.gray[1700]};
+        font-family: Mulish;
+        font-size: 14px;
+        font-style: normal;
+        font-weight: 500;
+        line-height: 36px;
         display: flex;
         gap: 8px;
         align-items: center;
@@ -29,7 +40,8 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
         line-height: 24px;
     }
 
-    &:hover {
+    &:hover,
+    &.ant-menu-item-active {
         background: linear-gradient(
             180deg,
             rgba(243, 244, 246, 0.5) -3.99%,
@@ -105,7 +117,7 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, ...props
 
     const component = (
         <Tooltip title={isCollapsed ? item.title : null} placement="right" showArrow={false}>
-            <StyledMenuItem isCollapsed={isCollapsed} onClick={onClick} {...props}>
+            <StyledMenuItem isCollapsed={isCollapsed} onClick={onClick} aria-label={item.title} {...props}>
                 <Icon $isSelected={isSelected}>{isSelected ? item.selectedIcon || item.icon : item.icon}</Icon>
                 {isCollapsed ? (
                     <>{item?.badge?.show && <PillDot />}</>

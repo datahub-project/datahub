@@ -3,7 +3,6 @@ import styled from 'styled-components';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { Announcements } from '../action/announcement/Announcements';
 import { PendingTasks } from '../action/task/PendingTasks';
-import { useNavBarContext } from './navBarRedesign/NavBarContext';
 
 const Container = styled.div<{ $isHidden?: boolean; $isShowNavBarRedesign?: boolean }>`
     overflow-y: auto;
@@ -36,18 +35,17 @@ const Content = styled.div`
 
 export const RightSidebar = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
-    const { collapseIfOpened } = useNavBarContext();
-    const [hasAnnouncements, setHasAnnouncements] = useState<boolean>(false);
-    const [hasPendingTasks, setHasPendingTasks] = useState<boolean>(false);
+    const [hasAnnouncements, setHasAnnouncements] = useState<boolean | null>(null);
+    const [hasPendingTasks, setHasPendingTasks] = useState<boolean | null>(null);
 
     const [isSidebarHidden, setIsSidebarHidden] = useState<boolean>(true);
 
     useEffect(() => {
         if (!isShowNavBarRedesign) return;
+
         const hasData = hasAnnouncements || hasPendingTasks;
-        if (hasData) collapseIfOpened();
         setIsSidebarHidden(!hasData);
-    }, [isShowNavBarRedesign, hasAnnouncements, hasPendingTasks, setIsSidebarHidden, collapseIfOpened]);
+    }, [isShowNavBarRedesign, hasAnnouncements, hasPendingTasks, setIsSidebarHidden]);
 
     return (
         <Container $isHidden={isSidebarHidden} $isShowNavBarRedesign={isShowNavBarRedesign}>

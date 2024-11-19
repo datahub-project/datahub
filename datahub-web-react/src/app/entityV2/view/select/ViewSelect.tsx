@@ -97,7 +97,7 @@ const getOverlayInnerStyle = (isShowNavBarRedesign?: boolean) => {
             display: 'flex',
             width: '100%',
             opacity: 0.97,
-            backgroundColor: colors.gray[1500],
+            backgroundColor: colors.gray[1600],
             borderRadius: '0 0 12px 12px',
             paddingTop: '1px',
             boxShadow: '0px 525px 20px 500px rgba(0, 0, 0, 0.12), 0px 65px 60px 0px rgba(0, 0, 0, 0.12)',

@@ -22,7 +22,7 @@ const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        min-width: 440px;
+        min-width: 431px;
         height: 40px;
         border: 1px solid;
         border-color: ${colors.gray[100]};
@@ -37,20 +37,20 @@ const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean }>`
         }
         
         & .ant-input::placeholder {
-            color: ${colors.gray[1700]};
+            color: ${colors.gray[1800]};
         }
 
         & .ant-input-prefix {
             margin-right: 8px;
             svg {
-                color: ${colors.gray[1700]}
+                color: ${colors.gray[1800]}
             }
         }
     `}
 
     & .ant-input {
         background-color: transparent;
-        ${(props) => !props.$isShowNavBarRedesign && `color: ${colors.gray[1700]};`}
+        ${(props) => !props.$isShowNavBarRedesign && `color: ${colors.gray[1800]};`}
         ${(props) => props.$isShowNavBarRedesign && 'font-size: 14px;'}
     }
 `;
@@ -65,7 +65,7 @@ const ViewHeader = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         gap: 1rem;
         align-items: center;
         .select-view-icon {
-            color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1700] : REDESIGN_COLORS.BLACK)};
+            color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1800] : REDESIGN_COLORS.BLACK)};
             display: flex;
             gap: 0.5rem;
             background: ${(props) => (props.$isShowNavBarRedesign ? colors.white : ANTD_GRAY[1])};
@@ -93,7 +93,7 @@ const ViewHeader = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         gap: 1rem;
         align-items: center;
         .manage {
-            color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1600] : REDESIGN_COLORS.VIEW_PURPLE)};
+            color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1700] : REDESIGN_COLORS.VIEW_PURPLE)};
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;
@@ -181,7 +181,7 @@ export const ViewSelectHeader = ({
                     />
                 </div>
                 <div className="manage" onClick={() => onClickManageViews()} role="none">
-                    Manage All
+                    Manage all
                 </div>
             </div>
         </ViewHeader>

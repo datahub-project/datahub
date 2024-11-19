@@ -50,7 +50,7 @@ const Header = styled(Layout)<{ $isNavBarCollapsed?: boolean; $isShowNavBarRedes
     display: flex;
     ${(props) => {
         if (!props.$isShowNavBarRedesign) return '';
-        return `padding-left: ${props.$isNavBarCollapsed ? '69px;' : '275px'};`;
+        return `padding-left: ${props.$isNavBarCollapsed ? '68px;' : '270px'};`;
     }}
     ${(props) =>
         props.$isShowNavBarRedesign &&

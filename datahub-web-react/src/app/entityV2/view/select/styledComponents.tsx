@@ -35,7 +35,7 @@ export const ViewContainer = styled.div<{ $selected?: boolean; $isShowNavBarRede
         border-radius: 8px;
         display: flex;
         background-color: white;
-        gap: 16px;
+        gap: 8px;
         width: 100%;
         width: 260px;
         height: 64px;
@@ -73,7 +73,7 @@ export const ViewIconNavBarRedesign = styled.div<{ $selected?: boolean }>`
     justify-content: center;
 
     svg {
-        color: ${(props) => (props.$selected ? '#705EE4' : colors.gray[1700])};
+        color: ${(props) => (props.$selected ? '#705EE4' : colors.gray[1800])};
     }
 `;
 
@@ -100,7 +100,7 @@ export const ViewLabel = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 export const ViewDescription = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     font-weight: 400;
     ${(props) => !props.$isShowNavBarRedesign && 'opacity: 0.5;'}
-    ${(props) => props.$isShowNavBarRedesign && `color: ${colors.gray[1600]};`}
+    ${(props) => props.$isShowNavBarRedesign && `color: ${colors.gray[1700]};`}
     white-space: nowrap;
     text-overflow: ellipsis;
     overflow: hidden;

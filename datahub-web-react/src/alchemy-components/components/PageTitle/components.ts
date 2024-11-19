@@ -17,7 +17,7 @@ const subTitleStyles = {
     fontSize: typography.fontSizes.lg,
     lineHeight: typography.lineHeights.lg,
     fontWeight: typography.fontWeights.normal,
-    color: colors.gray[1600],
+    color: colors.gray[1700],
 };
 
 // Default styles

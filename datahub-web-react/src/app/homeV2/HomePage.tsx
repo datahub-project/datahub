@@ -20,6 +20,7 @@ import { useRedirectToIntroduceYourself } from './introduce/useRedirectToIntrodu
 import { SearchablePage } from '../searchV2/SearchablePage';
 import PersonalizationLoadingModal from './persona/PersonalizationLoadingModal';
 import { useShowNavBarRedesign } from '../useShowNavBarRedesign';
+import { NavBarStateType, useNavBarContext } from './layout/navBarRedesign/NavBarContext';
 
 const Container = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
@@ -32,10 +33,16 @@ export const HomePage = () => {
     useRedirectToIntroduceYourself();
 
     const isShowNavBarRedesign = useShowNavBarRedesign();
+    const { setDefaultNavBarState } = useNavBarContext();
 
     useEffect(() => {
         analytics.event({ type: EventType.HomePageViewEvent });
     }, []);
+
+    useEffect(() => {
+        setDefaultNavBarState(NavBarStateType.Opened);
+        return () => setDefaultNavBarState(NavBarStateType.Collapsed);
+    });
 
     return (
         <>

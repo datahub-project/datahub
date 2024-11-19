@@ -37,7 +37,7 @@ export const Domains = () => {
         <div id={HOME_PAGE_DOMAINS_ID}>
             {showSkeleton && <HorizontalListSkeletons Component={SkeletonCard} />}
             {!showSkeleton && !!domains.length && (
-                <Section title="Domains" actionText="view all" onClickAction={navigateToDomains}>
+                <Section title="Domains" actionText="View all" onClickAction={navigateToDomains}>
                     <Carousel>
                         {domains.map((domain) => (
                             <DomainCard key={domain.entity.urn} domain={domain.entity} assetCount={domain.assetCount} />

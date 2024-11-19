@@ -52,6 +52,7 @@ export enum AcrylPageRoutes {
 export enum HelpLinkRoutes {
     GRAPHIQL = '/api/graphiql',
     OPENAPI = '/openapi/swagger-ui/index.html',
+    RELEASE_NOTES_TEMPLATE = 'https://datahubproject.io/docs/managed-datahub/release-notes/v_{version}/',
 }
 
 /**

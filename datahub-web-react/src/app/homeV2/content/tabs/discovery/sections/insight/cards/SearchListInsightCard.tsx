@@ -99,7 +99,7 @@ export const SearchListInsightCard = ({ id, title, icon, tip, query, types, filt
                             {title}
                         </Title>
                     </Tooltip>
-                    <ShowAll onClick={() => setShowModal(true)}>view all</ShowAll>
+                    <ShowAll onClick={() => setShowModal(true)}>View all</ShowAll>
                 </Header>
                 <EntityLinkList entities={assets} loading={false} empty={empty || 'No assets found'} />
             </InsightCard>

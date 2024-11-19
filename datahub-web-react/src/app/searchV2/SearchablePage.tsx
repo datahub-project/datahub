@@ -4,6 +4,7 @@ import { useHistory, useLocation } from 'react-router';
 import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
 import styled, { useTheme } from 'styled-components';
+import { colors } from '@src/alchemy-components';
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { FacetFilterInput } from '../../types.generated';
@@ -30,8 +31,7 @@ const Body = styled.div`
 `;
 
 const BodyBackground = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    background-color: ${(props) =>
-        props.$isShowNavBarRedesign ? REDESIGN_COLORS.BACKGROUUND_NAVBAR_REDESIGN : REDESIGN_COLORS.BACKGROUND};
+    background-color: ${(props) => (props.$isShowNavBarRedesign ? colors.gray[1600] : REDESIGN_COLORS.BACKGROUND)};
     position: fixed;
     height: 100%;
     width: 100%;
@@ -49,7 +49,7 @@ const Content = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     ${(props) =>
         props.$isShowNavBarRedesign &&
         `
-        padding: 11px 15px 11px 4px;
+        padding: 11px 15px 11px 3px;
     `}
     flex: 1;
     display: flex;

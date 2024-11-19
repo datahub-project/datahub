@@ -22,7 +22,7 @@ export const MoreOptionsContainer = styled.div`
         width: 24px;
         height: 24px;
         padding: 3px;
-        color: ${colors.gray[1700]};
+        color: ${colors.gray[1800]};
         :hover {
             cursor: pointer;
         }

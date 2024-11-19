@@ -2,6 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import { Tooltip } from '@components';
 import { ANTD_GRAY } from '../../shared/constants';
 import {
     ViewContainer,
@@ -12,10 +13,11 @@ import {
     ViewLabel,
 } from './styledComponents';
 import { Carousel } from '../../../sharedV2/carousel/Carousel';
+import { ViewOptionTooltipTitle } from './ViewOptionTooltipTitle';
 
 const StyledCarousel = styled(Carousel)<{ $isShowNavBarRedesign?: boolean }>`
     gap: ${(props) => (props.$isShowNavBarRedesign ? '8px' : '10px')};
-    padding: ${(props) => (props.$isShowNavBarRedesign ? '8px 8px 0 0' : '20px 0')};
+    padding: ${(props) => (props.$isShowNavBarRedesign ? '12px 8px 0 0' : '20px 0')};
 
     .rc-virtual-list-holder-inner {
         display: flex;
@@ -49,19 +51,43 @@ export const ViewSelectContent = ({ children, onClickCreateView }: Props) => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const IconWrapper = isShowNavBarRedesign ? ViewIconNavBarRedesign : ViewIcon;
 
-    return (
-        <StyledCarousel $isShowNavBarRedesign={isShowNavBarRedesign}>
+    const renderCreateItem = () => {
+        const name = 'Create a View';
+        const description = isShowNavBarRedesign ? 'Create a set of saved search filters' : 'Create view';
+        const ViewContentWrapper = isShowNavBarRedesign
+            ? ({ children: tooltipChildren }) => (
+                  <Tooltip
+                      placement="bottom"
+                      showArrow
+                      title={<ViewOptionTooltipTitle name={name} description={description} />}
+                  >
+                      {tooltipChildren}
+                  </Tooltip>
+              )
+            : React.Fragment;
+
+        return (
             <ViewContainer onClick={() => onClickCreateView()} role="none" $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <IconWrapper>
                     <AddOutlinedIconStyle />
                 </IconWrapper>
-                <ViewContent $isShowNavBarRedesign={isShowNavBarRedesign}>
-                    <ViewLabel className="static" $isShowNavBarRedesign={isShowNavBarRedesign}>
-                        Create a View
-                    </ViewLabel>
-                    <ViewDescription $isShowNavBarRedesign={isShowNavBarRedesign}>Create view</ViewDescription>
-                </ViewContent>
+                <ViewContentWrapper>
+                    <ViewContent $isShowNavBarRedesign={isShowNavBarRedesign}>
+                        <ViewLabel className="static" $isShowNavBarRedesign={isShowNavBarRedesign}>
+                            Create a View
+                        </ViewLabel>
+                        <ViewDescription $isShowNavBarRedesign={isShowNavBarRedesign}>
+                            {isShowNavBarRedesign ? 'Create a set of saved search filters' : 'Create view'}
+                        </ViewDescription>
+                    </ViewContent>
+                </ViewContentWrapper>
             </ViewContainer>
+        );
+    };
+
+    return (
+        <StyledCarousel $isShowNavBarRedesign={isShowNavBarRedesign}>
+            {renderCreateItem()}
             {children}
         </StyledCarousel>
     );

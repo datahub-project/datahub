@@ -78,7 +78,7 @@ export const DataProductsSection = () => {
                     />
                 </SummaryHeaderButtonGroup>
                 <ViewAllButton onClick={() => navigateToDomainDataProducts(urn, entityType, history, entityRegistry)}>
-                    view all
+                    View all
                 </ViewAllButton>
             </SummaryTabHeaderWrapper>
             {loading && <ContentSectionLoading />}

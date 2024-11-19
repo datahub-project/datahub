@@ -104,7 +104,7 @@ export const PopularGlossaryTerms = () => {
                         <Tooltip title="Commonly used glossary terms" showArrow={false} placement="top">
                             <Title>Popular Glossary Terms</Title>
                         </Tooltip>
-                        <ShowAll to={PageRoutes.GLOSSARY}>view all</ShowAll>
+                        <ShowAll to={PageRoutes.GLOSSARY}>View all</ShowAll>
                     </Header>
                     <EntityLinkList
                         entities={recommendedGlossaryTerms}

@@ -57,7 +57,7 @@ export const TableRow = styled.tr({
 export const TableCell = styled.td<{ width?: string; alignment?: AlignmentOptions }>(({ width, alignment }) => ({
     padding: spacing.md,
     borderBottom: `1px solid ${colors.gray[1400]}`,
-    color: colors.gray[1600],
+    color: colors.gray[1700],
     fontSize: typography.fontSizes.md,
     fontWeight: typography.fontWeights.normal,
     overflow: 'hidden',

@@ -64,7 +64,7 @@ export const PropName = styled(Typography.Text)`
 export const PropDescription = styled(Typography.Text)`
     font-size: 14px;
     font-weight: 400;
-    color: ${colors.gray[1600]};
+    color: ${colors.gray[1700]};
     line-height: normal;
 `;
 
@@ -118,7 +118,7 @@ export const StyledSearch = styled(Input)`
 
     .ant-input-prefix {
         width: 20px;
-        color: ${colors.gray[1700]};
+        color: ${colors.gray[1800]};
 
         svg {
             height: 16px;
