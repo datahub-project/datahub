@@ -43,7 +43,15 @@ const AdvancedOptions = ({ isEditMode }: Props) => {
                     title={isEditMode && 'Once a property is created, Qualified Name cannot be changed'}
                     showArrow={false}
                 >
-                    <Form.Item name="qualifiedName">
+                    <Form.Item
+                        name="qualifiedName"
+                        rules={[
+                            {
+                                pattern: /^[^_]*$/,
+                                message: 'Qualified name cannot contain underscores',
+                            },
+                        ]}
+                    >
                         <Input label="" placeholder="Optional - Qualified Name" isDisabled={isEditMode} />
                     </Form.Item>
                 </Tooltip>
