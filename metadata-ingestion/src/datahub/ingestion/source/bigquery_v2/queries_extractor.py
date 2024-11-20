@@ -2,7 +2,7 @@ import functools
 import logging
 import pathlib
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Collection, Dict, Iterable, List, Optional, TypedDict
 
 from google.cloud.bigquery import Client
@@ -49,6 +49,7 @@ from datahub.utilities.file_backed_collections import (
     FileBackedDict,
     FileBackedList,
 )
+from datahub.utilities.progress_timer import ProgressTimer
 from datahub.utilities.time import datetime_to_ts_millis
 
 logger = logging.getLogger(__name__)
@@ -270,27 +271,25 @@ class BigQueryQueriesExtractor(Closeable):
             # Preprocessing stage that deduplicates the queries using query hash per usage bucket
             # Note: FileBackedDict is an ordered dictionary, so the order of execution of
             # queries is inherently maintained
-            queries_deduped: FileBackedDict[Dict[int, ObservedQuery]]
-            queries_deduped = self.deduplicate_queries(queries)
+            queries_deduped: FileBackedDict[
+                Dict[int, ObservedQuery]
+            ] = self.deduplicate_queries(queries)
             self.report.num_unique_queries = len(queries_deduped)
             logger.info(f"Found {self.report.num_unique_queries} unique queries")
 
         with self.report.audit_log_load_timer, queries_deduped:
-            last_log_time = datetime.now()
-            last_report_time = datetime.now()
+            log_timer = ProgressTimer(timedelta(minutes=1))
+            report_timer = ProgressTimer(timedelta(minutes=5))
+
             for i, (_, query_instances) in enumerate(queries_deduped.items()):
                 for query in query_instances.values():
-                    now = datetime.now()
-                    if (now - last_log_time).total_seconds() >= 60:
+                    if log_timer.should_report():
                         logger.info(
                             f"Added {i} deduplicated query log entries to SQL aggregator"
                         )
-                        last_log_time = now
 
-                    if (now - last_report_time).total_seconds() >= 300:
-                        if self.report.sql_aggregator:
-                            logger.info(self.report.sql_aggregator.as_string())
-                        last_report_time = now
+                    if report_timer.should_report() and self.report.sql_aggregator:
+                        logger.info(self.report.sql_aggregator.as_string())
 
                     self.aggregator.add(query)
 
