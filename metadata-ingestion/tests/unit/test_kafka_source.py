@@ -38,11 +38,11 @@ from datahub.metadata.schema_classes import (
 
 @pytest.fixture
 def mock_admin_client():
-    with patch("datahub.ingestion.source.kafka.AdminClient", autospec=True) as mock:
+    with patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True) as mock:
         yield mock
 
 
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_configuration(mock_kafka):
     ctx = PipelineContext(run_id="test")
     kafka_source = KafkaSource(
@@ -53,7 +53,7 @@ def test_kafka_source_configuration(mock_kafka):
     assert mock_kafka.call_count == 1
 
 
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_wildcard_topic(mock_kafka, mock_admin_client):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()
@@ -74,7 +74,7 @@ def test_kafka_source_workunits_wildcard_topic(mock_kafka, mock_admin_client):
     assert len(workunits) == 4
 
 
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_topic_pattern(mock_kafka, mock_admin_client):
     mock_kafka_instance = mock_kafka.return_value
     mock_cluster_metadata = MagicMock()
@@ -108,7 +108,7 @@ def test_kafka_source_workunits_topic_pattern(mock_kafka, mock_admin_client):
     assert len(workunits) == 4
 
 
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_client):
     PLATFORM_INSTANCE = "kafka_cluster"
     PLATFORM = "kafka"
@@ -160,7 +160,7 @@ def test_kafka_source_workunits_with_platform_instance(mock_kafka, mock_admin_cl
     assert f"/prod/{PLATFORM}/{PLATFORM_INSTANCE}" in browse_path_aspects[0].paths
 
 
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_client):
     PLATFORM = "kafka"
     TOPIC_NAME = "test"
@@ -204,7 +204,7 @@ def test_kafka_source_workunits_no_platform_instance(mock_kafka, mock_admin_clie
     assert f"/prod/{PLATFORM}" in browse_path_aspects[0].paths
 
 
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_close(mock_kafka, mock_admin_client):
     mock_kafka_instance = mock_kafka.return_value
     ctx = PipelineContext(run_id="test")
@@ -223,7 +223,7 @@ def test_close(mock_kafka, mock_admin_client):
     "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
     autospec=True,
 )
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_workunits_schema_registry_subject_name_strategies(
     mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
 ):
@@ -415,7 +415,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
     "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
     autospec=True,
 )
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_ignore_warnings_on_schema_type(
     mock_kafka_consumer,
     mock_schema_registry_client,
@@ -483,8 +483,8 @@ def test_kafka_ignore_warnings_on_schema_type(
         assert kafka_source.report.warnings
 
 
-@patch("datahub.ingestion.source.kafka.AdminClient", autospec=True)
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_succeeds_with_admin_client_init_error(
     mock_kafka, mock_kafka_admin_client
 ):
@@ -513,8 +513,8 @@ def test_kafka_source_succeeds_with_admin_client_init_error(
     assert len(workunits) == 2
 
 
-@patch("datahub.ingestion.source.kafka.AdminClient", autospec=True)
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_succeeds_with_describe_configs_error(
     mock_kafka, mock_kafka_admin_client
 ):
@@ -550,7 +550,7 @@ def test_kafka_source_succeeds_with_describe_configs_error(
     "datahub.ingestion.source.confluent_schema_registry.SchemaRegistryClient",
     autospec=True,
 )
-@patch("datahub.ingestion.source.kafka.confluent_kafka.Consumer", autospec=True)
+@patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer", autospec=True)
 def test_kafka_source_topic_meta_mappings(
     mock_kafka_consumer, mock_schema_registry_client, mock_admin_client
 ):
