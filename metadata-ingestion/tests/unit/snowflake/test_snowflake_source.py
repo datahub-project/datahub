@@ -5,7 +5,6 @@ import pytest
 from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.oauth import OAuthConfiguration
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.snowflake.constants import (
@@ -13,6 +12,7 @@ from datahub.ingestion.source.snowflake.constants import (
     CLIENT_SESSION_KEEP_ALIVE,
     SnowflakeCloudProvider,
 )
+from datahub.ingestion.source.snowflake.oauth_config import OAuthConfiguration
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
     SnowflakeV2Config,
