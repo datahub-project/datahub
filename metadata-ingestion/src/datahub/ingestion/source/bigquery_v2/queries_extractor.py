@@ -304,7 +304,6 @@ class BigQueryQueriesExtractor(Closeable):
     def deduplicate_queries(
         self, queries: FileBackedList[ObservedQuery]
     ) -> FileBackedDict[Dict[int, ObservedQuery]]:
-
         # This fingerprint based deduplication is done here to reduce performance hit due to
         # repetitive sql parsing while adding observed query to aggregator that would otherwise
         # parse same query multiple times. In future, aggregator may absorb this deduplication.
@@ -342,7 +341,6 @@ class BigQueryQueriesExtractor(Closeable):
         return queries_deduped
 
     def fetch_query_log(self, project: BigqueryProject) -> Iterable[ObservedQuery]:
-
         # Multi-regions from https://cloud.google.com/bigquery/docs/locations#supported_locations
         regions = self.config.region_qualifiers
 
@@ -355,7 +353,6 @@ class BigQueryQueriesExtractor(Closeable):
     def fetch_region_query_log(
         self, project: BigqueryProject, region: str
     ) -> Iterable[ObservedQuery]:
-
         # Each region needs to be a different query
         query_log_query = _build_enriched_query_log_query(
             project_id=project.id,
@@ -452,7 +449,6 @@ def _build_enriched_query_log_query(
     start_time: datetime,
     end_time: datetime,
 ) -> str:
-
     audit_start_time = start_time.strftime(BQ_DATETIME_FORMAT)
     audit_end_time = end_time.strftime(BQ_DATETIME_FORMAT)
 

@@ -65,7 +65,6 @@ def urn_creator(
     server: str,
     qualified_table_name: str,
 ) -> str:
-
     platform_detail: PlatformDetail = platform_instance_resolver.get_platform_instance(
         PowerBIPlatformDetail(
             data_platform_pair=data_platform_pair,
@@ -169,7 +168,6 @@ class AbstractDataPlatformTableCreator(ABC):
         arg_list: Tree,
         table_detail: Dict[str, str],
     ) -> Optional[ReferencedTable]:
-
         arguments: List[str] = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(arg_list)
@@ -209,7 +207,6 @@ class AbstractDataPlatformTableCreator(ABC):
     def parse_custom_sql(
         self, query: str, server: str, database: Optional[str], schema: Optional[str]
     ) -> Lineage:
-
         dataplatform_tables: List[DataPlatformTable] = []
 
         platform_detail: PlatformDetail = (
@@ -367,7 +364,6 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         return argument_list
 
     def take_first_argument(self, expression: Tree) -> Optional[Tree]:
-
         # function is not data-access function, lets process function argument
         first_arg_tree: Optional[Tree] = tree_function.first_arg_list_func(expression)
 
@@ -775,7 +771,6 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> Lineage:
-
         arguments: List[str] = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(data_access_func_detail.arg_list)
@@ -881,7 +876,6 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         table_reference: ReferencedTable,
         data_platform_pair: DataPlatformPair,
     ) -> str:
-
         platform_detail: PlatformDetail = (
             self.platform_instance_resolver.get_platform_instance(
                 PowerBIPlatformDetail(

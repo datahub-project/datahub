@@ -143,7 +143,6 @@ class LookerView:
         extract_col_level_lineage: bool = False,
         populate_sql_logic_in_descriptions: bool = False,
     ) -> Optional["LookerView"]:
-
         view_name = view_context.name()
 
         logger.debug(f"Handling view {view_name} in model {model_name}")
@@ -417,7 +416,6 @@ class LookMLSource(StatefulIngestionSourceBase):
     def _build_dataset_mcps(
         self, looker_view: LookerView
     ) -> List[MetadataChangeProposalWrapper]:
-
         view_urn = looker_view.id.get_urn(self.source_config)
 
         subTypeEvent = MetadataChangeProposalWrapper(
@@ -501,7 +499,6 @@ class LookMLSource(StatefulIngestionSourceBase):
     def get_manifest_if_present(self, folder: pathlib.Path) -> Optional[LookerManifest]:
         manifest_file = folder / "manifest.lkml"
         if manifest_file.exists():
-
             manifest_dict = load_and_preprocess_file(
                 path=manifest_file, source_config=self.source_config
             )

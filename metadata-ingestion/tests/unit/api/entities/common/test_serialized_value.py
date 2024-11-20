@@ -10,7 +10,6 @@ class MyTestModel(BaseModel):
 
 
 def test_base_model():
-
     test_base_model = MyTestModel(
         test_string_field="test_string_field",
         test_int_field=42,
@@ -31,7 +30,6 @@ def test_base_model():
 
 
 def test_dictwrapper():
-
     from datahub.metadata.schema_classes import DatasetPropertiesClass
 
     dataset_properties = DatasetPropertiesClass(
@@ -58,7 +56,6 @@ def test_dictwrapper():
 
 
 def test_raw_dictionary():
-
     test_object = {
         "test_string_field": "test_string_field",
         "test_int_field": 42,

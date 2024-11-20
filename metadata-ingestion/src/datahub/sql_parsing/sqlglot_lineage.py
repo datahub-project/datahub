@@ -880,7 +880,6 @@ def _sqlglot_lineage_inner(
     default_schema: Optional[str] = None,
     default_dialect: Optional[str] = None,
 ) -> SqlParsingResult:
-
     if not default_dialect:
         dialect = get_dialect(schema_resolver.platform)
     else:

@@ -87,7 +87,6 @@ def parse_custom_sql(
     env: str,
     platform_instance: Optional[str],
 ) -> Optional["SqlParsingResult"]:
-
     logger.debug("Using sqlglot_lineage to parse custom sql")
 
     logger.debug(f"Processing native query using DataHub Sql Parser = {query}")

@@ -277,7 +277,6 @@ def mock_sdk_client(
     datasources_side_effect: List[dict],
     sign_out_side_effect: List[dict],
 ) -> mock.MagicMock:
-
     mock_client = mock.Mock()
     mocked_metadata = mock.Mock()
     mocked_metadata.query.side_effect = side_effect_query_metadata_response
@@ -1229,7 +1228,6 @@ def test_permission_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_graph):
-
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
