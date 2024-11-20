@@ -107,6 +107,7 @@ export default function UserProfile() {
             undefined,
         role: data?.corpUser?.editableProperties?.title || data?.corpUser?.info?.title || undefined,
         team: data?.corpUser?.editableProperties?.teams?.join(',') || data?.corpUser?.info?.departmentName || undefined,
+        countryCode: data?.corpUser?.info?.countryCode|| undefined,
         email: data?.corpUser?.editableProperties?.email || data?.corpUser?.info?.email || undefined,
         slack: data?.corpUser?.editableProperties?.slack || undefined,
         phone: data?.corpUser?.editableProperties?.phone || undefined,
