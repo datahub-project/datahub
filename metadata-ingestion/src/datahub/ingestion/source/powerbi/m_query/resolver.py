@@ -680,8 +680,6 @@ class DefaultTwoStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
         logger.debug(
             f"Processing {self.get_platform_pair().powerbi_data_platform_name} data-access function detail {data_access_func_detail}"
         )
-        import pdb
-        pdb.set_trace()
         server, db_name = self.get_db_detail_from_argument(
             data_access_func_detail.arg_list
         )
@@ -1057,6 +1055,7 @@ class MsSqlThreeStepsDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
     For #2 database detail is not available in argument and accessing database, schema and table name
     is as per DefaultThreeStepDataAccessSources implementation
     """
+
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> Lineage:
@@ -1064,6 +1063,7 @@ class MsSqlThreeStepsDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
 
     def get_platform_pair(self) -> DataPlatformPair:
         return SupportedDataPlatform.MS_SQL.value
+
 
 class GoogleBigQueryDataPlatformTableCreator(DefaultThreeStepDataAccessSources):
     def get_platform_pair(self) -> DataPlatformPair:

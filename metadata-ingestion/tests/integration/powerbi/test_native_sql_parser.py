@@ -20,6 +20,7 @@ def test_simple_from():
     assert len(tables) == 1
     assert tables[0] == "OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_APS_SME_UNITS_V4"
 
+
 def test_drop_statement():
     expected: str = "SELECT#(lf)concat((UPPER(REPLACE(SELLER,'-',''))), MONTHID) as AGENT_KEY,#(lf)concat((UPPER(REPLACE(CLIENT_DIRECTOR,'-',''))), MONTHID) as CD_AGENT_KEY,#(lf) *#(lf)FROM#(lf)OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_APS_SME_UNITS_V4"
 
@@ -27,6 +28,4 @@ def test_drop_statement():
 
     actual: str = native_sql_parser.remove_drop_statement(query)
 
-    import pdb
-    pdb.set_trace()
     assert actual == expected

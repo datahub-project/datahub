@@ -86,6 +86,9 @@ def remove_drop_statement(query: str) -> str:
     for pattern in patterns:
         new_query = re.sub(pattern, "", new_query, flags=re.IGNORECASE)
 
+    # Remove extra spaces caused by consecutive replacements
+    new_query = re.sub(r"\s+", " ", new_query).strip()
+
     return new_query
 
 
