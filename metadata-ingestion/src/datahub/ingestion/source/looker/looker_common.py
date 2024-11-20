@@ -48,7 +48,7 @@ from datahub.ingestion.source.looker.looker_dataclasses import ProjectInclude
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.looker.lookml_config import (
-    _BASE_PROJECT_NAME,
+    BASE_PROJECT_NAME,
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.str_functions import remove_suffix
@@ -370,7 +370,7 @@ class ExploreUpstreamViewField:
         assert view_name  # for lint false positive
 
         project_include: ProjectInclude = ProjectInclude(
-            project=view_project_map.get(view_name, _BASE_PROJECT_NAME),
+            project=view_project_map.get(view_name, BASE_PROJECT_NAME),
             include=view_name,
         )
 
@@ -385,7 +385,7 @@ class ExploreUpstreamViewField:
         view_urn = LookerViewId(
             project_name=(
                 project_include.project
-                if project_include.project != _BASE_PROJECT_NAME
+                if project_include.project != BASE_PROJECT_NAME
                 else explore_project_name
             ),
             model_name=model_name,
@@ -1113,7 +1113,7 @@ class LookerExplore:
                 fields=view_fields,
                 upstream_views=list(
                     ProjectInclude(
-                        project=view_project_map.get(view_name, _BASE_PROJECT_NAME),
+                        project=view_project_map.get(view_name, BASE_PROJECT_NAME),
                         include=view_name,
                     )
                     for view_name in views
@@ -1239,7 +1239,7 @@ class LookerExplore:
                 view_urn = LookerViewId(
                     project_name=(
                         view_ref.project
-                        if view_ref.project != _BASE_PROJECT_NAME
+                        if view_ref.project != BASE_PROJECT_NAME
                         else self.project_name
                     ),
                     model_name=self.model_name,

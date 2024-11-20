@@ -12,16 +12,14 @@ from looker_sdk.sdk.api40.models import DBConnection
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import read_metadata_file
+from datahub.ingestion.source.looker.looker_dataclasses import LookerModel
 from datahub.ingestion.source.looker.looker_template_language import (
     SpecialVariable,
     load_and_preprocess_file,
     resolve_liquid_variable,
 )
-from datahub.ingestion.source.looker.lookml_source import (
-    LookerModel,
-    LookerRefinementResolver,
-    LookMLSourceConfig,
-)
+from datahub.ingestion.source.looker.lookml_config import LookMLSourceConfig
+from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MetadataChangeEventClass,
