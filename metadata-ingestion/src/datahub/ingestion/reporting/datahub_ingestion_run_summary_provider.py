@@ -11,9 +11,8 @@ from datahub.configuration.common import (
     redact_raw_config,
 )
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
-from datahub.emitter.mce_builder import datahub_guid
+from datahub.emitter.mce_builder import datahub_guid, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import make_data_platform_urn
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.sink import NoopWriteCallback, Sink
