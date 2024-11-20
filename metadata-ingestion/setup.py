@@ -249,7 +249,7 @@ microsoft_common = {"msal>=1.24.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
-    "pyiceberg>=0.4,<0.7",
+    "pyiceberg>=0.8.0",
 }
 
 mssql_common = {
