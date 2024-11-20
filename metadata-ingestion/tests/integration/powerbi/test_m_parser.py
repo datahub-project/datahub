@@ -712,7 +712,6 @@ def test_redshift_regular_case():
 
 
 def test_redshift_native_query():
-
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
         expression=M_QUERIES[22],
         name="category",
@@ -1101,7 +1100,6 @@ def test_double_quotes_in_alias():
 
 @patch("datahub.ingestion.source.powerbi.m_query.parser.get_lark_parser")
 def test_m_query_timeout(mock_get_lark_parser):
-
     q = 'let\n    Source = Value.NativeQuery(Snowflake.Databases("0DD93C6BD5A6.snowflakecomputing.com","sales_analytics_warehouse_prod",[Role="sales_analytics_member_ad"]){[Name="SL_OPERATIONS"]}[Data], "select SALE_NO AS ""\x1b[4mSaleNo\x1b[0m""#(lf)        ,CODE AS ""Code""#(lf)        ,ENDDATE AS ""end_date""#(lf) from SL_OPERATIONS.SALE.REPORTS#(lf)  where ENDDATE > \'2024-02-03\'", null, [EnableFolding=true]),\n    #"selected Row" = Table.SelectRows(Source)\nin\n    #"selected Row"'
 
     table: powerbi_data_classes.Table = powerbi_data_classes.Table(
