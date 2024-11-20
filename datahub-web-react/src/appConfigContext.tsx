@@ -97,6 +97,7 @@ export const DEFAULT_APP_CONFIG = {
         showNavBarRedesign: false,
         showAutoCompleteResults: false,
         showFormAnalytics: false,
+        showStatsTabRedesign: false,
     },
     chromeExtensionConfig: {
         enabled: false,

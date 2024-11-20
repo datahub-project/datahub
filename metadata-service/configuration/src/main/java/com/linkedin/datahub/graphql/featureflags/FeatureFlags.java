@@ -51,4 +51,5 @@ public class FeatureFlags {
   private boolean showNavBarRedesign = false;
   private boolean showAutoCompleteResults = false;
   private boolean showFormAnalytics = false;
+  private boolean showStatsTabRedesign = false;
 }
