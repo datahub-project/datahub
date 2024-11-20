@@ -5,7 +5,7 @@ from multiprocessing import Process, Queue
 from typing import Any, List, Optional, Tuple
 
 from datahub.utilities.sql_lineage_parser_impl import SqlLineageSQLParserImpl
-from datahub.utilities.sql_parser_base import SQLParser
+from datahub.utilities.sql_parser_base import SQLParser as SQLParser
 
 logger = logging.getLogger(__name__)
 
