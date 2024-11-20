@@ -20,6 +20,10 @@ public class KafkaConfiguration {
       "spring.deserializer.key.delegate.class";
   public static final String VALUE_DESERIALIZER_DELEGATE_CLASS =
       "spring.deserializer.value.delegate.class";
+  public static final String MCP_EVENT_CONSUMER_NAME = "mcpEventConsumer";
+  public static final String MCL_EVENT_CONSUMER_NAME = "mclEventConsumer";
+  public static final String PE_EVENT_CONSUMER_NAME = "platformEventConsumer";
+  public static final String DEFAULT_EVENT_CONSUMER_NAME = "kafkaEventConsumer";
 
   private String bootstrapServers;
 
