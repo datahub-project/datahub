@@ -101,7 +101,8 @@ public class ListIngestionSourcesResolver
                       new HashSet<>(entitiesUrnList),
                       ImmutableSet.of(
                           Constants.INGESTION_INFO_ASPECT_NAME,
-                          Constants.INGESTION_SOURCE_KEY_ASPECT_NAME));
+                          Constants.INGESTION_SOURCE_KEY_ASPECT_NAME,
+                          Constants.OWNERSHIP_ASPECT_NAME));
 
               final List<EntityResponse> entitiesOrdered =
                   entitiesUrnList.stream().map(entities::get).filter(Objects::nonNull).toList();
@@ -112,7 +113,7 @@ public class ListIngestionSourcesResolver
               result.setCount(gmsResult.getPageSize());
               result.setTotal(gmsResult.getNumEntities());
               result.setIngestionSources(
-                  IngestionResolverUtils.mapIngestionSources(entitiesOrdered));
+                  IngestionResolverUtils.mapIngestionSources(context, entitiesOrdered));
               return result;
 
             } catch (Exception e) {

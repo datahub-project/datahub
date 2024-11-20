@@ -92,6 +92,11 @@ type ExecutionRequestSource {
   The type of the source, e.g. SCHEDULED_INGESTION_SOURCE
   """
   type: String
+
+  """
+  The urn of the ingestion source
+  """
+  ingestionSource: String
 }
 
 """
@@ -176,7 +181,7 @@ type StructuredReport {
 """
 Retrieve an ingestion execution request
 """
-type ExecutionRequest {
+type ExecutionRequest implements Entity  {
   """
   Urn of the execution request
   """
@@ -196,7 +201,22 @@ type ExecutionRequest {
   Result of the execution request
   """
   result: ExecutionRequestResult
+  
+  """  
+  Ownership metadata of the IngestionSource
+  """
+  ownership: Ownership
+  
+  """
+  A standard Entity Type
+  """
+  type: EntityType!
 
+  """
+  List of relationships between the source Entity and some destination entities with a given types
+  """
+  relationships(input: RelationshipsInput!): EntityRelationshipsResult
+  
 }
 
 """
@@ -413,6 +433,11 @@ type IngestionSource {
   The data platform associated with this ingestion source
   """
   platform: DataPlatform
+
+  """
+  Ownership metadata of the IngestionSource
+  """
+  ownership: Ownership
 
   """
   An type-specific set of configurations for the ingestion source
