@@ -9,7 +9,7 @@ from datahub.ingestion.source.looker.looker_template_language import (
     load_and_preprocess_file,
 )
 from datahub.ingestion.source.looker.lookml_config import (
-    _BASE_PROJECT_NAME,
+    BASE_PROJECT_NAME,
     EXPLORE_FILE_EXTENSION,
     LookMLSourceConfig,
     LookMLSourceReport,
@@ -152,9 +152,9 @@ class LookerModel:
                 # As such, we try to handle it but are as defensive as possible.
 
                 non_base_project_name = project_name
-                if project_name == _BASE_PROJECT_NAME and root_project_name is not None:
+                if project_name == BASE_PROJECT_NAME and root_project_name is not None:
                     non_base_project_name = root_project_name
-                if non_base_project_name != _BASE_PROJECT_NAME and inc.startswith(
+                if non_base_project_name != BASE_PROJECT_NAME and inc.startswith(
                     f"/{non_base_project_name}/"
                 ):
                     # This might be a local include. Let's make sure that '/{project_name}' doesn't

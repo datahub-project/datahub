@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 NAME: str = "name"
 
-_BASE_PROJECT_NAME = "__BASE"
+BASE_PROJECT_NAME = "__BASE"
 
 EXPLORE_FILE_EXTENSION = ".explore.lkml"
 VIEW_FILE_EXTENSION = ".view.lkml"
