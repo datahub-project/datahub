@@ -40,7 +40,7 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
     }, [aggregateAcrossEntities, entityFilters, filter.field, orFilters, query, viewUrn, shouldFetchAggregations]);
 
     const aggregations = shouldFetchAggregations
-        ? data?.aggregateAcrossEntities?.facets?.[0].aggregations
+        ? data?.aggregateAcrossEntities?.facets?.[0]?.aggregations
         : filter.aggregations;
 
     const finalAggregations = filterEmptyAggregations(aggregations || [], activeFilters);
