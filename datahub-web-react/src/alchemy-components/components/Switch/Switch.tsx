@@ -26,6 +26,7 @@ export const Switch = ({
     isRequired = switchDefaults.isRequired,
     labelHoverText,
     disabledHoverText,
+    labelStyle,
     ...props
 }: SwitchProps) => {
     const [checked, setChecked] = useState(isChecked);
@@ -39,7 +40,7 @@ export const Switch = ({
     return (
         <SwitchContainer labelPosition={labelPosition || 'left'} isDisabled={isDisabled}>
             <Tooltip title={labelHoverText} showArrow={false}>
-                <Label id={id} aria-label={label}>
+                <Label id={id} aria-label={label} style={labelStyle}>
                     {label} {isRequired && <Required>*</Required>}
                 </Label>
             </Tooltip>

@@ -1000,105 +1000,80 @@ export interface CreateFormClickEvent extends BaseEvent {
     type: EventType.CreateFormClickEvent;
 }
 
-export interface SaveFormAsDraftEvent extends BaseEvent {
+interface FormEvent extends BaseEvent {
+    formUrn: string;
+    formType: FormType;
+    noOfQuestions: number;
+    areOwnersAssigned: boolean;
+    noOfAssetsAssigned?: number;
+}
+export interface SaveFormAsDraftEvent extends FormEvent {
     type: EventType.SaveFormAsDraftEvent;
-    formUrn: string;
-    formType: FormType;
-    noOfQuestions: number;
-    areOwnersAssigned: boolean;
-    noOfAssetsAssigned?: number;
 }
 
-export interface PublishFormEvent extends BaseEvent {
+export interface PublishFormEvent extends FormEvent {
     type: EventType.PublishFormEvent;
-    formUrn: string;
-    formType: FormType;
-    noOfQuestions: number;
-    areOwnersAssigned: boolean;
-    noOfAssetsAssigned?: number;
 }
 
-export interface UnpublishFormEvent extends BaseEvent {
+export interface UnpublishFormEvent extends FormEvent {
     type: EventType.UnpublishFormEvent;
-    formUrn: string;
-    formType: FormType;
-    noOfQuestions: number;
-    areOwnersAssigned: boolean;
-    noOfAssetsAssigned?: number;
 }
 
-export interface DeleteFormEvent extends BaseEvent {
+export interface DeleteFormEvent extends FormEvent {
     type: EventType.DeleteFormEvent;
-    formUrn: string;
-    formType: FormType;
-    noOfQuestions: number;
-    areOwnersAssigned: boolean;
-    noOfAssetsAssigned?: number;
 }
 
-export interface CreateQuestionEvent extends BaseEvent {
+interface QuestionEvent extends BaseEvent {
+    formUrn?: string;
+    questionId: string;
+    questionType: FormPromptType;
+    required: boolean;
+    allowMultiple?: boolean;
+    restrictedGlossaryTerms?: boolean;
+    restrictedOwners?: boolean;
+    restrictedOwnershipTypes?: boolean;
+    restrictedDomains?: boolean;
+}
+
+export interface CreateQuestionEvent extends QuestionEvent {
     type: EventType.CreateQuestionEvent;
-    formUrn?: string;
-    questionId: string;
-    questionType: FormPromptType;
-    required: boolean;
-    allowMultiple?: boolean;
-    restrictedGlossaryTerms?: boolean;
-    restrictedOwners?: boolean;
-    restrictedOwnershipTypes?: boolean;
-    restrictedDomains?: boolean;
 }
 
-export interface EditQuestionEvent extends BaseEvent {
+export interface EditQuestionEvent extends QuestionEvent {
     type: EventType.EditQuestionEvent;
-    formUrn?: string;
-    questionId: string;
-    questionType: FormPromptType;
-    required: boolean;
-    allowMultiple?: boolean;
-    restrictedGlossaryTerms?: boolean;
-    restrictedOwners?: boolean;
-    restrictedOwnershipTypes?: boolean;
-    restrictedDomains?: boolean;
 }
 
 export interface CreateStructuredPropertyClickEvent extends BaseEvent {
     type: EventType.CreateStructuredPropertyClickEvent;
 }
 
-export interface CreateStructuredPropertyEvent extends BaseEvent {
-    type: EventType.CreateStructuredPropertyEvent;
+interface StructuredPropertyEvent extends BaseEvent {
     propertyType: string;
     appliesTo: string[];
     qualifiedName?: string;
-    showInFilters: StructuredPropertyFilterStatus;
     allowedAssetTypes?: string[];
     allowedValues?: AllowedValue[];
     cardinality?: PropertyCardinality;
+    showInFilters?: StructuredPropertyFilterStatus;
+    isHidden: boolean;
+    showInSearchFilters: boolean;
+    showAsAssetBadge: boolean;
+    showInAssetSummary: boolean;
+    showInColumnsTable: boolean;
 }
 
-export interface EditStructuredPropertyEvent extends BaseEvent {
+export interface CreateStructuredPropertyEvent extends StructuredPropertyEvent {
+    type: EventType.CreateStructuredPropertyEvent;
+}
+
+export interface EditStructuredPropertyEvent extends StructuredPropertyEvent {
     type: EventType.EditStructuredPropertyEvent;
     propertyUrn: string;
-    propertyType: string;
-    appliesTo: string[];
-    qualifiedName?: string;
-    showInFilters: StructuredPropertyFilterStatus;
-    allowedAssetTypes?: string[];
-    allowedValues?: AllowedValue[];
-    cardinality?: PropertyCardinality;
 }
 
-export interface DeleteStructuredPropertyEvent extends BaseEvent {
+export interface DeleteStructuredPropertyEvent extends StructuredPropertyEvent {
     type: EventType.DeleteStructuredPropertyEvent;
     propertyUrn: string;
-    propertyType: string;
-    appliesTo: string[];
-    qualifiedName?: string;
-    showInFilters: StructuredPropertyFilterStatus;
-    allowedAssetTypes?: string[];
-    allowedValues?: AllowedValue[];
-    cardinality?: PropertyCardinality;
 }
 
 export interface ViewStructuredPropertyEvent extends BaseEvent {
@@ -1106,30 +1081,24 @@ export interface ViewStructuredPropertyEvent extends BaseEvent {
     propertyUrn: string;
 }
 
-export interface ApplyStructuredPropertyEvent extends BaseEvent {
+interface StructuredPropertyOnAssetEvent extends BaseEvent {
+    propertyUrn: string;
+    propertyType: string;
+    assetUrn: string;
+    assetType: EntityType;
+}
+export interface ApplyStructuredPropertyEvent extends StructuredPropertyOnAssetEvent {
     type: EventType.ApplyStructuredPropertyEvent;
-    propertyUrn: string;
-    propertyType: string;
-    assetUrn: string;
-    assetType: EntityType;
     values: PropertyValueInput[];
 }
 
-export interface UpdateStructuredPropertyOnAssetEvent extends BaseEvent {
+export interface UpdateStructuredPropertyOnAssetEvent extends StructuredPropertyOnAssetEvent {
     type: EventType.UpdateStructuredPropertyOnAssetEvent;
-    propertyUrn: string;
-    propertyType: string;
-    assetUrn: string;
-    assetType: EntityType;
     values: PropertyValueInput[];
 }
 
-export interface RemoveStructuredPropertyEvent extends BaseEvent {
+export interface RemoveStructuredPropertyEvent extends StructuredPropertyOnAssetEvent {
     type: EventType.RemoveStructuredPropertyEvent;
-    propertyUrn: string;
-    propertyType: string;
-    assetUrn: string;
-    assetType: EntityType;
 }
 
 export interface InferDocsClickEvent extends BaseEvent {

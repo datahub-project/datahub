@@ -3,6 +3,7 @@ import { AllowedValue, PropertyCardinality, SearchResult } from '@src/types.gene
 import { Form, FormInstance } from 'antd';
 import React from 'react';
 import AllowedValuesField from './AllowedValuesField';
+import RequiredAsterisk from './RequiredAsterisk';
 import { FieldLabel, FlexContainer, RowContainer, SubTextContainer } from './styledComponents';
 import useStructuredProp from './useStructuredProp';
 import {
@@ -118,9 +119,7 @@ const StructuredPropsFormSection = ({
                 <FieldLabel>
                     <FlexContainer>
                         Applies to
-                        <Text color="red" weight="bold">
-                            *
-                        </Text>
+                        <RequiredAsterisk />
                         <Tooltip
                             title="Select the types of entities that this property can be added to"
                             showArrow={false}

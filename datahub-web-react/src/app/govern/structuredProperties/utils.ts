@@ -148,6 +148,10 @@ export const getValueType = (valueUrn: string, cardinality: PropertyCardinality)
     return valueTypes.find((valueType) => valueType.urn === valueUrn && valueType.cardinality === cardinality)?.value;
 };
 
+export const getValueTypeLabel = (valueUrn: string, cardinality: PropertyCardinality) => {
+    return valueTypes.find((valueType) => valueType.urn === valueUrn && valueType.cardinality === cardinality)?.label;
+};
+
 export const getNewAllowedTypes = (entity: StructuredPropertyEntity, values: StructuredProp) => {
     const currentTypeUrns = entity.definition.typeQualifier?.allowedTypes?.map((type) => type.urn);
     return values.typeQualifier?.allowedTypes?.filter((type) => !currentTypeUrns?.includes(type));

@@ -175,10 +175,14 @@ const StructuredPropsDrawer = ({
                                 '',
                             appliesTo: form.getFieldValue('entityTypes'),
                             qualifiedName: form.getFieldValue('qualifiedName'),
-                            showInFilters: form.getFieldValue('filterStatus'),
                             allowedAssetTypes: form.getFieldValue(['typeQualifier', 'allowedTypes']),
                             allowedValues: form.getFieldValue('allowedValues'),
                             cardinality,
+                            isHidden: form.getFieldValue(['settings', 'isHidden']) ?? false,
+                            showInSearchFilters: form.getFieldValue(['settings', 'showInSearchFilters']) ?? false,
+                            showAsAssetBadge: form.getFieldValue(['settings', 'showAsAssetBadge']) ?? false,
+                            showInAssetSummary: form.getFieldValue(['settings', 'showInAssetSummary']) ?? false,
+                            showInColumnsTable: form.getFieldValue(['settings', 'showInColumnsTable']) ?? false,
                         });
                         refetch();
                         showSuccessMessage();
@@ -221,11 +225,14 @@ const StructuredPropsDrawer = ({
                                 '',
                             appliesTo: form.getFieldValue('entityTypes'),
                             qualifiedName: form.getFieldValue('qualifiedName'),
-                            showInFilters:
-                                form.getFieldValue('filterStatus') || StructuredPropertyFilterStatus.Disabled,
                             allowedAssetTypes: form.getFieldValue(['typeQualifier', 'allowedTypes']),
                             allowedValues: form.getFieldValue('allowedValues'),
                             cardinality,
+                            isHidden: form.getFieldValue(['settings', 'isHidden']) ?? false,
+                            showInSearchFilters: form.getFieldValue(['settings', 'showInSearchFilters']) ?? false,
+                            showAsAssetBadge: form.getFieldValue(['settings', 'showAsAssetBadge']) ?? false,
+                            showInAssetSummary: form.getFieldValue(['settings', 'showInAssetSummary']) ?? false,
+                            showInColumnsTable: form.getFieldValue(['settings', 'showInColumnsTable']) ?? false,
                         });
 
                         showSuccessMessage();

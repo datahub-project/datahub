@@ -1,5 +1,6 @@
 import { ColorOptions, SizeOptions } from '@components/theme/config';
 import { InputHTMLAttributes } from 'react';
+import { CSSProperties } from 'styled-components';
 import { IconNames } from '../Icon';
 
 export type SwitchLabelPosition = 'left' | 'top';
@@ -16,4 +17,5 @@ export interface SwitchProps extends Omit<InputHTMLAttributes<HTMLInputElement>,
     isRequired?: boolean;
     labelHoverText?: string;
     disabledHoverText?: string;
+    labelStyle?: CSSProperties;
 }

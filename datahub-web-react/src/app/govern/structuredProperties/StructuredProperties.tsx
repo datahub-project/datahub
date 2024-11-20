@@ -16,11 +16,13 @@ import {
     StyledSearch,
     TableContainer,
 } from './styledComponents';
+import ViewStructuredPropsDrawer from './ViewStructuredPropsDrawer';
 
 const StructuredProperties = () => {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const [searchQuery, setSearchQuery] = useState<string>('');
     const [isDrawerOpen, setIsDrawerOpen] = useState<boolean>(false);
+    const [isViewDrawerOpen, setIsViewDrawerOpen] = useState<boolean>(false);
     const [selectedProperty, setSelectedProperty] = useState<SearchResult | undefined>();
     const me = useUserContext();
     const canEditProps = me.platformPrivileges?.manageStructuredProperties;
@@ -96,6 +98,7 @@ const StructuredProperties = () => {
                     data={data}
                     loading={loading}
                     setIsDrawerOpen={setIsDrawerOpen}
+                    setIsViewDrawerOpen={setIsViewDrawerOpen}
                     setSelectedProperty={setSelectedProperty}
                     selectedProperty={selectedProperty}
                     inputs={inputs}
@@ -112,6 +115,14 @@ const StructuredProperties = () => {
                 searchAcrossEntities={searchAcrossEntities}
                 badgeProperty={badgeProperty as StructuredPropertyEntity}
             />
+            {selectedProperty && (
+                <ViewStructuredPropsDrawer
+                    isViewDrawerOpen={isViewDrawerOpen}
+                    setIsViewDrawerOpen={setIsViewDrawerOpen}
+                    selectedProperty={selectedProperty}
+                    setSelectedProperty={setSelectedProperty}
+                />
+            )}
         </PageContainer>
     );
 };

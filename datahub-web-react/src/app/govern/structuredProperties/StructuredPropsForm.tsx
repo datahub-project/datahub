@@ -1,9 +1,10 @@
-import { Icon, Input, SimpleSelect, Text, TextArea } from '@src/alchemy-components';
+import { Icon, Input, SimpleSelect, TextArea } from '@src/alchemy-components';
 import { AllowedValue, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import { Form, FormInstance } from 'antd';
 import { Tooltip } from '@components';
 import React from 'react';
 import AdvancedOptions from './AdvancedOptions';
+import RequiredAsterisk from './RequiredAsterisk';
 import DisplayPreferences from './DisplayPreferences';
 import StructuredPropsFormSection from './StructuredPropsFormSection';
 import { FieldLabel, FlexContainer, GridFormItem, RowContainer } from './styledComponents';
@@ -69,9 +70,7 @@ const StructuredPropsForm = ({
                 <FieldLabel>
                     <FlexContainer>
                         Property Type
-                        <Text color="red" weight="bold">
-                            *
-                        </Text>
+                        <RequiredAsterisk />
                         <Tooltip title="The allowed value type of the property" showArrow={false}>
                             <Icon icon="Info" color="violet" size="lg" />
                         </Tooltip>

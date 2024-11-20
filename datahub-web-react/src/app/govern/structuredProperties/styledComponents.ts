@@ -161,6 +161,12 @@ export const RowContainer = styled.div`
     align-items: center;
 `;
 
+export const ViewFieldsContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+`;
+
 export const CheckboxWrapper = styled.div`
     display: flex;
     align-items: center;
@@ -206,6 +212,17 @@ export const InputLabel = styled.div`
     color: ${colors.gray[600]};
     display: flex;
     gap: 2px;
+`;
+
+export const StyledLabel = styled.div`
+    font-size: 12px;
+    font-weight: 700;
+    color: ${colors.gray[1700]};
+`;
+
+export const DescriptionContainer = styled.div`
+    display: flex;
+    flex-direction: column;
 `;
 
 export const FlexContainer = styled.div`
@@ -356,6 +373,13 @@ export const ValuesList = styled.div`
     }
 `;
 
+export const ItemsList = styled.div`
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+`;
+
 export const ItemsContainer = styled.div`
     display: flex;
     align-items: center;
@@ -437,6 +461,12 @@ export const SelectOptionContainer = styled.div`
 export const StyledDivider = styled(Divider)`
     color: ${colors.gray[1400]};
     margin: 16px 0;
+`;
+
+export const ViewDivider = styled(Divider)`
+    color: ${colors.gray[1400]};
+    margin: 16px 0 0 -16px;
+    width: calc(100% + 32px);
 `;
 
 export const EmptyContainer = styled.div`

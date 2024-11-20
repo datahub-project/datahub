@@ -45,6 +45,7 @@ interface Props {
     data: GetSearchResultsForMultipleQuery | undefined;
     loading: boolean;
     setIsDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
+    setIsViewDrawerOpen: React.Dispatch<React.SetStateAction<boolean>>;
     selectedProperty?: SearchResult;
     setSelectedProperty: React.Dispatch<React.SetStateAction<SearchResult | undefined>>;
     inputs: SearchAcrossEntitiesInput;
@@ -56,6 +57,7 @@ const StructuredPropsTable = ({
     data,
     loading,
     setIsDrawerOpen,
+    setIsViewDrawerOpen,
     selectedProperty,
     setSelectedProperty,
     inputs,
@@ -104,6 +106,11 @@ const StructuredPropsTable = ({
                     ),
                     allowedValues: deleteEntity.definition.allowedValues || undefined,
                     cardinality: deleteEntity.definition.cardinality || undefined,
+                    isHidden: deleteEntity.settings?.isHidden ?? false,
+                    showInSearchFilters: deleteEntity.settings?.showInSearchFilters ?? false,
+                    showAsAssetBadge: deleteEntity.settings?.showAsAssetBadge ?? false,
+                    showInAssetSummary: deleteEntity.settings?.showInAssetSummary ?? false,
+                    showInColumnsTable: deleteEntity.settings?.showInColumnsTable ?? false,
                 });
                 showToastMessage(ToastType.SUCCESS, 'Structured property deleted successfully!', 3);
                 removeFromPropertiesList(client, inputs, property.entity.urn, searchAcrossEntities);
@@ -139,7 +146,9 @@ const StructuredPropsTable = ({
                             <PropName
                                 ellipsis={{ tooltip: getDisplayName(record.entity) }}
                                 onClick={() => {
-                                    setIsDrawerOpen(true);
+                                    if (canEditProps) setIsDrawerOpen(true);
+                                    else setIsViewDrawerOpen(true);
+
                                     setSelectedProperty(record);
                                     analytics.event({
                                         type: EventType.ViewStructuredPropertyEvent,
@@ -265,7 +274,7 @@ const StructuredPropsTable = ({
                         label: (
                             <MenuItem
                                 onClick={() => {
-                                    setIsDrawerOpen(true);
+                                    setIsViewDrawerOpen(true);
                                     setSelectedProperty(record);
                                     analytics.event({
                                         type: EventType.ViewStructuredPropertyEvent,
@@ -273,12 +282,41 @@ const StructuredPropsTable = ({
                                     });
                                 }}
                             >
-                                Edit
+                                View
                             </MenuItem>
                         ),
                     },
                     {
                         key: '1',
+                        disabled: !canEditProps,
+                        label: (
+                            <Tooltip
+                                showArrow={false}
+                                title={
+                                    !canEditProps
+                                        ? 'Must have permission to manage structured properties. Ask your DataHub administrator.'
+                                        : null
+                                }
+                            >
+                                <MenuItem
+                                    onClick={() => {
+                                        if (canEditProps) {
+                                            setIsDrawerOpen(true);
+                                            setSelectedProperty(record);
+                                            analytics.event({
+                                                type: EventType.ViewStructuredPropertyEvent,
+                                                propertyUrn: record.entity.urn,
+                                            });
+                                        }
+                                    }}
+                                >
+                                    Edit
+                                </MenuItem>
+                            </Tooltip>
+                        ),
+                    },
+                    {
+                        key: '2',
                         disabled: !canEditProps,
                         label: (
                             <Tooltip
