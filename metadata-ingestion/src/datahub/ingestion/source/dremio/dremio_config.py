@@ -121,7 +121,6 @@ class DremioSourceConfig(
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 ):
-
     domain: Optional[str] = Field(
         default=None,
         description="Domain for all source objects.",

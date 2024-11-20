@@ -307,7 +307,6 @@ class ViewField:
         type_cls: ViewFieldType,
         populate_sql_logic_in_descriptions: bool,
     ) -> "ViewField":
-
         is_primary_key = field_dict.get("primary_key", "no") == "yes"
 
         name = field_dict["name"]
@@ -929,7 +928,6 @@ class LookerExplore:
         reporter: SourceReport,
         source_config: LookerDashboardSourceConfig,
     ) -> Optional["LookerExplore"]:  # noqa: C901
-
         try:
             explore = client.lookml_model_explore(model, explore_name)
             views: Set[str] = set()
@@ -987,13 +985,11 @@ class LookerExplore:
             field_name_vs_raw_explore_field: Dict = {}
 
             if explore.fields is not None:
-
                 if explore.fields.dimensions is not None:
                     for dim_field in explore.fields.dimensions:
                         if dim_field.name is None:
                             continue
                         else:
-
                             field_name_vs_raw_explore_field[dim_field.name] = dim_field
 
                             view_fields.append(
@@ -1034,7 +1030,6 @@ class LookerExplore:
                         if measure_field.name is None:
                             continue
                         else:
-
                             field_name_vs_raw_explore_field[
                                 measure_field.name
                             ] = measure_field

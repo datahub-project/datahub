@@ -401,7 +401,6 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
             columns = self.get_import_data_model_columns(model_id=model.model_id)
             for column in columns:
-
                 schema_field = SchemaFieldClass(
                     fieldPath=column.name,
                     type=self.get_schema_field_data_type(column),

@@ -236,7 +236,6 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
     def get_known_query_lineage(
         self, query: Query, dataset_name: str, db_row: UpstreamLineageEdge
     ) -> Optional[KnownQueryLineageInfo]:
-
         if not db_row.UPSTREAM_TABLES:
             return None
 
