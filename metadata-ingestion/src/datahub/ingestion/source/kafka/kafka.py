@@ -8,7 +8,6 @@ import avro.schema
 import confluent_kafka
 import confluent_kafka.admin
 import pydantic
-from confluent_kafka import Consumer
 from confluent_kafka.admin import (
     AdminClient,
     ConfigEntry,
@@ -148,7 +147,7 @@ def get_kafka_consumer(
     connection: KafkaConsumerConnectionConfig,
 ) -> confluent_kafka.Consumer:
 
-    consumer = Consumer(
+    consumer = confluent_kafka.Consumer(
         {
             "group.id": "test",
             "bootstrap.servers": connection.bootstrap,
