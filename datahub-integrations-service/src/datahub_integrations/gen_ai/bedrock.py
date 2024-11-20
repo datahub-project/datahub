@@ -7,10 +7,13 @@ from typing import TYPE_CHECKING
 
 import boto3
 import botocore.config
+from datahub.cli.env_utils import get_boolean_env_variable
 from loguru import logger
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime import BedrockRuntimeClient
+
+_LLM_TRACE = get_boolean_env_variable("DATAHUB_LLM_TRACE")
 
 
 class BedrockModel(enum.Enum):
@@ -66,6 +69,11 @@ def call_bedrock_llm(
     contentType = "application/json"
 
     boto3_bedrock = get_bedrock_client()
+
+    if _LLM_TRACE:
+        logger.info(
+            f"Calling Bedrock LLM with model {model.value} and prompt:\n{prompt}"
+        )
     response = boto3_bedrock.invoke_model(
         body=json.dumps(body),
         modelId=model.value,
@@ -73,6 +81,8 @@ def call_bedrock_llm(
         contentType=contentType,
     )
     response_body = json.loads(response["body"].read())
+    if _LLM_TRACE:
+        logger.info(f"LLM response body: {response_body}")
 
     # If the generation ran out of tokens, log a warning.
     stop_reason = response_body["stop_reason"]
@@ -81,5 +91,5 @@ def call_bedrock_llm(
 
     outputText = response_body["content"][0]["text"]
 
-    logger.debug(f"LLM call took {time.time() - start_time} seconds")
+    logger.info(f"LLM call took {time.time() - start_time} seconds")
     return outputText
