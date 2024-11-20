@@ -22,6 +22,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn_with_platform_instance,
     make_schema_field_urn,
     make_term_urn,
+    make_user_urn,
 )
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu, MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
@@ -77,6 +78,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
+    OwnershipClass,
+    OwnerClass,
+    OwnershipTypeClass,
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
@@ -304,6 +308,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
         self.sink_config = ctx.pipeline_config.sink.config
         self.session = self.login()
+        self.owners_dict = self.build_preset_owner_dict()
 
     def login(self) -> requests.Session:
         login_response = requests.post(
@@ -388,6 +393,100 @@ class SupersetSource(StatefulIngestionSourceBase):
                 env=self.config.env,
             )
         return None
+    
+    def parse_owner_payload(self, payload, owners_dict):
+        for owner_data in payload.get("result", []):
+            email = owner_data.get("extra", {}).get("email")
+            owner_id = owner_data.get("value")
+
+            if owner_id and email:
+                owners_dict[owner_id] = email
+
+    def build_preset_owner_dict(self): 
+        owners_dict = {}
+        dataset_payload = self.get_all_dataset_owners()
+        chart_payload = self.get_all_chart_owners()
+        dashboard_payload = self.get_all_dashboard_owners()
+
+        self.parse_owner_payload(dataset_payload, owners_dict)
+        self.parse_owner_payload(chart_payload, owners_dict)
+        self.parse_owner_payload(dashboard_payload, owners_dict)
+        
+        return owners_dict
+    
+    def build_owners_urn_list(self, data):
+        owners_urn_list = []
+        for owner in data.get("owners", []):
+            owner_id = owner.get("id")
+            owner_email = self.owners_dict.get(owner_id)
+            if owner_email:
+                owners_urn = make_user_urn(owner_email)
+                owners_urn_list.append(owners_urn)
+        return owners_urn_list
+
+    def get_all_dataset_owners(self) -> Iterable[Dict]:
+        current_dataset_page = 1
+        total_dataset_owners = PAGE_SIZE
+        all_dataset_owners = []
+
+        while (current_dataset_page - 1) * PAGE_SIZE <= total_dataset_owners:
+            full_owners_response = self.session.get(
+                f"{self.config.connect_uri}/api/v1/dataset/related/owners",
+                params=f"q=(page:{current_dataset_page},page_size:{PAGE_SIZE})",
+            )
+            if full_owners_response.status_code != 200:
+                logger.warning(f"Failed to get dataset data: {full_owners_response.text}")
+            full_owners_response.raise_for_status()
+
+            payload = full_owners_response.json()
+            total_dataset_owners = payload.get("count", total_dataset_owners)
+            all_dataset_owners.extend(payload.get("result", []))
+            current_dataset_page += 1
+        
+        #return combined payload
+        return {"result": all_dataset_owners, "count": total_dataset_owners}
+
+    def get_all_chart_owners(self) -> Iterable[Dict]:
+        current_chart_page = 1
+        total_chart_owners = PAGE_SIZE
+        all_chart_owners = []
+
+        while (current_chart_page - 1) * PAGE_SIZE <= total_chart_owners:
+            full_owners_response = self.session.get(
+                f"{self.config.connect_uri}/api/v1/chart/related/owners",
+                params=f"q=(page:{current_chart_page},page_size:{PAGE_SIZE})",
+            )
+            if full_owners_response.status_code != 200:
+                logger.warning(f"Failed to get chart data: {full_owners_response.text}")
+            full_owners_response.raise_for_status()
+
+            payload = full_owners_response.json()
+            total_chart_owners = payload.get("count", total_chart_owners)
+            all_chart_owners.extend(payload.get("result", []))
+            current_chart_page += 1
+        
+        return {"result": all_chart_owners, "count": total_chart_owners}
+    
+    def get_all_dashboard_owners(self) -> Iterable[Dict]:
+        current_dashboard_page = 1
+        total_dashboard_owners = PAGE_SIZE
+        all_dashboard_owners = []
+
+        while (current_dashboard_page - 1) * PAGE_SIZE <= total_dashboard_owners:
+            full_owners_response = self.session.get(
+                f"{self.config.connect_uri}/api/v1/dashboard/related/owners",
+                params=f"q=(page:{current_dashboard_page},page_size:{PAGE_SIZE})",
+            )
+            if full_owners_response.status_code != 200:
+                logger.warning(f"Failed to get dashboard data: {full_owners_response.text}")
+            full_owners_response.raise_for_status()
+
+            payload = full_owners_response.json()
+            total_dashboard_owners = payload.get("count", total_dashboard_owners)
+            all_dashboard_owners.extend(payload.get("result", []))
+            current_dashboard_page += 1
+        
+        return {"result": all_dashboard_owners, "count": total_dashboard_owners}
 
     def construct_dashboard_from_api_data(self, dashboard_data):
         dashboard_urn = make_dashboard_urn(
@@ -459,6 +558,20 @@ class SupersetSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
         )
         dashboard_snapshot.aspects.append(dashboard_info)
+
+        dashboard_owners_list = self.build_owners_urn_list(dashboard_data)
+        owners_info = OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=urn,
+                    #default as Technical Owners from Preset
+                    type=OwnershipTypeClass.TECHNICAL_OWNER,
+                )
+                for urn in (dashboard_owners_list or [])
+            ],
+        )
+        dashboard_snapshot.aspects.append(owners_info)
+
         return dashboard_snapshot
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
@@ -570,6 +683,20 @@ class SupersetSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
         )
         chart_snapshot.aspects.append(chart_info)
+
+        chart_owners_list = self.build_owners_urn_list(chart_data)
+        owners_info = OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=urn,
+                    #default as Technical Owners from Preset
+                    type=OwnershipTypeClass.TECHNICAL_OWNER,
+                )
+                for urn in (chart_owners_list or [])
+            ],
+        )
+        chart_snapshot.aspects.append(owners_info)
+
         return chart_snapshot
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
@@ -802,7 +929,20 @@ class SupersetSource(StatefulIngestionSourceBase):
                 ]
             )
         global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
-        aspects_items.extend([self.gen_schema_metadata(datasource_urn, dataset_response), dataset_info, upstream_lineage, global_tags])
+
+        dataset_owners_list = self.build_owners_urn_list(dataset_data)
+        owners_info = OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=urn,
+                    #default as Technical Owners from Preset
+                    type=OwnershipTypeClass.TECHNICAL_OWNER,
+                )
+                for urn in (dataset_owners_list or [])
+            ],
+        )
+
+        aspects_items.extend([self.gen_schema_metadata(datasource_urn, dataset_response), dataset_info, upstream_lineage, global_tags, owners_info])
 
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
