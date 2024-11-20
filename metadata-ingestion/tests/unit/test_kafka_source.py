@@ -38,7 +38,9 @@ from datahub.metadata.schema_classes import (
 
 @pytest.fixture
 def mock_admin_client():
-    with patch("datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True) as mock:
+    with patch(
+        "datahub.ingestion.source.kafka.kafka.AdminClient", autospec=True
+    ) as mock:
         yield mock
 
 
