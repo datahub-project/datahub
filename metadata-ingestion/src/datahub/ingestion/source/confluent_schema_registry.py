@@ -16,8 +16,10 @@ from confluent_kafka.schema_registry.schema_registry_client import (
 from datahub.ingestion.extractor import protobuf_util, schema_util
 from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
 from datahub.ingestion.extractor.protobuf_util import ProtobufSchema
-from datahub.ingestion.source.kafka import KafkaSourceConfig, KafkaSourceReport
-from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
+from datahub.ingestion.source.kafka.kafka import KafkaSourceConfig, KafkaSourceReport
+from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
+    KafkaSchemaRegistryBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     KafkaSchema,
     SchemaField,

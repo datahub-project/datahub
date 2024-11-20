@@ -23,7 +23,7 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.kafka import KafkaSource, KafkaSourceConfig
+from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
