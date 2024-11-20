@@ -1011,7 +1011,6 @@ def default_config():
 def test_qlik_sense_ingest(
     pytestconfig, tmp_path, requests_mock, mock_websocket_send_request
 ):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/qlik_sense"
 
     register_mock_api(request_mock=requests_mock)
@@ -1051,7 +1050,6 @@ def test_qlik_sense_ingest(
 def test_platform_instance_ingest(
     pytestconfig, tmp_path, requests_mock, mock_websocket_send_request
 ):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/qlik_sense"
 
     register_mock_api(request_mock=requests_mock)
