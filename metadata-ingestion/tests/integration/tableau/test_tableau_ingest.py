@@ -19,8 +19,7 @@ from tableauserverclient.models import (
 )
 from tableauserverclient.models.reference_item import ResourceReference
 
-from datahub.configuration.source_common import DEFAULT_ENV
-from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.emitter.mce_builder import DEFAULT_ENV, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.tableau.tableau import (

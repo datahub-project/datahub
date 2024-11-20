@@ -41,7 +41,7 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sql_parser import SQLParser
+from datahub.utilities.sql_parser_base import SQLParser
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)

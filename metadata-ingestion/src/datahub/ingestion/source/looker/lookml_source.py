@@ -57,10 +57,8 @@ from datahub.ingestion.source.looker.lookml_concept_context import (
     LookerViewContext,
 )
 from datahub.ingestion.source.looker.lookml_config import (
-    _BASE_PROJECT_NAME,
-    _MODEL_FILE_EXTENSION,
-    VIEW_LANGUAGE_LOOKML,
-    VIEW_LANGUAGE_SQL,
+    BASE_PROJECT_NAME,
+    MODEL_FILE_EXTENSION,
     LookerConnectionDefinition,
     LookMLSourceConfig,
     LookMLSourceReport,
@@ -97,6 +95,9 @@ from datahub.metadata.schema_classes import (
     SubTypesClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import ColumnRef
+
+VIEW_LANGUAGE_LOOKML: str = "lookml"
+VIEW_LANGUAGE_SQL: str = "sql"
 
 logger = logging.getLogger(__name__)
 
@@ -319,7 +320,7 @@ class LookMLSource(StatefulIngestionSourceBase):
 
         looker_model = LookerModel.from_looker_dict(
             parsed,
-            _BASE_PROJECT_NAME,
+            BASE_PROJECT_NAME,
             self.source_config.project_name,
             self.base_projects_folder,
             path,
@@ -544,7 +545,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                 self.source_config.base_folder = checkout_dir.resolve()
 
             self.base_projects_folder[
-                _BASE_PROJECT_NAME
+                BASE_PROJECT_NAME
             ] = self.source_config.base_folder
 
             visited_projects: Set[str] = set()
@@ -576,7 +577,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                 self.base_projects_folder[project] = p_ref
 
             self._recursively_check_manifests(
-                tmp_dir, _BASE_PROJECT_NAME, visited_projects
+                tmp_dir, BASE_PROJECT_NAME, visited_projects
             )
 
             yield from self.get_internal_workunits()
@@ -607,7 +608,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             return
 
         # Special case handling if the root project has a name in the manifest file.
-        if project_name == _BASE_PROJECT_NAME and manifest.project_name:
+        if project_name == BASE_PROJECT_NAME and manifest.project_name:
             if (
                 self.source_config.project_name is not None
                 and manifest.project_name != self.source_config.project_name
@@ -696,7 +697,7 @@ class LookMLSource(StatefulIngestionSourceBase):
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
         model_files = sorted(
-            self.source_config.base_folder.glob(f"**/*{_MODEL_FILE_EXTENSION}")
+            self.source_config.base_folder.glob(f"**/*{MODEL_FILE_EXTENSION}")
         )
         model_suffix_len = len(".model")
 
@@ -832,7 +833,7 @@ class LookMLSource(StatefulIngestionSourceBase):
 
                             current_project_name: str = (
                                 include.project
-                                if include.project != _BASE_PROJECT_NAME
+                                if include.project != BASE_PROJECT_NAME
                                 else project_name
                             )
 
@@ -841,7 +842,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                             base_folder_path: str = str(
                                 self.base_projects_folder.get(
                                     current_project_name,
-                                    self.base_projects_folder[_BASE_PROJECT_NAME],
+                                    self.base_projects_folder[BASE_PROJECT_NAME],
                                 )
                             )
 
