@@ -537,8 +537,13 @@ class SqlParsingAggregator(Closeable):
         return query
 
     @functools.lru_cache(maxsize=128)
-    def _name_from_urn(self, urn: UrnStr) -> str:
-        name = DatasetUrn.from_string(urn).name
+    def _name_from_urn(self, urn: UrnStr) -> Optional[str]:
+        urn_obj = DatasetUrn.from_string(urn)
+        if urn_obj.platform != self.platform.urn():
+            # If this is external (e.g. s3), we don't know the name.
+            return None
+
+        name = urn_obj.name
         if (
             platform_instance := self._schema_resolver.platform_instance
         ) and name.startswith(platform_instance):
@@ -549,14 +554,22 @@ class SqlParsingAggregator(Closeable):
     def is_temp_table(self, urn: UrnStr) -> bool:
         if self._is_temp_table is None:
             return False
-        return self._is_temp_table(self._name_from_urn(urn))
+        name = self._name_from_urn(urn)
+        if name is None:
+            # External tables are not temp tables.
+            return False
+        return self._is_temp_table(name)
 
-    def is_allowed_table(self, urn: UrnStr) -> bool:
+    def is_allowed_table(self, urn: UrnStr, allow_external: bool = True) -> bool:
         if self.is_temp_table(urn):
             return False
         if self._is_allowed_table is None:
             return True
-        return self._is_allowed_table(self._name_from_urn(urn))
+        name = self._name_from_urn(urn)
+        if name is None:
+            # Treat external tables specially.
+            return allow_external
+        return self._is_allowed_table(name)
 
     def add(
         self,
@@ -852,7 +865,7 @@ class SqlParsingAggregator(Closeable):
             upstream_fields = parsed.column_usage or {}
             for upstream_urn in parsed.upstreams:
                 # If the upstream table is a temp table or otherwise denied by filters, don't log usage for it.
-                if not self.is_allowed_table(upstream_urn) or (
+                if not self.is_allowed_table(upstream_urn, allow_external=False) or (
                     require_out_table_schema
                     and not self._schema_resolver.has_urn(upstream_urn)
                 ):
@@ -1558,7 +1571,10 @@ class SqlParsingAggregator(Closeable):
                 if upstream_query_ids:
                     for upstream_query_id in upstream_query_ids:
                         upstream_query = self._query_map.get(upstream_query_id)
-                        if upstream_query:
+                        if (
+                            upstream_query
+                            and upstream_query.query_id not in composed_of_queries
+                        ):
                             temp_query_lineage_info = _recurse_into_query(
                                 upstream_query, recursion_path
                             )

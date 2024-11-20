@@ -67,8 +67,8 @@ MetadataChangeProposalWrapper mcpw = MetadataChangeProposalWrapper.builder()
         .aspect(new DatasetProperties().setDescription("This is the canonical User profile dataset"))
         .build();
 
-// Blocking call using future
-Future<MetadataWriteResponse> requestFuture = emitter.emit(mcpw, null).get();
+// Blocking call using Future.get()
+MetadataWriteResponse requestFuture = emitter.emit(mcpw, null).get();
 
 // Non-blocking using callback
 emitter.emit(mcpw, new Callback() {

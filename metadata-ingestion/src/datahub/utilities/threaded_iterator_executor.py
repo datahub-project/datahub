@@ -46,7 +46,6 @@ class ThreadedIteratorExecutor:
                 futures = [f for f in futures if not f.done()]
                 if not futures:
                     break
-
         # Yield the remaining work units. This theoretically should not happen, but adding it just in case.
         while not out_q.empty():
             yield out_q.get_nowait()
