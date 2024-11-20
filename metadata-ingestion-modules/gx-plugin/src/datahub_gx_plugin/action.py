@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 import datahub.emitter.mce_builder as builder
+import packaging.version
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
@@ -59,6 +60,16 @@ from great_expectations.validator.validator import Validator
 from sqlalchemy.engine.base import Connection, Engine
 from sqlalchemy.engine.url import make_url
 
+# TODO: move this and version check used in tests to some common module
+try:
+    from great_expectations import __version__ as GX_VERSION  # type: ignore
+
+    has_name_positional_arg = packaging.version.parse(
+        GX_VERSION
+    ) >= packaging.version.Version("0.18.14")
+except Exception:
+    has_name_positional_arg = False
+
 if TYPE_CHECKING:
     from great_expectations.data_context.types.resource_identifiers import (
         GXCloudIdentifier,
@@ -78,6 +89,8 @@ class DataHubValidationAction(ValidationAction):
     def __init__(
         self,
         data_context: AbstractDataContext,
+        # this would capture `name` positional arg added in GX 0.18.14
+        *args: Union[str, Any],
         server_url: str,
         env: str = builder.DEFAULT_ENV,
         platform_alias: Optional[str] = None,
@@ -94,7 +107,12 @@ class DataHubValidationAction(ValidationAction):
         name: str = "DataHubValidationAction",
     ):
 
-        super().__init__(data_context)
+        if has_name_positional_arg:
+            if len(args) >= 1 and isinstance(args[0], str):
+                name = args[0]
+            super().__init__(data_context, name)
+        else:
+            super().__init__(data_context)
         self.server_url = server_url
         self.env = env
         self.platform_alias = platform_alias

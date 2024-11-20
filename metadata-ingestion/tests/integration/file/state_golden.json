@@ -1,0 +1,26 @@
+[
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(file,dummy_stateful,prod),default_stale_entity_removal)",
+    "changeType": "UPSERT",
+    "aspectName": "datahubIngestionCheckpoint",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1730898142020,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "pipelineName": "dummy_stateful",
+            "platformInstanceId": "",
+            "config": "",
+            "state": {
+                "formatVersion": "1.0",
+                "serde": "utf-8",
+                "payload": "{\"urns\": [\"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD)\", \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)\", \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_3,PROD)\", \"urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_4,PROD)\"]}"
+            },
+            "runId": "test-run"
+        }
+    }
+}
+]

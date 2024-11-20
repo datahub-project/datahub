@@ -1,5 +1,5 @@
 import subprocess
-from typing import Any, Dict, List
+from typing import Any, Dict
 from unittest.mock import patch
 
 import pytest
@@ -18,6 +18,13 @@ pytestmark = pytest.mark.integration_batch_1
 FROZEN_TIME = "2020-04-14 07:00:00"
 GMS_PORT = 8080
 GMS_SERVER = f"http://localhost:{GMS_PORT}"
+# These paths change from one instance run of the clickhouse docker to the other, and the FROZEN_TIME does not apply to
+# these.
+PATHS_IN_GOLDEN_FILE_TO_IGNORE = [
+    r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['created-at'\]",
+    r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['snapshot-id'\]",
+    r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['manifest-list'\]",
+]
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -33,6 +40,36 @@ def spark_submit(file_path: str, args: str = "") -> None:
     command = f"{docker} exec spark-iceberg spark-submit {file_path} {args}"
     ret = subprocess.run(command, shell=True, capture_output=True)
     assert ret.returncode == 0
+
+
+@freeze_time(FROZEN_TIME)
+def test_multiprocessing_iceberg_ingest(
+    docker_compose_runner, pytestconfig, tmp_path, mock_time
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/iceberg/"
+
+    with docker_compose_runner(
+        test_resources_dir / "docker-compose.yml", "iceberg"
+    ) as docker_services:
+        wait_for_port(docker_services, "spark-iceberg", 8888, timeout=120)
+
+        # Run the create.py pyspark file to populate the table.
+        spark_submit("/home/iceberg/setup/create.py", "nyc.taxis")
+
+        # Run the metadata ingestion pipeline.
+        config_file = (
+            test_resources_dir / "iceberg_multiprocessing_to_file.yml"
+        ).resolve()
+        run_datahub_cmd(
+            ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
+        )
+        # Verify the output.
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            ignore_paths=PATHS_IN_GOLDEN_FILE_TO_IGNORE,
+            output_path=tmp_path / "iceberg_mces.json",
+            golden_path=test_resources_dir / "iceberg_ingest_mces_golden.json",
+        )
 
 
 @freeze_time(FROZEN_TIME)
@@ -52,16 +89,10 @@ def test_iceberg_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time
         run_datahub_cmd(
             ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
         )
-        # These paths change from one instance run of the clickhouse docker to the other, and the FROZEN_TIME does not apply to these.
-        ignore_paths: List[str] = [
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['created-at'\]",
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['snapshot-id'\]",
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['manifest-list'\]",
-        ]
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
-            ignore_paths=ignore_paths,
+            ignore_paths=PATHS_IN_GOLDEN_FILE_TO_IGNORE,
             output_path=tmp_path / "iceberg_mces.json",
             golden_path=test_resources_dir / "iceberg_ingest_mces_golden.json",
         )
@@ -170,16 +201,10 @@ def test_iceberg_stateful_ingest(
             pipeline=pipeline_run2, expected_providers=1
         )
 
-        ignore_paths: List[str] = [
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['created-at'\]",
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['snapshot-id'\]",
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['manifest-list'\]",
-        ]
-
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
-            ignore_paths=ignore_paths,
+            ignore_paths=PATHS_IN_GOLDEN_FILE_TO_IGNORE,
             output_path=deleted_mces_path,
             golden_path=test_resources_dir / "iceberg_deleted_table_mces_golden.json",
         )
@@ -202,16 +227,11 @@ def test_iceberg_profiling(docker_compose_runner, pytestconfig, tmp_path, mock_t
         run_datahub_cmd(
             ["ingest", "--strict-warnings", "-c", f"{config_file}"], tmp_path=tmp_path
         )
-        # These paths change from one instance run of the clickhouse docker to the other, and the FROZEN_TIME does not apply to these.
-        ignore_paths: List[str] = [
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['created-at'\]",
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['snapshot-id'\]",
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['manifest-list'\]",
-        ]
+
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
-            ignore_paths=ignore_paths,
+            ignore_paths=PATHS_IN_GOLDEN_FILE_TO_IGNORE,
             output_path=tmp_path / "iceberg_mces.json",
             golden_path=test_resources_dir / "iceberg_profile_mces_golden.json",
         )

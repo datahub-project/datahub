@@ -289,6 +289,13 @@ kafka:
     maxPartitionFetchBytes: ${KAFKA_CONSUMER_MAX_PARTITION_FETCH_BYTES:5242880} # the max bytes consumed per partition
     stopOnDeserializationError: ${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:true} # Stops kafka listener container on deserialization error, allows user to fix problems before moving past problematic offset. If false will log and move forward past the offset
     healthCheckEnabled: ${KAFKA_CONSUMER_HEALTH_CHECK_ENABLED:true} # Sets the health indicator to down when a message listener container has stopped due to a deserialization failure, will force consumer apps to restart through k8s and docker-compose health mechanisms
+    mcp:
+      autoOffsetReset: ${KAFKA_CONSUMER_MCP_AUTO_OFFSET_RESET:earliest}
+    mcl:
+      autoOffsetReset: ${KAFKA_CONSUMER_MCL_AUTO_OFFSET_RESET:earliest}
+    pe:
+      autoOffsetReset: ${KAFKA_CONSUMER_PE_AUTO_OFFSET_RESET:latest}
+
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
     url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}
@@ -372,6 +379,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_BATCH_SIZE:5000}
     reprocess:
       enabled: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:false}
+  ingestionIndices:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_BATCH_SIZE:5000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_DELAY_MS:1000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_CLL_LIMIT:0}
   policyFields:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_BATCH_SIZE:5000}
@@ -457,10 +469,19 @@ entityClient:
   java:
     get:
       batchSize: ${ENTITY_CLIENT_JAVA_GET_BATCH_SIZE:375} # matches EbeanAspectDao batch size
+    ingest:
+      batchSize: ${ENTITY_CLIENT_JAVA_INGEST_BATCH_SIZE:375}
   restli:
     get:
       batchSize: ${ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE:100} # limited to prevent exceeding restli URI size limit
       batchConcurrency: ${ENTITY_CLIENT_RESTLI_GET_BATCH_CONCURRENCY:2} # parallel threads
+      batchQueueSize: ${ENTITY_CLIENT_RESTLI_GET_BATCH_QUEUE_SIZE:500}
+      batchThreadKeepAlive: ${ENTITY_CLIENT_RESTLI_GET_BATCH_THREAD_KEEP_ALIVE:60}
+    ingest:
+      batchSize: ${ENTITY_CLIENT_RESTLI_INGEST_BATCH_SIZE:50} # limited to prevent exceeding restli timeouts
+      batchConcurrency: ${ENTITY_CLIENT_RESTLI_INGEST_BATCH_CONCURRENCY:2} # parallel threads
+      batchQueueSize: ${ENTITY_CLIENT_RESTLI_INGEST_BATCH_QUEUE_SIZE:500}
+      batchThreadKeepAlive: ${ENTITY_CLIENT_RESTLI_INGEST_BATCH_THREAD_KEEP_ALIVE:60}
 
 usageClient:
   retryInterval: ${USAGE_CLIENT_RETRY_INTERVAL:2}

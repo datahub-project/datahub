@@ -302,5 +302,20 @@
         "description": "Configure a custom recipe using YAML.",
         "docsUrl": "https://datahubproject.io/docs/metadata-ingestion/",
         "recipe": "source:\n  type: <source-type>\n  config:\n    # Source-type specifics config\n    <source-configs>"
+    },
+    {
+        "urn": "urn:li:dataPlatform:dremio",
+        "name": "dremio",
+        "displayName": "Dremio",
+        "description": "Import Spaces, Sources, Tables and statistics from Dremio.",
+        "docsUrl": "https://datahubproject.io/docs/metadata-ingestion/",
+        "recipe": "source:\n    type: dremio\n    config:\n        # Coordinates\n        hostname: null\n        port: null\n        #true if https, otherwise false\n        tls: true\n\n        #For cloud instance\n        #is_dremio_cloud: True\n        #dremio_cloud_project_id: <project_id>\n\n        #Credentials with personal access token\n        authentication_method: PAT\n        password: pass\n\n        #Or Credentials with basic auth\n        #authentication_method: password\n        #username: null\n        #password: null\n\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:cassandra",
+        "name": "cassandra",
+        "displayName": "CassandraDB",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/cassandra",
+        "recipe": "source:\n  type: cassandra\n  config:\n    # Credentials for on prem cassandra\n    contact_point: localhost\n    port: 9042\n    username: admin\n    password: password\n\n    # Or\n    # Credentials Astra Cloud\n    #cloud_config:\n    #  secure_connect_bundle: Path to Secure Connect Bundle (.zip)\n    #  token: Application Token\n\n    # Optional Allow / Deny extraction of particular keyspaces.\n    keyspace_pattern:\n      allow: [.*]\n\n    # Optional Allow / Deny extraction of particular tables.\n    table_pattern:\n      allow: [.*]"
     }
 ]

@@ -7,8 +7,20 @@
 //   whole relational_expression parse tree.
 // - Added letter_character_and_decimal_digit phrase and updated keyword_or_identifier phrase
 // - Added below pattern in argument_list
-//          |   WS_INLINE? SQL_STRING
-//          |   WS_INLINE? SQL_STRING "," argument_list
+//          |   WS_INLINE? sql_string
+//          |   WS_INLINE? sql_string "," argument_list
+// - Added subtract_expression
+// - Updated relational_expression, here below are the updates
+//      |   subtract_expression
+//      |   subtract_expression "<" relational_expression
+//      |   subtract_expression ">" relational_expression
+//      |   subtract_expression "<=" relational_expression
+//      |   subtract_expression ">=" relational_expression
+// - Added empty_string
+// - Updated argument_list, below are the updates
+//      |   empty_string
+//      |   empty_string "," argument_list
+// - Added sql_string in any_literal
 
 lexical_unit:   lexical_elements?
 
@@ -290,16 +302,27 @@ equality_expression:    WS_INLINE? relational_expression
                    |    relational_expression WS_INLINE? "<>" WS_INLINE? equality_expression
 
 relational_expression:  additive_expression
+                    |   subtract_expression
                     |   additive_expression "<" relational_expression
                     |   additive_expression ">" relational_expression
                     |   additive_expression "<=" relational_expression
                     |   additive_expression ">=" relational_expression
+                    |   subtract_expression "<" relational_expression
+                    |   subtract_expression ">" relational_expression
+                    |   subtract_expression "<=" relational_expression
+                    |   subtract_expression ">=" relational_expression
+
 
 additive_expression:    multiplicative_expression
                     |   multiplicative_expression "+" additive_expression
                     |   multiplicative_expression WS_INLINE? "_" WS_INLINE? additive_expression
                     |   multiplicative_expression  WS_INLINE? NEWLINE? WS_INLINE? "&" WS_INLINE? NEWLINE? WS_INLINE? additive_expression
 
+
+subtract_expression:    multiplicative_expression
+                    |   multiplicative_expression "-" additive_expression
+                    |   multiplicative_expression WS_INLINE? "_" WS_INLINE? additive_expression
+                    |   multiplicative_expression  WS_INLINE? NEWLINE? WS_INLINE? "&" WS_INLINE? NEWLINE? WS_INLINE? additive_expression
 
 multiplicative_expression:  WS_INLINE? metadata_expression
                         |   metadata_expression WS_INLINE? "*" WS_INLINE? multiplicative_expression
@@ -346,14 +369,23 @@ not_implemented_expression: "..."
 
 invoke_expression:  "#"? primary_expression "(" NEWLINE? argument_list? NEWLINE? ")"
 
-SQL_STRING: /\"((?:[^\"\\]|\\[\"]|\"\"|\#\(lf\))+)\"/
+empty_string: /"([^"]|\\")*"/
+
+// SQL String specific rules
+sql_content: /(?:[^\"\\]|\\[\"]|\"\"|\#\(lf\))+/
+
+sql_string: "\"" sql_content "\""
 
 argument_list:  WS_INLINE? expression
             |   WS_INLINE? expression WS_INLINE? "," WS_INLINE? argument_list
-            |   WS_INLINE? SQL_STRING
-            |   WS_INLINE? SQL_STRING "," argument_list
+            |   WS_INLINE? sql_string
+            |   WS_INLINE? sql_string "," argument_list
             |   "\"" identifier "\""
             |   "\"" identifier "\"" "," argument_list
+            |   "[" identifier "]"
+            |   "[" identifier "]" "," argument_list
+            |   empty_string
+            |   empty_string "," argument_list
             |   WS_INLINE
             |   WS_INLINE? ESCAPED_STRING
             |   WS_INLINE? ESCAPED_STRING "," argument_list
@@ -576,6 +608,7 @@ any_literal:      record_literal
             |     number_literal
             |     text_literal
             |     null_literal
+            |     sql_string
 
 
 %import common.WORD
