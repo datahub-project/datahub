@@ -10,7 +10,7 @@ from datahub.ingestion.source.looker.looker_template_language import (
 )
 from datahub.ingestion.source.looker.lookml_config import (
     _BASE_PROJECT_NAME,
-    _EXPLORE_FILE_EXTENSION,
+    EXPLORE_FILE_EXTENSION,
     LookMLSourceConfig,
     LookMLSourceReport,
 )
@@ -69,7 +69,7 @@ class LookerModel:
         explore_files = [
             x.include
             for x in resolved_includes
-            if x.include.endswith(_EXPLORE_FILE_EXTENSION)
+            if x.include.endswith(EXPLORE_FILE_EXTENSION)
         ]
         for included_file in explore_files:
             try:

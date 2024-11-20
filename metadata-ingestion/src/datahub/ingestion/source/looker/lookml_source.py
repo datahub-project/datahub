@@ -58,9 +58,7 @@ from datahub.ingestion.source.looker.lookml_concept_context import (
 )
 from datahub.ingestion.source.looker.lookml_config import (
     _BASE_PROJECT_NAME,
-    _MODEL_FILE_EXTENSION,
-    VIEW_LANGUAGE_LOOKML,
-    VIEW_LANGUAGE_SQL,
+    MODEL_FILE_EXTENSION,
     LookerConnectionDefinition,
     LookMLSourceConfig,
     LookMLSourceReport,
@@ -98,7 +96,11 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.sqlglot_lineage import ColumnRef
 
+VIEW_LANGUAGE_LOOKML: str = "lookml"
+VIEW_LANGUAGE_SQL: str = "sql"
+
 logger = logging.getLogger(__name__)
+
 
 
 @dataclass
@@ -696,7 +698,7 @@ class LookMLSource(StatefulIngestionSourceBase):
         # The ** means "this directory and all subdirectories", and hence should
         # include all the files we want.
         model_files = sorted(
-            self.source_config.base_folder.glob(f"**/*{_MODEL_FILE_EXTENSION}")
+            self.source_config.base_folder.glob(f"**/*{MODEL_FILE_EXTENSION}")
         )
         model_suffix_len = len(".model")
 

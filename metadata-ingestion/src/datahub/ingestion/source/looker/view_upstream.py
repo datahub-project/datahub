@@ -12,6 +12,7 @@ from datahub.ingestion.source.looker.looker_common import (
     ViewField,
     ViewFieldType,
 )
+from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
 from datahub.ingestion.source.looker.looker_view_id_cache import LookerViewIdCache
 from datahub.ingestion.source.looker.lookml_concept_context import (
     LookerFieldContext,
@@ -20,7 +21,6 @@ from datahub.ingestion.source.looker.lookml_concept_context import (
 from datahub.ingestion.source.looker.lookml_config import (
     DERIVED_VIEW_SUFFIX,
     NAME,
-    LookerConnectionDefinition,
     LookMLSourceConfig,
     LookMLSourceReport,
 )
