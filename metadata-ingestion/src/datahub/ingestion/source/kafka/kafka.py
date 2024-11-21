@@ -18,6 +18,7 @@ from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistr
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+from datahub.configuration.kafka_consumer_config import CallableConsumerConfig
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -49,7 +50,6 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.kafka.kafka_consumer_config import CallableConsumerConfig
 from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
     KafkaSchemaRegistryBase,
 )
@@ -252,9 +252,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, config: KafkaSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.source_config: KafkaSourceConfig = config
-        self.source_config.connection.consumer_config = CallableConsumerConfig(
-            self.source_config.connection.consumer_config
-        ).callable_config()
         self.consumer: confluent_kafka.Consumer = get_kafka_consumer(
             self.source_config.connection
         )
