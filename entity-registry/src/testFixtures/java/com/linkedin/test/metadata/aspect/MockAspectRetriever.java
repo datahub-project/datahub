@@ -20,11 +20,14 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import lombok.Getter;
+import lombok.Setter;
 import org.mockito.Mockito;
 
 public class MockAspectRetriever implements CachingAspectRetriever {
   private final Map<Urn, Map<String, Aspect>> data;
   private final Map<Urn, Map<String, SystemAspect>> systemData = new HashMap<>();
+  @Getter @Setter private EntityRegistry entityRegistry;
 
   public MockAspectRetriever(@Nonnull Map<Urn, List<RecordTemplate>> data) {
     this.data =
@@ -60,6 +63,7 @@ public class MockAspectRetriever implements CachingAspectRetriever {
                         .build());
       }
     }
+    this.entityRegistry = Mockito.mock(EntityRegistry.class);
   }
 
   public MockAspectRetriever(
@@ -89,11 +93,5 @@ public class MockAspectRetriever implements CachingAspectRetriever {
         .filter(systemData::containsKey)
         .map(urn -> Pair.of(urn, systemData.get(urn)))
         .collect(Collectors.toMap(Pair::getKey, Pair::getValue));
-  }
-
-  @Nonnull
-  @Override
-  public EntityRegistry getEntityRegistry() {
-    return Mockito.mock(EntityRegistry.class);
   }
 }
