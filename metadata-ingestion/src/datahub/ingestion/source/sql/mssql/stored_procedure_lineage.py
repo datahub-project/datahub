@@ -19,7 +19,6 @@ def generate_procedure_lineage(
 ) -> Iterable[MetadataChangeProposalWrapper]:
     if procedure.code:
         for query in split_statements(procedure.code):
-            print(query)
             aggregator.add_observed_query(
                 observed=ObservedQuery(
                     default_db=procedure.db,
