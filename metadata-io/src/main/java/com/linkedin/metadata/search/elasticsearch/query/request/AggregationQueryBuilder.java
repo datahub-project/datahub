@@ -406,7 +406,7 @@ public class AggregationQueryBuilder {
     }
   }
 
-  private void addFacetFiltersToAggregationMetadata(
+  public void addFacetFiltersToAggregationMetadata(
       @Nonnull final Criterion criterion,
       @Nonnull final List<AggregationMetadata> aggregationMetadata,
       @Nullable AspectRetriever aspectRetriever) {
@@ -467,10 +467,14 @@ public class AggregationQueryBuilder {
        * If there are no results for a particular facet, it will NOT be in the original aggregation set returned by
        * Elasticsearch.
        */
+      // Simply replace suffix from original field when there are no aggregations for it. Prevents
+      // bug where ES mappings for field are different from how we map the field back to UI
+      // (ie. Structured Properties with dots in them)
+      String facetField = ESUtils.replaceSuffix(criterion.getField());
       aggregationMetadata.add(
           buildAggregationMetadata(
-              finalFacetField,
-              getFacetToDisplayNames().getOrDefault(finalFacetField, finalFacetField),
+              facetField,
+              getFacetToDisplayNames().getOrDefault(facetField, facetField),
               new LongMap(
                   criterion.getValues().stream().collect(Collectors.toMap(i -> i, i -> 0L))),
               new FilterValueArray(
@@ -507,16 +511,13 @@ public class AggregationQueryBuilder {
     return aggregationMetadata;
   }
 
-  private void updateAggregationEntity(@Nonnull final AggregationMetadata aggregationMetadata) {
+  public void updateAggregationEntity(@Nonnull final AggregationMetadata aggregationMetadata) {
     if (aggregationMetadata.getName().startsWith(STRUCTURED_PROPERTIES_PREFIX)) {
-      // sometimes aggregations come back with "_" already replaced back with ".", but not always.
-      String propertyFieldName = aggregationMetadata.getName().replace("_", ".");
-      aggregationMetadata.setName(propertyFieldName);
       aggregationMetadata.setEntity(
           UrnUtils.getUrn(
               String.format(
                   "urn:li:structuredProperty:%s",
-                  propertyFieldName.replaceFirst(STRUCTURED_PROPERTIES_PREFIX, ""))));
+                  aggregationMetadata.getName().replaceFirst(STRUCTURED_PROPERTIES_PREFIX, ""))));
     }
   }
 

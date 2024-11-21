@@ -47,8 +47,9 @@ const AdvancedOptions = ({ isEditMode }: Props) => {
                         name="qualifiedName"
                         rules={[
                             {
-                                pattern: /^[^_]*$/,
-                                message: 'Qualified name cannot contain underscores',
+                                pattern: /^[^\s]*$/,
+                                whitespace: true,
+                                message: 'Qualified name cannot contain spaces',
                             },
                         ]}
                     >
