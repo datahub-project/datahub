@@ -7,7 +7,10 @@ from freezegun import freeze_time
 
 import datahub.metadata.schema_classes as models
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
-from datahub.emitter.mce_builder import make_dataset_urn
+from datahub.emitter.mce_builder import (
+    make_dataset_urn,
+    make_dataset_urn_with_platform_instance,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
     auto_patch_last_modified,
@@ -97,6 +100,39 @@ def test_auto_status_aspect():
         ),
     ]
     assert list(auto_status_aspect(initial_wu)) == expected
+
+
+def test_auto_lowercase_aspects_with_platform_instance():
+    mcws = auto_workunit(
+        [
+            MetadataChangeProposalWrapper(
+                entityUrn=make_dataset_urn_with_platform_instance(
+                    "hive", "mySchema.myTable", platform_instance="Orgeon", env="PROD"
+                ),
+                aspect=models.DatasetKeyClass(
+                    "urn:li:dataPlatform:hive", "Orgeon.mySchema.myTable", "PROD"
+                ),
+            ),
+        ]
+    )
+
+    expected = [
+        *list(
+            auto_workunit(
+                [
+                    MetadataChangeProposalWrapper(
+                        entityUrn="urn:li:dataset:(urn:li:dataPlatform:hive,orgeon.myschema.mytable,PROD)",
+                        aspect=models.DatasetKeyClass(
+                            "urn:li:dataPlatform:hive",
+                            "orgeon.myschema.mytable",
+                            "PROD",
+                        ),
+                    )
+                ]
+            )
+        ),
+    ]
+    assert list(auto_lowercase_urns(mcws)) == expected
 
 
 def test_auto_lowercase_aspects():
