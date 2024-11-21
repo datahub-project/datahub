@@ -1,4 +1,4 @@
-CREATE PROCEDURE [Foo].[NewProc] @ID INT
+CREATE PROCEDURE [Foo].[NewProc]
     AS
     BEGIN
         --insert into items table from salesreason table

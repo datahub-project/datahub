@@ -71,7 +71,7 @@ procedure_sqls = os.listdir(PROCEDURE_SQLS_FOLDER)
 
 @pytest.mark.parametrize("procedure_sql_file", procedure_sqls)
 @pytest.mark.integration
-def test_stored_procedure_split(pytestconfig, procedure_sql_file):
+def test_stored_procedure_lineage(pytestconfig, procedure_sql_file):
 
     sql_file_path = Path(f"{PROCEDURE_SQLS_FOLDER}/{procedure_sql_file}").resolve()
     procedure_code = Path(sql_file_path).read_text()

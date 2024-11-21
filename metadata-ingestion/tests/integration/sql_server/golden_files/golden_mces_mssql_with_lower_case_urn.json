@@ -113,11 +113,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "166cbe7f-971b-47a3-b5f4-ee66ee9344ef",
+                "job_id": "f09bf076-da0c-407c-b92e-c72928c5cc46",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2024-11-21 13:00:59.213000",
-                "date_modified": "2024-11-21 13:00:59.350000",
+                "date_created": "2024-11-21 13:50:08.497000",
+                "date_modified": "2024-11-21 13:50:08.623000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
@@ -2105,8 +2105,8 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2024-11-21 13:00:59.083000",
-                "date_modified": "2024-11-21 13:00:59.083000"
+                "date_created": "2024-11-21 13:50:08.383000",
+                "date_modified": "2024-11-21 13:50:08.383000"
             },
             "externalUrl": "",
             "name": "DemoData.Foo.Proc.With.SpecialChar",
@@ -2129,9 +2129,11 @@
     "aspect": {
         "json": {
             "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD)"
             ],
             "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.age_dist,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD)"
             ],
             "fineGrainedLineages": []
@@ -2153,10 +2155,10 @@
             "customProperties": {
                 "procedure_depends_on": "{'DemoData.Foo.age_dist': 'USER_TABLE', 'DemoData.Foo.Items': 'USER_TABLE', 'DemoData.Foo.Persons': 'USER_TABLE', 'DemoData.Foo.SalesReason': 'USER_TABLE'}",
                 "depending_on_procedure": "{}",
-                "code": "\nCREATE PROCEDURE [Foo].[NewProc]\nAS\nBEGIN\n    --insert into items table from salesreason table\n    insert into Foo.Items (ID, ItemName)\n    SELECT TempID, Name\n    FROM Foo.SalesReason;\n\n\n   IF OBJECT_ID('Foo.age_dist', 'U') IS NULL\n    BEGIN\n        -- \nCreate and populate if table doesn't exist\n        SELECT Age, COUNT(*) as Count\n        INTO Foo.age_dist\n        FROM Foo.Persons\n        GROUP BY Age\n    END\n    ELSE\n    BEGIN\n        -- Update existing table\n        TRUNCATE TABLE Foo.age_dist;\n     \n   \n        INSERT INTO Foo.age_dist (Age, Count)\n        SELECT Age, COUNT(*) as Count\n        FROM Foo.Persons\n        GROUP BY Age\n    END\nEND\n",
+                "code": "\nCREATE PROCEDURE [Foo].[NewProc]\n    AS\n    BEGIN\n        --insert into items table from salesreason table\n        insert into Foo.Items (ID, ItemName)\n        SELECT TempID, Name\n        FROM Foo.SalesReason;\n\n\n       IF OBJECT_ID('Foo.age_dist', 'U') I\nS NULL\n\n       BEGIN\n            -- Create and populate if table doesn't exist\n            SELECT Age, COUNT(*) as Count\n            INTO Foo.age_dist\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n        ELSE\n        BEGIN\n           \n -- Update existing table\n            TRUNCATE TABLE Foo.age_dist;\n\n            INSERT INTO Foo.age_dist (Age, Count)\n            SELECT Age, COUNT(*) as Count\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n    END\n",
                 "input parameters": "[]",
-                "date_created": "2024-11-21 13:00:59.087000",
-                "date_modified": "2024-11-21 13:00:59.087000"
+                "date_created": "2024-11-21 13:50:08.387000",
+                "date_modified": "2024-11-21 13:50:08.387000"
             },
             "externalUrl": "",
             "name": "DemoData.Foo.NewProc",
