@@ -1,6 +1,6 @@
 import re
 from enum import Enum
-from typing import Generator, List
+from typing import Generator, List, Tuple
 
 CONTROL_FLOW_KEYWORDS = [
     "GO",
@@ -49,7 +49,7 @@ def is_keyword_at_position(sql: str, pos: int, keyword: str) -> bool:
 
 def look_ahead_for_keywords(
     sql: str, pos: int, keywords: List[str]
-) -> tuple[bool, str, int]:
+) -> Tuple[bool, str, int]:
     """
     Look ahead for SQL keywords at the current position.
     """

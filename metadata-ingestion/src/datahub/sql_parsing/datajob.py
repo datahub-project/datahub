@@ -2,9 +2,9 @@ import logging
 from typing import Iterable, List
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.metadata._schema_classes import FineGrainedLineageClass
 from datahub.metadata.schema_classes import (
     DataJobInputOutputClass,
+    FineGrainedLineageClass,
     UpstreamLineageClass,
 )
 
