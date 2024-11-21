@@ -1268,3 +1268,14 @@ WHERE rank_ = 1
         dialect="bigquery",
         expected_file=RESOURCE_DIR / "test_bigquery_subquery_column_inference.json",
     )
+
+
+def test_sqlite_attach_database() -> None:
+    assert_sql_result(
+        """\
+ATTACH DATABASE ':memory:' AS aux1
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_sqlite_attach_database.json",
+        allow_table_error=True,
+    )

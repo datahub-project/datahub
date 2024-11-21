@@ -1139,7 +1139,6 @@ class BigQuerySchemaGenerator:
         columns: List[BigqueryColumn],
         dataset_name: BigqueryTableIdentifier,
     ) -> MetadataWorkUnit:
-
         foreign_keys: List[ForeignKeyConstraint] = []
         # Foreign keys only make sense for tables
         if isinstance(table, BigqueryTable):

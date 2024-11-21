@@ -96,7 +96,6 @@ def read_mock_data(path: Union[Path, str]) -> dict:
 def register_mock_api(
     pytestconfig: pytest.Config, request_mock: Any, override_data: Optional[dict] = None
 ) -> None:
-
     default_mock_data_path = (
         pytestconfig.rootpath
         / "tests/integration/powerbi/mock_data/default_mock_response.json"
@@ -1553,7 +1552,6 @@ def test_powerbi_app_ingest(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     common_app_ingest(
         pytestconfig=pytestconfig,
         requests_mock=requests_mock,
@@ -1584,7 +1582,6 @@ def test_powerbi_app_ingest_info_message(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     pipeline = common_app_ingest(
         pytestconfig=pytestconfig,
         requests_mock=requests_mock,

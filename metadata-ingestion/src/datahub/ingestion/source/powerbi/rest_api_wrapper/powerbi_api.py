@@ -40,7 +40,6 @@ def form_full_table_name(
     dataset_name: str,
     table_name: str,
 ) -> str:
-
     full_table_name: str = "{}.{}".format(
         dataset_name.replace(" ", "_"), table_name.replace(" ", "_")
     )
