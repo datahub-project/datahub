@@ -1,4 +1,5 @@
 import os
+import pathlib
 import subprocess
 import time
 from pathlib import Path
@@ -65,20 +66,16 @@ def test_mssql_ingest(mssql_runner, pytestconfig, tmp_path, mock_time, config_fi
     )
 
 
-PROCEDURE_SQLS_FOLDER = "./tests/integration/sql_server/procedures"
-procedure_sqls = os.listdir(PROCEDURE_SQLS_FOLDER)
+PROCEDURE_SQLS_DIR = pathlib.Path(__file__).parent / "procedures"
+PROCEDURES_GOLDEN_DIR = pathlib.Path(__file__).parent / "golden_files/procedures/"
+procedure_sqls = [sql_file.name for sql_file in PROCEDURE_SQLS_DIR.iterdir()]
 
 
 @pytest.mark.parametrize("procedure_sql_file", procedure_sqls)
 @pytest.mark.integration
 def test_stored_procedure_lineage(pytestconfig, procedure_sql_file):
-
-    sql_file_path = Path(f"{PROCEDURE_SQLS_FOLDER}/{procedure_sql_file}").resolve()
+    sql_file_path = Path(f"{PROCEDURE_SQLS_DIR}/{procedure_sql_file}").resolve()
     procedure_code = Path(sql_file_path).read_text()
-
-    RESOURCE_DIR = (
-        pytestconfig.rootpath / "tests/integration/sql_server/golden_files/procedures/"
-    )
 
     # Procedure file is named as <db>.<schema>.<procedure_name>
     splits = procedure_sql_file.split(".")
@@ -115,6 +112,6 @@ def test_stored_procedure_lineage(pytestconfig, procedure_sql_file):
     mce_helpers.check_goldens_stream(
         pytestconfig,
         outputs=mcps,
-        golden_path=RESOURCE_DIR
+        golden_path=PROCEDURES_GOLDEN_DIR
         / Path(procedure_sql_file).name.replace(".sql", ".json"),
     )

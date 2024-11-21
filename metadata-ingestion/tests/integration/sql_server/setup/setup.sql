@@ -1,3 +1,4 @@
+DROP DATABASE IF EXISTS NewData;
 CREATE DATABASE NewData;
 GO
 USE NewData;
@@ -21,6 +22,7 @@ FROM FooNew.PersonsNew
 WHERE Age > 18
 GO
 
+DROP DATABASE IF EXISTS DemoData;
 CREATE DATABASE DemoData;
 GO
 USE DemoData;
@@ -51,11 +53,15 @@ CREATE TABLE Foo.SalesReason
    )
 ;
 GO
+DROP PROCEDURE IF EXISTS [Foo].[Proc.With.SpecialChar];
+GO
 CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT
 AS
     SELECT @ID AS ThatDB;
 GO
 
+DROP PROCEDURE IF EXISTS [Foo].[NewProc];
+GO
 CREATE PROCEDURE [Foo].[NewProc]
     AS
     BEGIN
