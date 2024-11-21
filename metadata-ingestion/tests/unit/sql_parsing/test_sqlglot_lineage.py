@@ -1279,3 +1279,27 @@ ATTACH DATABASE ':memory:' AS aux1
         expected_file=RESOURCE_DIR / "test_sqlite_attach_database.json",
         allow_table_error=True,
     )
+
+
+def test_mssql_casing_resolver() -> None:
+    assert_sql_result(
+        """\
+SELECT Age, name, UPPERCASED_COL, COUNT(*) as Count
+-- INTO Foo.age_dist
+FROM Foo.Persons
+GROUP BY Age
+""",
+        dialect="mssql",
+        default_db="NewData",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.persons,PROD)": {
+                "Age": "INTEGER",
+                "Name": "VARCHAR(16777216)",
+                "Uppercased_Col": "VARCHAR(16777216)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_mssql_casing_resolver.json",
+    )
+
+
+# TODO add a test for select into w/ mssql

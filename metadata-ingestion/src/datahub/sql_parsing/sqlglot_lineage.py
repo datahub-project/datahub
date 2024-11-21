@@ -5,7 +5,7 @@ import functools
 import logging
 import traceback
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar, Union
 
 import pydantic.dataclasses
 import sqlglot
@@ -873,6 +873,27 @@ def _translate_internal_column_lineage(
     )
 
 
+_StrOrNone = TypeVar("_StrOrNone", str, Optional[str])
+
+
+def _normalize_db_or_schema(
+    db_or_schema: _StrOrNone,
+    dialect: sqlglot.Dialect,
+) -> _StrOrNone:
+    if db_or_schema is None:
+        return None
+
+    # In snowflake, table identifiers must be uppercased to match sqlglot's behavior.
+    if is_dialect_instance(dialect, "snowflake"):
+        return db_or_schema.upper()
+
+    # In mssql, table identifiers must be lowercased.
+    elif is_dialect_instance(dialect, "mssql"):
+        return db_or_schema.lower()
+
+    return db_or_schema
+
+
 def _sqlglot_lineage_inner(
     sql: sqlglot.exp.ExpOrStr,
     schema_resolver: SchemaResolverInterface,
@@ -885,12 +906,9 @@ def _sqlglot_lineage_inner(
     else:
         dialect = get_dialect(default_dialect)
 
-    if is_dialect_instance(dialect, "snowflake"):
-        # in snowflake, table identifiers must be uppercased to match sqlglot's behavior.
-        if default_db:
-            default_db = default_db.upper()
-        if default_schema:
-            default_schema = default_schema.upper()
+    default_db = _normalize_db_or_schema(default_db, dialect)
+    default_schema = _normalize_db_or_schema(default_schema, dialect)
+
     if is_dialect_instance(dialect, "redshift") and not default_schema:
         # On Redshift, there's no "USE SCHEMA <schema>" command. The default schema
         # is public, and "current schema" is the one at the front of the search path.
