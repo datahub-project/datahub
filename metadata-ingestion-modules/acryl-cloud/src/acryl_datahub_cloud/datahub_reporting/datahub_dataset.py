@@ -1,5 +1,6 @@
 import datetime
 import logging
+import os
 import pathlib
 import tempfile
 import time
@@ -205,6 +206,12 @@ class DataHubBasedS3Dataset:
             self.file_writer.close()
         if self.local_file_path:
             self.opened_files.append(self.local_file_path)
+        if not os.path.exists(self.local_file_path):
+            logger.info(f"File not found: {self.local_file_path}")
+            return
+        if os.path.getsize(self.local_file_path) == 0:
+            logger.info(f"File is empty: {self.local_file_path}")
+            return
         if self.config.store_platform == "s3":
             self.upload_file_to_s3()
         yield from self._register_dataset()

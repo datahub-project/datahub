@@ -137,11 +137,15 @@ class DataHubReportingFormsSource(Source):
             lambda x: self.report.increment_forms_scanned(),
         ):
             dataset.append(row)
-
+        num_workunits = 0
         for mcp in dataset.commit():
             assert mcp.entityUrn, "MCP must have a URN"
             dataset_urn = mcp.entityUrn
             yield mcp.as_workunit()
+            num_workunits += 1
+        if num_workunits == 0:
+            logger.info("No form reporting to be done")
+            return
         logger.info(
             f"Reporting file created at {dataset.get_remote_file_uri(dataset_uri_prefix=dataset_uri_prefix, date=datetime.date.today())}"
         )
