@@ -804,7 +804,6 @@ class S3Source(StatefulIngestionSourceBase):
         protocol: str,
         min: bool = False,
     ) -> List[str]:
-
         # if len(path_spec.include.split("/")) == len(f"{protocol}{bucket_name}/{folder}".split("/")):
         #    return [f"{protocol}{bucket_name}/{folder}"]
 

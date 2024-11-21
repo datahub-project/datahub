@@ -40,7 +40,6 @@ def form_full_table_name(
     dataset_name: str,
     table_name: str,
 ) -> str:
-
     full_table_name: str = "{}.{}".format(
         dataset_name.replace(" ", "_"), table_name.replace(" ", "_")
     )
@@ -596,7 +595,6 @@ class PowerBiAPI:
         return workspaces
 
     def _fill_independent_datasets(self, workspace: Workspace) -> None:
-
         reachable_datasets: List[str] = []
         # Find out reachable datasets
         for dashboard in workspace.dashboards:
