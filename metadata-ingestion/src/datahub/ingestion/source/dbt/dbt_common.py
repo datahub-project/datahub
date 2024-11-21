@@ -117,9 +117,8 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.metadata.urns import DatasetUrn
-from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
-    SchemaInfo,
     SqlParsingDebugInfo,
     SqlParsingResult,
     infer_output_schema,

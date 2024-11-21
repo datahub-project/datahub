@@ -332,7 +332,6 @@ class CassandraSource(StatefulIngestionSourceBase):
     def _extract_views_from_keyspace(
         self, keyspace_name: str
     ) -> Iterable[MetadataWorkUnit]:
-
         views: List[CassandraView] = self.cassandra_api.get_views(keyspace_name)
         for view in views:
             view_name: str = view.view_name

@@ -439,7 +439,6 @@ class DataResolverBase(ABC):
         self,
         app_id: str,
     ) -> Optional[App]:
-
         raw_app: Optional[Dict] = self._get_app(
             app_id=app_id,
         )
@@ -1062,7 +1061,6 @@ class AdminAPIResolver(DataResolverBase):
         self,
         app_id: str,
     ) -> Optional[Dict]:
-
         app_endpoint = self.API_ENDPOINTS[Constant.GET_WORKSPACE_APP].format(
             POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
             APP_ID=app_id,

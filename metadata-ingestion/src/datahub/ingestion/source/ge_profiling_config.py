@@ -95,7 +95,6 @@ class GEProfilingBaseConfig(ConfigModel):
 
 
 class GEProfilingConfig(GEProfilingBaseConfig):
-
     report_dropped_profiles: bool = Field(
         default=False,
         description="Whether to report datasets or dataset columns which were not profiled. Set to `True` for debugging purposes.",
