@@ -146,7 +146,6 @@ class KafkaSourceConfig(
 def get_kafka_consumer(
     connection: KafkaConsumerConnectionConfig,
 ) -> confluent_kafka.Consumer:
-
     consumer = confluent_kafka.Consumer(
         {
             "group.id": "test",
