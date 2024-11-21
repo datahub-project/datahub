@@ -880,7 +880,6 @@ def _sqlglot_lineage_inner(
     default_schema: Optional[str] = None,
     default_dialect: Optional[str] = None,
 ) -> SqlParsingResult:
-
     if not default_dialect:
         dialect = get_dialect(schema_resolver.platform)
     else:
@@ -903,6 +902,15 @@ def _sqlglot_lineage_inner(
 
     logger.debug("Parsing lineage from sql statement: %s", sql)
     statement = parse_statement(sql, dialect=dialect)
+
+    if isinstance(statement, sqlglot.exp.Command):
+        # For unsupported syntax, sqlglot will usually fallback to parsing as a Command.
+        # This is effectively a parsing error, and we won't get any lineage from it.
+        # See https://github.com/tobymao/sqlglot/commit/3a13fdf4e597a2f0a3f9fc126a129183fe98262f
+        # and https://github.com/tobymao/sqlglot/pull/2874
+        raise UnsupportedStatementTypeError(
+            f"Got unsupported syntax for statement: {sql}"
+        )
 
     original_statement, statement = statement, statement.copy()
     # logger.debug(

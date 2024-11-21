@@ -154,6 +154,37 @@ public class SchemaMetadataChangeEventGeneratorTest extends AbstractTestNGSpring
   }
 
   @Test
+  public void testSchemaFieldRename2() throws Exception {
+    SchemaMetadataChangeEventGenerator test = new SchemaMetadataChangeEventGenerator();
+
+    Urn urn = getTestUrn();
+    String entity = "dataset";
+    String aspect = "schemaMetadata";
+    AuditStamp auditStamp = getTestAuditStamp();
+
+    Aspect<SchemaMetadata> from =
+        getSchemaMetadata(
+            List.of(
+                new SchemaField().setFieldPath("id").setNativeDataType("VARCHAR"),
+                new SchemaField().setFieldPath("fullname").setNativeDataType("VARCHAR"),
+                new SchemaField().setFieldPath("LastName").setNativeDataType("VARCHAR")));
+    Aspect<SchemaMetadata> to =
+        getSchemaMetadata(
+            List.of(
+                new SchemaField().setFieldPath("id").setNativeDataType("VARCHAR"),
+                new SchemaField().setFieldPath("fullname").setNativeDataType("VARCHAR"),
+                new SchemaField().setFieldPath("lastName").setNativeDataType("VARCHAR")));
+    List<ChangeEvent> actual = test.getChangeEvents(urn, entity, aspect, from, to, auditStamp);
+    compareDescriptions(
+        Set.of(
+            "A forwards & backwards compatible change due to renaming of the field 'LastName to lastName'."),
+        actual);
+    assertEquals(1, actual.size());
+    compareModificationCategories(
+        Set.of(SchemaFieldModificationCategory.RENAME.toString()), actual);
+  }
+
+  @Test
   public void testSchemaFieldDropAdd() throws Exception {
     // When a rename cannot be detected, treated as drop -> add
     SchemaMetadataChangeEventGenerator test = new SchemaMetadataChangeEventGenerator();
