@@ -2,7 +2,7 @@ import { ColumnsType } from 'antd/es/table';
 import type { FixedType } from 'rc-table/lib/interface';
 import { SorterResult } from 'antd/lib/table/interface';
 import ResizeObserver from 'rc-resize-observer';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { useVT } from 'virtualizedtableforantd4';
 import { useDebounce } from 'react-use';
@@ -202,7 +202,6 @@ export default function SchemaTable({
     setExpandedDrawerFieldPath,
     openTimelineDrawer = false,
     setOpenTimelineDrawer,
-    matches,
     refetch,
 }: Props): JSX.Element {
     const { urn: entityUrn } = useEntityData();
@@ -211,8 +210,6 @@ export default function SchemaTable({
     const [schemaSorter, setSchemaSorter] = useState<SorterResult<any> | undefined>(undefined);
 
     const [isSearchActive, setIsSearchActive] = useState<boolean>(false);
-
-    const [filteredRows, setFilteredRows] = useState<Array<ExtendedSchemaFields>>([]);
 
     const schemaFields = schemaMetadata ? schemaMetadata.fields : inputFields;
 
@@ -357,40 +354,11 @@ export default function SchemaTable({
 
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
-    const flattenRows = useCallback((currentRow) => {
-        const flattened = [currentRow];
-        if (currentRow.children) {
-            flattened.push(...currentRow.children.flatMap(flattenRows));
-        }
-        return flattened;
-    }, []);
-
-    const filterRows = useCallback(
-        (currentRow) => {
-            const isMatch = matches?.some((match) => currentRow.fieldPath === match.path);
-            return isMatch ? { ...currentRow } : null;
-        },
-        [matches],
-    );
-
     useEffect(() => {
         if (filterText === '') {
             setIsSearchActive(false);
         } else setIsSearchActive(true);
     }, [filterText]);
-
-    useEffect(() => {
-        const flattenedRows = rows.flatMap(flattenRows);
-        const filtered = flattenedRows.flatMap(filterRows).filter(Boolean);
-        filtered.forEach((row) => {
-            if (row.children) {
-                // eslint-disable-next-line no-param-reassign
-                row.children = [];
-            }
-        });
-
-        setFilteredRows(filtered);
-    }, [rows, filterRows, flattenRows]);
 
     useEffect(() => {
         setExpandedRows((previousRows) => {
@@ -474,7 +442,7 @@ export default function SchemaTable({
         expandedDrawerFieldPath,
     ]);
 
-    const dataSource = filterText ? filteredRows : rows;
+    const dataSource = rows;
     const [sortedDataSource, setSortedDataSource] = useState(dataSource);
 
     const [displayedRows, setDisplayedRows] = useState(dataSource);
@@ -557,7 +525,7 @@ export default function SchemaTable({
                             defaultExpandAllRows: false,
 
                             expandRowByClick: false,
-                            expandIcon: (props) => <ExpandIcon {...props} expandable={!isSearchActive} />,
+                            expandIcon: (props) => <ExpandIcon {...props} />,
 
                             onExpand: (expanded, record) => {
                                 if (expanded) {

@@ -264,7 +264,6 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                                 setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                                 openTimelineDrawer={openTimelineDrawer}
                                 setOpenTimelineDrawer={setOpenTimelineDrawer}
-                                matches={matches}
                                 refetch={refetch}
                             />
                         </SchemaEditableContext.Provider>
