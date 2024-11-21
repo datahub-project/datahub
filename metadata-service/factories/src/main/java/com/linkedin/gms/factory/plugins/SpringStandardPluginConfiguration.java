@@ -19,6 +19,7 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
+import com.linkedin.metadata.entity.versioning.sideeffects.VersionSetSideEffect;
 import com.linkedin.metadata.entity.versioning.validation.VersionPropertiesValidator;
 import com.linkedin.metadata.entity.versioning.validation.VersionSetPropertiesValidator;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
@@ -224,6 +225,23 @@ public class SpringStandardPluginConfiguration {
         .setConfig(
             AspectPluginConfig.builder()
                 .className(VersionSetPropertiesValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(ALL))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(VERSION_SET_ENTITY_NAME)
+                            .aspectName(VERSION_SET_PROPERTIES_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public MCPSideEffect versionSetSideEffect() {
+    return new VersionSetSideEffect()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(VersionSetSideEffect.class.getName())
                 .enabled(true)
                 .supportedOperations(List.of(ALL))
                 .supportedEntityAspectNames(

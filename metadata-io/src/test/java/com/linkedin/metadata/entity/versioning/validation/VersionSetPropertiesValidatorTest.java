@@ -25,7 +25,7 @@ import org.testng.annotations.Test;
 public class VersionSetPropertiesValidatorTest {
 
   private static final Urn TEST_VERSION_SET_URN =
-      UrnUtils.getUrn("urn:li:versionSet:testVersionSet");
+      UrnUtils.getUrn("urn:li:versionSet:(123456,dataset)");
 
   private SearchRetriever mockSearchRetriever;
   private MockAspectRetriever mockAspectRetriever;
