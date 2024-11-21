@@ -1,9 +1,15 @@
 import os
 import subprocess
 import time
+from pathlib import Path
 
 import pytest
 
+from datahub.ingestion.source.sql.mssql.job_models import StoredProcedure
+from datahub.ingestion.source.sql.mssql.stored_procedure_lineage import (
+    generate_procedure_lineage,
+)
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
@@ -56,4 +62,59 @@ def test_mssql_ingest(mssql_runner, pytestconfig, tmp_path, mock_time, config_fi
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['date_created'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['date_modified'\]",
         ],
+    )
+
+
+PROCEDURE_SQLS_FOLDER = "./tests/integration/sql_server/procedures"
+procedure_sqls = os.listdir(PROCEDURE_SQLS_FOLDER)
+
+
+@pytest.mark.parametrize("procedure_sql_file", procedure_sqls)
+@pytest.mark.integration
+def test_stored_procedure_split(pytestconfig, procedure_sql_file):
+
+    sql_file_path = Path(f"{PROCEDURE_SQLS_FOLDER}/{procedure_sql_file}").resolve()
+    procedure_code = Path(sql_file_path).read_text()
+
+    RESOURCE_DIR = (
+        pytestconfig.rootpath / "tests/integration/sql_server/golden_files/procedures/"
+    )
+
+    # Procedure file is named as <db>.<schema>.<procedure_name>
+    splits = procedure_sql_file.split(".")
+    db = splits[0]
+    schema = splits[1]
+    name = splits[2]
+
+    procedure = StoredProcedure(
+        db=db,
+        schema=schema,
+        name=name,
+        flow=None,  # type: ignore # flow is not used in this test
+        code=procedure_code,
+    )
+    data_job_urn = f"urn:li:dataJob:(urn:li:dataFlow:(mssql,{db}.{schema}.stored_procedures,PROD),{name})"
+
+    aggregator = SqlParsingAggregator(
+        platform="mssql",
+        generate_lineage=True,
+        generate_queries=False,
+        generate_usage_statistics=False,
+        generate_operations=False,
+        generate_query_subject_fields=False,
+        generate_query_usage_statistics=False,
+    )
+
+    mcps = list(
+        generate_procedure_lineage(
+            aggregator=aggregator,
+            procedure=procedure,
+            procedure_job_urn=data_job_urn,
+        )
+    )
+    mce_helpers.check_goldens_stream(
+        pytestconfig,
+        outputs=mcps,
+        golden_path=RESOURCE_DIR
+        / Path(procedure_sql_file).name.replace(".sql", ".json"),
     )

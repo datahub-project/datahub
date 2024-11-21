@@ -830,7 +830,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self._classify(dataset_name, schema, table, data_reader, schema_metadata)
 
         dataset_snapshot.aspects.append(schema_metadata)
-        if self.config.include_view_lineage:
+        if self._save_schema_to_resolver():
             self.schema_resolver.add_schema_metadata(dataset_urn, schema_metadata)
         db_name = self.get_db_name(inspector)
 
@@ -1125,7 +1125,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 columns,
                 canonical_schema=schema_fields,
             )
-            if self.config.include_view_lineage:
+            if self._save_schema_to_resolver():
                 self.schema_resolver.add_schema_metadata(dataset_urn, schema_metadata)
         description, properties, _ = self.get_table_properties(inspector, schema, view)
         try:
@@ -1188,6 +1188,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 domain_config=sql_config.domain,
                 domain_registry=self.domain_registry,
             )
+
+    def _save_schema_to_resolver(self):
+        return self.config.include_view_lineage or (
+            hasattr(self.config, "include_lineage") and self.config.include_lineage
+        )
 
     def _run_sql_parser(
         self, view_identifier: str, query: str, schema_resolver: SchemaResolver

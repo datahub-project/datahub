@@ -762,7 +762,6 @@ class SqlParsingAggregator(Closeable):
 
         This assumes that queries come in order of increasing timestamps.
         """
-
         self.report.num_observed_queries += 1
 
         # All queries with no session ID are assumed to be part of the same session.

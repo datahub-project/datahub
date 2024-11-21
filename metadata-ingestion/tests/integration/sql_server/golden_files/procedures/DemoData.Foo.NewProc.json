@@ -1,0 +1,21 @@
+[
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,DemoData.Foo.stored_procedures,PROD),NewProc)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.age_dist,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD)"
+            ],
+            "fineGrainedLineages": []
+        }
+    }
+}
+]
