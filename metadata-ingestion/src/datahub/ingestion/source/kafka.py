@@ -138,6 +138,14 @@ class KafkaSourceConfig(
         default=False,
         description="Disables the utilization of the TopicRecordNameStrategy for Schema Registry subjects. For more information, visit: https://docs.confluent.io/platform/current/schema-registry/serdes-develop/index.html#handling-differences-between-preregistered-and-client-derived-schemas:~:text=io.confluent.kafka.serializers.subject.TopicRecordNameStrategy",
     )
+    registry_name: str = pydantic.Field(
+        default={},
+        description="The name of the Glue Schema Registry from where the schema metadata will be ingested.",
+    )
+    aws_account_region: str = pydantic.Field(
+        default={},
+        description="The name of the Glue Schema Registry from where the schema metadata will be ingested.",
+    )
 
 
 def get_kafka_consumer(
