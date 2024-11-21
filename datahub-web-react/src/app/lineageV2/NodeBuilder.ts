@@ -8,6 +8,7 @@ import { EntityType, LineageDirection } from '../../types.generated';
 import {
     createEdgeId,
     EdgeId,
+    getEdgeId,
     getParents,
     isGhostEntity,
     isTransformational,
@@ -139,10 +140,10 @@ export default class NodeBuilder {
     }
 
     createNodes(
-        adjacencyList: NodeContext['adjacencyList'],
+        context: Pick<NodeContext, 'adjacencyList' | 'edges'>,
         ignoreSchemaFieldStatus: boolean,
     ): LineageVisualizationNode[] {
-        this.computeNodeX(adjacencyList);
+        this.computeNodeX(context);
         this.computeNodeY();
 
         const nodes: LineageVisualizationNode[] = [];
@@ -239,16 +240,21 @@ export default class NodeBuilder {
     /**
      * Computes the x position of each node, by organizing them into layers.
      */
-    computeNodeX(adjacencyList: NodeContext['adjacencyList']): void {
+    computeNodeX({ adjacencyList, edges }: Pick<NodeContext, 'adjacencyList' | 'edges'>): void {
         this.topologicalNodes.forEach((node) => {
             // Filter out parents that are in the opposite direction
-            // Can remove first filter statement if we don't store downstream -> upstream cycles in adjacencyList
+            // Exemptions for lineage filter node and queries because they aren't fully in the adjacency list
             const minParentLayer = getParents(node, adjacencyList)
-                .filter((parent) => [node.direction, undefined].includes(this.nodeInformation[parent]?.direction))
-                .map((parent) => this.nodeInformation[parent]?.layer)
+                .map<NodeInformation | undefined>((parent) => this.nodeInformation[parent])
+                .filter(
+                    (parent) =>
+                        node.type === LINEAGE_FILTER_TYPE ||
+                        (node.type === EntityType.Query && [node.direction, undefined].includes(parent?.direction)) ||
+                        (parent?.urn && node.direction && edges.has(getEdgeId(parent.urn, node.id, node.direction))),
+                )
+                .map((parent) => parent?.layer)
                 .filter((layer): layer is Layer => layer !== undefined)
                 .sort(compareLayers)?.[0];
-
             const { main: parentMain, mini: parentMini } = parseLayer(minParentLayer);
             if (this.#isMainNode(node)) {
                 const factor = node.direction === LineageDirection.Upstream ? -1 : 1;

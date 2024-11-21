@@ -72,7 +72,7 @@ export default function useComputeGraph(urn: string, type: EntityType): Processe
             };
             return {
                 flowNodes: nodeBuilder
-                    .createNodes(newSmallContext.adjacencyList, ignoreSchemaFieldStatus)
+                    .createNodes(newSmallContext, ignoreSchemaFieldStatus)
                     .sort((a, b) => (orderIndices[a.id] || 0) - (orderIndices[b.id] || 0)),
                 flowEdges: nodeBuilder.createEdges(newSmallContext.edges),
                 resetPositions: prevHideTransformations !== hideTransformations,

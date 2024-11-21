@@ -258,10 +258,8 @@ export function setEntityNodeDefault(
 ): LineageEntity {
     const node = setDefault(nodes, urn, entityNodeDefault(urn, type, direction));
     if (node.direction && node.direction !== direction) {
-        // Node is both upstream and downstream; give it a deterministic direction.
-        // Have seen cycles between dbt models and their sibling, so this puts dbt model upstream.
+        // Node is both upstream and downstream
         node.inCycle = true;
-        node.direction = isTransformational(node) ? LineageDirection.Upstream : LineageDirection.Downstream;
     }
     return node;
 }

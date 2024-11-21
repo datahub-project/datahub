@@ -44,31 +44,43 @@ export default function getDisplayedNodes(
     }
 
     const displayedNodes: LineageNode[] = [rootNode];
-    const seenNodes = new Set<string>([urn]);
-    const queue = [urn]; // Note: uses array for queue, slow for large graphs
-    while (queue.length > 0) {
-        const current = queue.shift() as string; // Just checked length
-        const node = nodes.get(current);
-        getDirectionsToExpand(node).forEach((direction) => {
+    const addedNodes = new Set<string>([urn]);
+
+    function traverseTree(direction: LineageDirection) {
+        if (!rootNode?.isExpanded[direction]) {
+            return;
+        }
+        const seenNodes = new Set<string>([urn]);
+        const queue = [urn]; // Note: uses array for queue, slow for large graphs
+        while (queue.length > 0) {
+            const current = queue.shift() as string; // Just checked length
             const filteredChildren = applyFilters(current, direction, orderedNodes[direction], parents, context);
             filteredChildren.forEach((child) => {
                 if (!seenNodes.has(child.id)) {
-                    displayedNodes.push(child);
                     seenNodes.add(child.id);
+
+                    if (!addedNodes.has(child.id)) {
+                        addedNodes.add(child.id);
+                        displayedNodes.push(child);
+                        if (child?.inCycle) {
+                            // Set direction deterministically, to first direction detected
+                            // eslint-disable-next-line no-param-reassign
+                            child.direction = direction;
+                        }
+                    }
+
                     if (!isTransformational(child) && child.isExpanded[direction]) {
                         queue.push(child.id);
                     }
                 }
             });
-        });
+        }
     }
 
-    return { displayedNodes, parents };
-}
+    traverseTree(LineageDirection.Upstream);
+    traverseTree(LineageDirection.Downstream);
 
-function getDirectionsToExpand(node) {
-    if (node?.direction) return [node.direction];
-    return Object.values(LineageDirection).filter((direction) => !!node.isExpanded[direction]);
+    return { displayedNodes, parents };
 }
 
 function applyFilters(
