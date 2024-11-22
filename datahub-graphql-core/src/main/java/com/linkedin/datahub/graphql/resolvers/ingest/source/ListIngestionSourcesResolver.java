@@ -15,20 +15,22 @@ import com.linkedin.datahub.graphql.resolvers.ingest.IngestionResolverUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
-import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
 /** Lists all ingestion sources stored within DataHub. Requires the MANAGE_INGESTION privilege. */
+@Slf4j
 public class ListIngestionSourcesResolver
     implements DataFetcher<CompletableFuture<ListIngestionSourcesResult>> {
 
@@ -57,6 +59,22 @@ public class ListIngestionSourcesResolver
       final List<FacetFilterInput> filters =
           input.getFilters() == null ? Collections.emptyList() : input.getFilters();
 
+      // construct sort criteria, defaulting to systemCreated
+      final SortCriterion sortCriterion;
+
+      // if query is expecting to sort by something, use that
+      final com.linkedin.datahub.graphql.generated.SortCriterion sortCriterionInput =
+          input.getSort();
+      if (sortCriterionInput != null) {
+        sortCriterion =
+            new SortCriterion()
+                .setField(sortCriterionInput.getField())
+                .setOrder(SortOrder.valueOf(sortCriterionInput.getSortOrder().name()));
+      } else {
+        // TODO: default to last executed
+        sortCriterion = null;
+      }
+
       return GraphQLConcurrencyUtils.supplyAsync(
           () -> {
             try {
@@ -69,33 +87,24 @@ public class ListIngestionSourcesResolver
                       Constants.INGESTION_SOURCE_ENTITY_NAME,
                       query,
                       buildFilter(filters, Collections.emptyList()),
-                      null,
+                      sortCriterion != null ? List.of(sortCriterion) : null,
                       start,
                       count);
 
+              final List<Urn> entitiesUrnList =
+                  gmsResult.getEntities().stream().map(SearchEntity::getEntity).toList();
               // Then, resolve all ingestion sources
               final Map<Urn, EntityResponse> entities =
                   _entityClient.batchGetV2(
                       context.getOperationContext(),
                       Constants.INGESTION_SOURCE_ENTITY_NAME,
-                      new HashSet<>(
-                          gmsResult.getEntities().stream()
-                              .map(SearchEntity::getEntity)
-                              .collect(Collectors.toList())),
+                      new HashSet<>(entitiesUrnList),
                       ImmutableSet.of(
                           Constants.INGESTION_INFO_ASPECT_NAME,
                           Constants.INGESTION_SOURCE_KEY_ASPECT_NAME));
 
-              final Collection<EntityResponse> sortedEntities =
-                  entities.values().stream()
-                      .sorted(
-                          Comparator.comparingLong(
-                              s ->
-                                  -s.getAspects()
-                                      .get(Constants.INGESTION_SOURCE_KEY_ASPECT_NAME)
-                                      .getCreated()
-                                      .getTime()))
-                      .collect(Collectors.toList());
+              final List<EntityResponse> entitiesOrdered =
+                  entitiesUrnList.stream().map(entities::get).filter(Objects::nonNull).toList();
 
               // Now that we have entities we can bind this to a result.
               final ListIngestionSourcesResult result = new ListIngestionSourcesResult();
@@ -103,7 +112,7 @@ public class ListIngestionSourcesResolver
               result.setCount(gmsResult.getPageSize());
               result.setTotal(gmsResult.getNumEntities());
               result.setIngestionSources(
-                  IngestionResolverUtils.mapIngestionSources(sortedEntities));
+                  IngestionResolverUtils.mapIngestionSources(entitiesOrdered));
               return result;
 
             } catch (Exception e) {

@@ -109,6 +109,11 @@ module.exports = {
               id: "docs/automations/docs-propagation",
             },
             {
+              label: "Glossary Term Propagation",
+              type: "doc",
+              id: "docs/automations/glossary-term-propagation",
+            },
+            {
               label: "BigQuery Metadata Sync",
               type: "doc",
               id: "docs/automations/bigquery-metadata-sync",
@@ -250,9 +255,18 @@ module.exports = {
       items: [
         "docs/managed-datahub/welcome-acryl",
         {
-          type: "doc",
-          id: "docs/managed-datahub/approval-workflows",
-          className: "saasOnly",
+          "Configure Single Sign-On": [
+            {
+              type: "doc",
+              id: "docs/authentication/guides/sso/initialize-oidc",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/integrations/oidc-sso-integration",
+              className: "saasOnly",
+            },
+          ],
         },
         {
           "DataHub API": [
@@ -265,20 +279,6 @@ module.exports = {
               "GraphQL API": [
                 "docs/managed-datahub/datahub-api/graphql-api/getting-started",
               ],
-            },
-          ],
-        },
-        {
-          Integrations: [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/integrations/aws-privatelink",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/integrations/oidc-sso-integration",
-              className: "saasOnly",
             },
           ],
         },
@@ -302,7 +302,7 @@ module.exports = {
           ],
         },
         {
-          "Operator Guide": [
+          "Operator Guides": [
             {
               type: "doc",
               id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
@@ -313,7 +313,17 @@ module.exports = {
               id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
               className: "saasOnly",
             },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/integrations/aws-privatelink",
+              className: "saasOnly",
+            },
           ],
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/approval-workflows",
+          className: "saasOnly",
         },
         {
           type: "doc",
@@ -326,6 +336,7 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_7",
             "docs/managed-datahub/release-notes/v_0_3_6",
             "docs/managed-datahub/release-notes/v_0_3_5",
             "docs/managed-datahub/release-notes/v_0_3_4",
@@ -550,6 +561,7 @@ module.exports = {
         {
           "Frontend Authentication": [
             "docs/authentication/guides/jaas",
+            "docs/authentication/guides/sso/initialize-oidc",
             "docs/authentication/guides/sso/configure-oidc-react",
             "docs/authentication/guides/sso/configure-oidc-behind-proxy",
           ],

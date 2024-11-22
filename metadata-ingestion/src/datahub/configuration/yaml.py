@@ -2,7 +2,7 @@ from typing import IO
 
 import yaml
 
-from datahub.configuration import ConfigurationMechanism
+from datahub.configuration.common import ConfigurationMechanism
 
 
 class YamlConfigurationMechanism(ConfigurationMechanism):

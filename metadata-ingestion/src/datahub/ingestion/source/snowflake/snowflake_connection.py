@@ -16,14 +16,17 @@ from snowflake.connector.network import (
 
 from datahub.configuration.common import ConfigModel, ConfigurationError, MetaError
 from datahub.configuration.connection_resolver import auto_connection_resolver
-from datahub.configuration.oauth import OAuthConfiguration, OAuthIdentityProvider
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
     CLIENT_SESSION_KEEP_ALIVE,
 )
-from datahub.ingestion.source.sql.oauth_generator import OAuthTokenGenerator
+from datahub.ingestion.source.snowflake.oauth_config import (
+    OAuthConfiguration,
+    OAuthIdentityProvider,
+)
+from datahub.ingestion.source.snowflake.oauth_generator import OAuthTokenGenerator
 from datahub.ingestion.source.sql.sql_config import make_sqlalchemy_uri
 from datahub.utilities.config_clean import (
     remove_protocol,
