@@ -101,6 +101,7 @@ def test_stored_procedure_lineage(
             schema_resolver=schema_resolver,
             procedure=procedure,
             procedure_job_urn=data_job_urn,
+            is_temp_table=lambda name: "temp" in name.lower(),
         )
     )
     mce_helpers.check_goldens_stream(

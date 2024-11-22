@@ -8,11 +8,13 @@
         "json": {
             "inputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.personsnew,PROD)"
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.age_dist,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD)"
             ],
             "fineGrainedLineages": [
                 {

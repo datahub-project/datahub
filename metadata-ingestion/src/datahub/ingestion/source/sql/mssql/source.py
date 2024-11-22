@@ -564,8 +564,8 @@ class SQLServerSource(SQLAlchemySource):
                 code_list.append(row["Text"])
                 if code_slice_text in re.sub(" +", " ", row["Text"].lower()).strip():
                     code_slice_index = index
-            definition = "\n".join(code_list[:code_slice_index])
-            code = "\n".join(code_list[code_slice_index:])
+            definition = "".join(code_list[:code_slice_index])
+            code = "".join(code_list[code_slice_index:])
         except ResourceClosedError:
             logger.warning(
                 "Connection was closed from procedure '%s'",

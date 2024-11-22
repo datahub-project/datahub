@@ -113,11 +113,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "d51c2aac-aecc-4f9b-9f0b-601140fef79b",
+                "job_id": "400f2a31-7ec0-4feb-9079-9d921d18d3a6",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2024-11-22 10:38:26.833000",
-                "date_modified": "2024-11-22 10:38:26.970000",
+                "date_created": "2024-11-22 12:47:39.113000",
+                "date_modified": "2024-11-22 12:47:39.267000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
@@ -2282,8 +2282,8 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2024-11-22 10:38:26.733000",
-                "date_modified": "2024-11-22 10:38:26.733000"
+                "date_created": "2024-11-22 12:47:38.993000",
+                "date_modified": "2024-11-22 12:47:38.993000"
             },
             "externalUrl": "",
             "name": "DemoData.Foo.Proc.With.SpecialChar",
@@ -2308,10 +2308,10 @@
             "customProperties": {
                 "procedure_depends_on": "{'DemoData.Foo.age_dist': 'USER_TABLE', 'DemoData.Foo.Items': 'USER_TABLE', 'DemoData.Foo.Persons': 'USER_TABLE', 'DemoData.Foo.SalesReason': 'USER_TABLE'}",
                 "depending_on_procedure": "{}",
-                "code": "CREATE PROCEDURE [Foo].[NewProc]\n    AS\n    BEGIN\n        --insert into items table from salesreason table\n        insert into Foo.Items (ID, ItemName)\n        SELECT TempID, Name\n        FROM Foo.SalesReason;\n\n\n       IF OBJECT_ID('Foo.age_dist', 'U') IS\n NULL\n\n       BEGIN\n            -- Create and populate if table doesn't exist\n            SELECT Age, COUNT(*) as Count\n            INTO Foo.age_dist\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n        ELSE\n        BEGIN\n            \n-- Update existing table\n            TRUNCATE TABLE Foo.age_dist;\n\n            INSERT INTO Foo.age_dist (Age, Count)\n            SELECT Age, COUNT(*) as Count\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n    END\n",
+                "code": "CREATE PROCEDURE [Foo].[NewProc]\n    AS\n    BEGIN\n        --insert into items table from salesreason table\n        insert into Foo.Items (ID, ItemName)\n        SELECT TempID, Name\n        FROM Foo.SalesReason;\n\n\n       IF OBJECT_ID('Foo.age_dist', 'U') IS NULL\n       BEGIN\n            -- Create and populate if table doesn't exist\n            SELECT Age, COUNT(*) as Count\n            INTO Foo.age_dist\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n        ELSE\n        BEGIN\n            -- Update existing table\n            TRUNCATE TABLE Foo.age_dist;\n\n            INSERT INTO Foo.age_dist (Age, Count)\n            SELECT Age, COUNT(*) as Count\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n\n        SELECT ID, Age \n        INTO #TEMPTABLE \n        FROM NewData.FooNew.PersonsNew;\n        \n        UPDATE DemoData.Foo.Persons\n        SET Age = t.Age\n        FROM DemoData.Foo.Persons p\n        JOIN #TEMPTABLE t ON p.ID = t.ID;\n\n    END\n",
                 "input parameters": "[]",
-                "date_created": "2024-11-22 10:38:26.737000",
-                "date_modified": "2024-11-22 10:38:26.737000"
+                "date_created": "2024-11-22 12:47:38.997000",
+                "date_modified": "2024-11-22 12:47:38.997000"
             },
             "externalUrl": "",
             "name": "DemoData.Foo.NewProc",

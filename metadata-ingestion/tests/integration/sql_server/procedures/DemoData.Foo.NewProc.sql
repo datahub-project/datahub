@@ -26,4 +26,12 @@ CREATE PROCEDURE [Foo].[NewProc]
             FROM Foo.Persons
             GROUP BY Age
         END
+
+        SELECT * INTO #TempTable FROM NewData.FooNew.PersonsNew
+        
+        UPDATE DemoData.Foo.Persons
+        SET Age = t.Age
+        FROM DemoData.Foo.Persons p
+        JOIN #TempTable t ON p.ID = t.ID
+
     END

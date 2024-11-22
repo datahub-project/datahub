@@ -26,4 +26,11 @@ CREATE PROCEDURE [foo].[proc2]
             FROM foo.persons
             GROUP BY age
         END
+
+        SELECT * INTO #temptable FROM newdata.foonew.personsnew
+        
+        UPDATE demodata.foo.persons
+        SET age = t.age
+        FROM demodata.foo.persons p
+        JOIN #temptable t ON p.ID = t.ID
     END

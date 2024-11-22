@@ -74,7 +74,6 @@ CREATE PROCEDURE [Foo].[NewProc]
 
 
        IF OBJECT_ID('Foo.age_dist', 'U') IS NULL
-
        BEGIN
             -- Create and populate if table doesn't exist
             SELECT Age, COUNT(*) as Count
@@ -92,6 +91,16 @@ CREATE PROCEDURE [Foo].[NewProc]
             FROM Foo.Persons
             GROUP BY Age
         END
+
+        SELECT ID, Age 
+        INTO #TEMPTABLE 
+        FROM NewData.FooNew.PersonsNew;
+        
+        UPDATE DemoData.Foo.Persons
+        SET Age = t.Age
+        FROM DemoData.Foo.Persons p
+        JOIN #TEMPTABLE t ON p.ID = t.ID;
+
     END
 GO
 
