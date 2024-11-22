@@ -50,10 +50,8 @@ import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.AspectSpec;
-import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
-import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
@@ -75,6 +73,7 @@ import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.annotation.Nonnull;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -113,18 +112,13 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   protected T_RS _retentionService;
 
   protected static final AuditStamp TEST_AUDIT_STAMP = AspectGenerationUtils.createAuditStamp();
-  protected final EntityRegistry _snapshotEntityRegistry = new TestEntityRegistry();
-  protected final EntityRegistry _configEntityRegistry =
-      new ConfigEntityRegistry(
-          Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
-  protected final EntityRegistry _testEntityRegistry =
-      new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
+  protected OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+  protected final EntityRegistry _testEntityRegistry = opContext.getEntityRegistry();
   protected EventProducer _mockProducer;
   protected UpdateIndicesService _mockUpdateIndicesService;
 
-  protected OperationContext opContext;
   protected final AspectSpec structuredPropertiesDefinitionAspect =
-      _configEntityRegistry.getAspectSpecs().get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+      _testEntityRegistry.getAspectSpecs().get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
 
   protected EntityServiceTest() throws EntityRegistryException {}
 
