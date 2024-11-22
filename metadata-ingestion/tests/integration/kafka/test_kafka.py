@@ -1,10 +1,14 @@
+import logging
 import subprocess
 
 import pytest
+import yaml
 from freezegun import freeze_time
 
 from datahub.ingestion.api.source import SourceCapability
-from datahub.ingestion.source.kafka import KafkaSource
+from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.source.kafka.kafka import KafkaSource
+from tests.integration.kafka import oauth  # type: ignore
 from tests.test_helpers import mce_helpers, test_connection_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import wait_for_port
@@ -99,3 +103,36 @@ def test_kafka_test_connection(mock_kafka_service, config_dict, is_success):
                 SourceCapability.SCHEMA_METADATA: "Failed to establish a new connection"
             },
         )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_kafka_oauth_callback(
+    mock_kafka_service, test_resources_dir, pytestconfig, tmp_path, mock_time
+):
+    # Run the metadata ingestion pipeline.
+    config_file = (test_resources_dir / "kafka_to_file_oauth.yml").resolve()
+
+    log_file = tmp_path / "kafka_oauth_message.log"
+
+    file_handler = logging.FileHandler(
+        str(log_file)
+    )  # Add a file handler to later validate a test-case
+    logging.getLogger().addHandler(file_handler)
+
+    recipe: dict = {}
+    with open(config_file) as fp:
+        recipe = yaml.safe_load(fp)
+
+    pipeline = Pipeline.create(recipe)
+
+    pipeline.run()
+
+    is_found: bool = False
+    with open(log_file, "r") as file:
+        for line_number, line in enumerate(file, 1):
+            if oauth.MESSAGE in line:
+                is_found = True
+                break
+
+    assert is_found
