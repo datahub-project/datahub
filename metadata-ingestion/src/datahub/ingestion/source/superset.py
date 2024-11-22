@@ -98,7 +98,6 @@ from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipClass,
     OwnershipTypeClass,
-    SchemaMetadataClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -372,7 +371,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     @lru_cache(maxsize=None)
     def get_dataset_info(self, dataset_id: int) -> dict:
         dataset_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}?include_rendered_sql=true",
+            f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
         )
         if dataset_response.status_code != 200:
             logger.warning(f"Failed to get dataset info: {dataset_response.text}")
@@ -763,7 +762,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     def gen_schema_metadata(
         self,
         dataset_response: dict,
-    ) -> SchemaMetadataClass:
+    ) -> SchemaMetadata:
         dataset_response = dataset_response.get("result", {})
         column_data = dataset_response.get("columns", [])
         schema_metadata = SchemaMetadata(
@@ -974,15 +973,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
 
         global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
-
-        aspects_items.extend(
-            [
-                self.gen_schema_metadata(dataset_response),
-                dataset_info,
-                upstream_lineage,
-                global_tags,
-            ]
-        )
         dataset_owners_list = self.build_owners_urn_list(dataset_data)
         owners_info = OwnershipClass(
             owners=[
@@ -1031,6 +1021,8 @@ class SupersetSource(StatefulIngestionSourceBase):
             total_datasets = payload["count"]
 
             for dataset_data in payload["result"]:
+                if dataset_data.get("id") != 182:
+                    continue
                 dataset_snapshot = self.construct_dataset_from_dataset_data(
                     dataset_data
                 )
@@ -1042,8 +1034,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.emit_dashboard_mces()
-        yield from self.emit_chart_mces()
+        # yield from self.emit_dashboard_mces()
+        # yield from self.emit_chart_mces()
         yield from self.emit_dataset_mces()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
