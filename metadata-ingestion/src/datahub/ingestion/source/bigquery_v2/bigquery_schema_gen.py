@@ -500,7 +500,7 @@ class BigQuerySchemaGenerator:
             )
             if (
                 self.config.include_table_constraints
-                and not bigquery_dataset.is_biglake_dataset()
+                and bigquery_dataset.supports_table_constraints()
             ):
                 constraints = self.schema_api.get_table_constraints_for_dataset(
                     project_id=project_id, dataset_name=dataset_name, report=self.report
@@ -1187,7 +1187,7 @@ class BigQuerySchemaGenerator:
         with PerfTimer() as timer:
             with_partitions = (
                 self.config.have_table_data_read_permission
-                and not dataset.is_biglake_dataset()
+                and dataset.supports_table_partitions()
             )
 
             # Partitions view throw exception if we try to query partition info for too many tables

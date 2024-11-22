@@ -161,6 +161,12 @@ class BigqueryDataset:
             ("aws-", "azure-")
         )
 
+    def supports_table_constraints(self) -> bool:
+        return not self.is_biglake_dataset()
+
+    def supports_table_partitions(self) -> bool:
+        return not self.is_biglake_dataset()
+
 
 @dataclass
 class BigqueryProject:
