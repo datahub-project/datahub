@@ -11,6 +11,7 @@ import { FreshnessContractSummary } from './FreshnessContractSummary';
 import { DataContractBuilderModal } from './builder/DataContractBuilderModal';
 import { createBuilderState } from './builder/utils';
 import { getAssertionsSummary } from '../utils';
+import {combineEntityDataWithSiblings, useIsSeparateSiblingsMode} from "../../../../siblingUtils";
 
 const Container = styled.div`
     display: flex;
@@ -35,12 +36,15 @@ export const DataContractTab = () => {
             urn,
         },
     });
+    const isHideSiblingMode = useIsSeparateSiblingsMode();
+    const combinedData = isHideSiblingMode ? data : combineEntityDataWithSiblings(data);
+
     const [showContractBuilder, setShowContractBuilder] = useState(false);
 
-    const contract = data?.dataset?.contract;
-    const schemaContracts = data?.dataset?.contract?.properties?.schema || [];
-    const freshnessContracts = data?.dataset?.contract?.properties?.freshness || [];
-    const dataQualityContracts = data?.dataset?.contract?.properties?.dataQuality || [];
+    const contract = combinedData?.dataset?.contract;
+    const schemaContracts = combinedData?.dataset?.contract?.properties?.schema || [];
+    const freshnessContracts = combinedData?.dataset?.contract?.properties?.freshness || [];
+    const dataQualityContracts = combinedData?.dataset?.contract?.properties?.dataQuality || [];
     const schemaAssertions = schemaContracts.map((c) => c.assertion);
     const freshnessAssertions = freshnessContracts.map((c) => c.assertion);
     const dataQualityAssertions = dataQualityContracts.map((c) => c.assertion);
@@ -49,7 +53,7 @@ export const DataContractTab = () => {
         ...freshnessAssertions,
         ...dataQualityAssertions,
     ] as any);
-    const contractState = data?.dataset?.contract?.status?.state || DataContractState.Active;
+    const contractState = combinedData?.dataset?.contract?.status?.state || DataContractState.Active;
     const hasFreshnessContract = freshnessContracts && freshnessContracts?.length;
     const hasSchemaContract = schemaContracts && schemaContracts?.length;
     const hasDataQualityContract = dataQualityContracts && dataQualityContracts?.length;
@@ -68,7 +72,7 @@ export const DataContractTab = () => {
 
     return (
         <>
-            {data?.dataset?.contract ? (
+            {combinedData?.dataset?.contract ? (
                 <>
                     <DataContractSummary
                         state={contractState}
@@ -79,15 +83,15 @@ export const DataContractTab = () => {
                         {showLeftColumn && (
                             <LeftColumn>
                                 {(hasFreshnessContract && (
-                                    <FreshnessContractSummary
-                                        contracts={freshnessContracts as any}
-                                        showAction={false}
-                                    />
-                                )) ||
+                                        <FreshnessContractSummary
+                                            contracts={freshnessContracts as any}
+                                            showAction={false}
+                                        />
+                                    )) ||
                                     undefined}
                                 {(hasSchemaContract && (
-                                    <SchemaContractSummary contracts={schemaContracts as any} showAction={false} />
-                                )) ||
+                                        <SchemaContractSummary contracts={schemaContracts as any} showAction={false} />
+                                    )) ||
                                     undefined}
                             </LeftColumn>
                         )}
