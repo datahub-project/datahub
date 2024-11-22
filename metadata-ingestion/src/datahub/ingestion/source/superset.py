@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import lru_cache
-from typing import Dict, Iterable, List, Optional, Type, Union
+from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 import dateutil.parser as dp
 import requests
@@ -40,7 +40,6 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
@@ -65,34 +64,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     DatasetSnapshot,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
-from datahub.metadata.schema_classes import (
-    DatasetPropertiesClass,
-    OwnershipClass,
-    OwnerClass,
-    OwnershipTypeClass,
-    ChartInfoClass,
-    ChartTypeClass,
-    DashboardInfoClass,
-    UpstreamLineageClass,
-    UpstreamClass,
-    DatasetLineageTypeClass,
-    FineGrainedLineageClass,
-    FineGrainedLineageDownstreamTypeClass,
-    FineGrainedLineageUpstreamTypeClass,
-    GlobalTagsClass,
-    TagAssociationClass,
-    GlossaryTermsClass,
-    AuditStampClass,
-    GlossaryTermAssociationClass,
-)
-from datahub.utilities import config_clean
-from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    NullType,
-    SchemaField,
-    SchemaFieldDataType,
-)
-from datahub.metadata.schema_classes import GlobalTagsClass, TagAssociationClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     ArrayType,
     BooleanType,
@@ -120,10 +91,14 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
+    GlossaryNodeInfoClass,
     GlossaryTermAssociationClass,
     GlossaryTermInfoClass,
     GlossaryTermsClass,
-    GlossaryNodeInfoClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+    SchemaMetadataClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -323,12 +298,19 @@ class SupersetSource(StatefulIngestionSourceBase):
                 cached_domains=[domain_id for domain_id in self.config.domain],
                 graph=self.ctx.graph,
             )
-        self.sink_config = ctx.pipeline_config.sink.config
+        self.sink_config = None
+        if (
+            ctx.pipeline_config
+            and ctx.pipeline_config.sink
+            and ctx.pipeline_config.sink.config
+        ):
+            self.sink_config = ctx.pipeline_config.sink.config
+            self.rest_emitter = DatahubRestEmitter(
+                gms_server=self.sink_config.get("server", ""),
+                token=self.sink_config.get("token", ""),
+            )
         self.session = self.login()
-        self.rest_emitter = DatahubRestEmitter(
-            gms_server=self.sink_config.get("server", ""),
-            token=self.sink_config.get("token", ""),
-        )
+        self.full_owners_dict = self.build_preset_owner_dict()
 
     def login(self) -> requests.Session:
         login_response = requests.post(
@@ -399,7 +381,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
     def get_datasource_urn_from_id(
         self, dataset_response: dict, platform_instance: str
-    ) -> Optional[str]:
+    ) -> str:
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
         database_id = dataset_response.get("result", {}).get("database", {}).get("id")
@@ -416,8 +398,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                 ),
                 env=self.config.env,
             )
-        return None
-    
+        raise ValueError("Could not construct dataset URN")
+
     def parse_owner_payload(self, payload, owners_dict):
         for owner_data in payload.get("result", []):
             email = owner_data.get("extra", {}).get("email")
@@ -425,30 +407,30 @@ class SupersetSource(StatefulIngestionSourceBase):
 
             if owner_id and email:
                 owners_dict[owner_id] = email
+        return owners_dict
 
-    def build_preset_owner_dict(self): 
-        owners_dict = {}
+    def build_preset_owner_dict(self) -> dict:
+        owners_dict: dict = {}
         dataset_payload = self.get_all_dataset_owners()
         chart_payload = self.get_all_chart_owners()
         dashboard_payload = self.get_all_dashboard_owners()
 
-        self.parse_owner_payload(dataset_payload, owners_dict)
-        self.parse_owner_payload(chart_payload, owners_dict)
-        self.parse_owner_payload(dashboard_payload, owners_dict)
-        
+        owners_dict = self.parse_owner_payload(dataset_payload, owners_dict)
+        owners_dict = self.parse_owner_payload(chart_payload, owners_dict)
+        owners_dict = self.parse_owner_payload(dashboard_payload, owners_dict)
         return owners_dict
-    
+
     def build_owners_urn_list(self, data):
         owners_urn_list = []
         for owner in data.get("owners", []):
             owner_id = owner.get("id")
-            owner_email = self.owners_dict.get(owner_id)
+            owner_email = self.full_owners_dict.get(owner_id)
             if owner_email:
                 owners_urn = make_user_urn(owner_email)
                 owners_urn_list.append(owners_urn)
         return owners_urn_list
 
-    def get_all_dataset_owners(self) -> Iterable[Dict]:
+    def get_all_dataset_owners(self) -> dict:
         current_dataset_page = 1
         total_dataset_owners = PAGE_SIZE
         all_dataset_owners = []
@@ -459,18 +441,20 @@ class SupersetSource(StatefulIngestionSourceBase):
                 params=f"q=(page:{current_dataset_page},page_size:{PAGE_SIZE})",
             )
             if full_owners_response.status_code != 200:
-                logger.warning(f"Failed to get dataset data: {full_owners_response.text}")
+                logger.warning(
+                    f"Failed to get dataset data: {full_owners_response.text}"
+                )
             full_owners_response.raise_for_status()
 
             payload = full_owners_response.json()
             total_dataset_owners = payload.get("count", total_dataset_owners)
             all_dataset_owners.extend(payload.get("result", []))
             current_dataset_page += 1
-        
-        #return combined payload
+
+        # return combined payload
         return {"result": all_dataset_owners, "count": total_dataset_owners}
 
-    def get_all_chart_owners(self) -> Iterable[Dict]:
+    def get_all_chart_owners(self) -> dict:
         current_chart_page = 1
         total_chart_owners = PAGE_SIZE
         all_chart_owners = []
@@ -488,10 +472,10 @@ class SupersetSource(StatefulIngestionSourceBase):
             total_chart_owners = payload.get("count", total_chart_owners)
             all_chart_owners.extend(payload.get("result", []))
             current_chart_page += 1
-        
+
         return {"result": all_chart_owners, "count": total_chart_owners}
-    
-    def get_all_dashboard_owners(self) -> Iterable[Dict]:
+
+    def get_all_dashboard_owners(self) -> dict:
         current_dashboard_page = 1
         total_dashboard_owners = PAGE_SIZE
         all_dashboard_owners = []
@@ -502,14 +486,16 @@ class SupersetSource(StatefulIngestionSourceBase):
                 params=f"q=(page:{current_dashboard_page},page_size:{PAGE_SIZE})",
             )
             if full_owners_response.status_code != 200:
-                logger.warning(f"Failed to get dashboard data: {full_owners_response.text}")
+                logger.warning(
+                    f"Failed to get dashboard data: {full_owners_response.text}"
+                )
             full_owners_response.raise_for_status()
 
             payload = full_owners_response.json()
             total_dashboard_owners = payload.get("count", total_dashboard_owners)
             all_dashboard_owners.extend(payload.get("result", []))
             current_dashboard_page += 1
-        
+
         return {"result": all_dashboard_owners, "count": total_dashboard_owners}
 
     def construct_dashboard_from_api_data(
@@ -569,7 +555,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         }
 
         if dashboard_data.get("certified_by"):
-            custom_properties["CertifiedBy"] = dashboard_data.get("certified_by")
+            custom_properties["CertifiedBy"] = dashboard_data.get(
+                "certified_by", "None"
+            )
             custom_properties["CertificationDetails"] = str(
                 dashboard_data.get("certification_details")
             )
@@ -590,7 +578,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             owners=[
                 OwnerClass(
                     owner=urn,
-                    #default as Technical Owners from Preset
+                    # default as Technical Owners from Preset
                     type=OwnershipTypeClass.TECHNICAL_OWNER,
                 )
                 for urn in (dashboard_owners_list or [])
@@ -664,7 +652,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             dataset_response, self.platform
         )
 
-        params = json.loads(chart_data.get("params"))
+        params = json.loads(chart_data.get("params", "{}"))
         metrics = [
             get_metric_name(metric)
             for metric in (params.get("metrics", []) or [params.get("metric")])
@@ -717,7 +705,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             owners=[
                 OwnerClass(
                     owner=urn,
-                    #default as Technical Owners from Preset
+                    # default as Technical Owners from Preset
                     type=OwnershipTypeClass.TECHNICAL_OWNER,
                 )
                 for urn in (chart_owners_list or [])
@@ -761,12 +749,12 @@ class SupersetSource(StatefulIngestionSourceBase):
     def gen_schema_fields(self, column_data: List[Dict[str, str]]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
         for col in column_data:
-            data_type = SUPERSET_FIELD_TYPE_MAPPINGS.get(col.get("type"))
+            data_type = SUPERSET_FIELD_TYPE_MAPPINGS.get(col.get("type", ""))
             field = SchemaField(
-                fieldPath=col.get("column_name"),
+                fieldPath=col.get("column_name", ""),
                 type=SchemaFieldDataType(data_type() if data_type else NullType()),
                 nativeDataType="",
-                description=col.get("column_name"),
+                description=col.get("column_name", ""),
                 nullable=True,
             )
             schema_fields.append(field)
@@ -775,11 +763,11 @@ class SupersetSource(StatefulIngestionSourceBase):
     def gen_schema_metadata(
         self,
         dataset_response: dict,
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> SchemaMetadataClass:
         dataset_response = dataset_response.get("result", {})
         column_data = dataset_response.get("columns", [])
         schema_metadata = SchemaMetadata(
-            schemaName=dataset_response.get("table_name"),
+            schemaName=dataset_response.get("table_name", ""),
             platform=make_data_platform_urn(self.platform),
             version=0,
             hash="",
@@ -810,7 +798,9 @@ class SupersetSource(StatefulIngestionSourceBase):
                 expression = metric.get("expression", "")
                 certification_details = metric.get("extra", "")
                 metric_name = metric.get("metric_name", "")
-                schema_name = dataset_response.get("result", {}).get("schema", "Default")
+                schema_name = dataset_response.get("result", {}).get(
+                    "schema", "Default"
+                )
                 description = metric.get("description", "")
 
                 term_urn = make_term_urn(metric_name)
@@ -824,12 +814,14 @@ class SupersetSource(StatefulIngestionSourceBase):
                     definition=f"Contains metrics associated with {schema_name}.",
                 )
 
-                event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-                    entityUrn=node_term_urn,
-                    aspect=term_node_properties_aspect,
+                update_node_event: MetadataChangeProposalWrapper = (
+                    MetadataChangeProposalWrapper(
+                        entityUrn=node_term_urn,
+                        aspect=term_node_properties_aspect,
+                    )
                 )
 
-                self.rest_emitter.emit(event)
+                self.rest_emitter.emit(update_node_event)
                 logger.info(f"Created Glossary node created {node_term_urn}")
                 # Testing for adding glossary Nodes (Groups) ===
 
@@ -840,12 +832,14 @@ class SupersetSource(StatefulIngestionSourceBase):
                     parentNode=node_term_urn,
                 )
 
-                event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
-                    entityUrn=term_urn,
-                    aspect=term_properties_aspect,
+                update_term_event: MetadataChangeProposalWrapper = (
+                    MetadataChangeProposalWrapper(
+                        entityUrn=term_urn,
+                        aspect=term_properties_aspect,
+                    )
                 )
 
-                self.rest_emitter.emit(event)
+                self.rest_emitter.emit(update_term_event)
                 logger.info(f"Created Glossary term {term_urn}")
                 glossary_term_urns.append(GlossaryTermAssociationClass(urn=term_urn))
         return glossary_term_urns
@@ -865,8 +859,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
             downstream = (
                 [make_schema_field_urn(datasource_urn, cll_info.downstream.column)]
-                if cll_info.downstream
-                and cll_info.downstream.column
+                if cll_info.downstream and cll_info.downstream.column
                 else []
             )
             upstreams = [
@@ -940,7 +933,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             externalUrl=dataset_url,
             customProperties=custom_properties,
         )
-        aspects_items = []
+        aspects_items: List[Any] = []
 
         # Create Glossary Terms for certified datasets
         glossary_term_urns = self.create_glossary_terms(dataset_response)
@@ -995,14 +988,22 @@ class SupersetSource(StatefulIngestionSourceBase):
             owners=[
                 OwnerClass(
                     owner=urn,
-                    #default as Technical Owners from Preset
+                    # default as Technical Owners from Preset
                     type=OwnershipTypeClass.TECHNICAL_OWNER,
                 )
                 for urn in (dataset_owners_list or [])
             ],
         )
 
-        aspects_items.extend([self.gen_schema_metadata(datasource_urn, dataset_response), dataset_info, upstream_lineage, global_tags, owners_info])
+        aspects_items.extend(
+            [
+                self.gen_schema_metadata(dataset_response),
+                dataset_info,
+                upstream_lineage,
+                global_tags,
+                owners_info,
+            ]
+        )
 
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
