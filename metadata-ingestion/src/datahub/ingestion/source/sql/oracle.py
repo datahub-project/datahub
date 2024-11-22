@@ -1,11 +1,13 @@
 import logging
 import re
+
+# This import verifies that the dependencies are available.
+import sys
 from collections import defaultdict
 from typing import Any, Dict, Iterable, List, NoReturn, Optional, Tuple, Union, cast
 from unittest.mock import patch
 
-# This import verifies that the dependencies are available.
-import cx_Oracle
+import oracledb
 import pydantic
 import sqlalchemy.engine
 from pydantic.fields import Field
@@ -31,6 +33,9 @@ from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
 
 logger = logging.getLogger(__name__)
 
+oracledb.version = "8.3.0"
+sys.modules["cx_Oracle"] = oracledb
+
 extra_oracle_types = {
     make_sqlalchemy_type("SDO_GEOMETRY"),
     make_sqlalchemy_type("SDO_POINT_TYPE"),
@@ -47,10 +52,10 @@ def _raise_err(exc: Exception) -> NoReturn:
 def output_type_handler(cursor, name, defaultType, size, precision, scale):
     """Add CLOB and BLOB support to Oracle connection."""
 
-    if defaultType == cx_Oracle.CLOB:
-        return cursor.var(cx_Oracle.LONG_STRING, arraysize=cursor.arraysize)
-    elif defaultType == cx_Oracle.BLOB:
-        return cursor.var(cx_Oracle.LONG_BINARY, arraysize=cursor.arraysize)
+    if defaultType == oracledb.CLOB:
+        return cursor.var(oracledb.DB_TYPE_LONG, arraysize=cursor.arraysize)
+    elif defaultType == oracledb.BLOB:
+        return cursor.var(oracledb.DB_TYPE_LONG_RAW, arraysize=cursor.arraysize)
 
 
 def before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
@@ -58,9 +63,9 @@ def before_cursor_execute(conn, cursor, statement, parameters, context, executem
 
 
 class OracleConfig(BasicSQLAlchemyConfig):
-    # defaults
+    # TODO: Change scheme to oracle+oracledb when sqlalchemy>=2 is supported
     scheme: str = Field(
-        default="oracle+cx_oracle",
+        default="oracle",
         description="Will be set automatically to default value.",
     )
     service_name: Optional[str] = Field(
@@ -173,7 +178,6 @@ class OracleInspectorObjectWrapper:
         ]
 
     def get_view_names(self, schema: Optional[str] = None) -> List[str]:
-
         schema = self._inspector_instance.dialect.denormalize_name(
             schema or self.default_schema_name
         )
@@ -195,7 +199,6 @@ class OracleInspectorObjectWrapper:
     def get_columns(
         self, table_name: str, schema: Optional[str] = None, dblink: str = ""
     ) -> List[dict]:
-
         denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
             table_name
         )
@@ -339,7 +342,6 @@ class OracleInspectorObjectWrapper:
         return columns
 
     def get_table_comment(self, table_name: str, schema: Optional[str] = None) -> Dict:
-
         denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
             table_name
         )
@@ -411,7 +413,6 @@ class OracleInspectorObjectWrapper:
     def get_pk_constraint(
         self, table_name: str, schema: Optional[str] = None, dblink: str = ""
     ) -> Dict:
-
         denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
             table_name
         )
@@ -453,7 +454,6 @@ class OracleInspectorObjectWrapper:
     def get_foreign_keys(
         self, table_name: str, schema: Optional[str] = None, dblink: str = ""
     ) -> List:
-
         denormalized_table_name = self._inspector_instance.dialect.denormalize_name(
             table_name
         )
@@ -535,7 +535,6 @@ class OracleInspectorObjectWrapper:
     def get_view_definition(
         self, view_name: str, schema: Optional[str] = None
     ) -> Union[str, None]:
-
         denormalized_view_name = self._inspector_instance.dialect.denormalize_name(
             view_name
         )

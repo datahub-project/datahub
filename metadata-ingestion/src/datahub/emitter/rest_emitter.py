@@ -10,6 +10,7 @@ from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 
+from datahub import nice_version_name
 from datahub.cli import config_utils
 from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url
 from datahub.configuration.common import ConfigurationError, OperationalError
@@ -91,6 +92,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._session.headers.update(
             {
                 "X-RestLi-Protocol-Version": "2.0.0",
+                "X-DataHub-Py-Cli-Version": nice_version_name(),
                 "Content-Type": "application/json",
             }
         )

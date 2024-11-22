@@ -21,7 +21,7 @@ from pydantic import BaseModel, Extra, ValidationError
 from pydantic.fields import Field
 from typing_extensions import Protocol
 
-from datahub.configuration._config_enum import ConfigEnum
+from datahub.configuration._config_enum import ConfigEnum as ConfigEnum  # noqa: I250
 from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.utilities.dedup_list import deduplicate_list
 

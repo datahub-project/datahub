@@ -1,9 +1,11 @@
+from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
+
 import dataclasses
 import functools
 import logging
 import traceback
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar, Union
 
 import pydantic.dataclasses
 import sqlglot
@@ -52,6 +54,8 @@ from datahub.utilities.cooperative_timeout import (
     CooperativeTimeoutError,
     cooperative_timeout,
 )
+
+assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 
@@ -869,6 +873,49 @@ def _translate_internal_column_lineage(
     )
 
 
+_StrOrNone = TypeVar("_StrOrNone", str, Optional[str])
+
+
+def _normalize_db_or_schema(
+    db_or_schema: _StrOrNone,
+    dialect: sqlglot.Dialect,
+) -> _StrOrNone:
+    if db_or_schema is None:
+        return None
+
+    # In snowflake, table identifiers must be uppercased to match sqlglot's behavior.
+    if is_dialect_instance(dialect, "snowflake"):
+        return db_or_schema.upper()
+
+    # In mssql, table identifiers must be lowercased.
+    elif is_dialect_instance(dialect, "mssql"):
+        return db_or_schema.lower()
+
+    return db_or_schema
+
+
+def _simplify_select_into(statement: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
+    """
+    Check if the expression is a SELECT INTO statement. If so, converts it into a CTAS.
+    Other expressions are returned as-is.
+    """
+
+    if not (isinstance(statement, sqlglot.exp.Select) and statement.args.get("into")):
+        return statement
+
+    # Convert from SELECT <cols> INTO <out> <expr>
+    # to CREATE TABLE <out> AS SELECT <cols> <expr>
+    into_expr: sqlglot.exp.Into = statement.args["into"].pop()
+    into_table = into_expr.this
+
+    create = sqlglot.exp.Create(
+        this=into_table,
+        kind="TABLE",
+        expression=statement,
+    )
+    return create
+
+
 def _sqlglot_lineage_inner(
     sql: sqlglot.exp.ExpOrStr,
     schema_resolver: SchemaResolverInterface,
@@ -876,18 +923,14 @@ def _sqlglot_lineage_inner(
     default_schema: Optional[str] = None,
     default_dialect: Optional[str] = None,
 ) -> SqlParsingResult:
-
     if not default_dialect:
         dialect = get_dialect(schema_resolver.platform)
     else:
         dialect = get_dialect(default_dialect)
 
-    if is_dialect_instance(dialect, "snowflake"):
-        # in snowflake, table identifiers must be uppercased to match sqlglot's behavior.
-        if default_db:
-            default_db = default_db.upper()
-        if default_schema:
-            default_schema = default_schema.upper()
+    default_db = _normalize_db_or_schema(default_db, dialect)
+    default_schema = _normalize_db_or_schema(default_schema, dialect)
+
     if is_dialect_instance(dialect, "redshift") and not default_schema:
         # On Redshift, there's no "USE SCHEMA <schema>" command. The default schema
         # is public, and "current schema" is the one at the front of the search path.
@@ -900,11 +943,22 @@ def _sqlglot_lineage_inner(
     logger.debug("Parsing lineage from sql statement: %s", sql)
     statement = parse_statement(sql, dialect=dialect)
 
+    if isinstance(statement, sqlglot.exp.Command):
+        # For unsupported syntax, sqlglot will usually fallback to parsing as a Command.
+        # This is effectively a parsing error, and we won't get any lineage from it.
+        # See https://github.com/tobymao/sqlglot/commit/3a13fdf4e597a2f0a3f9fc126a129183fe98262f
+        # and https://github.com/tobymao/sqlglot/pull/2874
+        raise UnsupportedStatementTypeError(
+            f"Got unsupported syntax for statement: {sql}"
+        )
+
     original_statement, statement = statement, statement.copy()
     # logger.debug(
     #     "Formatted sql statement: %s",
     #     original_statement.sql(pretty=True, dialect=dialect),
     # )
+
+    statement = _simplify_select_into(statement)
 
     # Make sure the tables are resolved with the default db / schema.
     # This only works for Unionable statements. For other types of statements,

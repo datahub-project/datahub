@@ -40,6 +40,7 @@ class DatasetContainerSubTypes(StrEnum):
     S3_BUCKET = "S3 bucket"
     GCS_BUCKET = "GCS bucket"
     ABS_CONTAINER = "ABS container"
+    KEYSPACE = "Keyspace"  # Cassandra
 
 
 class BIContainerSubTypes(StrEnum):
@@ -70,6 +71,7 @@ class BIAssetSubTypes(StrEnum):
     # PowerBI
     POWERBI_TILE = "PowerBI Tile"
     POWERBI_PAGE = "PowerBI Page"
+    POWERBI_APP = "App"
 
     # Mode
     MODE_REPORT = "Report"

@@ -57,6 +57,7 @@ class RedshiftSqlLineageV2(Closeable):
         self.context = context
 
         self.database = database
+        self.known_urns: Set[str] = set()  # will be set later
 
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
@@ -68,6 +69,7 @@ class RedshiftSqlLineageV2(Closeable):
             generate_operations=False,
             usage_config=self.config,
             graph=self.context.graph,
+            is_temp_table=self._is_temp_table,
         )
         self.report.sql_aggregator = self.aggregator.report
 
@@ -87,7 +89,16 @@ class RedshiftSqlLineageV2(Closeable):
             self.report.lineage_end_time,
         ) = self._lineage_v1.get_time_window()
 
-        self.known_urns: Set[str] = set()  # will be set later
+    def _is_temp_table(self, name: str) -> bool:
+        return (
+            DatasetUrn.create_from_ids(
+                self.platform,
+                name,
+                env=self.config.env,
+                platform_instance=self.config.platform_instance,
+            ).urn()
+            not in self.known_urns
+        )
 
     def build(
         self,
@@ -107,15 +118,6 @@ class RedshiftSqlLineageV2(Closeable):
             for schema, tables in schemas.items()
             for table in tables
         }
-        self.aggregator._is_temp_table = (
-            lambda name: DatasetUrn.create_from_ids(
-                self.platform,
-                name,
-                env=self.config.env,
-                platform_instance=self.config.platform_instance,
-            ).urn()
-            not in self.known_urns
-        )
 
         # Handle all the temp tables up front.
         if self.config.resolve_temp_table_in_lineage:
@@ -146,10 +148,8 @@ class RedshiftSqlLineageV2(Closeable):
                     lambda: collections.defaultdict(set)
                 ),
             )
-            for new_urn, original_urn in table_renames.items():
-                self.aggregator.add_table_rename(
-                    original_urn=original_urn, new_urn=new_urn
-                )
+            for entry in table_renames.values():
+                self.aggregator.add_table_rename(entry)
 
         if self.config.table_lineage_mode in {
             LineageMode.SQL_BASED,

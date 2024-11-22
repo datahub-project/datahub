@@ -4,6 +4,7 @@ import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrns;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedUrns;
 import static com.datahub.authorization.AuthUtil.isAPIOperationsAuthorized;
+import static com.linkedin.metadata.Constants.RESTLI_SUCCESS;
 import static com.linkedin.metadata.authorization.ApiGroup.COUNTS;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
@@ -21,12 +22,14 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.resources.operations.Utils;
@@ -56,6 +59,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -123,6 +128,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @VisibleForTesting
   void setSystemOperationContext(OperationContext systemOperationContext) {
       this.systemOperationContext = systemOperationContext;
+  }
+
+  @VisibleForTesting
+  void setEntitySearchService(EntitySearchService entitySearchService) {
+    this.entitySearchService = entitySearchService;
   }
 
   /**
@@ -243,13 +253,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       @ActionParam(PARAM_PROPOSAL) @Nonnull MetadataChangeProposal metadataChangeProposal,
       @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async)
       throws URISyntaxException {
-
-      String urn = metadataChangeProposal.getEntityUrn() != null ? metadataChangeProposal.getEntityUrn().toString() :
-        java.util.Optional.ofNullable(metadataChangeProposal.getEntityKeyAspect()).orElse(new GenericAspect())
-            .getValue().asString(StandardCharsets.UTF_8);
-    String proposedValue = java.util.Optional.ofNullable(metadataChangeProposal.getAspect()).orElse(new GenericAspect())
-        .getValue().asString(StandardCharsets.UTF_8);
-
     final boolean asyncBool;
     if (UNSET.equals(async)) {
       asyncBool = Boolean.parseBoolean(System.getenv(ASYNC_INGEST_DEFAULT_NAME));
@@ -266,8 +269,6 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
             @ActionParam(PARAM_PROPOSALS) @Nonnull MetadataChangeProposal[] metadataChangeProposals,
             @ActionParam(PARAM_ASYNC) @Optional(UNSET) String async)
             throws URISyntaxException {
-        log.info("INGEST PROPOSAL BATCH proposals: {}", Arrays.asList(metadataChangeProposals));
-
         final boolean asyncBool;
         if (UNSET.equals(async)) {
             asyncBool = Boolean.parseBoolean(System.getenv(ASYNC_INGEST_DEFAULT_NAME));
@@ -328,18 +329,10 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
         List<IngestResult> results =
                 _entityService.ingestProposal(opContext, batch, asyncBool);
-
-            for (IngestResult result : results) {
-                // Update runIds, only works for existing documents, so ES document must exist
-                Urn resultUrn = result.getUrn();
-
-                if (resultUrn != null && (result.isProcessedMCL() || result.isUpdate())) {
-                    tryIndexRunId(opContext, resultUrn, result.getRequest().getSystemMetadata(), entitySearchService);
-                }
-            }
+        entitySearchService.appendRunId(opContext, results);
 
             // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it altogether?
-            return "success";
+            return RESTLI_SUCCESS;
           } catch (ValidationException e) {
             throw new RestLiServiceException(HttpStatus.S_422_UNPROCESSABLE_ENTITY, e.getMessage());
           }
@@ -404,15 +397,5 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
               aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService);
         },
         MetricRegistry.name(this.getClass(), "restoreIndices"));
-  }
-
-  private static void tryIndexRunId(
-          @Nonnull final OperationContext opContext,
-      final Urn urn,
-      final @Nullable SystemMetadata systemMetadata,
-      final EntitySearchService entitySearchService) {
-    if (systemMetadata != null && systemMetadata.hasRunId()) {
-      entitySearchService.appendRunId(opContext, urn.getEntityType(), urn, systemMetadata.getRunId());
-    }
   }
 }

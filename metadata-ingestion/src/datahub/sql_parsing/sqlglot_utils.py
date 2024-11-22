@@ -1,3 +1,5 @@
+from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
+
 import functools
 import hashlib
 import logging
@@ -7,6 +9,8 @@ from typing import Dict, Iterable, Optional, Tuple, Union
 import sqlglot
 import sqlglot.errors
 import sqlglot.optimizer.eliminate_ctes
+
+assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
@@ -35,6 +39,9 @@ def _get_dialect_str(platform: str) -> str:
         # let the fuzzy resolution logic handle it.
         # MariaDB is a fork of MySQL, so we reuse the same dialect.
         return "mysql, normalization_strategy = lowercase"
+    # Dremio is based upon drill. Not 100% compatibility
+    elif platform == "dremio":
+        return "drill"
     else:
         return platform
 
@@ -54,7 +61,7 @@ def is_dialect_instance(
     else:
         platforms = list(platforms)
 
-    dialects = [sqlglot.Dialect.get_or_raise(platform) for platform in platforms]
+    dialects = [get_dialect(platform) for platform in platforms]
 
     if any(isinstance(dialect, dialect_class.__class__) for dialect_class in dialects):
         return True
