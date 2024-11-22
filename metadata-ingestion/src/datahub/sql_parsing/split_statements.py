@@ -28,7 +28,7 @@ class ParserState(Enum):
     MULTILINE_COMMENT = 4
 
 
-def is_keyword_at_position(sql: str, pos: int, keyword: str) -> bool:
+def _is_keyword_at_position(sql: str, pos: int, keyword: str) -> bool:
     """
     Check if a keyword exists at the given position using regex word boundaries.
     """
@@ -47,7 +47,7 @@ def is_keyword_at_position(sql: str, pos: int, keyword: str) -> bool:
     return bool(match)
 
 
-def look_ahead_for_keywords(
+def _look_ahead_for_keywords(
     sql: str, pos: int, keywords: List[str]
 ) -> Tuple[bool, str, int]:
     """
@@ -55,7 +55,7 @@ def look_ahead_for_keywords(
     """
 
     for keyword in keywords:
-        if is_keyword_at_position(sql, pos, keyword):
+        if _is_keyword_at_position(sql, pos, keyword):
             return True, keyword, len(keyword)
     return False, "", 0
 
@@ -96,7 +96,7 @@ def split_statements(sql: str) -> Generator[str, None, None]:
                 current_statement.append(next_char)
                 i += 1
             else:
-                is_control_keyword, keyword, keyword_len = look_ahead_for_keywords(
+                is_control_keyword, keyword, keyword_len = _look_ahead_for_keywords(
                     sql, i, keywords=CONTROL_FLOW_KEYWORDS
                 )
                 if is_control_keyword:
@@ -111,7 +111,7 @@ def split_statements(sql: str) -> Generator[str, None, None]:
                     is_force_new_statement_keyword,
                     keyword,
                     keyword_len,
-                ) = look_ahead_for_keywords(
+                ) = _look_ahead_for_keywords(
                     sql, i, keywords=FORCE_NEW_STATEMENT_KEYWORDS
                 )
                 if is_force_new_statement_keyword:
@@ -157,6 +157,7 @@ def split_statements(sql: str) -> Generator[str, None, None]:
 
 # Example usage and test
 if __name__ == "__main__":
+    # TODO: Move this to a test.
     test_sql = """
         CREATE TABLE Users (Id INT);
         -- Comment here

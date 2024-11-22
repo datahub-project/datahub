@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, List
+from typing import Iterable, List, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -11,21 +11,17 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-def to_job_lineage(
-    job_urn: str,
-    mcps: Iterable[MetadataChangeProposalWrapper],
-    ignore_extra_mcps: bool = True,
-) -> Iterable[MetadataChangeProposalWrapper]:
+def to_datajob_input_output(
+    *, mcps: Iterable[MetadataChangeProposalWrapper], ignore_extra_mcps: bool = True
+) -> Optional[DataJobInputOutputClass]:
     inputDatasets: List[str] = []
     outputDatasets: List[str] = []
     fineGrainedLineages: List[FineGrainedLineageClass] = []
     for mcp in mcps:
-
-        # TODO: Simple write operations without lineage as outputDatasets
+        # TODO: Represent simple write operations without lineage as outputDatasets.
 
         upstream_lineage = mcp.as_workunit().get_aspect_of_type(UpstreamLineageClass)
         if upstream_lineage is not None:
-
             if mcp.entityUrn and mcp.entityUrn not in outputDatasets:
                 outputDatasets.append(mcp.entityUrn)
 
@@ -37,21 +33,18 @@ def to_job_lineage(
                 for fineGrainedLineage in upstream_lineage.fineGrainedLineages:
                     fineGrainedLineages.append(fineGrainedLineage)
 
+        elif ignore_extra_mcps:
+            pass
         else:
-            if ignore_extra_mcps:
-                logger.warning(
-                    f"Ignoring mcp {mcp.entityUrn}-{mcp.aspectName} with no lineage"
-                )
-            else:
-                yield mcp
+            raise ValueError(
+                f"Expected an upstreamLineage aspect, got {mcp.aspectName} for {mcp.entityUrn}"
+            )
 
-    if inputDatasets or outputDatasets:
-        # we have job lineage
-        yield MetadataChangeProposalWrapper(
-            entityUrn=job_urn,
-            aspect=DataJobInputOutputClass(
-                inputDatasets=inputDatasets,
-                outputDatasets=outputDatasets,
-                fineGrainedLineages=fineGrainedLineages,
-            ),
-        )
+    if not inputDatasets and not outputDatasets:
+        return None
+
+    return DataJobInputOutputClass(
+        inputDatasets=inputDatasets,
+        outputDatasets=outputDatasets,
+        fineGrainedLineages=fineGrainedLineages,
+    )
