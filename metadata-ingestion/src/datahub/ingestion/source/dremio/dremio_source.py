@@ -198,7 +198,6 @@ class DremioSource(StatefulIngestionSourceBase):
                 source_platform_name = source_name
 
                 for mapping in self.config.source_mappings or []:
-
                     if re.search(mapping.source_name, source_type, re.IGNORECASE):
                         source_platform_name = mapping.source_name.lower()
 

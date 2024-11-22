@@ -48,11 +48,9 @@ from datahub.ingestion.source.snowflake.snowflake_queries import (
     SnowflakeQueriesExtractor,
     SnowflakeQueriesExtractorConfig,
 )
+from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_schema import (
-    SnowflakeDataDictionary,
-    SnowflakeQuery,
-)
+from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDataDictionary
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
