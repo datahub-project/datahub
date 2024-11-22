@@ -94,6 +94,7 @@ from datahub.metadata.schema_classes import (
     GlossaryTermAssociationClass,
     GlossaryTermInfoClass,
     GlossaryTermsClass,
+    GlossaryNodeInfoClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -295,6 +296,10 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
         self.sink_config = ctx.pipeline_config.sink.config
         self.session = self.login()
+        self.rest_emitter = DatahubRestEmitter(
+            gms_server=self.sink_config.get("server", ""),
+            token=self.sink_config.get("token", ""),
+        )
 
     def login(self) -> requests.Session:
         login_response = requests.post(
@@ -356,15 +361,12 @@ class SupersetSource(StatefulIngestionSourceBase):
     @lru_cache(maxsize=None)
     def get_dataset_info(self, dataset_id: int) -> dict:
         dataset_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
-            params="q=&include_rendered_sql=true",
-        ).json()
-        # TODO remove once Superset API is fixed for jinja filters
-        if dataset_response.get("result") is None:
-            dataset_response = self.session.get(
-                f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
-            ).json()
-        return dataset_response
+            f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}?include_rendered_sql=true",
+        )
+        if dataset_response.status_code != 200:
+            logger.warning(f"Failed to get dataset info: {dataset_response.text}")
+            dataset_response.raise_for_status()
+        return dataset_response.json()
 
     def get_datasource_urn_from_id(
         self, dataset_response: dict, platform_instance: str
@@ -643,22 +645,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             env=self.config.env,
         )
 
-    def check_if_term_exists(self, term_urn: str) -> bool:
-        graph = DataHubGraph(
-            DatahubClientConfig(
-                server=self.sink_config.get("server", ""),
-                token=self.sink_config.get("token", ""),
-            )
-        )
-        # Query multiple aspects from entity
-        result = graph.get_entity_semityped(
-            entity_urn=term_urn,
-            aspects=["glossaryTermInfo"],
-        )
-        if result.get("glossaryTermInfo"):
-            return True
-        return False
-
     def create_glossary_terms(
         self, dataset_response: dict
     ) -> List[GlossaryTermAssociationClass]:
@@ -673,20 +659,34 @@ class SupersetSource(StatefulIngestionSourceBase):
                 expression = metric.get("expression", "")
                 certification_details = metric.get("extra", "")
                 metric_name = metric.get("metric_name", "")
+                schema_name = dataset_response.get("result", {}).get("schema", "Default")
                 description = metric.get("description", "")
-                term_urn = make_term_urn(metric_name)
 
-                if self.check_if_term_exists(term_urn):
-                    logger.info(f"Term {term_urn} already exists")
-                    glossary_term_urns.append(
-                        GlossaryTermAssociationClass(urn=term_urn)
-                    )
+                term_urn = make_term_urn(metric_name)
+                # Count is the default metric on all datasets
+                if metric_name == "count":
                     continue
+                # Testing for adding glossary Nodes (Groups)=====
+                node_term_urn = f"urn:li:glossaryNode:{schema_name}"
+                term_node_properties_aspect = GlossaryNodeInfoClass(
+                    name=schema_name,
+                    definition=f"Contains metrics associated with {schema_name}.",
+                )
+
+                event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
+                    entityUrn=node_term_urn,
+                    aspect=term_node_properties_aspect,
+                )
+
+                self.rest_emitter.emit(event)
+                logger.info(f"Created Glossary node created {node_term_urn}")
+                # Testing for adding glossary Nodes (Groups) ===
 
                 term_properties_aspect = GlossaryTermInfoClass(
                     name=metric_name,
-                    definition=f"Description: {description} \nSql Expression: {expression} \nCertification details: {certification_details}",
+                    definition=f"Description: {description} \n\nSql Expression: {expression} \n\nCertification details: {certification_details}",
                     termSource="",
+                    parentNode=node_term_urn,
                 )
 
                 event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
@@ -694,12 +694,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     aspect=term_properties_aspect,
                 )
 
-                # Create rest emitter
-                rest_emitter = DatahubRestEmitter(
-                    gms_server=self.sink_config.get("server", ""),
-                    token=self.sink_config.get("token", ""),
-                )
-                rest_emitter.emit(event)
+                self.rest_emitter.emit(event)
                 logger.info(f"Created Glossary term {term_urn}")
                 glossary_term_urns.append(GlossaryTermAssociationClass(urn=term_urn))
         return glossary_term_urns
@@ -715,18 +710,12 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         fine_grained_lineages: List[FineGrainedLineageClass] = []
 
-        table_urn = None
-
         for cll_info in cll:
-            if table_urn is None:
-                for column_ref in cll_info.upstreams:
-                    table_urn = column_ref.table
-                    break
 
             downstream = (
                 [make_schema_field_urn(datasource_urn, cll_info.downstream.column)]
-                if cll_info.downstream is not None
-                and cll_info.downstream.column is not None
+                if cll_info.downstream
+                and cll_info.downstream.column
                 else []
             )
             upstreams = [
@@ -859,7 +848,6 @@ class SupersetSource(StatefulIngestionSourceBase):
 
     def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
         current_dataset_page = 0
-        # We will set total datasets to the actual number after we get the response
         total_datasets = PAGE_SIZE
         while current_dataset_page * PAGE_SIZE <= total_datasets:
             full_dataset_response = self.session.get(
