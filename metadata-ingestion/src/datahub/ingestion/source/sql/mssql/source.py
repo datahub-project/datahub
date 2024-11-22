@@ -30,6 +30,8 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source import StructuredLogLevel
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.mssql.job_models import (
     JobStep,
@@ -41,6 +43,9 @@ from datahub.ingestion.source.sql.mssql.job_models import (
     ProcedureLineageStream,
     ProcedureParameter,
     StoredProcedure,
+)
+from datahub.ingestion.source.sql.mssql.stored_procedure_lineage import (
+    generate_procedure_lineage,
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
@@ -62,6 +67,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     UnionTypeClass,
 )
+from datahub.utilities.file_backed_collections import FileBackedList
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -125,6 +131,10 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     )
     map_extended_properties: Dict[str, Dict] = Field(
         default={}, description="Mapping for extended properties from msqsl to datahub"
+    )
+    include_lineage: bool = Field(
+        default=True,
+        description="Enable lineage extraction for stored procedures",
     )
 
     @pydantic.validator("uri_args")
@@ -211,6 +221,7 @@ class SQLServerSource(SQLAlchemySource):
         self.current_database = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
+        self.stored_procedures: FileBackedList[StoredProcedure] = FileBackedList()
         if self.config.include_descriptions:
             for inspector in self.get_inspectors():
                 db_name: str = self.get_db_name(inspector)
@@ -527,7 +538,7 @@ class SQLServerSource(SQLAlchemySource):
     def loop_job_steps(
         self, job: MSSQLJob, job_steps: Dict[str, Any]
     ) -> Iterable[MetadataWorkUnit]:
-        for step_id, step_data in job_steps.items():
+        for _step_id, step_data in job_steps.items():
             step = JobStep(
                 job_name=job.formatted_name,
                 step_name=step_data["step_name"],
@@ -565,37 +576,44 @@ class SQLServerSource(SQLAlchemySource):
             if procedures:
                 yield from self.construct_flow_workunits(data_flow=data_flow)
             for procedure in procedures:
-                upstream = self._get_procedure_upstream(conn, procedure)
-                downstream = self._get_procedure_downstream(conn, procedure)
-                data_job = MSSQLDataJob(
-                    entity=procedure,
-                )
-                # TODO: because of this upstream and downstream are more dependencies,
-                #  can't be used as DataJobInputOutput.
-                #  Should be reorganized into lineage.
-                data_job.add_property("procedure_depends_on", str(upstream.as_property))
-                data_job.add_property(
-                    "depending_on_procedure", str(downstream.as_property)
-                )
-                procedure_definition, procedure_code = self._get_procedure_code(
-                    conn, procedure
-                )
-                if procedure_definition:
-                    data_job.add_property("definition", procedure_definition)
-                if sql_config.include_stored_procedures_code and procedure_code:
-                    data_job.add_property("code", procedure_code)
-                procedure_inputs = self._get_procedure_inputs(conn, procedure)
-                properties = self._get_procedure_properties(conn, procedure)
-                data_job.add_property(
-                    "input parameters", str([param.name for param in procedure_inputs])
-                )
-                for param in procedure_inputs:
-                    data_job.add_property(
-                        f"parameter {param.name}", str(param.properties)
-                    )
-                for property_name, property_value in properties.items():
-                    data_job.add_property(property_name, str(property_value))
-                yield from self.construct_job_workunits(data_job)
+                yield from self._process_stored_procedure(conn, procedure)
+
+    def _process_stored_procedure(
+        self, conn: Connection, procedure: StoredProcedure
+    ) -> Iterable[MetadataWorkUnit]:
+        upstream = self._get_procedure_upstream(conn, procedure)
+        downstream = self._get_procedure_downstream(conn, procedure)
+        data_job = MSSQLDataJob(
+            entity=procedure,
+        )
+        # TODO: because of this upstream and downstream are more dependencies,
+        #  can't be used as DataJobInputOutput.
+        #  Should be reorganized into lineage.
+        data_job.add_property("procedure_depends_on", str(upstream.as_property))
+        data_job.add_property("depending_on_procedure", str(downstream.as_property))
+        procedure_definition, procedure_code = self._get_procedure_code(conn, procedure)
+        procedure.code = procedure_code
+        if procedure_definition:
+            data_job.add_property("definition", procedure_definition)
+        if procedure_code and self.config.include_stored_procedures_code:
+            data_job.add_property("code", procedure_code)
+        procedure_inputs = self._get_procedure_inputs(conn, procedure)
+        properties = self._get_procedure_properties(conn, procedure)
+        data_job.add_property(
+            "input parameters", str([param.name for param in procedure_inputs])
+        )
+        for param in procedure_inputs:
+            data_job.add_property(f"parameter {param.name}", str(param.properties))
+        for property_name, property_value in properties.items():
+            data_job.add_property(property_name, str(property_value))
+        if self.config.include_lineage:
+            # These will be used to construct lineage
+            self.stored_procedures.append(procedure)
+        yield from self.construct_job_workunits(
+            data_job,
+            # For stored procedure lineage is ingested later
+            include_lineage=False,
+        )
 
     @staticmethod
     def _get_procedure_downstream(
@@ -699,8 +717,8 @@ class SQLServerSource(SQLAlchemySource):
                 code_list.append(row["Text"])
                 if code_slice_text in re.sub(" +", " ", row["Text"].lower()).strip():
                     code_slice_index = index
-            definition = "\n".join(code_list[:code_slice_index])
-            code = "\n".join(code_list[code_slice_index:])
+            definition = "".join(code_list[:code_slice_index])
+            code = "".join(code_list[code_slice_index:])
         except ResourceClosedError:
             logger.warning(
                 "Connection was closed from procedure '%s'",
@@ -755,16 +773,18 @@ class SQLServerSource(SQLAlchemySource):
     def construct_job_workunits(
         self,
         data_job: MSSQLDataJob,
+        include_lineage: bool = True,
     ) -> Iterable[MetadataWorkUnit]:
         yield MetadataChangeProposalWrapper(
             entityUrn=data_job.urn,
             aspect=data_job.as_datajob_info_aspect,
         ).as_workunit()
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=data_job.urn,
-            aspect=data_job.as_datajob_input_output_aspect,
-        ).as_workunit()
+        if include_lineage:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=data_job.urn,
+                aspect=data_job.as_datajob_input_output_aspect,
+            ).as_workunit()
         # TODO: Add SubType when it appear
 
     def construct_flow_workunits(
@@ -944,3 +964,57 @@ class SQLServerSource(SQLAlchemySource):
                     ]
                 )
         return None
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        yield from super().get_workunits_internal()
+
+        # This is done at the end so that we will have access to tables
+        # from all databases in schema_resolver and discovered_tables
+        for procedure in self.stored_procedures:
+            with self.report.report_exc(
+                message="Failed to parse stored procedure lineage",
+                context=procedure.full_name,
+                level=StructuredLogLevel.WARN,
+            ):
+                yield from auto_workunit(
+                    generate_procedure_lineage(
+                        schema_resolver=self.schema_resolver,
+                        procedure=procedure,
+                        procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
+                        is_temp_table=self.is_temp_table,
+                    )
+                )
+
+    def is_temp_table(self, name: str) -> bool:
+        try:
+            parts = name.split(".")
+            table_name = parts[-1]
+            schema_name = parts[-2]
+            db_name = parts[-3]
+
+            if table_name.startswith("#"):
+                return True
+
+            # This is also a temp table if
+            #   1. this name would be allowed by the dataset patterns, and
+            #   2. we have a list of discovered tables, and
+            #   3. it's not in the discovered tables list
+            if (
+                self.config.database_pattern.allowed(db_name)
+                and self.config.schema_pattern.allowed(schema_name)
+                and self.config.table_pattern.allowed(name)
+                and self.standardize_identifier_case(name)
+                not in self.discovered_datasets
+            ):
+                logger.debug(f"inferred as temp table {name}")
+                return True
+
+        except Exception:
+            logger.warning(f"Error parsing table name {name} ")
+        return False
+
+    def standardize_identifier_case(self, table_ref_str: str) -> str:
+        return (
+            table_ref_str.lower()
+            if self.config.convert_urns_to_lowercase
+            else table_ref_str
+        )
