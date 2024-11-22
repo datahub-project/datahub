@@ -5,8 +5,6 @@ import com.linkedin.gms.factory.entity.EntityServiceFactory;
 import com.linkedin.gms.factory.search.EntitySearchServiceFactory;
 import com.linkedin.gms.factory.timeseries.TimeseriesAspectServiceFactory;
 import com.linkedin.metadata.config.TestsConfiguration;
-import com.linkedin.metadata.config.TestsHookConfiguration;
-import com.linkedin.metadata.config.TestsHookExecutionLimitConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.TestEngine;
@@ -17,10 +15,13 @@ import com.linkedin.metadata.test.eval.PredicateEvaluator;
 import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -53,23 +54,39 @@ public class TestEngineFactory {
   @Qualifier("testActionApplier")
   private ActionApplier actionApplier;
 
-  @Value("${metadataTests.cacheRefreshIntervalSecs}")
-  private Integer testCacheRefreshIntervalSeconds;
+  @Bean(name = "metadataTestsActionsExecutorService")
+  @Nonnull
+  protected ExecutorService metadataTestsActionsExecutorService(
+      @Nonnull ConfigurationProvider configurationProvider) {
+    TestsConfiguration testsConfiguration = configurationProvider.getMetadataTests();
+    return new ThreadPoolExecutor(
+        testsConfiguration.getActions().getConcurrency(), // core threads
+        testsConfiguration.getActions().getConcurrency(), // max threads
+        testsConfiguration.getActions().getThreadKeepAlive(),
+        TimeUnit.SECONDS, // thread keep-alive time
+        new ArrayBlockingQueue<>(
+            testsConfiguration.getActions().getQueueSize()), // fixed size queue
+        new ThreadPoolExecutor.CallerRunsPolicy());
+  }
 
   @Bean(name = "testEngine")
   @Nonnull
   protected TestEngine getInstance(
       @Qualifier("systemOperationContext") final OperationContext systemOpContext,
-      @Nonnull ConfigurationProvider configurationProvider) {
+      @Nonnull final ConfigurationProvider configurationProvider,
+      @Qualifier("metadataTestsActionsExecutorService") @Nonnull
+          final ExecutorService actionsExecutorService) {
 
     PredicateEvaluator predicateEvaluator = PredicateEvaluator.getInstance();
-    TestsConfiguration testsConfiguration = configurationProvider.getMetadataTests();
-    TestsHookConfiguration hookConfiguration = testsConfiguration.getHook();
-    TestsHookExecutionLimitConfiguration testsHookExecutionLimitConfiguration =
-        hookConfiguration.getHookExecutionLimit();
+    TestsConfiguration testsConfiguration =
+        configurationProvider.getMetadataTests().toBuilder()
+            // Enforce graceful shutdown
+            .jvmShutdownHookEnabled(true)
+            .build();
+
     return new TestEngine(
         systemOpContext,
-        testsConfiguration.isEnabled() || hookConfiguration.isEnabled(),
+        testsConfiguration,
         entityService,
         entitySearchService,
         timeseriesAspectService,
@@ -78,9 +95,6 @@ public class TestEngineFactory {
         queryEngine,
         predicateEvaluator,
         this.actionApplier,
-        10,
-        testCacheRefreshIntervalSeconds,
-        testsConfiguration.getElasticSearchExecutor().isEnabled(),
-        testsHookExecutionLimitConfiguration);
+        actionsExecutorService);
   }
 }

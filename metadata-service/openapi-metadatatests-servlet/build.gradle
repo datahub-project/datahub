@@ -8,6 +8,7 @@ dependencies {
     implementation project(':metadata-auth:auth-api')
     implementation project(':metadata-service:auth-impl')
     implementation project(':metadata-service:services')
+    implementation project(':metadata-service:factories')
     implementation project(':metadata-io')
     implementation project(':metadata-service:openapi-servlet')
     implementation project(':metadata-service:openapi-servlet:models')

@@ -372,6 +372,7 @@ springdoc:
 metadataTests:
   # Enable metadata tests feature
   enabled: ${METADATA_TESTS_ENABLED:false}
+  jvmShutdownHookEnabled: ${METADATA_TESTS_JVM_SHUTDOWN_HOOK:false}
   hook:
     enabled: ${METADATA_TESTS_HOOK_ENABLED:true}
     consumerGroupSuffix: ${METADATA_TESTS_HOOK_CONSUMER_GROUP_SUFFIX:}
@@ -380,6 +381,7 @@ metadataTests:
     hookExecutionLimit: # Configures the limits on number of entities for running tests in real time for each executor
       elasticSearchExecutor: ${METADATA_TESTS_TEST_CHANGE_LIMIT_ELASTIC:10000} # configures the limit for the faster Elastic executor
       defaultExecutor: ${METADATA_TESTS_TEST_CHANGE_LIMIT_SQL:1000} # configures the limit for the default sql executor
+  cacheRefreshDelayIntervalSecs: ${METADATA_TESTS_CACHE_REFRESH_DELAY_INTERVAL_SECONDS:10}
   cacheRefreshIntervalSecs: ${METADATA_TESTS_CACHE_REFRESH_INTERVAL_SECONDS:120}
   # Flags to enable bootstrap ingestion of default policies
   bootstrap:
@@ -390,6 +392,10 @@ metadataTests:
   forwardingAction:
     enabled: ${METADATA_TESTS_FORWARDING_ACTION_ENABLED:false} # Forwarding integration-service action to target instance for Metadata Test Results and Actions, enables bootstrapping of action request
     recipe: ${METADATA_TESTS_FORWARDING_ACTION_RECIPE:} # JSON String representing the recipe config
+  actions:
+    concurrency: ${METADATA_TESTS_ACTIONS_CONCURRENCY:2} # parallel threads
+    queueSize: ${METADATA_TESTS_ACTIONS_QUEUE_SIZE:500}
+    threadKeepAlive: ${METADATA_TESTS_ACTIONS_THREAD_KEEP_ALIVE:60}
 
 # Notifications config
 notifications:

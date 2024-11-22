@@ -12,7 +12,7 @@ import com.linkedin.data.DataMap;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.config.TestsHookExecutionLimitConfiguration;
+import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.TestEngine;
@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -59,6 +60,7 @@ import org.springframework.http.ResponseEntity;
 public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
 
   private final OperationContext systemOpContext;
+  private final TestsConfiguration testsConfiguration;
   private final Authorizer authorizationChain;
   private final EntityService<?> entityService;
   private final EntitySearchService entitySearchService;
@@ -70,11 +72,13 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
 
   private final QueryEngine queryEngine;
   private final ActionApplier actionApplier;
+  private final ExecutorService actionsExecutorService;
 
   private final PredicateEvaluator predicateEvaluator;
 
   public MetadataTestsDelegateImpl(
       @Nonnull OperationContext systemOpContext,
+      @Nonnull TestsConfiguration testsConfiguration,
       @Nonnull Authorizer authorizationChain,
       EntityService<?> entityService,
       EntitySearchService entitySearchService,
@@ -83,8 +87,10 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
           entityApiDelegate,
       QueryEngine queryEngine,
       ActionApplier actionApplier,
-      PredicateEvaluator predicateEvaluator) {
+      PredicateEvaluator predicateEvaluator,
+      @Nonnull ExecutorService actionsExecutorService) {
     this.systemOpContext = systemOpContext;
+    this.testsConfiguration = testsConfiguration;
     this.authorizationChain = authorizationChain;
     this.entityService = entityService;
     this.entitySearchService = entitySearchService;
@@ -93,10 +99,12 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
     this.queryEngine = queryEngine;
     this.actionApplier = actionApplier;
     this.predicateEvaluator = predicateEvaluator;
+    this.actionsExecutorService = actionsExecutorService;
   }
 
   public MetadataTestsDelegateImpl(
       @Nonnull OperationContext systemOpContext,
+      @Nonnull TestsConfiguration testsConfiguration,
       @Nonnull Authorizer authorizationChain,
       EntityService<?> entityService,
       EntitySearchService entitySearchService,
@@ -104,9 +112,11 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
       EntityApiDelegateImpl<TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
           entityApiDelegate,
       QueryEngine queryEngine,
-      ActionApplier actionApplier) {
+      ActionApplier actionApplier,
+      @Nonnull ExecutorService actionsExecutorService) {
     this(
         systemOpContext,
+        testsConfiguration,
         authorizationChain,
         entityService,
         entitySearchService,
@@ -114,7 +124,8 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
         entityApiDelegate,
         queryEngine,
         actionApplier,
-        PredicateEvaluator.getInstance());
+        PredicateEvaluator.getInstance(),
+        actionsExecutorService);
   }
 
   @Override
@@ -330,15 +341,16 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
     } else {
       testFetcher = new TestListFetcher(entityService, entitySearchService, testInfoMap);
     }
-    // TODO: This should take in configuration as well
-    TestsHookExecutionLimitConfiguration hookLimitConfig =
-        new TestsHookExecutionLimitConfiguration();
-    hookLimitConfig.setDefaultExecutor(1000);
-    hookLimitConfig.setElasticSearchExecutor(10000);
+
+    TestsConfiguration singleRequestConfig =
+        testsConfiguration.toBuilder()
+            .cacheRefreshIntervalSecs(0) // no cache refresh during request
+            .jvmShutdownHookEnabled(false) // no expectation of shutdown hook inside the request
+            .build();
 
     return new TestEngine(
         opContext,
-        true,
+        singleRequestConfig,
         entityService,
         entitySearchService,
         timeseriesAspectService,
@@ -347,10 +359,7 @@ public class MetadataTestsDelegateImpl implements MetadataTestApiDelegate {
         queryEngine,
         predicateEvaluator,
         actionApplier,
-        0,
-        0,
-        true,
-        hookLimitConfig);
+        actionsExecutorService);
   }
 
   private static MetadataTestResultV1 toTestResult(

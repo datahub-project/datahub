@@ -18,6 +18,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.patch.builder.TestResultsPatchBuilder;
+import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.config.TestsHookExecutionLimitConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -66,8 +67,10 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -88,7 +91,7 @@ import lombok.extern.slf4j.Slf4j;
  * thread-pool used for resolving tests.
  */
 @Slf4j
-public class TestEngine {
+public class TestEngine implements AutoCloseable {
   private final EntityService<?> _entityService;
 
   private final EntitySearchService _searchService;
@@ -127,6 +130,7 @@ public class TestEngine {
 
   private final boolean elasticSearchExecutorEnabled;
   private final TestsHookExecutionLimitConfiguration executionLimits;
+  private final ExecutorService actionsExecutorService;
 
   /** The test engine evaluation mode. */
   public enum EvaluationMode {
@@ -140,12 +144,16 @@ public class TestEngine {
     EVALUATE_ONLY,
 
     /**
-     * Default evaluation mode, where results are saved to storage async and actions are applied.
+     * Default evaluation mode, where results are saved to storage async and actions are applied
+     * async.
      */
     DEFAULT,
 
-    /** Default evaluation mode, where results are saved to storage sync and actions are applied. */
-    SYNC;
+    /** Results are saved to storage sync and actions are applied sync. */
+    SYNC,
+
+    /** Results are saved to storage sync and actions are applied async. */
+    SYNC_WITH_ACTIONS_ASYNC;
 
     public static EvaluationMode getEvaluationMode(String mode) {
       try {
@@ -159,7 +167,7 @@ public class TestEngine {
 
   public TestEngine(
       @Nonnull OperationContext systemOpContext,
-      boolean enabled,
+      TestsConfiguration testsConfiguration,
       EntityService<?> entityService,
       EntitySearchService searchService,
       TimeseriesAspectService timeseriesAspectService,
@@ -168,10 +176,7 @@ public class TestEngine {
       QueryEngine queryEngine,
       PredicateEvaluator predicateEvaluator,
       ActionApplier actionApplier,
-      final int delayIntervalSeconds,
-      final int refreshIntervalSeconds,
-      boolean elasticSearchExecutorEnabled,
-      TestsHookExecutionLimitConfiguration executionLimits) {
+      @Nullable ExecutorService actionsExecutorService) {
 
     _entityService = entityService;
     _searchService = searchService;
@@ -191,11 +196,14 @@ public class TestEngine {
             _testPerEntityTypeCache,
             cacheReadWriteLock.writeLock());
 
-    if (enabled) {
-      if (refreshIntervalSeconds > 0) {
+    if (testsConfiguration.isEnabled() || testsConfiguration.getHook().isEnabled()) {
+      if (testsConfiguration.getCacheRefreshIntervalSecs() > 0) {
         _refreshExecutorService = Executors.newScheduledThreadPool(1);
         _refreshExecutorService.scheduleAtFixedRate(
-            _testRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
+            _testRefreshRunnable,
+            testsConfiguration.getCacheRefreshDelayIntervalSecs(),
+            testsConfiguration.getCacheRefreshIntervalSecs(),
+            TimeUnit.SECONDS);
         _refreshExecutorService.execute(_testRefreshRunnable);
       } else {
         loadTests();
@@ -211,10 +219,96 @@ public class TestEngine {
             timeseriesAspectService,
             systemOpContext.getEntityRegistry(),
             systemOpContext,
-            executionLimits.getElasticSearchExecutor());
+            testsConfiguration.getHook().getHookExecutionLimit().getElasticSearchExecutor());
     _timeseriesAspectService = timeseriesAspectService;
-    this.elasticSearchExecutorEnabled = elasticSearchExecutorEnabled;
-    this.executionLimits = executionLimits;
+    this.elasticSearchExecutorEnabled = testsConfiguration.getElasticSearchExecutor().isEnabled();
+    this.executionLimits = testsConfiguration.getHook().getHookExecutionLimit();
+    this.actionsExecutorService = actionsExecutorService;
+
+    if (testsConfiguration.isJvmShutdownHookEnabled()) {
+      Runtime.getRuntime()
+          .addShutdownHook(
+              new Thread(
+                  () -> {
+                    log.info(
+                        "Metadata Tests - JVM shutdown hook triggered - initiating graceful shutdown");
+                    close();
+                  }));
+    }
+  }
+
+  /**
+   * Cleanly shuts down all executor services, ensuring all pending tasks complete or timeout.
+   * Should be called when TestEngine is being destroyed.
+   */
+  @Override
+  public void close() {
+    shutdownExecutorService(_refreshExecutorService, "refresh executor", false);
+    shutdownExecutorService(actionsExecutorService, "actions executor", false);
+  }
+
+  public void forceClose() {
+    shutdownExecutorService(_refreshExecutorService, "refresh executor", true);
+    shutdownExecutorService(actionsExecutorService, "actions executor", true);
+  }
+
+  /**
+   * Shuts down an executor service, waiting indefinitely for tasks to complete unless force
+   * shutdown is triggered.
+   */
+  private void shutdownExecutorService(
+      @Nullable ExecutorService executor, String executorName, boolean forceShutdown) {
+    if (executor == null || executor.isShutdown()) {
+      return;
+    }
+
+    try {
+      log.info("Initiating shutdown of {} service...", executorName);
+
+      // First reject new tasks
+      executor.shutdown();
+
+      int pendingTasks =
+          executor instanceof ThreadPoolExecutor
+              ? ((ThreadPoolExecutor) executor).getQueue().size()
+              : 0;
+
+      log.info(
+          "Waiting for {} pending tasks to complete in {} service", pendingTasks, executorName);
+
+      // Wait indefinitely in a loop, checking for force shutdown
+      while (!executor.isTerminated()) {
+        if (forceShutdown) {
+          log.warn("Force shutdown triggered for {} service", executorName);
+          executor.shutdownNow();
+          break;
+        }
+
+        // Wait in smaller intervals to be responsive to force shutdown
+        boolean terminated = executor.awaitTermination(5, TimeUnit.SECONDS);
+        if (!terminated && executor instanceof ThreadPoolExecutor) {
+          // Log progress periodically
+          int remaining = ((ThreadPoolExecutor) executor).getQueue().size();
+          if (remaining > 0) {
+            log.info("{} tasks still pending in {} service", remaining, executorName);
+          }
+        }
+      }
+
+      if (executor.isTerminated()) {
+        log.info("Successfully shut down {} service", executorName);
+      } else {
+        log.warn("{} service shutdown incomplete - some tasks may not have finished", executorName);
+      }
+
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      log.error("Interrupted while shutting down {} service", executorName, e);
+      executor.shutdownNow();
+    } catch (Exception e) {
+      log.error("Error during shutdown of {} service", executorName, e);
+      executor.shutdownNow();
+    }
   }
 
   /**
@@ -389,7 +483,7 @@ public class TestEngine {
     // Step 3 (Optional): Write results to DataHub
     if (!EvaluationMode.EVALUATE_ONLY.equals(mode)) {
       batchIngestResults(results, mode, partial, null, true);
-      batchApplyActions(opContext, results, null);
+      batchApplyActions(opContext, results, null, mode);
     }
 
     return results;
@@ -770,10 +864,11 @@ public class TestEngine {
   private void batchApplyActions(
       @Nonnull OperationContext opContext,
       @Nonnull final Map<Urn, TestResults> entityUrnToResults,
-      @Nullable final TestDefinition testDefinition) {
+      @Nullable final TestDefinition testDefinition,
+      @Nonnull EvaluationMode mode) {
     // First, aggregate by Action -> URNs, so we can batch the action execution
     // itself.
-    Map<TestAction, Set<Urn>> actionToEntityUrns = new HashMap<>();
+    final Map<TestAction, Set<Urn>> actionToEntityUrns = new HashMap<>();
     for (Map.Entry<Urn, TestResults> entry : entityUrnToResults.entrySet()) {
       addActionsToEntityMap(
           entry.getKey(),
@@ -787,17 +882,38 @@ public class TestEngine {
           testDefinition); // Failing Actions
     }
 
-    // Apply the action for each batch.
-    CompletableFuture.runAsync(
-        () -> {
-          for (Map.Entry<TestAction, Set<Urn>> entry : actionToEntityUrns.entrySet()) {
-            _actionApplier.apply(
-                opContext,
-                entry.getKey().getType(),
-                new ArrayList<>(entry.getValue()),
-                new ActionParameters(entry.getKey().getParams()));
-          }
-        });
+    if (EvaluationMode.SYNC.equals(mode) || actionsExecutorService == null) {
+      if (actionsExecutorService == null && !EvaluationMode.SYNC.equals(mode)) {
+        log.warn("Async actions requested, however actions executor service is null.");
+      }
+      applyActions(opContext, actionToEntityUrns);
+    } else {
+      // Submit to executor service with error handling
+      CompletableFuture.runAsync(
+          () -> {
+            try {
+              applyActions(opContext, actionToEntityUrns);
+            } catch (Exception e) {
+              log.error("Failed to execute metadata tests batch actions", e);
+            }
+          },
+          actionsExecutorService);
+    }
+  }
+
+  private void applyActions(
+      @Nonnull OperationContext opContext, Map<TestAction, Set<Urn>> actionToEntityUrns) {
+    for (Map.Entry<TestAction, Set<Urn>> entry : actionToEntityUrns.entrySet()) {
+      try {
+        TestAction action = entry.getKey();
+        List<Urn> urns = new ArrayList<>(entry.getValue());
+
+        _actionApplier.apply(
+            opContext, action.getType(), urns, new ActionParameters(action.getParams()));
+      } catch (Exception e) {
+        log.error("Failed to apply metadata test action: {}", entry.getKey(), e);
+      }
+    }
   }
 
   /** Batch applies actions for an entity. */
@@ -1144,7 +1260,7 @@ public class TestEngine {
           mode,
           results.keySet().size(),
           testUrn);
-      batchApplyActions(opContext, results, testDefinition);
+      batchApplyActions(opContext, results, testDefinition, mode);
       log.info("Mode {}: Test {} evaluation done", mode, testUrn);
     }
     log.debug("Test {} has been evaluated. Results keys = {}", testUrn, results.keySet().size());

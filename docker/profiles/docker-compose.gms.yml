@@ -49,6 +49,9 @@ x-datahub-dev-telemetry-env: &datahub-dev-telemetry-env
   DATAHUB_SERVER_TYPE: ${DATAHUB_SERVER_TYPE:-dev}
   DATAHUB_TELEMETRY_ENABLED: ${DATAHUB_TELEMETRY_ENABLED:-true}
 
+x-datahub-mae-env: &datahub-mae-env
+  ES_BULK_ENABLE_BATCH_DELETE: ${ES_BULK_ENABLE_BATCH_DELETE:-true}
+
 #################################
 # System Update
 #################################
@@ -98,7 +101,7 @@ x-datahub-gms-service: &datahub-gms-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_GMS_ENV:-empty2.env}
   environment: &datahub-gms-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env, *datahub-mae-env]
     ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE: ${ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE:-search_config.yaml}
     ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
   healthcheck:
@@ -156,7 +159,7 @@ x-datahub-mae-consumer-service: &datahub-mae-consumer-service
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_MAE_ENV:-empty2.env}
   environment: &datahub-mae-consumer-env
-    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env]
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env, *datahub-mae-env]
 
 x-datahub-mae-consumer-service-dev: &datahub-mae-consumer-service-dev
   <<: *datahub-mae-consumer-service

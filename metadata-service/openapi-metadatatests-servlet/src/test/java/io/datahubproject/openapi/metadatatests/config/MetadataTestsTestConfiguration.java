@@ -11,6 +11,7 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entity.throttle.ManualThrottleSensor;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
@@ -39,15 +40,19 @@ import io.datahubproject.openapi.v2.controller.RelationshipController;
 import io.datahubproject.openapi.v2.controller.TimelineControllerV2;
 import io.datahubproject.openapi.v2.delegates.EntityApiDelegateImpl;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.concurrent.ExecutorService;
 import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 @EnableWebMvc
 @TestConfiguration
+@Import(ConfigurationProvider.class)
 public class MetadataTestsTestConfiguration {
 
   @Bean
@@ -126,4 +131,8 @@ public class MetadataTestsTestConfiguration {
   @MockBean public ExternalEventsController externalEventsController;
   @MockBean public TestEngine testEngine;
   @MockBean public ManualThrottleSensor manualThrottleSensor;
+
+  @Qualifier("metadataTestsActionsExecutorService")
+  @MockBean
+  public ExecutorService metadataTestsActionsExecutorService;
 }

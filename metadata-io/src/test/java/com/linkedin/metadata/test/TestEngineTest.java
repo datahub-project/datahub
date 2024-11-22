@@ -9,6 +9,9 @@ import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.config.ElasticSearchTestExecutorConfiguration;
+import com.linkedin.metadata.config.TestsConfiguration;
+import com.linkedin.metadata.config.TestsHookConfiguration;
 import com.linkedin.metadata.config.TestsHookExecutionLimitConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -36,6 +39,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import javax.annotation.Nullable;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -300,9 +304,18 @@ public class TestEngineTest {
     testsHookExecutionLimitConfiguration.setDefaultExecutor(1);
     testsHookExecutionLimitConfiguration.setElasticSearchExecutor(10);
 
+    TestsConfiguration testsConfiguration = new TestsConfiguration();
+    testsConfiguration.setEnabled(true);
+    testsConfiguration.setCacheRefreshDelayIntervalSecs(0);
+    testsConfiguration.setCacheRefreshIntervalSecs(0);
+    testsConfiguration.setElasticSearchExecutor(new ElasticSearchTestExecutorConfiguration());
+    testsConfiguration.getElasticSearchExecutor().setEnabled(true);
+    testsConfiguration.setHook(new TestsHookConfiguration());
+    testsConfiguration.getHook().setHookExecutionLimit(testsHookExecutionLimitConfiguration);
+
     return new TestEngine(
         TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry),
-        true,
+        testsConfiguration,
         mockEntityService,
         mockSearchService,
         mockTimeseriesAspectService,
@@ -311,9 +324,6 @@ public class TestEngineTest {
         mockQueryEngine,
         spyPredicateEvaluator,
         mockActionApplier,
-        0,
-        0,
-        true,
-        testsHookExecutionLimitConfiguration);
+        mock(ExecutorService.class));
   }
 }

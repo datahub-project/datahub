@@ -50,6 +50,9 @@ import com.linkedin.form.GlossaryTermsParams;
 import com.linkedin.form.OwnershipParams;
 import com.linkedin.form.PromptCardinality;
 import com.linkedin.form.StructuredPropertyParams;
+import com.linkedin.metadata.config.ElasticSearchTestExecutorConfiguration;
+import com.linkedin.metadata.config.TestsConfiguration;
+import com.linkedin.metadata.config.TestsHookConfiguration;
 import com.linkedin.metadata.config.TestsHookExecutionLimitConfiguration;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.entity.EntityService;
@@ -94,6 +97,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -1391,10 +1395,22 @@ public class FormServiceTest {
                 virtualFieldsQueryEvaluator));
     TestDefinitionParser testDefinitionParser =
         new TestDefinitionParser(PredicateEvaluator.getInstance());
+    TestsConfiguration testsConfiguration =
+        TestsConfiguration.builder()
+            .enabled(true)
+            .cacheRefreshDelayIntervalSecs(0)
+            .cacheRefreshIntervalSecs(0)
+            .elasticSearchExecutor(
+                ElasticSearchTestExecutorConfiguration.builder().enabled(false).build())
+            .hook(
+                TestsHookConfiguration.builder()
+                    .hookExecutionLimit(TestsHookExecutionLimitConfiguration.builder().build())
+                    .build())
+            .build();
     TestEngine testEngine =
         new TestEngine(
             opContext,
-            true,
+            testsConfiguration,
             Mockito.mock(EntityServiceImpl.class),
             Mockito.mock(EntitySearchService.class),
             Mockito.mock(TimeseriesAspectService.class),
@@ -1403,10 +1419,7 @@ public class FormServiceTest {
             queryEngine,
             PredicateEvaluator.getInstance(),
             Mockito.mock(ActionApplier.class),
-            100000,
-            1000000,
-            false,
-            new TestsHookExecutionLimitConfiguration());
+            Mockito.mock(ExecutorService.class));
     ValidationResult validationResult = testEngine.validateJson(testDefinition.toString());
     Assert.assertTrue(
         "Expected valid test JSON: " + validationResult.getMessages(), validationResult.isValid());

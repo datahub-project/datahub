@@ -1,6 +1,7 @@
 package io.datahubproject.openapi.metadatatests.config;
 
 import com.datahub.authorization.AuthorizerChain;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchService;
@@ -16,6 +17,8 @@ import io.datahubproject.openapi.metadatatests.delegates.MetadataTestsDelegateIm
 import io.datahubproject.openapi.metadatatests.generated.controller.MetadataTestApiDelegate;
 import io.datahubproject.openapi.v1.entities.EntitiesController;
 import io.datahubproject.openapi.v2.delegates.EntityApiDelegateImpl;
+import java.util.concurrent.ExecutorService;
+import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,6 +29,7 @@ public class MetadataTestsConfig {
   @Bean(name = "metadataTestsDelegate")
   public MetadataTestApiDelegate metadataTestsApiDelegate(
       @Qualifier("systemOperationContext") final OperationContext systemOpContext,
+      @Nonnull final ConfigurationProvider configurationProvider,
       final EntityService<?> entityService,
       final SearchService searchService,
       final EntitySearchService entitySearchService,
@@ -34,7 +38,9 @@ public class MetadataTestsConfig {
       final QueryEngine queryEngine,
       final ActionApplier actionApplier,
       final PredicateEvaluator predicateEvaluator,
-      @Qualifier("authorizerChain") final AuthorizerChain authorizerChain) {
+      @Qualifier("authorizerChain") final AuthorizerChain authorizerChain,
+      @Qualifier("metadataTestsActionsExecutorService") @Nonnull
+          final ExecutorService actionsExecutorService) {
     final EntityApiDelegateImpl<
             TestEntityRequestV2, TestEntityResponseV2, ScrollTestEntityResponseV2>
         testApiDelegate =
@@ -50,6 +56,7 @@ public class MetadataTestsConfig {
                 ScrollTestEntityResponseV2.class);
     return new MetadataTestsDelegateImpl(
         systemOpContext,
+        configurationProvider.getMetadataTests(),
         authorizerChain,
         entityService,
         entitySearchService,
@@ -57,7 +64,8 @@ public class MetadataTestsConfig {
         testApiDelegate,
         queryEngine,
         actionApplier,
-        predicateEvaluator);
+        predicateEvaluator,
+        actionsExecutorService);
   }
 
   @Bean

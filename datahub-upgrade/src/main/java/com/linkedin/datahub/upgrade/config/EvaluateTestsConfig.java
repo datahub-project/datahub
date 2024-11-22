@@ -5,8 +5,6 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.test.TestEngineFactory;
 import com.linkedin.metadata.config.TestsConfiguration;
-import com.linkedin.metadata.config.TestsHookConfiguration;
-import com.linkedin.metadata.config.TestsHookExecutionLimitConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.test.TestEngine;
@@ -17,6 +15,10 @@ import com.linkedin.metadata.test.eval.PredicateEvaluator;
 import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -56,13 +58,27 @@ public class EvaluateTestsConfig {
       @Qualifier("testActionApplier") ActionApplier actionApplier) {
 
     PredicateEvaluator predicateEvaluator = PredicateEvaluator.getInstance();
-    TestsConfiguration testsConfiguration = configurationProvider.getMetadataTests();
-    TestsHookConfiguration hookConfiguration = testsConfiguration.getHook();
-    TestsHookExecutionLimitConfiguration testsHookExecutionLimitConfiguration =
-        hookConfiguration.getHookExecutionLimit();
+    TestsConfiguration testsConfiguration =
+        configurationProvider.getMetadataTests().toBuilder()
+            // Cron schedule doesn't refresh tests while running
+            .cacheRefreshIntervalSecs(0)
+            // Enforce graceful shutdown
+            .jvmShutdownHookEnabled(true)
+            .build();
+
+    ExecutorService actionsExecutorService =
+        new ThreadPoolExecutor(
+            testsConfiguration.getActions().getConcurrency(), // core threads
+            testsConfiguration.getActions().getConcurrency(), // max threads
+            testsConfiguration.getActions().getThreadKeepAlive(),
+            TimeUnit.SECONDS, // thread keep-alive time
+            new ArrayBlockingQueue<>(
+                testsConfiguration.getActions().getQueueSize()), // fixed size queue
+            new ThreadPoolExecutor.CallerRunsPolicy());
+
     return new TestEngine(
         systemOpContext,
-        testsConfiguration.isEnabled() || hookConfiguration.isEnabled(),
+        testsConfiguration,
         entityService,
         entitySearchService,
         timeseriesAspectService,
@@ -71,9 +87,6 @@ public class EvaluateTestsConfig {
         queryEngine,
         predicateEvaluator,
         actionApplier,
-        0,
-        0,
-        testsConfiguration.getElasticSearchExecutor().isEnabled(),
-        testsHookExecutionLimitConfiguration);
+        actionsExecutorService);
   }
 }
