@@ -228,6 +228,9 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         else:
             self._conn = ConnectionWrapper()
 
+        if sqlite3.sqlite_version_info < (3, 24, 0):
+            raise RuntimeError("SQLite version 3.24.0 or later is required")
+
         # We keep a small cache in memory to avoid having to serialize/deserialize
         # data from the database too often. We use an OrderedDict to build
         # a poor-man's LRU cache.
