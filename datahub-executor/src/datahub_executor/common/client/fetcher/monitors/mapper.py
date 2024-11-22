@@ -25,6 +25,25 @@ def graphql_to_monitors(graphql_monitors: List[Dict]) -> List[Monitor]:
         try:
             STATS_ASSERTION_FETCHER_ITEMS_MAPPED.inc()
             # Simply parse to our Pydantic models using the raw GraphQL Response.
+            parsed_monitor = Monitor.parse_obj(graphql_monitor)
+            if parsed_monitor.assertion_monitor is None:
+                logger.warning(
+                    f"Skipping monitor {parsed_monitor.urn} as it does not have an assertion monitor"
+                )
+                continue
+            if len(parsed_monitor.assertion_monitor.assertions) != 1:
+                logger.warning(
+                    f"Skipping monitor {parsed_monitor.urn} as it does not have exactly 1 assertion associated with it. Not yet supported!"
+                )
+                continue
+            if (
+                parsed_monitor.assertion_monitor.assertions[0].assertion.entity.exists
+                is False
+            ):
+                logger.debug(
+                    f"Skipping monitor {parsed_monitor.urn} as the associated entity is soft deleted!"
+                )
+                continue
             monitors.append(Monitor.parse_obj(graphql_monitor))
         except Exception:
             STATS_ASSERTION_FETCHER_ITEMS_ERRORED.labels("exception").inc()

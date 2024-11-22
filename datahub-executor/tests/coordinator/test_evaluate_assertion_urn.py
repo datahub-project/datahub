@@ -60,6 +60,7 @@ class TestEvaluateAssertionUrnHandler:
                                     "properties": {"displayName": "Snowflake"},
                                 },
                                 "subTypes": {"typeNames": ["Table"]},
+                                "exists": True,
                             }
                         }
                     ],

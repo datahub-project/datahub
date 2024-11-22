@@ -13,6 +13,7 @@ fragment AssertionDataset on Dataset {
   subTypes {
     typeNames
   }
+  exists
 }
 
 fragment AssertionStdParameterDetails on AssertionStdParameters {
@@ -218,7 +219,7 @@ fragment AssertionDetails on Assertion {
     payload
   }
   relationships(
-    input: { types: "Asserts", direction: OUTGOING, start: 0, count: 1 }
+    input: { types: "Asserts", direction: OUTGOING, start: 0, count: 1, includeSoftDelete: true }
   ) {
     start
     count

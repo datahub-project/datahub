@@ -821,6 +821,9 @@ class AssertionEntity(PermissiveBaseModel):
     # The entity/dataset's fully qualified name
     qualified_name: Optional[str] = Field(alias="qualifiedName")
 
+    # Whether the entity exists (is soft deleted or not)
+    exists: Optional[bool]
+
 
 class PartitionKeyFieldSpec(PermissiveBaseModel):
     """Unique id for the partition key field"""
@@ -1045,6 +1048,7 @@ class Assertion(AssertionInfo):
         if "entity" not in values and graphql_entity:
             platform_urn = graphql_entity["platform"]["urn"]
             entity_urn = graphql_entity["urn"]
+            exists = graphql_entity["exists"] if "exists" in graphql_entity else None
 
             table_name = (
                 graphql_entity["properties"]["name"]
@@ -1076,6 +1080,7 @@ class Assertion(AssertionInfo):
                 "subTypes": sub_types,
                 "table_name": table_name,
                 "qualified_name": qualified_name,
+                "exists": exists,
             }
 
         if "connectionUrn" not in values and graphql_entity:

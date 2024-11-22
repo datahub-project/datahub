@@ -269,9 +269,12 @@ class SlackNotificationSink(NotificationSink):
     def _save_new_incident_message_details(
         self, incident_urn: str, message_details: List[SlackMessageDetails]
     ) -> None:
-        self.graph.emit_mcp(
-            self._build_message_details_patch_proposal(incident_urn, message_details)
-        )
+        if len(message_details) != 0:
+            self.graph.emit_mcp(
+                self._build_message_details_patch_proposal(
+                    incident_urn, message_details
+                )
+            )
 
     def _build_message_details_patch_proposal(
         self, incident_urn: str, message_details: List[SlackMessageDetails]

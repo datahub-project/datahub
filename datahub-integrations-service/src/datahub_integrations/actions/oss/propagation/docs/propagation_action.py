@@ -219,7 +219,7 @@ class DocPropagationAction(Action):
                         if current_documentation_instance.attribution
                         else {}
                     )
-                    origin_entity = source_details.get("origin")
+                    origin_entity = source_details.get("origin") or entity_urn
                     if old_docs is None or not old_docs.documentations:
                         return DocPropagationDirective(
                             propagate=True,

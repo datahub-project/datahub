@@ -96,7 +96,7 @@ public class StartActionPipelineResolver implements DataFetcher<CompletableFutur
                         }
 
                         try {
-                          if (!reloaded) {
+                          if (reloaded == null || !reloaded) {
                             throw new DataHubGraphQLException(
                                 String.format(
                                     "Failed to rollback action pipeline %s", actionPipelineUrn),

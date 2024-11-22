@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from abc import abstractmethod
 from enum import Enum
@@ -12,6 +13,8 @@ from datahub.utilities.urns.urn import Urn
 from datahub_actions.api.action_graph import AcrylDataHubGraph
 from pydantic.fields import Field
 from pydantic.main import BaseModel
+
+logger = logging.getLogger(__name__)
 
 SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"
 
@@ -129,8 +132,15 @@ def get_unique_siblings(graph: AcrylDataHubGraph, entity_urn: str) -> list[str]:
     """
 
     if entity_urn.startswith("urn:li:schemaField"):
-        parent_urn = Urn.create_from_string(entity_urn).get_entity_id()[0]
-        entity_field_path = Urn.create_from_string(entity_urn).get_entity_id()[1]
+        try:
+            parent_urn = Urn.create_from_string(entity_urn).get_entity_id()[0]
+            entity_field_path = Urn.create_from_string(entity_urn).get_entity_id()[1]
+        except Exception:
+            logger.warning(
+                f"Failed to extract parent urn and field path from {entity_urn}. Cannot find siblings.."
+            )
+            return []
+
         # Does my parent have siblings?
         siblings: Optional[models.SiblingsClass] = graph.graph.get_aspect(
             parent_urn,

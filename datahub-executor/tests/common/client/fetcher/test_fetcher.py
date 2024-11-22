@@ -81,6 +81,7 @@ def test_fetch_freshness_assertion() -> None:
                                                             "platform": {
                                                                 "urn": "urn:li:dataPlatform:snowflake"
                                                             },
+                                                            "exists": True,
                                                         }
                                                     }
                                                 ]
@@ -253,6 +254,7 @@ def test_fetch_volume_assertion() -> None:
                                                             "platform": {
                                                                 "urn": "urn:li:dataPlatform:snowflake"
                                                             },
+                                                            "exists": True,
                                                         }
                                                     }
                                                 ]
@@ -456,6 +458,7 @@ def test_fetch_inferred_volume_assertion() -> None:
                                                             "subTypes": {
                                                                 "typeNames": ["Table"]
                                                             },
+                                                            "exists": True,
                                                         }
                                                     }
                                                 ],
@@ -745,6 +748,7 @@ def test_fetch_sql_assertion() -> None:
                                                             "platform": {
                                                                 "urn": "urn:li:dataPlatform:snowflake"
                                                             },
+                                                            "exists": True,
                                                         }
                                                     }
                                                 ]
@@ -912,6 +916,7 @@ def test_fetch_field_assertion() -> None:
                                                             "platform": {
                                                                 "urn": "urn:li:dataPlatform:snowflake"
                                                             },
+                                                            "exists": True,
                                                         }
                                                     }
                                                 ]
@@ -1073,6 +1078,7 @@ def test_fetch_schema_assertion() -> None:
                                                             "platform": {
                                                                 "urn": "urn:li:dataPlatform:snowflake"
                                                             },
+                                                            "exists": True,
                                                         }
                                                     }
                                                 ]

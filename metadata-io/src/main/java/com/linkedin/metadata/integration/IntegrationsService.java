@@ -397,7 +397,7 @@ public class IntegrationsService {
                         "Failed to reload action description for action %s due to exception encountered while calling Integrations Service!",
                         actionPipelineUrn),
                     ex);
-                return null;
+                return false;
               });
     } catch (Exception e) {
       log.error(
