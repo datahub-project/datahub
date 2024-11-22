@@ -2,6 +2,7 @@ import logging
 from typing import List, Optional
 
 from acryl.executor.request.execution_request import ExecutionRequest
+from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
 
 from datahub_executor.common.assertion.executor import AssertionExecutor
@@ -18,6 +19,9 @@ from datahub_executor.common.monitoring.metrics import (
 from datahub_executor.common.types import CronSchedule
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
+    DATAHUB_EXECUTOR_SCHEDULER_ASSERTIONS_MAX_THREADS,
+    DATAHUB_EXECUTOR_SCHEDULER_INGESTIONS_MAX_THREADS,
+    DATAHUB_EXECUTOR_SCHEDULER_MISFIRE_PERIOD,
     DATAHUB_EXECUTOR_WORKER_ID,
 )
 from datahub_executor.worker.remote import apply_remote_assertion_request
@@ -29,8 +33,12 @@ class ExecutionRequestScheduler:
     """Class for scheduling and executing execution_request_ids based on a CRON schedule."""
 
     execution_request_ids: List[str]
-    scheduler: BackgroundScheduler
+
+    ingestion_scheduler: BackgroundScheduler
+
+    assertion_scheduler: BackgroundScheduler
     assertion_executor: AssertionExecutor
+
     default_schedule: str = "0 * * * *"  # TODO: Make this configurable.
     default_timezone: str = "America/Los_Angeles"
 
@@ -53,19 +61,39 @@ class ExecutionRequestScheduler:
             if execution_requests is not None
             else []
         )
-        self.scheduler = BackgroundScheduler()
+
+        # Assertions and Ingestions need separate schedulers. When the scheduler is shared, and either
+        # assertion executor or ingestion executor thread pool is busy, the shared scheduler will block
+        # completely, thus blocking both of its users.
+        aeconfig = {
+            "default": ThreadPoolExecutor(
+                DATAHUB_EXECUTOR_SCHEDULER_ASSERTIONS_MAX_THREADS
+            ),
+        }
+        ieconfig = {
+            "default": ThreadPoolExecutor(
+                DATAHUB_EXECUTOR_SCHEDULER_INGESTIONS_MAX_THREADS
+            ),
+        }
+        self.assertion_scheduler = BackgroundScheduler(executors=aeconfig)
+        self.ingestion_scheduler = BackgroundScheduler(executors=ieconfig)
+
         if override_assertion_executor is not None:
             self.assertion_executor = override_assertion_executor
         else:
             self.assertion_executor = AssertionExecutor()
-        self.scheduler.start()
+
+        self.assertion_scheduler.start()
+        self.ingestion_scheduler.start()
+
         if default_schedule is not None:
             self.default_schedule = default_schedule
         if default_timezone is not None:
             self.default_timezone = default_timezone
 
     def shutdown(self) -> None:
-        self.scheduler.shutdown()
+        self.assertion_scheduler.shutdown()
+        self.ingestion_scheduler.shutdown()
         self.assertion_executor.shutdown()
 
     def submit_execution_request(
@@ -147,7 +175,7 @@ class ExecutionRequestScheduler:
                 f"Scheduling execution_request evaluation job for execution_request with exec_id {execution_request.exec_id} at {cron}"
             )
 
-            job = self.scheduler.add_job(
+            job = self.get_scheduler_for_execution_request(execution_request).add_job(
                 self.submit_execution_request,
                 trigger="cron",
                 args=[execution_request],
@@ -156,21 +184,23 @@ class ExecutionRequestScheduler:
                 day=day,
                 month=month,
                 day_of_week=day_of_week,
-                timezone=timezone,  # specify the timezone here
-                misfire_grace_time=6 * 60 * 60,  # 6 hour misfire grace period
+                timezone=timezone,
+                misfire_grace_time=DATAHUB_EXECUTOR_SCHEDULER_MISFIRE_PERIOD,
             )
         except Exception as e:
             logger.warning(f"Exception while creating a scheduler job: {e}")
         return job.id
 
-    def unschedule_execution_request(self, job_id: str) -> None:
+    def unschedule_execution_request(
+        self, scheduler: BackgroundScheduler, job_id: str
+    ) -> None:
         """
         Unschedule a job.
 
         :param job_id: The job id to be unscheduled.
         """
         try:
-            self.scheduler.remove_job(job_id)
+            scheduler.remove_job(job_id)
         except Exception as e:
             logger.warning(f"Exception while removing a scheduler job: {e}")
 
@@ -198,9 +228,18 @@ class ExecutionRequestScheduler:
         """
         if execution_request.exec_id in self.execution_request_ids:
             self.execution_request_ids.remove(execution_request.exec_id)
-        for job in self.scheduler.get_jobs():
+
+        scheduler = self.get_scheduler_for_execution_request(execution_request)
+        for job in scheduler.get_jobs():
             if job.args[0].exec_id == execution_request.exec_id:
-                self.unschedule_execution_request(job.id)
+                self.unschedule_execution_request(scheduler, job.id)
+
+    def get_scheduler_for_execution_request(
+        self, execution_request: ExecutionRequest
+    ) -> BackgroundScheduler:
+        if execution_request.name == RUN_INGEST_TASK_NAME:
+            return self.ingestion_scheduler
+        return self.assertion_scheduler
 
     def should_execute_embedded(self, execution_request: ExecutionRequest) -> bool:
         """

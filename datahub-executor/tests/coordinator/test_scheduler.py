@@ -35,7 +35,7 @@ def test_schedule_assertion() -> None:
     )
 
     # Verify that the assertion was scheduled correctly
-    job = execution_request_scheduler.scheduler.get_job(job_id)
+    job = execution_request_scheduler.assertion_scheduler.get_job(job_id)
     assert job is not None
     assert job.args[0] == execution_request
     assert str(job.trigger.fields[CronTrigger.FIELD_NAMES.index("minute")]) == "1"
@@ -62,7 +62,7 @@ def test_unschedule_assertion() -> None:
     )
 
     # Verify that the assertion was scheduled correctly
-    job = execution_request_scheduler.scheduler.get_job(job_id)
+    job = execution_request_scheduler.assertion_scheduler.get_job(job_id)
     assert job is not None
     assert job.args[0] == execution_request
 
@@ -70,5 +70,5 @@ def test_unschedule_assertion() -> None:
     execution_request_scheduler.remove_execution_request(execution_request)
 
     # Verify that the assertion was unscheduled correctly
-    job = execution_request_scheduler.scheduler.get_job(job_id)
+    job = execution_request_scheduler.assertion_scheduler.get_job(job_id)
     assert job is None
