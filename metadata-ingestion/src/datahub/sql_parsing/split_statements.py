@@ -12,6 +12,8 @@ CONTROL_FLOW_KEYWORDS = [
     "END",
 ]
 
+# There's an exception to this rule, which is when the statement
+# is preceeded by a CTE.
 FORCE_NEW_STATEMENT_KEYWORDS = [
     # SELECT is used inside queries as well, so we can't include it here.
     "INSERT",
@@ -77,6 +79,7 @@ def split_statements(sql: str) -> Generator[str, None, None]:
             yield statement
             current_statement.clear()
 
+    prev_real_char = "\0"  # the most recent non-whitespace, non-comment character
     while i < len(sql):
         c = sql[i]
         next_char = sql[i + 1] if i < len(sql) - 1 else "\0"
@@ -85,6 +88,7 @@ def split_statements(sql: str) -> Generator[str, None, None]:
             if c == "'":
                 state = ParserState.STRING
                 current_statement.append(c)
+                prev_real_char = c
             elif c == "-" and next_char == "-":
                 state = ParserState.COMMENT
                 current_statement.append(c)
@@ -96,6 +100,10 @@ def split_statements(sql: str) -> Generator[str, None, None]:
                 current_statement.append(next_char)
                 i += 1
             else:
+                most_recent_real_char = prev_real_char
+                if not c.isspace():
+                    prev_real_char = c
+
                 is_control_keyword, keyword, keyword_len = _look_ahead_for_keywords(
                     sql, i, keywords=CONTROL_FLOW_KEYWORDS
                 )
@@ -114,7 +122,9 @@ def split_statements(sql: str) -> Generator[str, None, None]:
                 ) = _look_ahead_for_keywords(
                     sql, i, keywords=FORCE_NEW_STATEMENT_KEYWORDS
                 )
-                if is_force_new_statement_keyword:
+                if (
+                    is_force_new_statement_keyword and most_recent_real_char != ")"
+                ):  # usually we'd have a close paren that closes a CTE
                     # Force termination of current statement
                     yield from yield_if_complete()
 
@@ -150,28 +160,4 @@ def split_statements(sql: str) -> Generator[str, None, None]:
         i += 1
 
     # Handle the last statement
-    statement = "".join(current_statement).strip()
-    if statement:
-        yield statement
-
-
-# Example usage and test
-if __name__ == "__main__":
-    # TODO: Move this to a test.
-    test_sql = """
-        CREATE TABLE Users (Id INT);
-        -- Comment here
-        INSERT INTO Users VALUES (1);
-        BEGIN
-            UPDATE Users SET Id = 2;
-            /* Multi-line
-               comment */
-            DELETE FROM /* inline DELETE comment */ Users;
-        END
-        GO
-        SELECT * FROM Users
-    """
-
-    print("Statements found:")
-    for i, statement in enumerate(split_statements(test_sql), 1):
-        print(f"\n{i}. {statement}")
+    yield from yield_if_complete()
