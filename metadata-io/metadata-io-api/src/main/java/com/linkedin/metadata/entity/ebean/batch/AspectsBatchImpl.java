@@ -47,7 +47,8 @@ public class AspectsBatchImpl implements AspectsBatch {
    */
   @Override
   public Pair<Map<String, Set<String>>, List<ChangeMCP>> toUpsertBatchItems(
-      final Map<String, Map<String, SystemAspect>> latestAspects) {
+      Map<String, Map<String, SystemAspect>> latestAspects,
+      Map<String, Map<String, Long>> nextVersions) {
 
     // Process proposals to change items
     Stream<? extends BatchItem> mutatedProposalsStream =
@@ -56,6 +57,7 @@ public class AspectsBatchImpl implements AspectsBatch {
                 .filter(item -> item instanceof ProposedItem)
                 .map(item -> (MCPItem) item)
                 .collect(Collectors.toList()));
+
     // Regular change items
     Stream<? extends BatchItem> changeMCPStream =
         items.stream().filter(item -> !(item instanceof ProposedItem));
@@ -83,10 +85,8 @@ public class AspectsBatchImpl implements AspectsBatch {
                             currentValue, retrieverContext.getAspectRetriever());
                   }
 
-                  // Populate old aspect for write hooks
-                  upsertItem.setPreviousSystemAspect(latest);
-
-                  return upsertItem;
+                  return AspectsBatch.incrementBatchVersion(
+                      upsertItem, latestAspects, nextVersions);
                 })
             .collect(Collectors.toCollection(LinkedList::new));
 
@@ -96,6 +96,7 @@ public class AspectsBatchImpl implements AspectsBatch {
     LinkedList<ChangeMCP> newItems =
         applyMCPSideEffects(upsertBatchItems).collect(Collectors.toCollection(LinkedList::new));
     upsertBatchItems.addAll(newItems);
+
     Map<String, Set<String>> newUrnAspectNames =
         getNewUrnAspectsMap(getUrnAspectsMap(), upsertBatchItems);
 
