@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { message, Button, List, Typography } from 'antd';
 import { LinkOutlined, DeleteOutlined } from '@ant-design/icons';
-import { EntityType, InstitutionalMemoryMetadata } from '../../../../../../types.generated';
+import { InstitutionalMemoryMetadata } from '../../../../../../types.generated';
 import { useEntityData } from '../../../../../entity/shared/EntityContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../../constants';
@@ -84,10 +84,8 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                                     <>
                                         {shouldTryLinkPreview(link.url) && <LinkPreview link={link} />}
                                         Added {formatDateString(link.created.time)} by{' '}
-                                        <Link
-                                            to={`${entityRegistry.getEntityUrl(EntityType.CorpUser, link.author.urn)}`}
-                                        >
-                                            {link.author.username}
+                                        <Link to={`${entityRegistry.getEntityUrl(link.actor.type, link.actor.urn)}`}>
+                                            {entityRegistry.getDisplayName(link.actor.type, link.actor)}
                                         </Link>
                                     </>
                                 }

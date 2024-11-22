@@ -22,9 +22,8 @@ query getDomain($urn: String!) {
         institutionalMemory {
             elements {
                 url
-                author {
-                    urn
-                    username
+                actor {
+                    ...resolvedActorFields
                 }
                 description
                 created {
