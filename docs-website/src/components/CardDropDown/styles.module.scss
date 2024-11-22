@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
- .dropdownNavbarItemMobile {
+.dropdownNavbarItemMobile {
   cursor: pointer;
 }
 
@@ -39,29 +39,29 @@
   width: 12rem;
   transition: transform 0.2s, box-shadow 0.2s;
 
-  .icon {
-    flex-shrink: 0; 
-    width: 1.3rem; 
+  &:hover {
+        transform: translateY(-5px);
+        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+        text-decoration: none;
+        color: inherit;
+    }
+}
+
+.icon {
+    flex-shrink: 0;
+    width: 1.3rem;
     height: 1.3rem;
     display: flex;
     justify-content: center;
     align-items: center;
-  }
-  
-  .title {
-    flex-grow: 1; 
+}
+
+.title {
+    flex-grow: 1;
     color: #1E1E1E;
     font-family: Manrope, sans-serif;
     font-size: 0.9rem;
     font-weight: 600;
-    line-height: 1.5rem; 
+    line-height: 1.5rem;
     letter-spacing: -0.011rem;
-  }
-  
-  &:hover {
-    transform: translateY(-5px);
-    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
-    text-decoration: none;
-    color: inherit;
-  }
 }

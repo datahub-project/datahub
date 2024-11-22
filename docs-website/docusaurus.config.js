@@ -328,7 +328,6 @@ module.exports = {
             require.resolve("./src/styles/config-table.scss"),
             require.resolve("./src/components/SecondNavbar/styles.module.scss"),
             require.resolve("./src/components/SolutionsDropdown/styles.module.css"),
-            require.resolve("./src/components/CardDropdown/styles.module.css"),
           ],
         },
         pages: {
