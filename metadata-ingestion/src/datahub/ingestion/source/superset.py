@@ -1021,8 +1021,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             total_datasets = payload["count"]
 
             for dataset_data in payload["result"]:
-                if dataset_data.get("id") != 182:
-                    continue
                 dataset_snapshot = self.construct_dataset_from_dataset_data(
                     dataset_data
                 )
@@ -1034,8 +1032,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                 )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        # yield from self.emit_dashboard_mces()
-        # yield from self.emit_chart_mces()
+        yield from self.emit_dashboard_mces()
+        yield from self.emit_chart_mces()
         yield from self.emit_dataset_mces()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
