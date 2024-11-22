@@ -639,7 +639,6 @@ class OracleSource(SQLAlchemySource):
         threshold_time: Optional[datetime.datetime],
         schema: str,
     ) -> Optional[List[str]]:
-
         tables_table_name = (
             "ALL_TABLES" if self.config.data_dictionary_mode == "ALL" else "DBA_TABLES"
         )

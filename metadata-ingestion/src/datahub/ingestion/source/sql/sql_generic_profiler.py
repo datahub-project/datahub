@@ -23,10 +23,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
 from datahub.metadata.com.linkedin.pegasus2avro.timeseries import PartitionType
 
 
-class ProfilingSqlReport(SQLSourceReport):
-    pass
-
-
 @dataclass
 class TableProfilerRequest(GEProfilerRequest):
     table: Union[BaseTable, BaseView]
@@ -40,7 +36,7 @@ class GenericProfiler:
     def __init__(
         self,
         config: SQLCommonConfig,
-        report: ProfilingSqlReport,
+        report: SQLSourceReport,
         platform: str,
         state_handler: Optional[ProfilingHandler] = None,
     ) -> None:
