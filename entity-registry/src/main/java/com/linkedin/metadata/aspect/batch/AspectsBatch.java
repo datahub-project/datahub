@@ -9,6 +9,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -243,12 +244,12 @@ public interface AspectsBatch {
       Map<String, Map<String, Long>> nextVersions) {
     long nextVersion =
         nextVersions
-            .getOrDefault(changeMCP.getUrn().toString(), Map.of())
+            .getOrDefault(changeMCP.getUrn().toString(), Collections.emptyMap())
             .getOrDefault(changeMCP.getAspectName(), 0L);
 
     changeMCP.setPreviousSystemAspect(
         latestAspects
-            .getOrDefault(changeMCP.getUrn().toString(), Map.of())
+            .getOrDefault(changeMCP.getUrn().toString(), Collections.emptyMap())
             .getOrDefault(changeMCP.getAspectName(), null));
 
     changeMCP.setNextAspectVersion(nextVersion);
