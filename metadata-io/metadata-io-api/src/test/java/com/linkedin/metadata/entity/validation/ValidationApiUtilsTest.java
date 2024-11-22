@@ -14,14 +14,14 @@ public class ValidationApiUtilsTest {
   @Test
   public void testValidateDatasetUrn() {
     Urn validUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD)");
-    ValidationApiUtils.validateUrn(entityRegistry, validUrn);
+    ValidationApiUtils.validateUrn(entityRegistry, validUrn, true);
     // If no exception is thrown, test passes
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testSimpleUrnColon() {
     Urn invalidUrn = UrnUtils.getUrn("urn:li:corpuser:foo:bar");
-    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn);
+    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn, true);
   }
 
   @Test
@@ -29,39 +29,39 @@ public class ValidationApiUtilsTest {
     Urn validUrn =
         Urn.createFromString(
             "urn:li:dataset:(urn:li:dataPlatform:s3,urn:li:dataset:%28urn:li:dataPlatform:s3%2Ctest-datalake-concepts/prog_maintenance%2CPROD%29,PROD)");
-    ValidationApiUtils.validateUrn(entityRegistry, validUrn);
+    ValidationApiUtils.validateUrn(entityRegistry, validUrn, true);
     // If no exception is thrown, test passes
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testUrnFabricType() {
     Urn invalidUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,())");
-    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn);
+    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn, true);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testUrnWithTrailingWhitespace() {
     Urn invalidUrn =
         UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,PROD) ");
-    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn);
+    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn, true);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testUrnWithIllegalDelimiter() {
     Urn invalidUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs␟path,PROD)");
-    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn);
+    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn, true);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testComplexUrnWithParens() {
     Urn invalidUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,(illegal),PROD)");
-    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn);
+    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn, true);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
   public void testSimpleUrnWithParens() {
     Urn invalidUrn = UrnUtils.getUrn("urn:li:corpuser:(foo)123");
-    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn);
+    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn, true);
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
@@ -74,7 +74,7 @@ public class ValidationApiUtilsTest {
     longPath.append(",PROD)");
     Urn invalidUrn = UrnUtils.getUrn(longPath.toString());
 
-    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn);
+    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn, true);
   }
 
   @Test

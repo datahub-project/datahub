@@ -25,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class ValidationApiUtils {
+  public static final String STRICT_URN_VALIDATION_ENABLED = "STRICT_URN_VALIDATION_ENABLED";
   public static final int URN_NUM_BYTES_LIMIT = 512;
   // Related to BrowsePathv2
   public static final String URN_DELIMITER_SEPARATOR = "␟";
@@ -48,6 +49,16 @@ public class ValidationApiUtils {
   }
 
   public static void validateUrn(@Nonnull EntityRegistry entityRegistry, @Nonnull final Urn urn) {
+    validateUrn(
+        entityRegistry,
+        urn,
+        Boolean.TRUE.equals(
+            Boolean.parseBoolean(
+                System.getenv().getOrDefault(STRICT_URN_VALIDATION_ENABLED, "false"))));
+  }
+
+  public static void validateUrn(
+      @Nonnull EntityRegistry entityRegistry, @Nonnull final Urn urn, boolean strict) {
     EntityRegistryUrnValidator validator = new EntityRegistryUrnValidator(entityRegistry);
     validator.setCurrentEntitySpec(entityRegistry.getEntitySpec(urn.getEntityType()));
     RecordTemplateValidator.validate(
@@ -83,10 +94,16 @@ public class ValidationApiUtils {
             .collect(Collectors.toList());
 
     if (!illegalComponents.isEmpty()) {
-      throw new IllegalArgumentException(
+      String message =
           String.format(
               "Illegal `%s` characters detected in URN %s component(s): %s",
-              ILLEGAL_URN_COMPONENT_CHARACTERS, urn, illegalComponents));
+              ILLEGAL_URN_COMPONENT_CHARACTERS, urn, illegalComponents);
+
+      if (strict) {
+        throw new IllegalArgumentException(message);
+      } else {
+        log.error(message);
+      }
     }
 
     try {

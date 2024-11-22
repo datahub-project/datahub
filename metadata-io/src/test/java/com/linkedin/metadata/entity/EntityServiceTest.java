@@ -1842,7 +1842,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
       ValidationApiUtils.validateUrn(opContext.getEntityRegistry(), urnWithMismatchedParens);
       Assert.fail("Should have raised IllegalArgumentException for URN with mismatched parens");
     } catch (IllegalArgumentException e) {
-      assertTrue(e.getMessage().contains("mismatched paren nesting"));
+      assertTrue(e.getMessage().contains("[test(Key]"));
     }
 
     Urn invalidType = new Urn("li", "fakeMadeUpType", new TupleKey("testKey"));
