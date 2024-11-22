@@ -190,7 +190,6 @@ class StructuredProperties(ConfigModel):
 
     @classmethod
     def from_datahub(cls, graph: DataHubGraph, urn: str) -> "StructuredProperties":
-
         with StructuredPropertiesConfig.use_graph(graph):
             structured_property: Optional[
                 StructuredPropertyDefinitionClass

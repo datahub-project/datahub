@@ -374,7 +374,6 @@ class BigQueryV2Config(
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
 ):
-
     include_schema_metadata: bool = Field(
         default=True,
         description="Whether to ingest the BigQuery schema, i.e. projects, schemas, tables, and views.",

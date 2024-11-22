@@ -32,6 +32,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -669,7 +670,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         )
 
         source_fields = [
-            f"urn:li:schemaField:({dataset_urn},{f})"
+            make_schema_field_urn(dataset_urn, f)
             for f in fk_dict["constrained_columns"]
         ]
         foreign_dataset = make_dataset_urn_with_platform_instance(
@@ -679,7 +680,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
         )
         foreign_fields = [
-            f"urn:li:schemaField:({foreign_dataset},{f})"
+            make_schema_field_urn(foreign_dataset, f)
             for f in fk_dict["referred_columns"]
         ]
 

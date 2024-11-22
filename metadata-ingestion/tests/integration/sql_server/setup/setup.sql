@@ -40,6 +40,8 @@ CREATE TABLE Foo.Persons (
     Age int
 );
 GO
+CREATE VIEW Foo.PersonsView AS SELECT * FROM Foo.Persons;
+GO
 CREATE TABLE Foo.SalesReason 
    (
       TempID int NOT NULL,

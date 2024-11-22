@@ -6,11 +6,12 @@ from click_default_group import DefaultGroup
 
 from datahub.cli.cli_utils import post_entity
 from datahub.configuration.config_loader import load_config_file
-from datahub.emitter.mcp import MetadataChangeProposalWrapper, SystemMetadataClass
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.metadata.schema_classes import (
     DataPlatformInfoClass as DataPlatformInfo,
     PlatformTypeClass,
+    SystemMetadataClass,
 )
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade

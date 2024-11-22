@@ -19,8 +19,7 @@ from tableauserverclient.models import (
 )
 from tableauserverclient.models.reference_item import ResourceReference
 
-from datahub.configuration.source_common import DEFAULT_ENV
-from datahub.emitter.mce_builder import make_schema_field_urn
+from datahub.emitter.mce_builder import DEFAULT_ENV, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.tableau.tableau import (
@@ -277,7 +276,6 @@ def mock_sdk_client(
     datasources_side_effect: List[dict],
     sign_out_side_effect: List[dict],
 ) -> mock.MagicMock:
-
     mock_client = mock.Mock()
     mocked_metadata = mock.Mock()
     mocked_metadata.query.side_effect = side_effect_query_metadata_response
@@ -1229,7 +1227,6 @@ def test_permission_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_graph):
-
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
