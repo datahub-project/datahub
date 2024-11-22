@@ -894,6 +894,28 @@ def _normalize_db_or_schema(
     return db_or_schema
 
 
+def _simplify_select_into(statement: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
+    """
+    Check if the expression is a SELECT INTO statement. If so, converts it into a CTAS.
+    Other expressions are returned as-is.
+    """
+
+    if not (isinstance(statement, sqlglot.exp.Select) and statement.args.get("into")):
+        return statement
+
+    # Convert from SELECT <cols> INTO <out> <expr>
+    # to CREATE TABLE <out> AS SELECT <cols> <expr>
+    into_expr: sqlglot.exp.Into = statement.args["into"].pop()
+    into_table = into_expr.this
+
+    create = sqlglot.exp.Create(
+        this=into_table,
+        kind="TABLE",
+        expression=statement,
+    )
+    return create
+
+
 def _sqlglot_lineage_inner(
     sql: sqlglot.exp.ExpOrStr,
     schema_resolver: SchemaResolverInterface,
@@ -935,6 +957,8 @@ def _sqlglot_lineage_inner(
     #     "Formatted sql statement: %s",
     #     original_statement.sql(pretty=True, dialect=dialect),
     # )
+
+    statement = _simplify_select_into(statement)
 
     # Make sure the tables are resolved with the default db / schema.
     # This only works for Unionable statements. For other types of statements,

@@ -1285,7 +1285,6 @@ def test_mssql_casing_resolver() -> None:
     assert_sql_result(
         """\
 SELECT Age, name, UPPERCASED_COL, COUNT(*) as Count
--- INTO Foo.age_dist
 FROM Foo.Persons
 GROUP BY Age
 """,
@@ -1302,4 +1301,25 @@ GROUP BY Age
     )
 
 
-# TODO add a test for select into w/ mssql
+def test_mssql_select_into() -> None:
+    assert_sql_result(
+        """\
+SELECT age as AGE, COUNT(*) as Count
+INTO Foo.age_dist
+FROM Foo.Persons
+GROUP BY Age
+""",
+        dialect="mssql",
+        default_db="NewData",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.persons,PROD)": {
+                "Age": "INTEGER",
+                "Name": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.age_dist,PROD)": {
+                "AGE": "INTEGER",
+                "Count": "INTEGER",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_mssql_select_into.json",
+    )
