@@ -30,11 +30,11 @@ from datahub.ingestion.source.powerbi.m_query.data_classes import (
     Lineage,
     ReferencedTable,
 )
-
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import Table
 from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult
 
 logger = logging.getLogger(__name__)
+
 
 def get_next_item(items: List[str], item: str) -> Optional[str]:
     if item in items:
