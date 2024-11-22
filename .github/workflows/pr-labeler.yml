@@ -45,7 +45,8 @@ jobs:
                 "Salman-Apptware",
                 "mayurinehate",
                 "noggi",
-                "skrydal"
+                "skrydal",
+                "kevinkarchacryl"
               ]'), 
               github.actor
             ) 
