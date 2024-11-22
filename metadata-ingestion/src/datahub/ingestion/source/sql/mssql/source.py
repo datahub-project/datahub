@@ -56,6 +56,7 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     UnionTypeClass,
 )
+from datahub.utilities.file_backed_collections import FileBackedList
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -170,6 +171,7 @@ class SQLServerSource(SQLAlchemySource):
         self.current_database = None
         self.table_descriptions: Dict[str, str] = {}
         self.column_descriptions: Dict[str, str] = {}
+        self.stored_procedures: FileBackedList[StoredProcedure] = FileBackedList()
         if self.config.include_descriptions:
             for inspector in self.get_inspectors():
                 db_name: str = self.get_db_name(inspector)
@@ -452,21 +454,11 @@ class SQLServerSource(SQLAlchemySource):
         for property_name, property_value in properties.items():
             data_job.add_property(property_name, str(property_value))
         if self.config.include_lineage:
-            with self.report.report_exc(
-                message="Failed to parse stored procedure lineage",
-                context=procedure.full_name,
-                level=StructuredLogLevel.WARN,
-            ):
-                yield from auto_workunit(
-                    generate_procedure_lineage(
-                        schema_resolver=self.schema_resolver,
-                        procedure=procedure,
-                        procedure_job_urn=data_job.urn,
-                    )
-                )
+            # These will be used to construct lineage
+            self.stored_procedures.append(procedure)
         yield from self.construct_job_workunits(
             data_job,
-            # For stored procedure lineage is ingested above
+            # For stored procedure lineage is ingested later
             include_lineage=False,
         )
 
@@ -691,4 +683,59 @@ class SQLServerSource(SQLAlchemySource):
             qualified_table_name.lower()
             if self.config.convert_urns_to_lowercase
             else qualified_table_name
+        )
+
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        yield from super().get_workunits_internal()
+
+        # This is done at the end so that we will have access to tables
+        # from all databases in schema_resolver and discovered_tables
+        for procedure in self.stored_procedures:
+            with self.report.report_exc(
+                message="Failed to parse stored procedure lineage",
+                context=procedure.full_name,
+                level=StructuredLogLevel.WARN,
+            ):
+                yield from auto_workunit(
+                    generate_procedure_lineage(
+                        schema_resolver=self.schema_resolver,
+                        procedure=procedure,
+                        procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
+                        is_temp_table=self.is_temp_table,
+                    )
+                )
+
+    def is_temp_table(self, name: str) -> bool:
+        try:
+            parts = name.split(".")
+            table_name = parts[-1]
+            schema_name = parts[-2]
+            db_name = parts[-3]
+
+            if table_name.startswith("#"):
+                return True
+
+            # This is also a temp table if
+            #   1. this name would be allowed by the dataset patterns, and
+            #   2. we have a list of discovered tables, and
+            #   3. it's not in the discovered tables list
+            if (
+                self.config.database_pattern.allowed(db_name)
+                and self.config.schema_pattern.allowed(schema_name)
+                and self.config.table_pattern.allowed(name)
+                and self.standardize_identifier_case(name)
+                not in self.discovered_datasets
+            ):
+                logger.debug(f"inferred as temp table {name}")
+                return True
+
+        except Exception:
+            logger.warning(f"Error parsing table name {name} ")
+        return False
+
+    def standardize_identifier_case(self, table_ref_str: str) -> str:
+        return (
+            table_ref_str.lower()
+            if self.config.convert_urns_to_lowercase
+            else table_ref_str
         )

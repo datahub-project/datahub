@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, Optional
+from typing import Callable, Iterable, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.sql.mssql.job_models import StoredProcedure
@@ -21,6 +21,7 @@ def parse_procedure_code(
     default_db: Optional[str],
     default_schema: Optional[str],
     code: str,
+    is_temp_table: Callable[[str], bool],
     raise_: bool = False,
 ) -> Optional[DataJobInputOutputClass]:
     aggregator = SqlParsingAggregator(
@@ -33,6 +34,7 @@ def parse_procedure_code(
         generate_operations=False,
         generate_query_subject_fields=False,
         generate_query_usage_statistics=False,
+        is_temp_table=is_temp_table,
     )
     for query in split_statements(code):
         # TODO: We should take into account `USE x` statements.
@@ -62,6 +64,7 @@ def generate_procedure_lineage(
     schema_resolver: SchemaResolver,
     procedure: StoredProcedure,
     procedure_job_urn: str,
+    is_temp_table: Callable[[str], bool] = lambda _: False,
     raise_: bool = False,
 ) -> Iterable[MetadataChangeProposalWrapper]:
     if procedure.code:
@@ -70,6 +73,7 @@ def generate_procedure_lineage(
             default_db=procedure.db,
             default_schema=procedure.schema,
             code=procedure.code,
+            is_temp_table=is_temp_table,
             raise_=raise_,
         )
 

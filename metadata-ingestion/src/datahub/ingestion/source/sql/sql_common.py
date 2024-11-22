@@ -392,6 +392,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
         )
+        self.discovered_datasets: Set[str] = set()
         self._view_definition_cache: MutableMapping[str, str]
         if self.config.use_file_backed_cache:
             self._view_definition_cache = FileBackedDict[str]()
@@ -833,6 +834,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         dataset_snapshot.aspects.append(schema_metadata)
         if self._save_schema_to_resolver():
             self.schema_resolver.add_schema_metadata(dataset_urn, schema_metadata)
+            self.discovered_datasets.add(dataset_name)
         db_name = self.get_db_name(inspector)
 
         yield from self.add_table_to_schema_container(
@@ -1128,6 +1130,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             )
             if self._save_schema_to_resolver():
                 self.schema_resolver.add_schema_metadata(dataset_urn, schema_metadata)
+                self.discovered_datasets.add(dataset_name)
         description, properties, _ = self.get_table_properties(inspector, schema, view)
         try:
             view_definition = inspector.get_view_definition(view, schema)

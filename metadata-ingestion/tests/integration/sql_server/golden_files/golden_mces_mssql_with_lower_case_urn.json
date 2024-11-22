@@ -113,11 +113,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "cd483357-fcfc-4369-b80e-171f41298a64",
+                "job_id": "7b9e639a-f3e9-4921-9841-c046034c08c7",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2024-11-22 01:18:57.383000",
-                "date_modified": "2024-11-22 01:18:57.690000",
+                "date_created": "2024-11-22 09:34:52.980000",
+                "date_modified": "2024-11-22 09:34:53.717000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
@@ -2282,72 +2282,14 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2024-11-22 01:18:57.203000",
-                "date_modified": "2024-11-22 01:18:57.203000"
+                "date_created": "2024-11-22 09:34:52.597000",
+                "date_modified": "2024-11-22 09:34:52.597000"
             },
             "externalUrl": "",
             "name": "DemoData.Foo.Proc.With.SpecialChar",
             "type": {
                 "string": "MSSQL_STORED_PROCEDURE"
             }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,DemoData.Foo.stored_procedures,PROD),NewProc)",
-    "changeType": "UPSERT",
-    "aspectName": "dataJobInputOutput",
-    "aspect": {
-        "json": {
-            "inputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD)"
-            ],
-            "outputDatasets": [
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.age_dist,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD)"
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),Age)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.age_dist,PROD),Age)"
-                    ],
-                    "confidenceScore": 0.9
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD),TempID)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),tempid)"
-                    ],
-                    "confidenceScore": 0.9
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD),Name)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),name)"
-                    ],
-                    "confidenceScore": 0.9
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -2368,8 +2310,8 @@
                 "depending_on_procedure": "{}",
                 "code": "CREATE PROCEDURE [Foo].[NewProc]\n    AS\n    BEGIN\n        --insert into items table from salesreason table\n        insert into Foo.Items (ID, ItemName)\n        SELECT TempID, Name\n        FROM Foo.SalesReason;\n\n\n       IF OBJECT_ID('Foo.age_dist', 'U') IS\n NULL\n\n       BEGIN\n            -- Create and populate if table doesn't exist\n            SELECT Age, COUNT(*) as Count\n            INTO Foo.age_dist\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n        ELSE\n        BEGIN\n            \n-- Update existing table\n            TRUNCATE TABLE Foo.age_dist;\n\n            INSERT INTO Foo.age_dist (Age, Count)\n            SELECT Age, COUNT(*) as Count\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n    END\n",
                 "input parameters": "[]",
-                "date_created": "2024-11-22 01:18:57.207000",
-                "date_modified": "2024-11-22 01:18:57.207000"
+                "date_created": "2024-11-22 09:34:52.610000",
+                "date_modified": "2024-11-22 09:34:52.610000"
             },
             "externalUrl": "",
             "name": "DemoData.Foo.NewProc",
@@ -5049,6 +4991,64 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foonew.view1,PROD),LastName)"
                     ],
                     "confidenceScore": 1.0
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mssql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,DemoData.Foo.stored_procedures,PROD),NewProc)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+        "json": {
+            "inputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD)"
+            ],
+            "outputDatasets": [
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.age_dist,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD)"
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.persons,PROD),Age)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.age_dist,PROD),Age)"
+                    ],
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD),TempID)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),tempid)"
+                    ],
+                    "confidenceScore": 0.9
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.salesreason,PROD),Name)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,demodata.foo.items,PROD),name)"
+                    ],
+                    "confidenceScore": 0.9
                 }
             ]
         }
