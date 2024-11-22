@@ -10,7 +10,7 @@ from datahub.ingestion.source.sql.mssql.job_models import StoredProcedure
 from datahub.ingestion.source.sql.mssql.stored_procedure_lineage import (
     generate_procedure_lineage,
 )
-from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
 from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
@@ -73,9 +73,11 @@ procedure_sqls = [sql_file.name for sql_file in PROCEDURE_SQLS_DIR.iterdir()]
 
 @pytest.mark.parametrize("procedure_sql_file", procedure_sqls)
 @pytest.mark.integration
-def test_stored_procedure_lineage(pytestconfig, procedure_sql_file):
-    sql_file_path = Path(f"{PROCEDURE_SQLS_DIR}/{procedure_sql_file}").resolve()
-    procedure_code = Path(sql_file_path).read_text()
+def test_stored_procedure_lineage(
+    pytestconfig: pytest.Config, procedure_sql_file: str
+) -> None:
+    sql_file_path = PROCEDURE_SQLS_DIR / procedure_sql_file
+    procedure_code = sql_file_path.read_text()
 
     # Procedure file is named as <db>.<schema>.<procedure_name>
     splits = procedure_sql_file.split(".")
@@ -92,19 +94,11 @@ def test_stored_procedure_lineage(pytestconfig, procedure_sql_file):
     )
     data_job_urn = f"urn:li:dataJob:(urn:li:dataFlow:(mssql,{db}.{schema}.stored_procedures,PROD),{name})"
 
-    aggregator = SqlParsingAggregator(
-        platform="mssql",
-        generate_lineage=True,
-        generate_queries=False,
-        generate_usage_statistics=False,
-        generate_operations=False,
-        generate_query_subject_fields=False,
-        generate_query_usage_statistics=False,
-    )
+    schema_resolver = SchemaResolver(platform="mssql")
 
     mcps = list(
         generate_procedure_lineage(
-            aggregator=aggregator,
+            schema_resolver=schema_resolver,
             procedure=procedure,
             procedure_job_urn=data_job_urn,
         )
@@ -112,6 +106,7 @@ def test_stored_procedure_lineage(pytestconfig, procedure_sql_file):
     mce_helpers.check_goldens_stream(
         pytestconfig,
         outputs=mcps,
-        golden_path=PROCEDURES_GOLDEN_DIR
-        / Path(procedure_sql_file).name.replace(".sql", ".json"),
+        golden_path=(
+            PROCEDURES_GOLDEN_DIR / Path(procedure_sql_file).with_suffix(".json")
+        ),
     )

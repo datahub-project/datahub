@@ -1,3 +1,4 @@
+import logging
 from typing import Iterable, Optional
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -11,6 +12,8 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     SqlParsingAggregator,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def parse_procedure_code(
     *,
@@ -18,6 +21,7 @@ def parse_procedure_code(
     default_db: Optional[str],
     default_schema: Optional[str],
     code: str,
+    raise_: bool = False,
 ) -> Optional[DataJobInputOutputClass]:
     aggregator = SqlParsingAggregator(
         platform=schema_resolver.platform,
@@ -39,6 +43,11 @@ def parse_procedure_code(
                 query=query,
             )
         )
+    if aggregator.report.num_observed_queries_failed and raise_:
+        logger.info(aggregator.report.as_string())
+        raise ValueError(
+            f"Failed to parse {aggregator.report.num_observed_queries_failed} queries."
+        )
 
     mcps = list(aggregator.gen_metadata())
     return to_datajob_input_output(
@@ -50,16 +59,18 @@ def parse_procedure_code(
 # Is procedure handling generic enough to be added to SqlParsingAggregator?
 def generate_procedure_lineage(
     *,
-    aggregator: SqlParsingAggregator,
+    schema_resolver: SchemaResolver,
     procedure: StoredProcedure,
     procedure_job_urn: str,
+    raise_: bool = False,
 ) -> Iterable[MetadataChangeProposalWrapper]:
     if procedure.code:
         datajob_input_output = parse_procedure_code(
-            schema_resolver=aggregator._schema_resolver,
+            schema_resolver=schema_resolver,
             default_db=procedure.db,
             default_schema=procedure.schema,
             code=procedure.code,
+            raise_=raise_,
         )
 
         if datajob_input_output:

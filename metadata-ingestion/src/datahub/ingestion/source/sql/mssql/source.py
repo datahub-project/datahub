@@ -56,7 +56,6 @@ from datahub.metadata.schema_classes import (
     StringTypeClass,
     UnionTypeClass,
 )
-from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -179,20 +178,6 @@ class SQLServerSource(SQLAlchemySource):
                         self._add_output_converters(conn)
                     self._populate_table_descriptions(conn, db_name)
                     self._populate_column_descriptions(conn, db_name)
-
-    def new_sql_aggregator(self) -> SqlParsingAggregator:
-        return SqlParsingAggregator(
-            platform=self.platform,
-            env=self.config.env,
-            schema_resolver=self.schema_resolver,
-            graph=self.ctx.graph,
-            generate_lineage=self.config.include_lineage,
-            generate_queries=False,
-            generate_usage_statistics=False,
-            generate_operations=False,
-            generate_query_subject_fields=False,
-            generate_query_usage_statistics=False,
-        )
 
     @staticmethod
     def _add_output_converters(conn: Connection) -> None:
@@ -398,7 +383,7 @@ class SQLServerSource(SQLAlchemySource):
     def loop_job_steps(
         self, job: MSSQLJob, job_steps: Dict[str, Any]
     ) -> Iterable[MetadataWorkUnit]:
-        for step_id, step_data in job_steps.items():
+        for _step_id, step_data in job_steps.items():
             step = JobStep(
                 job_name=job.formatted_name,
                 step_name=step_data["step_name"],
@@ -472,16 +457,13 @@ class SQLServerSource(SQLAlchemySource):
                 context=procedure.full_name,
                 level=StructuredLogLevel.WARN,
             ):
-                aggregator = self.new_sql_aggregator()
                 yield from auto_workunit(
                     generate_procedure_lineage(
-                        aggregator=aggregator,
+                        schema_resolver=self.schema_resolver,
                         procedure=procedure,
                         procedure_job_urn=data_job.urn,
                     )
                 )
-                if aggregator.report.num_observed_queries_failed:
-                    raise
         yield from self.construct_job_workunits(
             data_job,
             # For stored procedure lineage is ingested above
