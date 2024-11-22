@@ -1,103 +1,129 @@
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Documentation Forms
+# About DataHub Compliance Forms
 <FeatureAvailability/>
 
-DataHub Documentation Forms streamline the process of setting documentation requirements and delegating annotation responsibilities to the relevant data asset owners, stewards, and subject matter experts.
+DataHub Compliance Forms streamline the process of defining documentation, annotation, and classification requirements, and delegating responsibilities to the relevant data asset owners, stewards, and subject matter experts.
 
-Forms are highly configurable, making it easy to ask the right questions of the right people, for a specific set of assets.  
+Compliance Forms are highly configurable, making it easy to ask the right questions of the right people, for a specific set of assets.
 
-## What are Documentation Forms?
+## What are Compliance Forms?
 
-You can think of Documentation Forms as a survey for your data assets: a set of questions that must be answered in order for an asset to be considered properly documented.
+You can think of Compliance Forms as a survey for your data assets: a set of questions that must be answered in order for an asset to be considered properly documented.
 
-Verification Forms are an extension of Documentation Forms, requiring a final verification, or sign-off, on all responses before the asset can be considered Verified. This is useful for compliance and/or governance annotation initiatives where you want assignees to provide a final acknowledgement that the information provided is correct.
+Verification Forms are an extension of Compliance Forms, requiring a final verification, or sign-off, on all responses before the asset can be considered Verified. This is useful for compliance and/or governance annotation initiatives where you want assignees to provide a final acknowledgement that the information provided is correct.
 
-## Creating and Assigning Documentation Forms
+## Creating and Assigning Compliance Forms
 
-Documentation Forms are defined via YAML with the following details:
+The following steps will walk you through creating and assigning Compliance Forms, including:
 
-- Name and Description to help end-users understand the scope and use case
-- Form Type, either Documentation or Verification
-	- Verification Forms require a final signoff, i.e. Verification, of all required questions before the Form can be considered complete
-- Form Questions (aka "prompts") for end-users to complete
-	- Questions can be assigned at the asset-level and/or the field-level
-	- Asset-level questions can be configured to be required; by default, all questions are optional
-- Assigned Assets, defined by:
-	- A set of specific asset URNs, OR
-	- Assets related to a set of filters, such as Type (Datasets, Dashboards, etc.), Platform (Snowflake, Looker, etc.), Domain (Product, Marketing, etc.), or Container (Schema, Folder, etc.)
-- Optional: Form Assignees
-	- Optionally assign specific DataHub users/groups to complete the Form for all relevant assets
-	- If omitted, any Owner of an Asset can complete Forms assigned to that Asset
-
-Here's an example of defining a Documentation Form via YAML:
-```yaml
-- id: 123456
-  # urn: "urn:li:form:123456"  # optional if id is provided
-  type: VERIFICATION # Supported Types: DOCUMENTATION, VERIFICATION
-  name: "Metadata Initiative 2024"
-  description: "How we want to ensure the most important data assets in our organization have all of the most important and expected pieces of metadata filled out"
-  prompts: # Questions for Form assignees to complete
-    - id: "123"
-      title: "Data Retention Time"
-      description: "Apply Retention Time structured property to form"
-      type: STRUCTURED_PROPERTY
-      structured_property_id: io.acryl.privacy.retentionTime
-      required: True # optional; default value is False
-  entities: # Either pass a list of urns or a group of filters. This example shows a list of urns
-    urns:
-      - urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)
-  # optionally assign the form to a specific set of users and/or groups
-  # when omitted, form will be assigned to Asset owners
-  actors: 
-    users:
-      - urn:li:corpuser:jane@email.com  # note: these should be URNs
-      - urn:li:corpuser:john@email.com
-    groups:
-      - urn:li:corpGroup:team@email.com  # note: these should be URNs
-
-```
+1. Defining your Compliance Form
+2. Creating Questions to be completed by assignees
+3. Selecting the in-scope Assets for the Compliance Form
+4. Assigning Forms to specific Users
+5. Publish your Form
 
 :::note
-Documentation Forms currently only support defining Structured Properties as Form Questions
+Creating and managing Compliance Forms via the UI is only available in DataHub Cloud. If you are deployed with DataHub Core, please see the [Compliance Forms API Guide](../../../docs/api/tutorials/forms.md).
 :::
 
-<!-- ## Completing Documentation Forms -->
+### Step 1: Define your Complinace Form
 
-<!-- Plain-language instructions of how to use the feature
-
-Provide a step-by-step guide to use feature, including relevant screenshots and/or GIFs
-
-* Where/how do you access it?
-* What best practices exist?
-* What are common code snippets?
- -->
-
-## Additional Resources
-
-### Videos
-
-**Asset Verification in DataHub Cloud**
+From the navigation bar, head to **Govern** > **Compliance Forms**. Click **+ Create** to start building your Form.
 
 <p align="center">
-	<iframe width="560" height="315" src="https://www.loom.com/embed/dd834d3cb8f041fca001cea19b2b4071?sid=7073dcd4-407c-41ec-b41d-c99f26dd6a2f" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-</p> 
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/list-compliance-forms-before.png"/>
+</p>
+
+First up, provide the following details:
+
+1. **Name:** Give your Compliance Form a unique name.
+2. **Description:** Describe the purpose of the Form to help your users understand the reason of the exercise.
+3. **Type:** Determine the collection type of the Form:
+    - **Verification:** Collect required information and require final verification to complete the Form.
+    - **Completion:** Collect required information; final verification is not required.
+4. Click **Add Question** to begin setting the requirements for your Form.   
+
+<p align="center">
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-add-question.png"/>
+</p>
+
+### Step 2: Add Questions to your Form
+
+Next, create Questions you want your users to complete to capture the desired metadata with this Compliance Form. There are five types of Questions that can be created, each of which can be set to be **require response**:
+
+* **Ownership:** Assign one or more Owners to the Asset, with the option to pre-define the set of allowed Owners and/or Ownership Types.
+    * _E.g. Who is responsible for ensuring the accuracy of this Dataset?_
+* **Domain:** Assign a Domain to the Asset, with the option to pre-define the set of allowed Domains.
+    * _E.g. Which Domain does this Dashboard belong to? Sales, Marketing, Finance._
+* **Documentation:** Provide Documentation about the Asset and/or Column.
+    * _E.g. What is the primary use case of this Dataset? What caveats should others be aware of?_
+* **Glossary Terms:** Assign one or more Glossary Term to the Asset and/or Column, with the option to pre-define the set of allowed Glossary Terms. 
+    * _E.g. What types of personally identifiable information (PII) are included in this Asset? Email, Address, SSN, etc._
+* **Structured Properties:** Apply custom properties to an Asset and/or Column.
+    * _E.g. What date will this Dataset be deprecated and deleted?_
+
+When creating a Question, be sure to give it an easy-to-understand Title, and provide additional context or direction in the Description.
+<p align="center">
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-prompt.png"/>
+</p>
+
+### Step 3: Assign your Form to relevant Assets
+
+Now that you have defined the Questions you want Users to complete, it's now time to select the in-scope Assets for this exercise.
+
+In the **Assign Assets** section, you can easily target the specific set of Assets that are relevant for this Form with the following steps:
+
+1. Add a Condition or Group of Conditions
+2. Choose the appropriate filter type, such as:
+    * Asset Type (Dataset, Chart, etc.)
+    * Platform (Snowflake, dbt, etc.)
+    * Domain (Sales, Marketing, Finance, etc.)
+    * Assigned Owners
+    * Assigned Glossary Terms
+3. Decide between **All**, **Any**, or **None** of the filters should apply
+4. Preview the relevant Assets to confirm you have applied the appropriate filters
+
+<p align="center">
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-assign-assets.png"/>
+</p>
+
+### Step 4: Add Recipients to your Form
+
+Now that you have defined the set of Questions to be answered for a set of Assets, it's now time to delegate out to your Users.
+
+In the **Add Recipients** section, decide who is responsible for completing the Form:
+
+* **Asset Owners:** Any User that is assigned to one of the in-scope Assets will be able to complete the Form. This is useful for larger initiatives when you may not know the full set of Users.
+* **Specific Users and/or Groups:** Select a specific set of Users and/or Groups within DataHub. This is useful when Ownership of the Assets may be poorly-defined.
+
+<p align="center">
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-add-users-or-groups.png"/>
+</p>
+
+### Step 5: Publish your Form
+
+Once you have defined the set of Questions to be completed, the in-scope Assets, and the relevant Recipients, it's now time to publish your Form!
+
+:::Caution
+Once you have published a Form, you **cannot** change or add Questions.
+:::
+
+<p align="center">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-publish.png"/>
+</p>
+
+<!-- ## Completing Compliance Forms -->
 
 ## FAQ and Troubleshooting
 
-**What is the difference between Documentation and Verification Forms?**
+**What is the difference between Completion and Verification Forms?**
 
 Both form types are a way to configure a set of optional and/or required questions for DataHub users to complete. When using Verification Forms, users will be presented with a final verification step once all required questions have been completed; you can think of this as a final acknowledgement of the accuracy of information submitted.
 
-**Who is able to complete Forms in DataHub?**
-
-By default, any owner of an Asset will be able to respond to questions assigned via a Form.
-
-When assigning a Form to an Asset, you can optionally assign specific DataHub users/groups to fill them out.
-
 **Can I assign multiple Forms to a single asset?**
 
-You sure can! Please keep in mind that an Asset will only be considered Documented or Verified if all required questions are completed on all assiged Forms.
+You sure can! Please keep in mind that an Asset will only be considered Documented or Verified if all required questions are completed on all assigned Forms.
 
 ### API Tutorials
 
