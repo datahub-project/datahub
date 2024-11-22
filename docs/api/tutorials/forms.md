@@ -1,13 +1,13 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# Documentation Forms
+# Compliance Forms
 
-## Why Would You Use Documentation Forms?
+## Why Would You Use Compliance Forms?
 
-Documentation Forms are a way for end-users to fill out all mandatory attributes associated with a data asset. The form will be dynamically generated based on the definitions provided by administrators and stewards and matching rules.
+Compliance Forms are a way for end-users to fill out all mandatory attributes associated with a data asset. The form will be dynamically generated based on the definitions provided by administrators and stewards and matching rules.
 
-Learn more about forms in the [Documentation Forms Feature Guide](../../../docs/features/feature-guides/documentation-forms.md).
+Learn more about forms in the [Compliance Forms Feature Guide](../../../docs/features/feature-guides/documentation-forms.md).
 
 ### Goal Of This Guide
 This guide will show you how to 
