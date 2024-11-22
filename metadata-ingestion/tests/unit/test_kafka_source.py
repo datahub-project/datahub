@@ -10,6 +10,7 @@ from confluent_kafka.schema_registry.schema_registry_client import (
 )
 from freezegun import freeze_time
 
+from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mce_builder import (
     OwnerType,
     make_dataplatform_instance_urn,
@@ -738,3 +739,23 @@ def test_kafka_source_topic_meta_mappings(
     assert workunits[7].metadata.aspectName == "glossaryTermKey"
     assert workunits[8].metadata.aspectName == "tagKey"
     assert workunits[9].metadata.aspectName == "tagKey"
+
+
+def test_kafka_source_oauth_cb_configuration():
+    with pytest.raises(
+        ConfigurationError,
+        match=(
+            "oauth_cb must be a string representing python function reference "
+            "in the format <python-module>:<function-name>."
+        ),
+    ):
+        KafkaSourceConfig.parse_obj(
+            {
+                "connection": {
+                    "bootstrap": "foobar:9092",
+                    "consumer_config": {
+                        "oauth_cb": test_kafka_ignore_warnings_on_schema_type
+                    },
+                }
+            }
+        )
