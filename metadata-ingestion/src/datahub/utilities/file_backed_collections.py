@@ -229,6 +229,9 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             self._conn = ConnectionWrapper()
 
         if sqlite3.sqlite_version_info < (3, 24, 0):
+            # We use the ON CONFLICT clause to implement UPSERTs with sqlite.
+            # This was added in 3.24.0 from 2018-06-04.
+            # See https://www.sqlite.org/lang_conflict.html 
             raise RuntimeError("SQLite version 3.24.0 or later is required")
 
         # We keep a small cache in memory to avoid having to serialize/deserialize
