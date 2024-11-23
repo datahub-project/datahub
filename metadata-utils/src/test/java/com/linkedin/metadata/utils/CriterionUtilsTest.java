@@ -243,4 +243,32 @@ public class CriterionUtilsTest {
     assertTrue(convertedCriterion.hasValues());
     assertEquals(convertedCriterion.getValues().get(0), "value1");
   }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testMultiUrnThrowsException() {
+    Filter input = new Filter();
+    Criterion criterion = new Criterion();
+    criterion.setValue(
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,foo,PROD),urn:li:dataset:(urn:li:dataPlatform:postgres,foo,PROD)");
+    input.setCriteria(new CriterionArray(criterion));
+
+    CriterionUtils.validateAndConvert(input);
+  }
+
+  @Test
+  public void testUrnConversion() {
+    Filter input = new Filter();
+    Criterion criterion = new Criterion();
+    criterion.setValue("urn:li:dataset:(urn:li:dataPlatform:postgres,foo,PROD)");
+    input.setCriteria(new CriterionArray(criterion));
+
+    Filter result = CriterionUtils.validateAndConvert(input);
+
+    Criterion convertedCriterion = result.getCriteria().get(0);
+    assertEquals(convertedCriterion.getValue(), "");
+    assertTrue(convertedCriterion.hasValues());
+    assertEquals(
+        "urn:li:dataset:(urn:li:dataPlatform:postgres,foo,PROD)",
+        convertedCriterion.getValues().get(0));
+  }
 }

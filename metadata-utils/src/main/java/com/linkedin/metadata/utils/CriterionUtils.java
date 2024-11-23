@@ -1,5 +1,7 @@
 package com.linkedin.metadata.utils;
 
+import static com.linkedin.metadata.Constants.URN_LI_PREFIX;
+
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -50,7 +52,9 @@ public class CriterionUtils {
 
       for (Criterion criterion : invalidCriterion) {
         if (criterion.hasValue()) {
-          if (criterion.getValue().contains(",")) {
+          if ((criterion.getValue().contains(",")
+                  && !criterion.getValue().startsWith(URN_LI_PREFIX))
+              || criterion.getValue().contains(")," + URN_LI_PREFIX)) {
             throw new IllegalArgumentException(
                 "Criterion `value` is deprecated and contains an ambiguous comma. Please use `values`.");
           }
