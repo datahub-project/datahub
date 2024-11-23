@@ -1181,6 +1181,28 @@ def sqlglot_lineage(
         )
 
 
+def create_schema_resolver(
+    platform: str,
+    env: str,
+    graph: Optional[DataHubGraph] = None,
+    platform_instance: Optional[str] = None,
+    schema_aware: bool = True,
+) -> SchemaResolver:
+    if graph and schema_aware:
+        return graph._make_schema_resolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+        )
+
+    return SchemaResolver(
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+        graph=None,
+    )
+
+
 def create_lineage_sql_parsed_result(
     query: str,
     default_db: Optional[str],
@@ -1191,21 +1213,17 @@ def create_lineage_sql_parsed_result(
     graph: Optional[DataHubGraph] = None,
     schema_aware: bool = True,
 ) -> SqlParsingResult:
+    schema_resolver = create_schema_resolver(
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+        schema_aware=schema_aware,
+        graph=graph,
+    )
+
+    needs_close: bool = False
     if graph and schema_aware:
-        needs_close = False
-        schema_resolver = graph._make_schema_resolver(
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
-        )
-    else:
         needs_close = True
-        schema_resolver = SchemaResolver(
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
-            graph=None,
-        )
 
     try:
         return sqlglot_lineage(
