@@ -117,7 +117,11 @@ class Telemetry:
     tracking_init: bool = False
     sentry_enabled: bool = False
 
+    context_properties: Dict[str, Any] = {}
+
     def __init__(self):
+        self.context_properties = {}
+
         if SENTRY_DSN:
             self.sentry_enabled = True
             try:
@@ -156,6 +160,9 @@ class Telemetry:
                 )
             except Exception as e:
                 logger.debug(f"Error connecting to mixpanel: {e}")
+
+        # Initialize the default properties for all events.
+        self.set_context()
 
     def update_config(self) -> bool:
         """
@@ -238,18 +245,22 @@ class Telemetry:
 
         return False
 
-    def update_capture_exception_context(
+    def set_context(
         self,
         server: Optional[DataHubGraph] = None,
         properties: Optional[Dict[str, Any]] = None,
     ) -> None:
+        self.context_properties = {
+            **self._server_props(server),
+            **(properties or {}),
+        }
+
         if self.sentry_enabled:
             from sentry_sdk import set_tag
 
             properties = {
                 **_default_telemetry_properties(),
-                **self._server_props(server),
-                **(properties or {}),
+                **self.context_properties,
             }
 
             for key in properties:
@@ -297,7 +308,6 @@ class Telemetry:
         self,
         event_name: str,
         properties: Optional[Dict[str, Any]] = None,
-        server: Optional[DataHubGraph] = None,
     ) -> None:
         """
         Send a single telemetry event.
@@ -323,14 +333,15 @@ class Telemetry:
 
             properties = {
                 **_default_telemetry_properties(),
-                **self._server_props(server),
+                **self.context_properties,
                 **properties,
             }
             self.mp.track(self.client_id, event_name, properties)
         except Exception as e:
             logger.debug(f"Error reporting telemetry: {e}")
 
-    def _server_props(self, server: Optional[DataHubGraph]) -> Dict[str, str]:
+    @classmethod
+    def _server_props(cls, server: Optional[DataHubGraph]) -> Dict[str, str]:
         if not server:
             return {
                 "server_type": "n/a",
