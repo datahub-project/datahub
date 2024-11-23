@@ -4,11 +4,9 @@ from enum import Enum
 import pytest
 import sqlglot
 
+from datahub.sql_parsing.query_types import get_query_type_of_sql
 from datahub.sql_parsing.sql_parsing_common import QueryType
-from datahub.sql_parsing.sqlglot_lineage import (
-    _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT,
-    get_query_type_of_sql,
-)
+from datahub.sql_parsing.sqlglot_lineage import _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
 from datahub.sql_parsing.sqlglot_utils import (
     generalize_query,
     generalize_query_fast,

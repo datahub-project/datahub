@@ -55,7 +55,6 @@ class SpecialVariable:
             current_dict: dict = new_dict
 
             for key in keys[:-1]:
-
                 if key not in current_dict:
                     current_dict[key] = {}
 
@@ -392,7 +391,6 @@ def process_lookml_template_language(
     source_config: LookMLSourceConfig,
     view_lkml_file_dict: dict,
 ) -> None:
-
     if "views" not in view_lkml_file_dict:
         return
 
@@ -425,7 +423,6 @@ def load_and_preprocess_file(
     path: Union[str, pathlib.Path],
     source_config: LookMLSourceConfig,
 ) -> dict:
-
     parsed = load_lkml(path)
 
     process_lookml_template_language(

@@ -65,7 +65,6 @@ def urn_creator(
     server: str,
     qualified_table_name: str,
 ) -> str:
-
     platform_detail: PlatformDetail = platform_instance_resolver.get_platform_instance(
         PowerBIPlatformDetail(
             data_platform_pair=data_platform_pair,
@@ -81,6 +80,16 @@ def urn_creator(
             qualified_table_name, config.convert_lineage_urns_to_lowercase
         ),
     )
+
+
+def get_next_item(items: List[str], item: str) -> Optional[str]:
+    if item in items:
+        try:
+            index = items.index(item)
+            return items[index + 1]
+        except IndexError:
+            logger.debug(f'item:"{item}", not found in item-list: {items}')
+    return None
 
 
 class AbstractDataPlatformTableCreator(ABC):
@@ -169,7 +178,6 @@ class AbstractDataPlatformTableCreator(ABC):
         arg_list: Tree,
         table_detail: Dict[str, str],
     ) -> Optional[ReferencedTable]:
-
         arguments: List[str] = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(arg_list)
@@ -209,7 +217,6 @@ class AbstractDataPlatformTableCreator(ABC):
     def parse_custom_sql(
         self, query: str, server: str, database: Optional[str], schema: Optional[str]
     ) -> Lineage:
-
         dataplatform_tables: List[DataPlatformTable] = []
 
         platform_detail: PlatformDetail = (
@@ -367,7 +374,6 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         return argument_list
 
     def take_first_argument(self, expression: Tree) -> Optional[Tree]:
-
         # function is not data-access function, lets process function argument
         first_arg_tree: Optional[Tree] = tree_function.first_arg_list_func(expression)
 
@@ -675,7 +681,7 @@ class DefaultTwoStepDataAccessSources(AbstractDataPlatformTableCreator, ABC):
             data_access_func_detail.arg_list
         )
         if server is None or db_name is None:
-            return Lineage.empty()  # Return empty list
+            return Lineage.empty()  # Return an empty list
 
         schema_name: str = cast(
             IdentifierAccessor, data_access_func_detail.identifier_accessor
@@ -775,39 +781,44 @@ class MSSqlDataPlatformTableCreator(DefaultTwoStepDataAccessSources):
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> Lineage:
-
         arguments: List[str] = tree_function.strip_char_from_list(
             values=tree_function.remove_whitespaces_from_list(
                 tree_function.token_values(data_access_func_detail.arg_list)
             ),
         )
 
-        if len(arguments) == 2:
-            # It is a regular case of MS-SQL
-            logger.debug("Handling with regular case")
-            return self.two_level_access_pattern(data_access_func_detail)
+        server, database = self.get_db_detail_from_argument(
+            data_access_func_detail.arg_list
+        )
+        if server is None or database is None:
+            return Lineage.empty()  # Return an empty list
 
-        if len(arguments) >= 4 and arguments[2] != "Query":
-            logger.debug("Unsupported case is found. Second index is not the Query")
-            return Lineage.empty()
+        assert server
+        assert database  # to silent the lint
 
-        if self.config.enable_advance_lineage_sql_construct is False:
-            # Use previous parser to generate URN to keep backward compatibility
-            return Lineage(
-                upstreams=self.create_urn_using_old_parser(
-                    query=arguments[3],
-                    db_name=arguments[1],
-                    server=arguments[0],
-                ),
-                column_lineage=[],
+        query: Optional[str] = get_next_item(arguments, "Query")
+        if query:
+            if self.config.enable_advance_lineage_sql_construct is False:
+                # Use previous parser to generate URN to keep backward compatibility
+                return Lineage(
+                    upstreams=self.create_urn_using_old_parser(
+                        query=query,
+                        db_name=database,
+                        server=server,
+                    ),
+                    column_lineage=[],
+                )
+
+            return self.parse_custom_sql(
+                query=query,
+                database=database,
+                server=server,
+                schema=MSSqlDataPlatformTableCreator.DEFAULT_SCHEMA,
             )
 
-        return self.parse_custom_sql(
-            query=arguments[3],
-            database=arguments[1],
-            server=arguments[0],
-            schema=MSSqlDataPlatformTableCreator.DEFAULT_SCHEMA,
-        )
+        # It is a regular case of MS-SQL
+        logger.debug("Handling with regular case")
+        return self.two_level_access_pattern(data_access_func_detail)
 
 
 class OracleDataPlatformTableCreator(AbstractDataPlatformTableCreator):
@@ -881,7 +892,6 @@ class DatabrickDataPlatformTableCreator(AbstractDataPlatformTableCreator):
         table_reference: ReferencedTable,
         data_platform_pair: DataPlatformPair,
     ) -> str:
-
         platform_detail: PlatformDetail = (
             self.platform_instance_resolver.get_platform_instance(
                 PowerBIPlatformDetail(
@@ -1154,27 +1164,19 @@ class NativeQueryDataPlatformTableCreator(AbstractDataPlatformTableCreator):
             != SupportedDataPlatform.DatabricksMultiCloud_SQL.value.powerbi_data_platform_name
         ):
             return None
-        try:
-            if "Database" in data_access_tokens:
-                index = data_access_tokens.index("Database")
-                if data_access_tokens[index + 1] != Constant.M_QUERY_NULL:
-                    # Database name is explicitly set in argument
-                    return data_access_tokens[index + 1]
 
-            if "Name" in data_access_tokens:
-                index = data_access_tokens.index("Name")
-                # Next element is value of the Name. It is a database name
-                return data_access_tokens[index + 1]
+        database: Optional[str] = get_next_item(data_access_tokens, "Database")
 
-            if "Catalog" in data_access_tokens:
-                index = data_access_tokens.index("Catalog")
-                # Next element is value of the Catalog. In Databricks Catalog can also be used in place of a database.
-                return data_access_tokens[index + 1]
+        if (
+            database and database != Constant.M_QUERY_NULL
+        ):  # database name is explicitly set
+            return database
 
-        except IndexError as e:
-            logger.debug("Database name is not available", exc_info=e)
-
-        return None
+        return get_next_item(  # database name is set in Name argument
+            data_access_tokens, "Name"
+        ) or get_next_item(  # If both above arguments are not available, then try Catalog
+            data_access_tokens, "Catalog"
+        )
 
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail

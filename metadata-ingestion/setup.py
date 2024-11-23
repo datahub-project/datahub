@@ -245,7 +245,7 @@ pyhive_common = {
     # Instead, we put the fix in our PyHive fork, so no thrift pin is needed.
 }
 
-microsoft_common = {"msal>=1.22.0"}
+microsoft_common = {"msal>=1.24.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
@@ -591,22 +591,26 @@ debug_requirements = {
     "memray",
 }
 
-base_dev_requirements = {
-    *base_requirements,
-    *framework_common,
-    *mypy_stubs,
-    *s3_base,
+lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "black==22.12.0",
-    "coverage>=5.1",
-    "faker>=18.4.0",
+    "black==23.3.0",
     "flake8>=6.0.0",
     "flake8-tidy-imports>=4.3.0",
     "flake8-bugbear==23.3.12",
     "isort>=5.7.0",
     "mypy==1.10.1",
+}
+
+base_dev_requirements = {
+    *base_requirements,
+    *framework_common,
+    *mypy_stubs,
+    *s3_base,
+    *lint_requirements,
     *test_api_requirements,
+    "coverage>=5.1",
+    "faker>=18.4.0",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "pytest-random-order~=1.1.0",
@@ -737,8 +741,8 @@ entry_points = {
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
         "hive-metastore = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
-        "kafka = datahub.ingestion.source.kafka:KafkaSource",
-        "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
+        "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
+        "kafka-connect = datahub.ingestion.source.kafka.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
@@ -931,6 +935,7 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
         ),
         "cloud": ["acryl-datahub-cloud"],
         "dev": list(dev_requirements),
+        "lint": list(lint_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
         "debug": list(debug_requirements),

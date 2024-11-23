@@ -401,7 +401,10 @@ class DataProcessCleanup:
                     total_runs=job.get("entity").get("runs").get("total"),
                 )
                 if datajob_entity.total_runs > 0:
-                    self.delete_dpi_from_datajobs(datajob_entity)
+                    try:
+                        self.delete_dpi_from_datajobs(datajob_entity)
+                    except Exception as e:
+                        logger.error(f"While trying to delete {datajob_entity} got {e}")
                 if (
                     datajob_entity.total_runs == 0
                     and self.config.delete_empty_data_jobs
