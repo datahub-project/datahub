@@ -9,12 +9,13 @@ DataHub works.
 
 ## Feature Flags
 
-| Variable                                         | Default | Unit/Type | Components                              | Description                                                                                                                 |
-|--------------------------------------------------|---------|-----------|-----------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
-| `UI_INGESTION_ENABLED`                           | `true`  | boolean   | [`GMS`, `MCE Consumer`]                 | Enable UI based ingestion.                                                                                                  |
-| `DATAHUB_ANALYTICS_ENABLED`                      | `true`  | boolean   | [`Frontend`, `GMS`]                     | Collect DataHub usage to populate the analytics dashboard.                                                                  |
-| `BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE` | `true`  | boolean   | [`GMS`, `MCE Consumer`, `MAE Consumer`] | Do not wait for the `system-update` to complete before starting. This should typically only be disabled during development. |
-| `ER_MODEL_RELATIONSHIP_FEATURE_ENABLED`          | `false` | boolean   | [`Frontend`, `GMS`]                     | Enable ER Model Relation Feature that shows Relationships Tab within a Dataset UI.                                          |
+| Variable                                         | Default  | Unit/Type | Components                               | Description                                                                                                                 |
+|--------------------------------------------------|----------|-----------|------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| `UI_INGESTION_ENABLED`                           | `true`   | boolean   | [`GMS`, `MCE Consumer`]                  | Enable UI based ingestion.                                                                                                  |
+| `DATAHUB_ANALYTICS_ENABLED`                      | `true`   | boolean   | [`Frontend`, `GMS`]                      | Collect DataHub usage to populate the analytics dashboard.                                                                  |
+| `BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE` | `true`   | boolean   | [`GMS`, `MCE Consumer`, `MAE Consumer`]  | Do not wait for the `system-update` to complete before starting. This should typically only be disabled during development. |
+| `ER_MODEL_RELATIONSHIP_FEATURE_ENABLED`          | `false`  | boolean   | [`Frontend`, `GMS`]                      | Enable ER Model Relation Feature that shows Relationships Tab within a Dataset UI.                                          |
+| `STRICT_URN_VALIDATION_ENABLED`                  | `false`  | boolean   | [`GMS`, `MCE Consumer`, `MAE Consumer`]  | Enable stricter URN validation logic                                                                                        |
 
 
 ## Ingestion
