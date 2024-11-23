@@ -12,6 +12,7 @@ import static com.linkedin.metadata.entity.validation.ValidationApiUtils.validat
 import static com.linkedin.metadata.entity.validation.ValidationUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.validateAndConvert;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.generateSystemMetadataIfEmpty;
 
@@ -401,7 +402,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           // This API is not used by the frontend for search bars so we default to structured
           result =
               entitySearchService.search(opContext,
-                  List.of(entityName), input, filter, sortCriterionList, start, count);
+                  List.of(entityName), input, validateAndConvert(filter), sortCriterionList, start, count);
 
           if (!isAPIAuthorizedResult(
                   opContext,
@@ -449,7 +450,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
     return RestliUtils.toTask(
         () -> {
-          SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, filter,
+          SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, validateAndConvert(filter),
               sortCriterionList, start, count, null);
           if (!isAPIAuthorizedResult(
                   opContext,
@@ -517,7 +518,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   opContext,
                   entityList,
                   input,
-                  filter,
+                  validateAndConvert(filter),
                   sortCriterionList,
                   scrollId,
                   keepAlive,
@@ -588,7 +589,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                     entityList,
                     input,
                     maxHops,
-                    filter,
+                    validateAndConvert(filter),
                     sortCriterionList,
                     start,
                     count), entityService);
@@ -660,7 +661,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   entityList,
                   input,
                   maxHops,
-                  filter,
+                  validateAndConvert(filter),
                   sortCriterionList,
                   scrollId,
                   keepAlive,
@@ -703,10 +704,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
 
-    log.info("GET LIST RESULTS for {} with filter {}", entityName, filter);
+    final Filter finalFilter = validateAndConvert(filter);
+    log.info("GET LIST RESULTS for {} with filter {}", entityName, finalFilter);
     return RestliUtils.toTask(
         () -> {
-            SearchResult result = entitySearchService.filter(opContext, entityName, filter, sortCriterionList, start, count);
+            SearchResult result = entitySearchService.filter(opContext, entityName, finalFilter, sortCriterionList, start, count);
           if (!AuthUtil.isAPIAuthorizedResult(
                   opContext,
                   result)) {
@@ -745,7 +747,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     return RestliUtils.toTask(
         () -> {
-          AutoCompleteResult result = entitySearchService.autoComplete(opContext, entityName, query, field, filter, limit);
+          AutoCompleteResult result = entitySearchService.autoComplete(opContext, entityName, query, field, validateAndConvert(filter), limit);
           if (!isAPIAuthorizedResult(
                   opContext,
                   result)) {
@@ -783,7 +785,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("GET BROWSE RESULTS for {} at path {}", entityName, path);
     return RestliUtils.toTask(
         () -> {
-          BrowseResult result = entitySearchService.browse(opContext, entityName, path, filter, start, limit);
+          BrowseResult result = entitySearchService.browse(opContext, entityName, path, validateAndConvert(filter), start, limit);
           if (!isAPIAuthorizedResult(
                   opContext,
                   result)) {
@@ -1224,12 +1226,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to search.");
     }
 
+    final Filter finalFilter = validateAndConvert(filter);
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
-    log.info("FILTER RESULTS for {} with filter {}", entityName, filter);
+    log.info("FILTER RESULTS for {} with filter {}", entityName, finalFilter);
     return RestliUtils.toTask(
         () -> {
           SearchResult result = entitySearchService.filter(opContext.withSearchFlags(flags -> flags.setFulltext(true)),
-              entityName, filter, sortCriterionList, start, count);
+              entityName, finalFilter, sortCriterionList, start, count);
           if (!isAPIAuthorizedResult(
                   opContext,
                   result)) {

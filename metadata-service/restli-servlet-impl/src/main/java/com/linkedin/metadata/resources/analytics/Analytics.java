@@ -13,7 +13,6 @@ import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
 import com.linkedin.restli.server.annotations.Action;
 import com.linkedin.restli.server.annotations.ActionParam;
-import com.linkedin.restli.server.annotations.Context;
 import com.linkedin.restli.server.annotations.Optional;
 import com.linkedin.restli.server.annotations.RestLiSimpleResource;
 import com.linkedin.restli.server.resources.SimpleResourceTemplate;
@@ -27,7 +26,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
-import javax.servlet.http.HttpServletRequest;
 
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -36,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
 import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
+import static com.linkedin.metadata.utils.CriterionUtils.validateAndConvert;
 
 /** Rest.li entry point: /analytics */
 @Slf4j
@@ -88,8 +87,9 @@ public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedSta
           resp.setEntityName(entityName);
           resp.setAspectName(aspectName);
           resp.setAggregationSpecs(new AggregationSpecArray(Arrays.asList(aggregationSpecs)));
-          if (filter != null) {
-            resp.setFilter(filter);
+          final Filter finalFilter = validateAndConvert(filter);
+          if (finalFilter != null) {
+            resp.setFilter(finalFilter);
           }
           if (groupingBuckets != null) {
             resp.setGroupingBuckets(new GroupingBucketArray(Arrays.asList(groupingBuckets)));
@@ -97,7 +97,7 @@ public class Analytics extends SimpleResourceTemplate<GetTimeseriesAggregatedSta
 
           GenericTable aggregatedStatsTable =
               timeseriesAspectService.getAggregatedStats(opContext,
-                  entityName, aspectName, aggregationSpecs, filter, groupingBuckets);
+                  entityName, aspectName, aggregationSpecs, finalFilter, groupingBuckets);
           resp.setTable(aggregatedStatsTable);
           return resp;
         });

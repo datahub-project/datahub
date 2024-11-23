@@ -11,6 +11,7 @@ import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.operations.OperationsResource.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.validateAndConvert;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -230,7 +231,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                       startTimeMillis,
                       endTimeMillis,
                       limit,
-                      filter,
+                      validateAndConvert(filter),
                       sort)));
           return response;
         },
