@@ -249,7 +249,6 @@ class AbstractViewUpstream(ABC):
         """
 
         actual_columns: List[str] = []
-
         with SchemaResolver(
             platform=self.view_context.view_connection.platform,
             platform_instance=self.view_context.view_connection.platform_instance,

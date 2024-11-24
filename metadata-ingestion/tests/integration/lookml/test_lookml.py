@@ -62,7 +62,7 @@ def get_default_recipe(output_file_path, base_folder_path):
 
 @freeze_time(FROZEN_TIME)
 def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
-    """Test backwards compatibility with previous form of config with new flags turned off"""
+    """Test backwards compatibility with a previous form of config with new flags turned off"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
     mce_out_file = "expected_output.json"
 
@@ -838,8 +838,6 @@ def test_duplicate_field_ingest(pytestconfig, tmp_path, mock_time):
         f"{tmp_path}/{mce_out_file}",
         f"{test_resources_dir}/lkml_samples_duplicate_field",
     )
-
-    new_recipe["source"]["config"]["convert_upstream_column_to_lowercase"] = False
 
     pipeline = Pipeline.create(new_recipe)
     pipeline.run()

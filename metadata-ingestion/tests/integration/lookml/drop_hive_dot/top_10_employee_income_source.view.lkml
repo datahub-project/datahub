@@ -11,7 +11,7 @@ view: top_10_employee_income_source {
 
   dimension: id {
     type: number
-    sql: ${TABLE}.id;;
+    sql: ${TABLE}.id ;;
   }
 
   dimension: name {
