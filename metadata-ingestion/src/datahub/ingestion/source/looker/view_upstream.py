@@ -2,7 +2,7 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from functools import lru_cache
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
 
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.api.common import PipelineContext
@@ -25,7 +25,7 @@ from datahub.ingestion.source.looker.lookml_config import (
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.urn_functions import get_qualified_table_name
-from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
@@ -198,10 +198,20 @@ def _generate_fully_qualified_name(
     return sql_table_name.lower()
 
 
+@lru_cache(maxsize=128)
+def _get_schema_info(
+    schema_resolver: SchemaResolver, dataset_urn: str
+) -> Tuple[str, Optional[SchemaInfo]]:
+    """
+    For each field of lookml view, this function is getting called and hence added lru_cache
+    """
+    return schema_resolver.resolve_urn(urn=dataset_urn)
+
+
 class AbstractViewUpstream(ABC):
     """
     Implementation of this interface extracts the view upstream as per the way the view is bound to datasets.
-    For detail explanation please refer lookml_concept_context.LookerViewContext documentation.
+    For detail explanation, please refer lookml_concept_context.LookerViewContext documentation.
     """
 
     view_context: LookerViewContext
@@ -247,7 +257,6 @@ class AbstractViewUpstream(ABC):
 
         - This function ensures consistency in column-level lineage by consulting GMS before creating the final `ColumnRef` instance, avoiding discrepancies.
         """
-
         actual_columns: List[str] = []
         with SchemaResolver(
             platform=self.view_context.view_connection.platform,
@@ -255,7 +264,7 @@ class AbstractViewUpstream(ABC):
             env=self.view_context.view_connection.platform_env or self.config.env,
             graph=self.ctx.graph,
         ) as schema_resolver:
-            urn, schema_info = schema_resolver.resolve_urn(urn=upstream_urn)
+            urn, schema_info = _get_schema_info(schema_resolver, upstream_urn)
 
             if schema_info:
                 column_from_gms: List[str] = list(
