@@ -79,7 +79,7 @@ export const NavSidebar = () => {
     const entityRegistry = useEntityRegistry();
     const themeConfig = useTheme();
 
-    const { isCollapsed, setSelectedKey } = useNavBarContext();
+    const { isCollapsed, selectedKey, setSelectedKey } = useNavBarContext();
     const appConfig = useAppConfig();
     const userContext = useUserContext();
     const me = useUserContext();
@@ -349,9 +349,9 @@ export const NavSidebar = () => {
             },
         ],
     };
-    const selectedKey = useSelectedKey(mainMenu);
+    const sk = useSelectedKey(mainMenu);
 
-    useEffect(() => setSelectedKey(selectedKey), [selectedKey, setSelectedKey]);
+    useEffect(() => setSelectedKey(sk), [sk, setSelectedKey]);
 
     const showSkeleton = isUserInitializing || !appConfig.loaded || !userContext.loaded;
 
@@ -380,7 +380,7 @@ export const NavSidebar = () => {
                     <>
                         <NavBarHeader logotype={logoComponent} />
                         <MenuWrapper>
-                            <NavBarMenu menu={mainMenu} />
+                            <NavBarMenu selectedKey={selectedKey} isCollapsed={isCollapsed} menu={mainMenu} />
                         </MenuWrapper>
                     </>
                 )}

@@ -5,7 +5,6 @@ import NavBarMenuItem from './NavBarMenuItem';
 import NavBarMenuItemDropdown from './NavBarMenuItemDropdown';
 import { AnyMenuItem, NavBarMenuItems, NavBarMenuItemTypes } from './types';
 import NavBarMenuItemGroup from './NavBarMenuItemGroup';
-import { useNavBarContext } from './NavBarContext';
 
 const StyledMenu = styled(Menu)`
     && {
@@ -25,11 +24,12 @@ const StyledMenu = styled(Menu)`
 
 type Props = {
     menu: NavBarMenuItems;
+    selectedKey: string;
+    isCollapsed: boolean;
+    style?: any;
 } & Omit<MenuProps, 'items'>;
 
-export default function NavBarMenu({ menu }: Props) {
-    const { isCollapsed, selectedKey } = useNavBarContext();
-
+export default function NavBarMenu({ menu, selectedKey, isCollapsed, style }: Props) {
     const renderMenuItem = (item: AnyMenuItem) => {
         if (item.isHidden) return null;
 
@@ -61,7 +61,7 @@ export default function NavBarMenu({ menu }: Props) {
     };
 
     return (
-        <StyledMenu selectedKeys={selectedKey ? [selectedKey] : []}>
+        <StyledMenu selectedKeys={selectedKey ? [selectedKey] : []} style={style}>
             {menu.items.map((item) => renderMenuItem(item))}
         </StyledMenu>
     );

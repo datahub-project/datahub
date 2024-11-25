@@ -118,7 +118,9 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, ...props
     const component = (
         <Tooltip title={isCollapsed ? item.title : null} placement="right" showArrow={false}>
             <StyledMenuItem isCollapsed={isCollapsed} onClick={onClick} aria-label={item.title} {...props}>
-                <Icon $isSelected={isSelected}>{isSelected ? item.selectedIcon || item.icon : item.icon}</Icon>
+                {item.icon || item.selectedIcon ? (
+                    <Icon $isSelected={isSelected}>{isSelected ? item.selectedIcon || item.icon : item.icon}</Icon>
+                ) : null}
                 {isCollapsed ? (
                     <>{item?.badge?.show && <PillDot />}</>
                 ) : (
