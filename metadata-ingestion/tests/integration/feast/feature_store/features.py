@@ -19,7 +19,7 @@ driver = Entity(
     join_keys=["driver_id"],
     value_type=ValueType.INT64,
     description="Driver ID",
-    owner="Datahub",
+    owner="DataHub",
     tags={"name": "deprecated"},
 )
 
@@ -52,7 +52,7 @@ driver_hourly_stats_view = FeatureView(
     online=True,
     source=driver_hourly_stats_source,
     tags={"name": "deprecated"},
-    owner="Datahub",
+    owner="DataHub",
 )
 
 input_request = RequestSource(

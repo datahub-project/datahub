@@ -96,7 +96,7 @@ class FeastRepositorySourceConfig(ConfigModel):
     environment: str = Field(
         default=DEFAULT_ENV, description="Environment to use when constructing URNs"
     )
-    owner_mappings: List[Dict[str, str]]  = Field(
+    owner_mappings: List[Dict[str, str]] = Field(
         default={}, description="Mapping of owner names to owner types"
     )
 
