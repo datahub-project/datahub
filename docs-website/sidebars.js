@@ -150,6 +150,25 @@ module.exports = {
           id: "docs/glossary/business-glossary",
         },
         {
+          label: "Compliance Forms",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/overview",
+            },
+           {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/create-a-form",
+            },
+           {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/complete-a-form",
+            },
+          ],
+        },
+        {
           label: "Data Contract",
           type: "doc",
           id: "docs/managed-datahub/observe/data-contract",
@@ -164,18 +183,10 @@ module.exports = {
           type: "doc",
           id: "docs/features/dataset-usage-and-query-history",
         },
-        
         {
           label: "Domains",
           type: "doc",
           id: "docs/domains",
-        },
-        {
-          "Compliance Forms": [
-            "docs/features/feature-guides/compliance-forms/overview",
-            "docs/features/feature-guides/compliance-forms/create-a-form",
-            "docs/features/feature-guides/compliance-forms/complete-a-form",
-          ],
         },
         {
           label: "Incidents",

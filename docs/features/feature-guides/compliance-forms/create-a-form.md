@@ -11,6 +11,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 The following steps will walk you through creating and assigning Compliance Forms, including:
 
+0. Prerequisites
 1. Defining your Compliance Form
 2. Creating Questions to be completed by assignees
 3. Selecting the in-scope Assets for the Compliance Form
@@ -21,12 +22,17 @@ The following steps will walk you through creating and assigning Compliance Form
 Creating and managing Compliance Forms via the UI is only available in DataHub Cloud. If you are deployed with DataHub Core, please see the [Compliance Forms API Guide](../../../docs/api/tutorials/forms.md).
 :::
 
+### Step 0: Define your Complinace Form
+
 ### Step 1: Define your Complinace Form
 
 From the navigation bar, head to **Govern** > **Compliance Forms**. Click **+ Create** to start building your Form.
 
 <p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/list-compliance-forms-before.png"/>
+  <img style="box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);" 
+       width="90%"  
+       src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/list-compliance-forms-before.png"
+       alt="View of all Compliance Forms"/>
 </p>
 
 First up, provide the following details:
@@ -39,7 +45,10 @@ First up, provide the following details:
 4. Click **Add Question** to begin setting the requirements for your Form.   
 
 <p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-add-question.png"/>
+  <img style="box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);" 
+       width="90%"  
+       src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-add-question.png"
+       alt="Create a new Compliance Form"/>
 </p>
 
 ### Step 2: Add Questions to your Form
@@ -58,8 +67,12 @@ Next, create Questions you want your users to complete to capture the desired me
     * _E.g. What date will this Dataset be deprecated and deleted?_
 
 When creating a Question, be sure to give it an easy-to-understand Title, and provide additional context or direction in the Description.
+
 <p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-prompt.png"/>
+  <img style="box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);" 
+       width="90%"  
+       src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-prompt.png"
+       alt="Create a new Compliance Form prompt"/>
 </p>
 
 ### Step 3: Assign your Form to relevant Assets
@@ -79,7 +92,10 @@ In the **Assign Assets** section, you can easily target the specific set of Asse
 4. Preview the relevant Assets to confirm you have applied the appropriate filters
 
 <p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-assign-assets.png"/>
+  <img style="box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);" 
+       width="90%"  
+       src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-assign-assets.png"
+       alt="Assign assets to a Compliance Form"/>
 </p>
 
 ### Step 4: Add Recipients to your Form
@@ -92,7 +108,10 @@ In the **Add Recipients** section, decide who is responsible for completing the 
 * **Specific Users and/or Groups:** Select a specific set of Users and/or Groups within DataHub. This is useful when Ownership of the Assets may be poorly-defined.
 
 <p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-add-users-or-groups.png"/>
+  <img style="box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);" 
+       width="90%"  
+       src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-add-users-or-groups.png"
+       alt="Assign recipients to a Compliance Form"/>
 </p>
 
 ### Step 5: Publish your Form
@@ -104,10 +123,17 @@ Once you have published a Form, you **cannot** change or add Questions.
 :::
 
 <p align="center">
-  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-publish.png"/>
+  <img style="box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);" 
+       width="80%"  
+       src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-publish.png"
+       alt="Publish a Compliance Form"/>
 </p>
 
 ## FAQ and Troubleshooting
+
+**How does a Compliance Form interact with existing metadata?**
+
+If an asset already has existing metadata that is also referenced in a Form Question, users assigned to the Form will have the option to confirm the value and make no changes, overwrite the value, or append additional details.
 
 **What is the difference between Completion and Verification Forms?**
 
@@ -121,11 +147,10 @@ You sure can! Please keep in mind that an Asset will only be considered Document
 
 - [API Guides on Documentation Form](../../../docs/api/tutorials/forms.md)
 
-:::note
-You must create a Structured Property before including it in a Documentation Form.
-To learn more about creating Structured Properties via CLI, please see the [Create Structured Properties](/docs/api/tutorials/structured-properties.md) tutorial.
-:::
-
 ### Related Features
 
 - [DataHub Properties](/docs/features/feature-guides/properties.md)
+
+## Next Steps
+
+Now that you have created a DataHub Compliance Form, you're ready to [Complete a Compliance Form](complete-a-form.md).
