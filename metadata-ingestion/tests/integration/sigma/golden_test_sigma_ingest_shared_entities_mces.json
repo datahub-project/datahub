@@ -342,11 +342,7 @@
             "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7",
             "title": "Acryl Workbook",
             "description": "",
-            "charts": [
-                "urn:li:chart:(sigma,kH0MeihtGs)",
-                "urn:li:chart:(sigma,Ml9C5ezT5W)",
-                "urn:li:chart:(sigma,tQJu5N1l81)"
-            ],
+            "charts": [],
             "datasets": [],
             "dashboards": [
                 {
@@ -360,18 +356,18 @@
             ],
             "lastModified": {
                 "created": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
+                    "time": 1713188691477,
+                    "actor": "urn:li:corpuser:datahub"
                 },
                 "lastModified": {
-                    "time": 0,
-                    "actor": "urn:li:corpuser:unknown"
+                    "time": 1713189117302,
+                    "actor": "urn:li:corpuser:datahub"
                 }
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732513100095,
+        "lastObserved": 1732535136409,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
