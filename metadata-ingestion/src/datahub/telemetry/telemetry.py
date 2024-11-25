@@ -7,7 +7,7 @@ import sys
 import uuid
 from functools import wraps
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, TypeVar
 
 from mixpanel import Consumer, Mixpanel
 from typing_extensions import ParamSpec
@@ -16,9 +16,11 @@ import datahub as datahub_package
 from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import ExceptionWithProps
-from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import _custom_package_path
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.client import DataHubGraph
 
 logger = logging.getLogger(__name__)
 
@@ -247,7 +249,7 @@ class Telemetry:
 
     def set_context(
         self,
-        server: Optional[DataHubGraph] = None,
+        server: Optional["DataHubGraph"] = None,
         properties: Optional[Dict[str, Any]] = None,
     ) -> None:
         self.context_properties = {
@@ -341,7 +343,7 @@ class Telemetry:
             logger.debug(f"Error reporting telemetry: {e}")
 
     @classmethod
-    def _server_props(cls, server: Optional[DataHubGraph]) -> Dict[str, str]:
+    def _server_props(cls, server: Optional["DataHubGraph"]) -> Dict[str, str]:
         if not server:
             return {
                 "server_type": "n/a",
@@ -446,6 +448,7 @@ def with_telemetry(
                             **call_props,
                             "status": "error",
                             **_error_props(e),
+                            "code": e.code,
                         },
                     )
                 telemetry_instance.capture_exception(e)
