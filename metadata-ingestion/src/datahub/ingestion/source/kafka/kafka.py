@@ -18,6 +18,7 @@ from confluent_kafka.schema_registry.schema_registry_client import SchemaRegistr
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+from datahub.configuration.kafka_consumer_config import CallableConsumerConfig
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -49,7 +50,9 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
-from datahub.ingestion.source.kafka_schema_registry_base import KafkaSchemaRegistryBase
+from datahub.ingestion.source.kafka.kafka_schema_registry_base import (
+    KafkaSchemaRegistryBase,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -143,13 +146,20 @@ class KafkaSourceConfig(
 def get_kafka_consumer(
     connection: KafkaConsumerConnectionConfig,
 ) -> confluent_kafka.Consumer:
-    return confluent_kafka.Consumer(
+    consumer = confluent_kafka.Consumer(
         {
             "group.id": "test",
             "bootstrap.servers": connection.bootstrap,
             **connection.consumer_config,
         }
     )
+
+    if CallableConsumerConfig.is_callable_config(connection.consumer_config):
+        # As per documentation, we need to explicitly call the poll method to make sure OAuth callback gets executed
+        # https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration
+        consumer.poll(timeout=30)
+
+    return consumer
 
 
 @dataclass

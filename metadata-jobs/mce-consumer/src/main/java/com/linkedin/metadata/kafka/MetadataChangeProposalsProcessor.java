@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.MDC_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.MDC_CHANGE_TYPE;
 import static com.linkedin.metadata.Constants.MDC_ENTITY_TYPE;
 import static com.linkedin.metadata.Constants.MDC_ENTITY_URN;
+import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCP_EVENT_CONSUMER_NAME;
 
 import com.codahale.metrics.Histogram;
 import com.codahale.metrics.MetricRegistry;
@@ -116,7 +117,7 @@ public class MetadataChangeProposalsProcessor {
   @KafkaListener(
       id = CONSUMER_GROUP_ID_VALUE,
       topics = "${METADATA_CHANGE_PROPOSAL_TOPIC_NAME:" + Topics.METADATA_CHANGE_PROPOSAL + "}",
-      containerFactory = "kafkaEventConsumer")
+      containerFactory = MCP_EVENT_CONSUMER_NAME)
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "consume").time()) {
       kafkaLagStats.update(System.currentTimeMillis() - consumerRecord.timestamp());

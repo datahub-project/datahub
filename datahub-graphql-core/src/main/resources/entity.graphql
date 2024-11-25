@@ -645,7 +645,7 @@ type Mutation {
     updateERModelRelationship(
         "The urn of the ERModelRelationship to update"
         urn: String!,
-        "Input required to updat an existing DataHub View"
+        "Input required to update an existing DataHub View"
         input: ERModelRelationshipUpdateInput!): Boolean
 
     """
@@ -795,7 +795,7 @@ type Mutation {
     updateView(
       "The urn of the View to update"
       urn: String!,
-      "Input required to updat an existing DataHub View"
+      "Input required to update an existing DataHub View"
       input: UpdateViewInput!): DataHubView
 
     """
@@ -3005,8 +3005,14 @@ type InstitutionalMemoryMetadata {
 
     """
     The author of this metadata
+    Deprecated! Use actor instead for users or groups.
     """
-    author: CorpUser!
+    author: CorpUser! @deprecated(reason: "Use `actor`")
+
+    """
+    The author of this metadata
+    """
+    actor: ResolvedActor!
 
     """
     An AuditStamp corresponding to the creation of this resource
@@ -3833,6 +3839,8 @@ enum CorpUserStatus {
   """
   ACTIVE
 }
+
+union ResolvedActor = CorpUser | CorpGroup
 
 """
 A DataHub User entity, which represents a Person on the Metadata Entity Graph

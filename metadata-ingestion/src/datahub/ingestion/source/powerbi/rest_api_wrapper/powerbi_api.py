@@ -40,7 +40,6 @@ def form_full_table_name(
     dataset_name: str,
     table_name: str,
 ) -> str:
-
     full_table_name: str = "{}.{}".format(
         dataset_name.replace(" ", "_"), table_name.replace(" ", "_")
     )
@@ -69,12 +68,14 @@ class PowerBiAPI:
             client_id=self.__config.client_id,
             client_secret=self.__config.client_secret,
             tenant_id=self.__config.tenant_id,
+            metadata_api_timeout=self.__config.metadata_api_timeout,
         )
 
         self.__admin_api_resolver = AdminAPIResolver(
             client_id=self.__config.client_id,
             client_secret=self.__config.client_secret,
             tenant_id=self.__config.tenant_id,
+            metadata_api_timeout=self.__config.metadata_api_timeout,
         )
 
         self.reporter: PowerBiDashboardSourceReport = reporter
@@ -90,6 +91,14 @@ class PowerBiAPI:
         _, e, _ = sys.exc_info()
         if isinstance(e, requests.exceptions.HTTPError):
             logger.warning(f"HTTP status-code = {e.response.status_code}")
+
+        if isinstance(e, requests.exceptions.Timeout):
+            url: str = e.request.url if e.request else "URL not available"
+            self.reporter.warning(
+                title="Metadata API Timeout",
+                message=f"Metadata endpoints are not reachable. Check network connectivity to PowerBI Service.",
+                context=f"url={url}",
+            )
 
         logger.debug(msg=message, exc_info=e)
 
@@ -253,7 +262,7 @@ class PowerBiAPI:
 
         except:
             self.log_http_error(message="Unable to fetch list of workspaces")
-            raise  # we want this exception to bubble up
+            # raise  # we want this exception to bubble up
 
         workspaces = [
             Workspace(
@@ -303,7 +312,7 @@ class PowerBiAPI:
                 )
             return None
 
-        logger.info("Waiting for scan to complete")
+        logger.debug("Waiting for scan to complete")
         if (
             self.__admin_api_resolver.wait_for_scan_to_complete(
                 scan_id=scan_id, timeout=self.__config.scan_timeout
@@ -355,22 +364,32 @@ class PowerBiAPI:
         logger.debug("Processing scan result for datasets")
 
         for dataset_dict in datasets:
-            dataset_instance: PowerBIDataset = self._get_resolver().get_dataset(
-                workspace=workspace,
-                dataset_id=dataset_dict[Constant.ID],
-            )
+            dataset_id = dataset_dict[Constant.ID]
+            try:
+                dataset_instance = self._get_resolver().get_dataset(
+                    workspace=workspace,
+                    dataset_id=dataset_id,
+                )
+                if dataset_instance is None:
+                    continue
+            except Exception as e:
+                self.reporter.warning(
+                    title="Unable to fetch dataset details",
+                    message="Skipping this dataset due to the error. Metadata will be incomplete.",
+                    context=f"workspace={workspace.name}, dataset-id={dataset_id}",
+                    exc=e,
+                )
+                continue
 
             # fetch + set dataset parameters
             try:
                 dataset_parameters = self._get_resolver().get_dataset_parameters(
                     workspace_id=workspace.id,
-                    dataset_id=dataset_dict[Constant.ID],
+                    dataset_id=dataset_id,
                 )
                 dataset_instance.parameters = dataset_parameters
             except Exception as e:
-                logger.info(
-                    f"Unable to fetch dataset parameters for {dataset_dict[Constant.ID]}: {e}"
-                )
+                logger.info(f"Unable to fetch dataset parameters for {dataset_id}: {e}")
 
             if self.__config.extract_endorsements_to_tags:
                 dataset_instance.tags = self._parse_endorsement(
@@ -564,8 +583,7 @@ class PowerBiAPI:
                 )
             else:
                 logger.info(
-                    "Skipping endorsements tag as extract_endorsements_to_tags is set to "
-                    "false "
+                    "Skipping endorsements tag as extract_endorsements_to_tags is not enabled"
                 )
 
             self._populate_app_details(
@@ -577,7 +595,6 @@ class PowerBiAPI:
         return workspaces
 
     def _fill_independent_datasets(self, workspace: Workspace) -> None:
-
         reachable_datasets: List[str] = []
         # Find out reachable datasets
         for dashboard in workspace.dashboards:
@@ -641,6 +658,9 @@ class PowerBiAPI:
     def fill_workspaces(
         self, workspaces: List[Workspace], reporter: PowerBiDashboardSourceReport
     ) -> Iterable[Workspace]:
+        logger.info(
+            f"Fetching initial metadata for workspaces: {[workspace.format_name_for_logger() for workspace in workspaces]}"
+        )
 
         workspaces = self._fill_metadata_from_scan_result(workspaces=workspaces)
         # First try to fill the admin detail as some regular metadata contains lineage to admin metadata

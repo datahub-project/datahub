@@ -2117,7 +2117,6 @@ class TableauSiteSource:
     def _enrich_database_tables_with_parsed_schemas(
         self, parsing_result: SqlParsingResult
     ) -> None:
-
         in_tables_schemas: Dict[
             str, Set[str]
         ] = transform_parsing_result_to_in_tables_schemas(parsing_result)

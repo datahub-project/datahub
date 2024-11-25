@@ -38,7 +38,7 @@ base_requirements = {
     # GE added handling for higher version of jinja2 in version 0.15.12
     # https://github.com/great-expectations/great_expectations/pull/5382/files
     # TODO: support GX 0.18.0
-    "great-expectations>=0.15.12, <0.18.0",
+    "great-expectations>=0.15.12, <1.0.0",
     # datahub does not depend on traitlets directly but great expectations does.
     # https://github.com/ipython/traitlets/issues/741
     "traitlets<5.2.2",

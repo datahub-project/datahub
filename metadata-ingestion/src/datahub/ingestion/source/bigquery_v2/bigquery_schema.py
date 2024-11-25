@@ -152,6 +152,21 @@ class BigqueryDataset:
     snapshots: List[BigqueryTableSnapshot] = field(default_factory=list)
     columns: List[BigqueryColumn] = field(default_factory=list)
 
+    # Some INFORMATION_SCHEMA views are not available for BigLake tables
+    # based on Amazon S3 and Blob Storage data.
+    # https://cloud.google.com/bigquery/docs/omni-introduction#limitations
+    # Omni Locations - https://cloud.google.com/bigquery/docs/omni-introduction#locations
+    def is_biglake_dataset(self) -> bool:
+        return self.location is not None and self.location.lower().startswith(
+            ("aws-", "azure-")
+        )
+
+    def supports_table_constraints(self) -> bool:
+        return not self.is_biglake_dataset()
+
+    def supports_table_partitions(self) -> bool:
+        return not self.is_biglake_dataset()
+
 
 @dataclass
 class BigqueryProject:
@@ -175,7 +190,7 @@ class BigQuerySchemaApi:
 
     def get_query_result(self, query: str) -> RowIterator:
         def _should_retry(exc: BaseException) -> bool:
-            logger.debug(f"Exception occured for job query. Reason: {exc}")
+            logger.debug(f"Exception occurred for job query. Reason: {exc}")
             # Jobs sometimes fail with transient errors.
             # This is not currently handled by the python-bigquery client.
             # https://github.com/googleapis/python-bigquery/issues/23
@@ -197,7 +212,7 @@ class BigQuerySchemaApi:
     def get_projects(self, max_results_per_page: int = 100) -> List[BigqueryProject]:
         def _should_retry(exc: BaseException) -> bool:
             logger.debug(
-                f"Exception occured for project.list api. Reason: {exc}. Retrying api request..."
+                f"Exception occurred for project.list api. Reason: {exc}. Retrying api request..."
             )
             self.report.num_list_projects_retry_request += 1
             return True
@@ -541,18 +556,26 @@ class BigQuerySchemaApi:
                         table_name=constraint.table_name,
                         type=constraint.constraint_type,
                         field_path=constraint.column_name,
-                        referenced_project_id=constraint.referenced_catalog
-                        if constraint.constraint_type == "FOREIGN KEY"
-                        else None,
-                        referenced_dataset=constraint.referenced_schema
-                        if constraint.constraint_type == "FOREIGN KEY"
-                        else None,
-                        referenced_table_name=constraint.referenced_table
-                        if constraint.constraint_type == "FOREIGN KEY"
-                        else None,
-                        referenced_column_name=constraint.referenced_column
-                        if constraint.constraint_type == "FOREIGN KEY"
-                        else None,
+                        referenced_project_id=(
+                            constraint.referenced_catalog
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_dataset=(
+                            constraint.referenced_schema
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_table_name=(
+                            constraint.referenced_table
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_column_name=(
+                            constraint.referenced_column
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
                     )
                 )
             self.report.num_get_table_constraints_for_dataset_api_requests += 1
