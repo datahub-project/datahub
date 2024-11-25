@@ -1,6 +1,7 @@
 import concurrent.futures
 import json
 import logging
+import re
 import warnings
 from collections import defaultdict
 from enum import Enum
@@ -682,19 +683,34 @@ class DremioAPIOperations:
             nonlocal containers
             try:
                 response = self.get(url=f"/catalog/{location_id}")
+
+                # Check if current folder should be included
                 if (
                     response.get("entityType")
                     == DremioEntityContainerType.FOLDER.value.lower()
                 ):
-                    containers.append(
-                        {
-                            "id": location_id,
-                            "name": entity_path[-1],
-                            "path": entity_path[:-1],
-                            "container_type": DremioEntityContainerType.FOLDER,
-                        }
-                    )
+                    container_info = {
+                        "id": location_id,
+                        "name": entity_path[-1],
+                        "path": entity_path[:-1],
+                        "container_type": DremioEntityContainerType.FOLDER,
+                    }
 
+                    # Check if folder matches schema pattern
+                    full_path = '.'.join(container_info["path"] + [container_info["name"]])
+                    matches_allow = any(
+                        re.search(pattern, full_path, re.IGNORECASE)
+                        for pattern in self.allow_schema_pattern
+                    ) if self.allow_schema_pattern else True
+                    matches_deny = any(
+                        re.search(pattern, full_path, re.IGNORECASE)
+                        for pattern in self.deny_schema_pattern
+                    ) if self.deny_schema_pattern else False
+
+                    if matches_allow and not matches_deny:
+                        containers.append(container_info)
+
+                # Recursively process child containers
                 for container in response.get("children", []):
                     if (
                         container.get("type")
@@ -753,13 +769,41 @@ class DremioAPIOperations:
                     "container_type": DremioEntityContainerType.SPACE,
                 }
 
+        def should_include_container(container_info):
+            """Check if container matches schema pattern"""
+            full_path = (
+                '.'.join(container_info.get("path", []) + [container_info.get("name")])
+                if container_info.get("path")
+                else container_info.get("name")
+            )
+            matches_allow = any(
+                re.search(pattern, full_path, re.IGNORECASE)
+                for pattern in self.allow_schema_pattern
+            ) if self.allow_schema_pattern else True
+            matches_deny = any(
+                re.search(pattern, full_path, re.IGNORECASE)
+                for pattern in self.deny_schema_pattern
+            ) if self.deny_schema_pattern else False
+            return matches_allow and not matches_deny
+
         def process_source_and_containers(source):
             container = process_source(source)
+
+            # Filter the main container
+            if not should_include_container(container):
+                return []
+
+            # Get sub-containers and filter them
             sub_containers = self.get_containers_for_location(
                 resource_id=container.get("id"),
                 path=[container.get("name")],
             )
-            return [container] + sub_containers
+            filtered_sub_containers = [
+                sub for sub in sub_containers
+                if should_include_container(sub)
+            ]
+
+            return [container] + filtered_sub_containers
 
         # Use ThreadPoolExecutor to parallelize the processing of sources
         with concurrent.futures.ThreadPoolExecutor(
