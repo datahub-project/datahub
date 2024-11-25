@@ -56,6 +56,7 @@ from datahub.ingestion.transformer.base_transformer import (
 from datahub.ingestion.transformer.dataset_domain import (
     PatternAddDatasetDomain,
     SimpleAddDatasetDomain,
+    TransformerOnConflict,
 )
 from datahub.ingestion.transformer.dataset_domain_based_on_tags import (
     DatasetTagDomainMapper,
@@ -219,7 +220,7 @@ def make_dataset_with_properties() -> models.MetadataChangeEventClass:
     )
 
 
-def test_simple_dataset_ownership_transformation(mock_time):
+def test_dataset_ownership_transformation(mock_time):
     no_owner_aspect = make_generic_dataset()
 
     with_owner_aspect = make_dataset_with_owner()
@@ -253,7 +254,7 @@ def test_simple_dataset_ownership_transformation(mock_time):
         transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
     )
 
-    assert len(outputs) == len(inputs) + 1
+    assert len(outputs) == len(inputs) + 2
 
     # Check the first entry.
     first_ownership_aspect = builder.get_aspect_if_available(
@@ -286,11 +287,21 @@ def test_simple_dataset_ownership_transformation(mock_time):
         ]
     )
 
+    third_ownership_aspect = outputs[4].record.aspect
+    assert third_ownership_aspect
+    assert len(third_ownership_aspect.owners) == 2
+    assert all(
+        [
+            owner.type == models.OwnershipTypeClass.DATAOWNER and owner.typeUrn is None
+            for owner in second_ownership_aspect.owners
+        ]
+    )
+
     # Verify that the third entry is unchanged.
     assert inputs[2] == outputs[2].record
 
     # Verify that the last entry is EndOfStream
-    assert inputs[3] == outputs[4].record
+    assert inputs[-1] == outputs[-1].record
 
 
 def test_simple_dataset_ownership_with_type_transformation(mock_time):
@@ -1002,6 +1013,7 @@ def test_pattern_dataset_ownership_transformation(mock_time):
                 "rules": {
                     ".*example1.*": [builder.make_user_urn("person1")],
                     ".*example2.*": [builder.make_user_urn("person2")],
+                    ".*dag_abc.*": [builder.make_user_urn("person2")],
                 }
             },
             "ownership_type": "DATAOWNER",
@@ -1013,7 +1025,9 @@ def test_pattern_dataset_ownership_transformation(mock_time):
         transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
     )
 
-    assert len(outputs) == len(inputs) + 1  # additional MCP due to the no-owner MCE
+    assert (
+        len(outputs) == len(inputs) + 2
+    )  # additional MCP due to the no-owner MCE + datajob
 
     # Check the first entry.
     assert inputs[0] == outputs[0].record
@@ -1038,6 +1052,16 @@ def test_pattern_dataset_ownership_transformation(mock_time):
         [
             owner.type == models.OwnershipTypeClass.DATAOWNER
             for owner in second_ownership_aspect.owners
+        ]
+    )
+
+    third_ownership_aspect = outputs[4].record.aspect
+    assert third_ownership_aspect
+    assert len(third_ownership_aspect.owners) == 1
+    assert all(
+        [
+            owner.type == models.OwnershipTypeClass.DATAOWNER
+            for owner in third_ownership_aspect.owners
         ]
     )
 
@@ -1121,14 +1145,14 @@ def test_pattern_container_and_dataset_ownership_transformation(
     pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
 
     # No owner aspect for the first dataset
-    no_owner_aspect = models.MetadataChangeEventClass(
+    no_owner_aspect_dataset = models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
             aspects=[models.StatusClass(removed=False)],
         ),
     )
     # Dataset with an existing owner
-    with_owner_aspect = models.MetadataChangeEventClass(
+    with_owner_aspect_dataset = models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example2,PROD)",
             aspects=[
@@ -1147,8 +1171,7 @@ def test_pattern_container_and_dataset_ownership_transformation(
         ),
     )
 
-    # Not a dataset, should be ignored
-    not_a_dataset = models.MetadataChangeEventClass(
+    datajob = models.MetadataChangeEventClass(
         proposedSnapshot=models.DataJobSnapshotClass(
             urn="urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
             aspects=[
@@ -1162,9 +1185,9 @@ def test_pattern_container_and_dataset_ownership_transformation(
     )
 
     inputs = [
-        no_owner_aspect,
-        with_owner_aspect,
-        not_a_dataset,
+        no_owner_aspect_dataset,
+        with_owner_aspect_dataset,
+        datajob,
         EndOfStream(),
     ]
 
@@ -1175,6 +1198,7 @@ def test_pattern_container_and_dataset_ownership_transformation(
                 "rules": {
                     ".*example1.*": [builder.make_user_urn("person1")],
                     ".*example2.*": [builder.make_user_urn("person2")],
+                    ".*dag_abc.*": [builder.make_user_urn("person3")],
                 }
             },
             "ownership_type": "DATAOWNER",
@@ -1187,9 +1211,9 @@ def test_pattern_container_and_dataset_ownership_transformation(
         transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
     )
 
-    assert len(outputs) == len(inputs) + 3
+    assert len(outputs) == len(inputs) + 4
 
-    # Check the first entry.
+    # Check that DatasetSnapshotClass has not changed
     assert inputs[0] == outputs[0].record
 
     # Check the ownership for the first dataset (example1)
@@ -1216,12 +1240,16 @@ def test_pattern_container_and_dataset_ownership_transformation(
         ]
     )
 
+    third_ownership_aspect = outputs[4].record.aspect
+    assert third_ownership_aspect
+    assert len(third_ownership_aspect.owners) == 1  # new for datajob
+
     # Check container ownerships
     for i in range(2):
-        container_ownership_aspect = outputs[i + 4].record.aspect
+        container_ownership_aspect = outputs[i + 5].record.aspect
         assert container_ownership_aspect
         ownership = json.loads(container_ownership_aspect.value.decode("utf-8"))
-        assert len(ownership) == 2
+        assert len(ownership) == 3
         assert ownership[0]["value"]["owner"] == builder.make_user_urn("person1")
         assert ownership[1]["value"]["owner"] == builder.make_user_urn("person2")
 
@@ -2496,6 +2524,81 @@ def test_simple_add_dataset_domain_semantics_patch(
     assert datahub_domain in transformed_aspect.domains
     assert acryl_domain in transformed_aspect.domains
     assert server_domain in transformed_aspect.domains
+
+
+def test_simple_add_dataset_domain_on_conflict_do_nothing(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph_instance
+):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    datahub_domain = builder.make_domain_urn("datahubproject.io")
+    server_domain = builder.make_domain_urn("test.io")
+
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph_instance
+
+    # Return fake aspect to simulate server behaviour
+    def fake_get_domain(entity_urn: str) -> models.DomainsClass:
+        return models.DomainsClass(domains=[server_domain])
+
+    pipeline_context.graph.get_domain = fake_get_domain  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[datahub_domain]),
+        config={
+            "replace_existing": False,
+            "semantics": TransformerSemantics.PATCH,
+            "domains": [acryl_domain],
+            "on_conflict": TransformerOnConflict.DO_NOTHING,
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 1
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, EndOfStream)
+
+
+def test_simple_add_dataset_domain_on_conflict_do_nothing_no_conflict(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph_instance
+):
+    acryl_domain = builder.make_domain_urn("acryl.io")
+    datahub_domain = builder.make_domain_urn("datahubproject.io")
+    irrelevant_domain = builder.make_domain_urn("test.io")
+
+    pipeline_context = PipelineContext(run_id="transformer_pipe_line")
+    pipeline_context.graph = mock_datahub_graph_instance
+
+    # Return fake aspect to simulate server behaviour
+    def fake_get_domain(entity_urn: str) -> models.DomainsClass:
+        return models.DomainsClass(domains=[])
+
+    pipeline_context.graph.get_domain = fake_get_domain  # type: ignore
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[datahub_domain]),
+        config={
+            "replace_existing": False,
+            "semantics": TransformerSemantics.PATCH,
+            "domains": [acryl_domain],
+            "on_conflict": TransformerOnConflict.DO_NOTHING,
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    assert len(output) == 2
+    assert output[0] is not None
+    assert output[0].record is not None
+    assert isinstance(output[0].record, MetadataChangeProposalWrapper)
+    assert output[0].record.aspect is not None
+    assert isinstance(output[0].record.aspect, models.DomainsClass)
+    transformed_aspect = cast(models.DomainsClass, output[0].record.aspect)
+    assert len(transformed_aspect.domains) == 2
+    assert datahub_domain in transformed_aspect.domains
+    assert acryl_domain in transformed_aspect.domains
+    assert irrelevant_domain not in transformed_aspect.domains
 
 
 def test_pattern_add_dataset_domain_aspect_name(mock_datahub_graph_instance):

@@ -428,6 +428,7 @@ class Pipeline:
     def _time_to_print(self) -> bool:
         self.num_intermediate_workunits += 1
         current_time = int(time.time())
+        # TODO: Replace with ProgressTimer.
         if current_time - self.last_time_printed > _REPORT_PRINT_INTERVAL_SECONDS:
             # we print
             self.num_intermediate_workunits = 0
@@ -674,7 +675,7 @@ class Pipeline:
         else:
             click.echo()
             click.secho("Cli report:", bold=True)
-            click.secho(self.cli_report.as_string())
+            click.echo(self.cli_report.as_string())
             click.secho(f"Source ({self.source_type}) report:", bold=True)
             click.echo(self.source.get_report().as_string())
             click.secho(f"Sink ({self.sink_type}) report:", bold=True)
@@ -735,11 +736,14 @@ class Pipeline:
             return 0
 
     def _handle_uncaught_pipeline_exception(self, exc: Exception) -> None:
-        logger.exception("Ingestion pipeline threw an uncaught exception")
+        logger.exception(
+            f"Ingestion pipeline threw an uncaught exception: {exc}", stacklevel=2
+        )
         self.source.get_report().report_failure(
             title="Pipeline Error",
             message="Ingestion pipeline raised an unexpected exception!",
             exc=exc,
+            log=False,
         )
 
     def _get_structured_report(self) -> Dict[str, Any]:

@@ -361,9 +361,6 @@ deprecated = functools.partial(_sphinx_deprecated, version="0.12.0.2")
 
     for aspect in key_aspects:
         entity_type = aspect["Aspect"]["keyForEntity"]
-        if aspect["Aspect"]["entityCategory"] == "internal":
-            continue
-
         code += generate_urn_class(entity_type, aspect)
 
     (urn_dir / "urn_defs.py").write_text(code)
@@ -772,7 +769,7 @@ def generate(
 import importlib
 from typing import TYPE_CHECKING
 
-from datahub._codegen.aspect import _Aspect
+from datahub._codegen.aspect import _Aspect as _Aspect
 from datahub.utilities.docs_build import IS_SPHINX_BUILD
 from datahub.utilities._custom_package_loader import get_custom_models_package
 
@@ -805,7 +802,7 @@ from typing import TYPE_CHECKING
 
 from datahub.utilities.docs_build import IS_SPHINX_BUILD
 from datahub.utilities._custom_package_loader import get_custom_urns_package
-from datahub.utilities.urns._urn_base import Urn  # noqa: F401
+from datahub.utilities.urns._urn_base import Urn as Urn  # noqa: F401
 
 _custom_package_path = get_custom_urns_package()
 

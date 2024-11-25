@@ -43,7 +43,6 @@ def _make_owner_category_list(
     owner_category_urn: Optional[str],
     owner_ids: List[str],
 ) -> List[Dict]:
-
     return [
         {
             "urn": mce_builder.make_owner_urn(owner_id, owner_type),
@@ -285,7 +284,6 @@ class OperationProcessor:
             aspect_map[Constants.ADD_TAG_OPERATION] = tag_aspect
 
         if Constants.ADD_OWNER_OPERATION in operation_map:
-
             owner_aspect = OwnershipClass(
                 owners=[
                     OwnerClass(

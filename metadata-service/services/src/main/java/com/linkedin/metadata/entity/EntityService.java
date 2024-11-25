@@ -363,7 +363,9 @@ public interface EntityService<U extends ChangeMCP> {
    * @param auditStamp an {@link AuditStamp} containing metadata about the writer & current time
    * @param systemMetadata
    * @return the {@link RecordTemplate} representation of the written aspect object
+   * @deprecated See Conditional Write ChangeType CREATE
    */
+  @Deprecated
   RecordTemplate ingestAspectIfNotPresent(
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
@@ -487,7 +489,7 @@ public interface EntityService<U extends ChangeMCP> {
       Map<String, String> conditions,
       boolean hardDelete);
 
-  Set<IngestResult> ingestProposal(
+  List<IngestResult> ingestProposal(
       @Nonnull OperationContext opContext, AspectsBatch aspectsBatch, final boolean async);
 
   /**

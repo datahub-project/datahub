@@ -139,26 +139,21 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     """
 
     platform = "looker"
-    source_config: LookerDashboardSourceConfig
-    reporter: LookerDashboardSourceReport
-    user_registry: LookerUserRegistry
-    reachable_look_registry: Set[
-        str
-    ]  # Keep track of look-id which are reachable from Dashboard
 
     def __init__(self, config: LookerDashboardSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
-        self.source_config = config
-        self.reporter = LookerDashboardSourceReport()
+        self.source_config: LookerDashboardSourceConfig = config
+        self.reporter: LookerDashboardSourceReport = LookerDashboardSourceReport()
         self.looker_api: LookerAPI = LookerAPI(self.source_config)
-        self.user_registry = LookerUserRegistry(self.looker_api)
-        self.explore_registry = LookerExploreRegistry(
+        self.user_registry: LookerUserRegistry = LookerUserRegistry(self.looker_api)
+        self.explore_registry: LookerExploreRegistry = LookerExploreRegistry(
             self.looker_api, self.reporter, self.source_config
         )
         self.reporter._looker_explore_registry = self.explore_registry
         self.reporter._looker_api = self.looker_api
 
-        self.reachable_look_registry = set()
+        # Keep track of look-id which are reachable from Dashboard
+        self.reachable_look_registry: Set[str] = set()
 
         # (model, explore) -> list of charts/looks/dashboards that reference this explore
         # The list values are used purely for debugging purposes.
@@ -609,7 +604,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _create_platform_instance_aspect(
         self,
     ) -> DataPlatformInstance:
-
         assert (
             self.source_config.platform_name
         ), "Platform name is not set in the configuration."
@@ -868,21 +862,31 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     ) -> Iterable[
         Union[MetadataChangeEvent, MetadataChangeProposalWrapper, MetadataWorkUnit]
     ]:
-        if self.source_config.emit_used_explores_only:
-            explores_to_fetch = list(self.reachable_explores.keys())
-        else:
+        if not self.source_config.emit_used_explores_only:
             explores_to_fetch = list(self.list_all_explores())
+        else:
+            # We don't keep track of project names for each explore right now.
+            # Because project names are just used for a custom property, it's
+            # fine to set them to None.
+            # TODO: Track project names for each explore.
+            explores_to_fetch = [
+                (None, model, explore)
+                for (model, explore) in self.reachable_explores.keys()
+            ]
         explores_to_fetch.sort()
 
         processed_models: List[str] = []
 
-        for model, _ in explores_to_fetch:
+        for project_name, model, _ in explores_to_fetch:
             if model not in processed_models:
                 model_key = gen_model_key(self.source_config, model)
                 yield from gen_containers(
                     container_key=model_key,
                     name=model,
                     sub_types=[BIContainerSubTypes.LOOKML_MODEL],
+                    extra_properties=(
+                        {"project": project_name} if project_name is not None else None
+                    ),
                 )
                 yield MetadataChangeProposalWrapper(
                     entityUrn=model_key.as_urn(),
@@ -896,7 +900,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.reporter.total_explores = len(explores_to_fetch)
         for future in BackpressureAwareExecutor.map(
             self.fetch_one_explore,
-            ((model, explore) for (model, explore) in explores_to_fetch),
+            ((model, explore) for (_project, model, explore) in explores_to_fetch),
             max_workers=self.source_config.max_threads,
         ):
             events, explore_id, start_time, end_time = future.result()
@@ -907,7 +911,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
                 f"Running time of fetch_one_explore for {explore_id}: {(end_time - start_time).total_seconds()}"
             )
 
-    def list_all_explores(self) -> Iterable[Tuple[str, str]]:
+    def list_all_explores(self) -> Iterable[Tuple[Optional[str], str, str]]:
         # returns a list of (model, explore) tuples
 
         for model in self.looker_api.all_lookml_models():
@@ -916,7 +920,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             for explore in model.explores:
                 if explore.name is None:
                     continue
-                yield (model.name, explore.name)
+                yield (model.project_name, model.name, explore.name)
 
     def fetch_one_explore(
         self, model: str, explore: str
@@ -994,7 +998,6 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
     def _make_dashboard_and_chart_mces(
         self, looker_dashboard: LookerDashboard
     ) -> Iterable[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]:
-
         # Step 1: Emit metadata for each Chart inside the Dashboard.
         chart_events = []
         for element in looker_dashboard.dashboard_elements:

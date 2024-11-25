@@ -48,7 +48,7 @@ from datahub.ingestion.source.looker.looker_dataclasses import ProjectInclude
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.looker.lookml_config import (
-    _BASE_PROJECT_NAME,
+    BASE_PROJECT_NAME,
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.str_functions import remove_suffix
@@ -307,7 +307,6 @@ class ViewField:
         type_cls: ViewFieldType,
         populate_sql_logic_in_descriptions: bool,
     ) -> "ViewField":
-
         is_primary_key = field_dict.get("primary_key", "no") == "yes"
 
         name = field_dict["name"]
@@ -370,7 +369,7 @@ class ExploreUpstreamViewField:
         assert view_name  # for lint false positive
 
         project_include: ProjectInclude = ProjectInclude(
-            project=view_project_map.get(view_name, _BASE_PROJECT_NAME),
+            project=view_project_map.get(view_name, BASE_PROJECT_NAME),
             include=view_name,
         )
 
@@ -385,7 +384,7 @@ class ExploreUpstreamViewField:
         view_urn = LookerViewId(
             project_name=(
                 project_include.project
-                if project_include.project != _BASE_PROJECT_NAME
+                if project_include.project != BASE_PROJECT_NAME
                 else explore_project_name
             ),
             model_name=model_name,
@@ -929,8 +928,6 @@ class LookerExplore:
         reporter: SourceReport,
         source_config: LookerDashboardSourceConfig,
     ) -> Optional["LookerExplore"]:  # noqa: C901
-        from datahub.ingestion.source.looker.lookml_source import _BASE_PROJECT_NAME
-
         try:
             explore = client.lookml_model_explore(model, explore_name)
             views: Set[str] = set()
@@ -988,13 +985,11 @@ class LookerExplore:
             field_name_vs_raw_explore_field: Dict = {}
 
             if explore.fields is not None:
-
                 if explore.fields.dimensions is not None:
                     for dim_field in explore.fields.dimensions:
                         if dim_field.name is None:
                             continue
                         else:
-
                             field_name_vs_raw_explore_field[dim_field.name] = dim_field
 
                             view_fields.append(
@@ -1035,7 +1030,6 @@ class LookerExplore:
                         if measure_field.name is None:
                             continue
                         else:
-
                             field_name_vs_raw_explore_field[
                                 measure_field.name
                             ] = measure_field
@@ -1114,7 +1108,7 @@ class LookerExplore:
                 fields=view_fields,
                 upstream_views=list(
                     ProjectInclude(
-                        project=view_project_map.get(view_name, _BASE_PROJECT_NAME),
+                        project=view_project_map.get(view_name, BASE_PROJECT_NAME),
                         include=view_name,
                     )
                     for view_name in views
@@ -1194,7 +1188,6 @@ class LookerExplore:
     ) -> Optional[List[Union[MetadataChangeEvent, MetadataChangeProposalWrapper]]]:
         # We only generate MCE-s for explores that contain from clauses and do NOT contain joins
         # All other explores (passthrough explores and joins) end in correct resolution of lineage, and don't need additional nodes in the graph.
-        from datahub.ingestion.source.looker.lookml_source import _BASE_PROJECT_NAME
 
         dataset_snapshot = DatasetSnapshot(
             urn=self.get_explore_urn(config),
@@ -1207,15 +1200,19 @@ class LookerExplore:
         dataset_snapshot.aspects.append(browse_paths)
         dataset_snapshot.aspects.append(StatusClass(removed=False))
 
-        custom_properties = {}
-        if self.label is not None:
-            custom_properties["looker.explore.label"] = str(self.label)
-        if self.source_file is not None:
-            custom_properties["looker.explore.file"] = str(self.source_file)
+        custom_properties = {
+            "project": self.project_name,
+            "model": self.model_name,
+            "looker.explore.label": self.label,
+            "looker.explore.name": self.name,
+            "looker.explore.file": self.source_file,
+        }
         dataset_props = DatasetPropertiesClass(
             name=str(self.label) if self.label else LookerUtil._display_name(self.name),
             description=self.description,
-            customProperties=custom_properties,
+            customProperties={
+                k: str(v) for k, v in custom_properties.items() if v is not None
+            },
         )
         dataset_props.externalUrl = self._get_url(base_url)
 
@@ -1237,7 +1234,7 @@ class LookerExplore:
                 view_urn = LookerViewId(
                     project_name=(
                         view_ref.project
-                        if view_ref.project != _BASE_PROJECT_NAME
+                        if view_ref.project != BASE_PROJECT_NAME
                         else self.project_name
                     ),
                     model_name=self.model_name,

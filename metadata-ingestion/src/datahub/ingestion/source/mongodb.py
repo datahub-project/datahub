@@ -50,24 +50,22 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     BytesTypeClass,
+    DataPlatformInstanceClass,
+    DatasetPropertiesClass,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
-    SchemaField,
-    SchemaFieldDataType,
+    SchemaFieldClass as SchemaField,
+    SchemaFieldDataTypeClass as SchemaFieldDataType,
     SchemalessClass,
-    SchemaMetadata,
+    SchemaMetadataClass as SchemaMetadata,
     StringTypeClass,
     TimeTypeClass,
     UnionTypeClass,
-)
-from datahub.metadata.schema_classes import (
-    DataPlatformInstanceClass,
-    DatasetPropertiesClass,
 )
 from datahub.metadata.urns import DatasetUrn
 
@@ -410,6 +408,7 @@ class MongoDBSource(StatefulIngestionSourceBase):
                     )
 
                 dataset_properties = DatasetPropertiesClass(
+                    name=collection_name,
                     tags=[],
                     customProperties={},
                 )

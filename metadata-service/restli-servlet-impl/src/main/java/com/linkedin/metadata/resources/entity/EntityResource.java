@@ -12,6 +12,7 @@ import static com.linkedin.metadata.entity.validation.ValidationApiUtils.validat
 import static com.linkedin.metadata.entity.validation.ValidationUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.validateAndConvert;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.generateSystemMetadataIfEmpty;
 
@@ -401,7 +402,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           // This API is not used by the frontend for search bars so we default to structured
           result =
               entitySearchService.search(opContext,
-                  List.of(entityName), input, filter, sortCriterionList, start, count);
+                  List.of(entityName), input, validateAndConvert(filter), sortCriterionList, start, count);
 
           if (!isAPIAuthorizedResult(
                   opContext,
@@ -448,7 +449,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
     return RestliUtils.toTask(
         () -> {
-          SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, filter, sortCriterionList, start, count);
+          SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, validateAndConvert(filter), sortCriterionList, start, count);
           if (!isAPIAuthorizedResult(
                   opContext,
                   result)) {
@@ -514,7 +515,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   opContext,
                   entityList,
                   input,
-                  filter,
+                  validateAndConvert(filter),
                   sortCriterionList,
                   scrollId,
                   keepAlive,
@@ -583,7 +584,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   entityList,
                   input,
                   maxHops,
-                  filter,
+                  validateAndConvert(filter),
                   sortCriterionList,
                   start,
                   count),
@@ -648,7 +649,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                     entityList,
                     input,
                     maxHops,
-                    filter,
+                    validateAndConvert(filter),
                     sortCriterionList,
                     scrollId,
                     keepAlive,
@@ -683,10 +684,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
 
-    log.info("GET LIST RESULTS for {} with filter {}", entityName, filter);
+    final Filter finalFilter = validateAndConvert(filter);
+    log.info("GET LIST RESULTS for {} with filter {}", entityName, finalFilter);
     return RestliUtils.toTask(
         () -> {
-            SearchResult result = entitySearchService.filter(opContext, entityName, filter, sortCriterionList, start, count);
+            SearchResult result = entitySearchService.filter(opContext, entityName, finalFilter, sortCriterionList, start, count);
           if (!AuthUtil.isAPIAuthorizedResult(
                   opContext,
                   result)) {
@@ -927,7 +929,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   opContext.getEntityRegistry(), urn.getEntityType());
           if (aspectName != null && !timeseriesAspectNames.contains(aspectName)) {
             throw new UnsupportedOperationException(
-                String.format("Not supported for non-timeseries aspect '{}'.", aspectName));
+                String.format("Not supported for non-timeseries aspect %s.", aspectName));
           }
           List<String> timeseriesAspectsToDelete =
               (aspectName == null) ? timeseriesAspectNames : ImmutableList.of(aspectName);

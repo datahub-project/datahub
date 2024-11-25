@@ -33,9 +33,12 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
   If stateful ingestion is enabled, running ingestion with the latest CLI version will handle the cleanup automatically. Otherwise, we recommend soft deleting all powerbi data via the DataHub CLI:
      `datahub delete --platform powerbi --soft` and then re-ingest with the latest CLI version, ensuring the `include_workspace_name_in_dataset_urn` configuration is set to true.
 
+- #11701: The Fivetran `sources_to_database` field is deprecated in favor of setting directly within `sources_to_platform_instance.<key>.database`.
+- #11742: For PowerBi ingestion, `use_powerbi_email` is now enabled by default when extracting ownership information.
+
 ### Breaking Changes
 
-- #11486 - Deprecated Criterion filters using `value`. Use `values` instead. This also deprecates the ability to use comma delimited string to represent multiple values using `value`.
+- #11486 - Criterion's `value` parameter has been previously deprecated. Use of `value` instead of `values` is no longer supported and will be completely removed on the next major version.
 - #11484 - Metadata service authentication enabled by default
 - #11484 - Rest API authorization enabled by default
 - #10472 - `SANDBOX` added as a FabricType. No rollbacks allowed once metadata with this fabric type is added without manual cleanups in databases.
@@ -43,6 +46,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #11619 - schema field/column paths can no longer be duplicated within the schema
 - #11570 - The `DatahubClientConfig`'s server field no longer defaults to `http://localhost:8080`. Be sure to explicitly set this.
 - #11570 - If a `datahub_api` is explicitly passed to a stateful ingestion config provider, it will be used. We previously ignored it if the pipeline context also had a graph object.
+- #11518 - DataHub Garbage Collection: Various entities that are soft-deleted (after 10d) or are timeseries *entities* (dataprocess, execution requests) will be removed automatically using logic in the `datahub-gc` ingestion source.
 
 ### Potential Downtime
 
@@ -75,6 +79,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #11313 - `datahub get` will no longer return a key aspect for entities that don't exist.
 - #11369 - The default datahub-rest sink mode has been changed to `ASYNC_BATCH`. This requires a server with version 0.14.0+.
 - #11214 Container properties aspect will produce an additional field that will require a corresponding upgrade of server. Otherwise server can reject the aspects.
+- #10190 - `extractor_config.set_system_metadata` of `datahub` source has been moved to be a top level config in the recipe under `flags.set_system_metadata`
 
 ### Potential Downtime
 

@@ -23,7 +23,6 @@ import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
 import com.linkedin.metadata.entity.DeleteEntityService;
@@ -56,6 +55,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.r2.RemoteInvocationException;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.extension.annotations.WithSpan;
 import java.net.URISyntaxException;
@@ -762,38 +762,44 @@ public class JavaEntityClient implements EntityClient {
 
     AspectsBatch batch =
         AspectsBatchImpl.builder()
-            .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext().get())
+            .mcps(
+                metadataChangeProposals,
+                auditStamp,
+                opContext.getRetrieverContext().get(),
+                opContext.getValidationContext().isAlternateValidation())
             .build();
 
-    Map<BatchItem, List<IngestResult>> resultMap =
-        entityService.ingestProposal(opContext, batch, async).stream()
-            .collect(Collectors.groupingBy(IngestResult::getRequest));
+    List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
+    entitySearchService.appendRunId(opContext, results);
 
-    // Update runIds
-    batch.getItems().stream()
-        .filter(resultMap::containsKey)
-        .forEach(
-            requestItem -> {
-              List<IngestResult> results = resultMap.get(requestItem);
-              Optional<Urn> resultUrn =
-                  results.stream().map(IngestResult::getUrn).filter(Objects::nonNull).findFirst();
-              resultUrn.ifPresent(
-                  urn -> tryIndexRunId(opContext, urn, requestItem.getSystemMetadata()));
-            });
+    Map<Pair<Urn, String>, List<IngestResult>> resultMap =
+        results.stream()
+            .collect(
+                Collectors.groupingBy(
+                    result ->
+                        Pair.of(
+                            result.getRequest().getUrn(), result.getRequest().getAspectName())));
 
     // Preserve ordering
     return batch.getItems().stream()
         .map(
             requestItem -> {
-              if (resultMap.containsKey(requestItem)) {
-                List<IngestResult> results = resultMap.get(requestItem);
-                return results.stream()
-                    .filter(r -> r.getUrn() != null)
-                    .findFirst()
-                    .map(r -> r.getUrn().toString())
-                    .orElse(null);
-              }
-              return null;
+              // Urns generated
+              List<Urn> urnsForRequest =
+                  resultMap
+                      .getOrDefault(
+                          Pair.of(requestItem.getUrn(), requestItem.getAspectName()), List.of())
+                      .stream()
+                      .map(IngestResult::getUrn)
+                      .filter(Objects::nonNull)
+                      .distinct()
+                      .collect(Collectors.toList());
+
+              // Update runIds
+              urnsForRequest.forEach(
+                  urn -> tryIndexRunId(opContext, urn, requestItem.getSystemMetadata()));
+
+              return urnsForRequest.isEmpty() ? null : urnsForRequest.get(0).toString();
             })
         .collect(Collectors.toList());
   }
@@ -861,8 +867,7 @@ public class JavaEntityClient implements EntityClient {
   private void tryIndexRunId(
       @Nonnull OperationContext opContext, Urn entityUrn, @Nullable SystemMetadata systemMetadata) {
     if (systemMetadata != null && systemMetadata.hasRunId()) {
-      entitySearchService.appendRunId(
-          opContext, entityUrn.getEntityType(), entityUrn, systemMetadata.getRunId());
+      entitySearchService.appendRunId(opContext, entityUrn, systemMetadata.getRunId());
     }
   }
 
