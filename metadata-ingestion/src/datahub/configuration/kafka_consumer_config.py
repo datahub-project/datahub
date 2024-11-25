@@ -30,6 +30,9 @@ class CallableConsumerConfig:
 
         call_back = self.get_call_back_attribute()
 
-        assert call_back  # to silent lint
+        assert isinstance(call_back, str), (
+            "oauth_cb must be a string representing python function reference "
+            "in the format <python-module>:<function-name>."
+        )
         # Set the callback
         self._config[CallableConsumerConfig.CALLBACK_ATTRIBUTE] = import_path(call_back)
