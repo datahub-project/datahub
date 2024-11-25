@@ -164,11 +164,18 @@ module.exports = {
           type: "doc",
           id: "docs/features/dataset-usage-and-query-history",
         },
-        "docs/features/feature-guides/documentation-forms",
+        
         {
           label: "Domains",
           type: "doc",
           id: "docs/domains",
+        },
+        {
+          "Compliance Forms": [
+            "docs/features/feature-guides/compliance-forms/overview",
+            "docs/features/feature-guides/compliance-forms/create-a-form",
+            "docs/features/feature-guides/compliance-forms/complete-a-form",
+          ],
         },
         {
           label: "Incidents",

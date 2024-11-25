@@ -1,17 +1,11 @@
+---
+title: Create a Form
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# About DataHub Compliance Forms
+# Create a DataHub Compliance Form
 <FeatureAvailability/>
-
-DataHub Compliance Forms streamline the process of defining documentation, annotation, and classification requirements, and delegating responsibilities to the relevant data asset owners, stewards, and subject matter experts.
-
-Compliance Forms are highly configurable, making it easy to ask the right questions of the right people, for a specific set of assets.
-
-## What are Compliance Forms?
-
-You can think of Compliance Forms as a survey for your data assets: a set of questions that must be answered in order for an asset to be considered properly documented.
-
-Verification Forms are an extension of Compliance Forms, requiring a final verification, or sign-off, on all responses before the asset can be considered Verified. This is useful for compliance and/or governance annotation initiatives where you want assignees to provide a final acknowledgement that the information provided is correct.
 
 ## Creating and Assigning Compliance Forms
 
@@ -105,15 +99,13 @@ In the **Add Recipients** section, decide who is responsible for completing the 
 
 Once you have defined the set of Questions to be completed, the in-scope Assets, and the relevant Recipients, it's now time to publish your Form!
 
-:::Caution
+:::caution
 Once you have published a Form, you **cannot** change or add Questions.
 :::
 
 <p align="center">
   <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-publish.png"/>
 </p>
-
-<!-- ## Completing Compliance Forms -->
 
 ## FAQ and Troubleshooting
 
