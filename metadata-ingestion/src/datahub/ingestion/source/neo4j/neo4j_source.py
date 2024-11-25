@@ -52,10 +52,10 @@ _type_mapping: Dict[Union[Type, str], Type] = {
 
 
 class Neo4jConfig(EnvConfigMixin):
-    username: str = Field(default=None, description="Neo4j Username")
-    password: str = Field(default=None, description="Neo4j Password")
-    uri: str = Field(default=None, description="The URI for the Neo4j server")
-    env: str = Field(default=None, description="Neo4j env")
+    username: str = Field(description="Neo4j Username")
+    password: str = Field(description="Neo4j Password")
+    uri: str = Field(description="The URI for the Neo4j server")
+    env: str = Field(description="Neo4j env")
     platform: str = Field(default="neo4j", description="Neo4j platform")
 
 
@@ -84,7 +84,7 @@ class Neo4jSource(Source):
         return SchemaFieldDataType(type=type_class())
 
     def get_schema_field_class(
-        self, col_name: str, col_type: str, **kwargs
+        self, col_name: str, col_type: str, **kwargs: dict[str, str]
     ) -> SchemaFieldClass:
         if kwargs["obj_type"] == "node" and col_type == "relationship":
             col_type = "node"
@@ -103,7 +103,7 @@ class Neo4jSource(Source):
         )
 
     def add_properties(
-        self, dataset: str, description=None, custom_properties=None
+        self, dataset: str, description: Optional[str] = None, custom_properties: Optional[str]=None
     ) -> MetadataChangeProposalWrapper:
         dataset_properties = DatasetPropertiesClass(
             description=description,
@@ -117,7 +117,7 @@ class Neo4jSource(Source):
         )
 
     def generate_neo4j_object(
-        self, platform: str, dataset: str, columns: list, obj_type=None
+        self, platform: str, dataset: str, columns: list, obj_type: Optional[str]=None
     ) -> MetadataChangeProposalWrapper:
         try:
             fields = [
@@ -184,12 +184,13 @@ class Neo4jSource(Source):
             df = pd.concat([node_df[union_cols], rel_df[union_cols]])
         except Exception as e:
             self.report.failure(
+                message="Failed to get neo4j metadata",
                 exc=e,
             )
 
         return df
 
-    def process_nodes(self, data):
+    def process_nodes(self, data: list):
         nodes = [record for record in data if record["value"]["type"] == "node"]
         node_df = pd.DataFrame(
             nodes,
@@ -212,7 +213,7 @@ class Neo4jSource(Source):
         )
         return node_df
 
-    def process_relationships(self, data, node_df):
+    def process_relationships(self, data: list, node_df: pd.DataFrame):
         rels = [record for record in data if record["value"]["type"] == "relationship"]
         rel_df = pd.DataFrame(rels, columns=["key", "value"])
         rel_df["obj_type"] = rel_df["value"].apply(

@@ -735,6 +735,6 @@
     datasetNameDelimiter: "."
     name: neo4j
     displayName: Neo4j
-    type: OTHER
+    type: OTHERS
     logoUrl: "/assets/platforms/neo4j.png"
 
