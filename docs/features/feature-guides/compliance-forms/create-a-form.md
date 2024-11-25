@@ -22,7 +22,9 @@ The following steps will walk you through creating and assigning Compliance Form
 Creating and managing Compliance Forms via the UI is only available in DataHub Cloud. If you are deployed with DataHub Core, please see the [Compliance Forms API Guide](../../../docs/api/tutorials/forms.md).
 :::
 
-### Step 0: Define your Complinace Form
+### Step 0: Prerequisites
+
+In order to create or edit a Compliance Form, your DataHub User must have the **Manage Compliance Forms** permission.
 
 ### Step 1: Define your Complinace Form
 
