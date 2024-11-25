@@ -95,6 +95,10 @@ def cleanup(config: BigQueryV2Config) -> None:
     "Optionally enabled via `classification.enabled`",
     supported=True,
 )
+@capability(
+    SourceCapability.PARTITION_SUPPORT,
+    "Enabled by default, partition keys and clustering keys are supported.",
+)
 class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, ctx: PipelineContext, config: BigQueryV2Config):
         super().__init__(config, ctx)
@@ -128,9 +132,9 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         self.filters = BigQueryFilter(self.config, self.report)
         self.identifiers = BigQueryIdentifierBuilder(self.config, self.report)
 
-        redundant_lineage_run_skip_handler: Optional[
-            RedundantLineageRunSkipHandler
-        ] = None
+        redundant_lineage_run_skip_handler: Optional[RedundantLineageRunSkipHandler] = (
+            None
+        )
         if self.config.enable_stateful_lineage_ingestion:
             redundant_lineage_run_skip_handler = RedundantLineageRunSkipHandler(
                 source=self,
