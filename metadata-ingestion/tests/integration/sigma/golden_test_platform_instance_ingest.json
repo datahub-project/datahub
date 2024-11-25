@@ -322,6 +322,22 @@
     }
 },
 {
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732513099889,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sigma,cloud_instance.5LqGLu14qUnqh3cN6wRJBd,PROD)",
     "changeType": "UPSERT",
@@ -335,6 +351,118 @@
     },
     "systemMetadata": {
         "lastObserved": 1713794496014,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Sigma Workbook"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732513099890,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "path": "Acryl Data",
+                "latestVersion": "2"
+            },
+            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7",
+            "title": "Acryl Workbook",
+            "description": "",
+            "charts": [
+                "urn:li:chart:(sigma,cloud_instance.kH0MeihtGs)",
+                "urn:li:chart:(sigma,cloud_instance.Ml9C5ezT5W)",
+                "urn:li:chart:(sigma,cloud_instance.tQJu5N1l81)"
+            ],
+            "datasets": [],
+            "dashboards": [
+                {
+                    "sourceUrn": "urn:li:dashboard:(sigma,cloud_instance.9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+                    "destinationUrn": "urn:li:dashboard:(sigma,cloud_instance.OSnGLBzL1i)"
+                },
+                {
+                    "sourceUrn": "urn:li:dashboard:(sigma,cloud_instance.9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+                    "destinationUrn": "urn:li:dashboard:(sigma,cloud_instance.DFSieiAcgo)"
+                }
+            ],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732513099889,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:Shubham_Jagtap",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732513099890,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
+                {
+                    "tag": "urn:li:tag:Warning"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732513099890,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -397,6 +525,47 @@
     },
     "systemMetadata": {
         "lastObserved": 1713794496199,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732513099891,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
+                },
+                {
+                    "id": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d",
+                    "urn": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732513099891,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -638,10 +807,6 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
                 },
                 {
-                    "id": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d",
-                    "urn": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d"
-                },
-                {
                     "id": "urn:li:container:084a2e283eddfc576ce70989b395a7d8",
                     "urn": "urn:li:container:084a2e283eddfc576ce70989b395a7d8"
                 }
@@ -649,33 +814,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713794496058,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:084a2e283eddfc576ce70989b395a7d8",
-    "changeType": "UPSERT",
-    "aspectName": "ownership",
-    "aspect": {
-        "json": {
-            "owners": [
-                {
-                    "owner": "urn:li:corpuser:Shubham_Jagtap",
-                    "type": "DATAOWNER"
-                }
-            ],
-            "ownerTypes": {},
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713794496019,
+        "lastObserved": 1732513099908,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -713,6 +852,7 @@
                 "urn:li:chart:(sigma,cloud_instance.Ml9C5ezT5W)"
             ],
             "datasets": [],
+            "dashboards": [],
             "lastModified": {
                 "created": {
                     "time": 0,
@@ -732,86 +872,6 @@
     }
 },
 {
-    "entityType": "container",
-    "entityUrn": "urn:li:container:084a2e283eddfc576ce70989b395a7d8",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "sigma",
-                "instance": "cloud_instance",
-                "workbookId": "9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b",
-                "path": "Acryl Data",
-                "latestVersion": "2"
-            },
-            "externalUrl": "https://app.sigmacomputing.com/acryldata/workbook/4JRFW1HThPI1K3YTjouXI7",
-            "name": "Acryl Workbook",
-            "created": {
-                "time": 1713188691477
-            },
-            "lastModified": {
-                "time": 1713189117302
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713794496016,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.OSnGLBzL1i)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:084a2e283eddfc576ce70989b395a7d8"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713794496023,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:084a2e283eddfc576ce70989b395a7d8",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Sigma Workbook"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713794496018,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:084a2e283eddfc576ce70989b395a7d8",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713794496017,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.OSnGLBzL1i)",
     "changeType": "UPSERT",
@@ -824,72 +884,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1713794496023,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.OSnGLBzL1i)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
-                },
-                {
-                    "id": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d",
-                    "urn": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d"
-                },
-                {
-                    "id": "urn:li:container:084a2e283eddfc576ce70989b395a7d8",
-                    "urn": "urn:li:container:084a2e283eddfc576ce70989b395a7d8"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713794496024,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:084a2e283eddfc576ce70989b395a7d8",
-    "changeType": "UPSERT",
-    "aspectName": "globalTags",
-    "aspect": {
-        "json": {
-            "tags": [
-                {
-                    "tag": "urn:li:tag:Warning"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713794496019,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:084a2e283eddfc576ce70989b395a7d8",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:sigma",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713794496018,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -906,31 +900,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1713794496114,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:084a2e283eddfc576ce70989b395a7d8",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
-                },
-                {
-                    "id": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d",
-                    "urn": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713794496020,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1108,10 +1077,6 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
                 },
                 {
-                    "id": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d",
-                    "urn": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d"
-                },
-                {
                     "id": "urn:li:container:084a2e283eddfc576ce70989b395a7d8",
                     "urn": "urn:li:container:084a2e283eddfc576ce70989b395a7d8"
                 }
@@ -1119,7 +1084,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713794496119,
+        "lastObserved": 1732513099934,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1156,6 +1121,7 @@
                 "urn:li:chart:(sigma,cloud_instance.tQJu5N1l81)"
             ],
             "datasets": [],
+            "dashboards": [],
             "lastModified": {
                 "created": {
                     "time": 0,
@@ -1166,38 +1132,6 @@
                     "actor": "urn:li:corpuser:unknown"
                 }
             }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713794496125,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:084a2e283eddfc576ce70989b395a7d8",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713794496020,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.DFSieiAcgo)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:084a2e283eddfc576ce70989b395a7d8"
         }
     },
     "systemMetadata": {
@@ -1271,35 +1205,6 @@
         "json": {
             "platform": "urn:li:dataPlatform:sigma",
             "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713794496126,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.DFSieiAcgo)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)",
-                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
-                },
-                {
-                    "id": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d",
-                    "urn": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d"
-                },
-                {
-                    "id": "urn:li:container:084a2e283eddfc576ce70989b395a7d8",
-                    "urn": "urn:li:container:084a2e283eddfc576ce70989b395a7d8"
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -1716,10 +1621,6 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
                 },
                 {
-                    "id": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d",
-                    "urn": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d"
-                },
-                {
                     "id": "urn:li:container:084a2e283eddfc576ce70989b395a7d8",
                     "urn": "urn:li:container:084a2e283eddfc576ce70989b395a7d8"
                 }
@@ -1727,7 +1628,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1713794496194,
+        "lastObserved": 1732513099969,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }

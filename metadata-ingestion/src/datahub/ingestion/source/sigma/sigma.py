@@ -4,7 +4,12 @@ from typing import Dict, Iterable, List, Optional
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigurationError
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import add_entity_to_container, gen_containers
+from datahub.emitter.mcp_builder import (
+    add_entity_to_container,
+    add_owner_to_entity_wu,
+    add_tags_to_entity_wu,
+    gen_containers,
+)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -65,6 +70,7 @@ from datahub.metadata.schema_classes import (
     ChartInfoClass,
     DashboardInfoClass,
     DataPlatformInstanceClass,
+    EdgeClass,
     GlobalTagsClass,
     InputFieldClass,
     InputFieldsClass,
@@ -74,6 +80,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     StringTypeClass,
+    SubTypesClass,
     TagAssociationClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
@@ -505,12 +512,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
             yield self._gen_dashboard_info_workunit(page)
 
-            yield from add_entity_to_container(
-                container_key=self._gen_workbook_key(workbook.workbookId),
-                entity_type="dashboard",
-                entity_urn=dashboard_urn,
-            )
-
             dpi_aspect = self._gen_dataplatform_instance_aspect(dashboard_urn)
             if dpi_aspect:
                 yield dpi_aspect
@@ -531,39 +532,83 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         Map Sigma Workbook to Datahub container
         """
         owner_username = self.sigma_api.get_user_name(workbook.createdBy)
-        workbook_key = self._gen_workbook_key(workbook.workbookId)
-        yield from gen_containers(
-            container_key=workbook_key,
-            name=workbook.name,
-            sub_types=[BIContainerSubTypes.SIGMA_WORKBOOK],
-            parent_container_key=(
-                self._gen_workspace_key(workbook.workspaceId)
-                if workbook.workspaceId
-                else None
-            ),
-            extra_properties={
+
+        dashboard_urn = self._gen_dashboard_urn(workbook.workbookId)
+
+        yield self._gen_entity_status_aspect(dashboard_urn)
+
+        dashboard_info_cls = DashboardInfoClass(
+            title=workbook.name,
+            description="",
+            dashboards=[
+                EdgeClass(
+                    destinationUrn=self._gen_dashboard_urn(page.get_urn_part()),
+                    sourceUrn=dashboard_urn,
+                )
+                for page in workbook.pages
+            ],
+            charts=[
+                builder.make_chart_urn(
+                    platform=self.platform,
+                    platform_instance=self.config.platform_instance,
+                    name=element.get_urn_part(),
+                )
+                for page in workbook.pages
+                for element in page.elements
+            ],
+            externalUrl=workbook.url,
+            lastModified=ChangeAuditStampsClass(),
+            customProperties={
                 "path": workbook.path,
                 "latestVersion": str(workbook.latestVersion),
             },
-            owner_urn=(
-                builder.make_user_urn(owner_username)
-                if self.config.ingest_owner and owner_username
-                else None
-            ),
-            external_url=workbook.url,
-            tags=[workbook.badge] if workbook.badge else None,
-            created=int(workbook.createdAt.timestamp() * 1000),
-            last_modified=int(workbook.updatedAt.timestamp() * 1000),
         )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dashboard_urn, aspect=dashboard_info_cls
+        ).as_workunit()
+
+        # Set subtype
+        yield MetadataChangeProposalWrapper(
+            entityUrn=f"{dashboard_urn}",
+            aspect=SubTypesClass(typeNames=[BIContainerSubTypes.SIGMA_WORKBOOK]),
+        ).as_workunit()
+
+        # Ownership
+        owner_urn = (
+            builder.make_user_urn(owner_username)
+            if self.config.ingest_owner and owner_username
+            else None
+        )
+        if owner_urn:
+            yield from add_owner_to_entity_wu(
+                entity_type="dashboard",
+                entity_urn=dashboard_urn,
+                owner_urn=owner_urn,
+            )
+
+        # Tags
+        tags = [workbook.badge] if workbook.badge else None
+        if tags:
+            yield from add_tags_to_entity_wu(
+                entity_type="dashboard",
+                entity_urn=dashboard_urn,
+                tags=sorted(tags),
+            )
 
         paths = workbook.path.split("/")[1:]
         if len(paths) > 0 and workbook.workspaceId:
             yield self._gen_entity_browsepath_aspect(
-                entity_urn=builder.make_container_urn(workbook_key),
+                entity_urn=dashboard_urn,
                 parent_entity_urn=builder.make_container_urn(
                     self._gen_workspace_key(workbook.workspaceId)
                 ),
                 paths=paths,
+            )
+        elif workbook.workspaceId:
+            yield from add_entity_to_container(
+                container_key=self._gen_workspace_key(workbook.workspaceId),
+                entity_type="dashboard",
+                entity_urn=dashboard_urn,
             )
 
         yield from self._gen_pages_workunit(workbook)
