@@ -498,7 +498,10 @@ class BigQuerySchemaGenerator:
                 report=self.report,
                 rate_limiter=rate_limiter,
             )
-            if self.config.include_table_constraints:
+            if (
+                self.config.include_table_constraints
+                and bigquery_dataset.supports_table_constraints()
+            ):
                 constraints = self.schema_api.get_table_constraints_for_dataset(
                     project_id=project_id, dataset_name=dataset_name, report=self.report
                 )
@@ -1157,9 +1160,11 @@ class BigQuerySchemaGenerator:
             # fields=[],
             fields=self.gen_schema_fields(
                 columns,
-                table.constraints
-                if (isinstance(table, BigqueryTable) and table.constraints)
-                else [],
+                (
+                    table.constraints
+                    if (isinstance(table, BigqueryTable) and table.constraints)
+                    else []
+                ),
             ),
             foreignKeys=foreign_keys if foreign_keys else None,
         )
@@ -1180,13 +1185,9 @@ class BigQuerySchemaGenerator:
     ) -> Iterable[BigqueryTable]:
         # In bigquery there is no way to query all tables in a Project id
         with PerfTimer() as timer:
-            # PARTITIONS INFORMATION_SCHEMA view is not available for BigLake tables
-            # based on Amazon S3 and Blob Storage data.
-            # https://cloud.google.com/bigquery/docs/omni-introduction#limitations
-            # Omni Locations - https://cloud.google.com/bigquery/docs/omni-introduction#locations
-            with_partitions = self.config.have_table_data_read_permission and not (
-                dataset.location
-                and dataset.location.lower().startswith(("aws-", "azure-"))
+            with_partitions = (
+                self.config.have_table_data_read_permission
+                and dataset.supports_table_partitions()
             )
 
             # Partitions view throw exception if we try to query partition info for too many tables
