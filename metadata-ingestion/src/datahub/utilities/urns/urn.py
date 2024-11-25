@@ -1,4 +1,6 @@
-from datahub.metadata.urns import Urn  # noqa: F401
+from datahub.metadata.urns import Urn
+
+__all__ = ["Urn", "guess_entity_type"]
 
 
 def guess_entity_type(urn: str) -> str:

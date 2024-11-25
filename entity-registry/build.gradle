@@ -25,6 +25,8 @@ dependencies {
       because("previous versions are vulnerable to CVE-2022-25857")
     }
   }
+  api project(path: ':li-utils')
+  api project(path: ':li-utils', configuration: "dataTemplate")
   dataModel project(':li-utils')
   annotationProcessor externalDependency.lombok
 

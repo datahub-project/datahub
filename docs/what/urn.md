@@ -38,7 +38,8 @@ urn:li:dataset:(urn:li:dataPlatform:hdfs,PageViewEvent,EI)
 There are a few restrictions when creating an urn:
 
 1. Commas are reserved character in URN fields: `,`
-2. Parentheses are reserved characters in URN fields: `( , )`
+2. Parentheses are reserved characters in URN fields: `(` or `)`
 3. Colons are reserved characters in URN fields: `:`
+4. Urn separator UTF-8 character `␟`
 
-Please do not use these characters when creating or generating urns.
+Please do not use these characters when creating or generating urns. One approach is to use URL encoding for the characters.
