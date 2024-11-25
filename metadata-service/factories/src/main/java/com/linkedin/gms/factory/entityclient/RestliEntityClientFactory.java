@@ -1,12 +1,12 @@
 package com.linkedin.gms.factory.entityclient;
 
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.RestliEntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.entity.client.SystemRestliEntityClient;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.restli.DefaultRestliClientFactory;
-import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.restli.client.Client;
 import java.net.URI;
 import javax.inject.Singleton;
@@ -28,9 +28,7 @@ public class RestliEntityClientFactory {
       @Value("${datahub.gms.useSSL}") boolean gmsUseSSL,
       @Value("${datahub.gms.uri}") String gmsUri,
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
-      @Value("${entityClient.retryInterval:2}") int retryInterval,
-      @Value("${entityClient.numRetries:3}") int numRetries,
-      final @Value("${entityClient.restli.get.batchSize:150}") int batchGetV2Size) {
+      final EntityClientConfig entityClientConfig) {
     final Client restClient;
     if (gmsUri != null) {
       restClient = DefaultRestliClientFactory.getRestLiClient(URI.create(gmsUri), gmsSslProtocol);
@@ -38,8 +36,7 @@ public class RestliEntityClientFactory {
       restClient =
           DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
     }
-    return new RestliEntityClient(
-        restClient, new ExponentialBackoff(retryInterval), numRetries, batchGetV2Size);
+    return new RestliEntityClient(restClient, entityClientConfig);
   }
 
   @Bean("systemEntityClient")
@@ -50,10 +47,8 @@ public class RestliEntityClientFactory {
       @Value("${datahub.gms.useSSL}") boolean gmsUseSSL,
       @Value("${datahub.gms.uri}") String gmsUri,
       @Value("${datahub.gms.sslContext.protocol}") String gmsSslProtocol,
-      @Value("${entityClient.retryInterval:2}") int retryInterval,
-      @Value("${entityClient.numRetries:3}") int numRetries,
       final EntityClientCacheConfig entityClientCacheConfig,
-      final @Value("${entityClient.restli.get.batchSize:150}") int batchGetV2Size) {
+      final EntityClientConfig entityClientConfig) {
 
     final Client restClient;
     if (gmsUri != null) {
@@ -62,11 +57,6 @@ public class RestliEntityClientFactory {
       restClient =
           DefaultRestliClientFactory.getRestLiClient(gmsHost, gmsPort, gmsUseSSL, gmsSslProtocol);
     }
-    return new SystemRestliEntityClient(
-        restClient,
-        new ExponentialBackoff(retryInterval),
-        numRetries,
-        entityClientCacheConfig,
-        batchGetV2Size);
+    return new SystemRestliEntityClient(restClient, entityClientConfig, entityClientCacheConfig);
   }
 }

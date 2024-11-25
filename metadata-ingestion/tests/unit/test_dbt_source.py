@@ -1,3 +1,4 @@
+import doctest
 from datetime import timedelta
 from typing import Dict, List, Union
 from unittest import mock
@@ -7,7 +8,9 @@ from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.dbt import dbt_cloud
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig
+from datahub.ingestion.source.dbt.dbt_common import DBTNode
 from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
     DBTCoreSource,
@@ -148,7 +151,7 @@ def test_dbt_source_patching_tags():
         ["new_non_dbt", "dbt:new_dbt"]
     )
     transformed_tags = source.get_transformed_tags_by_prefix(
-        new_tag_aspect.tags, "urn:li:dataset:dummy", "urn:li:tag:dbt:"
+        new_tag_aspect.tags, "urn:li:dataset:dummy", "dbt:"
     )
     expected_tags = {
         "urn:li:tag:new_non_dbt",
@@ -224,6 +227,72 @@ def test_dbt_config_skip_sources_in_lineage():
     }
     config = DBTCoreConfig.parse_obj(config_dict)
     assert config.skip_sources_in_lineage is True
+
+
+def test_dbt_config_prefer_sql_parser_lineage():
+    with pytest.raises(
+        ValidationError,
+        match="prefer_sql_parser_lineage.*requires.*skip_sources_in_lineage",
+    ):
+        config_dict = {
+            "manifest_path": "dummy_path",
+            "catalog_path": "dummy_path",
+            "target_platform": "dummy_platform",
+            "prefer_sql_parser_lineage": True,
+        }
+        config = DBTCoreConfig.parse_obj(config_dict)
+
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "skip_sources_in_lineage": True,
+        "prefer_sql_parser_lineage": True,
+    }
+    config = DBTCoreConfig.parse_obj(config_dict)
+    assert config.skip_sources_in_lineage is True
+    assert config.prefer_sql_parser_lineage is True
+
+
+def test_dbt_prefer_sql_parser_lineage_no_self_reference():
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.parse_obj(
+        {
+            **create_base_dbt_config(),
+            "skip_sources_in_lineage": True,
+            "prefer_sql_parser_lineage": True,
+        }
+    )
+    source: DBTCoreSource = DBTCoreSource(config, ctx, "dbt")
+    all_nodes_map = {
+        "model1": DBTNode(
+            name="model1",
+            database=None,
+            schema=None,
+            alias=None,
+            comment="",
+            description="",
+            language=None,
+            raw_code=None,
+            dbt_adapter="postgres",
+            dbt_name="model1",
+            dbt_file_path=None,
+            dbt_package_name=None,
+            node_type="model",
+            materialization="table",
+            max_loaded_at=None,
+            catalog_type=None,
+            missing_from_catalog=False,
+            owner=None,
+            compiled_code="SELECT d FROM results WHERE d > (SELECT MAX(d) FROM model1)",
+        ),
+    }
+    source._infer_schemas_and_update_cll(all_nodes_map)
+    upstream_lineage = source._create_lineage_aspect_for_dbt_node(
+        all_nodes_map["model1"], all_nodes_map
+    )
+    assert upstream_lineage is not None
+    assert len(upstream_lineage.upstreams) == 1
 
 
 def test_dbt_s3_config():
@@ -340,7 +409,7 @@ def test_dbt_entity_emission_configuration_helpers():
 
 def test_dbt_cloud_config_access_url():
     config_dict = {
-        "access_url": "https://my-dbt-cloud.dbt.com",
+        "access_url": "https://emea.getdbt.com",
         "token": "dummy_token",
         "account_id": "123456",
         "project_id": "1234567",
@@ -349,8 +418,8 @@ def test_dbt_cloud_config_access_url():
         "target_platform": "dummy_platform",
     }
     config = DBTCloudConfig.parse_obj(config_dict)
-    assert config.access_url == "https://my-dbt-cloud.dbt.com"
-    assert config.metadata_endpoint == "https://metadata.my-dbt-cloud.dbt.com/graphql"
+    assert config.access_url == "https://emea.getdbt.com"
+    assert config.metadata_endpoint == "https://metadata.emea.getdbt.com/graphql"
 
 
 def test_dbt_cloud_config_with_defined_metadata_endpoint():
@@ -370,6 +439,10 @@ def test_dbt_cloud_config_with_defined_metadata_endpoint():
         config.metadata_endpoint
         == "https://my-metadata-endpoint.my-dbt-cloud.dbt.com/graphql"
     )
+
+
+def test_infer_metadata_endpoint() -> None:
+    assert doctest.testmod(dbt_cloud, raise_on_error=True).attempted > 0
 
 
 def test_dbt_time_parsing() -> None:

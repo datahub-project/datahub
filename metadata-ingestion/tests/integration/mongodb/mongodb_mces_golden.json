@@ -1,5 +1,61 @@
 [
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "mongodb",
+                "instance": "instance",
+                "env": "PROD",
+                "database": "mngdb"
+            },
+            "name": "mngdb",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mongodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mongodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mongodb",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mongodb,instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mongodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mongodb,instance.mngdb.emptyCollection,PROD)",
     "changeType": "UPSERT",
@@ -37,8 +93,25 @@
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
+            "name": "emptyCollection",
             "customProperties": {},
             "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mongodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mongodb,instance.mngdb.emptyCollection,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed"
         }
     },
     "systemMetadata": {
@@ -56,6 +129,70 @@
         "json": {
             "platform": "urn:li:dataPlatform:mongodb",
             "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mongodb,instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mongodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mongodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mongodb,instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mongodb,instance)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mongodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mongodb,instance.mngdb.emptyCollection,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mongodb,instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mongodb,instance)"
+                },
+                {
+                    "id": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed",
+                    "urn": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -367,8 +504,25 @@
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
+            "name": "firstCollection",
             "customProperties": {},
             "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mongodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mongodb,instance.mngdb.firstCollection,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed"
         }
     },
     "systemMetadata": {
@@ -4030,14 +4184,56 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mongodb,instance.mngdb.largeCollection,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mongodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mongodb,instance.mngdb.largeCollection,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
+            "name": "largeCollection",
             "customProperties": {
                 "schema.downsampled": "True",
                 "schema.totalFields": "501"
             },
             "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mongodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mongodb,instance.mngdb.firstCollection,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mongodb,instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mongodb,instance)"
+                },
+                {
+                    "id": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed",
+                    "urn": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed"
+                }
+            ]
         }
     },
     "systemMetadata": {
@@ -4055,6 +4251,47 @@
         "json": {
             "platform": "urn:li:dataPlatform:mongodb",
             "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mongodb,instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mongodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mongodb,instance.mngdb.largeCollection,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mongodb,instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mongodb,instance)"
+                },
+                {
+                    "id": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed",
+                    "urn": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mongodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mongodb,instance.mngdb.secondCollection,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed"
         }
     },
     "systemMetadata": {
@@ -4210,6 +4447,7 @@
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
+            "name": "secondCollection",
             "customProperties": {},
             "tags": []
         }
@@ -4229,6 +4467,31 @@
         "json": {
             "platform": "urn:li:dataPlatform:mongodb",
             "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mongodb,instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "mongodb-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:mongodb,instance.mngdb.secondCollection,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mongodb,instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mongodb,instance)"
+                },
+                {
+                    "id": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed",
+                    "urn": "urn:li:container:f5ff6ace1ed73cb3fd4c73dc718c39ed"
+                }
+            ]
         }
     },
     "systemMetadata": {

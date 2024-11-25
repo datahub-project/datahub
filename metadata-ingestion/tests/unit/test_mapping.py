@@ -2,6 +2,7 @@ from typing import Any, Dict
 
 from datahub.metadata.com.linkedin.pegasus2avro.common import GlobalTags
 from datahub.metadata.schema_classes import (
+    DomainsClass,
     GlobalTagsClass,
     GlossaryTermsClass,
     InstitutionalMemoryClass,
@@ -185,8 +186,9 @@ def test_operation_processor_advanced_matching_owners():
 def test_operation_processor_ownership_category():
     raw_props = {
         "user_owner": "@test_user",
-        "business_owner": "alice",
+        "business_owner": "alice,urn:li:corpGroup:biz-data-team",
         "architect": "bob",
+        "producer": "urn:li:corpGroup:producer-group",
     }
     processor = OperationProcessor(
         operation_defs={
@@ -214,6 +216,14 @@ def test_operation_processor_ownership_category():
                     "owner_category": "urn:li:ownershipType:architect",
                 },
             },
+            "producer": {
+                "match": ".*",
+                "operation": "add_owner",
+                "config": {
+                    # Testing using full urns without any owner_type set.
+                    "owner_category": OwnershipTypeClass.PRODUCER,
+                },
+            },
         },
         owner_source_type="SOURCE_CONTROL",
     )
@@ -221,20 +231,30 @@ def test_operation_processor_ownership_category():
     assert "add_owner" in aspect_map
 
     ownership_aspect: OwnershipClass = aspect_map["add_owner"]
-    assert len(ownership_aspect.owners) == 3
-    new_owner: OwnerClass = ownership_aspect.owners[0]
-    assert new_owner.owner == "urn:li:corpGroup:test_user"
-    assert new_owner.source and new_owner.source.type == "SOURCE_CONTROL"
-    assert new_owner.type and new_owner.type == OwnershipTypeClass.DATA_STEWARD
+    assert len(ownership_aspect.owners) == 5
+    assert all(
+        new_owner.source and new_owner.source.type == "SOURCE_CONTROL"
+        for new_owner in ownership_aspect.owners
+    )
 
-    new_owner = ownership_aspect.owners[1]
-    assert new_owner.owner == "urn:li:corpuser:alice"
-    assert new_owner.source and new_owner.source.type == "SOURCE_CONTROL"
+    new_owner: OwnerClass = ownership_aspect.owners[0]
+    assert new_owner.owner == "urn:li:corpGroup:biz-data-team"
     assert new_owner.type and new_owner.type == OwnershipTypeClass.BUSINESS_OWNER
 
+    new_owner = ownership_aspect.owners[1]
+    assert new_owner.owner == "urn:li:corpGroup:producer-group"
+    assert new_owner.type and new_owner.type == OwnershipTypeClass.PRODUCER
+
     new_owner = ownership_aspect.owners[2]
+    assert new_owner.owner == "urn:li:corpGroup:test_user"
+    assert new_owner.type and new_owner.type == OwnershipTypeClass.DATA_STEWARD
+
+    new_owner = ownership_aspect.owners[3]
+    assert new_owner.owner == "urn:li:corpuser:alice"
+    assert new_owner.type and new_owner.type == OwnershipTypeClass.BUSINESS_OWNER
+
+    new_owner = ownership_aspect.owners[4]
     assert new_owner.owner == "urn:li:corpuser:bob"
-    assert new_owner.source and new_owner.source.type == "SOURCE_CONTROL"
     assert new_owner.type == OwnershipTypeClass.CUSTOM
     assert new_owner.typeUrn == "urn:li:ownershipType:architect"
 
@@ -366,6 +386,7 @@ def test_operation_processor_datahub_props():
                     "owner_type": "urn:li:ownershipType:steward",
                 },
             ],
+            "domain": "domain1",
         }
     }
 
@@ -396,3 +417,6 @@ def test_operation_processor_datahub_props():
     assert [
         term_association.urn for term_association in aspect_map["add_term"].terms
     ] == ["urn:li:glossaryTerm:term1", "urn:li:glossaryTerm:term2"]
+
+    assert isinstance(aspect_map["add_domain"], DomainsClass)
+    assert aspect_map["add_domain"].domains == ["urn:li:domain:domain1"]

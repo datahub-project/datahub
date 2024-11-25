@@ -9,26 +9,27 @@ DataHub works.
 
 ## Feature Flags
 
-| Variable                                         | Default | Unit/Type | Components                              | Description                                                                                                                 |
-|--------------------------------------------------|---------|-----------|-----------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
-| `UI_INGESTION_ENABLED`                           | `true`  | boolean   | [`GMS`, `MCE Consumer`]                 | Enable UI based ingestion.                                                                                                  |
-| `DATAHUB_ANALYTICS_ENABLED`                      | `true`  | boolean   | [`Frontend`, `GMS`]                     | Collect DataHub usage to populate the analytics dashboard.                                                                  |
-| `BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE` | `true`  | boolean   | [`GMS`, `MCE Consumer`, `MAE Consumer`] | Do not wait for the `system-update` to complete before starting. This should typically only be disabled during development. |
-| `ER_MODEL_RELATIONSHIP_FEATURE_ENABLED`          | `false` | boolean   | [`Frontend`, `GMS`]                     | Enable ER Model Relation Feature that shows Relationships Tab within a Dataset UI.                                                       |
+| Variable                                         | Default  | Unit/Type | Components                               | Description                                                                                                                 |
+|--------------------------------------------------|----------|-----------|------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| `UI_INGESTION_ENABLED`                           | `true`   | boolean   | [`GMS`, `MCE Consumer`]                  | Enable UI based ingestion.                                                                                                  |
+| `DATAHUB_ANALYTICS_ENABLED`                      | `true`   | boolean   | [`Frontend`, `GMS`]                      | Collect DataHub usage to populate the analytics dashboard.                                                                  |
+| `BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE` | `true`   | boolean   | [`GMS`, `MCE Consumer`, `MAE Consumer`]  | Do not wait for the `system-update` to complete before starting. This should typically only be disabled during development. |
+| `ER_MODEL_RELATIONSHIP_FEATURE_ENABLED`          | `false`  | boolean   | [`Frontend`, `GMS`]                      | Enable ER Model Relation Feature that shows Relationships Tab within a Dataset UI.                                          |
+| `STRICT_URN_VALIDATION_ENABLED`                  | `false`  | boolean   | [`GMS`, `MCE Consumer`, `MAE Consumer`]  | Enable stricter URN validation logic                                                                                        |
 
 
 ## Ingestion
 
-| Variable                           | Default | Unit/Type | Components              | Description                                                                                                                                                                       |
-|------------------------------------|---------|-----------|-------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `ASYNC_INGEST_DEFAULT`          | `false` | boolean   | [`GMS`]                 | Asynchronously process ingestProposals by writing the ingestion MCP to Kafka. Typically enabled with standalone consumers.                                                        |
-| `MCP_CONSUMER_ENABLED`             | `true`  | boolean   | [`GMS`, `MCE Consumer`] | When running in standalone mode, disabled on `GMS` and enabled on separate `MCE Consumer`.                                                                                        |
-| `MCL_CONSUMER_ENABLED`             | `true`  | boolean   | [`GMS`, `MAE Consumer`] | When running in standalone mode, disabled on `GMS` and enabled on separate `MAE Consumer`.                                                                                        |
-| `PE_CONSUMER_ENABLED`              | `true`  | boolean   | [`GMS`, `MAE Consumer`] | When running in standalone mode, disabled on `GMS` and enabled on separate `MAE Consumer`.                                                                                        |
-| `ES_BULK_REQUESTS_LIMIT`           | 1000    | docs      | [`GMS`, `MAE Consumer`] | Number of bulk documents to index. `MAE Consumer` if standalone.                                                                                                                  |
-| `ES_BULK_FLUSH_PERIOD`             | 1       | seconds   | [`GMS`, `MAE Consumer`] | How frequently indexed documents are made available for query.                                                                                                                    |
-| `ALWAYS_EMIT_CHANGE_LOG`           | `false` | boolean   | [`GMS`]                 | Enables always emitting a MCL even when no changes are detected. Used for Time Based Lineage when no changes occur.                                                               |                                                                                                                  |
-| `GRAPH_SERVICE_DIFF_MODE_ENABLED`  | `true`  | boolean   | [`GMS`]                 | Enables diff mode for graph writes, uses a different code path that produces a diff from previous to next to write relationships instead of wholesale deleting edges and reading. |
+| Variable                          | Default | Unit/Type | Components              | Description                                                                                                                                                                        |
+|-----------------------------------|---------|-----------|-------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `ASYNC_INGEST_DEFAULT`            | `false` | boolean   | [`GMS`]                 | Asynchronously process ingestProposals by writing the ingestion MCP to Kafka. Typically enabled with standalone consumers.                                                         |
+| `MCP_CONSUMER_ENABLED`            | `true`  | boolean   | [`GMS`, `MCE Consumer`] | When running in standalone mode, disabled on `GMS` and enabled on separate `MCE Consumer`.                                                                                         |
+| `MCL_CONSUMER_ENABLED`            | `true`  | boolean   | [`GMS`, `MAE Consumer`] | When running in standalone mode, disabled on `GMS` and enabled on separate `MAE Consumer`.                                                                                         |
+| `PE_CONSUMER_ENABLED`             | `true`  | boolean   | [`GMS`, `MAE Consumer`] | When running in standalone mode, disabled on `GMS` and enabled on separate `MAE Consumer`.                                                                                         |
+| `ES_BULK_REQUESTS_LIMIT`          | 1000    | docs      | [`GMS`, `MAE Consumer`] | Number of bulk documents to index. `MAE Consumer` if standalone.                                                                                                                   |
+| `ES_BULK_FLUSH_PERIOD`            | 1       | seconds   | [`GMS`, `MAE Consumer`] | How frequently indexed documents are made available for query.                                                                                                                     |
+| `ALWAYS_EMIT_CHANGE_LOG`          | `false` | boolean   | [`GMS`]                 | Enables always emitting a MCL even when no changes are detected. Used for Time Based Lineage when no changes occur.                                                                |                                                                                                                  |
+| `GRAPH_SERVICE_DIFF_MODE_ENABLED` | `true`  | boolean   | [`GMS`]                 | Enables diff mode for graph writes, uses a different code path that produces a diff from previous to next to write relationships instead of wholesale deleting edges and reading.  |
 
 ## Caching
 
@@ -45,23 +46,25 @@ DataHub works.
 
 ## Search
 
-| Variable                                            | Default                | Unit/Type | Components                                                      | Description                                                              |
-|-----------------------------------------------------|------------------------|-----------|-----------------------------------------------------------------|--------------------------------------------------------------------------|
-| `INDEX_PREFIX`                                      | ``                     | string    | [`GMS`, `MAE Consumer`, `Elasticsearch Setup`, `System Update`] | Prefix Elasticsearch indices with the given string.                      |
-| `ELASTICSEARCH_NUM_SHARDS_PER_INDEX`                | 1                      | integer   | [`System Update`]                                               | Default number of shards per Elasticsearch index.                        |
-| `ELASTICSEARCH_NUM_REPLICAS_PER_INDEX`              | 1                      | integer   | [`System Update`]                                               | Default number of replica per Elasticsearch index.                       |
-| `ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE`       | 60                     | integer   | [`System Update`]                                               | Number of units for the retention of Elasticsearch clone/backup indices. |
-| `ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT`        | DAYS                   | string    | [`System Update`]                                               | Unit for the retention of Elasticsearch clone/backup indices.            |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE`         | `false`                | boolean   | [`GMS`]                                                         | Only return exact matches when using quotes.                             |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_WITH_PREFIX`       | `true`                 | boolean   | [`GMS`]                                                         | Include prefix match in exact match results.                             |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR`            | 10.0                   | float     | [`GMS`]                                                         | Multiply by this number on true exact match.                             |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR`     | 1.6                    | float     | [`GMS`]                                                         | Multiply by this number when prefix match.                               |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR`       | 0.7                    | float     | [`GMS`]                                                         | Multiply by this number when case insensitive match.                     |
-| `ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED` | `true`                 | boolean   | [`GMS`]                                                         | When using structured query, also include exact matches.                 |
-| `ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR`            | 0.5                    | float     | [`GMS`]                                                         | Multiply by this number when partial token match on URN)                 |
-| `ELASTICSEARCH_QUERY_PARTIAL_FACTOR`                | 0.4                    | float     | [`GMS`]                                                         | Multiply by this number when partial token match on non-URN field.       |
-| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED`         | `false`                | boolean   | [`GMS`]                                                         | Enable search query and ranking customization configuration.             |
-| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE`            | `search_config.yml`    | string    | [`GMS`]                                                         | The location of the search customization configuration.                  |
+| Variable                                            | Default             | Unit/Type | Components                                                      | Description                                                              |
+|-----------------------------------------------------|---------------------|-----------|-----------------------------------------------------------------|--------------------------------------------------------------------------|
+| `INDEX_PREFIX`                                      | ``                  | string    | [`GMS`, `MAE Consumer`, `Elasticsearch Setup`, `System Update`] | Prefix Elasticsearch indices with the given string.                      |
+| `ELASTICSEARCH_NUM_SHARDS_PER_INDEX`                | 1                   | integer   | [`System Update`]                                               | Default number of shards per Elasticsearch index.                        |
+| `ELASTICSEARCH_NUM_REPLICAS_PER_INDEX`              | 1                   | integer   | [`System Update`]                                               | Default number of replica per Elasticsearch index.                       |
+| `ELASTICSEARCH_BUILD_INDICES_RETENTION_VALUE`       | 60                  | integer   | [`System Update`]                                               | Number of units for the retention of Elasticsearch clone/backup indices. |
+| `ELASTICSEARCH_BUILD_INDICES_RETENTION_UNIT`        | DAYS                | string    | [`System Update`]                                               | Unit for the retention of Elasticsearch clone/backup indices.            |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_EXCLUSIVE`         | `false`             | boolean   | [`GMS`]                                                         | Only return exact matches when using quotes.                             |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_WITH_PREFIX`       | `true`              | boolean   | [`GMS`]                                                         | Include prefix match in exact match results.                             |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_FACTOR`            | 10.0                | float     | [`GMS`]                                                         | Multiply by this number on true exact match.                             |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_PREFIX_FACTOR`     | 1.6                 | float     | [`GMS`]                                                         | Multiply by this number when prefix match.                               |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_CASE_FACTOR`       | 0.7                 | float     | [`GMS`]                                                         | Multiply by this number when case insensitive match.                     |
+| `ELASTICSEARCH_QUERY_EXACT_MATCH_ENABLE_STRUCTURED` | `true`              | boolean   | [`GMS`]                                                         | When using structured query, also include exact matches.                 |
+| `ELASTICSEARCH_QUERY_PARTIAL_URN_FACTOR`            | 0.5                 | float     | [`GMS`]                                                         | Multiply by this number when partial token match on URN)                 |
+| `ELASTICSEARCH_QUERY_PARTIAL_FACTOR`                | 0.4                 | float     | [`GMS`]                                                         | Multiply by this number when partial token match on non-URN field.       |
+| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_ENABLED`         | `true`              | boolean   | [`GMS`]                                                         | Enable search query and ranking customization configuration.             |
+| `ELASTICSEARCH_QUERY_CUSTOM_CONFIG_FILE`            | `search_config.yml` | string    | [`GMS`]                                                         | The location of the search customization configuration.                  |
+| `ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX`      | `false`             | boolean   | [`System Update`]                                               | Enable reindexing on Elasticsearch schema changes.                       |
+| `ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE`        | `false`             | boolean   | [`System Update`]                                               | Enable reindexing to remove hard deleted structured properties.          |
 
 ## Kafka
 

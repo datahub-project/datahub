@@ -35,6 +35,7 @@
     "@octokit/plugin-throttling": "^3.5.1",
     "@octokit/rest": "^18.6.2",
     "@radix-ui/react-visually-hidden": "^1.0.2",
+    "@servicebell/widget": "^0.1.6",
     "@supabase/supabase-js": "^2.33.1",
     "@swc/core": "^1.4.2",
     "antd": "^5.0.7",
@@ -42,12 +43,15 @@
     "docusaurus-graphql-plugin": "0.5.0",
     "docusaurus-plugin-sass": "^0.2.1",
     "dotenv": "^16.0.1",
+    "framer-motion": "^11.5.4",
     "markdown-link-check": "^3.11.2",
     "markprompt": "^0.1.7",
     "react": "^18.2.0",
     "react-dom": "18.2.0",
+    "react-use-draggable-scroll": "^0.4.7",
     "sass": "^1.43.2",
     "swc-loader": "^0.2.6",
+    "swiper": "^11.1.4",
     "uuid": "^9.0.0"
   },
   "browserslist": {

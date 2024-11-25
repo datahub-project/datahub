@@ -5,7 +5,7 @@ import * as QueryString from 'query-string';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
 import PolicyBuilderModal from './PolicyBuilderModal';
-import { AndFilterInput, Policy, PolicyState,FilterOperator } from '../../../types.generated';
+import { AndFilterInput, Policy, PolicyState, FilterOperator } from '../../../types.generated';
 import { useAppConfig } from '../../useAppConfig';
 import PolicyDetailsModal from './PolicyDetailsModal';
 import { useListPoliciesQuery } from '../../../graphql/policy.generated';
@@ -200,14 +200,14 @@ export const ManagePolicies = () => {
         onSavePolicy,
         onToggleActiveDuplicate,
         onRemovePolicy,
-        getPrivilegeNames
+        getPrivilegeNames,
     } = usePolicy(
         policiesConfig,
         focusPolicyUrn,
         policiesRefetch,
         setShowViewPolicyModal,
         onCancelViewPolicy,
-        onClosePolicyBuilder
+        onClosePolicyBuilder,
     );
 
     const updateError = createPolicyError || updatePolicyError || deletePolicyError;
@@ -426,7 +426,7 @@ export const ManagePolicies = () => {
                     focusPolicyUrn={focusPolicyUrn}
                     policy={focusPolicy || EMPTY_POLICY}
                     setPolicy={setFocusPolicy}
-                    visible={showPolicyBuilderModal}
+                    open={showPolicyBuilderModal}
                     onClose={onClosePolicyBuilder}
                     onSave={onSavePolicy}
                 />
@@ -434,7 +434,7 @@ export const ManagePolicies = () => {
             {showViewPolicyModal && (
                 <PolicyDetailsModal
                     policy={focusPolicy}
-                    visible={showViewPolicyModal}
+                    open={showViewPolicyModal}
                     onClose={onCancelViewPolicy}
                     privileges={getPrivilegeNames(focusPolicy)}
                 />

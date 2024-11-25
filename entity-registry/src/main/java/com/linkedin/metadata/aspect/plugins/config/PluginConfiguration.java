@@ -27,6 +27,13 @@ public class PluginConfiguration {
 
   public static PluginConfiguration EMPTY = new PluginConfiguration();
 
+  public boolean isEmpty() {
+    return aspectPayloadValidators.isEmpty()
+        && mutationHooks.isEmpty()
+        && mclSideEffects.isEmpty()
+        && mcpSideEffects.isEmpty();
+  }
+
   public static PluginConfiguration merge(PluginConfiguration a, PluginConfiguration b) {
     return new PluginConfiguration(
         Stream.concat(

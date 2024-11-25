@@ -6,10 +6,12 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AddOwnersInput;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -23,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 public class AddOwnersResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService _entityService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -32,9 +35,10 @@ public class AddOwnersResolver implements DataFetcher<CompletableFuture<Boolean>
     List<OwnerInput> owners = input.getOwners();
     Urn targetUrn = Urn.createFromString(input.getResourceUrn());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          OwnerUtils.validateAuthorizedToUpdateOwners(environment.getContext(), targetUrn);
+          OwnerUtils.validateAuthorizedToUpdateOwners(
+              environment.getContext(), targetUrn, _entityClient);
 
           OwnerUtils.validateAddOwnerInput(
               context.getOperationContext(), owners, targetUrn, _entityService);
@@ -55,6 +59,8 @@ public class AddOwnersResolver implements DataFetcher<CompletableFuture<Boolean>
             throw new RuntimeException(
                 String.format("Failed to add owners to resource with input %s", input), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -7,6 +7,8 @@ import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.batch.MCLItem;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import java.util.Collection;
@@ -71,6 +73,12 @@ public class MCPSideEffectTest {
     protected Stream<ChangeMCP> applyMCPSideEffect(
         Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
       return changeMCPS.stream();
+    }
+
+    @Override
+    protected Stream<MCPItem> postMCPSideEffect(
+        Collection<MCLItem> mclItems, @Nonnull RetrieverContext retrieverContext) {
+      return Stream.of();
     }
   }
 }

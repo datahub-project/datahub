@@ -16,6 +16,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
+    StatusClass,
     TagAssociationClass,
 )
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
@@ -110,7 +111,18 @@ class DataFlow:
         )
         return [tags]
 
+    def _get_env(self) -> Optional[str]:
+        env: Optional[str] = None
+        if self.env and self.env.upper() in builder.ALL_ENV_TYPES:
+            env = self.env.upper()
+        else:
+            logger.debug(
+                f"{self.env} is not a valid environment type so Environment filter won't work."
+            )
+        return env
+
     def generate_mce(self) -> MetadataChangeEventClass:
+        env = self._get_env()
         flow_mce = MetadataChangeEventClass(
             proposedSnapshot=DataFlowSnapshotClass(
                 urn=str(self.urn),
@@ -120,6 +132,7 @@ class DataFlow:
                         description=self.description,
                         customProperties=self.properties,
                         externalUrl=self.url,
+                        env=env,
                     ),
                     *self.generate_ownership_aspect(),
                     *self.generate_tags_aspect(),
@@ -130,6 +143,7 @@ class DataFlow:
         return flow_mce
 
     def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
+        env = self._get_env()
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataFlowInfoClass(
@@ -137,6 +151,15 @@ class DataFlow:
                 description=self.description,
                 customProperties=self.properties,
                 externalUrl=self.url,
+                env=env,
+            ),
+        )
+        yield mcp
+
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=str(self.urn),
+            aspect=StatusClass(
+                removed=False,
             ),
         )
         yield mcp

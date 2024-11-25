@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -13,6 +14,7 @@ import com.linkedin.datahub.graphql.generated.ScrollAcrossLineageInput;
 import com.linkedin.datahub.graphql.generated.ScrollAcrossLineageResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.LineageFlagsInputMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnScrollAcrossLineageResultsMapper;
 import com.linkedin.entity.client.EntityClient;
@@ -77,7 +79,8 @@ public class ScrollAcrossLineageResolver
     @Nullable
     Long startTimeMillis = input.getStartTimeMillis() == null ? null : input.getStartTimeMillis();
     @Nullable
-    Long endTimeMillis = input.getEndTimeMillis() == null ? null : input.getEndTimeMillis();
+    Long endTimeMillis =
+        ResolverUtils.getLineageEndTimeMillis(input.getStartTimeMillis(), input.getEndTimeMillis());
 
     final LineageFlags lineageFlags = LineageFlagsInputMapper.map(context, input.getLineageFlags());
     if (lineageFlags.getStartTimeMillis() == null && startTimeMillis != null) {
@@ -87,11 +90,10 @@ public class ScrollAcrossLineageResolver
     if (lineageFlags.getEndTimeMillis() == null && endTimeMillis != null) {
       lineageFlags.setEndTimeMillis(endTimeMillis);
     }
-    ;
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             log.debug(
@@ -105,17 +107,13 @@ public class ScrollAcrossLineageResolver
                 count);
 
             final SearchFlags searchFlags;
-            final com.linkedin.datahub.graphql.generated.SearchFlags inputFlags =
-                input.getSearchFlags();
+            com.linkedin.datahub.graphql.generated.SearchFlags inputFlags = input.getSearchFlags();
             if (inputFlags != null) {
-              searchFlags =
-                  new SearchFlags()
-                      .setSkipCache(inputFlags.getSkipCache())
-                      .setFulltext(inputFlags.getFulltext())
-                      .setMaxAggValues(inputFlags.getMaxAggValues());
+              searchFlags = SearchFlagsInputMapper.INSTANCE.apply(context, inputFlags);
             } else {
               searchFlags = null;
             }
+
             return UrnScrollAcrossLineageResultsMapper.map(
                 context,
                 _entityClient.scrollAcrossLineage(
@@ -156,6 +154,8 @@ public class ScrollAcrossLineageResolver
                         count),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

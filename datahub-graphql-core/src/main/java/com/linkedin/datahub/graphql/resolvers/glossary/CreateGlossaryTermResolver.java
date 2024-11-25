@@ -10,6 +10,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityInput;
 import com.linkedin.datahub.graphql.generated.OwnerEntityType;
@@ -58,7 +59,7 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
     final Urn parentNode =
         input.getParentNode() != null ? UrnUtils.getUrn(input.getParentNode()) : null;
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (GlossaryUtils.canManageChildrenEntities(context, parentNode, _entityClient)) {
             // Ensure there isn't another glossary term with the same name at this level of the
@@ -105,7 +106,9 @@ public class CreateGlossaryTermResolver implements DataFetcher<CompletableFuture
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private GlossaryTermInfo mapGlossaryTermInfo(final CreateGlossaryEntityInput input) {

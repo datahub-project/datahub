@@ -1,6 +1,7 @@
 import datetime
 import logging
-import uuid
+import random
+import string
 from typing import Any, Dict, List, Optional
 
 from pydantic import Field, validator
@@ -62,6 +63,23 @@ class FlagsConfig(ConfigModel):
         ),
     )
 
+    set_system_metadata: bool = Field(
+        True, description="Set system metadata on entities."
+    )
+    set_system_metadata_pipeline_name: bool = Field(
+        True,
+        description="Set system metadata pipeline name. Requires `set_system_metadata` to be enabled.",
+    )
+
+
+def _generate_run_id(source_type: Optional[str] = None) -> str:
+    current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
+    random_suffix = "".join(random.choices(string.ascii_lowercase + string.digits, k=6))
+
+    if source_type is None:
+        source_type = "ingestion"
+    return f"{source_type}-{current_time}-{random_suffix}"
+
 
 class PipelineConfig(ConfigModel):
     source: SourceConfig
@@ -83,12 +101,11 @@ class PipelineConfig(ConfigModel):
         cls, v: Optional[str], values: Dict[str, Any], **kwargs: Any
     ) -> str:
         if v == DEFAULT_RUN_ID:
+            source_type = None
             if "source" in values and hasattr(values["source"], "type"):
                 source_type = values["source"].type
-                current_time = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S")
-                return f"{source_type}-{current_time}"
 
-            return str(uuid.uuid1())  # default run_id if we cannot infer a source type
+            return _generate_run_id(source_type)
         else:
             assert v is not None
             return v

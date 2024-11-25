@@ -68,10 +68,26 @@ type Query {
     Fetch a Tag by primary key (urn)
     """
     tag(urn: String!): Tag
+
+    """
+    Fetch a View by primary key (urn)
+    """
+    view(urn: String!): DataHubView
+
+    """
+    Fetch a Form by primary key (urn)
+    """
+    form(urn: String!): Form
+
     """
     Fetch a Role by primary key (urn)
     """
     role(urn: String!): Role
+
+    """
+    Fetch a Structured Property by primary key (urn)
+    """
+    structuredProperty(urn: String!): StructuredPropertyEntity
 
     """
     Fetch a ERModelRelationship by primary key (urn)
@@ -629,7 +645,7 @@ type Mutation {
     updateERModelRelationship(
         "The urn of the ERModelRelationship to update"
         urn: String!,
-        "Input required to updat an existing DataHub View"
+        "Input required to update an existing DataHub View"
         input: ERModelRelationshipUpdateInput!): Boolean
 
     """
@@ -779,7 +795,7 @@ type Mutation {
     updateView(
       "The urn of the View to update"
       urn: String!,
-      "Input required to updat an existing DataHub View"
+      "Input required to update an existing DataHub View"
       input: UpdateViewInput!): DataHubView
 
     """
@@ -890,7 +906,7 @@ type Mutation {
     """
     Creates a filter for a form to apply it to certain entities. Entities that match this filter will have
     a given form applied to them.
-    This feature is ONLY supported in Acryl DataHub.
+    This feature is ONLY supported in DataHub Cloud.
     """
     createDynamicFormAssignment(input: CreateDynamicFormAssignmentInput!): Boolean
 
@@ -1158,6 +1174,11 @@ enum EntityType {
     """
     ROLE
 
+    """
+    A data contract
+    """
+    DATA_CONTRACT
+
     """"
     An structured property on entities
     """
@@ -1237,6 +1258,11 @@ input LineageInput {
     An optional ending time to filter on
     """
     endTimeMillis: Long
+
+    """
+    If enabled, include entities that do not exist or are soft deleted.
+    """
+    includeGhostEntities: Boolean = false
 }
 
 """
@@ -1262,6 +1288,11 @@ input RelationshipsInput {
   The number of results to be returned
   """
   count: Int
+
+  """
+  Whether to include soft-deleted, related, entities
+  """
+  includeSoftDelete: Boolean = true
 }
 
 """
@@ -2695,6 +2726,11 @@ enum FabricType {
     Designates review fabrics
     """
     RVW
+
+    """
+    Designates sandbox fabrics
+    """
+    SANDBOX
 }
 
 """
@@ -2800,6 +2836,11 @@ type Container implements Entity {
     Whether or not this entity exists on DataHub
     """
     exists: Boolean
+
+    """
+	The Roles and the properties to access the container
+	"""
+	access: Access
 
     """
     Experimental API.
@@ -2964,8 +3005,14 @@ type InstitutionalMemoryMetadata {
 
     """
     The author of this metadata
+    Deprecated! Use actor instead for users or groups.
     """
-    author: CorpUser!
+    author: CorpUser! @deprecated(reason: "Use `actor`")
+
+    """
+    The author of this metadata
+    """
+    actor: ResolvedActor!
 
     """
     An AuditStamp corresponding to the creation of this resource
@@ -3215,6 +3262,11 @@ type SchemaFieldEntity implements Entity {
     Business Attribute associated with the field
     """
     businessAttributes: BusinessAttributes
+
+    """
+    Documentation aspect for this schema field
+    """
+    documentation: Documentation
 }
 
 """
@@ -3456,6 +3508,11 @@ type DatasetEditableProperties {
     Description of the Dataset
     """
     description: String
+
+    """
+    Editable name of the Dataset
+    """
+    name: String
 }
 
 """
@@ -3782,6 +3839,8 @@ enum CorpUserStatus {
   """
   ACTIVE
 }
+
+union ResolvedActor = CorpUser | CorpGroup
 
 """
 A DataHub User entity, which represents a Person on the Metadata Entity Graph
@@ -4134,6 +4193,16 @@ type CorpUserEditableProperties {
     Email address for the user
     """
     email: String
+
+    """
+    User persona, if present
+    """
+    persona: DataHubPersona
+
+    """
+    Platforms commonly used by the user, if present.
+    """
+    platforms: [DataPlatform!]
 }
 
 """
@@ -4184,6 +4253,16 @@ input CorpUserUpdateInput {
     Email address for the user
     """
     email: String
+
+    """
+    The platforms that the user frequently works with
+    """
+    platformUrns: [String!]
+
+    """
+    The user's persona urn"
+    """
+    personaUrn: String
 }
 
 """
@@ -4804,6 +4883,10 @@ input DatasetEditablePropertiesUpdate {
     Writable description aka documentation for a Dataset
     """
     description: String!
+    """
+    Editable name of the Dataset
+    """
+    name: String
 }
 
 """
@@ -7294,6 +7377,11 @@ type Assertion implements EntityWithRelationships & Entity {
     status: Status
 
     """
+    The standard tags for the Assertion
+    """
+    tags: GlobalTags
+
+    """
     Experimental API.
     For fetching extra aspects that do not have custom UI code yet
     """
@@ -7318,6 +7406,11 @@ type AssertionInfo {
     An optional human-readable description of the assertion
     """
     description: String
+
+    """
+    URL where assertion details are available
+    """
+    externalUrl: String
 }
 
 """
@@ -7395,6 +7488,11 @@ type AssertionRunEvent implements TimeSeriesAspect {
   timestampMillis: Long!
 
   """
+  The time at which the run event was last observed by the DataHub system - ie, when it was reported by external systems
+  """
+  lastObservedMillis: Long
+
+  """
   Urn of assertion which is evaluated
   """
   assertionUrn: String!
@@ -7410,7 +7508,7 @@ type AssertionRunEvent implements TimeSeriesAspect {
   runId: String!
 
   """
-  The status of the assertion run as per this timeseries event.
+  The status of the assertion run as per this timeseries event
   """
   status: AssertionRunStatus!
 
@@ -7475,6 +7573,75 @@ type AssertionResult {
     """
     nativeResults: [StringMapEntry!]
 
+    """
+    Error details, if type is ERROR
+    """
+    error: AssertionResultError
+}
+
+"""
+An error encountered when evaluating an AssertionResult
+"""
+type AssertionResultError {
+    """
+    The type of error encountered
+    """
+    type: AssertionResultErrorType!
+
+    """
+    Additional metadata depending on the type of error
+    """
+    properties: [StringMapEntry!]
+}
+
+"""
+The type of error encountered when evaluating an AssertionResult
+"""
+enum AssertionResultErrorType {
+    """
+    Source is unreachable
+    """
+    SOURCE_CONNECTION_ERROR
+
+    """
+    Source query failed to execute
+    """
+    SOURCE_QUERY_FAILED
+
+    """
+    Invalid parameters were detected
+    """
+    INVALID_PARAMETERS
+
+    """
+    Insufficient data to evaluate assertion
+    """
+    INSUFFICIENT_DATA
+
+    """
+    Event type not supported by the specified source
+    """
+    INVALID_SOURCE_TYPE
+
+    """
+    Platform not supported
+    """
+    UNSUPPORTED_PLATFORM
+
+    """
+    Error while executing a custom SQL assertion
+    """
+    CUSTOM_SQL_ERROR
+
+    """
+    Error while executing a field assertion
+    """
+    FIELD_ASSERTION_ERROR
+
+    """
+    Unknown error
+    """
+    UNKNOWN_ERROR
 }
 
 type BatchSpec {
@@ -7504,6 +7671,11 @@ The result type of an assertion, success or failure.
 """
 enum AssertionResultType {
     """
+    The assertion has not yet been fully evaluated.
+    """
+    INIT
+
+    """
     The assertion succeeded.
     """
     SUCCESS
@@ -7512,6 +7684,11 @@ enum AssertionResultType {
     The assertion failed.
     """
     FAILURE
+
+    """
+    The assertion errored.
+    """
+    ERROR
 }
 
 """
@@ -7639,6 +7816,16 @@ enum AssertionStdOperator {
     EQUAL_TO
 
     """
+    Value being asserted is not equal to value
+    """
+    NOT_EQUAL_TO
+
+    """
+    Value being asserted is null
+    """
+    NULL
+
+    """
     Value being asserted is not null
     """
     NOT_NULL
@@ -7672,6 +7859,16 @@ enum AssertionStdOperator {
     Value being asserted is not in one of the array values.
     """
     NOT_IN
+
+    """
+    Value being asserted is true
+    """
+    IS_TRUE
+
+    """
+    Value being asserted is false
+    """
+    IS_FALSE
 
     """
     Other
@@ -7798,6 +7995,11 @@ enum AssertionType {
     A schema or structural assertion.
     """
     DATA_SCHEMA
+
+    """
+    A custom assertion.
+    """
+    CUSTOM
 }
 
 """
@@ -7818,6 +8020,11 @@ type AssertionRunEventsResult {
   The number of succeeded run events
   """
   succeeded: Int!
+
+  """
+  The number of errored run events
+  """
+  errored: Int!
 
   """
   The run events themselves
@@ -8034,6 +8241,11 @@ type Deprecation {
     The user who will be credited for modifying this deprecation content
     """
     actor: String
+
+    """
+    The hydrated user who will be credited for modifying this deprecation content
+    """
+    actorEntity: Entity
 }
 
 """
@@ -8968,6 +9180,10 @@ enum PolicyMatchCondition {
   Whether the field matches the value
   """
   EQUALS
+  """
+  Whether the field value starts with the value
+  """
+  STARTS_WITH
 }
 
 """
@@ -11090,6 +11306,21 @@ input CreatePostInput {
     The content of the post
     """
     content: UpdatePostContentInput!
+
+    """
+    Optional target URN for the post
+    """
+    resourceUrn: String
+
+    """
+    An optional type of a sub resource to attach the Tag to
+    """
+    subResourceType: SubResourceType
+
+    """
+    Optional target subresource for the post
+    """
+    subResource: String
 }
 
 """
@@ -12013,6 +12244,7 @@ input CreateDataProductPropertiesInput {
     description: String
 }
 
+
 """
 Input properties required for update a DataProduct
 """
@@ -12176,6 +12408,16 @@ input UpdateOwnershipTypeInput {
     The description of the Custom Ownership Type
     """
     description: String
+}
+
+"""
+A standardized type of a user
+"""
+type DataHubPersona {
+    """
+    The urn of the persona type
+    """
+    urn: String!
 }
 
 """
@@ -12535,4 +12777,19 @@ type ListBusinessAttributesResult {
     The Business Attributes
     """
     businessAttributes: [BusinessAttribute!]!
+}
+
+"""
+A cron schedule
+"""
+type CronSchedule {
+    """
+    A cron-formatted execution interval, as a cron string, e.g. 1 * * * *
+    """
+    cron: String!
+
+    """
+    Timezone in which the cron interval applies, e.g. America/Los_Angeles
+    """
+    timezone: String!
 }

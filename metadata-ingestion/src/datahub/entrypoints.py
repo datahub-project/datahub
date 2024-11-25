@@ -13,18 +13,16 @@ from datahub.cli.cli_utils import (
     generate_access_token,
     make_shim_command,
 )
-from datahub.cli.config_utils import (
-    DATAHUB_CONFIG_PATH,
-    get_boolean_env_variable,
-    write_gms_config,
-)
+from datahub.cli.config_utils import DATAHUB_CONFIG_PATH, write_gms_config
 from datahub.cli.delete_cli import delete
 from datahub.cli.docker_cli import docker
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.cli.exists_cli import exists
 from datahub.cli.get_cli import get
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
+from datahub.cli.specific.assertions_cli import assertions
 from datahub.cli.specific.datacontract_cli import datacontract
 from datahub.cli.specific.dataproduct_cli import dataproduct
 from datahub.cli.specific.dataset_cli import dataset
@@ -36,6 +34,7 @@ from datahub.cli.state_cli import state
 from datahub.cli.telemetry import telemetry as telemetry_cli
 from datahub.cli.timeline_cli import timeline
 from datahub.configuration.common import should_show_stack_trace
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.telemetry import telemetry
 from datahub.utilities._custom_package_loader import model_version_name
 from datahub.utilities.logging_manager import configure_logging
@@ -65,7 +64,7 @@ MAX_CONTENT_WIDTH = 120
     "--log-file",
     type=click.Path(dir_okay=False),
     default=None,
-    help="Enable debug logging.",
+    help="Write debug-level logs to a file.",
 )
 @click.version_option(
     version=datahub_package.nice_version_name(),
@@ -95,13 +94,23 @@ def datahub(
 
 
 @datahub.command()
+@click.option(
+    "--include-server",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="If passed will show server config. Assumes datahub init has happened.",
+)
 @telemetry.with_telemetry()
-def version() -> None:
+def version(include_server: bool = False) -> None:
     """Print version number and exit."""
 
     click.echo(f"DataHub CLI version: {datahub_package.nice_version_name()}")
     click.echo(f"Models: {model_version_name()}")
     click.echo(f"Python version: {sys.version}")
+    if include_server:
+        server_config = get_default_graph().get_config()
+        click.echo(f"Server config: {server_config}")
 
 
 @datahub.command()
@@ -137,11 +146,11 @@ def init(use_password: bool = False) -> None:
         )
     else:
         token = click.prompt(
-            "Enter your DataHub access token (Supports env vars via `{VAR_NAME}` syntax)",
+            "Enter your DataHub access token",
             type=str,
             default="",
         )
-    write_gms_config(host, token)
+    write_gms_config(host, token, merge_with_previous=False)
 
     click.echo(f"Written to {DATAHUB_CONFIG_PATH}")
 
@@ -164,6 +173,7 @@ datahub.add_command(dataset)
 datahub.add_command(properties)
 datahub.add_command(forms)
 datahub.add_command(datacontract)
+datahub.add_command(assertions)
 
 try:
     from datahub.cli.lite_cli import lite

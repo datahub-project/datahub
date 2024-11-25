@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "project_name": "lkml_samples"
             },
-            "name": "lkml_samples"
+            "name": "lkml_samples",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -116,7 +117,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "# File was added to check duplicate field issue\n\nview: dataset_lineages {\n  sql_table_name: \"PUBLIC\".\"DATASET_LINEAGES\"\n    ;;\n\n  dimension: createdon {\n    type:  date\n    sql: ${TABLE}.\"CREATEDON\" ;;\n  }\n\n  dimension_group: createdon {\n    type: time\n    timeframes: [\n      raw,\n      time,\n      date,\n      week,\n      month,\n      quarter,\n      year\n    ]\n    sql: ${TABLE}.\"CREATEDON\" ;;\n  }\n\n  dimension: entity {\n    type: string\n    sql: ${TABLE}.\"ENTITY\" ;;\n  }\n\n  dimension: metadata {\n    type: string\n    sql: ${TABLE}.\"METADATA\" ;;\n  }\n\n  dimension: urn {\n    type: string\n    sql: ${TABLE}.\"URN\" ;;\n  }\n\n  dimension: version {\n    type: number\n    sql: ${TABLE}.\"VERSION\" ;;\n  }\n\n  measure: count {\n    type: count\n    drill_fields: []\n  }\n}\n",
+            "viewLogic": "# File was added to check duplicate field issue\n\nview: dataset_lineages {\n  sql_table_name: \"PUBLIC\".\"DATASET_LINEAGES\"\n    ;;\n\n  dimension: createdon {\n    type:  date\n    sql: ${TABLE}.\"CREATEDON\" ;;\n  }\n\n  dimension_group: createdon {\n    type: time\n    timeframes: [\n      raw,\n      time,\n      date,\n      week,\n      month,\n      quarter,\n      year\n    ]\n    sql: ${TABLE}.\"CREATEDON\" ;;\n  }\n\n  dimension: entity {\n    type: string\n    sql: ${TABLE}.\"ENTITY\" ;;\n  }\n\n  dimension: metadata {\n    type: string\n    sql: ${TABLE}.\"METADATA\" ;;\n  }\n\n  dimension: urn {\n    type: string\n    sql: ${TABLE}.\"URN\" ;;\n  }\n\n  dimension: version {\n    type: number\n    tags: [\"softVersion\"]\n    sql: ${TABLE}.\"VERSION\" ;;\n  }\n\n  measure: count {\n    type: count\n    drill_fields: []\n  }\n}\n",
             "viewLanguage": "lookml"
         }
     },
@@ -167,7 +168,7 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:conn,.public.dataset_lineages,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD)",
                                 "type": "VIEW"
                             }
                         ],
@@ -175,7 +176,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,.public.dataset_lineages,PROD),entity)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),entity)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -186,7 +187,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,.public.dataset_lineages,PROD),metadata)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),metadata)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -197,7 +198,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,.public.dataset_lineages,PROD),urn)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),urn)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -208,7 +209,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,.public.dataset_lineages,PROD),version)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),version)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -219,7 +220,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,.public.dataset_lineages,PROD),createdon)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),createdon)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -230,7 +231,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:conn,.public.dataset_lineages,PROD),count)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.dataset_lineages,PROD),count)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [
@@ -338,6 +339,9 @@
                                 "recursive": false,
                                 "globalTags": {
                                     "tags": [
+                                        {
+                                            "tag": "urn:li:tag:softVersion"
+                                        },
                                         {
                                             "tag": "urn:li:tag:Dimension"
                                         }
@@ -477,6 +481,22 @@
     "aspect": {
         "json": {
             "name": "Temporal"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "lookml-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:softVersion",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "softVersion"
         }
     },
     "systemMetadata": {

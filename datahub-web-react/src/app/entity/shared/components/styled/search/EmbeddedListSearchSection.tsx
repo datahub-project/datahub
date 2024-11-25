@@ -72,7 +72,7 @@ export const EmbeddedListSearchSection = ({
     resetShouldRefetch,
     applyView,
     onLineageClick,
-    isLineageTab
+    isLineageTab,
 }: Props) => {
     const history = useHistory();
     const location = useLocation();

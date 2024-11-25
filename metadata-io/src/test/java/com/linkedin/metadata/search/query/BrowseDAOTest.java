@@ -10,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
@@ -26,6 +27,7 @@ import org.opensearch.client.RestHighLevelClient;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeMethod;
@@ -38,15 +40,27 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
   private OperationContext opContext;
 
   @Autowired private SearchConfiguration searchConfiguration;
-  @Autowired private CustomSearchConfiguration customSearchConfiguration;
+
+  @Autowired
+  @Qualifier("defaultTestCustomSearchConfig")
+  private CustomSearchConfiguration customSearchConfiguration;
 
   @BeforeMethod
   public void setup() throws RemoteInvocationException, URISyntaxException {
     mockClient = mock(RestHighLevelClient.class);
     opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
-            new IndexConventionImpl("es_browse_dao_test"));
-    browseDAO = new ESBrowseDAO(mockClient, searchConfiguration, customSearchConfiguration);
+            new IndexConventionImpl(
+                IndexConventionImpl.IndexConventionConfig.builder()
+                    .prefix("es_browse_dao_test")
+                    .hashIdAlgo("MD5")
+                    .build()));
+    browseDAO =
+        new ESBrowseDAO(
+            mockClient,
+            searchConfiguration,
+            customSearchConfiguration,
+            QueryFilterRewriteChain.EMPTY);
   }
 
   public static Urn makeUrn(Object id) {
@@ -88,5 +102,14 @@ public class BrowseDAOTest extends AbstractTestNGSpringContextTests {
     List<String> browsePaths = browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn);
     assertEquals(browsePaths.size(), 1);
     assertEquals(browsePaths.get(0), "foo");
+
+    // Test the case of null browsePaths field
+    sourceMap.put("browsePaths", Collections.singletonList(null));
+    when(mockSearchHit.getSourceAsMap()).thenReturn(sourceMap);
+    when(mockSearchHits.getHits()).thenReturn(new SearchHit[] {mockSearchHit});
+    when(mockSearchResponse.getHits()).thenReturn(mockSearchHits);
+    when(mockClient.search(any(), eq(RequestOptions.DEFAULT))).thenReturn(mockSearchResponse);
+    List<String> nullBrowsePaths = browseDAO.getBrowsePaths(opContext, "dataset", dummyUrn);
+    assertEquals(nullBrowsePaths.size(), 0);
   }
 }

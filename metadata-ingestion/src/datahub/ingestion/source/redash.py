@@ -2,7 +2,6 @@ import logging
 import math
 import sys
 from dataclasses import dataclass, field
-from multiprocessing.pool import ThreadPool
 from typing import Dict, Iterable, List, Optional, Set, Type
 
 import dateutil.parser as dp
@@ -10,7 +9,7 @@ from packaging import version
 from pydantic.fields import Field
 from redash_toolbelt import Redash
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
+from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -18,12 +17,13 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
 from datahub.ingestion.api.registry import import_path
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -41,7 +41,8 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sql_parser import SQLParser
+from datahub.utilities.sql_parser_base import SQLParser
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -308,6 +309,7 @@ class RedashSourceReport(SourceReport):
 @platform_name("Redash")
 @config_class(RedashConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class RedashSource(Source):
     """
     This plugin extracts the following:
@@ -555,7 +557,7 @@ class RedashSource(Source):
         title = dashboard_data.get("name", "")
 
         last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=modified_ts, actor=modified_actor),
+            created=None,
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
@@ -644,11 +646,11 @@ class RedashSource(Source):
         self.report.total_dashboards = total_dashboards
         self.report.max_page_dashboards = max_page
 
-        dash_exec_pool = ThreadPool(self.config.parallelism)
-        for response in dash_exec_pool.imap_unordered(
-            self._process_dashboard_response, range(1, max_page + 1)
-        ):
-            yield from response
+        yield from ThreadedIteratorExecutor.process(
+            self._process_dashboard_response,
+            [(page,) for page in range(1, max_page + 1)],
+            max_workers=self.config.parallelism,
+        )
 
     def _get_chart_type_from_viz_data(self, viz_data: Dict) -> str:
         """
@@ -659,7 +661,7 @@ class RedashSource(Source):
         viz_type = viz_data.get("type", "")
         viz_options = viz_data.get("options", {})
         globalSeriesType = viz_options.get("globalSeriesType", "")
-        report_key = f"redash-chart-{viz_data['id']}"
+        report_type = f"redash-chart-{viz_data['id']}"
 
         # handle Plotly chart types
         if viz_type == "CHART":
@@ -667,14 +669,14 @@ class RedashSource(Source):
             if chart_type is None:
                 chart_type = DEFAULT_VISUALIZATION_TYPE
                 message = f"ChartTypeClass for Redash Visualization Type={viz_type} with options.globalSeriesType={globalSeriesType} is missing. Setting to {DEFAULT_VISUALIZATION_TYPE}"
-                self.report.report_warning(key=report_key, reason=message)
+                self.report.report_warning(title=report_type, message=message)
                 logger.warning(message)
         else:
             chart_type = VISUALIZATION_TYPE_MAP.get(viz_type)
             if chart_type is None:
                 chart_type = DEFAULT_VISUALIZATION_TYPE
                 message = f"ChartTypeClass for Redash Visualization Type={viz_type} is missing. Setting to {DEFAULT_VISUALIZATION_TYPE}"
-                self.report.report_warning(key=report_key, reason=message)
+                self.report.report_warning(title=report_type, message=message)
                 logger.warning(message)
 
         return chart_type
@@ -694,7 +696,7 @@ class RedashSource(Source):
         title = f"{query_data.get('name')} {viz_data.get('name', '')}"
 
         last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=modified_ts, actor=modified_actor),
+            created=None,
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
@@ -713,8 +715,8 @@ class RedashSource(Source):
             self.report.charts_no_input.add(chart_urn)
             self.report.queries_no_dataset.add(str(query_id))
             self.report.report_warning(
-                key="redash-chart-input-missing",
-                reason=f"For viz-id-{viz_id}-query-{query_id}-datasource-{data_source_id} data_source_type={data_source_type} no datasources found. Setting inputs to None",
+                title="redash-chart-input-missing",
+                message=f"For viz-id-{viz_id}-query-{query_id}-datasource-{data_source_id} data_source_type={data_source_type} no datasources found. Setting inputs to None",
             )
 
         chart_info = ChartInfoClass(
@@ -767,11 +769,12 @@ class RedashSource(Source):
         logger.info(f"/api/queries total count {total_queries} and max page {max_page}")
         self.report.total_queries = total_queries
         self.report.max_page_queries = max_page
-        chart_exec_pool = ThreadPool(self.config.parallelism)
-        for response in chart_exec_pool.imap_unordered(
-            self._process_query_response, range(1, max_page + 1)
-        ):
-            yield from response
+
+        yield from ThreadedIteratorExecutor.process(
+            self._process_query_response,
+            [(page,) for page in range(1, max_page + 1)],
+            max_workers=self.config.parallelism,
+        )
 
     def add_config_to_report(self) -> None:
         self.report.api_page_limit = self.config.api_page_limit

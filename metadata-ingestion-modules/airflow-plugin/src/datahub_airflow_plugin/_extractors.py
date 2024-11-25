@@ -262,7 +262,7 @@ class BigQueryInsertJobOperatorExtractor(BaseExtractor):
         )
 
         operator: "BigQueryInsertJobOperator" = self.operator
-        sql = operator.configuration.get("query")
+        sql = operator.configuration.get("query", {}).get("query")
         if not sql:
             self.log.warning("No query found in BigQueryInsertJobOperator")
             return None

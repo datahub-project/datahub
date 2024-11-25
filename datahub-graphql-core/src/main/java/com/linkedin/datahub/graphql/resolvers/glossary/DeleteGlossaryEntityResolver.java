@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.entity.client.EntityClient;
@@ -28,11 +29,10 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
       throws Exception {
     final QueryContext context = environment.getContext();
     final Urn entityUrn = Urn.createFromString(environment.getArgument("urn"));
-    final Urn parentNodeUrn = GlossaryUtils.getParentUrn(entityUrn, context, _entityClient);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
-          if (GlossaryUtils.canManageChildrenEntities(context, parentNodeUrn, _entityClient)) {
+          if (GlossaryUtils.canUpdateGlossaryEntity(entityUrn, context, _entityClient)) {
             if (!_entityService.exists(context.getOperationContext(), entityUrn, true)) {
               throw new RuntimeException(String.format("This urn does not exist: %s", entityUrn));
             }
@@ -65,6 +65,8 @@ public class DeleteGlossaryEntityResolver implements DataFetcher<CompletableFutu
           }
           throw new AuthorizationException(
               "Unauthorized to perform this action. Please contact your DataHub administrator.");
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

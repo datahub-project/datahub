@@ -84,7 +84,7 @@ export default function ProfilingRunsChart({ profiles }: Props) {
     return (
         <>
             {selectedProfile && (
-                <Modal width="100%" footer={null} title={profileModalTitle} visible={showModal} onCancel={onClose}>
+                <Modal width="100%" footer={null} title={profileModalTitle} open={showModal} onCancel={onClose}>
                     <TableStats
                         rowCount={selectedProfile.rowCount || -1}
                         columnCount={selectedProfile.columnCount || -1}

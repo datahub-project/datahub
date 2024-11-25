@@ -51,7 +51,7 @@ public class SchemaFieldMapper {
     return result;
   }
 
-  private SchemaFieldDataType mapSchemaFieldDataType(
+  public SchemaFieldDataType mapSchemaFieldDataType(
       @Nonnull final com.linkedin.schema.SchemaFieldDataType dataTypeUnion) {
     final com.linkedin.schema.SchemaFieldDataType.Type type = dataTypeUnion.getType();
     if (type.isBytesType()) {
@@ -91,8 +91,7 @@ public class SchemaFieldMapper {
       @Nonnull final com.linkedin.schema.SchemaField input, @Nonnull Urn entityUrn) {
     SchemaFieldEntity schemaFieldEntity = new SchemaFieldEntity();
     schemaFieldEntity.setUrn(
-        SchemaFieldUtils.generateSchemaFieldUrn(entityUrn.toString(), input.getFieldPath())
-            .toString());
+        SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, input.getFieldPath()).toString());
     schemaFieldEntity.setType(EntityType.SCHEMA_FIELD);
     return schemaFieldEntity;
   }

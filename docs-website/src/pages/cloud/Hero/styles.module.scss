@@ -1,0 +1,81 @@
+.col {
+  padding: 0 2rem;
+}
+
+.hero {
+  .button {
+    margin: 0rem 1rem 2rem 1rem;
+  }
+
+  .hero__title {
+    font-size: 3rem;
+    text-align: left;
+  }
+
+  .hero__secondtitle {
+    font-size: 2rem;
+    font-weight: 300;
+    margin-bottom: 2rem;
+    text-align: left;
+  }
+
+  .hero__subtitle {
+    margin-bottom: 2rem;
+    font-size: 1.75rem;
+    line-height: 2.5rem;
+    margin-left: 0;
+    text-align: left;
+  }
+
+  .buttonLightBlue {
+    color: #1990FF !important;
+    background: #EAF3FF;
+    border-color: #EAF3FF;
+
+    &:hover {
+      background: #D6E7FF;
+    }
+  }
+  .productTourButton {
+    background-color: transparent;
+    border: 0;
+    color: #1990FF !important;
+    text-align: left;
+  }
+
+}
+
+.hero__cta {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.bookButton {
+  display: none;
+}
+
+@media screen and (max-width: 999px) {
+  .bookButton {
+    display: block;
+  }
+
+  .productTourButton {
+    text-align: center!important;
+  }
+
+  .hideOnMobile{
+    display: none;
+  }
+  .hero__title, .hero__subtitle {
+    text-align: center!important;
+  }
+}
+
+@media screen  and (min-width: 1000px){
+  .productTourButton {
+    padding-left: 0!important;
+    margin-left: 0!important;
+  }
+}

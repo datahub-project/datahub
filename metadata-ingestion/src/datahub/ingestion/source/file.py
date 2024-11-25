@@ -6,16 +6,13 @@ import pathlib
 from dataclasses import dataclass, field
 from enum import auto
 from functools import partial
-from io import BufferedReader
 from typing import Any, Iterable, Iterator, List, Optional, Tuple, Union
-from urllib import parse
 
 import ijson
-import requests
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigEnum, ConfigModel, ConfigurationError
+from datahub.configuration.common import ConfigEnum
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -29,12 +26,25 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
-    SourceReport,
     TestableSource,
     TestConnectionReport,
 )
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
+from datahub.ingestion.api.source_helpers import (
+    auto_status_aspect,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.fs.fs_base import FileInfo, get_path_schema
+from datahub.ingestion.fs.fs_registry import fs_registry
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+    StaleEntityRemovalSourceReport,
+    StatefulStaleMetadataRemovalConfig,
+)
+from datahub.ingestion.source.state.stateful_ingestion_base import (
+    StatefulIngestionConfigBase,
+    StatefulIngestionSourceBase,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -50,17 +60,23 @@ class FileReadMode(ConfigEnum):
     AUTO = auto()
 
 
-class FileSourceConfig(ConfigModel):
+class FileSourceConfig(StatefulIngestionConfigBase):
     _filename = pydantic_field_deprecated(
         "filename",
         message="filename is deprecated. Use path instead.",
     )
     path: str = Field(
-        description="File path to folder or file to ingest, or URL to a remote file. If pointed to a folder, all files with extension {file_extension} (default json) within that folder will be processed."
+        description=(
+            "File path to folder or file to ingest, or URL to a remote file. "
+            "If pointed to a folder, all files with extension {file_extension} (default json) within that folder will be processed."
+        )
     )
     file_extension: str = Field(
         ".json",
-        description="When providing a folder to use to read files, set this field to control file extensions that you want the source to process. * is a special value that means process every file regardless of extension",
+        description=(
+            "When providing a folder to use to read files, set this field to control file extensions that you want the source to process. "
+            "* is a special value that means process every file regardless of extension"
+        ),
     )
     read_mode: FileReadMode = FileReadMode.AUTO
     aspect: Optional[str] = Field(
@@ -69,7 +85,10 @@ class FileSourceConfig(ConfigModel):
     )
     count_all_before_starting: bool = Field(
         default=True,
-        description="When enabled, counts total number of records in the file before starting. Used for accurate estimation of completion time. Turn it off if startup time is too high.",
+        description=(
+            "When enabled, counts total number of records in the file before starting. "
+            "Used for accurate estimation of completion time. Turn it off if startup time is too high."
+        ),
     )
 
     _minsize_for_streaming_mode_in_bytes: int = (
@@ -79,6 +98,8 @@ class FileSourceConfig(ConfigModel):
     _filename_populates_path_if_present = pydantic_renamed_field(
         "filename", "path", print_warning=False
     )
+
+    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
     @validator("file_extension", always=True)
     def add_leading_dot_to_extension(cls, v: str) -> str:
@@ -91,7 +112,7 @@ class FileSourceConfig(ConfigModel):
 
 
 @dataclass
-class FileSourceReport(SourceReport):
+class FileSourceReport(StaleEntityRemovalSourceReport):
     total_num_files: int = 0
     num_files_completed: int = 0
     files_completed: list = field(default_factory=list)
@@ -163,57 +184,54 @@ class FileSourceReport(SourceReport):
             self.percentage_completion = f"{percentage_completion:.2f}%"
 
 
-@platform_name("File")
+@platform_name("Metadata File")
 @config_class(FileSourceConfig)
 @support_status(SupportStatus.CERTIFIED)
-class GenericFileSource(TestableSource):
+class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
     """
-    This plugin pulls metadata from a previously generated file. The [file sink](../../../../metadata-ingestion/sink_docs/file.md) can produce such files, and a number of samples are included in the [examples/mce_files](../../../../metadata-ingestion/examples/mce_files) directory.
+    This plugin pulls metadata from a previously generated file.
+    The [metadata file sink](../../../../metadata-ingestion/sink_docs/metadata-file.md) can produce such files, and a number of
+    samples are included in the [examples/mce_files](../../../../metadata-ingestion/examples/mce_files) directory.
     """
 
     def __init__(self, ctx: PipelineContext, config: FileSourceConfig):
+        super().__init__(config, ctx)
         self.ctx = ctx
         self.config = config
-        self.report = FileSourceReport()
-        self.fp: Optional[BufferedReader] = None
+        self.report: FileSourceReport = FileSourceReport()
 
     @classmethod
     def create(cls, config_dict, ctx):
         config = FileSourceConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    def get_filenames(self) -> Iterable[str]:
-        path_parsed = parse.urlparse(str(self.config.path))
-        if path_parsed.scheme in ("file", ""):
-            path = pathlib.Path(self.config.path)
-            if path.is_file():
-                self.report.total_num_files = 1
-                return [str(path)]
-            elif path.is_dir():
-                files_and_stats = [
-                    (str(x), os.path.getsize(x))
-                    for x in path.glob(f"*{self.config.file_extension}")
-                    if x.is_file()
-                ]
-                self.report.total_num_files = len(files_and_stats)
-                self.report.total_bytes_on_disk = sum([y for (x, y) in files_and_stats])
-                return [x for (x, y) in files_and_stats]
-            else:
-                raise Exception(f"Failed to process {path}")
-        else:
-            self.report.total_num_files = 1
-            return [str(self.config.path)]
+    def get_filenames(self) -> Iterable[FileInfo]:
+        path_str = str(self.config.path)
+        schema = get_path_schema(path_str)
+        fs_class = fs_registry.get(schema)
+        fs = fs_class.create()
+        for file_info in fs.list(path_str):
+            if file_info.is_file and file_info.path.endswith(
+                self.config.file_extension
+            ):
+                yield file_info
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         # No super() call, as we don't want helpers that create / remove workunits
-        return [partial(auto_workunit_reporter, self.report)]
+        return [
+            partial(auto_workunit_reporter, self.report),
+            auto_status_aspect if self.config.stateful_ingestion else None,
+            StaleEntityRemovalHandler.create(
+                self, self.config, self.ctx
+            ).workunit_processor,
+        ]
 
     def get_workunits_internal(
         self,
     ) -> Iterable[MetadataWorkUnit]:
         for f in self.get_filenames():
             for i, obj in self.iterate_generic_file(f):
-                id = f"file://{f}:{i}"
+                id = f"{f.path}:{i}"
                 if isinstance(
                     obj, (MetadataChangeProposalWrapper, MetadataChangeProposal)
                 ):
@@ -230,99 +248,88 @@ class GenericFileSource(TestableSource):
                         yield MetadataWorkUnit(id, mcp_raw=obj)
                 else:
                     yield MetadataWorkUnit(id, mce=obj)
+            self.report.total_num_files += 1
+            self.report.append_total_bytes_on_disk(f.size)
 
     def get_report(self):
         return self.report
 
     def close(self):
-        if self.fp:
-            self.fp.close()
         super().close()
 
-    def _iterate_file(self, path: str) -> Iterable[Tuple[int, Any]]:
-        self.report.current_file_name = path
-        path_parsed = parse.urlparse(path)
-        if path_parsed.scheme not in ("http", "https"):  # A local file
-            self.report.current_file_size = os.path.getsize(path)
-            if self.config.read_mode == FileReadMode.AUTO:
-                file_read_mode = (
-                    FileReadMode.BATCH
-                    if self.report.current_file_size
-                    < self.config._minsize_for_streaming_mode_in_bytes
-                    else FileReadMode.STREAM
-                )
-                logger.info(f"Reading file {path} in {file_read_mode} mode")
+    def _iterate_file(self, file_status: FileInfo) -> Iterable[Any]:
+        file_read_mode = self.config.read_mode
+        if file_read_mode == FileReadMode.AUTO:
+            if file_status.size < self.config._minsize_for_streaming_mode_in_bytes:
+                file_read_mode = FileReadMode.BATCH
             else:
-                file_read_mode = self.config.read_mode
+                file_read_mode = FileReadMode.STREAM
 
-            if file_read_mode == FileReadMode.BATCH:
-                with open(path) as f:
-                    parse_start_time = datetime.datetime.now()
-                    obj_list = json.load(f)
-                    parse_end_time = datetime.datetime.now()
-                    self.report.add_parse_time(parse_end_time - parse_start_time)
-                if not isinstance(obj_list, list):
-                    obj_list = [obj_list]
-                count_start_time = datetime.datetime.now()
-                self.report.current_file_num_elements = len(obj_list)
-                self.report.add_count_time(datetime.datetime.now() - count_start_time)
-                self.report.current_file_elements_read = 0
-                for i, obj in enumerate(obj_list):
-                    yield i, obj
-                    self.report.current_file_elements_read += 1
+        # Open the file.
+        schema = get_path_schema(file_status.path)
+        fs_class = fs_registry.get(schema)
+        fs = fs_class.create()
+        self.report.current_file_name = file_status.path
+        self.report.current_file_size = file_status.size
+        fp = fs.open(file_status.path)
+
+        with fp:
+            if file_read_mode == FileReadMode.STREAM:
+                yield from self._iterate_file_streaming(fp)
             else:
-                self.fp = open(path, "rb")
-                if self.config.count_all_before_starting:
-                    count_start_time = datetime.datetime.now()
-                    parse_stream = ijson.parse(self.fp, use_float=True)
-                    total_elements = 0
-                    for row in ijson.items(parse_stream, "item", use_float=True):
-                        total_elements += 1
-                    count_end_time = datetime.datetime.now()
-                    self.report.add_count_time(count_end_time - count_start_time)
-                    self.report.current_file_num_elements = total_elements
-                self.report.current_file_elements_read = 0
-                self.fp.seek(0)
-                parse_start_time = datetime.datetime.now()
-                parse_stream = ijson.parse(self.fp, use_float=True)
-                rows_yielded = 0
-                for row in ijson.items(parse_stream, "item", use_float=True):
-                    parse_end_time = datetime.datetime.now()
-                    self.report.add_parse_time(parse_end_time - parse_start_time)
-                    rows_yielded += 1
-                    self.report.current_file_elements_read += 1
-                    yield rows_yielded, row
-                    parse_start_time = datetime.datetime.now()
-        else:
-            try:
-                response = requests.get(path)
-                parse_start_time = datetime.datetime.now()
-                data = response.json()
-            except Exception as e:
-                raise ConfigurationError(f"Cannot read remote file {path}, error:{e}")
-            if not isinstance(data, list):
-                data = [data]
-            parse_end_time = datetime.datetime.now()
-            self.report.add_parse_time(parse_end_time - parse_start_time)
-            self.report.current_file_size = len(response.content)
-            self.report.current_file_elements_read = 0
-            for i, obj in enumerate(data):
-                yield i, obj
-                self.report.current_file_elements_read += 1
+                yield from self._iterate_file_batch(fp)
 
-        self.report.files_completed.append(path)
+        self.report.files_completed.append(file_status.path)
         self.report.num_files_completed += 1
         self.report.total_bytes_read_completed_files += self.report.current_file_size
         self.report.reset_current_file_stats()
 
+    def _iterate_file_streaming(self, fp: Any) -> Iterable[Any]:
+        # Count the number of elements in the file.
+        if self.config.count_all_before_starting:
+            count_start_time = datetime.datetime.now()
+            parse_stream = ijson.parse(fp, use_float=True)
+            total_elements = 0
+            for _row in ijson.items(parse_stream, "item", use_float=True):
+                total_elements += 1
+            count_end_time = datetime.datetime.now()
+            self.report.add_count_time(count_end_time - count_start_time)
+            self.report.current_file_num_elements = total_elements
+            fp.seek(0)
+
+        # Read the file.
+        self.report.current_file_elements_read = 0
+        parse_start_time = datetime.datetime.now()
+        parse_stream = ijson.parse(fp, use_float=True)
+        for row in ijson.items(parse_stream, "item", use_float=True):
+            parse_end_time = datetime.datetime.now()
+            self.report.add_parse_time(parse_end_time - parse_start_time)
+            self.report.current_file_elements_read += 1
+            yield row
+
+    def _iterate_file_batch(self, fp: Any) -> Iterable[Any]:
+        # Read the file.
+        contents = json.load(fp)
+
+        # Maintain backwards compatibility with the single-object format.
+        if isinstance(contents, list):
+            for row in contents:
+                yield row
+        else:
+            yield contents
+
     def iterate_mce_file(self, path: str) -> Iterator[MetadataChangeEvent]:
-        for i, obj in self._iterate_file(path):
+        # TODO: Remove this method, as it appears to be unused.
+        schema = get_path_schema(path)
+        fs_class = fs_registry.get(schema)
+        fs = fs_class.create()
+        file_status = fs.file_status(path)
+        for obj in self._iterate_file(file_status):
             mce: MetadataChangeEvent = MetadataChangeEvent.from_obj(obj)
             yield mce
 
     def iterate_generic_file(
-        self,
-        path: str,
+        self, file_status: FileInfo
     ) -> Iterator[
         Tuple[
             int,
@@ -333,7 +340,7 @@ class GenericFileSource(TestableSource):
             ],
         ]
     ]:
-        for i, obj in self._iterate_file(path):
+        for i, obj in enumerate(self._iterate_file(file_status)):
             try:
                 deserialize_start_time = datetime.datetime.now()
                 item = _from_obj_for_file(obj)
@@ -377,6 +384,11 @@ class GenericFileSource(TestableSource):
             return TestConnectionReport(
                 basic_connectivity=CapabilityReport(capable=True)
             )
+
+    @staticmethod
+    def close_if_possible(stream):
+        if hasattr(stream, "close") and callable(stream.close):
+            stream.close()
 
 
 def _from_obj_for_file(

@@ -90,9 +90,11 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
                         tag = tag[:index] + new_char + tag[index + len(old_char) :]
                         # Adjust indices for overlapping replacements
                         indices = [
-                            each + (len(new_char) - len(old_char))
-                            if each > index
-                            else each
+                            (
+                                each + (len(new_char) - len(old_char))
+                                if each > index
+                                else each
+                            )
                             for each in indices
                         ]
                         indices.append(index)
@@ -103,7 +105,6 @@ class ExtractOwnersFromTagsTransformer(DatasetTagsTransformer):
     def handle_end_of_stream(
         self,
     ) -> Sequence[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
-
         return self.owner_mcps
 
     def transform_aspect(

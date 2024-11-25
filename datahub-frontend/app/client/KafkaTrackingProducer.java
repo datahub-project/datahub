@@ -1,5 +1,6 @@
 package client;
 
+import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.config.kafka.ProducerConfiguration;
 import com.typesafe.config.Config;
 import config.ConfigurationProvider;
@@ -26,7 +27,8 @@ import utils.ConfigUtil;
 
 @Singleton
 public class KafkaTrackingProducer {
-  private final Logger _logger = LoggerFactory.getLogger(KafkaTrackingProducer.class.getName());
+  private static final Logger logger =
+      LoggerFactory.getLogger(KafkaTrackingProducer.class.getName());
   private static final List<String> KAFKA_SSL_PROTOCOLS =
       Collections.unmodifiableList(
           Arrays.asList(
@@ -34,42 +36,43 @@ public class KafkaTrackingProducer {
               SecurityProtocol.SASL_SSL.name(),
               SecurityProtocol.SASL_PLAINTEXT.name()));
 
-  private final Boolean _isEnabled;
-  private final KafkaProducer<String, String> _producer;
+  private final Boolean isEnabled;
+  private final KafkaProducer<String, String> producer;
 
   @Inject
   public KafkaTrackingProducer(
       @Nonnull Config config,
       ApplicationLifecycle lifecycle,
       final ConfigurationProvider configurationProvider) {
-    _isEnabled = !config.hasPath("analytics.enabled") || config.getBoolean("analytics.enabled");
+    isEnabled = !config.hasPath("analytics.enabled") || config.getBoolean("analytics.enabled");
 
-    if (_isEnabled) {
-      _logger.debug("Analytics tracking is enabled");
-      _producer = createKafkaProducer(config, configurationProvider.getKafka().getProducer());
+    if (isEnabled) {
+      logger.debug("Analytics tracking is enabled");
+      producer = createKafkaProducer(config, configurationProvider.getKafka());
 
       lifecycle.addStopHook(
           () -> {
-            _producer.flush();
-            _producer.close();
+            producer.flush();
+            producer.close();
             return CompletableFuture.completedFuture(null);
           });
     } else {
-      _logger.debug("Analytics tracking is disabled");
-      _producer = null;
+      logger.debug("Analytics tracking is disabled");
+      producer = null;
     }
   }
 
   public Boolean isEnabled() {
-    return _isEnabled;
+    return isEnabled;
   }
 
   public void send(ProducerRecord<String, String> record) {
-    _producer.send(record);
+    producer.send(record);
   }
 
   private static KafkaProducer createKafkaProducer(
-      Config config, ProducerConfiguration producerConfiguration) {
+      Config config, KafkaConfiguration kafkaConfiguration) {
+    final ProducerConfiguration producerConfiguration = kafkaConfiguration.getProducer();
     final Properties props = new Properties();
     props.put(ProducerConfig.CLIENT_ID_CONFIG, "datahub-frontend");
     props.put(
@@ -78,12 +81,9 @@ public class KafkaTrackingProducer {
     props.put(
         ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
         config.getString("analytics.kafka.bootstrap.server"));
-    props.put(
-        ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
-        "org.apache.kafka.common.serialization.StringSerializer"); // Actor urn.
-    props.put(
-        ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
-        "org.apache.kafka.common.serialization.StringSerializer"); // JSON object.
+    // key: Actor urn.
+    // value: JSON object.
+    props.putAll(kafkaConfiguration.getSerde().getUsageEvent().getProducerProperties(null));
     props.put(ProducerConfig.MAX_REQUEST_SIZE_CONFIG, producerConfiguration.getMaxRequestSize());
     props.put(ProducerConfig.COMPRESSION_TYPE_CONFIG, producerConfiguration.getCompressionType());
 

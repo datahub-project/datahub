@@ -18,7 +18,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.upstream1,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_c89ee7c127c64a5d3a42ee875305087991891c80f42a25012910524bd2c77c45"
+                    "query": "urn:li:query:composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a"
                 },
                 {
                     "auditStamp": {
@@ -31,7 +31,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.upstream2,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_c89ee7c127c64a5d3a42ee875305087991891c80f42a25012910524bd2c77c45"
+                    "query": "urn:li:query:composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a"
                 }
             ],
             "fineGrainedLineages": [
@@ -45,7 +45,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.prod_foo,PROD),a)"
                     ],
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_c89ee7c127c64a5d3a42ee875305087991891c80f42a25012910524bd2c77c45"
+                    "query": "urn:li:query:composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -57,7 +57,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.prod_foo,PROD),b)"
                     ],
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_c89ee7c127c64a5d3a42ee875305087991891c80f42a25012910524bd2c77c45"
+                    "query": "urn:li:query:composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -69,7 +69,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.prod_foo,PROD),c)"
                     ],
                     "confidenceScore": 0.2,
-                    "query": "urn:li:query:composite_c89ee7c127c64a5d3a42ee875305087991891c80f42a25012910524bd2c77c45"
+                    "query": "urn:li:query:composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a"
                 }
             ]
         }
@@ -77,7 +77,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_c89ee7c127c64a5d3a42ee875305087991891c80f42a25012910524bd2c77c45",
+    "entityUrn": "urn:li:query:composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -100,20 +100,29 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_c89ee7c127c64a5d3a42ee875305087991891c80f42a25012910524bd2c77c45",
+    "entityUrn": "urn:li:query:composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
         "json": {
             "subjects": [
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.prod_foo,PROD)"
-                },
-                {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.upstream1,PROD)"
                 },
                 {
                     "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.upstream2,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.prod_foo,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.prod_foo,PROD),a)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.prod_foo,PROD),b)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.prod_foo,PROD),c)"
                 }
             ]
         }
@@ -121,7 +130,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_c89ee7c127c64a5d3a42ee875305087991891c80f42a25012910524bd2c77c45",
+    "entityUrn": "urn:li:query:composite_48c238412066895ccad5d27f9425ce969b2c0633203627eb476d0c9e5357825a",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {

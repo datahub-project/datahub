@@ -10,6 +10,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityLineageResult;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -17,12 +18,14 @@ import com.linkedin.datahub.graphql.generated.LineageDirection;
 import com.linkedin.datahub.graphql.generated.LineageInput;
 import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.Restricted;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.services.RestrictedService;
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -58,23 +61,30 @@ public class EntityLineageResultResolver
     final LineageInput input = bindArgument(environment.getArgument("input"), LineageInput.class);
 
     final LineageDirection lineageDirection = input.getDirection();
-    @Nullable final Integer start = input.getStart(); // Optional!
-    @Nullable final Integer count = input.getCount(); // Optional!
-    @Nullable final Boolean separateSiblings = input.getSeparateSiblings(); // Optional!
-    @Nullable final Long startTimeMillis = input.getStartTimeMillis(); // Optional!
-    @Nullable final Long endTimeMillis = input.getEndTimeMillis(); // Optional!
+    // All inputs are optional
+    @Nullable final Integer start = input.getStart();
+    @Nullable final Integer count = input.getCount();
+    @Nullable final Boolean separateSiblings = input.getSeparateSiblings();
+    @Nullable final Long startTimeMillis = input.getStartTimeMillis();
+    @Nullable
+    final Long endTimeMillis =
+        ResolverUtils.getLineageEndTimeMillis(input.getStartTimeMillis(), input.getEndTimeMillis());
+    final Boolean includeGhostEntities =
+        Optional.ofNullable(input.getIncludeGhostEntities()).orElse(false);
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
 
     final Urn finalUrn = urn;
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             com.linkedin.metadata.graph.EntityLineageResult entityLineageResult =
                 _siblingGraphService.getLineage(
                     context
                         .getOperationContext()
+                        .withSearchFlags(
+                            searchFlags -> searchFlags.setIncludeSoftDeleted(includeGhostEntities))
                         .withLineageFlags(
                             flags ->
                                 flags
@@ -86,6 +96,7 @@ public class EntityLineageResultResolver
                     count != null ? count : 100,
                     1,
                     separateSiblings != null ? input.getSeparateSiblings() : false,
+                    input.getIncludeGhostEntities(),
                     new HashSet<>());
 
             Set<Urn> restrictedUrns = new HashSet<>();
@@ -106,7 +117,9 @@ public class EntityLineageResultResolver
             throw new RuntimeException(
                 String.format("Failed to fetch lineage for %s", finalUrn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private EntityLineageResult mapEntityRelationships(

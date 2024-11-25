@@ -5,8 +5,8 @@ import auth.sso.SsoManager;
 import auth.sso.SsoProvider;
 import auth.sso.oidc.OidcCallbackLogic;
 import client.AuthServiceClient;
-import com.datahub.authentication.Authentication;
 import com.linkedin.entity.client.SystemEntityClient;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -16,16 +16,15 @@ import java.util.concurrent.CompletionStage;
 import javax.annotation.Nonnull;
 import javax.inject.Inject;
 import javax.inject.Named;
-
-import io.datahubproject.metadata.context.OperationContext;
 import lombok.extern.slf4j.Slf4j;
+import org.pac4j.core.adapter.FrameworkAdapter;
 import org.pac4j.core.client.Client;
 import org.pac4j.core.client.Clients;
 import org.pac4j.core.config.Config;
+import org.pac4j.core.context.FrameworkParameters;
 import org.pac4j.core.engine.CallbackLogic;
-import org.pac4j.core.http.adapter.HttpActionAdapter;
 import org.pac4j.play.CallbackController;
-import org.pac4j.play.PlayWebContext;
+import org.pac4j.play.context.PlayFrameworkParameters;
 import play.mvc.Http;
 import play.mvc.Result;
 import play.mvc.Results;
@@ -40,8 +39,9 @@ import play.mvc.Results;
 @Slf4j
 public class SsoCallbackController extends CallbackController {
 
-  private final SsoManager _ssoManager;
-  private final Config _config;
+  private final SsoManager ssoManager;
+  private final Config config;
+  private final CallbackLogic callbackLogic;
 
   @Inject
   public SsoCallbackController(
@@ -51,22 +51,41 @@ public class SsoCallbackController extends CallbackController {
       @Nonnull AuthServiceClient authClient,
       @Nonnull Config config,
       @Nonnull com.typesafe.config.Config configs) {
-    _ssoManager = ssoManager;
-    _config = config;
+    this.ssoManager = ssoManager;
+    this.config = config;
     setDefaultUrl("/"); // By default, redirects to Home Page on log in.
-    setSaveInSession(false);
-    setCallbackLogic(
+
+    callbackLogic =
         new SsoCallbackLogic(
             ssoManager,
-                systemOperationContext,
+            systemOperationContext,
             entityClient,
             authClient,
-            new CookieConfigs(configs)));
+            new CookieConfigs(configs));
+  }
+
+  @Override
+  public CompletionStage<Result> callback(Http.Request request) {
+    FrameworkAdapter.INSTANCE.applyDefaultSettingsIfUndefined(this.config);
+
+    return CompletableFuture.supplyAsync(
+        () -> {
+          return (Result)
+              callbackLogic.perform(
+                  this.config,
+                  getDefaultUrl(),
+                  getRenewSession(),
+                  getDefaultClient(),
+                  new PlayFrameworkParameters(request));
+        },
+        this.ec.current());
   }
 
   public CompletionStage<Result> handleCallback(String protocol, Http.Request request) {
     if (shouldHandleCallback(protocol)) {
-      log.debug(String.format("Handling SSO callback. Protocol: %s", protocol));
+      log.debug(
+          "Handling SSO callback. Protocol: {}",
+          ssoManager.getSsoProvider().protocol().getCommonName());
       return callback(request)
           .handle(
               (res, e) -> {
@@ -93,9 +112,9 @@ public class SsoCallbackController extends CallbackController {
   }
 
   /** Logic responsible for delegating to protocol-specific callback logic. */
-  public class SsoCallbackLogic implements CallbackLogic<Result, PlayWebContext> {
+  public class SsoCallbackLogic implements CallbackLogic {
 
-    private final OidcCallbackLogic _oidcCallbackLogic;
+    private final OidcCallbackLogic oidcCallbackLogic;
 
     SsoCallbackLogic(
         final SsoManager ssoManager,
@@ -103,31 +122,21 @@ public class SsoCallbackController extends CallbackController {
         final SystemEntityClient entityClient,
         final AuthServiceClient authClient,
         final CookieConfigs cookieConfigs) {
-      _oidcCallbackLogic =
+      oidcCallbackLogic =
           new OidcCallbackLogic(
               ssoManager, systemOperationContext, entityClient, authClient, cookieConfigs);
     }
 
     @Override
-    public Result perform(
-        PlayWebContext context,
+    public Object perform(
         Config config,
-        HttpActionAdapter<Result, PlayWebContext> httpActionAdapter,
-        String defaultUrl,
-        Boolean saveInSession,
-        Boolean multiProfile,
-        Boolean renewSession,
-        String defaultClient) {
-      if (SsoProvider.SsoProtocol.OIDC.equals(_ssoManager.getSsoProvider().protocol())) {
-        return _oidcCallbackLogic.perform(
-            context,
-            config,
-            httpActionAdapter,
-            defaultUrl,
-            saveInSession,
-            multiProfile,
-            renewSession,
-            defaultClient);
+        String inputDefaultUrl,
+        Boolean inputRenewSession,
+        String defaultClient,
+        FrameworkParameters parameters) {
+      if (SsoProvider.SsoProtocol.OIDC.equals(ssoManager.getSsoProvider().protocol())) {
+        return oidcCallbackLogic.perform(
+            config, inputDefaultUrl, inputRenewSession, defaultClient, parameters);
       }
       // Should never occur.
       throw new UnsupportedOperationException(
@@ -136,18 +145,18 @@ public class SsoCallbackController extends CallbackController {
   }
 
   private boolean shouldHandleCallback(final String protocol) {
-    if (!_ssoManager.isSsoEnabled()) {
+    if (!ssoManager.isSsoEnabled()) {
       return false;
     }
     updateConfig();
-    return _ssoManager.getSsoProvider().protocol().getCommonName().equals(protocol);
+    return ssoManager.getSsoProvider().protocol().getCommonName().equals(protocol);
   }
 
   private void updateConfig() {
     final Clients clients = new Clients();
     final List<Client> clientList = new ArrayList<>();
-    clientList.add(_ssoManager.getSsoProvider().client());
+    clientList.add(ssoManager.getSsoProvider().client());
     clients.setClients(clientList);
-    _config.setClients(clients);
+    config.setClients(clients);
   }
 }

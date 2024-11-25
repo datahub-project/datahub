@@ -1,0 +1,124 @@
+{
+  "customers": [
+    {
+      "link": {
+        "href": "https://www.depop.com/",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "https://cdn.sanity.io/images/cqo9wkgf/production/345d124a249d43bf0f20b608f8bfa2f7683311fa-360x180.png"
+        },
+        "alt": "depop"
+      }
+    },
+    {
+      "link": {
+        "href": "https://riskified.com",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "https://cdn.sanity.io/images/cqo9wkgf/production/c982e0459bed565273a9b696d9d40aed76f84b1e-360x180.png"
+        },
+        "alt": "Riskified"
+      }
+    },
+    {
+      "link": {
+        "href": "https://get.betterup.com/",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "https://cdn.sanity.io/images/cqo9wkgf/production/5988a55b3c090a12ddc3f3cae07b290ac3134771-360x180.png"
+        },
+        "alt": "Betterup"
+      }
+    },
+    {
+      "link": {
+        "href": "https://www.ovoenergy.com/",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "https://cdn.sanity.io/images/cqo9wkgf/production/5e7bd32dfbc769849dca136947ebd2fc2f5e91f3-540x270.png"
+        },
+        "alt": "OVO Energy"
+      }
+    },
+    {
+      "link": {
+        "href": "https://myob.com",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "https://cdn.sanity.io/images/cqo9wkgf/production/3d7c10e1bd7c7a062250e092d6d9d0553fb57790-360x180.png"
+        },
+        "alt": "Myob"
+      }
+    },
+    {
+      "link": {
+        "href": "https://www.dpgmediagroup.com/",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "https://cdn.sanity.io/images/cqo9wkgf/production/b446f595b4b13a72ee82a285924715f950e012ca-540x270.png"
+        },
+        "alt": "DPG Media"
+      }
+    },
+    {
+      "link": {
+        "href": "https://www.notion.so/",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "https://cdn.sanity.io/images/cqo9wkgf/production/c2e84f93572cd1baf30ea7ab8da234ff44182eb6-540x270.png"
+        },
+        "alt": "Notion"
+      }
+    },
+    {
+      "link": {
+        "href": "https://www.sae.org/",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "https://cdn.sanity.io/images/cqo9wkgf/production/a9e8586635cb4039cbfc5836a6a5cacdeba9e6b3-540x270.png"
+        },
+        "alt": "SAE International"
+      }
+    },
+    {
+      "link": {
+        "href": "https://viator.com",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "https://cdn.sanity.io/images/cqo9wkgf/production/0c17141cad5baa053da18dffb17d9c182d242e69-1200x475.png"
+        },
+        "alt": "Viator"
+      }
+    },
+    {
+      "link": {
+        "href": "https://www.tripadvisor.co.uk/",
+        "blank": true
+      },
+      "logo": {
+        "asset": {
+          "_ref": "https://cdn.sanity.io/images/cqo9wkgf/production/28255a28d261a074a83d1ee8632f0338bf5cf57e-1112x256.png"
+        },
+        "alt": "Trip Advisor"
+      }
+    }
+  ]
+}

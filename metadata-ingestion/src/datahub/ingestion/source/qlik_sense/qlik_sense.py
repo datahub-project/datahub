@@ -93,12 +93,22 @@ logger = logging.getLogger(__name__)
 @platform_name("Qlik Sense")
 @config_class(QlikSourceConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
+@capability(
+    SourceCapability.LINEAGE_COARSE,
+    "Enabled by default.",
+)
+@capability(
+    SourceCapability.LINEAGE_FINE,
+    "Disabled by default. ",
+)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(
     SourceCapability.OWNERSHIP,
     "Enabled by default, configured using `ingest_owner`",
 )
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     """
     This plugin extracts the following:
@@ -185,9 +195,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             description=space.description,
             sub_types=[BIContainerSubTypes.QLIK_SPACE],
             extra_properties={Constant.TYPE: str(space.type)},
-            owner_urn=builder.make_user_urn(owner_username)
-            if self.config.ingest_owner and owner_username
-            else None,
+            owner_urn=(
+                builder.make_user_urn(owner_username)
+                if self.config.ingest_owner and owner_username
+                else None
+            ),
             external_url=f"https://{self.config.tenant_hostname}/catalog?space_filter={space.id}",
             created=int(space.createdAt.timestamp() * 1000),
             last_modified=int(space.updatedAt.timestamp() * 1000),
@@ -448,9 +460,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             sub_types=[BIContainerSubTypes.QLIK_APP],
             parent_container_key=self._gen_space_key(app.spaceId),
             extra_properties={Constant.QRI: app.qri, Constant.USAGE: app.qUsage},
-            owner_urn=builder.make_user_urn(owner_username)
-            if self.config.ingest_owner and owner_username
-            else None,
+            owner_urn=(
+                builder.make_user_urn(owner_username)
+                if self.config.ingest_owner and owner_username
+                else None
+            ),
             external_url=f"https://{self.config.tenant_hostname}/sense/app/{app.id}/overview",
             created=int(app.createdAt.timestamp() * 1000),
             last_modified=int(app.updatedAt.timestamp() * 1000),
@@ -490,9 +504,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             schema_field = SchemaField(
                 fieldPath=field.name,
                 type=SchemaFieldDataTypeClass(
-                    type=FIELD_TYPE_MAPPING.get(field.dataType, NullType)()
-                    if field.dataType
-                    else NullType()
+                    type=(
+                        FIELD_TYPE_MAPPING.get(field.dataType, NullType)()
+                        if field.dataType
+                        else NullType()
+                    )
                 ),
                 nativeDataType=field.dataType if field.dataType else "",
                 nullable=field.nullable,

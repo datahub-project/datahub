@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List
 
 
 @dataclass
@@ -23,8 +23,8 @@ class Connector:
     paused: bool
     sync_frequency: int
     destination_id: str
-    user_email: Optional[str]
-    table_lineage: List[TableLineage]
+    user_id: str
+    lineage: List[TableLineage]
     jobs: List["Job"]
 
 

@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.resolvers.mutate;
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.codahale.metrics.Timer;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.types.BatchMutableType;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -35,7 +36,7 @@ public class MutableTypeBatchResolver<I, B, T> implements DataFetcher<Completabl
     final B[] input =
         bindArgument(environment.getArgument("input"), _batchMutableType.batchInputClass());
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           Timer.Context timer = MetricUtils.timer(this.getClass(), "batchMutate").time();
 
@@ -49,6 +50,8 @@ public class MutableTypeBatchResolver<I, B, T> implements DataFetcher<Completabl
           } finally {
             timer.stop();
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

@@ -42,7 +42,7 @@ export default function AcrylDemoBanner() {
         <BannerWrapper>
             <Logo src={AcrylLogo} />
             <TextWrapper>
-                <Title>Schedule a Demo of Managed DataHub</Title>
+                <Title>Schedule a Demo of DataHub Cloud</Title>
                 <TextContent>
                     DataHub is already the industry&apos;s #1 Open Source Data Catalog.{' '}
                     <StyledLink
@@ -52,8 +52,8 @@ export default function AcrylDemoBanner() {
                     >
                         Schedule a demo
                     </StyledLink>{' '}
-                    of Acryl DataHub to see the advanced features that take it to the next level or purchase Acryl Cloud
-                    on{' '}
+                    of DataHub Cloud to see the advanced features that take it to the next level or purchase DataHub
+                    Cloud on{' '}
                     <StyledLink
                         href="https://aws.amazon.com/marketplace/pp/prodview-ratzv4k453pck?sr=0-1&ref_=beagle&applicationId=AWSMPContessa"
                         target="_blank"

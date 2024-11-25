@@ -13,27 +13,24 @@ def get_long_description():
     return pathlib.Path(os.path.join(root, "README.md")).read_text()
 
 
-rest_common = {"requests", "requests_file"}
-
 _version: str = package_metadata["__version__"]
 _self_pin = (
-    f"=={_version}" if not (_version.endswith("dev0") or "docker" in _version) else ""
+    f"=={_version}"
+    if not (_version.endswith(("dev0", "dev1")) or "docker" in _version)
+    else ""
 )
 
 base_requirements = {
     # Actual dependencies.
     "dagster >= 1.3.3",
     "dagit >= 1.3.3",
-    *rest_common,
-    # Ignoring the dependency below because it causes issues with the vercel built wheel install
-    #f"acryl-datahub[datahub-rest]{_self_pin}",
-    "acryl-datahub[datahub-rest]",
+    f"acryl-datahub[datahub-rest,sql-parser]{_self_pin}",
 }
 
 mypy_stubs = {
     "types-dataclasses",
     "sqlalchemy-stubs",
-    "types-pkg_resources",
+    "types-setuptools",
     "types-six",
     "types-python-dateutil",
     "types-requests",
@@ -51,6 +48,9 @@ mypy_stubs = {
 base_dev_requirements = {
     *base_requirements,
     *mypy_stubs,
+    "dagster-aws >= 0.11.0",
+    "dagster-snowflake >= 0.11.0",
+    "dagster-snowflake-pandas >= 0.11.0",
     "black==22.12.0",
     "coverage>=5.1",
     "flake8>=6.0.0",
@@ -65,7 +65,8 @@ base_dev_requirements = {
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "tox",
-    "deepdiff",
+    # Missing numpy requirement in 8.0.0
+    "deepdiff!=8.0.0",
     "requests-mock",
     "freezegun",
     "jsonpickle",

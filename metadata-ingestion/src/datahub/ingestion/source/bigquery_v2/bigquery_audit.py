@@ -7,7 +7,6 @@ from typing import Any, ClassVar, Dict, List, Optional, Pattern, Tuple, Union
 
 from dateutil import parser
 
-from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.utilities.parsing_util import (
     get_first_missing_key,
     get_first_missing_key_any,
@@ -80,8 +79,8 @@ class BigqueryTableIdentifier:
 
     @classmethod
     def from_string_name(cls, table: str) -> "BigqueryTableIdentifier":
-        parts = table.split(".")
-        # If the table name contains dollar sign, it is a referrence to a partitioned table and we have to strip it
+        parts = table.split(".", maxsplit=2)
+        # If the table name contains dollar sign, it is a reference to a partitioned table and we have to strip it
         table = parts[2].split("$", 1)[0]
         return cls(parts[0], parts[1], table)
 
@@ -192,7 +191,7 @@ class BigQueryTableRef:
     def from_urn(cls, urn: str) -> "BigQueryTableRef":
         """Raises: ValueError if urn is not a valid BigQuery table URN."""
         dataset_urn = DatasetUrn.create_from_string(urn)
-        split = dataset_urn.get_dataset_name().rsplit(".", 3)
+        split = dataset_urn.name.rsplit(".", 3)
         if len(split) == 3:
             project, dataset, table = split
         else:
@@ -211,13 +210,6 @@ class BigQueryTableRef:
         # Handle partitioned and sharded tables.
         return BigQueryTableRef(
             BigqueryTableIdentifier.from_string_name(sanitized_table)
-        )
-
-    def to_urn(self, env: str) -> str:
-        return make_dataset_urn(
-            "bigquery",
-            f"{self.table_identifier.project_id}.{self.table_identifier.dataset}.{self.table_identifier.table}",
-            env,
         )
 
     def __str__(self) -> str:
@@ -294,19 +286,27 @@ class QueryEvent:
                 job.get("jobName", {}).get("jobId"),
             ),
             project_id=job.get("jobName", {}).get("projectId"),
-            default_dataset=job_query_conf["defaultDataset"]
-            if job_query_conf["defaultDataset"]
-            else None,
-            start_time=parser.parse(job["jobStatistics"]["startTime"])
-            if job["jobStatistics"]["startTime"]
-            else None,
-            end_time=parser.parse(job["jobStatistics"]["endTime"])
-            if job["jobStatistics"]["endTime"]
-            else None,
-            numAffectedRows=int(job["jobStatistics"]["queryOutputRowCount"])
-            if "queryOutputRowCount" in job["jobStatistics"]
-            and job["jobStatistics"]["queryOutputRowCount"]
-            else None,
+            default_dataset=(
+                job_query_conf["defaultDataset"]
+                if job_query_conf["defaultDataset"]
+                else None
+            ),
+            start_time=(
+                parser.parse(job["jobStatistics"]["startTime"])
+                if job["jobStatistics"]["startTime"]
+                else None
+            ),
+            end_time=(
+                parser.parse(job["jobStatistics"]["endTime"])
+                if job["jobStatistics"]["endTime"]
+                else None
+            ),
+            numAffectedRows=(
+                int(job["jobStatistics"]["queryOutputRowCount"])
+                if "queryOutputRowCount" in job["jobStatistics"]
+                and job["jobStatistics"]["queryOutputRowCount"]
+                else None
+            ),
             statementType=job_query_conf.get("statementType", "UNKNOWN"),
         )
         # destinationTable
@@ -376,18 +376,26 @@ class QueryEvent:
             query=query_config["query"],
             job_name=job["jobName"],
             project_id=QueryEvent._get_project_id_from_job_name(job["jobName"]),
-            default_dataset=query_config["defaultDataset"]
-            if query_config.get("defaultDataset")
-            else None,
-            start_time=parser.parse(job["jobStats"]["startTime"])
-            if job["jobStats"]["startTime"]
-            else None,
-            end_time=parser.parse(job["jobStats"]["endTime"])
-            if job["jobStats"]["endTime"]
-            else None,
-            numAffectedRows=int(query_stats["outputRowCount"])
-            if query_stats.get("outputRowCount")
-            else None,
+            default_dataset=(
+                query_config["defaultDataset"]
+                if query_config.get("defaultDataset")
+                else None
+            ),
+            start_time=(
+                parser.parse(job["jobStats"]["startTime"])
+                if job["jobStats"]["startTime"]
+                else None
+            ),
+            end_time=(
+                parser.parse(job["jobStats"]["endTime"])
+                if job["jobStats"]["endTime"]
+                else None
+            ),
+            numAffectedRows=(
+                int(query_stats["outputRowCount"])
+                if query_stats.get("outputRowCount")
+                else None
+            ),
             statementType=query_config.get("statementType", "UNKNOWN"),
         )
         # jobName
@@ -445,18 +453,26 @@ class QueryEvent:
             timestamp=row.timestamp,
             actor_email=payload["authenticationInfo"]["principalEmail"],
             query=query_config["query"],
-            default_dataset=query_config["defaultDataset"]
-            if "defaultDataset" in query_config and query_config["defaultDataset"]
-            else None,
-            start_time=parser.parse(job["jobStats"]["startTime"])
-            if job["jobStats"]["startTime"]
-            else None,
-            end_time=parser.parse(job["jobStats"]["endTime"])
-            if job["jobStats"]["endTime"]
-            else None,
-            numAffectedRows=int(query_stats["outputRowCount"])
-            if "outputRowCount" in query_stats and query_stats["outputRowCount"]
-            else None,
+            default_dataset=(
+                query_config["defaultDataset"]
+                if "defaultDataset" in query_config and query_config["defaultDataset"]
+                else None
+            ),
+            start_time=(
+                parser.parse(job["jobStats"]["startTime"])
+                if job["jobStats"]["startTime"]
+                else None
+            ),
+            end_time=(
+                parser.parse(job["jobStats"]["endTime"])
+                if job["jobStats"]["endTime"]
+                else None
+            ),
+            numAffectedRows=(
+                int(query_stats["outputRowCount"])
+                if "outputRowCount" in query_stats and query_stats["outputRowCount"]
+                else None
+            ),
             statementType=query_config.get("statementType", "UNKNOWN"),
         )
         query_event.job_name = job.get("jobName")

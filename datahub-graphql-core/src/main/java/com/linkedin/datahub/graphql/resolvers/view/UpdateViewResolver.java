@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.UpdateViewInput;
@@ -38,7 +39,7 @@ public class UpdateViewResolver implements DataFetcher<CompletableFuture<DataHub
         bindArgument(environment.getArgument("input"), UpdateViewInput.class);
 
     final Urn urn = Urn.createFromString(urnStr);
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             if (ViewUtils.canUpdateView(_viewService, urn, context)) {
@@ -47,7 +48,8 @@ public class UpdateViewResolver implements DataFetcher<CompletableFuture<DataHub
                   urn,
                   input.getName(),
                   input.getDescription(),
-                  ViewUtils.mapDefinition(input.getDefinition()),
+                  ViewUtils.mapDefinition(
+                      input.getDefinition(), context.getOperationContext().getAspectRetriever()),
                   System.currentTimeMillis());
               log.info(String.format("Successfully updated View %s with urn", urn));
               return getView(context, urn, context.getAuthentication());
@@ -60,7 +62,9 @@ public class UpdateViewResolver implements DataFetcher<CompletableFuture<DataHub
             throw new RuntimeException(
                 String.format("Failed to perform update against View with urn %s", urn), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private DataHubView getView(

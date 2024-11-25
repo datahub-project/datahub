@@ -11,6 +11,7 @@
                         "description": "lorem ipsum",
                         "charts": [],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1586847600000,
@@ -76,9 +77,6 @@
                         },
                         "nativeDataType": "string",
                         "recursive": false,
-                        "globalTags": {
-                            "tags": []
-                        },
                         "isPartOfKey": false
                     }
                 }
@@ -113,9 +111,6 @@
                         },
                         "nativeDataType": "string",
                         "recursive": false,
-                        "globalTags": {
-                            "tags": []
-                        },
                         "isPartOfKey": false
                     }
                 }
@@ -140,7 +135,8 @@
                 "env": "PROD",
                 "model_name": "data"
             },
-            "name": "data"
+            "name": "data",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -239,7 +235,10 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "project": "lkml_samples",
+                            "model": "data",
                             "looker.explore.label": "My Explore View",
+                            "looker.explore.name": "my_view",
                             "looker.explore.file": "test_source_file.lkml"
                         },
                         "externalUrl": "https://looker.company.com/explore/data/my_view",
@@ -459,8 +458,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "viewsCount": 25,
             "favoritesCount": 5,
@@ -486,8 +485,8 @@
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "executionsCount": 14,
             "uniqueUserCount": 1,
@@ -526,8 +525,8 @@
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "executionsCount": 14,
             "uniqueUserCount": 1
@@ -552,8 +551,8 @@
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "executionsCount": 5,
             "uniqueUserCount": 1,
@@ -582,8 +581,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "viewsCount": 30
         }
@@ -607,8 +606,8 @@
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "viewsCount": 10,
             "userCounts": [
@@ -642,8 +641,8 @@
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "viewsCount": 20
         }
@@ -667,8 +666,8 @@
                 "multiple": 1
             },
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "viewsCount": 35
         }

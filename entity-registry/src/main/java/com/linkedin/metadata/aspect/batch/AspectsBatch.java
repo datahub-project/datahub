@@ -9,6 +9,8 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +50,8 @@ public interface AspectsBatch {
    *     various hooks
    */
   Pair<Map<String, Set<String>>, List<ChangeMCP>> toUpsertBatchItems(
-      Map<String, Map<String, SystemAspect>> latestAspects);
+      Map<String, Map<String, SystemAspect>> latestAspects,
+      Map<String, Map<String, Long>> nextVersions);
 
   /**
    * Apply read mutations to batch
@@ -82,6 +85,13 @@ public interface AspectsBatch {
         retrieverContext.getAspectRetriever().getEntityRegistry().getAllMutationHooks()) {
       mutationHook.applyWriteMutation(changeMCPS, retrieverContext);
     }
+  }
+
+  default Stream<MCPItem> applyProposalMutationHooks(
+      Collection<MCPItem> proposedItems, @Nonnull RetrieverContext retrieverContext) {
+    return retrieverContext.getAspectRetriever().getEntityRegistry().getAllMutationHooks().stream()
+        .flatMap(
+            mutationHook -> mutationHook.applyProposalMutation(proposedItems, retrieverContext));
   }
 
   default <T extends BatchItem> ValidationExceptionCollection validateProposed(
@@ -127,6 +137,16 @@ public interface AspectsBatch {
       Collection<ChangeMCP> items, @Nonnull RetrieverContext retrieverContext) {
     return retrieverContext.getAspectRetriever().getEntityRegistry().getAllMCPSideEffects().stream()
         .flatMap(mcpSideEffect -> mcpSideEffect.apply(items, retrieverContext));
+  }
+
+  default Stream<MCPItem> applyPostMCPSideEffects(Collection<MCLItem> items) {
+    return applyPostMCPSideEffects(items, getRetrieverContext());
+  }
+
+  static Stream<MCPItem> applyPostMCPSideEffects(
+      Collection<MCLItem> items, @Nonnull RetrieverContext retrieverContext) {
+    return retrieverContext.getAspectRetriever().getEntityRegistry().getAllMCPSideEffects().stream()
+        .flatMap(mcpSideEffect -> mcpSideEffect.postApply(items, retrieverContext));
   }
 
   default Stream<MCLItem> applyMCLSideEffects(Collection<MCLItem> items) {
@@ -181,16 +201,13 @@ public interface AspectsBatch {
 
   static <T> Map<String, Map<String, T>> merge(
       @Nonnull Map<String, Map<String, T>> a, @Nonnull Map<String, Map<String, T>> b) {
-    return Stream.concat(a.entrySet().stream(), b.entrySet().stream())
-        .flatMap(
-            entry ->
-                entry.getValue().entrySet().stream()
-                    .map(innerEntry -> Pair.of(entry.getKey(), innerEntry)))
-        .collect(
-            Collectors.groupingBy(
-                Pair::getKey,
-                Collectors.mapping(
-                    Pair::getValue, Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
+
+    Map<String, Map<String, T>> mergedMap = new HashMap<>();
+    for (Map.Entry<String, Map<String, T>> entry :
+        Stream.concat(a.entrySet().stream(), b.entrySet().stream()).collect(Collectors.toList())) {
+      mergedMap.computeIfAbsent(entry.getKey(), k -> new HashMap<>()).putAll(entry.getValue());
+    }
+    return mergedMap;
   }
 
   default String toAbbreviatedString(int maxWidth) {
@@ -211,5 +228,40 @@ public interface AspectsBatch {
         + "items="
         + StringUtils.abbreviate(itemsAbbreviated.toString(), maxWidth)
         + '}';
+  }
+
+  /**
+   * Increment aspect within a batch, tracking both the next aspect version and the most recent
+   *
+   * @param changeMCP changeMCP to be incremented
+   * @param latestAspects lastest aspects within the batch
+   * @param nextVersions next version for the aspects in the batch
+   * @return the incremented changeMCP
+   */
+  static ChangeMCP incrementBatchVersion(
+      ChangeMCP changeMCP,
+      Map<String, Map<String, SystemAspect>> latestAspects,
+      Map<String, Map<String, Long>> nextVersions) {
+    long nextVersion =
+        nextVersions
+            .getOrDefault(changeMCP.getUrn().toString(), Collections.emptyMap())
+            .getOrDefault(changeMCP.getAspectName(), 0L);
+
+    changeMCP.setPreviousSystemAspect(
+        latestAspects
+            .getOrDefault(changeMCP.getUrn().toString(), Collections.emptyMap())
+            .getOrDefault(changeMCP.getAspectName(), null));
+
+    changeMCP.setNextAspectVersion(nextVersion);
+
+    // support inner-batch upserts
+    latestAspects
+        .computeIfAbsent(changeMCP.getUrn().toString(), key -> new HashMap<>())
+        .put(changeMCP.getAspectName(), changeMCP.getSystemAspect(nextVersion));
+    nextVersions
+        .computeIfAbsent(changeMCP.getUrn().toString(), key -> new HashMap<>())
+        .put(changeMCP.getAspectName(), nextVersion + 1);
+
+    return changeMCP;
   }
 }

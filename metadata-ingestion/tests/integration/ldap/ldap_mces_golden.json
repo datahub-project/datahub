@@ -6,7 +6,6 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
-                        "email": "simpons-group",
                         "admins": [],
                         "members": [
                             "urn:li:corpuser:hsimpson",
@@ -20,7 +19,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -35,7 +35,6 @@
                         },
                         "active": true,
                         "displayName": "Bart Simpson",
-                        "email": "bsimpson",
                         "title": "Mr. Boss",
                         "firstName": "Bart",
                         "lastName": "Simpson",
@@ -52,7 +51,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -87,7 +87,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -102,7 +103,6 @@
                         },
                         "active": true,
                         "displayName": "Lisa Simpson",
-                        "email": "lsimpson",
                         "firstName": "Lisa",
                         "lastName": "Simpson",
                         "fullName": "Lisa Simpson"
@@ -118,7 +118,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -133,7 +134,6 @@
                         },
                         "active": true,
                         "displayName": "Maggie Simpson",
-                        "email": "msimpson",
                         "firstName": "Maggie",
                         "lastName": "Simpson",
                         "fullName": "Maggie Simpson"
@@ -149,7 +149,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -164,7 +165,6 @@
                         },
                         "active": true,
                         "displayName": "Hester Bevan",
-                        "email": "hbevan",
                         "firstName": "Hester",
                         "lastName": "Bevan",
                         "fullName": "Hester Bevan"
@@ -180,7 +180,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -195,7 +196,6 @@
                         },
                         "active": true,
                         "displayName": "Evalyn Haas",
-                        "email": "ehaas",
                         "firstName": "Evalyn",
                         "lastName": "Haas",
                         "fullName": "Evalyn Haas"
@@ -211,7 +211,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -221,7 +222,6 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
-                        "email": "HR Department",
                         "admins": [],
                         "members": [],
                         "groups": []
@@ -232,7 +232,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -242,7 +243,6 @@
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.identity.CorpGroupInfo": {
-                        "email": "Finance Department",
                         "admins": [],
                         "members": [],
                         "groups": []
@@ -253,7 +253,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -268,7 +269,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -283,7 +285,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -298,7 +301,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -313,7 +317,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -328,7 +333,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -343,7 +349,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -358,7 +365,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -373,7 +381,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -388,7 +397,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

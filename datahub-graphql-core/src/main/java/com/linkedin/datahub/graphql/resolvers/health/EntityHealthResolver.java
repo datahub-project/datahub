@@ -1,10 +1,14 @@
 package com.linkedin.datahub.graphql.resolvers.health;
 
+import static com.linkedin.metadata.Constants.ASSERTION_RUN_EVENT_STATUS_COMPLETE;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.Health;
 import com.linkedin.datahub.graphql.generated.HealthStatus;
@@ -86,7 +90,7 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
   public CompletableFuture<List<Health>> get(final DataFetchingEnvironment environment)
       throws Exception {
     final Entity parent = environment.getSource();
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             final HealthStatuses statuses =
@@ -95,7 +99,9 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
           } catch (Exception e) {
             throw new RuntimeException("Failed to resolve asset's health status.", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /**
@@ -248,16 +254,12 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
     final ArrayList<Criterion> criteria = new ArrayList<>();
 
     // Add filter for asserteeUrn == datasetUrn
-    Criterion datasetUrnCriterion =
-        new Criterion().setField("asserteeUrn").setCondition(Condition.EQUAL).setValue(datasetUrn);
+    Criterion datasetUrnCriterion = buildCriterion("asserteeUrn", Condition.EQUAL, datasetUrn);
     criteria.add(datasetUrnCriterion);
 
     // Add filter for result == result
     Criterion startTimeCriterion =
-        new Criterion()
-            .setField("status")
-            .setCondition(Condition.EQUAL)
-            .setValue(Constants.ASSERTION_RUN_EVENT_STATUS_COMPLETE);
+        buildCriterion("status", Condition.EQUAL, ASSERTION_RUN_EVENT_STATUS_COMPLETE);
     criteria.add(startTimeCriterion);
 
     filter.setOr(

@@ -6,6 +6,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.invite.InviteTokenService;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.CreateInviteTokenInput;
 import com.linkedin.datahub.graphql.generated.InviteToken;
@@ -34,7 +35,7 @@ public class CreateInviteTokenResolver implements DataFetcher<CompletableFuture<
     final String roleUrnStr = input.getRoleUrn();
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             return new InviteToken(
@@ -44,6 +45,8 @@ public class CreateInviteTokenResolver implements DataFetcher<CompletableFuture<
             throw new RuntimeException(
                 String.format("Failed to create invite token for role %s", roleUrnStr), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

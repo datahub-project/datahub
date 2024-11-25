@@ -1,5 +1,13 @@
 package com.linkedin.datahub.upgrade.system.elasticsearch;
 
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
+
+import com.datahub.util.RecordUtils;
+import com.linkedin.common.Status;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesPostStep;
@@ -8,14 +16,17 @@ import com.linkedin.datahub.upgrade.system.elasticsearch.steps.BuildIndicesStep;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.EntityAspect;
 import com.linkedin.metadata.graph.GraphService;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -31,8 +42,7 @@ public class BuildIndices implements BlockingSystemUpgrade {
       final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
           baseElasticSearchComponents,
       final ConfigurationProvider configurationProvider,
-      final AspectDao aspectDao,
-      final EntityRegistry entityRegistry) {
+      final AspectDao aspectDao) {
 
     List<ElasticSearchIndexed> indexedServices =
         Stream.of(graphService, entitySearchService, systemMetadataService, timeseriesAspectService)
@@ -41,12 +51,7 @@ public class BuildIndices implements BlockingSystemUpgrade {
             .collect(Collectors.toList());
 
     _steps =
-        buildSteps(
-            indexedServices,
-            baseElasticSearchComponents,
-            configurationProvider,
-            aspectDao,
-            entityRegistry);
+        buildSteps(indexedServices, baseElasticSearchComponents, configurationProvider, aspectDao);
   }
 
   @Override
@@ -64,8 +69,14 @@ public class BuildIndices implements BlockingSystemUpgrade {
       final BaseElasticSearchComponentsFactory.BaseElasticSearchComponents
           baseElasticSearchComponents,
       final ConfigurationProvider configurationProvider,
-      final AspectDao aspectDao,
-      final EntityRegistry entityRegistry) {
+      final AspectDao aspectDao) {
+
+    final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
+    if (configurationProvider.getStructuredProperties().isSystemUpdateEnabled()) {
+      structuredProperties = getActiveStructuredPropertiesDefinitions(aspectDao);
+    } else {
+      structuredProperties = Set.of();
+    }
 
     final List<UpgradeStep> steps = new ArrayList<>();
     // Disable ES write mode/change refresh rate and clone indices
@@ -74,13 +85,47 @@ public class BuildIndices implements BlockingSystemUpgrade {
             baseElasticSearchComponents,
             indexedServices,
             configurationProvider,
-            aspectDao,
-            entityRegistry));
+            structuredProperties));
     // Configure graphService, entitySearchService, systemMetadataService, timeseriesAspectService
-    steps.add(new BuildIndicesStep(indexedServices));
+    steps.add(new BuildIndicesStep(indexedServices, structuredProperties));
     // Reset configuration (and delete clones? Or just do this regularly? Or delete clone in
     // pre-configure step if it already exists?
-    steps.add(new BuildIndicesPostStep(baseElasticSearchComponents, indexedServices));
+    steps.add(
+        new BuildIndicesPostStep(
+            baseElasticSearchComponents, indexedServices, structuredProperties));
     return steps;
+  }
+
+  static Set<Pair<Urn, StructuredPropertyDefinition>> getActiveStructuredPropertiesDefinitions(
+      AspectDao aspectDao) {
+    Set<String> removedStructuredPropertyUrns;
+    try (Stream<EntityAspect> stream =
+        aspectDao.streamAspects(STRUCTURED_PROPERTY_ENTITY_NAME, STATUS_ASPECT_NAME)) {
+      removedStructuredPropertyUrns =
+          stream
+              .map(
+                  entityAspect ->
+                      Pair.of(
+                          entityAspect.getUrn(),
+                          RecordUtils.toRecordTemplate(Status.class, entityAspect.getMetadata())))
+              .filter(status -> status.getSecond().isRemoved())
+              .map(Pair::getFirst)
+              .collect(Collectors.toSet());
+    }
+
+    try (Stream<EntityAspect> stream =
+        aspectDao.streamAspects(
+            STRUCTURED_PROPERTY_ENTITY_NAME, STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)) {
+      return stream
+          .map(
+              entityAspect ->
+                  Pair.of(
+                      UrnUtils.getUrn(entityAspect.getUrn()),
+                      RecordUtils.toRecordTemplate(
+                          StructuredPropertyDefinition.class, entityAspect.getMetadata())))
+          .filter(
+              definition -> !removedStructuredPropertyUrns.contains(definition.getKey().toString()))
+          .collect(Collectors.toSet());
+    }
   }
 }

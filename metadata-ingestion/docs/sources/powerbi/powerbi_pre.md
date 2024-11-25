@@ -10,17 +10,20 @@
 
 ## Concept mapping 
 
-| PowerBI              | Datahub                 |                                                                                               
-|-----------------------|---------------------|
-| `Dashboard`           | `Dashboard`         |
-| `Dataset's Table`     | `Dataset`           |
-| `Tile`                | `Chart`             |
-| `Report.webUrl`       | `Chart.externalUrl` |
-| `Workspace`           | `Container`         |
-| `Report`              | `Dashboard`         |
-| `Page`                | `Chart`             |
+| PowerBI           | Datahub             |                                                                                               
+|-------------------|---------------------|
+| `Dashboard`       | `Dashboard`         |
+| `Dataset's Table` | `Dataset`           |
+| `Tile`            | `Chart`             |
+| `Report.webUrl`   | `Chart.externalUrl` |
+| `Workspace`       | `Container`         |
+| `Report`          | `Dashboard`         |
+| `PaginatedReport` | `Dashboard`         |
+| `Page`            | `Chart`             |
+| `App`             | `Dashboard`         |
 
-If Tile is created from report then Chart.externalUrl is set to Report.webUrl.
+- If `Tile` is created from report then `Chart.externalUrl` is set to Report.webUrl.
+- The `Page` is unavailable for PowerBI PaginatedReport.
 
 ## Lineage
 
@@ -100,7 +103,7 @@ combine_result
 
 `Pattern-2` is *not* supported for upstream table lineage extraction as it uses nested item-selector i.e. {Source{[Schema="public",Item="book"]}[Data], Source{[Schema="public",Item="issue_history"]}[Data]} as argument to M-QUery table function i.e. Table.Combine
 
-`Pattern-1` is supported as it first assign the table from schema to variable and then variable is used in M-Query Table function i.e. Table.Combine
+`Pattern-1` is supported as it first assigns the table from schema to variable and then variable is used in M-Query Table function i.e. Table.Combine
 
 ## Extract endorsements to tags
 
@@ -108,12 +111,22 @@ By default, extracting endorsement information to tags is disabled. The feature 
 
 Please note that the default implementation overwrites tags for the ingested entities, if you need to preserve existing tags, consider using a [transformer](../../../../metadata-ingestion/docs/transformer/dataset_transformer.md#simple-add-dataset-globaltags) with `semantics: PATCH` tags instead of `OVERWRITE`.
 
+## Profiling
+
+The profiling implementation is done through querying [DAX query endpoint](https://learn.microsoft.com/en-us/rest/api/power-bi/datasets/execute-queries). Therefore, the principal needs to have permission to query the datasets to be profiled. Usually this means that the service principal should have `Contributor` role for the workspace to be ingested. Profiling is done with column-based queries to be able to handle wide datasets without timeouts.
+
+Take into account that the profiling implementation executes a fairly big number of DAX queries, and for big datasets this is a significant load to the PowerBI system.
+
+The `profiling_pattern` setting may be used to limit profiling actions to only a certain set of resources in PowerBI. Both allowed and deny rules are matched against the following pattern for every table in a PowerBI Dataset: `workspace_name.dataset_name.table_name`. Users may limit profiling with these settings at table level, dataset level or workspace level.
+
 ## Admin Ingestion vs. Basic Ingestion
 PowerBI provides two sets of API i.e. [Basic API and Admin API](https://learn.microsoft.com/en-us/rest/api/power-bi/). 
 
-The Basic API returns metadata of PowerBI resources where service principal has granted access explicitly on resources whereas Admin API returns metadata of all PowerBI resources irrespective of whether service principal has granted or doesn't granted access explicitly  on resources.
+The Basic API returns metadata of PowerBI resources where service principal has granted access explicitly on resources,
+whereas Admin API returns metadata of all PowerBI resources irrespective of whether service principal has granted
+or doesn't grant access explicitly on resources.
 
-The Admin Ingestion (explain below) is the recommended way to execute PowerBI ingestion as this ingestion can extract most of the metadata.
+The Admin Ingestion (explained below) is the recommended way to execute PowerBI ingestion as this ingestion can extract most of the metadata.
 
 
 ### Admin Ingestion: Service Principal As Admin in Tenant Setting and Added as Member In Workspace
@@ -132,18 +145,20 @@ PowerBI Source would be able to ingest below listed metadata of that particular 
   - Endorsement as tag
   - Dashboards 
   - Reports 
-  - Dashboard's Tiles
-  - Report's Pages
+  - Dashboard Tiles
+  - Report Pages
+  - App
 
 If you don't want to add a service principal as a member in your workspace, then you can enable the `admin_apis_only: true` in recipe to use PowerBI Admin API only. 
 
 Caveats of setting `admin_apis_only` to `true`:
   - Report's pages would not get ingested as page API is not available in PowerBI Admin API
   - [PowerBI Parameters](https://learn.microsoft.com/en-us/power-query/power-query-query-parameters) would not get resolved to actual values while processing M-Query for table lineage
+  - Dataset profiling is unavailable, as it requires access to the workspace API
 
 
 ### Basic Ingestion: Service Principal As Member In Workspace 
-If you have added service principal as `member` in workspace then PowerBI Source would be able ingest below metadata of that particular workspace 
+If you have added service principal as `member` in workspace then PowerBI Source would be able to ingest below metadata of that particular workspace 
 
   - Dashboards 
   - Reports 

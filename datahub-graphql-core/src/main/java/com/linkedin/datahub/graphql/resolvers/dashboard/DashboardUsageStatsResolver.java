@@ -1,10 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.dashboard;
 
 import static com.linkedin.datahub.graphql.resolvers.dashboard.DashboardUsageStatsUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DashboardUsageAggregation;
 import com.linkedin.datahub.graphql.generated.DashboardUsageMetrics;
 import com.linkedin.datahub.graphql.generated.DashboardUsageQueryResult;
@@ -13,7 +15,6 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.types.dashboard.mappers.DashboardUsageMetricMapper;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
-import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -55,7 +56,7 @@ public class DashboardUsageStatsResolver
     // Max number of aspects to return for absolute dashboard usage.
     final Integer maybeLimit = environment.getArgumentOrDefault("limit", null);
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           DashboardUsageQueryResult usageQueryResult = new DashboardUsageQueryResult();
 
@@ -84,7 +85,9 @@ public class DashboardUsageStatsResolver
                   context, dashboardUrn, maybeStartTimeMillis, maybeEndTimeMillis, maybeLimit);
           usageQueryResult.setMetrics(dashboardUsageMetrics);
           return usageQueryResult;
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private List<DashboardUsageMetrics> getDashboardUsageMetrics(
@@ -99,11 +102,7 @@ public class DashboardUsageStatsResolver
       final ArrayList<Criterion> criteria = new ArrayList<>();
 
       // Add filter for absence of eventGranularity - only consider absolute stats
-      Criterion excludeTimeBucketsCriterion =
-          new Criterion()
-              .setField(ES_FIELD_EVENT_GRANULARITY)
-              .setCondition(Condition.IS_NULL)
-              .setValue("");
+      Criterion excludeTimeBucketsCriterion = buildIsNullCriterion(ES_FIELD_EVENT_GRANULARITY);
       criteria.add(excludeTimeBucketsCriterion);
       filter.setOr(
           new ConjunctiveCriterionArray(

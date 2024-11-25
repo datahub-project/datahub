@@ -33,7 +33,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 
 @dataclass
 class ClassificationReportMixin:
-
     num_tables_fetch_sample_values_failed: int = 0
 
     num_tables_classification_attempted: int = 0
@@ -48,7 +47,7 @@ class ClassificationReportMixin:
 class ClassificationSourceConfigMixin(ConfigModel):
     classification: ClassificationConfig = Field(
         default=ClassificationConfig(),
-        description="For details, refer [Classification](../../../../metadata-ingestion/docs/dev_guides/classification.md).",
+        description="For details, refer to [Classification](../../../../metadata-ingestion/docs/dev_guides/classification.md).",
     )
 
 
@@ -112,7 +111,6 @@ class ClassificationHandler:
         schema_metadata: SchemaMetadata,
         sample_data: Union[Dict[str, list], Callable[[], Dict[str, list]]],
     ) -> None:
-
         if not isinstance(sample_data, Dict):
             try:
                 # TODO: In future, sample_data fetcher can be lazily called if classification
@@ -300,6 +298,8 @@ def classification_workunit_processor(
     table_name = ".".join(table_id)
     if not classification_handler.is_classification_enabled_for_table(table_name):
         yield from table_wu_generator
+        return
+
     for wu in table_wu_generator:
         maybe_schema_metadata = wu.get_aspect_of_type(SchemaMetadata)
         if (

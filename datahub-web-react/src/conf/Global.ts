@@ -41,3 +41,11 @@ export const CLIENT_AUTH_COOKIE = 'actor';
  * Name of the unique browser id cookie generated on client side
  */
 export const BROWSER_ID_COOKIE = 'bid';
+
+/** New Routes Map for redirection */
+export const NEW_ROUTE_MAP = {
+    '/Validation/Assertions': '/Quality/List',
+    '/Validation/Tests': '/Governance/Tests',
+    '/Validation/Data%20Contract': '/Quality/Data%20Contract',
+    '/Validation': '/Quality',
+};

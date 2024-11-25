@@ -33,7 +33,9 @@ import com.linkedin.form.FormType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.OwnershipUtils;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.key.FormKey;
 import com.linkedin.metadata.service.util.SearchBasedFormAssignmentRunner;
+import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.FormUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -51,6 +53,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -309,7 +312,7 @@ public class FormService extends BaseService {
       @Nonnull final PrimitivePropertyValueArray values,
       @Nonnull final String fieldPath)
       throws Exception {
-    Urn schemaFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(entityUrn.toString(), fieldPath);
+    Urn schemaFieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(entityUrn, fieldPath);
     ingestStructuredProperties(opContext, schemaFieldUrn, structuredPropertyUrn, values);
   }
 
@@ -1047,6 +1050,28 @@ public class FormService extends BaseService {
     if (!entityClient.exists(opContext, entityUrn)) {
       throw new RuntimeException(
           String.format("Entity %s does not exist. Skipping batch form assignment", entityUrn));
+    }
+  }
+
+  /** Create a form given the formInfo aspect. */
+  public Urn createForm(
+      @Nonnull OperationContext opContext,
+      @Nonnull final FormInfo formInfo,
+      @Nullable final String id) {
+
+    FormKey formKey = new FormKey();
+    String formId = id != null ? id : UUID.randomUUID().toString();
+    formKey.setId(formId);
+    Urn formUrn = EntityKeyUtils.convertEntityKeyToUrn(formKey, FORM_ENTITY_NAME);
+
+    try {
+      this.entityClient.ingestProposal(
+          opContext,
+          AspectUtils.buildMetadataChangeProposal(formUrn, FORM_INFO_ASPECT_NAME, formInfo),
+          false);
+      return formUrn;
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to create form", e);
     }
   }
 

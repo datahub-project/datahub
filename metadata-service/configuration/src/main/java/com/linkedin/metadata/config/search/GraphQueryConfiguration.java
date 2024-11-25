@@ -18,14 +18,6 @@ public class GraphQueryConfiguration {
    */
   private boolean boostViaNodes;
 
-  public static GraphQueryConfiguration testDefaults;
-
-  static {
-    testDefaults = new GraphQueryConfiguration();
-    testDefaults.setBatchSize(1000);
-    testDefaults.setTimeoutSeconds(10);
-    testDefaults.setMaxResult(10000);
-    testDefaults.setEnableMultiPathSearch(true);
-    testDefaults.setBoostViaNodes(true);
-  }
+  /** Whether soft-delete status is tracked on entity URNs on graph edges */
+  private boolean graphStatusEnabled;
 }

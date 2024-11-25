@@ -1,7 +1,9 @@
 package com.linkedin.metadata.utils;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+
 import com.linkedin.common.urn.Urn;
-import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
@@ -54,10 +56,10 @@ public class SearchUtil {
 
   public static FilterValue createFilterValue(String value, Long facetCount, Boolean isFilteredOn) {
     // TODO(indy): test this
-    String[] aggregationTokens = value.split(AGGREGATION_SEPARATOR_CHAR);
+    String[] aggregations = value.split(AGGREGATION_SEPARATOR_CHAR);
     FilterValue result =
         new FilterValue().setValue(value).setFacetCount(facetCount).setFiltered(isFilteredOn);
-    String lastValue = aggregationTokens[aggregationTokens.length - 1];
+    String lastValue = aggregations[aggregations.length - 1];
     if (lastValue.startsWith(URN_PREFIX)) {
       try {
         result.setEntity(Urn.createFromString(lastValue));
@@ -70,16 +72,14 @@ public class SearchUtil {
 
   private static Criterion transformEntityTypeCriterion(
       Criterion criterion, IndexConvention indexConvention) {
-    return criterion
-        .setField(ES_INDEX_FIELD)
-        .setValues(
-            new StringArray(
-                criterion.getValues().stream()
-                    .map(value -> String.join("", value.split("_")))
-                    .map(indexConvention::getEntityIndexName)
-                    .collect(Collectors.toList())))
-        .setValue(
-            indexConvention.getEntityIndexName(String.join("", criterion.getValue().split("_"))));
+    return buildCriterion(
+        ES_INDEX_FIELD,
+        Condition.EQUAL,
+        criterion.isNegated(),
+        criterion.getValues().stream()
+            .map(value -> String.join("", value.split("_")))
+            .map(indexConvention::getEntityIndexName)
+            .collect(Collectors.toList()));
   }
 
   private static ConjunctiveCriterion transformConjunctiveCriterion(

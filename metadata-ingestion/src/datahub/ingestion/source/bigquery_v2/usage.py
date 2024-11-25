@@ -26,7 +26,6 @@ from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     get_time_bucket,
 )
-from datahub.emitter.mce_builder import make_user_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
@@ -44,7 +43,10 @@ from datahub.ingestion.source.bigquery_v2.bigquery_audit_log_api import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_config import BigQueryV2Config
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
-from datahub.ingestion.source.bigquery_v2.common import BQ_DATETIME_FORMAT
+from datahub.ingestion.source.bigquery_v2.common import (
+    BQ_DATETIME_FORMAT,
+    BigQueryIdentifierBuilder,
+)
 from datahub.ingestion.source.bigquery_v2.queries import (
     BQ_FILTER_RULE_TEMPLATE_V2_USAGE,
     bigquery_audit_metadata_query_template_usage,
@@ -313,13 +315,13 @@ class BigQueryUsageExtractor:
         report: BigQueryV2Report,
         *,
         schema_resolver: SchemaResolver,
-        dataset_urn_builder: Callable[[BigQueryTableRef], str],
+        identifiers: BigQueryIdentifierBuilder,
         redundant_run_skip_handler: Optional[RedundantUsageRunSkipHandler] = None,
     ):
         self.config: BigQueryV2Config = config
         self.report: BigQueryV2Report = report
         self.schema_resolver = schema_resolver
-        self.dataset_urn_builder = dataset_urn_builder
+        self.identifiers = identifiers
         # Replace hash of query with uuid if there are hash conflicts
         self.uuid_to_query: Dict[str, str] = {}
 
@@ -358,9 +360,9 @@ class BigQueryUsageExtractor:
             )
         ):
             # Skip this run
-            self.report.report_warning(
-                "usage-extraction",
-                "Skip this run as there was already a run for current ingestion window.",
+            self.report.warning(
+                title="Skipped redundant usage extraction",
+                message="Skip this run as there was already a run for current ingestion window.",
             )
             return False
 
@@ -404,14 +406,15 @@ class BigQueryUsageExtractor:
                         bucket_duration=self.config.bucket_duration,
                     ),
                     dataset_urns={
-                        self.dataset_urn_builder(BigQueryTableRef.from_string_name(ref))
+                        self.identifiers.gen_dataset_urn_from_raw_ref(
+                            BigQueryTableRef.from_string_name(ref)
+                        )
                         for ref in table_refs
                     },
                 )
                 usage_state.report_disk_usage(self.report)
         except Exception as e:
-            logger.error("Error processing usage", exc_info=True)
-            self.report.report_warning("usage-ingestion", str(e))
+            self.report.warning(message="Error processing usage", exc=e)
             self.report_status("usage-ingestion", False)
 
     def generate_read_events_from_query(
@@ -477,10 +480,12 @@ class BigQueryUsageExtractor:
                     )
 
             except Exception as e:
-                logger.warning(
-                    f"Unable to store usage event {audit_event}", exc_info=True
+                self.report.warning(
+                    message="Unable to store usage event",
+                    context=f"{audit_event}",
+                    exc=e,
                 )
-                self._report_error("store-event", e)
+
         logger.info(f"Total number of events aggregated = {num_aggregated}.")
 
         if self.report.num_view_query_events > 0:
@@ -500,11 +505,11 @@ class BigQueryUsageExtractor:
                     yield operational_wu
                     self.report.num_operational_stats_workunits_emitted += 1
             except Exception as e:
-                logger.warning(
-                    f"Unable to generate operation workunit for event {audit_event}",
-                    exc_info=True,
+                self.report.warning(
+                    message="Unable to generate operation workunit",
+                    context=f"{audit_event}",
+                    exc=e,
                 )
-                self._report_error("operation-workunit", e)
 
     def _generate_usage_workunits(
         self, usage_state: BigQueryUsageState
@@ -534,18 +539,18 @@ class BigQueryUsageExtractor:
                     user_freq=entry.user_freq,
                     column_freq=entry.column_freq,
                     bucket_duration=self.config.bucket_duration,
-                    resource_urn_builder=self.dataset_urn_builder,
+                    resource_urn_builder=self.identifiers.gen_dataset_urn_from_raw_ref,
                     top_n_queries=self.config.usage.top_n_queries,
                     format_sql_queries=self.config.usage.format_sql_queries,
                     queries_character_limit=self.config.usage.queries_character_limit,
                 )
                 self.report.num_usage_workunits_emitted += 1
             except Exception as e:
-                logger.warning(
-                    f"Unable to generate usage workunit for bucket {entry.timestamp}, {entry.resource}",
-                    exc_info=True,
+                self.report.warning(
+                    message="Unable to generate usage statistics workunit",
+                    context=f"{entry.timestamp}, {entry.resource}",
+                    exc=e,
                 )
-                self._report_error("statistics-workunit", e)
 
     def _get_usage_events(self, projects: Iterable[str]) -> Iterable[AuditEvent]:
         if self.config.use_exported_bigquery_audit_metadata:
@@ -559,12 +564,12 @@ class BigQueryUsageExtractor:
                     )
                     yield from self._get_parsed_bigquery_log_events(project_id)
                 except Exception as e:
-                    logger.error(
-                        f"Error getting usage events for project {project_id}",
-                        exc_info=True,
-                    )
                     self.report.usage_failed_extraction.append(project_id)
-                    self.report.report_warning(f"usage-extraction-{project_id}", str(e))
+                    self.report.warning(
+                        message="Failed to get some or all usage events for project",
+                        context=project_id,
+                        exc=e,
+                    )
                     self.report_status(f"usage-extraction-{project_id}", False)
 
                 self.report.usage_extraction_sec[project_id] = round(
@@ -709,12 +714,14 @@ class BigQueryUsageExtractor:
         affected_datasets = []
         if event.query_event and event.query_event.referencedTables:
             for table in event.query_event.referencedTables:
-                affected_datasets.append(table.to_urn(self.config.env))
+                affected_datasets.append(
+                    self.identifiers.gen_dataset_urn_from_raw_ref(table)
+                )
 
         operation_aspect = OperationClass(
             timestampMillis=reported_time,
             lastUpdatedTimestamp=operational_meta.last_updated_timestamp,
-            actor=make_user_urn(operational_meta.actor_email.split("@")[0]),
+            actor=self.identifiers.gen_user_urn(operational_meta.actor_email),
             operationType=operational_meta.statement_type,
             customOperationType=operational_meta.custom_type,
             affectedDatasets=affected_datasets,
@@ -728,7 +735,7 @@ class BigQueryUsageExtractor:
                 operation_aspect.numAffectedRows = event.query_event.numAffectedRows
 
         return MetadataChangeProposalWrapper(
-            entityUrn=destination_table.to_urn(env=self.config.env),
+            entityUrn=self.identifiers.gen_dataset_urn_from_raw_ref(destination_table),
             aspect=operation_aspect,
         ).as_workunit()
 
@@ -898,12 +905,10 @@ class BigQueryUsageExtractor:
                     self.report.num_usage_parsed_log_entries[project_id] += 1
                     yield event
             except Exception as e:
-                logger.warning(
-                    f"Unable to parse log entry `{entry}` for project {project_id}",
-                    exc_info=True,
-                )
-                self._report_error(
-                    f"log-parse-{project_id}", e, group="usage-log-parse"
+                self.report.warning(
+                    message="Unable to parse usage log entry",
+                    context=f"`{entry}` for project {project_id}",
+                    exc=e,
                 )
 
     def _generate_filter(self, corrected_start_time, corrected_end_time):
@@ -945,13 +950,6 @@ class BigQueryUsageExtractor:
                 self.report.num_view_query_events_failed_table_identification += 1
 
         return parsed_table_refs
-
-    def _report_error(
-        self, label: str, e: Exception, group: Optional[str] = None
-    ) -> None:
-        """Report an error that does not constitute a major failure."""
-        self.report.usage_error_count[label] += 1
-        self.report.report_warning(group or f"usage-{label}", str(e))
 
     def test_capability(self, project_id: str) -> None:
         for entry in self._get_parsed_bigquery_log_events(project_id, limit=1):

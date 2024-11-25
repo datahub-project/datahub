@@ -13,6 +13,7 @@ import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.LogicalOperator;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class ViewUtils {
 
@@ -92,12 +94,12 @@ public class ViewUtils {
    */
   @Nonnull
   public static DataHubViewDefinition mapDefinition(
-      @Nonnull final DataHubViewDefinitionInput input) {
+      @Nonnull final DataHubViewDefinitionInput input, @Nullable AspectRetriever aspectRetriever) {
     Objects.requireNonNull(input, "input must not be null");
 
     final DataHubViewDefinition result = new DataHubViewDefinition();
     if (input.getFilter() != null) {
-      result.setFilter(mapFilter(input.getFilter()), SetMode.IGNORE_NULL);
+      result.setFilter(mapFilter(input.getFilter(), aspectRetriever), SetMode.IGNORE_NULL);
     }
     result.setEntityTypes(
         new StringArray(
@@ -118,17 +120,19 @@ public class ViewUtils {
    * which cannot be rendered in full by the UI. We account for this on the read path by logging a
    * warning and returning an empty View in such cases.
    */
-  private static Filter mapFilter(@Nonnull DataHubViewFilterInput input) {
+  private static Filter mapFilter(
+      @Nonnull DataHubViewFilterInput input, @Nullable AspectRetriever aspectRetriever) {
     if (LogicalOperator.AND.equals(input.getOperator())) {
       // AND
-      return buildAndFilter(input.getFilters());
+      return buildAndFilter(input.getFilters(), aspectRetriever);
     } else {
       // OR
-      return buildOrFilter(input.getFilters());
+      return buildOrFilter(input.getFilters(), aspectRetriever);
     }
   }
 
-  private static Filter buildAndFilter(@Nonnull List<FacetFilterInput> input) {
+  private static Filter buildAndFilter(
+      @Nonnull List<FacetFilterInput> input, @Nullable AspectRetriever aspectRetriever) {
     final Filter result = new Filter();
     result.setOr(
         new ConjunctiveCriterionArray(
@@ -142,7 +146,8 @@ public class ViewUtils {
     return result;
   }
 
-  private static Filter buildOrFilter(@Nonnull List<FacetFilterInput> input) {
+  private static Filter buildOrFilter(
+      @Nonnull List<FacetFilterInput> input, @Nullable AspectRetriever aspectRetriever) {
     final Filter result = new Filter();
     result.setOr(
         new ConjunctiveCriterionArray(

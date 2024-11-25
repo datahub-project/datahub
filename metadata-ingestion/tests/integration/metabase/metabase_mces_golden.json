@@ -15,8 +15,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1639417592792,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1639417592792,
@@ -49,6 +49,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -61,7 +62,8 @@
     "systemMetadata": {
         "lastObserved": 1636614000000,
         "runId": "metabase-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -80,8 +82,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1636614000000,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1636614000000,
@@ -105,6 +107,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -117,7 +120,8 @@
     "systemMetadata": {
         "lastObserved": 1636614000000,
         "runId": "metabase-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -136,8 +140,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1685628119636,
-                                "actor": "urn:li:corpuser:john.doe@example.com"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1685628119636,
@@ -164,6 +168,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -176,7 +181,8 @@
     "systemMetadata": {
         "lastObserved": 1636614000000,
         "runId": "metabase-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -216,6 +222,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -228,7 +235,8 @@
     "systemMetadata": {
         "lastObserved": 1636614000000,
         "runId": "metabase-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -268,6 +276,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -280,7 +289,8 @@
     "systemMetadata": {
         "lastObserved": 1636614000000,
         "runId": "metabase-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -320,6 +330,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -332,7 +343,62 @@
     "systemMetadata": {
         "lastObserved": 1636614000000,
         "runId": "metabase-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(metabase,20)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {},
+                        "title": "Dashboard 2",
+                        "description": "",
+                        "charts": [
+                            "urn:li:chart:(metabase,1)",
+                            "urn:li:chart:(metabase,2)",
+                            "urn:li:chart:(metabase,3)"
+                        ],
+                        "datasets": [],
+                        "lastModified": {
+                            "created": {
+                                "time": 1705398694904,
+                                "actor": "urn:li:corpuser:admin@metabase.com"
+                            },
+                            "lastModified": {
+                                "time": 1705398694904,
+                                "actor": "urn:li:corpuser:admin@metabase.com"
+                            }
+                        },
+                        "dashboardUrl": "http://localhost:3000/dashboard/20"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:admin@metabase.com",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -348,7 +414,8 @@
     "systemMetadata": {
         "lastObserved": 1636614000000,
         "runId": "metabase-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -364,7 +431,8 @@
     "systemMetadata": {
         "lastObserved": 1636614000000,
         "runId": "metabase-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -380,7 +448,8 @@
     "systemMetadata": {
         "lastObserved": 1636614000000,
         "runId": "metabase-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -396,7 +465,8 @@
     "systemMetadata": {
         "lastObserved": 1636614000000,
         "runId": "metabase-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -412,7 +482,8 @@
     "systemMetadata": {
         "lastObserved": 1636614000000,
         "runId": "metabase-test",
-        "lastRunId": "no-run-id-provided"
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 }
 ]

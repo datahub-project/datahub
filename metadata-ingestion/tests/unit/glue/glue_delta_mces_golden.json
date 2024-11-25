@@ -10,10 +10,12 @@
                 "platform": "glue",
                 "instance": "delta_platform_instance",
                 "env": "PROD",
-                "database": "delta-database"
+                "database": "delta-database",
+                "CreateTime": "June 09, 2021 at 14:14:19"
             },
             "name": "delta-database",
-            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/delta-database"
+            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/delta-database",
+            "env": "PROD"
         }
     }
 },

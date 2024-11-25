@@ -9,6 +9,7 @@ import {
     GlossaryTerms,
     SearchInsight,
     Container,
+    Dataset,
     ParentContainersResult,
     Maybe,
     CorpUser,
@@ -196,6 +197,7 @@ interface Props {
     previewType?: Maybe<PreviewType>;
     paths?: EntityPath[];
     health?: Health[];
+    parentDataset?: Dataset;
 }
 
 export default function DefaultPreviewCard({
@@ -238,6 +240,7 @@ export default function DefaultPreviewCard({
     previewType,
     paths,
     health,
+    parentDataset,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
@@ -269,7 +272,7 @@ export default function DefaultPreviewCard({
 
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
-            <LeftColumn key='left-column' expandWidth={!shouldShowRightColumn}>
+            <LeftColumn key="left-column" expandWidth={!shouldShowRightColumn}>
                 <TitleContainer>
                     <PlatformContentView
                         platformName={platform}
@@ -284,6 +287,7 @@ export default function DefaultPreviewCard({
                         parentEntities={parentEntities}
                         parentContainersRef={contentRef}
                         areContainersTruncated={isContentTruncated}
+                        parentDataset={parentDataset}
                     />
                     <EntityTitleContainer>
                         <Link to={url}>
@@ -371,7 +375,7 @@ export default function DefaultPreviewCard({
                 )}
             </LeftColumn>
             {shouldShowRightColumn && (
-                <RightColumn key='right-column'>
+                <RightColumn key="right-column">
                     {topUsers && topUsers?.length > 0 && (
                         <>
                             <UserListContainer>

@@ -491,7 +491,7 @@ const searchResultWithGhostSiblings = [
 describe('siblingUtils', () => {
     describe('combineSiblingsInSearchResults', () => {
         it('combines search results to deduplicate siblings', () => {
-            const result = combineSiblingsInSearchResults(searchResultWithSiblings as any);
+            const result = combineSiblingsInSearchResults(false, searchResultWithSiblings as any);
 
             expect(result).toHaveLength(1);
             expect(result?.[0]?.matchedEntities?.[0]?.urn).toEqual(
@@ -507,7 +507,7 @@ describe('siblingUtils', () => {
         });
 
         it('will not combine an entity with a ghost node', () => {
-            const result = combineSiblingsInSearchResults(searchResultWithGhostSiblings as any);
+            const result = combineSiblingsInSearchResults(false, searchResultWithGhostSiblings as any);
 
             expect(result).toHaveLength(1);
             expect(result?.[0]?.matchedEntities?.[0]?.urn).toEqual(

@@ -1,0 +1,538 @@
+[
+  {
+    "request": {
+      "url": "/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetTimelineV1%2CPROD%29",
+      "description": "Remove test dataset",
+      "method": "delete"
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetTimelineV1%2CPROD%29/schemaMetadata?createIfNotExists=false",
+      "description": "Schema version 1",
+      "json": {
+        "schemaName": "db1.nested_struct_test",
+        "platform": "urn:li:dataPlatform:hive",
+        "version": 0,
+        "created": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown",
+          "impersonator": "urn:li:corpuser:jdoe"
+        },
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown",
+          "impersonator": "urn:li:corpuser:jdoe"
+        },
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.MySqlDDL": {
+            "tableSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "property_id",
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "int",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.RecordType": {}
+              }
+            },
+            "nativeDataType": "struct<type:string,provider:struct<name:varchar(50),id:tinyint>>",
+            "recursive": false,
+            "isPartOfKey": false,
+            "jsonProps": "{\"native_data_type\": \"struct<type:string,provider:struct<name:varchar(50),id:tinyint>>\"}"
+          },
+          {
+            "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "string",
+            "recursive": false,
+            "isPartOfKey": false,
+            "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+          },
+          {
+            "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.RecordType": {}
+              }
+            },
+            "nativeDataType": "struct<name:varchar(50),id:tinyint>",
+            "recursive": false,
+            "isPartOfKey": false,
+            "jsonProps": "{\"native_data_type\": \"struct<name:varchar(50),id:tinyint>\"}"
+          },
+          {
+            "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar(50)",
+            "recursive": false,
+            "isPartOfKey": false,
+            "jsonProps": "{\"native_data_type\": \"varchar(50)\", \"_nullable\": true}"
+          },
+          {
+            "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id",
+            "nullable": true,
+            "description": "Service provider id",
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "tinyint",
+            "recursive": false,
+            "isPartOfKey": false,
+            "jsonProps": "{\"native_data_type\": \"tinyint\", \"_nullable\": true}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetTimelineV1%2CPROD%29/schemaMetadata?createIfNotExists=false",
+      "description": "Schema version 2",
+      "json": {
+        "schemaName": "db1.nested_struct_test",
+        "platform": "urn:li:dataPlatform:hive",
+        "version": 0,
+        "created": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown",
+          "impersonator": "urn:li:corpuser:jdoe"
+        },
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown",
+          "impersonator": "urn:li:corpuser:jdoe"
+        },
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.MySqlDDL": {
+            "tableSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "property_id",
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "int",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.RecordType": {}
+              }
+            },
+            "nativeDataType": "struct<type:string,provider:struct<name:varchar(50),id:tinyint>>",
+            "recursive": false,
+            "isPartOfKey": false,
+            "jsonProps": "{\"native_data_type\": \"struct<type:string,provider:struct<name:varchar(50),id:tinyint>>\"}"
+          },
+          {
+            "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "string",
+            "recursive": false,
+            "isPartOfKey": false,
+            "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+          },
+          {
+            "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.RecordType": {}
+              }
+            },
+            "nativeDataType": "struct<name:varchar(50),id:tinyint>",
+            "recursive": false,
+            "isPartOfKey": false,
+            "jsonProps": "{\"native_data_type\": \"struct<name:varchar(50),id:tinyint>\"}"
+          },
+          {
+            "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id3",
+            "description": "Service provider name",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "tinyint",
+            "recursive": false,
+            "isPartOfKey": false,
+            "jsonProps": "{\"native_data_type\": \"tinyint\", \"_nullable\": true}"
+          },
+          {
+            "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id2",
+            "nullable": true,
+            "description": "Service provider id",
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "tinyint",
+            "recursive": false,
+            "isPartOfKey": false,
+            "jsonProps": "{\"native_data_type\": \"tinyint\", \"_nullable\": true}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/v2/entity/dataset/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetTimelineV1%2CPROD%29/schemaMetadata?createIfNotExists=false",
+      "description": "Schema version 3",
+      "json": {
+        "schemaName": "db1.nested_struct_test",
+        "platform": "urn:li:dataPlatform:hive",
+        "version": 0,
+        "created": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown",
+          "impersonator": "urn:li:corpuser:jdoe"
+        },
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:unknown",
+          "impersonator": "urn:li:corpuser:jdoe"
+        },
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.MySqlDDL": {
+            "tableSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "property_id",
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "int",
+            "recursive": false,
+            "isPartOfKey": false
+          },
+          {
+            "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.RecordType": {}
+              }
+            },
+            "nativeDataType": "struct<type:string,provider:struct<name:varchar(50),id:tinyint>>",
+            "recursive": false,
+            "isPartOfKey": false,
+            "jsonProps": "{\"native_data_type\": \"struct<type:string,provider:struct<name:varchar(50),id:tinyint>>\"}"
+          },
+          {
+            "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "string",
+            "recursive": false,
+            "isPartOfKey": false,
+            "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+          },
+          {
+            "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.RecordType": {}
+              }
+            },
+            "nativeDataType": "struct<name:varchar(50),id:tinyint>",
+            "recursive": false,
+            "isPartOfKey": false,
+            "jsonProps": "{\"native_data_type\": \"struct<name:varchar(50),id:tinyint>\"}"
+          },
+          {
+            "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
+            "description": "Service provider name",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.StringType": {}
+              }
+            },
+            "nativeDataType": "varchar(50)",
+            "recursive": false,
+            "isPartOfKey": false,
+            "jsonProps": "{\"native_data_type\": \"varchar(50)\", \"_nullable\": true}"
+          },
+          {
+            "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id",
+            "nullable": true,
+            "description": "Service provider id",
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "tinyint",
+            "recursive": false,
+            "isPartOfKey": false,
+            "jsonProps": "{\"native_data_type\": \"tinyint\", \"_nullable\": true}"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "request": {
+      "url": "/openapi/timeline/v1/urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Atest%2CdatasetTimelineV1%2CPROD%29?startTime=-1&endTime=0&raw=false&categories=TECHNICAL_SCHEMA",
+      "method": "get",
+      "description": "Get timeline response"
+    },
+    "response": {
+      "exclude_regex_paths": [
+        "root\\[.+?\\]\\['timestamp'\\]"
+      ],
+      "json": [
+        {
+          "timestamp": 1723245258298,
+          "actor": "urn:li:corpuser:datahub",
+          "semVer": "0.0.0-computed",
+          "semVerChange": "MINOR",
+          "changeEvents": [
+            {
+              "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD)",
+              "category": "TECHNICAL_SCHEMA",
+              "operation": "ADD",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service)",
+              "parameters": {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].service",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service)",
+                "nullable": true,
+                "modificationCategory": "OTHER"
+              },
+              "semVerChange": "MINOR",
+              "description": "A forwards & backwards compatible change due to the newly added field 'service'."
+            },
+            {
+              "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD)",
+              "category": "TECHNICAL_SCHEMA",
+              "operation": "ADD",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.type)",
+              "parameters": {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=string].type",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.type)",
+                "nullable": true,
+                "modificationCategory": "OTHER"
+              },
+              "semVerChange": "MINOR",
+              "description": "A forwards & backwards compatible change due to the newly added field 'service.type'."
+            },
+            {
+              "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD)",
+              "category": "TECHNICAL_SCHEMA",
+              "operation": "ADD",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider)",
+              "parameters": {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider)",
+                "nullable": true,
+                "modificationCategory": "OTHER"
+              },
+              "semVerChange": "MINOR",
+              "description": "A forwards & backwards compatible change due to the newly added field 'service.provider'."
+            },
+            {
+              "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD)",
+              "category": "TECHNICAL_SCHEMA",
+              "operation": "ADD",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.id)",
+              "parameters": {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.id)",
+                "nullable": true,
+                "modificationCategory": "OTHER"
+              },
+              "semVerChange": "MINOR",
+              "description": "A forwards & backwards compatible change due to the newly added field 'service.provider.id'."
+            },
+            {
+              "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD)",
+              "category": "TECHNICAL_SCHEMA",
+              "operation": "ADD",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.name)",
+              "parameters": {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.name)",
+                "nullable": true,
+                "modificationCategory": "OTHER"
+              },
+              "semVerChange": "MINOR",
+              "description": "A forwards & backwards compatible change due to the newly added field 'service.provider.name'."
+            },
+            {
+              "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD)",
+              "category": "TECHNICAL_SCHEMA",
+              "operation": "ADD",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),property_id)",
+              "parameters": {
+                "fieldPath": "property_id",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),property_id)",
+                "nullable": false,
+                "modificationCategory": "OTHER"
+              },
+              "semVerChange": "MINOR",
+              "description": "A forwards & backwards compatible change due to the newly added field 'property_id'."
+            }
+          ],
+          "versionStamp": "browsePathsV2:0;dataPlatformInstance:0;datasetKey:0;schemaMetadata:1"
+        },
+        {
+          "timestamp": 1723245269788,
+          "actor": "urn:li:corpuser:datahub",
+          "semVer": "1.0.0-computed",
+          "semVerChange": "MAJOR",
+          "changeEvents": [
+            {
+              "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD)",
+              "category": "TECHNICAL_SCHEMA",
+              "operation": "MODIFY",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.id)",
+              "parameters": {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.id)",
+                "nullable": true,
+                "modificationCategory": "RENAME"
+              },
+              "semVerChange": "MINOR",
+              "description": "A forwards & backwards compatible change due to renaming of the field 'service.provider.id to service.provider.id2'."
+            },
+            {
+              "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD)",
+              "category": "TECHNICAL_SCHEMA",
+              "operation": "ADD",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.id3)",
+              "parameters": {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id3",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.id3)",
+                "nullable": true,
+                "modificationCategory": "OTHER"
+              },
+              "semVerChange": "MINOR",
+              "description": "A forwards & backwards compatible change due to the newly added field 'service.provider.id3'."
+            },
+            {
+              "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD)",
+              "category": "TECHNICAL_SCHEMA",
+              "operation": "REMOVE",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.name)",
+              "parameters": {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.name)",
+                "nullable": true,
+                "modificationCategory": "OTHER"
+              },
+              "semVerChange": "MAJOR",
+              "description": "A backwards incompatible change due to removal of field: 'service.provider.name'."
+            }
+          ],
+          "versionStamp": "browsePathsV2:0;dataPlatformInstance:0;datasetKey:0;schemaMetadata:2"
+        },
+        {
+          "timestamp": 1723245279320,
+          "actor": "urn:li:corpuser:datahub",
+          "semVer": "2.0.0-computed",
+          "semVerChange": "MAJOR",
+          "changeEvents": [
+            {
+              "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD)",
+              "category": "TECHNICAL_SCHEMA",
+              "operation": "MODIFY",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.id2)",
+              "parameters": {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id2",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.id2)",
+                "nullable": true,
+                "modificationCategory": "RENAME"
+              },
+              "semVerChange": "MINOR",
+              "description": "A forwards & backwards compatible change due to renaming of the field 'service.provider.id2 to service.provider.id'."
+            },
+            {
+              "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD)",
+              "category": "TECHNICAL_SCHEMA",
+              "operation": "REMOVE",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.id3)",
+              "parameters": {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=int].id3",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.id3)",
+                "nullable": true,
+                "modificationCategory": "OTHER"
+              },
+              "semVerChange": "MAJOR",
+              "description": "A backwards incompatible change due to removal of field: 'service.provider.id3'."
+            },
+            {
+              "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD)",
+              "category": "TECHNICAL_SCHEMA",
+              "operation": "ADD",
+              "modifier": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.name)",
+              "parameters": {
+                "fieldPath": "[version=2.0].[type=struct].[type=struct].service.[type=struct].provider.[type=string].name",
+                "fieldUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:test,datasetTimelineV1,PROD),service.provider.name)",
+                "nullable": true,
+                "modificationCategory": "OTHER"
+              },
+              "semVerChange": "MINOR",
+              "description": "A forwards & backwards compatible change due to the newly added field 'service.provider.name'."
+            }
+          ],
+          "versionStamp": "browsePathsV2:0;dataPlatformInstance:0;datasetKey:0;schemaMetadata:0"
+        }
+      ]
+    }
+  }
+]

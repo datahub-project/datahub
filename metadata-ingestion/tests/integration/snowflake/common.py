@@ -156,7 +156,7 @@ large_sql_query = """WITH object_access_history AS
                 on basic_usage_counts.bucket_start_time = user_usage_counts.bucket_start_time
                 and basic_usage_counts.object_name = user_usage_counts.object_name
         where
-            basic_usage_counts.object_domain in ('Table','External table','View','Materialized view')
+            basic_usage_counts.object_domain in ('Table','External table','View','Materialized view','Iceberg table')
             and basic_usage_counts.object_name is not null
         group by
             basic_usage_counts.object_name,
@@ -224,8 +224,6 @@ def default_query_results(  # noqa: C901
         ]
     elif query == SnowflakeQuery.tables_for_database("TEST_DB"):
         raise Exception("Information schema query returned too much data")
-    elif query == SnowflakeQuery.show_views_for_database("TEST_DB"):
-        raise Exception("Information schema query returned too much data")
     elif query == SnowflakeQuery.tables_for_schema("TEST_SCHEMA", "TEST_DB"):
         return [
             {
@@ -237,11 +235,12 @@ def default_query_results(  # noqa: C901
                 "BYTES": 1024,
                 "ROW_COUNT": 10000,
                 "COMMENT": "Comment for Table",
-                "CLUSTERING_KEY": None,
+                "CLUSTERING_KEY": "LINEAR(COL_1)",
             }
             for tbl_idx in range(1, num_tables + 1)
         ]
-    elif query == SnowflakeQuery.show_views_for_schema("TEST_SCHEMA", "TEST_DB"):
+    elif query == SnowflakeQuery.show_views_for_database("TEST_DB"):
+        # TODO: Add tests for view pagination.
         return [
             {
                 "schema_name": "TEST_SCHEMA",
@@ -253,26 +252,11 @@ def default_query_results(  # noqa: C901
             for view_idx in range(1, num_views + 1)
         ]
     elif query == SnowflakeQuery.columns_for_schema("TEST_SCHEMA", "TEST_DB"):
-        raise Exception("Information schema query returned too much data")
-    elif query in [
-        *[
-            SnowflakeQuery.columns_for_table(
-                f"TABLE_{tbl_idx}", "TEST_SCHEMA", "TEST_DB"
-            )
-            for tbl_idx in range(1, num_tables + 1)
-        ],
-        *[
-            SnowflakeQuery.columns_for_table(
-                f"VIEW_{view_idx}", "TEST_SCHEMA", "TEST_DB"
-            )
-            for view_idx in range(1, num_views + 1)
-        ],
-    ]:
         return [
             {
-                # "TABLE_CATALOG": "TEST_DB",
-                # "TABLE_SCHEMA": "TEST_SCHEMA",
-                # "TABLE_NAME": "TABLE_{}".format(tbl_idx),
+                "TABLE_CATALOG": "TEST_DB",
+                "TABLE_SCHEMA": "TEST_SCHEMA",
+                "TABLE_NAME": table_name,
                 "COLUMN_NAME": f"COL_{col_idx}",
                 "ORDINAL_POSITION": col_idx,
                 "IS_NULLABLE": "NO",
@@ -282,6 +266,10 @@ def default_query_results(  # noqa: C901
                 "NUMERIC_PRECISION": None if col_idx > 1 else 38,
                 "NUMERIC_SCALE": None if col_idx > 1 else 0,
             }
+            for table_name in (
+                [f"TABLE_{tbl_idx}" for tbl_idx in range(1, num_tables + 1)]
+                + [f"VIEW_{view_idx}" for view_idx in range(1, num_views + 1)]
+            )
             for col_idx in range(1, num_cols + 1)
         ]
     elif query in (
@@ -446,69 +434,6 @@ def default_query_results(  # noqa: C901
         ]
         return mock
     elif query in (
-        snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
-            1654473600000,
-            1654586220000,
-        ),
-        snowflake_query.SnowflakeQuery.table_to_table_lineage_history(
-            1654473600000, 1654586220000, False
-        ),
-    ):
-        return [
-            {
-                "DOWNSTREAM_TABLE_NAME": f"TEST_DB.TEST_SCHEMA.TABLE_{op_idx}",
-                "UPSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_2",
-                "UPSTREAM_TABLE_COLUMNS": json.dumps(
-                    [
-                        {"columnId": 0, "columnName": f"COL_{col_idx}"}
-                        for col_idx in range(1, num_cols + 1)
-                    ]
-                ),
-                "DOWNSTREAM_TABLE_COLUMNS": json.dumps(
-                    [
-                        {
-                            "columnId": 0,
-                            "columnName": f"COL_{col_idx}",
-                            "directSources": [
-                                {
-                                    "columnName": f"COL_{col_idx}",
-                                    "objectDomain": "Table",
-                                    "objectId": 0,
-                                    "objectName": "TEST_DB.TEST_SCHEMA.TABLE_2",
-                                }
-                            ],
-                        }
-                        for col_idx in range(1, num_cols + 1)
-                    ]
-                ),
-            }
-            for op_idx in range(1, num_ops + 1)
-        ] + [
-            {
-                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_1",
-                "UPSTREAM_TABLE_NAME": "OTHER_DB.OTHER_SCHEMA.TABLE_1",
-                "UPSTREAM_TABLE_COLUMNS": json.dumps(
-                    [{"columnId": 0, "columnName": "COL_1"}]
-                ),
-                "DOWNSTREAM_TABLE_COLUMNS": json.dumps(
-                    [
-                        {
-                            "columnId": 0,
-                            "columnName": "COL_1",
-                            "directSources": [
-                                {
-                                    "columnName": "COL_1",
-                                    "objectDomain": "Table",
-                                    "objectId": 0,
-                                    "objectName": "OTHER_DB.OTHER_SCHEMA.TABLE_1",
-                                }
-                            ],
-                        }
-                    ]
-                ),
-            }
-        ]
-    elif query in (
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
             start_time_millis=1654473600000,
             end_time_millis=1654586220000,
@@ -516,7 +441,6 @@ def default_query_results(  # noqa: C901
             include_column_lineage=True,
         ),
     ):
-
         return [
             {
                 "DOWNSTREAM_TABLE_NAME": f"TEST_DB.TEST_SCHEMA.TABLE_{op_idx}",
@@ -603,7 +527,7 @@ def default_query_results(  # noqa: C901
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
             start_time_millis=1654473600000,
             end_time_millis=1654586220000,
-            include_view_lineage=False,
+            include_view_lineage=True,
             include_column_lineage=False,
         ),
     ):
@@ -675,52 +599,14 @@ def default_query_results(  # noqa: C901
             }
         ]
     elif query in [
-        snowflake_query.SnowflakeQuery.view_lineage_history(
-            1654473600000,
-            1654586220000,
-        ),
-        snowflake_query.SnowflakeQuery.view_lineage_history(
-            1654473600000, 1654586220000, False
-        ),
-    ]:
-        return [
-            {
-                "DOWNSTREAM_TABLE_NAME": "TEST_DB.TEST_SCHEMA.TABLE_1",
-                "VIEW_NAME": "TEST_DB.TEST_SCHEMA.VIEW_1",
-                "VIEW_DOMAIN": "VIEW",
-                "VIEW_COLUMNS": json.dumps(
-                    [
-                        {"columnId": 0, "columnName": f"COL_{col_idx}"}
-                        for col_idx in range(1, num_cols + 1)
-                    ]
-                ),
-                "DOWNSTREAM_TABLE_DOMAIN": "TABLE",
-                "DOWNSTREAM_TABLE_COLUMNS": json.dumps(
-                    [
-                        {
-                            "columnId": 0,
-                            "columnName": f"COL_{col_idx}",
-                            "directSources": [
-                                {
-                                    "columnName": f"COL_{col_idx}",
-                                    "objectDomain": "Table",
-                                    "objectId": 0,
-                                    "objectName": "TEST_DB.TEST_SCHEMA.TABLE_2",
-                                }
-                            ],
-                        }
-                        for col_idx in range(1, num_cols + 1)
-                    ]
-                ),
-            }
-        ]
-    elif query in [
         snowflake_query.SnowflakeQuery.view_dependencies_v2(),
         snowflake_query.SnowflakeQuery.view_dependencies(),
         snowflake_query.SnowflakeQuery.show_external_tables(),
         snowflake_query.SnowflakeQuery.copy_lineage_history(
-            1654473600000,
-            1654586220000,
+            start_time_millis=1654473600000, end_time_millis=1654621200000
+        ),
+        snowflake_query.SnowflakeQuery.copy_lineage_history(
+            start_time_millis=1654473600000, end_time_millis=1654586220000
         ),
     ]:
         return []

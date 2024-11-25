@@ -1,18 +1,10 @@
-from typing import Dict, Optional, Set
+from typing import Dict, Optional
 
 from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
-from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
-from datahub.metadata.schema_classes import FabricTypeClass
-
-DEFAULT_ENV = FabricTypeClass.PROD
-
-# Get all the constants from the FabricTypeClass. It's not an enum, so this is a bit hacky but works.
-ALL_ENV_TYPES: Set[str] = {
-    value for name, value in vars(FabricTypeClass).items() if not name.startswith("_")
-}
+from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
 
 
 class PlatformInstanceConfigMixin(ConfigModel):
@@ -22,7 +14,9 @@ class PlatformInstanceConfigMixin(ConfigModel):
 
     platform_instance: Optional[str] = Field(
         default=None,
-        description="The instance of the platform that all assets produced by this recipe belong to",
+        description="The instance of the platform that all assets produced by this recipe belong to. "
+        "This should be unique within the platform. "
+        "See https://datahubproject.io/docs/platform-instances/ for more details.",
     )
 
 
@@ -34,12 +28,6 @@ class EnvConfigMixin(ConfigModel):
     env: str = Field(
         default=DEFAULT_ENV,
         description="The environment that all assets produced by this connector belong to",
-    )
-
-    _env_deprecation = pydantic_field_deprecated(
-        "env",
-        message="We recommend using platform_instance instead of env. "
-        "While specifying env does still work, we intend to deprecate it in the future.",
     )
 
     @validator("env")

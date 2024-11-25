@@ -8,11 +8,24 @@ if [ "${RUN_QUICKSTART:-true}" == "true" ]; then
     source ./run-quickstart.sh
 fi
 
+set +x
+echo "Activating virtual environment"
 source venv/bin/activate
+set -x
 
-export KAFKA_BROKER_CONTAINER="datahub-kafka-broker-1"
-export KAFKA_BOOTSTRAP_SERVER="broker:9092"
-python -c 'from tests.cypress.integration_test import ingest_data; ingest_data()'
+# set environment variables for the test
+source ./set-test-env-vars.sh
+
+LOAD_DATA=$(cat <<EOF
+from conftest import build_auth_session, build_graph_client
+from tests.cypress.integration_test import ingest_data
+
+auth_session = build_auth_session()
+ingest_data(auth_session, build_graph_client(auth_session))
+EOF
+)
+
+echo -e "$LOAD_DATA" | python
 
 cd tests/cypress
 yarn install

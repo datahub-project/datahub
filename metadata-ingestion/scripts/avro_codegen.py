@@ -361,9 +361,6 @@ deprecated = functools.partial(_sphinx_deprecated, version="0.12.0.2")
 
     for aspect in key_aspects:
         entity_type = aspect["Aspect"]["keyForEntity"]
-        if aspect["Aspect"]["entityCategory"] == "internal":
-            continue
-
         code += generate_urn_class(entity_type, aspect)
 
     (urn_dir / "urn_defs.py").write_text(code)
@@ -580,7 +577,7 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
     init_coercion = ""
     init_validation = ""
     for field in fields:
-        init_validation += f'if not {field_name(field)}:\n    raise InvalidUrnError("{field_name(field)} cannot be empty")\n'
+        init_validation += f'if not {field_name(field)}:\n    raise InvalidUrnError("{class_name} {field_name(field)} cannot be empty")\n'
 
         # Generalized mechanism for validating embedded urns.
         field_urn_type_class = None
@@ -600,7 +597,8 @@ def generate_urn_class(entity_type: str, key_aspect: dict) -> str:
             )
         else:
             init_validation += (
-                f"assert not UrnEncoder.contains_reserved_char({field_name(field)})\n"
+                f"if UrnEncoder.contains_reserved_char({field_name(field)}):\n"
+                f"    raise InvalidUrnError(f'{class_name} {field_name(field)} contains reserved characters')\n"
             )
 
         if field_name(field) == "env":
@@ -771,7 +769,7 @@ def generate(
 import importlib
 from typing import TYPE_CHECKING
 
-from datahub._codegen.aspect import _Aspect
+from datahub._codegen.aspect import _Aspect as _Aspect
 from datahub.utilities.docs_build import IS_SPHINX_BUILD
 from datahub.utilities._custom_package_loader import get_custom_models_package
 
@@ -804,7 +802,7 @@ from typing import TYPE_CHECKING
 
 from datahub.utilities.docs_build import IS_SPHINX_BUILD
 from datahub.utilities._custom_package_loader import get_custom_urns_package
-from datahub.utilities.urns._urn_base import Urn  # noqa: F401
+from datahub.utilities.urns._urn_base import Urn as Urn  # noqa: F401
 
 _custom_package_path = get_custom_urns_package()
 

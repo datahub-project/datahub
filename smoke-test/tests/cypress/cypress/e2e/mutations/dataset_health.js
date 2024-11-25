@@ -7,8 +7,8 @@ describe("dataset health test", () => {
     cy.login();
     cy.goToDataset(urn, datasetName);
     // Ensure that the “Health” badge is present and there is an active incident warning
-    cy.get(`[href="/dataset/${urn}/Validation"]`).should("be.visible");
-    cy.get(`[href="/dataset/${urn}/Validation"] span`).trigger("mouseover", {
+    cy.get(`[href="/dataset/${urn}/Quality"]`).should("be.visible");
+    cy.get(`[href="/dataset/${urn}/Quality"] span`).trigger("mouseover", {
       force: true,
     });
     cy.waitTextVisible("This asset may be unhealthy");

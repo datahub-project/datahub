@@ -77,7 +77,7 @@ Provide a step-by-step guide to use feature, including relevant screenshots and/
 
 ### Videos
 
-**Asset Verification in Acryl Cloud**
+**Asset Verification in DataHub Cloud**
 
 <p align="center">
 	<iframe width="560" height="315" src="https://www.loom.com/embed/dd834d3cb8f041fca001cea19b2b4071?sid=7073dcd4-407c-41ec-b41d-c99f26dd6a2f" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
@@ -101,7 +101,7 @@ You sure can! Please keep in mind that an Asset will only be considered Document
 
 ### API Tutorials
 
-- [Create a Documentation Form](../../../docs/api/tutorials/forms.md)
+- [API Guides on Documentation Form](../../../docs/api/tutorials/forms.md)
 
 :::note
 You must create a Structured Property before including it in a Documentation Form.

@@ -1,0 +1,41 @@
+
+.container {
+  padding: 2vh 6vh;
+  padding-bottom: 8vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.wrapper {
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  width: 90%;
+  max-width: 1200px;
+
+}
+
+.title {
+  font-size: 2.8rem;
+  line-height: 3rem;
+  font-weight: 600;
+  margin-bottom: 2rem;
+}
+
+.moreBenefits {
+  font-weight: 400;
+  color: var(--ifm-color-primary);
+
+  &:hover {
+    text-decoration: none;
+    opacity: 0.8;
+  }
+
+}
+
+@media (max-width: 767px) {
+  
+  .container {
+    padding: 0px 36px;
+  }
+}

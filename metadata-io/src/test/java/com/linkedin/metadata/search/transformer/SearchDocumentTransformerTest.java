@@ -15,17 +15,21 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.JsonNodeType;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMapBuilder;
+import com.linkedin.dataset.DatasetProperties;
+import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.TestEntityUtil;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.search.elasticsearch.query.request.TestSearchFieldConfig;
+import com.linkedin.metadata.search.query.request.TestSearchFieldConfig;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -38,6 +42,17 @@ import org.testng.annotations.Test;
 
 public class SearchDocumentTransformerTest {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final EntityRegistry ENTITY_REGISTRY =
+      TestOperationContexts.defaultEntityRegistry();
+  private static final EntityRegistry TEST_ENTITY_REGISTRY;
+
+  static {
+    TEST_ENTITY_REGISTRY =
+        new ConfigEntityRegistry(
+            TestSearchFieldConfig.class
+                .getClassLoader()
+                .getResourceAsStream("test-entity-registry.yaml"));
+  }
 
   static {
     int maxSize =
@@ -84,6 +99,52 @@ public class SearchDocumentTransformerTest {
     assertEquals(parsedJson.get("feature2").asInt(), 1);
     JsonNode browsePathV2 = (JsonNode) parsedJson.get("browsePathV2");
     assertEquals(browsePathV2.asText(), "␟levelOne␟levelTwo");
+    assertEquals(
+        parsedJson.get("esObjectFieldBoolean").get("key1").getNodeType(),
+        JsonNodeFactory.instance.booleanNode(true).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldLong").get("key1").getNodeType(),
+        JsonNodeFactory.instance.numberNode(1L).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldFloat").get("key2").getNodeType(),
+        JsonNodeFactory.instance.numberNode(2.0f).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldDouble").get("key1").getNodeType(),
+        JsonNodeFactory.instance.numberNode(1.2).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldInteger").get("key2").getNodeType(),
+        JsonNodeFactory.instance.numberNode(456).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldBoolean").get("key2").getNodeType(),
+        JsonNodeFactory.instance.booleanNode(false).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldLong").get("key2").getNodeType(),
+        JsonNodeFactory.instance.numberNode(2L).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldFloat").get("key1").getNodeType(),
+        JsonNodeFactory.instance.numberNode(1.0f).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldDouble").get("key2").getNodeType(),
+        JsonNodeFactory.instance.numberNode(2.4).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldInteger").get("key1").getNodeType(),
+        JsonNodeFactory.instance.numberNode(123).getNodeType());
+    assertEquals(parsedJson.get("esObjectField").get("key3").asText(), "");
+    assertEquals(
+        parsedJson.get("esObjectFieldBoolean").get("key2").getNodeType(),
+        JsonNodeFactory.instance.booleanNode(false).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldLong").get("key2").getNodeType(),
+        JsonNodeFactory.instance.numberNode(2L).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldFloat").get("key1").getNodeType(),
+        JsonNodeFactory.instance.numberNode(1.0f).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldDouble").get("key2").getNodeType(),
+        JsonNodeFactory.instance.numberNode(2.4).getNodeType());
+    assertEquals(
+        parsedJson.get("esObjectFieldInteger").get("key1").getNodeType(),
+        JsonNodeFactory.instance.numberNode(123).getNodeType());
   }
 
   @Test
@@ -124,7 +185,8 @@ public class SearchDocumentTransformerTest {
     assertEquals(
         parsedJson.get("customProperties"),
         JsonNodeFactory.instance.arrayNode().add("shortValue=123"));
-    assertEquals(parsedJson.get("esObjectField"), JsonNodeFactory.instance.arrayNode().add("123"));
+    assertEquals(
+        parsedJson.get("esObjectField"), JsonNodeFactory.instance.arrayNode().add("123").add(""));
 
     searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 20);
     snapshot = TestEntityUtil.getSnapshot();
@@ -148,6 +210,7 @@ public class SearchDocumentTransformerTest {
             .add("value1")
             .add("value2")
             .add("123")
+            .add("")
             .add("0123456789"));
   }
 
@@ -165,7 +228,6 @@ public class SearchDocumentTransformerTest {
     SearchDocumentTransformer searchDocumentTransformer =
         new SearchDocumentTransformer(1000, 1000, 1000);
 
-    EntityRegistry entityRegistry = getTestEntityRegistry();
     List<Object> urnList = List.of(Urn.createFromString("urn:li:refEntity:1"));
 
     DataMapBuilder dataMapBuilder = new DataMapBuilder();
@@ -176,16 +238,17 @@ public class SearchDocumentTransformerTest {
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     SearchableRefFieldSpec searchableRefFieldSpec =
-        entityRegistry.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(0);
+        TEST_ENTITY_REGISTRY.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(0);
 
     // Mock Behaviour
-    Mockito.when(aspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+    Mockito.when(aspectRetriever.getEntityRegistry()).thenReturn(TEST_ENTITY_REGISTRY);
     Mockito.when(aspectRetriever.getLatestAspectObject(any(), anyString())).thenReturn(aspect);
     OperationContext opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
                 .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
                 .build());
 
     searchDocumentTransformer.setSearchableRefValue(
@@ -208,14 +271,13 @@ public class SearchDocumentTransformerTest {
     SearchDocumentTransformer searchDocumentTransformer =
         new SearchDocumentTransformer(1000, 1000, 1000);
 
-    EntityRegistry entityRegistry = getTestEntityRegistry();
     OperationContext opContext =
-        TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry);
+        TestOperationContexts.systemContextNoSearchAuthorization(TEST_ENTITY_REGISTRY);
     List<Object> urnList = List.of(Urn.createFromString("urn:li:refEntity:1"));
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     SearchableRefFieldSpec searchableRefFieldSpecText =
-        entityRegistry.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(1);
+        TEST_ENTITY_REGISTRY.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(1);
     searchDocumentTransformer.setSearchableRefValue(
         opContext, searchableRefFieldSpecText, urnList, searchDocument, false);
     assertTrue(searchDocument.isEmpty());
@@ -228,10 +290,9 @@ public class SearchDocumentTransformerTest {
     SearchDocumentTransformer searchDocumentTransformer =
         new SearchDocumentTransformer(1000, 1000, 1000);
 
-    EntityRegistry entityRegistry = getTestEntityRegistry();
     List<Object> urnList = List.of(Urn.createFromString("urn:li:refEntity:1"));
 
-    Mockito.when(aspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+    Mockito.when(aspectRetriever.getEntityRegistry()).thenReturn(TEST_ENTITY_REGISTRY);
     Mockito.when(
             aspectRetriever.getLatestAspectObject(
                 eq(Urn.createFromString("urn:li:refEntity:1")), anyString()))
@@ -241,11 +302,12 @@ public class SearchDocumentTransformerTest {
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
                 .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
                 .build());
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     SearchableRefFieldSpec searchableRefFieldSpec =
-        entityRegistry.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(0);
+        TEST_ENTITY_REGISTRY.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(0);
     searchDocumentTransformer.setSearchableRefValue(
         opContext, searchableRefFieldSpec, urnList, searchDocument, false);
     assertTrue(searchDocument.isEmpty());
@@ -258,7 +320,6 @@ public class SearchDocumentTransformerTest {
     SearchDocumentTransformer searchDocumentTransformer =
         new SearchDocumentTransformer(1000, 1000, 1000);
 
-    EntityRegistry entityRegistry = getTestEntityRegistry();
     List<Object> urnList = List.of(Urn.createFromString("urn:li:refEntity:1"));
     DataMapBuilder dataMapBuilder = new DataMapBuilder();
     dataMapBuilder.addKVPair("fieldPath", "refEntityUrn");
@@ -266,7 +327,7 @@ public class SearchDocumentTransformerTest {
     dataMapBuilder.addKVPair("description", "refEntityUrn1 description details");
 
     Aspect aspect = new Aspect(dataMapBuilder.convertToDataMap());
-    Mockito.when(aspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+    Mockito.when(aspectRetriever.getEntityRegistry()).thenReturn(TEST_ENTITY_REGISTRY);
     Mockito.when(
             aspectRetriever.getLatestAspectObject(
                 eq(Urn.createFromString("urn:li:refEntity:1")), anyString()))
@@ -277,11 +338,12 @@ public class SearchDocumentTransformerTest {
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
                 .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
                 .build());
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
     SearchableRefFieldSpec searchableRefFieldSpec =
-        entityRegistry.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(0);
+        TEST_ENTITY_REGISTRY.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(0);
     searchDocumentTransformer.setSearchableRefValue(
         opContext, searchableRefFieldSpec, urnList, searchDocument, false);
     assertTrue(searchDocument.has("refEntityUrns"));
@@ -297,18 +359,18 @@ public class SearchDocumentTransformerTest {
     SearchDocumentTransformer searchDocumentTransformer =
         new SearchDocumentTransformer(1000, 1000, 1000);
 
-    EntityRegistry entityRegistry = getTestEntityRegistry();
     List<Object> urnList = List.of(Urn.createFromString("urn:li:refEntity:1"));
 
-    Mockito.when(aspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+    Mockito.when(aspectRetriever.getEntityRegistry()).thenReturn(TEST_ENTITY_REGISTRY);
     Mockito.when(aspectRetriever.getLatestAspectObject(any(), anyString())).thenReturn(null);
     SearchableRefFieldSpec searchableRefFieldSpec =
-        entityRegistry.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(0);
+        TEST_ENTITY_REGISTRY.getEntitySpec("testRefEntity").getSearchableRefFieldSpecs().get(0);
     OperationContext opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
                 .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
                 .build());
 
     ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
@@ -318,10 +380,42 @@ public class SearchDocumentTransformerTest {
     assertTrue(searchDocument.get("refEntityUrns").getNodeType().equals(JsonNodeType.NULL));
   }
 
-  private EntityRegistry getTestEntityRegistry() {
-    return new ConfigEntityRegistry(
-        TestSearchFieldConfig.class
-            .getClassLoader()
-            .getResourceAsStream("test-entity-registry.yaml"));
+  @Test
+  public void testEmptyDescription() throws RemoteInvocationException, URISyntaxException {
+    String entityUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)";
+    SearchDocumentTransformer test = new SearchDocumentTransformer(1000, 1000, 1000);
+
+    // editedDescription - empty string
+    Optional<ObjectNode> transformed =
+        test.transformAspect(
+            mock(OperationContext.class),
+            UrnUtils.getUrn(entityUrn),
+            new EditableDatasetProperties().setDescription(""),
+            ENTITY_REGISTRY
+                .getEntitySpec(DATASET_ENTITY_NAME)
+                .getAspectSpec(EDITABLE_DATASET_PROPERTIES_ASPECT_NAME),
+            false);
+
+    assertTrue(transformed.isPresent());
+    assertEquals(transformed.get().get("urn").asText(), entityUrn);
+    assertTrue(transformed.get().has("editedDescription"));
+    assertTrue(transformed.get().get("editedDescription").isNull());
+
+    // description - empty string
+    transformed =
+        test.transformAspect(
+            mock(OperationContext.class),
+            UrnUtils.getUrn(entityUrn),
+            new DatasetProperties().setDescription(""),
+            ENTITY_REGISTRY
+                .getEntitySpec(DATASET_ENTITY_NAME)
+                .getAspectSpec(DATASET_PROPERTIES_ASPECT_NAME),
+            false);
+
+    assertTrue(transformed.isPresent());
+    assertEquals(transformed.get().get("urn").asText(), entityUrn);
+    assertTrue(transformed.get().has("description"));
+    assertTrue(transformed.get().get("description").isNull());
+    assertFalse(transformed.get().get("hasDescription").asBoolean());
   }
 }

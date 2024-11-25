@@ -30,7 +30,7 @@ Please refer to the BigQuery [Permissions](https://cloud.google.com/iam/docs/per
    * [BigQuery Job User](https://cloud.google.com/bigquery/docs/access-control#bigquery.jobUser)
    * [BigQuery Metadata Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer)
    * [BigQuery Resource Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.resourceViewer) -> This role is for Table-Level Lineage and Usage extraction
-   * [Logs View Accessor](https://cloud.google.com/bigquery/docs/access-control#bigquery.dataViewer) -> This role is for Table-Level Lineage and Usage extraction
+   * [Logs View Accessor](https://cloud.google.com/logging/docs/access-control#logging.viewAccessor) -> This role is for Table-Level Lineage and Usage extraction
    * [BigQuery Data Viewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.dataViewer) -> This role is for Profiling
    * [BigQuery Read Session User](https://cloud.google.com/bigquery/docs/access-control#bigquery.readSessionUser) -> This role is for Profiling
 
@@ -38,7 +38,9 @@ Please refer to the BigQuery [Permissions](https://cloud.google.com/iam/docs/per
 You can always add/remove roles to Service Accounts later on. Please refer to the BigQuery [Manage access to projects, folders, and organizations](https://cloud.google.com/iam/docs/granting-changing-revoking-access) guide for more details.
 :::
 
-3. Create and download a [Service Account Key](https://cloud.google.com/iam/docs/creating-managing-service-account-keys). We will use this to set up authentication within DataHub.
+3. To filter projects based on the `project_labels` configuration, first visit [cloudresourcemanager.googleapis.com](https://console.developers.google.com/apis/api/cloudresourcemanager.googleapis.com/overview) and enable the `Cloud Resource Manager API`
+
+4. Create and download a [Service Account Key](https://cloud.google.com/iam/docs/creating-managing-service-account-keys). We will use this to set up authentication within DataHub.
 
 The key file looks like this:
 

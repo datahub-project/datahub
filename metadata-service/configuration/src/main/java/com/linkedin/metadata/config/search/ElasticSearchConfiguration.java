@@ -8,4 +8,6 @@ public class ElasticSearchConfiguration {
   private BuildIndicesConfiguration buildIndices;
   public String implementation;
   private SearchConfiguration search;
+  private String idHashAlgo;
+  private IndexConfiguration index;
 }

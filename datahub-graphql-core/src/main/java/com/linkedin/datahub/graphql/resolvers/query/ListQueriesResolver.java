@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -56,11 +57,12 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
-            final SortCriterion sortCriterion =
-                new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING);
+            final List<SortCriterion> sortCriteria =
+                Collections.singletonList(
+                    new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING));
 
             // First, get all Query Urns.
             final SearchResult gmsResult =
@@ -72,7 +74,7 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
                     QUERY_ENTITY_NAME,
                     query,
                     buildFilters(input),
-                    sortCriterion,
+                    sortCriteria,
                     start,
                     count);
 
@@ -89,7 +91,9 @@ public class ListQueriesResolver implements DataFetcher<CompletableFuture<ListQu
           } catch (Exception e) {
             throw new RuntimeException("Failed to list Queries", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   // This method maps urns returned from the list endpoint into Partial Query objects which will be

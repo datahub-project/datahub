@@ -158,17 +158,18 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
     const { url } = useRouteMatch();
     const history = useHistory();
 
-    const {  updateTitle } = useBrowserTitle();
-    
-    useEffect(()=>{
+    const { updateTitle } = useBrowserTitle();
+
+    useEffect(() => {
         // You can use the title and updateTitle function here
         // For example, updating the title when the component mounts
-        if(name){
+        if (name) {
             updateTitle(`Group | ${name}`);
         }
         // // Don't forget to clean up the title when the component unmounts
         return () => {
-            if(name){ // added to condition for rerendering issue
+            if (name) {
+                // added to condition for rerendering issue
                 updateTitle('');
             }
         };
@@ -216,7 +217,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
         urn,
         email,
         slack,
-        photoUrl
+        photoUrl,
     };
 
     // About Text save
@@ -367,7 +368,7 @@ export default function GroupInfoSidebar({ sideBarData, refetch }: Props) {
             </SideBar>
             {/* Modal */}
             <GroupEditModal
-                visible={editGroupModal}
+                open={editGroupModal}
                 onClose={() => showEditGroupModal(false)}
                 onSave={() => {
                     refetch();

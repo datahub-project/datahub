@@ -6,16 +6,11 @@ from typing import Any, Dict, Optional
 import deepdiff
 
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
-from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sqlglot_lineage import (
-    SchemaInfo,
-    SqlParsingResult,
-    sqlglot_lineage,
-)
+from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingResult, sqlglot_lineage
 
 logger = logging.getLogger(__name__)
 
-# TODO: Hook this into the standard --update-golden-files mechanism.
 UPDATE_FILES = os.environ.get("UPDATE_SQLPARSER_FILES", "false").lower() == "true"
 
 

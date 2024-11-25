@@ -117,7 +117,7 @@ def print_now():
     print(f"current time is {datetime.datetime.now(datetime.timezone.utc)}")
 
 
-def ingest_data():
+def ingest_data(auth_session, graph_client):
     print_now()
     print("creating onboarding data file")
     create_datahub_step_state_aspects(
@@ -128,26 +128,38 @@ def ingest_data():
 
     print_now()
     print("ingesting test data")
-    ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
-    ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}")
-    ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_PATCH_DATA_FILENAME}")
-    ingest_file_via_rest(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
-    ingest_time_lineage()
+    ingest_file_via_rest(auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
+    ingest_file_via_rest(
+        auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}"
+    )
+    ingest_file_via_rest(
+        auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_PATCH_DATA_FILENAME}"
+    )
+    ingest_file_via_rest(
+        auth_session, f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"
+    )
+    ingest_time_lineage(graph_client)
     print_now()
     print("completed ingesting test data")
 
 
 @pytest.fixture(scope="module", autouse=True)
-def ingest_cleanup_data():
-    ingest_data()
+def ingest_cleanup_data(auth_session, graph_client):
+    ingest_data(auth_session, graph_client)
     yield
     print_now()
     print("removing test data")
-    delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
-    delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}")
-    delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_PATCH_DATA_FILENAME}")
-    delete_urns_from_file(f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}")
-    delete_urns(get_time_lineage_urns())
+    delete_urns_from_file(graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DATA_FILENAME}")
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_DBT_DATA_FILENAME}"
+    )
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_PATCH_DATA_FILENAME}"
+    )
+    delete_urns_from_file(
+        graph_client, f"{CYPRESS_TEST_DATA_DIR}/{TEST_ONBOARDING_DATA_FILENAME}"
+    )
+    delete_urns(graph_client, get_time_lineage_urns())
 
     print_now()
     print("deleting onboarding data file")
@@ -163,7 +175,7 @@ def _get_spec_map(items: Set[str]) -> str:
     return ",".join([f"**/{item}/*.js" for item in items])
 
 
-def test_run_cypress(frontend_session, wait_for_healthchecks):
+def test_run_cypress(auth_session):
     # Run with --record option only if CYPRESS_RECORD_KEY is non-empty
     record_key = os.getenv("CYPRESS_RECORD_KEY")
     tag_arg = ""

@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.domain.Domains;
@@ -39,10 +40,10 @@ public class UnsetDomainResolver implements DataFetcher<CompletableFuture<Boolea
     final QueryContext context = environment.getContext();
     final Urn entityUrn = Urn.createFromString(environment.getArgument("entityUrn"));
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(
-              environment.getContext(), entityUrn)) {
+              environment.getContext(), entityUrn, _entityClient)) {
             throw new AuthorizationException(
                 "Unauthorized to perform this action. Please contact your DataHub administrator.");
           }
@@ -73,7 +74,9 @@ public class UnsetDomainResolver implements DataFetcher<CompletableFuture<Boolea
                 String.format("Failed to unset Domains for resource with entity urn %s", entityUrn),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   public static Boolean validateUnsetDomainInput(

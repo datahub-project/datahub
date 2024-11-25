@@ -5,11 +5,13 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.BatchSetDomainInput;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.DomainUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.entity.EntityService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -27,6 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService _entityService;
+  private final EntityClient _entityClient;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -36,7 +39,7 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
     final String maybeDomainUrn = input.getDomainUrn();
     final List<ResourceRefInput> resources = input.getResources();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
 
           // First, validate the domain
@@ -53,7 +56,9 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
             throw new RuntimeException(
                 String.format("Failed to perform update against input %s", input.toString()), e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   private void validateDomain(
@@ -71,7 +76,7 @@ public class BatchSetDomainResolver implements DataFetcher<CompletableFuture<Boo
 
   private void validateInputResource(ResourceRefInput resource, QueryContext context) {
     final Urn resourceUrn = UrnUtils.getUrn(resource.getResourceUrn());
-    if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, resourceUrn)) {
+    if (!DomainUtils.isAuthorizedToUpdateDomainsForEntity(context, resourceUrn, _entityClient)) {
       throw new AuthorizationException(
           "Unauthorized to perform this action. Please contact your DataHub administrator.");
     }

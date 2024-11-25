@@ -118,7 +118,7 @@ export const SecretsList = () => {
                     {
                         urn: res.data?.createSecret || '',
                         name: state.name,
-                        description: state.description,
+                        description: state.description || '',
                     },
                     client,
                     pageSize,
@@ -127,7 +127,7 @@ export const SecretsList = () => {
             .catch((e) => {
                 message.destroy();
                 message.error({
-                    content: `Failed to update ingestion source!: \n ${e.message || ''}`,
+                    content: `Failed to update secret!: \n ${e.message || ''}`,
                     duration: 3,
                 });
             });
@@ -294,7 +294,7 @@ export const SecretsList = () => {
                 </SourcePaginationContainer>
             </div>
             <SecretBuilderModal
-                visible={isCreatingSecret}
+                open={isCreatingSecret}
                 editSecret={editSecret}
                 onUpdate={onUpdate}
                 onSubmit={onSubmit}

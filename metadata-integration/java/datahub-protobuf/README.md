@@ -597,6 +597,8 @@ usage: Proto2DataHub
     --platform <arg>        [Optional] The data platform to produce
                             schemas for. e.g. kafka, snowflake, etc.
                             (defaults to kafka)
+ -protocProp                [Optional] Store the protoc as a custom
+                            property. (defaults to false)
     --slack_id <arg>        [Optional] The Slack team id if your protobuf
                             files contain comments with references to
                             channel names. We will translate comments like

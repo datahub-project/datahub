@@ -4,6 +4,7 @@ import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.domain.Domains;
 import com.linkedin.metadata.service.DataProductService;
@@ -26,7 +27,7 @@ public class DeleteDataProductResolver implements DataFetcher<CompletableFuture<
     final Urn dataProductUrn = UrnUtils.getUrn(environment.getArgument("urn"));
     final Authentication authentication = context.getAuthentication();
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           if (!_dataProductService.verifyEntityExists(
               context.getOperationContext(), dataProductUrn)) {
@@ -52,6 +53,8 @@ public class DeleteDataProductResolver implements DataFetcher<CompletableFuture<
           } catch (Exception e) {
             throw new RuntimeException("Failed to delete Data Product", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

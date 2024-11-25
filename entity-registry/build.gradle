@@ -1,6 +1,7 @@
 plugins {
   id 'pegasus'
   id 'java-library'
+  id 'java-test-fixtures'
 }
 
 dependencies {
@@ -24,6 +25,8 @@ dependencies {
       because("previous versions are vulnerable to CVE-2022-25857")
     }
   }
+  api project(path: ':li-utils')
+  api project(path: ':li-utils', configuration: "dataTemplate")
   dataModel project(':li-utils')
   annotationProcessor externalDependency.lombok
 
@@ -45,5 +48,8 @@ dependencies {
     exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
   }
 
+  testFixturesImplementation externalDependency.mockito
+  testFixturesCompileOnly externalDependency.lombok
+  testFixturesAnnotationProcessor externalDependency.lombok
 }
 compileTestJava.dependsOn tasks.getByPath(':entity-registry:custom-test-model:modelDeploy')

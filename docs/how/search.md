@@ -71,7 +71,7 @@ After creating a filter, you can choose whether results should or should not mat
 
 ### Results
 
-Search results appear ranked by their relevance. In self-hosted DataHub ranking is based on how closely the query matched textual fields of an asset and its metadata. In Managed DataHub, ranking is based on a combination of textual relevance, usage (queries / views), and change frequency. 
+Search results appear ranked by their relevance. In self-hosted DataHub ranking is based on how closely the query matched textual fields of an asset and its metadata. In DataHub Cloud, ranking is based on a combination of textual relevance, usage (queries / views), and change frequency. 
 
 With better metadata comes better results. Learn more about ingestion technical metadata in the [metadata ingestion](../../metadata-ingestion/README.md) guide.
 
@@ -85,8 +85,8 @@ These examples are non exhaustive and using Datasets as a reference.
 If you want to:
 
 - Exact match on term or phrase
-  - ```"datahub_schema"``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%22datahub_schema%22)
-  - ```datahub_schema``` [Sample results](https://demo.datahubproject.io/search?page=1&query=datahub_schema)
+  - ```"pet profile"``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%22pet%20profile%22)
+  - ```pet profile``` [Sample results](https://demo.datahubproject.io/search?page=1&query=pet%20profile)
   - Enclosing one or more terms with double quotes will enforce exact matching on these terms, preventing further tokenization.
 
 - Exclude terms
@@ -104,6 +104,20 @@ If you want to:
 - Find a dataset with a property, **encoding**  
   - ```/q customProperties: encoding*``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20customProperties%3A%20encoding%2A)  
   - Dataset Properties are indexed in ElasticSearch the manner of key=value. Hence if you know the precise key-value pair, you can search using ```"key=value"```. However, if you only know the key, you can use wildcards to replace the value and that is what is being done here.  
+
+- Find an entity with an **unversioned** structured property
+  - ```/q structuredProperties.io_acryl_privacy_retentionTime01:60```
+  - This will return results for an **unversioned** structured property's qualified name `io.acryl.private.retentionTime01` and value `60`.
+  - ```/q _exists_:structuredProperties.io_acryl_privacy_retentionTime01```
+  - In this example, the query will return any entity which has any value for the **unversioned** structured property with qualified name `io.acryl.private.retentionTime01`.
+
+- Find an entity with a **versioned** structured property
+  - ```/q structuredProperties._versioned.io_acryl_privacy_retentionTime.20240614080000.number:365```
+  - This query will return results for a **versioned** structured property with qualified name `io.acryl.privacy.retentionTime`, version `20240614080000`, type `number` and value `365`.
+  - ```/q _exists_:structuredProperties._versioned.io_acryl_privacy_retentionTime.20240614080000.number```
+  - Returns results for a **versioned** structured property with qualified name `io.acryl.privacy.retentionTime`, version `20240614080000` and type `number`.
+  - ```/q structuredProperties._versioned.io_acryl_privacy_retentionTime.\*.\*:365```
+  - Returns results for a **versioned** structured property with any version and type with a values of `365`
 
 - Find a dataset with a column name, **latitude**  
   - ```/q fieldPaths: latitude``` [Sample results](https://demo.datahubproject.io/search?page=1&query=%2Fq%20fieldPaths%3A%20latitude)  
@@ -148,24 +162,42 @@ The same GraphQL API that powers the Search UI can be used
 for integrations and programmatic use-cases. 
 
 ```
-# Example query
-{
-  searchAcrossEntities(
-    input: {types: [], query: "*", start: 0, count: 10, filters: [{field: "fieldTags", value: "urn:li:tag:Dimension"}]}
+# Example query - search for datasets matching the example_query_text who have the Dimension tag applied to a schema field and are from the data platform looker
+query searchEntities {
+  search(
+    input: {
+      type: DATASET,
+      query: "example_query_text",
+      orFilters: [
+        {
+          and: [
+            {
+              field: "fieldTags",
+              values: ["urn:li:tag:Dimension"]
+            },
+            {
+              field: "platform",
+              values: ["urn:li:dataPlatform:looker"]
+            }
+          ]
+        }
+      ],
+      start: 0,
+      count: 10
+    }
   ) {
     start
     count
     total
     searchResults {
       entity {
+        urn
         type
         ... on Dataset {
-          urn
-          type
+          name
           platform {
             name
           }
-          name
         }
       }
     }
@@ -327,6 +359,33 @@ queryConfigurations:
       boost_mode: multiply
 ```
 
+Similar example to boost with `primary` AND `gold` instead of the previous OR condition.
+
+```yaml
+queryConfigurations:
+  - queryRegex: .*
+    
+    simpleQuery: true
+    prefixMatchQuery: true
+    exactMatchQuery: true
+
+    functionScore:
+      functions:
+
+        - filter:
+            bool:
+              filter:
+                - term:
+                    tags.keyword: urn:li:tag:primary
+                - term:
+                    tags.keyword: urn:li:tag:gold
+          weight: 3.0
+
+
+      score_mode: multiply
+      boost_mode: multiply
+```
+
 ##### Example 2: Preferred Data Platform
 
 Boost the `urn:li:dataPlatform:hive` platform.
@@ -376,6 +435,32 @@ queryConfigurations:
               materialized:
                 value: true
           weight: 0.5
+      score_mode: multiply
+      boost_mode: multiply
+```
+
+##### Example 4: Entity Ranking
+
+Alter the ranking of entities. For example, chart vs dashboard, you may want the dashboard
+to appear above charts. This can be done using the following function score and leverages a prefix match on the entity type
+of the URN. Depending on the entity the weight may have to be adjusted based on your data and the entities
+involved since often multiple field matches may shift weight towards one entity vs another.
+
+```yaml
+queryConfigurations:
+  - queryRegex: .*
+    
+    simpleQuery: true
+    prefixMatchQuery: true
+    exactMatchQuery: true
+
+    functionScore:
+      functions:
+        - filter:
+            prefix:
+              urn:
+                value: 'urn:li:dashboard:'
+          weight: 1.5
       score_mode: multiply
       boost_mode: multiply
 ```

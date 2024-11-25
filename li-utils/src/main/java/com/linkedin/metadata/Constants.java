@@ -10,6 +10,7 @@ public class Constants {
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_HEADER_NAME = "X-DataHub-Delegated-For";
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_TYPE = "X-DataHub-Delegated-For-";
 
+  public static final String URN_LI_PREFIX = "urn:li:";
   public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
   public static final String SYSTEM_ACTOR =
       "urn:li:corpuser:__datahub_system"; // DataHub internal service principal.
@@ -21,9 +22,14 @@ public class Constants {
   public static final String STRUCTURED_PROPERTY_MAPPING_FIELD = "structuredProperties";
   public static final String STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX =
       STRUCTURED_PROPERTY_MAPPING_FIELD + ".";
+  public static final String STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD = "_versioned";
+  public static final String STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD_PREFIX =
+      String.join(
+          ".", STRUCTURED_PROPERTY_MAPPING_FIELD, STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD, "");
 
   // !!!!!!! IMPORTANT !!!!!!!
-  // This effectively sets the max aspect size to 16 MB. Used in deserialization of messages.
+  // This effectively sets the max aspect size to 16 MB. Used in deserialization
+  // of messages.
   // Without this the limit is
   // whatever Jackson is defaulting to (5 MB currently).
   public static final String MAX_JACKSON_STRING_SIZE = "16000000";
@@ -33,15 +39,18 @@ public class Constants {
   /** System Metadata */
   public static final String DEFAULT_RUN_ID = "no-run-id-provided";
 
-  // Forces indexing for no-ops, enabled for restore indices calls. Only considered in the no-op
+  // Forces indexing for no-ops, enabled for restore indices calls. Only
+  // considered in the no-op
   // case
   public static final String FORCE_INDEXING_KEY = "forceIndexing";
-  // Indicates an event source from an application with hooks that have already been processed and
+  // Indicates an event source from an application with hooks that have already
+  // been processed and
   // should not be reprocessed
   public static final String APP_SOURCE = "appSource";
 
   // App sources
   public static final String UI_SOURCE = "ui";
+  public static final String SYSTEM_UPDATE_SOURCE = "systemUpdate";
 
   /** Entities */
   public static final String CORP_USER_ENTITY_NAME = "corpuser";
@@ -78,6 +87,8 @@ public class Constants {
   public static final String DATAHUB_ROLE_ENTITY_NAME = "dataHubRole";
   public static final String POST_ENTITY_NAME = "post";
   public static final String SCHEMA_FIELD_ENTITY_NAME = "schemaField";
+  public static final String SCHEMA_FIELD_KEY_ASPECT = "schemaFieldKey";
+  public static final String SCHEMA_FIELD_ALIASES_ASPECT = "schemaFieldAliases";
   public static final String DATAHUB_STEP_STATE_ENTITY_NAME = "dataHubStepState";
   public static final String DATAHUB_VIEW_ENTITY_NAME = "dataHubView";
   public static final String QUERY_ENTITY_NAME = "query";
@@ -112,6 +123,7 @@ public class Constants {
   public static final String INPUT_FIELDS_ASPECT_NAME = "inputFields";
   public static final String EMBED_ASPECT_NAME = "embed";
   public static final String INCIDENTS_SUMMARY_ASPECT_NAME = "incidentsSummary";
+  public static final String DOCUMENTATION_ASPECT_NAME = "documentation";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -266,7 +278,7 @@ public class Constants {
 
   // ExternalRoleMetadata
   public static final String ROLE_ENTITY_NAME = "role";
-  public static final String ACCESS_DATASET_ASPECT_NAME = "access";
+  public static final String ACCESS_ASPECT_NAME = "access";
   public static final String ROLE_KEY = "roleKey";
   public static final String ROLE_PROPERTIES_ASPECT_NAME = "roleProperties";
   public static final String ROLE_ACTORS_ASPECT_NAME = "actors";
@@ -285,6 +297,7 @@ public class Constants {
   public static final String ASSERTION_INFO_ASPECT_NAME = "assertionInfo";
   public static final String ASSERTION_RUN_EVENT_ASPECT_NAME = "assertionRunEvent";
   public static final String ASSERTION_RUN_EVENT_STATUS_COMPLETE = "COMPLETE";
+  public static final String ASSERTION_ACTIONS_ASPECT_NAME = "assertionActions";
 
   // Tests
   public static final String TEST_ENTITY_NAME = "test";
@@ -307,6 +320,13 @@ public class Constants {
   public static final String EXECUTION_REQUEST_INPUT_ASPECT_NAME = "dataHubExecutionRequestInput";
   public static final String EXECUTION_REQUEST_SIGNAL_ASPECT_NAME = "dataHubExecutionRequestSignal";
   public static final String EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult";
+  public static final String EXECUTION_REQUEST_STATUS_RUNNING = "RUNNING";
+  public static final String EXECUTION_REQUEST_STATUS_FAILURE = "FAILURE";
+  public static final String EXECUTION_REQUEST_STATUS_SUCCESS = "SUCCESS";
+  public static final String EXECUTION_REQUEST_STATUS_TIMEOUT = "TIMEOUT";
+  public static final String EXECUTION_REQUEST_STATUS_CANCELLED = "CANCELLED";
+  public static final String EXECUTION_REQUEST_STATUS_ABORTED = "ABORTED";
+  public static final String EXECUTION_REQUEST_STATUS_DUPLICATE = "DUPLICATE";
 
   // DataHub Access Token
   public static final String ACCESS_TOKEN_KEY_ASPECT_NAME = "dataHubAccessTokenKey";
@@ -341,6 +361,7 @@ public class Constants {
 
   // Structured Property
   public static final String STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME = "propertyDefinition";
+  public static final String STRUCTURED_PROPERTY_KEY_ASPECT_NAME = "structuredPropertyKey";
 
   // Form
   public static final String FORM_INFO_ASPECT_NAME = "formInfo";
@@ -361,6 +382,12 @@ public class Constants {
   // Connection
   public static final String DATAHUB_CONNECTION_ENTITY_NAME = "dataHubConnection";
   public static final String DATAHUB_CONNECTION_DETAILS_ASPECT_NAME = "dataHubConnectionDetails";
+
+  // Data Contracts
+  public static final String DATA_CONTRACT_ENTITY_NAME = "dataContract";
+  public static final String DATA_CONTRACT_PROPERTIES_ASPECT_NAME = "dataContractProperties";
+  public static final String DATA_CONTRACT_KEY_ASPECT_NAME = "dataContractKey";
+  public static final String DATA_CONTRACT_STATUS_ASPECT_NAME = "dataContractStatus";
 
   // Relationships
   public static final String IS_MEMBER_OF_GROUP_RELATIONSHIP_NAME = "IsMemberOfGroup";
@@ -431,6 +458,14 @@ public class Constants {
 
   // DAO
   public static final long LATEST_VERSION = 0;
+
+  // Logging MDC
+  public static final String MDC_ENTITY_URN = "entityUrn";
+  public static final String MDC_ASPECT_NAME = "aspectName";
+  public static final String MDC_ENTITY_TYPE = "entityType";
+  public static final String MDC_CHANGE_TYPE = "changeType";
+
+  public static final String RESTLI_SUCCESS = "success";
 
   private Constants() {}
 }

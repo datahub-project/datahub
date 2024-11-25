@@ -11,6 +11,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.AuthenticatedUser;
 import com.linkedin.datahub.graphql.generated.CorpUser;
@@ -49,7 +50,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
   @Override
   public CompletableFuture<AuthenticatedUser> get(DataFetchingEnvironment environment) {
     final QueryContext context = environment.getContext();
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             // 1. Get currently logged in user profile.
@@ -75,6 +76,7 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setManageIngestion(canManageIngestion(context));
             platformPrivileges.setManageSecrets(canManageSecrets(context));
             platformPrivileges.setManageTokens(canManageTokens(context));
+            platformPrivileges.setViewTests(canViewTests(context));
             platformPrivileges.setManageTests(canManageTests(context));
             platformPrivileges.setManageGlossaries(canManageGlossaries(context));
             platformPrivileges.setManageUserCredentials(canManageUserCredentials(context));
@@ -99,25 +101,26 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
           } catch (URISyntaxException | RemoteInvocationException e) {
             throw new RuntimeException("Failed to fetch authenticated user!", e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 
   /** Returns true if the authenticated user has privileges to view analytics. */
   private boolean canViewAnalytics(final QueryContext context) {
-    return isAuthorized(context.getActorUrn(), context.getAuthorizer(), ANALYTICS, READ);
+    return isAuthorized(context.getOperationContext(), ANALYTICS, READ);
   }
 
   /** Returns true if the authenticated user has privileges to manage policies analytics. */
   private boolean canManagePolicies(final QueryContext context) {
     return isAuthorizedEntityType(
-        context.getActorUrn(), context.getAuthorizer(), MANAGE, List.of(POLICY_ENTITY_NAME));
+        context.getOperationContext(), MANAGE, List.of(POLICY_ENTITY_NAME));
   }
 
   /** Returns true if the authenticated user has privileges to manage users & groups. */
   private boolean canManageUsersGroups(final QueryContext context) {
     return isAuthorizedEntityType(
-        context.getActorUrn(),
-        context.getAuthorizer(),
+        context.getOperationContext(),
         MANAGE,
         List.of(CORP_USER_ENTITY_NAME, CORP_GROUP_ENTITY_NAME));
   }
@@ -125,40 +128,37 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
   /** Returns true if the authenticated user has privileges to generate personal access tokens */
   private boolean canGeneratePersonalAccessToken(final QueryContext context) {
     return isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE);
+        context.getOperationContext(), PoliciesConfig.GENERATE_PERSONAL_ACCESS_TOKENS_PRIVILEGE);
+  }
+
+  /** Returns true if the authenticated user has privileges to view tests. */
+  private boolean canViewTests(final QueryContext context) {
+    return isAuthorized(context.getOperationContext(), PoliciesConfig.VIEW_TESTS_PRIVILEGE);
   }
 
   /** Returns true if the authenticated user has privileges to manage (add or remove) tests. */
   private boolean canManageTests(final QueryContext context) {
-    return isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_TESTS_PRIVILEGE);
+    return isAuthorized(context.getOperationContext(), PoliciesConfig.MANAGE_TESTS_PRIVILEGE);
   }
 
   /** Returns true if the authenticated user has privileges to manage domains */
   private boolean canManageDomains(final QueryContext context) {
-    return isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE);
+    return isAuthorized(context.getOperationContext(), PoliciesConfig.MANAGE_DOMAINS_PRIVILEGE);
   }
 
   /** Returns true if the authenticated user has privileges to manage access tokens */
   private boolean canManageTokens(final QueryContext context) {
-    return isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_ACCESS_TOKENS);
+    return isAuthorized(context.getOperationContext(), PoliciesConfig.MANAGE_ACCESS_TOKENS);
   }
 
   /** Returns true if the authenticated user has privileges to manage glossaries */
   private boolean canManageGlossaries(final QueryContext context) {
-    return isAuthorized(
-        context.getAuthorizer(), context.getActorUrn(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
+    return isAuthorized(context.getOperationContext(), PoliciesConfig.MANAGE_GLOSSARIES_PRIVILEGE);
   }
 
   /** Returns true if the authenticated user has privileges to manage user credentials */
   private boolean canManageUserCredentials(@Nonnull QueryContext context) {
     return isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE);
+        context.getOperationContext(), PoliciesConfig.MANAGE_USER_CREDENTIALS_PRIVILEGE);
   }
 }

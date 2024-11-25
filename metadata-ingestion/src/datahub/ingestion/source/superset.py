@@ -82,6 +82,8 @@ chart_type_from_viz_type = {
     "box_plot": ChartTypeClass.BAR,
 }
 
+platform_without_databases = ["druid"]
+
 
 class SupersetConfig(
     StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
@@ -101,7 +103,11 @@ class SupersetConfig(
     )
     username: Optional[str] = Field(default=None, description="Superset username.")
     password: Optional[str] = Field(default=None, description="Superset password.")
-
+    api_key: Optional[str] = Field(default=None, description="Preset.io API key.")
+    api_secret: Optional[str] = Field(default=None, description="Preset.io API secret.")
+    manager_uri: str = Field(
+        default="https://api.app.preset.io", description="Preset.io API URL"
+    )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Superset Stateful Ingestion Config."
@@ -158,6 +164,7 @@ def get_filter_name(filter_obj):
 @capability(
     SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
 )
+@capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 class SupersetSource(StatefulIngestionSourceBase):
     """
@@ -178,7 +185,14 @@ class SupersetSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = StaleEntityRemovalSourceReport()
+        if self.config.domain:
+            self.domain_registry = DomainRegistry(
+                cached_domains=[domain_id for domain_id in self.config.domain],
+                graph=self.ctx.graph,
+            )
+        self.session = self.login()
 
+    def login(self) -> requests.Session:
         login_response = requests.post(
             f"{self.config.connect_uri}/api/v1/security/login",
             json={
@@ -192,8 +206,8 @@ class SupersetSource(StatefulIngestionSourceBase):
         self.access_token = login_response.json()["access_token"]
         logger.debug("Got access token from superset")
 
-        self.session = requests.Session()
-        self.session.headers.update(
+        requests_session = requests.Session()
+        requests_session.headers.update(
             {
                 "Authorization": f"Bearer {self.access_token}",
                 "Content-Type": "application/json",
@@ -201,17 +215,14 @@ class SupersetSource(StatefulIngestionSourceBase):
             }
         )
 
-        if self.config.domain:
-            self.domain_registry = DomainRegistry(
-                cached_domains=[domain_id for domain_id in self.config.domain],
-                graph=self.ctx.graph,
-            )
-
         # Test the connection
-        test_response = self.session.get(f"{self.config.connect_uri}/api/v1/dashboard/")
+        test_response = requests_session.get(
+            f"{self.config.connect_uri}/api/v1/dashboard/"
+        )
         if test_response.status_code == 200:
             pass
             # TODO(Gabe): how should we message about this error?
+        return requests_session
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
@@ -232,6 +243,10 @@ class SupersetSource(StatefulIngestionSourceBase):
             platform_name = get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
         if platform_name == "awsathena":
             return "athena"
+        if platform_name == "clickhousedb":
+            return "clickhouse"
+        if platform_name == "postgresql":
+            return "postgres"
         return platform_name
 
     @lru_cache(maxsize=None)
@@ -239,17 +254,30 @@ class SupersetSource(StatefulIngestionSourceBase):
         dataset_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/dataset/{datasource_id}"
         ).json()
+
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
         database_id = dataset_response.get("result", {}).get("database", {}).get("id")
+        platform = self.get_platform_from_database_id(database_id)
+
         database_name = (
             dataset_response.get("result", {}).get("database", {}).get("database_name")
         )
         database_name = self.config.database_alias.get(database_name, database_name)
 
+        # Druid do not have a database concept and has a limited schema concept, but they are nonetheless reported
+        # from superset. There is only one database per platform instance, and one schema named druid, so it would be
+        # redundant to systemically store them both in the URN.
+        if platform in platform_without_databases:
+            database_name = None
+
+        if platform == "druid" and schema_name == "druid":
+            # Follow DataHub's druid source convention.
+            schema_name = None
+
         if database_id and table_name:
             return make_dataset_urn(
-                platform=self.get_platform_from_database_id(database_id),
+                platform=platform,
                 name=".".join(
                     name for name in [database_name, schema_name, table_name] if name
                 ),
@@ -273,11 +301,9 @@ class SupersetSource(StatefulIngestionSourceBase):
             dp.parse(dashboard_data.get("changed_on_utc", "now")).timestamp() * 1000
         )
         title = dashboard_data.get("dashboard_title", "")
-        # note: the API does not currently supply created_by usernames due to a bug, but we are required to
-        # provide a created AuditStamp to comply with ChangeAuditStamp model. For now, I sub in the last
-        # modified actor urn
+        # note: the API does not currently supply created_by usernames due to a bug
         last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=modified_ts, actor=modified_actor),
+            created=None,
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
         dashboard_url = f"{self.config.display_uri}{dashboard_data.get('url', '')}"
@@ -380,11 +406,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         )
         title = chart_data.get("slice_name", "")
 
-        # note: the API does not currently supply created_by usernames due to a bug, but we are required to
-        # provide a created AuditStamp to comply with ChangeAuditStamp model. For now, I sub in the last
-        # modified actor urn
+        # note: the API does not currently supply created_by usernames due to a bug
         last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=modified_ts, actor=modified_actor),
+            created=None,
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
         chart_type = chart_type_from_viz_type.get(chart_data.get("viz_type", ""))

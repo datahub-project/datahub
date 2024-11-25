@@ -1156,7 +1156,7 @@ curl -X POST 'http://localhost:8080/entities?action=search' \
             "and": [
                {
                   "field": "title",
-                  "value": "Baz Chart 1",
+                  "values": ["Baz Chart 1"],
                   "condition": "EQUAL"
                }
             ]   
@@ -1203,6 +1203,7 @@ where valid conditions include
     - CONTAIN
     - END_WITH
     - EQUAL
+    - IEQUAL (Supports case insensitive equals)
     - GREATER_THAN
     - GREATER_THAN_OR_EQUAL_TO
     - LESS_THAN
@@ -1260,7 +1261,7 @@ curl -X POST 'http://localhost:8080/entities?action=autocomplete' \
             "and": [
                {
                 "field": "tool",
-                "value": "looker",
+                "values": ["looker"],
                 "condition": "EQUAL"
                }
             ]   

@@ -1,5 +1,8 @@
 package com.linkedin.datahub.graphql.types.incident;
 
+import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
+
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
@@ -12,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.IncidentStatus;
 import com.linkedin.datahub.graphql.generated.IncidentType;
 import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -50,6 +54,14 @@ public class IncidentMapper {
     } else {
       throw new RuntimeException(String.format("Incident does not exist!. urn: %s", entityUrn));
     }
+
+    final EnvelopedAspect envelopedTags = aspects.get(GLOBAL_TAGS_ASPECT_NAME);
+    if (envelopedTags != null) {
+      result.setTags(
+          GlobalTagsMapper.map(
+              context, new GlobalTags(envelopedTags.getValue().data()), entityUrn));
+    }
+
     return result;
   }
 

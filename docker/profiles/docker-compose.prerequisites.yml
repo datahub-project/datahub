@@ -135,7 +135,7 @@ services:
   mysql-setup-dev:
     <<: *mysql-setup
     profiles: *mysql-profiles-dev
-    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:debug
+    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-debug}
   postgres:
     profiles: *postgres-profiles
     hostname: postgres
@@ -166,7 +166,7 @@ services:
   postgres-setup-dev:
     <<: *postgres-setup
     profiles: *postgres-profiles-dev
-    image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-postgres-setup}:debug
+    image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-postgres-setup}:${DATAHUB_VERSION:-debug}
   cassandra:
     profiles: *cassandra-profiles
     hostname: cassandra
@@ -210,7 +210,7 @@ services:
       - neo4jdata:/data
   kafka-broker:
     hostname: broker
-    image: confluentinc/cp-kafka:7.4.0
+    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}
     command:
       - /bin/bash
       - -c
@@ -234,7 +234,7 @@ services:
     env_file: kafka-broker/env/docker.env
     environment:
       KAFKA_NODE_ID: 1
-      KAFKA_ADVERTISED_LISTENERS: BROKER://broker:29092,EXTERNAL://broker:9092
+      KAFKA_ADVERTISED_LISTENERS: BROKER://broker:29092,EXTERNAL://localhost:9092
       KAFKA_LISTENERS: BROKER://broker:29092,EXTERNAL://broker:9092,CONTROLLER://broker:39092
       KAFKA_INTER_BROKER_LISTENER_NAME: BROKER
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
@@ -272,7 +272,7 @@ services:
     environment:
       <<: *kafka-setup-env
       DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-true}
-    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-kafka-setup}:debug
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-kafka-setup}:${DATAHUB_VERSION:-debug}
   elasticsearch:
     profiles: *elasticsearch-profiles
     hostname: search
@@ -296,7 +296,7 @@ services:
     volumes:
       - esdata:/usr/share/elasticsearch/data
   elasticsearch-setup-dev: &elasticsearch-setup-dev
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:debug
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-debug}
     profiles: *elasticsearch-profiles
     hostname: elasticsearch-setup
     env_file: elasticsearch-setup/env/docker.env
@@ -347,7 +347,7 @@ services:
     <<: *opensearch-setup
     profiles: *opensearch-profiles-dev
     hostname: opensearch-setup-dev
-    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:debug
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-debug}
     environment:
       <<: *search-datastore-environment
       USE_AWS_ELASTICSEARCH: ${USE_AWS_ELASTICSEARCH:-true}

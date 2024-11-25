@@ -276,10 +276,12 @@ def register_mock_data(workspace_client):
 
 
 TableEntry = namedtuple("TableEntry", ["database", "tableName", "isTemporary"])
+ViewEntry = namedtuple(
+    "ViewEntry", ["namespace", "viewName", "isTemporary", "isMaterialized"]
+)
 
 
 def mock_hive_sql(query):
-
     if query == "DESCRIBE EXTENDED `bronze_kambi`.`bet` betStatusId":
         return [
             ("col_name", "betStatusId"),
@@ -418,7 +420,7 @@ def mock_hive_sql(query):
             TableEntry("bronze_kambi", "view1", False),
         ]
     elif query == "SHOW VIEWS FROM `bronze_kambi`":
-        return [TableEntry("bronze_kambi", "view1", False)]
+        return [ViewEntry("bronze_kambi", "view1", False, False)]
 
     return []
 

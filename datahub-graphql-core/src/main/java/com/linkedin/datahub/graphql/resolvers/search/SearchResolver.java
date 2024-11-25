@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.applyDefaultSearchFlags;
 
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.SearchInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
@@ -19,6 +20,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.opentelemetry.extension.annotations.WithSpan;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -65,7 +67,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
       searchFlags = applyDefaultSearchFlags(null, sanitizedQuery, SEARCH_RESOLVER_DEFAULTS);
     }
 
-    return CompletableFuture.supplyAsync(
+    return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
             log.debug(
@@ -85,7 +87,7 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                     entityName,
                     sanitizedQuery,
                     ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters()),
-                    null,
+                    Collections.emptyList(),
                     start,
                     count));
           } catch (Exception e) {
@@ -111,6 +113,8 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                         searchFlags),
                 e);
           }
-        });
+        },
+        this.getClass().getSimpleName(),
+        "get");
   }
 }

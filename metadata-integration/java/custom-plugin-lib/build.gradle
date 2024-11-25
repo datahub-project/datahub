@@ -38,6 +38,16 @@ configurations.all {
   exclude group: 'org.antlr'
 }
 
+task sourcesJar(type: Jar) {
+  archiveClassifier = 'sources'
+  from sourceSets.main.allSource
+}
+
+task javadocJar(type: Jar) {
+  archiveClassifier = 'javadoc'
+  from javadoc
+}
+
 shadowJar {
   zip64 = true
   archiveClassifier = ''
@@ -59,7 +69,7 @@ publishing {
         artifactId = 'datahub-custom-plugin-lib'
         description = 'DataHub Java Custom Plugin dependencies'
         url = 'https://datahubproject.io'
-        artifacts = [shadowJar]
+        artifacts = [shadowJar, javadocJar, sourcesJar]
 
         scm {
           connection = 'scm:git:git://github.com/datahub-project/datahub.git'

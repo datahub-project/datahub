@@ -8,6 +8,11 @@ from datahub.utilities.checkpoint_state_util import CheckpointStateUtil
 from datahub.utilities.dedup_list import deduplicate_list
 from datahub.utilities.urns.urn import guess_entity_type
 
+STATEFUL_INGESTION_IGNORED_ENTITY_TYPES = {
+    "dataProcessInstance",
+    "query",
+}
+
 
 def pydantic_state_migrator(mapping: Dict[str, str]) -> classmethod:
     # mapping would be something like:
@@ -127,15 +132,25 @@ class GenericCheckpointState(CheckpointStateBase):
         :param old_checkpoint_state: the old checkpoint state to compute the relative change percent against.
         :return: (1-|intersection(self, old_checkpoint_state)| / |old_checkpoint_state|) * 100.0
         """
+
+        old_urns_filtered = filter_ignored_entity_types(old_checkpoint_state.urns)
+
         return compute_percent_entities_changed(
-            new_entities=self.urns, old_entities=old_checkpoint_state.urns
+            new_entities=self.urns, old_entities=old_urns_filtered
         )
+
+    def urn_count(self) -> int:
+        return len(self.urns)
 
 
 def compute_percent_entities_changed(
     new_entities: List[str], old_entities: List[str]
 ) -> float:
-    (overlap_count, old_count, _,) = _get_entity_overlap_and_cardinalities(
+    (
+        overlap_count,
+        old_count,
+        _,
+    ) = _get_entity_overlap_and_cardinalities(
         new_entities=new_entities, old_entities=old_entities
     )
 
@@ -150,3 +165,19 @@ def _get_entity_overlap_and_cardinalities(
     new_set = set(new_entities)
     old_set = set(old_entities)
     return len(new_set.intersection(old_set)), len(old_set), len(new_set)
+
+
+def filter_ignored_entity_types(urns: List[str]) -> List[str]:
+    # We previously stored ignored entity urns (e.g.dataProcessInstance) in state.
+    # For smoother transition from old checkpoint state, without requiring explicit
+    # setting of `fail_safe_threshold` due to removal of irrelevant urns from new state,
+    # here, we would ignore irrelevant urns from percentage entities changed computation
+    # This special handling can be removed after few months.
+    return [
+        urn
+        for urn in urns
+        if not any(
+            urn.startswith(f"urn:li:{entityType}")
+            for entityType in STATEFUL_INGESTION_IGNORED_ENTITY_TYPES
+        )
+    ]

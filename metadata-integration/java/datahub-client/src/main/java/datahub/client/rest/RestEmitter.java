@@ -1,6 +1,7 @@
 package datahub.client.rest;
 
 import static com.linkedin.metadata.Constants.*;
+import static org.apache.hc.core5.http.HttpHeaders.*;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.StreamReadConstraints;
@@ -18,6 +19,7 @@ import datahub.event.MetadataChangeProposalWrapper;
 import datahub.event.UpsertAspectRequest;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.security.KeyManagementException;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
@@ -26,6 +28,7 @@ import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import javax.annotation.concurrent.ThreadSafe;
@@ -35,6 +38,7 @@ import org.apache.hc.client5.http.async.methods.SimpleHttpRequest;
 import org.apache.hc.client5.http.async.methods.SimpleHttpResponse;
 import org.apache.hc.client5.http.async.methods.SimpleRequestBuilder;
 import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.config.TlsConfig;
 import org.apache.hc.client5.http.impl.async.CloseableHttpAsyncClient;
 import org.apache.hc.client5.http.impl.async.HttpAsyncClientBuilder;
 import org.apache.hc.client5.http.impl.nio.PoolingAsyncClientConnectionManagerBuilder;
@@ -45,6 +49,7 @@ import org.apache.hc.core5.concurrent.FutureCallback;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpStatus;
 import org.apache.hc.core5.http.nio.ssl.TlsStrategy;
+import org.apache.hc.core5.http2.HttpVersionPolicy;
 import org.apache.hc.core5.ssl.SSLContexts;
 import org.apache.hc.core5.util.TimeValue;
 
@@ -95,17 +100,28 @@ public class RestEmitter implements Emitter {
     this.config = config;
     HttpAsyncClientBuilder httpClientBuilder = this.config.getAsyncHttpClientBuilder();
     httpClientBuilder.setRetryStrategy(new DatahubHttpRequestRetryStrategy());
-
-    // Override httpClient settings with RestEmitter configs if present
-    if (config.getTimeoutSec() != null) {
-      httpClientBuilder.setDefaultRequestConfig(
-          RequestConfig.custom()
-              .setConnectionRequestTimeout(
-                  config.getTimeoutSec() * 1000, java.util.concurrent.TimeUnit.MILLISECONDS)
-              .setResponseTimeout(
-                  config.getTimeoutSec() * 1000, java.util.concurrent.TimeUnit.MILLISECONDS)
-              .build());
+    if ((config.getTimeoutSec() != null) || (config.isDisableChunkedEncoding())) {
+      RequestConfig.Builder requestConfigBuilder = RequestConfig.custom();
+      // Override httpClient settings with RestEmitter configs if present
+      if (config.getTimeoutSec() != null) {
+        requestConfigBuilder
+            .setConnectionRequestTimeout(config.getTimeoutSec() * 1000, TimeUnit.MILLISECONDS)
+            .setResponseTimeout(config.getTimeoutSec() * 1000, TimeUnit.MILLISECONDS);
+      }
+      if (config.isDisableChunkedEncoding()) {
+        requestConfigBuilder.setContentCompressionEnabled(false);
+      }
+      httpClientBuilder.setDefaultRequestConfig(requestConfigBuilder.build());
     }
+
+    PoolingAsyncClientConnectionManagerBuilder poolingAsyncClientConnectionManagerBuilder =
+        PoolingAsyncClientConnectionManagerBuilder.create();
+
+    // Forcing http 1.x as 2.0 is not supported yet
+    TlsConfig tlsHttp1Config =
+        TlsConfig.copy(TlsConfig.DEFAULT).setVersionPolicy(HttpVersionPolicy.FORCE_HTTP_1).build();
+    poolingAsyncClientConnectionManagerBuilder.setDefaultTlsConfig(tlsHttp1Config);
+
     if (config.isDisableSslVerification()) {
       try {
         SSLContext sslcontext =
@@ -115,15 +131,12 @@ public class RestEmitter implements Emitter {
                 .setSslContext(sslcontext)
                 .setHostnameVerifier(NoopHostnameVerifier.INSTANCE)
                 .build();
-
-        httpClientBuilder.setConnectionManager(
-            PoolingAsyncClientConnectionManagerBuilder.create()
-                .setTlsStrategy(tlsStrategy)
-                .build());
+        poolingAsyncClientConnectionManagerBuilder.setTlsStrategy(tlsStrategy);
       } catch (KeyManagementException | NoSuchAlgorithmException | KeyStoreException e) {
         throw new RuntimeException("Error while creating insecure http client", e);
       }
     }
+    httpClientBuilder.setConnectionManager(poolingAsyncClientConnectionManagerBuilder.build());
 
     httpClientBuilder.setRetryStrategy(
         new DatahubHttpRequestRetryStrategy(
@@ -216,8 +229,13 @@ public class RestEmitter implements Emitter {
     if (this.config.getToken() != null) {
       simpleRequestBuilder.setHeader("Authorization", "Bearer " + this.config.getToken());
     }
+    if (this.config.isDisableChunkedEncoding()) {
+      byte[] payloadBytes = payloadJson.getBytes(StandardCharsets.UTF_8);
+      simpleRequestBuilder.setBody(payloadBytes, ContentType.APPLICATION_JSON);
+    } else {
+      simpleRequestBuilder.setBody(payloadJson, ContentType.APPLICATION_JSON);
+    }
 
-    simpleRequestBuilder.setBody(payloadJson, ContentType.APPLICATION_JSON);
     AtomicReference<MetadataWriteResponse> responseAtomicReference = new AtomicReference<>();
     CountDownLatch responseLatch = new CountDownLatch(1);
     FutureCallback<SimpleHttpResponse> httpCallback =
@@ -243,6 +261,7 @@ public class RestEmitter implements Emitter {
 
           @Override
           public void failed(Exception ex) {
+            responseLatch.countDown();
             if (callback != null) {
               try {
                 callback.onFailure(ex);
@@ -254,6 +273,7 @@ public class RestEmitter implements Emitter {
 
           @Override
           public void cancelled() {
+            responseLatch.countDown();
             if (callback != null) {
               try {
                 callback.onFailure(new RuntimeException("Cancelled"));
@@ -337,6 +357,7 @@ public class RestEmitter implements Emitter {
 
           @Override
           public void failed(Exception ex) {
+            responseLatch.countDown();
             if (callback != null) {
               try {
                 callback.onFailure(ex);
@@ -348,6 +369,7 @@ public class RestEmitter implements Emitter {
 
           @Override
           public void cancelled() {
+            responseLatch.countDown();
             if (callback != null) {
               try {
                 callback.onFailure(new RuntimeException("Cancelled"));

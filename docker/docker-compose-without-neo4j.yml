@@ -4,7 +4,6 @@
 
 # NOTE: This file will cannot build! No dockerfiles are set. See the README.md in this directory.
 ---
-version: '3.9'
 services:
   datahub-frontend-react:
     hostname: datahub-frontend-react
@@ -42,6 +41,7 @@ services:
     env_file: datahub-gms/env/docker-without-neo4j.env
     environment:
       - KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR=${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:-true}
+      - METADATA_SERVICE_AUTH_ENABLED=${METADATA_SERVICE_AUTH_ENABLED:-false}
     healthcheck:
       test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
       start_period: 90s
@@ -123,7 +123,7 @@ services:
     - esdata:/usr/share/elasticsearch/data
   schema-registry:
     hostname: schema-registry
-    image: confluentinc/cp-schema-registry:7.4.0
+    image: ${DATAHUB_CONFLUENT_SCHEMA_REGISTRY_IMAGE:-confluentinc/cp-schema-registry}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}
     ports:
     - ${DATAHUB_MAPPED_SCHEMA_REGISTRY_PORT:-8081}:8081
     env_file: schema-registry/env/docker.env
@@ -138,7 +138,7 @@ services:
         condition: service_healthy
   broker:
     hostname: broker
-    image: confluentinc/cp-kafka:7.4.0
+    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}
     ports:
     - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
     env_file: broker/env/docker.env
@@ -155,7 +155,7 @@ services:
     - broker:/var/lib/kafka/data/
   zookeeper:
     hostname: zookeeper
-    image: confluentinc/cp-zookeeper:7.4.0
+    image: ${DATAHUB_CONFLUENT_ZOOKEEPER_IMAGE:-confluentinc/cp-zookeeper}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}
     ports:
     - ${DATAHUB_MAPPED_ZK_PORT:-2181}:2181
     env_file: zookeeper/env/docker.env

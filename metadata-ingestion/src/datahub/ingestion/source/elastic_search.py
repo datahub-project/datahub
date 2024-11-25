@@ -5,7 +5,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass, field
 from hashlib import md5
-from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type
+from typing import Any, Dict, Generator, Iterable, List, Optional, Tuple, Type, Union
 
 from elasticsearch import Elasticsearch
 from pydantic import validator
@@ -138,20 +138,7 @@ class ElasticToSchemaFieldConverter:
         for columnName, column in elastic_schema_dict.items():
             elastic_type: Optional[str] = column.get("type")
             nested_props: Optional[Dict[str, Any]] = column.get(PROPERTIES)
-            if elastic_type is not None:
-                self._prefix_name_stack.append(f"[type={elastic_type}].{columnName}")
-                schema_field_data_type = self.get_column_type(elastic_type)
-                schema_field = SchemaField(
-                    fieldPath=self._get_cur_field_path(),
-                    nativeDataType=elastic_type,
-                    type=schema_field_data_type,
-                    description=None,
-                    nullable=True,
-                    recursive=False,
-                )
-                yield schema_field
-                self._prefix_name_stack.pop()
-            elif nested_props:
+            if nested_props:
                 self._prefix_name_stack.append(f"[type={PROPERTIES}].{columnName}")
                 schema_field = SchemaField(
                     fieldPath=self._get_cur_field_path(),
@@ -163,6 +150,19 @@ class ElasticToSchemaFieldConverter:
                 )
                 yield schema_field
                 yield from self._get_schema_fields(nested_props)
+                self._prefix_name_stack.pop()
+            elif elastic_type is not None:
+                self._prefix_name_stack.append(f"[type={elastic_type}].{columnName}")
+                schema_field_data_type = self.get_column_type(elastic_type)
+                schema_field = SchemaField(
+                    fieldPath=self._get_cur_field_path(),
+                    nativeDataType=elastic_type,
+                    type=schema_field_data_type,
+                    description=None,
+                    nullable=True,
+                    recursive=False,
+                )
+                yield schema_field
                 self._prefix_name_stack.pop()
             else:
                 # Unexpected! Log a warning.
@@ -249,6 +249,10 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
     password: Optional[str] = Field(
         default=None, description="The password credential."
     )
+    api_key: Optional[Union[Any, str]] = Field(
+        default=None,
+        description="API Key authentication. Accepts either a list with id and api_key (UTF-8 representation), or a base64 encoded string of id and api_key combined by ':'.",
+    )
 
     use_ssl: bool = Field(
         default=False, description="Whether to use SSL for the connection or not."
@@ -333,7 +337,6 @@ class ElasticsearchSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
 @support_status(SupportStatus.CERTIFIED)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class ElasticsearchSource(Source):
-
     """
     This plugin extracts the following:
 
@@ -347,6 +350,7 @@ class ElasticsearchSource(Source):
         self.client = Elasticsearch(
             self.source_config.host,
             http_auth=self.source_config.http_auth,
+            api_key=self.source_config.api_key,
             use_ssl=self.source_config.use_ssl,
             verify_certs=self.source_config.verify_certs,
             ca_certs=self.source_config.ca_certs,
@@ -479,11 +483,15 @@ class ElasticsearchSource(Source):
             entityUrn=dataset_urn,
             aspect=SubTypesClass(
                 typeNames=[
-                    DatasetSubTypes.ELASTIC_INDEX_TEMPLATE
-                    if not is_index
-                    else DatasetSubTypes.ELASTIC_INDEX
-                    if not data_stream
-                    else DatasetSubTypes.ELASTIC_DATASTREAM
+                    (
+                        DatasetSubTypes.ELASTIC_INDEX_TEMPLATE
+                        if not is_index
+                        else (
+                            DatasetSubTypes.ELASTIC_INDEX
+                            if not data_stream
+                            else DatasetSubTypes.ELASTIC_DATASTREAM
+                        )
+                    )
                 ]
             ),
         )
