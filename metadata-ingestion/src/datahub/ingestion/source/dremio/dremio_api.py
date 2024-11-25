@@ -674,6 +674,98 @@ class DremioAPIOperations:
             )
         return None
 
+    def should_include_container(self, path: List[str], name: str) -> bool:
+        """
+        Helper method to check if a container should be included based on schema patterns.
+        Used by both get_all_containers and get_containers_for_location.
+        """
+        full_path = '.'.join(path + [name]) if path else name
+
+        if self.allow_schema_pattern:
+            matches_allow = False
+            for pattern in self.allow_schema_pattern:
+                if re.search(pattern, full_path, re.IGNORECASE):
+                    matches_allow = True
+                    break
+            if not matches_allow:
+                self.report.report_container_filtered(full_path)
+                return False
+
+        if self.deny_schema_pattern:
+            for pattern in self.deny_schema_pattern:
+                if re.search(pattern, full_path, re.IGNORECASE):
+                    self.report.report_container_filtered(full_path)
+                    return False
+
+        self.report.report_container_scanned(full_path)
+        return True
+
+    def get_all_containers(self):
+        """
+        Query the Dremio sources API and return filtered source information.
+        """
+        containers = []
+        response = self.get(url="/catalog")
+
+        def process_source(source):
+            if source.get("containerType") == DremioEntityContainerType.SOURCE.value:
+                source_resp = self.get(
+                    url=f"/catalog/{source.get('id')}",
+                )
+
+                source_config = source_resp.get("config", {})
+                db = source_config.get("database", source_config.get("databaseName", ""))
+
+                if self.should_include_container([], source.get("path")[0]):
+                    return {
+                        "id": source.get("id"),
+                        "name": source.get("path")[0],
+                        "path": [],
+                        "container_type": DremioEntityContainerType.SOURCE,
+                        "source_type": source_resp.get("type"),
+                        "root_path": source_config.get("rootPath"),
+                        "database_name": db,
+                    }
+            else:
+                if self.should_include_container([], source.get("path")[0]):
+                    return {
+                        "id": source.get("id"),
+                        "name": source.get("path")[0],
+                        "path": [],
+                        "container_type": DremioEntityContainerType.SPACE,
+                    }
+            return None
+
+        def process_source_and_containers(source):
+            container = process_source(source)
+            if not container:
+                return []
+
+            # Get sub-containers
+            sub_containers = self.get_containers_for_location(
+                resource_id=container.get("id"),
+                path=[container.get("name")],
+            )
+
+            return [container] + sub_containers
+
+        # Use ThreadPoolExecutor to parallelize the processing of sources
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=self._max_workers
+        ) as executor:
+            future_to_source = {
+                executor.submit(process_source_and_containers, source): source
+                for source in response.get("data", [])
+            }
+
+            for future in concurrent.futures.as_completed(future_to_source):
+                try:
+                    containers.extend(future.result())
+                except Exception as e:
+                    logger.error(f"Error processing source: {e}")
+
+        return containers
+
     def get_containers_for_location(
         self, resource_id: str, path: List[str]
     ) -> List[Dict[str, str]]:
@@ -686,135 +778,38 @@ class DremioAPIOperations:
 
                 # Check if current folder should be included
                 if (
-                    response.get("entityType")
-                    == DremioEntityContainerType.FOLDER.value.lower()
+                        response.get("entityType")
+                        == DremioEntityContainerType.FOLDER.value.lower()
                 ):
-                    container_info = {
-                        "id": location_id,
-                        "name": entity_path[-1],
-                        "path": entity_path[:-1],
-                        "container_type": DremioEntityContainerType.FOLDER,
-                    }
+                    folder_name = entity_path[-1]
+                    folder_path = entity_path[:-1]
 
-                    # Check if folder matches schema pattern
-                    full_path = '.'.join(container_info["path"] + [container_info["name"]])
-                    matches_allow = any(
-                        re.search(pattern, full_path, re.IGNORECASE)
-                        for pattern in self.allow_schema_pattern
-                    ) if self.allow_schema_pattern else True
-                    matches_deny = any(
-                        re.search(pattern, full_path, re.IGNORECASE)
-                        for pattern in self.deny_schema_pattern
-                    ) if self.deny_schema_pattern else False
-
-                    if matches_allow and not matches_deny:
-                        containers.append(container_info)
+                    if self.should_include_container(folder_path, folder_name):
+                        containers.append({
+                            "id": location_id,
+                            "name": folder_name,
+                            "path": folder_path,
+                            "container_type": DremioEntityContainerType.FOLDER,
+                        })
 
                 # Recursively process child containers
                 for container in response.get("children", []):
                     if (
-                        container.get("type")
-                        == DremioEntityContainerType.CONTAINER.value
+                            container.get("type")
+                            == DremioEntityContainerType.CONTAINER.value
                     ):
                         traverse_path(container.get("id"), container.get("path"))
 
             except Exception as exc:
                 logging.info(
-                    "Location {} contains no tables or views. Skipping...".format(id)
+                    "Location {} contains no tables or views. Skipping...".format(location_id)
                 )
                 self.report.warning(
                     message="Failed to get tables or views",
-                    context=f"{id}",
+                    context=f"{location_id}",
                     exc=exc,
                 )
 
             return containers
 
         return traverse_path(location_id=resource_id, entity_path=path)
-
-    def get_all_containers(self):
-        """
-        Query the Dremio sources API and return source information.
-        """
-        containers = []
-
-        response = self.get(url="/catalog")
-
-        def process_source(source):
-            if source.get("containerType") == DremioEntityContainerType.SOURCE.value:
-                source_resp = self.get(
-                    url=f"/catalog/{source.get('id')}",
-                )
-
-                source_config = source_resp.get("config", {})
-                if source_config.get("database"):
-                    db = source_config.get("database")
-                else:
-                    db = source_config.get("databaseName", "")
-
-                return {
-                    "id": source.get("id"),
-                    "name": source.get("path")[0],
-                    "path": [],
-                    "container_type": DremioEntityContainerType.SOURCE,
-                    "source_type": source_resp.get("type"),
-                    "root_path": source_config.get("rootPath"),
-                    "database_name": db,
-                }
-            else:
-                return {
-                    "id": source.get("id"),
-                    "name": source.get("path")[0],
-                    "path": [],
-                    "container_type": DremioEntityContainerType.SPACE,
-                }
-
-        def should_include_container(container_info):
-            """Check if container matches schema pattern"""
-            full_path = (
-                '.'.join(container_info.get("path", []) + [container_info.get("name")])
-                if container_info.get("path")
-                else container_info.get("name")
-            )
-            matches_allow = any(
-                re.search(pattern, full_path, re.IGNORECASE)
-                for pattern in self.allow_schema_pattern
-            ) if self.allow_schema_pattern else True
-            matches_deny = any(
-                re.search(pattern, full_path, re.IGNORECASE)
-                for pattern in self.deny_schema_pattern
-            ) if self.deny_schema_pattern else False
-            return matches_allow and not matches_deny
-
-        def process_source_and_containers(source):
-            container = process_source(source)
-
-            # Filter the main container
-            if not should_include_container(container):
-                return []
-
-            # Get sub-containers and filter them
-            sub_containers = self.get_containers_for_location(
-                resource_id=container.get("id"),
-                path=[container.get("name")],
-            )
-            filtered_sub_containers = [
-                sub for sub in sub_containers
-                if should_include_container(sub)
-            ]
-
-            return [container] + filtered_sub_containers
-
-        # Use ThreadPoolExecutor to parallelize the processing of sources
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=self._max_workers
-        ) as executor:
-            future_to_source = {
-                executor.submit(process_source_and_containers, source): source
-                for source in response.get("data", [])
-            }
-
-            for future in concurrent.futures.as_completed(future_to_source):
-                containers.extend(future.result())
-
-        return containers
