@@ -317,16 +317,19 @@ class SQLServerSource(SQLAlchemySource):
                     f"Failed to list jobs due to error {e}",
                 )
 
-    def _is_azure_sql(self, hostname: str) -> bool:
-        return any(
-            domain in hostname.lower()
-            for domain in [
-                "database.windows.net",
-                "database.cloudapi.de",
-                "database.chinacloudapi.cn",
-                "database.usgovcloudapi.net",
-            ]
-        )
+    def _is_azure_sql(self, hostname: Optional[str]) -> bool:
+        if not hostname:
+            return False
+        else:
+            return any(
+                domain in hostname.lower()
+                for domain in [
+                    "database.windows.net",
+                    "database.cloudapi.de",
+                    "database.chinacloudapi.cn",
+                    "database.usgovcloudapi.net",
+                ]
+            )
 
     def _get_jobs(self, conn: Connection, db_name: str) -> Dict[str, Dict[str, Any]]:
         hostname = conn.engine.url.host
