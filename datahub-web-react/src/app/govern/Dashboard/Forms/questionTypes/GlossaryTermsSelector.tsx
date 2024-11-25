@@ -38,6 +38,8 @@ const GlossaryTermsSelector = ({
                 query: '*',
                 types: [EntityType.GlossaryNode, EntityType.GlossaryTerm],
                 orFilters: [{ and: [{ field: 'hasParentNode', value: 'false' }] }],
+                start: 0,
+                count: 1000,
             },
         },
     });
