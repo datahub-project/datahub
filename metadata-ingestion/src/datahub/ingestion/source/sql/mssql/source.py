@@ -334,7 +334,9 @@ class SQLServerSource(SQLAlchemySource):
 
         try:
             if self._is_azure_sql(hostname):
-                logger.debug(f"Attempting to get Azure SQL Elastic Jobs for database {db_name}")
+                logger.debug(
+                    f"Attempting to get Azure SQL Elastic Jobs for database {db_name}"
+                )
                 try:
                     # Azure SQL Elastic Jobs query
                     jobs_data = conn.execute(
