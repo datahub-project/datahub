@@ -64,7 +64,8 @@ from datahub_integrations.slack.utils.entity_extract import (
     get_type_url,
 )
 
-_state_store = InMemoryStateStore(expiration_seconds=300)
+# 7 days because admins may take some time to approve
+_state_store = InMemoryStateStore(expiration_seconds=60 * 60 * 24 * 7)
 
 ACRYL_SLACK_ICON_URL = f"{EXTERNAL_STATIC_PATH}/acryl-slack-icon.png"
 
