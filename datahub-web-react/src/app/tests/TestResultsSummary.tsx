@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import { Button, Tag, Typography } from 'antd';
 import { SUCCESS_COLOR_HEX } from '../entity/shared/tabs/Incident/incidentUtils';
@@ -10,6 +10,7 @@ import { PLACEHOLDER_TEST_URN } from './constants';
 import TestResultsModal from './TestResultsModal';
 import { TestResultType } from '../../types.generated';
 import { toRelativeTimeString } from '../shared/time/timeUtils';
+import Loading from '../shared/Loading';
 
 const Container = styled.div`
     padding: 4px;
@@ -63,14 +64,18 @@ const ButtonContainer = styled.div`
 `;
 
 const DEFAULT_MODAL_OPTIONS = { visible: false, defaultActive: TestResultType.Success };
+const MAX_POLL_COUNT = 10;
 
 type Props = {
     urn: string;
     name: string;
+    editVersion: number;
 };
 
-export const TestResultsSummary = ({ urn, name }: Props) => {
+export const TestResultsSummary = ({ urn, name, editVersion }: Props) => {
     const [resultsModalOptions, setResultsModalOptions] = useState(DEFAULT_MODAL_OPTIONS);
+
+    const [isPolling, setIsPolling] = useState(false);
 
     const { data: results, refetch } = useGetTestResultsSummaryQuery({
         skip: !urn || urn === PLACEHOLDER_TEST_URN,
@@ -78,18 +83,6 @@ export const TestResultsSummary = ({ urn, name }: Props) => {
             urn,
         },
     });
-
-    // Refetch every 3-6s
-    // TODO: Do this in the parent as a batch API call for all tests instead of getting it one test at a time...
-    useEffect(() => {
-        const intervalId = setInterval(() => {
-            refetch();
-            // NOTE: we randomize so the test cards stagger their polling API calls
-        }, 3000 + Math.random() * 3000);
-
-        // Clean up interval on component unmount
-        return () => clearInterval(intervalId);
-    }, [refetch]);
 
     const hasResults = results?.test?.results?.passingCount || results?.test?.results?.failingCount;
     const passingCount =
@@ -104,9 +97,53 @@ export const TestResultsSummary = ({ urn, name }: Props) => {
     const testDefinitionMd5 =
         results?.test?.results?.testDefinitionMd5 !== undefined ? results?.test?.results?.testDefinitionMd5 : '-';
 
+    // TODO: API should tell us when the next compute is
+    const missingLastRunLabel = hasResults
+        ? 'Next update within 24 hours.'
+        : 'Pending compute. Update expected by tomorrow.';
     const lastComputedLabel = results?.test?.results?.lastRunTimestampMillis
         ? `Last computed: ${toRelativeTimeString(results.test.results.lastRunTimestampMillis)}`
-        : 'Pending compute';
+        : missingLastRunLabel;
+
+    // If card does not have results, or has recently been edited, refetch every 2-4s
+    // TODO: Do this in the parent as a batch API call for all tests instead of getting it one test at a time...
+    const pollTrackerRef = useRef({ count: 0, id: null as any });
+    useEffect(() => {
+        const pollTracker = pollTrackerRef.current;
+
+        // If this test:
+        // 1. has results
+        // 2. and has not been edited
+        // 3. and a previous poll didn't already exist for it (this happens if test is newly created)
+        // then do nothing
+        if (editVersion === 0 && hasResults && !pollTracker.count) {
+            // make es lint happy
+            return () => {};
+        }
+
+        const clearPoll = () => {
+            clearInterval(pollTracker.id);
+            setIsPolling(false);
+        };
+
+        const onPoll = () => {
+            refetch();
+            pollTracker.count++;
+            // After a test has been edited, it may take a little while to full compute
+            if (pollTracker.count === MAX_POLL_COUNT) {
+                clearPoll();
+                pollTracker.count = 0;
+            }
+        };
+
+        // Start poll
+        setIsPolling(true);
+        // NOTE: we randomize between 2-4s so the test cards stagger their polling API calls
+        pollTracker.id = setInterval(onPoll, 2000 + Math.random() * 2000);
+
+        // Clean up interval on component unmount
+        return clearPoll;
+    }, [refetch, editVersion, hasResults]);
 
     return (
         <Container>
@@ -142,6 +179,7 @@ export const TestResultsSummary = ({ urn, name }: Props) => {
                         </StyledButton>
                     </>
                 )) || <NoResultsSummary />}
+                {isPolling ? <Loading height={14} marginTop={0} alignItems="center" /> : null}
                 {resultsModalOptions.visible && results && (
                     <TestResultsModal
                         urn={urn}

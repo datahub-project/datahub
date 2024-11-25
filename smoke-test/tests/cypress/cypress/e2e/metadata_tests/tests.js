@@ -50,7 +50,7 @@ describe("create, edit and remove metadata test", () => {
     cy.get('[role="dialog"] [type="search"]').eq(2).click();
     cy.clickOptionWithText("Equals");
     cy.get('[role="dialog"] [type="search"]').eq(3).type(urn);
-    cy.clickOptionWithText("Next");
+    cy.get('[data-testid="modal-next-button"]').click();
     // define conditions
     cy.waitTextVisible("Define your test conditions");
     cy.clickOptionWithText("+ Add");
@@ -76,7 +76,7 @@ describe("create, edit and remove metadata test", () => {
     cy.waitTextVisible("Not selected");
     cy.clickOptionWithText("Close");
     // finish up
-    cy.clickOptionWithText("Next");
+    cy.get('[data-testid="modal-next-button"]').click();
     cy.get('[placeholder="A name for your test"]').type(testName);
     cy.get('[placeholder="The description for your test"]').type(
       testDescription,
@@ -90,7 +90,7 @@ describe("create, edit and remove metadata test", () => {
     // edit the test to make it fail, verify the result, save test
     cy.contains(testName).click();
     cy.waitTextVisible("Edit Metadata Test");
-    cy.clickOptionWithText("Next");
+    cy.get('[data-testid="modal-next-button"]').click();
     cy.get('[role="dialog"] [type="search"]').eq(2).click();
     cy.get(".rc-virtual-list").find("div").contains("Cypress").click();
     cy.get(".rc-virtual-list").find("div").contains("TagToPropose").click();
@@ -104,7 +104,7 @@ describe("create, edit and remove metadata test", () => {
     cy.waitTextVisible("Failed");
     cy.clickOptionWithText("Close");
     // save edited test
-    cy.clickOptionWithText("Next");
+    cy.get('[data-testid="modal-next-button"]').click();
     cy.clickOptionWithText("Save");
     cy.waitTextVisible("Successfully updated Test!");
     cy.waitTextVisible(testName);

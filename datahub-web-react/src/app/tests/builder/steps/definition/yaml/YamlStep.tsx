@@ -147,7 +147,12 @@ export const YamlStep = ({
                             <Tooltip title={actionTip}>{actionTitle}</Tooltip>
                         </ActionButton>
                     )}
-                    <Button type="primary" onClick={handleOnNext} disabled={nextDisabled}>
+                    <Button
+                        data-testid="modal-next-button"
+                        type="primary"
+                        onClick={handleOnNext}
+                        disabled={nextDisabled}
+                    >
                         Next
                     </Button>
                 </div>
