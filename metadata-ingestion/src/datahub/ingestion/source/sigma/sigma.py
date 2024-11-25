@@ -432,11 +432,11 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         elements: List[Element],
         workbook: Workbook,
         all_input_fields: List[InputFieldClass],
+        paths: List[str],
     ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma page element to Datahub Chart
         """
-
         for element in elements:
             chart_urn = builder.make_chart_urn(
                 platform=self.platform,
@@ -467,11 +467,14 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 ),
             ).as_workunit()
 
-            yield from add_entity_to_container(
-                container_key=self._gen_workbook_key(workbook.workbookId),
-                entity_type="chart",
-                entity_urn=chart_urn,
-            )
+            if workbook.workspaceId:
+                yield self._gen_entity_browsepath_aspect(
+                    entity_urn=chart_urn,
+                    parent_entity_urn=builder.make_container_urn(
+                        self._gen_workspace_key(workbook.workspaceId)
+                    ),
+                    paths=paths + [workbook.name],
+                )
 
             # Add sigma dataset's upstream dataset urn mapping
             for dataset_urn, upstream_dataset_urns in inputs.items():
@@ -502,7 +505,9 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
             all_input_fields.extend(element_input_fields)
 
-    def _gen_pages_workunit(self, workbook: Workbook) -> Iterable[MetadataWorkUnit]:
+    def _gen_pages_workunit(
+        self, workbook: Workbook, paths: List[str]
+    ) -> Iterable[MetadataWorkUnit]:
         """
         Map Sigma workbook page to Datahub dashboard
         """
@@ -519,8 +524,17 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
             all_input_fields: List[InputFieldClass] = []
 
+            if workbook.workspaceId:
+                yield self._gen_entity_browsepath_aspect(
+                    entity_urn=dashboard_urn,
+                    parent_entity_urn=builder.make_container_urn(
+                        self._gen_workspace_key(workbook.workspaceId)
+                    ),
+                    paths=paths + [workbook.name],
+                )
+
             yield from self._gen_elements_workunit(
-                page.elements, workbook, all_input_fields
+                page.elements, workbook, all_input_fields, paths
             )
 
             yield MetadataChangeProposalWrapper(
@@ -549,7 +563,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         dashboard_info_cls = DashboardInfoClass(
             title=workbook.name,
-            description="",
+            description=workbook.description if workbook.description else "",
             dashboards=[
                 EdgeClass(
                     destinationUrn=self._gen_dashboard_urn(page.get_urn_part()),
@@ -599,22 +613,23 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         paths = workbook.path.split("/")[1:]
-        if len(paths) > 0 and workbook.workspaceId:
+        if workbook.workspaceId:
             yield self._gen_entity_browsepath_aspect(
                 entity_urn=dashboard_urn,
                 parent_entity_urn=builder.make_container_urn(
                     self._gen_workspace_key(workbook.workspaceId)
                 ),
-                paths=paths,
-            )
-        elif workbook.workspaceId:
-            yield from add_entity_to_container(
-                container_key=self._gen_workspace_key(workbook.workspaceId),
-                entity_type="dashboard",
-                entity_urn=dashboard_urn,
+                paths=paths + [workbook.name],
             )
 
-        yield from self._gen_pages_workunit(workbook)
+            if len(paths) == 0:
+                yield from add_entity_to_container(
+                    container_key=self._gen_workspace_key(workbook.workspaceId),
+                    entity_type="dashboard",
+                    entity_urn=dashboard_urn,
+                )
+
+        yield from self._gen_pages_workunit(workbook, paths)
 
     def _gen_sigma_dataset_upstream_lineage_workunit(
         self,
