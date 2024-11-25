@@ -318,12 +318,15 @@ class SQLServerSource(SQLAlchemySource):
                 )
 
     def _is_azure_sql(self, hostname: str) -> bool:
-        return any(domain in hostname.lower() for domain in [
-            "database.windows.net",
-            "database.cloudapi.de",
-            "database.chinacloudapi.cn",
-            "database.usgovcloudapi.net"
-        ])
+        return any(
+            domain in hostname.lower()
+            for domain in [
+                "database.windows.net",
+                "database.cloudapi.de",
+                "database.chinacloudapi.cn",
+                "database.usgovcloudapi.net",
+            ]
+        )
 
     def _get_jobs(self, conn: Connection, db_name: str) -> Dict[str, Dict[str, Any]]:
         hostname = conn.engine.url.host
@@ -359,11 +362,14 @@ class SQLServerSource(SQLAlchemySource):
                     logger.debug("Successfully queried Azure SQL Elastic Jobs")
                 except Exception as e:
                     logger.warning(
-                        f"Failed to query Azure SQL Elastic Jobs: {e}. This may be normal if Elastic Jobs are not configured.")
+                        f"Failed to query Azure SQL Elastic Jobs: {e}. This may be normal if Elastic Jobs are not configured."
+                    )
                     return jobs
 
             else:
-                logger.debug(f"Attempting to get SQL Server Agent Jobs for database {db_name}")
+                logger.debug(
+                    f"Attempting to get SQL Server Agent Jobs for database {db_name}"
+                )
                 try:
                     # SQL Server Agent query
                     jobs_data = conn.execute(
@@ -391,7 +397,8 @@ class SQLServerSource(SQLAlchemySource):
                     logger.debug("Successfully queried SQL Server Agent Jobs")
                 except Exception as e:
                     logger.warning(
-                        f"Failed to query SQL Server Agent Jobs: {e}. This may be normal if SQL Server Agent is not enabled.")
+                        f"Failed to query SQL Server Agent Jobs: {e}. This may be normal if SQL Server Agent is not enabled."
+                    )
                     return jobs
 
             # Process results
