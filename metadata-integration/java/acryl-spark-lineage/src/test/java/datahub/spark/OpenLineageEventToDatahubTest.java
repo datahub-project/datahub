@@ -822,6 +822,7 @@ public class OpenLineageEventToDatahubTest extends TestCase {
     builder.lowerCaseDatasetUrns(true);
     builder.materializeDataset(true);
     builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
 
     String olEvent =
         IOUtils.toString(

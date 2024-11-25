@@ -676,8 +676,9 @@ public class OpenLineageToDataHub {
     DataJobInputOutput inputOutput = new DataJobInputOutput();
 
     boolean inputsEqualOutputs = false;
-    if ((event.getInputs() != null && event.getOutputs() != null)
-        && (event.getInputs().size() == event.getOutputs().size())) {
+    if ((datahubConf.isSpark())
+        && ((event.getInputs() != null && event.getOutputs() != null)
+            && (event.getInputs().size() == event.getOutputs().size()))) {
       inputsEqualOutputs =
           event.getInputs().stream()
               .map(OpenLineage.Dataset::getName)

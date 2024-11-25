@@ -195,7 +195,8 @@ information like tokens.
 | spark.datahub.s3.bucket                                |          |                       | The name of the bucket where metadata will be written if s3 emitter is set                                                                                                                |
 | spark.datahub.s3.prefix                                |          |                       | The prefix for the file where metadata will be written on s3 if s3 emitter is set                                                                                                         |
 | spark.datahub.s3.filename                              |          |                       | The name of the file where metadata will be written if it is not set random filename will be used on s3 if s3 emitter is set                                                              |
-
+| spark.datahub.s3.filename                              |          |                       | The name of the file where metadata will be written if it is not set random filename will be used on s3 if s3 emitter is set                                                              |
+|spark.datahub.log.mcps                                  |          | true                  | Set this to true to log MCPS to the log. By default, it is enabled.                                                                                                                       |
 
 ## What to Expect: The Metadata Model
 

@@ -16,6 +16,7 @@ import lombok.ToString;
 @Getter
 @ToString
 public class DatahubOpenlineageConfig {
+  @Builder.Default private final boolean isSpark = false;
   @Builder.Default private final boolean isStreaming = false;
   @Builder.Default private final String pipelineName = null;
   private final String platformInstance;
