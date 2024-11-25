@@ -64,6 +64,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     UpstreamLineage,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     BrowsePathEntryClass,
     BrowsePathsV2Class,
     ChangeAuditStampsClass,
@@ -537,6 +538,15 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         yield self._gen_entity_status_aspect(dashboard_urn)
 
+        lastModified = AuditStampClass(
+            time=int(workbook.updatedAt.timestamp() * 1000),
+            actor="urn:li:corpuser:datahub",
+        )
+        created = AuditStampClass(
+            time=int(workbook.createdAt.timestamp() * 1000),
+            actor="urn:li:corpuser:datahub",
+        )
+
         dashboard_info_cls = DashboardInfoClass(
             title=workbook.name,
             description="",
@@ -547,17 +557,10 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 for page in workbook.pages
             ],
-            charts=[
-                builder.make_chart_urn(
-                    platform=self.platform,
-                    platform_instance=self.config.platform_instance,
-                    name=element.get_urn_part(),
-                )
-                for page in workbook.pages
-                for element in page.elements
-            ],
             externalUrl=workbook.url,
-            lastModified=ChangeAuditStampsClass(),
+            lastModified=ChangeAuditStampsClass(
+                created=created, lastModified=lastModified
+            ),
             customProperties={
                 "path": workbook.path,
                 "latestVersion": str(workbook.latestVersion),
@@ -569,7 +572,7 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
 
         # Set subtype
         yield MetadataChangeProposalWrapper(
-            entityUrn=f"{dashboard_urn}",
+            entityUrn=dashboard_urn,
             aspect=SubTypesClass(typeNames=[BIContainerSubTypes.SIGMA_WORKBOOK]),
         ).as_workunit()
 
