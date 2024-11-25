@@ -265,11 +265,6 @@ class SigmaSource(StatefulIngestionSourceBase, TestableSource):
         entries = [
             BrowsePathEntryClass(id=parent_entity_urn, urn=parent_entity_urn)
         ] + [BrowsePathEntryClass(id=path) for path in paths]
-        if self.config.platform_instance:
-            urn = builder.make_dataplatform_instance_urn(
-                self.platform, self.config.platform_instance
-            )
-            entries = [BrowsePathEntryClass(id=urn, urn=urn)] + entries
         return MetadataChangeProposalWrapper(
             entityUrn=entity_urn,
             aspect=BrowsePathsV2Class(entries),
