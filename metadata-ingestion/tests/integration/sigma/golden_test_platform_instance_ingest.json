@@ -543,6 +543,38 @@
 },
 {
     "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.OSnGLBzL1i)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
+                },
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
+                },
+                {
+                    "id": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d",
+                    "urn": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d"
+                },
+                {
+                    "id": "Acryl Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732545849038,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
     "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
@@ -554,14 +586,21 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
                 },
                 {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
+                },
+                {
                     "id": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d",
                     "urn": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d"
+                },
+                {
+                    "id": "Acryl Workbook"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732513099891,
+        "lastObserved": 1732545849036,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -626,22 +665,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1713794496202,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,cloud_instance.kH0MeihtGs)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:084a2e283eddfc576ce70989b395a7d8"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713794496055,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -803,14 +826,21 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
                 },
                 {
-                    "id": "urn:li:container:084a2e283eddfc576ce70989b395a7d8",
-                    "urn": "urn:li:container:084a2e283eddfc576ce70989b395a7d8"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
+                },
+                {
+                    "id": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d",
+                    "urn": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d"
+                },
+                {
+                    "id": "Acryl Workbook"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732513099908,
+        "lastObserved": 1732545849054,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -896,22 +926,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1713794496114,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,cloud_instance.Ml9C5ezT5W)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:084a2e283eddfc576ce70989b395a7d8"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713794496116,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1061,6 +1075,38 @@
     }
 },
 {
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,cloud_instance.DFSieiAcgo)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
+                },
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
+                },
+                {
+                    "id": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d",
+                    "urn": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d"
+                },
+                {
+                    "id": "Acryl Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732545849086,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(sigma,cloud_instance.Ml9C5ezT5W)",
     "changeType": "UPSERT",
@@ -1073,14 +1119,21 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
                 },
                 {
-                    "id": "urn:li:container:084a2e283eddfc576ce70989b395a7d8",
-                    "urn": "urn:li:container:084a2e283eddfc576ce70989b395a7d8"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
+                },
+                {
+                    "id": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d",
+                    "urn": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d"
+                },
+                {
+                    "id": "Acryl Workbook"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732513099934,
+        "lastObserved": 1732545849082,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1205,22 +1258,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1713794496126,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,cloud_instance.tQJu5N1l81)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:084a2e283eddfc576ce70989b395a7d8"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713794496189,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1617,14 +1654,21 @@
                     "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
                 },
                 {
-                    "id": "urn:li:container:084a2e283eddfc576ce70989b395a7d8",
-                    "urn": "urn:li:container:084a2e283eddfc576ce70989b395a7d8"
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sigma,cloud_instance)"
+                },
+                {
+                    "id": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d",
+                    "urn": "urn:li:container:abbebb5181bf9ba2d905d2dea7d8704d"
+                },
+                {
+                    "id": "Acryl Workbook"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732513099969,
+        "lastObserved": 1732545849117,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }

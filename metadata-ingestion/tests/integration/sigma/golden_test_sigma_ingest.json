@@ -474,6 +474,30 @@
 },
 {
     "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,OSnGLBzL1i)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732545848809,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(sigma,9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -499,12 +523,15 @@
                 {
                     "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
                     "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732513099682,
+        "lastObserved": 1732545848807,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -618,30 +645,17 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-                    "urn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732513099741,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,Ml9C5ezT5W)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619373,
+        "lastObserved": 1732545848872,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -858,6 +872,30 @@
     }
 },
 {
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(sigma,DFSieiAcgo)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1732545848877,
+        "runId": "sigma-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(sigma,kH0MeihtGs)",
     "changeType": "UPSERT",
@@ -866,14 +904,17 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-                    "urn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732513099708,
+        "lastObserved": 1732545848829,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1127,38 +1168,6 @@
     },
     "systemMetadata": {
         "lastObserved": 1718348048975,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,kH0MeihtGs)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619267,
-        "runId": "sigma-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "chart",
-    "entityUrn": "urn:li:chart:(sigma,tQJu5N1l81)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1713795619449,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1461,14 +1470,17 @@
         "json": {
             "path": [
                 {
-                    "id": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02",
-                    "urn": "urn:li:container:140db5e9decc9b6ec67fa1e8207b6f02"
+                    "id": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f",
+                    "urn": "urn:li:container:46c912b7a3f62c8e3269e559648c4b2f"
+                },
+                {
+                    "id": "Acryl Workbook"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1732513099778,
+        "lastObserved": 1732545848921,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
