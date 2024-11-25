@@ -93,6 +93,7 @@ export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch }: Fi
                     ]}
                     onClose={() => setIsDeprecationModalVisible(false)}
                     refetch={refetch}
+                    zIndexOverride={1000}
                 />
             )}
             {isPostModalVisible && (

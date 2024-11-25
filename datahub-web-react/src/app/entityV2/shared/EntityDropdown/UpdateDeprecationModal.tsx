@@ -6,8 +6,9 @@ import { useGetEntitiesQuery } from '../../../../graphql/entity.generated';
 import { useBatchUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
 import { ResourceRefInput, SubResourceType } from '../../../../types.generated';
 import { EntityLink } from '../../../homeV2/reference/sections/EntityLink';
-import { getFieldPathFromSchemaFieldUrn } from '../../../lineageV2/lineageUtils';
+import { getV1FieldPathFromSchemaFieldUrn } from '../../../lineageV2/lineageUtils';
 import { useEntityRegistry } from '../../../useEntityRegistry';
+import { downgradeV2FieldPath } from '../../dataset/profile/schema/utils/utils';
 import { EntityCapabilityType } from '../../Entity';
 import { SearchSelectModal } from '../components/styled/search/SearchSelectModal';
 import { useGetEntityWithSchema } from '../tabs/Dataset/Schema/useGetEntitySchema';
@@ -20,11 +21,12 @@ type Props = {
     resourceRefs?: ResourceRefInput[];
     onClose: () => void;
     refetch?: () => void;
+    zIndexOverride?: number;
 };
 
 const SCHEMA_FIELD_PREFIX = 'urn:li:schemaField:';
 
-export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch }: Props) => {
+export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch, zIndexOverride }: Props) => {
     const { entityWithSchema } = useGetEntityWithSchema();
     const schemaMetadata: any = entityWithSchema?.schemaMetadata || undefined;
 
@@ -85,7 +87,7 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch }:
     return (
         <Modal
             title="Set as Deprecated"
-            zIndex={10}
+            zIndex={zIndexOverride ?? 10}
             visible
             onCancel={handleClose}
             keyboard
@@ -145,7 +147,7 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch }:
                             >
                                 {schemaMetadata?.fields?.map((field: any) => (
                                     <Select.Option key={field.fieldPath} value={field.fieldPath}>
-                                        {field.fieldPath}
+                                        {downgradeV2FieldPath(field.fieldPath)}
                                     </Select.Option>
                                 ))}
                             </Select>
@@ -171,7 +173,7 @@ export const UpdateDeprecationModal = ({ urns, resourceRefs, onClose, refetch }:
                                 setIsReplacementModalVisible(true);
                             }}
                         >
-                            {getFieldPathFromSchemaFieldUrn(replacementUrn)}
+                            {getV1FieldPathFromSchemaFieldUrn(replacementUrn)}
                         </Button>
                     )}
                     {!replacementUrn && (

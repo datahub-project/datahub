@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import { useBatchUpdateDeprecationMutation } from '../../../../../graphql/mutations.generated';
 import { Deprecation, SubResourceType } from '../../../../../types.generated';
 import { EntityLink } from '../../../../homeV2/reference/sections/EntityLink';
-import { getFieldPathFromSchemaFieldUrn } from '../../../../lineageV2/lineageUtils';
+import { getV1FieldPathFromSchemaFieldUrn } from '../../../../lineageV2/lineageUtils';
 import { getLocaleTimezone } from '../../../../shared/time/timeUtils';
 import { REDESIGN_COLORS } from '../../constants';
 import MarkAsDeprecatedButton from './MarkAsDeprecatedButton';
@@ -43,6 +43,9 @@ const DeprecatedSubTitle = styled(Typography.Text)`
     margin-bottom: 5px;
     color: ${REDESIGN_COLORS.TEXT_HEADING};
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 `;
 
 const LastEvaluatedAtLabel = styled.div`
@@ -51,6 +54,14 @@ const LastEvaluatedAtLabel = styled.div`
     display: flex;
     align-items: center;
     color: ${REDESIGN_COLORS.SUB_TEXT};
+`;
+
+const ReplacementContainer = styled.span`
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    // make sure the span doesn't exceed the parent div
+    max-width: 100%;
 `;
 
 const ThinDivider = styled(Divider)`
@@ -153,7 +164,9 @@ export const DeprecationPill = ({
                                 {isReplacementSchemaField ? (
                                     <>
                                         <b>Replacement: </b>
-                                        {getFieldPathFromSchemaFieldUrn(deprecation.replacement.urn)}
+                                        <ReplacementContainer>
+                                            {getV1FieldPathFromSchemaFieldUrn(deprecation.replacement.urn)}
+                                        </ReplacementContainer>
                                     </>
                                 ) : (
                                     <>
