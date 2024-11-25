@@ -131,7 +131,7 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                     <StyledTypeLabel type={expandedField.type} nativeDataType={expandedField.nativeDataType} />
                     {expandedField.isPartOfKey && <PrimaryKeyLabel />}
                     {expandedField.isPartitioningKey && <PartitioningKeyLabel />}
-                    {!expandedField.nullable && <NullableLabel />}
+                    {expandedField.nullable && <NullableLabel />}
                     <FieldPath displayName={displayName} setExpandedDrawerFieldPath={setExpandedDrawerFieldPath} />
                 </TitleWrapper>
             </NameTypesWrapper>
