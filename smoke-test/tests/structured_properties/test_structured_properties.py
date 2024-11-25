@@ -371,6 +371,24 @@ def test_structured_property_schema_field(ingest_cleanup_data, graph_client):
             raise e
 
 
+def test_structured_properties_yaml_load_with_bad_entity_type(
+    ingest_cleanup_data, graph_client
+):
+    try:
+        StructuredProperties.create(
+            "tests/structured_properties/bad_entity_type.yaml",
+            graph=graph_client,
+        )
+        raise AssertionError(
+            "Should not be able to create structured properties with bad entity type"
+        )
+    except Exception as e:
+        if "urn:li:entityType:dataset is not a valid entity type urn" in str(e):
+            pass
+        else:
+            raise e
+
+
 def test_dataset_yaml_loader(ingest_cleanup_data, graph_client):
     StructuredProperties.create(
         "tests/structured_properties/test_structured_properties.yaml",
