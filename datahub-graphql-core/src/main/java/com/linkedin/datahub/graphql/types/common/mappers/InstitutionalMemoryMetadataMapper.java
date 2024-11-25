@@ -28,6 +28,7 @@ public class InstitutionalMemoryMetadataMapper {
     result.setDescription(input.getDescription()); // deprecated field
     result.setLabel(input.getDescription());
     result.setAuthor(getAuthor(input.getCreateStamp().getActor().toString()));
+    result.setActor(ResolvedActorMapper.map(input.getCreateStamp().getActor()));
     result.setCreated(AuditStampMapper.map(context, input.getCreateStamp()));
     result.setAssociatedUrn(entityUrn.toString());
     return result;
