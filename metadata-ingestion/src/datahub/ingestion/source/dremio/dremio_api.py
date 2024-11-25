@@ -679,7 +679,7 @@ class DremioAPIOperations:
         Helper method to check if a container should be included based on schema patterns.
         Used by both get_all_containers and get_containers_for_location.
         """
-        full_path = '.'.join(path + [name]) if path else name
+        full_path = ".".join(path + [name]) if path else name
 
         if self.allow_schema_pattern:
             matches_allow = False
@@ -714,7 +714,9 @@ class DremioAPIOperations:
                 )
 
                 source_config = source_resp.get("config", {})
-                db = source_config.get("database", source_config.get("databaseName", ""))
+                db = source_config.get(
+                    "database", source_config.get("databaseName", "")
+                )
 
                 if self.should_include_container([], source.get("path")[0]):
                     return {
@@ -778,31 +780,35 @@ class DremioAPIOperations:
 
                 # Check if current folder should be included
                 if (
-                        response.get("entityType")
-                        == DremioEntityContainerType.FOLDER.value.lower()
+                    response.get("entityType")
+                    == DremioEntityContainerType.FOLDER.value.lower()
                 ):
                     folder_name = entity_path[-1]
                     folder_path = entity_path[:-1]
 
                     if self.should_include_container(folder_path, folder_name):
-                        containers.append({
-                            "id": location_id,
-                            "name": folder_name,
-                            "path": folder_path,
-                            "container_type": DremioEntityContainerType.FOLDER,
-                        })
+                        containers.append(
+                            {
+                                "id": location_id,
+                                "name": folder_name,
+                                "path": folder_path,
+                                "container_type": DremioEntityContainerType.FOLDER,
+                            }
+                        )
 
                 # Recursively process child containers
                 for container in response.get("children", []):
                     if (
-                            container.get("type")
-                            == DremioEntityContainerType.CONTAINER.value
+                        container.get("type")
+                        == DremioEntityContainerType.CONTAINER.value
                     ):
                         traverse_path(container.get("id"), container.get("path"))
 
             except Exception as exc:
                 logging.info(
-                    "Location {} contains no tables or views. Skipping...".format(location_id)
+                    "Location {} contains no tables or views. Skipping...".format(
+                        location_id
+                    )
                 )
                 self.report.warning(
                     message="Failed to get tables or views",
