@@ -394,8 +394,8 @@ class FeastRepositorySource(Source):
 
         return aspects
 
-    # If a owner is specified in a Feast object, it will only be ingested into Datahub if owner_mapping is specified,
-    # otherwise NO owners will be ingested
+    # If an owner is specified in a Feast object, it will only be ingested into Datahub if owner_mappings is specified
+    # in FeastRepositorySourceConfig, otherwise NO owners will be ingested
     def _get_owners(self, obj: Union[Entity, FeatureView, FeastField]) -> list:
         """
         Extracts owners from the given object and returns a list of aspects.
