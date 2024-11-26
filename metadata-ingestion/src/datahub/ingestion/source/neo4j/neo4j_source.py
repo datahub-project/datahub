@@ -290,7 +290,7 @@ class Neo4jSource(Source):
             try:
                 yield MetadataWorkUnit(
                     id=row["key"],
-                    mcp_raw=self.generate_neo4j_object(
+                    mcp=self.generate_neo4j_object(
                         columns=row["property_data_types"],
                         dataset=row["key"],
                         platform=self.config.platform,
