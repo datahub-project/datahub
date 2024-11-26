@@ -140,6 +140,8 @@ test {
   }
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
+
+  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
 }
 
 ebean {

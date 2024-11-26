@@ -27,6 +27,7 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -70,6 +71,7 @@ public class DataProductUnsetSideEffect extends MCPSideEffect {
         log.error("Unable to process data product properties for urn: {}", mclItem.getUrn());
         return Stream.empty();
       }
+      Map<String, List<GenericJsonPatch.PatchOp>> patchOpMap = new HashMap<>();
       for (DataProductAssociation dataProductAssociation :
           Optional.ofNullable(dataProductProperties.getAssets())
               .orElse(new DataProductAssociationArray())) {
@@ -93,39 +95,44 @@ public class DataProductUnsetSideEffect extends MCPSideEffect {
         if (!result.getEntities().isEmpty()) {
           for (RelatedEntities entity : result.getEntities()) {
             if (!mclItem.getUrn().equals(UrnUtils.getUrn(entity.getSourceUrn()))) {
-              EntitySpec entitySpec =
-                  retrieverContext
-                      .getAspectRetriever()
-                      .getEntityRegistry()
-                      .getEntitySpec(DATA_PRODUCT_ENTITY_NAME);
               GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
               patchOp.setOp(PatchOperationType.REMOVE.getValue());
               patchOp.setPath(String.format("/assets/%s", entity.getDestinationUrn()));
-              mcpItems.add(
-                  PatchItemImpl.builder()
-                      .urn(UrnUtils.getUrn(entity.getSourceUrn()))
-                      .entitySpec(
-                          retrieverContext
-                              .getAspectRetriever()
-                              .getEntityRegistry()
-                              .getEntitySpec(DATA_PRODUCT_ENTITY_NAME))
-                      .aspectName(DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
-                      .aspectSpec(entitySpec.getAspectSpec(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))
-                      .patch(
-                          GenericJsonPatch.builder()
-                              .arrayPrimaryKeys(
-                                  Map.of(
-                                      DataProductPropertiesTemplate.ASSETS_FIELD_NAME,
-                                      List.of(DataProductPropertiesTemplate.KEY_FIELD_NAME)))
-                              .patch(List.of(patchOp))
-                              .build()
-                              .getJsonPatch())
-                      .auditStamp(mclItem.getAuditStamp())
-                      .systemMetadata(mclItem.getSystemMetadata())
-                      .build(retrieverContext.getAspectRetriever().getEntityRegistry()));
+              patchOpMap
+                  .computeIfAbsent(entity.getSourceUrn(), urn -> new ArrayList<>())
+                  .add(patchOp);
             }
           }
         }
+      }
+      for (String urn : patchOpMap.keySet()) {
+        EntitySpec entitySpec =
+            retrieverContext
+                .getAspectRetriever()
+                .getEntityRegistry()
+                .getEntitySpec(DATA_PRODUCT_ENTITY_NAME);
+        mcpItems.add(
+            PatchItemImpl.builder()
+                .urn(UrnUtils.getUrn(urn))
+                .entitySpec(
+                    retrieverContext
+                        .getAspectRetriever()
+                        .getEntityRegistry()
+                        .getEntitySpec(DATA_PRODUCT_ENTITY_NAME))
+                .aspectName(DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
+                .aspectSpec(entitySpec.getAspectSpec(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))
+                .patch(
+                    GenericJsonPatch.builder()
+                        .arrayPrimaryKeys(
+                            Map.of(
+                                DataProductPropertiesTemplate.ASSETS_FIELD_NAME,
+                                List.of(DataProductPropertiesTemplate.KEY_FIELD_NAME)))
+                        .patch(patchOpMap.get(urn))
+                        .build()
+                        .getJsonPatch())
+                .auditStamp(mclItem.getAuditStamp())
+                .systemMetadata(mclItem.getSystemMetadata())
+                .build(retrieverContext.getAspectRetriever().getEntityRegistry()));
       }
       return mcpItems.stream();
     }

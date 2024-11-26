@@ -34,6 +34,8 @@ import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import io.datahubproject.metadata.context.RetrieverContext;
+import jakarta.json.JsonArray;
+import jakarta.json.JsonObject;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -249,6 +251,111 @@ public class DataProductUnsetSideEffectTest {
                 .auditStamp(dataProductPropertiesChangeItem.getAuditStamp())
                 .systemMetadata(dataProductPropertiesChangeItem.getSystemMetadata())
                 .build(mockAspectRetriever.getEntityRegistry())));
+  }
+
+  @Test
+  public void testBulkAssetMove() {
+    DataProductUnsetSideEffect test = new DataProductUnsetSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+
+    // Create 100 dataset URNs and set up their existing relationships
+    List<Urn> datasetUrns = new ArrayList<>();
+    for (int i = 0; i < 100; i++) {
+      Urn datasetUrn =
+          UrnUtils.getUrn(
+              String.format("urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_%d,PROD)", i));
+      datasetUrns.add(datasetUrn);
+
+      // Mock the existing relationship for each dataset with the old data product
+      RelatedEntities relatedEntities =
+          new RelatedEntities(
+              "DataProductContains",
+              TEST_PRODUCT_URN_2.toString(), // Old data product
+              datasetUrn.toString(),
+              RelationshipDirection.INCOMING,
+              null);
+
+      List<RelatedEntities> relatedEntitiesList = new ArrayList<>();
+      relatedEntitiesList.add(relatedEntities);
+      RelatedEntitiesScrollResult relatedEntitiesScrollResult =
+          new RelatedEntitiesScrollResult(1, 10, null, relatedEntitiesList);
+
+      when(retrieverContext
+              .getGraphRetriever()
+              .scrollRelatedEntities(
+                  eq(null),
+                  eq(QueryUtils.newFilter("urn", datasetUrn.toString())),
+                  eq(null),
+                  eq(EMPTY_FILTER),
+                  eq(ImmutableList.of("DataProductContains")),
+                  eq(
+                      QueryUtils.newRelationshipFilter(
+                          EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                  eq(Collections.emptyList()),
+                  eq(null),
+                  eq(10),
+                  eq(null),
+                  eq(null)))
+          .thenReturn(relatedEntitiesScrollResult);
+    }
+
+    // Create data product properties with all 100 assets
+    DataProductProperties dataProductProperties = new DataProductProperties();
+    DataProductAssociationArray dataProductAssociations = new DataProductAssociationArray();
+    for (Urn datasetUrn : datasetUrns) {
+      DataProductAssociation association = new DataProductAssociation();
+      association.setDestinationUrn(datasetUrn);
+      dataProductAssociations.add(association);
+    }
+    dataProductProperties.setAssets(dataProductAssociations);
+
+    // Run test
+    ChangeItemImpl dataProductPropertiesChangeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_PRODUCT_URN) // New data product
+            .aspectName(DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATA_PRODUCT_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY
+                    .getEntitySpec(DATA_PRODUCT_ENTITY_NAME)
+                    .getAspectSpec(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))
+            .recordTemplate(dataProductProperties)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    List<MCPItem> testOutput =
+        test.postMCPSideEffect(
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(
+                            dataProductPropertiesChangeItem,
+                            null,
+                            null,
+                            retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .toList();
+
+    // Verify test
+    assertEquals(testOutput.size(), 1, "Expected one patch to remove assets from old data product");
+
+    MCPItem patchItem = testOutput.get(0);
+    assertEquals(
+        patchItem.getUrn(), TEST_PRODUCT_URN_2, "Patch should target the old data product");
+    assertEquals(patchItem.getAspectName(), DATA_PRODUCT_PROPERTIES_ASPECT_NAME);
+
+    // Verify the patch contains remove operations for all 100 assets
+    JsonArray patchArray = ((PatchItemImpl) patchItem).getPatch().toJsonArray();
+    assertEquals(patchArray.size(), 100, "Should have 100 remove operations");
+
+    // Verify each remove operation
+    for (int i = 0; i < 100; i++) {
+      JsonObject op = patchArray.getJsonObject(i);
+      assertEquals(op.getString("op"), PatchOperationType.REMOVE.getValue());
+      assertEquals(
+          op.getString("path"),
+          String.format("/assets/urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_%d,PROD)", i));
+    }
   }
 
   private static DataProductProperties getTestDataProductProperties(Urn destinationUrn) {

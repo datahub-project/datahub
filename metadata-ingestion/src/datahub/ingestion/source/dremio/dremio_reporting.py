@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
@@ -10,7 +10,7 @@ from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 
 @dataclass
 class DremioSourceReport(
-    ProfilingSqlReport, StaleEntityRemovalSourceReport, IngestionStageReport
+    SQLSourceReport, StaleEntityRemovalSourceReport, IngestionStageReport
 ):
     num_containers_failed: int = 0
     num_datasets_failed: int = 0
