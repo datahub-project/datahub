@@ -364,6 +364,9 @@ class DremioAspects:
     ) -> Optional[BrowsePathsV2Class]:
         paths = []
 
+        if self.platform_instance:
+            paths.append(BrowsePathEntryClass(id=self.platform_instance))
+
         if entity.subclass == "Dremio Space":
             paths.append(BrowsePathEntryClass(id="Spaces"))
         elif entity.subclass == "Dremio Source":
