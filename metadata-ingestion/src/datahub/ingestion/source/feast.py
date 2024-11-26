@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import feast.types
 from feast import (
@@ -103,8 +103,7 @@ class FeastRepositorySourceConfig(ConfigModel):
     #     datahub_owner_urn: "urn:li:corpGroup:<owner>"
     #     datahub_ownership_type: "BUSINESS_OWNER"
     owner_mappings: Optional[List[Dict[str, str]]] = Field(
-        default=None,
-        description="Mapping of owner names to owner types"
+        default=None, description="Mapping of owner names to owner types"
     )
 
 
@@ -141,7 +140,7 @@ class FeastRepositorySource(Source):
         )
 
     def _get_field_type(
-            self, field_type: Union[ValueType, feast.types.FeastType], parent_name: str
+        self, field_type: Union[ValueType, feast.types.FeastType], parent_name: str
     ) -> str:
         """
         Maps types encountered in Feast to corresponding schema types.
@@ -223,14 +222,18 @@ class FeastRepositorySource(Source):
         return sources
 
     def _get_entity_workunit(
-            self, feature_view: FeatureView, entity: Entity
+        self, feature_view: FeatureView, entity: Entity
     ) -> MetadataWorkUnit:
         """
         Generate an MLPrimaryKey work unit for a Feast entity.
         """
 
         feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
-        aspects = [StatusClass(removed=False)] + self._get_tags(entity) + self._get_owners(entity)
+        aspects = (
+            [StatusClass(removed=False)]
+            + self._get_tags(entity)
+            + self._get_owners(entity)
+        )
 
         entity_snapshot = MLPrimaryKeySnapshot(
             urn=builder.make_ml_primary_key_urn(feature_view_name, entity.name),
@@ -250,10 +253,10 @@ class FeastRepositorySource(Source):
         return MetadataWorkUnit(id=entity.name, mce=mce)
 
     def _get_feature_workunit(
-            self,
-            # FIXME: FeatureView and OnDemandFeatureView cannot be used as a type
-            feature_view: Union[FeatureView, OnDemandFeatureView],
-            field: FeastField,
+        self,
+        # FIXME: FeatureView and OnDemandFeatureView cannot be used as a type
+        feature_view: Union[FeatureView, OnDemandFeatureView],
+        field: FeastField,
     ) -> MetadataWorkUnit:
         """
         Generate an MLFeature work unit for a Feast feature.
@@ -286,7 +289,7 @@ class FeastRepositorySource(Source):
 
             if feature_view.source_feature_view_projections is not None:
                 for (
-                        feature_view_projection
+                    feature_view_projection
                 ) in feature_view.source_feature_view_projections.values():
                     feature_view_source = self.feature_store.get_feature_view(
                         feature_view_projection.name
@@ -312,10 +315,14 @@ class FeastRepositorySource(Source):
         """
 
         feature_view_name = f"{self.feature_store.project}.{feature_view.name}"
-        aspects = [
-                      BrowsePathsClass(paths=[f"/feast/{self.feature_store.project}"]),
-                      StatusClass(removed=False),
-                  ] + self._get_tags(feature_view) + self._get_owners(feature_view)
+        aspects = (
+            [
+                BrowsePathsClass(paths=[f"/feast/{self.feature_store.project}"]),
+                StatusClass(removed=False),
+            ]
+            + self._get_tags(feature_view)
+            + self._get_owners(feature_view)
+        )
 
         feature_view_snapshot = MLFeatureTableSnapshot(
             urn=builder.make_ml_feature_table_urn("feast", feature_view_name),
@@ -343,7 +350,7 @@ class FeastRepositorySource(Source):
         return MetadataWorkUnit(id=feature_view_name, mce=mce)
 
     def _get_on_demand_feature_view_workunit(
-            self, on_demand_feature_view: OnDemandFeatureView
+        self, on_demand_feature_view: OnDemandFeatureView
     ) -> MetadataWorkUnit:
         """
         Generate an MLFeatureTable work unit for a Feast on-demand feature view.
