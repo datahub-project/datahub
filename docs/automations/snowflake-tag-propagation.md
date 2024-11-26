@@ -57,27 +57,6 @@ and then click "Initialize".
 This one-time step will kick off the back-filling process for existing descriptions. If you only want to begin propagating
 descriptions going forward, you can skip this step.
 
-## Rolling Back Propagated Tags
-
-You can rollback all tags and glossary terms that have been propagated historically.
-
-This feature allows you to "clean up" or "undo" any accidental propagation that may have occurred automatically, in the case
-that you no longer want propagated descriptions to be visible.
-
-To do this, navigate to the Automation you created in Step 3 above, click the 3-dot "More" menu
-
-<p align="left">
-  <img width="20%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-more-menu.png"/>
-</p>
-
-and then click "Rollback".
-
-<p align="left">
-  <img width="20%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-rollback.png"/>
-</p>
-
-This one-time step will remove all propagated tags and glossary terms from Snowflake. To simply stop propagating new tags, you can disable the automation.
-
 ## Viewing Propagated Tags
 
 You can view propagated Tags (and corresponding DataHub URNs) inside the Snowflake UI to confirm the automation is working as expected.

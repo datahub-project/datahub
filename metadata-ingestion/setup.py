@@ -245,7 +245,7 @@ pyhive_common = {
     # Instead, we put the fix in our PyHive fork, so no thrift pin is needed.
 }
 
-microsoft_common = {"msal>=1.22.0"}
+microsoft_common = {"msal>=1.24.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
@@ -396,6 +396,7 @@ plugins: Dict[str, Set[str]] = {
     "delta-lake": {*data_lake_profiling, *delta_lake},
     "dbt": {"requests"} | dbt_common | aws_common,
     "dbt-cloud": {"requests"} | dbt_common,
+    "dremio": {"requests"} | sql_common,
     "druid": sql_common | {"pydruid>=0.6.2"},
     "dynamodb": aws_common | classification_lib,
     # Starting with 7.14.0 python client is checking if it is connected to elasticsearch client. If its not it throws
@@ -403,6 +404,13 @@ plugins: Dict[str, Set[str]] = {
     # https://www.elastic.co/guide/en/elasticsearch/client/python-api/current/release-notes.html#rn-7-14-0
     # https://github.com/elastic/elasticsearch-py/issues/1639#issuecomment-883587433
     "elasticsearch": {"elasticsearch==7.13.4"},
+    "cassandra": {
+        "cassandra-driver>=3.28.0",
+        # We were seeing an error like this `numpy.dtype size changed, may indicate binary incompatibility. Expected 96 from C header, got 88 from PyObject`
+        # with numpy 2.0. This likely indicates a mismatch between scikit-learn and numpy versions.
+        # https://stackoverflow.com/questions/40845304/runtimewarning-numpy-dtype-size-changed-may-indicate-binary-incompatibility
+        "numpy<2",
+    },
     "feast": {
         "feast>=0.34.0,<1",
         "flask-openid>=1.3.0",
@@ -572,6 +580,7 @@ mypy_stubs = {
 
 test_api_requirements = {
     "pytest>=6.2.2",
+    "pytest-timeout",
     # Missing numpy requirement in 8.0.0
     "deepdiff!=8.0.0",
     "PyYAML",
@@ -582,22 +591,26 @@ debug_requirements = {
     "memray",
 }
 
-base_dev_requirements = {
-    *base_requirements,
-    *framework_common,
-    *mypy_stubs,
-    *s3_base,
+lint_requirements = {
     # This is pinned only to avoid spurious errors in CI.
     # We should make an effort to keep it up to date.
-    "black==22.12.0",
-    "coverage>=5.1",
-    "faker>=18.4.0",
+    "black==23.3.0",
     "flake8>=6.0.0",
     "flake8-tidy-imports>=4.3.0",
     "flake8-bugbear==23.3.12",
     "isort>=5.7.0",
     "mypy==1.10.1",
+}
+
+base_dev_requirements = {
+    *base_requirements,
+    *framework_common,
+    *mypy_stubs,
+    *s3_base,
+    *lint_requirements,
     *test_api_requirements,
+    "coverage>=5.1",
+    "faker>=18.4.0",
     "pytest-asyncio>=0.16.0",
     "pytest-cov>=2.8.1",
     "pytest-random-order~=1.1.0",
@@ -616,6 +629,7 @@ base_dev_requirements = {
             "clickhouse-usage",
             "cockroachdb",
             "delta-lake",
+            "dremio",
             "druid",
             "elasticsearch",
             "feast",
@@ -657,6 +671,7 @@ base_dev_requirements = {
             "qlik-sense",
             "sigma",
             "sac",
+            "cassandra",
         ]
         if plugin
         for dependency in plugins[plugin]
@@ -714,6 +729,7 @@ entry_points = {
         "s3 = datahub.ingestion.source.s3:S3Source",
         "dbt = datahub.ingestion.source.dbt.dbt_core:DBTCoreSource",
         "dbt-cloud = datahub.ingestion.source.dbt.dbt_cloud:DBTCloudSource",
+        "dremio = datahub.ingestion.source.dremio.dremio_source:DremioSource",
         "druid = datahub.ingestion.source.sql.druid:DruidSource",
         "dynamodb = datahub.ingestion.source.dynamodb.dynamodb:DynamoDBSource",
         "elasticsearch = datahub.ingestion.source.elastic_search:ElasticsearchSource",
@@ -725,8 +741,8 @@ entry_points = {
         "hive = datahub.ingestion.source.sql.hive:HiveSource",
         "hive-metastore = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
-        "kafka = datahub.ingestion.source.kafka:KafkaSource",
-        "kafka-connect = datahub.ingestion.source.kafka_connect:KafkaConnectSource",
+        "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
+        "kafka-connect = datahub.ingestion.source.kafka.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
@@ -774,6 +790,7 @@ entry_points = {
         "qlik-sense = datahub.ingestion.source.qlik_sense.qlik_sense:QlikSenseSource",
         "sigma = datahub.ingestion.source.sigma.sigma:SigmaSource",
         "sac = datahub.ingestion.source.sac.sac:SACSource",
+        "cassandra = datahub.ingestion.source.cassandra.cassandra:CassandraSource",
     ],
     "datahub.ingestion.transformer.plugins": [
         "pattern_cleanup_ownership = datahub.ingestion.transformer.pattern_cleanup_ownership:PatternCleanUpOwnership",
@@ -918,6 +935,7 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
         ),
         "cloud": ["acryl-datahub-cloud"],
         "dev": list(dev_requirements),
+        "lint": list(lint_requirements),
         "testing-utils": list(test_api_requirements),  # To import `datahub.testing`
         "integration-tests": list(full_test_dev_requirements),
         "debug": list(debug_requirements),

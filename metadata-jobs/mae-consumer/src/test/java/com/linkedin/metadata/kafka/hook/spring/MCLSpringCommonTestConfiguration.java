@@ -5,6 +5,7 @@ import static org.mockito.Mockito.when;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.metadata.ingestion.IngestionScheduler;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.gms.factory.plugins.SpringStandardPluginConfiguration;
 import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
@@ -57,6 +58,11 @@ public class MCLSpringCommonTestConfiguration {
   @MockBean public SearchDocumentTransformer searchDocumentTransformer;
 
   @MockBean public IngestionScheduler ingestionScheduler;
+
+  @Bean
+  public EntityClientConfig entityClientConfig() {
+    return EntityClientConfig.builder().build();
+  }
 
   @MockBean(name = "systemEntityClient")
   public SystemEntityClient systemEntityClient;

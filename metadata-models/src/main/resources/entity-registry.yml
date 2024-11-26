@@ -237,6 +237,7 @@ entities:
       - dataPlatformInstance
       - subTypes
       - ownership
+      - deprecation
       - container
       - globalTags
       - glossaryTerms

@@ -9,7 +9,7 @@ from pydantic.class_validators import root_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -130,6 +130,8 @@ class Constant:
     APP_SUB_TYPE = "App"
     STATE = "state"
     ACTIVE = "Active"
+    SQL_PARSING_FAILURE = "SQL Parsing Failure"
+    M_QUERY_NULL = '"null"'
 
 
 @dataclass
@@ -175,6 +177,11 @@ class SupportedDataPlatform(Enum):
         powerbi_data_platform_name="Databricks", datahub_data_platform_name="databricks"
     )
 
+    DatabricksMultiCloud_SQL = DataPlatformPair(
+        powerbi_data_platform_name="DatabricksMultiCloud",
+        datahub_data_platform_name="databricks",
+    )
+
 
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
@@ -199,6 +206,8 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_parse_unexpected_character_errors: int = 0
     m_query_parse_unknown_errors: int = 0
     m_query_resolver_errors: int = 0
+    m_query_resolver_no_lineage: int = 0
+    m_query_resolver_successes: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -231,7 +240,7 @@ class PlatformDetail(ConfigModel):
         "recipe of other datahub sources.",
     )
     env: str = pydantic.Field(
-        default=DEFAULT_ENV,
+        default=builder.DEFAULT_ENV,
         description="The environment that all assets produced by DataHub platform ingestion source belong to",
     )
 
@@ -251,7 +260,9 @@ class OwnershipMapping(ConfigModel):
         default=True, description="Whether ingest PowerBI user as Datahub Corpuser"
     )
     use_powerbi_email: bool = pydantic.Field(
-        default=False,
+        # TODO: Deprecate and remove this config, since the non-email format
+        # doesn't make much sense.
+        default=True,
         description="Use PowerBI User email to ingest as corpuser, default is powerbi user identifier",
     )
     remove_email_suffix: bool = pydantic.Field(
@@ -491,6 +502,18 @@ class PowerBiDashboardSourceConfig(
     extract_app: bool = pydantic.Field(
         default=False,
         description="Whether to ingest workspace app. Requires DataHub server 0.14.2+.",
+    )
+
+    m_query_parse_timeout: int = pydantic.Field(
+        default=70,
+        description="Timeout for PowerBI M-query parsing in seconds. Table-level lineage is determined by analyzing the M-query expression. "
+        "Increase this value if you encounter the 'M-Query Parsing Timeout' message in the connector report.",
+    )
+
+    metadata_api_timeout: int = pydantic.Field(
+        default=30,
+        description="timeout in seconds for Metadata Rest Api.",
+        hidden_from_docs=True,
     )
 
     @root_validator(skip_on_failure=True)

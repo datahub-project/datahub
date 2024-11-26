@@ -152,6 +152,21 @@ class BigqueryDataset:
     snapshots: List[BigqueryTableSnapshot] = field(default_factory=list)
     columns: List[BigqueryColumn] = field(default_factory=list)
 
+    # Some INFORMATION_SCHEMA views are not available for BigLake tables
+    # based on Amazon S3 and Blob Storage data.
+    # https://cloud.google.com/bigquery/docs/omni-introduction#limitations
+    # Omni Locations - https://cloud.google.com/bigquery/docs/omni-introduction#locations
+    def is_biglake_dataset(self) -> bool:
+        return self.location is not None and self.location.lower().startswith(
+            ("aws-", "azure-")
+        )
+
+    def supports_table_constraints(self) -> bool:
+        return not self.is_biglake_dataset()
+
+    def supports_table_partitions(self) -> bool:
+        return not self.is_biglake_dataset()
+
 
 @dataclass
 class BigqueryProject:
