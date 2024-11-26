@@ -425,8 +425,7 @@ public class DatahubEventEmitter extends EventEmitter {
               mcp -> {
                 try {
                   if (this.datahubConf.isLogMcps()) {
-                    DataMap map = new DataMap();
-                    map.put("proposal", mcp.data());
+                    DataMap map = mcp.data();
                     String serializedMCP = dataTemplateCodec.mapToString(map);
                     log.info("emitting mcpw: {}", serializedMCP);
                   } else {
