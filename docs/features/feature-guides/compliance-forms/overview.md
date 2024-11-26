@@ -25,7 +25,7 @@ Key Features:
 <p align="center">
   <img 
        width="90%"  
-       src="https://raw.githubusercontent.com/datahub-project/static-assets/eaffab01f020a60e97b2afcd85c2f04bb9b7d498/imgs/compliance_forms/sample-compliance-form.png" 
+       src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/sample-compliance-form.png" 
        alt="Sample Compliance Form"/>
 </p>
 

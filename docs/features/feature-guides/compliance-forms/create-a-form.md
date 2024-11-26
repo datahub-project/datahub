@@ -7,26 +7,25 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 # Create a DataHub Compliance Form
 <FeatureAvailability/>
 
-## Creating and Assigning Compliance Forms
+This guide will walk you through creating and assigning Compliance Forms, including:
 
-The following steps will walk you through creating and assigning Compliance Forms, including:
-
-0. Prerequisites
 1. Defining your Compliance Form
 2. Creating Questions to be completed by assignees
 3. Selecting the in-scope Assets for the Compliance Form
 4. Assigning Forms to specific Users
-5. Publish your Form
+5. Publishing your Form
 
 :::note
 Creating and managing Compliance Forms via the UI is only available in DataHub Cloud. If you are deployed with DataHub Core, please see the [Compliance Forms API Guide](../../../api/tutorials/forms.md).
 :::
 
-### Step 0: Prerequisites
+## Create and Assign a Compliance Form from the DataHub Cloud UI
+
+### Prerequisites
 
 In order to create or edit a Compliance Form, your DataHub User must have the **Manage Compliance Forms** permission.
 
-### Step 1: Define your Complinace Form
+### Step 1: Define your Compliance Form
 
 From the navigation bar, head to **Govern** > **Compliance Forms**. Click **+ Create** to start building your Form.
 
@@ -40,7 +39,7 @@ From the navigation bar, head to **Govern** > **Compliance Forms**. Click **+ Cr
 First up, provide the following details:
 
 1. **Name:** Give your Compliance Form a unique name.
-2. **Description:** Describe the purpose of the Form to help your users understand the reason of the exercise.
+2. **Description:** Describe the purpose of the Form to help your users understand the purpose of the exercise.
 3. **Type:** Determine the collection type of the Form:
     - **Verification:** Collect required information and require final verification to complete the Form.
     - **Completion:** Collect required information; final verification is not required.
@@ -55,15 +54,15 @@ First up, provide the following details:
 
 ### Step 2: Add Questions to your Form
 
-Next, create Questions you want your users to complete to capture the desired metadata with this Compliance Form. There are five types of Questions that can be created, each of which can be set to be **require response**:
+Next, create Questions you want your users to complete to capture the desired metadata with this Compliance Form. There are five types of Questions that can be created, each of which can be set to be **required to respond**:
 
-* **Ownership:** Assign one or more Owners to the Asset, with the option to pre-define the set of allowed Owners and/or Ownership Types.
+* **Ownership:** Assign one or more Owners to the Asset, with the option to predefine the set of allowed Owners and/or Ownership Types.
     * _E.g. Who is responsible for ensuring the accuracy of this Dataset?_
-* **Domain:** Assign a Domain to the Asset, with the option to pre-define the set of allowed Domains.
+* **Domain:** Assign a Domain to the Asset, with the option to predefine the set of allowed Domains.
     * _E.g. Which Domain does this Dashboard belong to? Sales, Marketing, Finance._
 * **Documentation:** Provide Documentation about the Asset and/or Column.
     * _E.g. What is the primary use case of this Dataset? What caveats should others be aware of?_
-* **Glossary Terms:** Assign one or more Glossary Term to the Asset and/or Column, with the option to pre-define the set of allowed Glossary Terms. 
+* **Glossary Terms:** Assign one or more Glossary Term to the Asset and/or Column, with the option to predefine the set of allowed Glossary Terms. 
     * _E.g. What types of personally identifiable information (PII) are included in this Asset? Email, Address, SSN, etc._
 * **Structured Properties:** Apply custom properties to an Asset and/or Column.
     * _E.g. What date will this Dataset be deprecated and deleted?_
@@ -118,11 +117,13 @@ In the **Add Recipients** section, decide who is responsible for completing the 
 
 ### Step 5: Publish your Form
 
-Once you have defined the set of Questions to be completed, the in-scope Assets, and the relevant Recipients, it's now time to publish your Form!
+Once you have defined the set of Questions to be completed, the in-scope Assets, and the relevant Recipients, click **Publish** and Users will be able to complete your Form!
 
 :::caution
-Once you have published a Form, you **cannot** change or add Questions.
+Once you have published a Form, you **cannot** change or add Questions. You can, however, change the set of Assets and/or Assignees for the Form.
 :::
+
+Not ready for primetime just yet? No worries! You also have the option to **Save Draft**.
 
 <p align="center">
   <img
@@ -139,7 +140,7 @@ If an asset already has existing metadata that is also referenced in a Form Ques
 
 **What is the difference between Completion and Verification Forms?**
 
-Both form types are a way to configure a set of optional and/or required questions for DataHub users to complete. When using Verification Forms, users will be presented with a final verification step once all required questions have been completed; you can think of this as a final acknowledgement of the accuracy of information submitted.
+Both form types are a way to configure a set of optional and/or required questions for DataHub users to complete. When using Verification Forms, users will be presented with a final verification step once all required questions have been completed; you can think of this as a final acknowledgment of the accuracy of information submitted.
 
 **Can I assign multiple Forms to a single asset?**
 
