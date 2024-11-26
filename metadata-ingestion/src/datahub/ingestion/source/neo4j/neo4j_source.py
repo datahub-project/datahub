@@ -1,7 +1,7 @@
 import logging
 import time
 from dataclasses import dataclass
-from typing import Dict, Iterable, Optional, Type, Union
+from typing import Any, Dict, Iterable, Optional, Type, Union
 
 import pandas as pd
 from neo4j import GraphDatabase
@@ -84,7 +84,7 @@ class Neo4jSource(Source):
         return SchemaFieldDataType(type=type_class())
 
     def get_schema_field_class(
-        self, col_name: str, col_type: str, **kwargs: dict[str, str]
+        self, col_name: str, col_type: str, **kwargs: Any
     ) -> SchemaFieldClass:
         if kwargs["obj_type"] == "node" and col_type == "relationship":
             col_type = "node"
@@ -193,7 +193,7 @@ class Neo4jSource(Source):
 
         return df
 
-    def process_nodes(self, data: list):
+    def process_nodes(self, data: list) -> pd.DataFrame:
         nodes = [record for record in data if record["value"]["type"] == "node"]
         node_df = pd.DataFrame(
             nodes,
@@ -216,7 +216,7 @@ class Neo4jSource(Source):
         )
         return node_df
 
-    def process_relationships(self, data: list, node_df: pd.DataFrame):
+    def process_relationships(self, data: list, node_df: pd.DataFrame) -> pd.DataFrame:
         rels = [record for record in data if record["value"]["type"] == "relationship"]
         rel_df = pd.DataFrame(rels, columns=["key", "value"])
         rel_df["obj_type"] = rel_df["value"].apply(
