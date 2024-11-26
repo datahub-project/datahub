@@ -1,0 +1,456 @@
+{
+    "type": "record",
+    "name": "CustomerProfile",
+    "namespace": "com.example.customer",
+    "doc": "A complex customer profile schema demonstrating various union types and optional fields",
+    "fields": [
+        {
+            "name": "customerId",
+            "type": {
+                "type": "string",
+                "logicalType": "uuid"
+            },
+            "doc": "Unique identifier for the customer"
+        },
+        {
+            "name": "identificationDocument",
+            "type": [
+                "null",
+                {
+                    "type": "record",
+                    "name": "Passport",
+                    "fields": [
+                        {
+                            "name": "passportNumber",
+                            "type": "string"
+                        },
+                        {
+                            "name": "expiryDate",
+                            "type": {
+                                "type": "long",
+                                "logicalType": "date"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "record",
+                    "name": "DriversLicense",
+                    "fields": [
+                        {
+                            "name": "licenseNumber",
+                            "type": "string"
+                        },
+                        {
+                            "name": "state",
+                            "type": "string"
+                        },
+                        {
+                            "name": "validUntil",
+                            "type": {
+                                "type": "long",
+                                "logicalType": "date"
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "record",
+                    "name": "NationalID",
+                    "fields": [
+                        {
+                            "name": "idNumber",
+                            "type": "string"
+                        },
+                        {
+                            "name": "country",
+                            "type": "string"
+                        }
+                    ]
+                }
+            ],
+            "default": null,
+            "doc": "Customer's identification document - can be passport, driver's license, or national ID"
+        },
+        {
+            "name": "contactInfo",
+            "type": {
+                "type": "record",
+                "name": "ContactInformation",
+                "fields": [
+                    {
+                        "name": "primaryContact",
+                        "type": [
+                            {
+                                "type": "record",
+                                "name": "EmailContact",
+                                "fields": [
+                                    {
+                                        "name": "emailAddress",
+                                        "type": "string"
+                                    },
+                                    {
+                                        "name": "isVerified",
+                                        "type": "boolean",
+                                        "default": false
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "record",
+                                "name": "PhoneContact",
+                                "fields": [
+                                    {
+                                        "name": "countryCode",
+                                        "type": "string"
+                                    },
+                                    {
+                                        "name": "number",
+                                        "type": "string"
+                                    },
+                                    {
+                                        "name": "type",
+                                        "type": {
+                                            "type": "enum",
+                                            "name": "PhoneType",
+                                            "symbols": [
+                                                "MOBILE",
+                                                "LANDLINE"
+                                            ]
+                                        }
+                                    }
+                                ]
+                            }
+                        ],
+                        "doc": "Primary contact method - either email or phone"
+                    },
+                    {
+                        "name": "alternativeContacts",
+                        "type": {
+                            "type": "array",
+                            "items": [
+                                "null",
+                                "EmailContact",
+                                "PhoneContact"
+                            ]
+                        },
+                        "default": [],
+                        "doc": "List of alternative contact methods"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "addresses",
+            "type": {
+                "type": "array",
+                "items": {
+                    "type": "record",
+                    "name": "Address",
+                    "fields": [
+                        {
+                            "name": "type",
+                            "type": {
+                                "type": "enum",
+                                "name": "AddressType",
+                                "symbols": [
+                                    "RESIDENTIAL",
+                                    "BUSINESS",
+                                    "SHIPPING"
+                                ]
+                            },
+                            "default": "RESIDENTIAL"
+                        },
+                        {
+                            "name": "street",
+                            "type": "string"
+                        },
+                        {
+                            "name": "city",
+                            "type": "string"
+                        },
+                        {
+                            "name": "state",
+                            "type": [
+                                "null",
+                                "string"
+                            ],
+                            "default": null
+                        },
+                        {
+                            "name": "country",
+                            "type": "string"
+                        },
+                        {
+                            "name": "postalCode",
+                            "type": [
+                                "null",
+                                "string"
+                            ],
+                            "default": null
+                        },
+                        {
+                            "name": "validationStatus",
+                            "type": [
+                                "null",
+                                {
+                                    "type": "record",
+                                    "name": "AddressValidation",
+                                    "fields": [
+                                        {
+                                            "name": "isValid",
+                                            "type": "boolean"
+                                        },
+                                        {
+                                            "name": "verificationDate",
+                                            "type": {
+                                                "type": "long",
+                                                "logicalType": "timestamp-millis"
+                                            }
+                                        },
+                                        {
+                                            "name": "verificationMethod",
+                                            "type": {
+                                                "type": "enum",
+                                                "name": "VerificationMethod",
+                                                "symbols": [
+                                                    "MANUAL",
+                                                    "AUTOMATED"
+                                                ]
+                                            }
+                                        }
+                                    ]
+                                }
+                            ],
+                            "default": null
+                        }
+                    ]
+                }
+            },
+            "doc": "Customer's addresses with validation information"
+        },
+        {
+            "name": "preferences",
+            "type": {
+                "type": "map",
+                "values": [
+                    "null",
+                    "string",
+                    "boolean",
+                    {
+                        "type": "record",
+                        "name": "FrequencyPreference",
+                        "fields": [
+                            {
+                                "name": "frequency",
+                                "type": {
+                                    "type": "enum",
+                                    "name": "Frequency",
+                                    "symbols": [
+                                        "DAILY",
+                                        "WEEKLY",
+                                        "MONTHLY"
+                                    ]
+                                }
+                            },
+                            {
+                                "name": "enabled",
+                                "type": "boolean",
+                                "default": true
+                            },
+                            {
+                                "name": "lastUpdated",
+                                "type": {
+                                    "type": "long",
+                                    "logicalType": "timestamp-millis"
+                                }
+                            }
+                        ]
+                    }
+                ]
+            },
+            "doc": "Customer preferences with various possible value types"
+        },
+        {
+            "name": "subscriptionHistory",
+            "type": [
+                "null",
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "record",
+                        "name": "Subscription",
+                        "fields": [
+                            {
+                                "name": "planName",
+                                "type": "string"
+                            },
+                            {
+                                "name": "startDate",
+                                "type": {
+                                    "type": "long",
+                                    "logicalType": "date"
+                                }
+                            },
+                            {
+                                "name": "endDate",
+                                "type": [
+                                    "null",
+                                    {
+                                        "type": "long",
+                                        "logicalType": "date"
+                                    }
+                                ],
+                                "default": null
+                            },
+                            {
+                                "name": "status",
+                                "type": {
+                                    "type": "enum",
+                                    "name": "SubscriptionStatus",
+                                    "symbols": [
+                                        "ACTIVE",
+                                        "CANCELLED",
+                                        "EXPIRED",
+                                        "SUSPENDED"
+                                    ]
+                                }
+                            },
+                            {
+                                "name": "paymentMethod",
+                                "type": [
+                                    "null",
+                                    {
+                                        "type": "record",
+                                        "name": "PaymentMethod",
+                                        "fields": [
+                                            {
+                                                "name": "type",
+                                                "type": {
+                                                    "type": "enum",
+                                                    "name": "PaymentType",
+                                                    "symbols": [
+                                                        "CREDIT_CARD",
+                                                        "DEBIT_CARD",
+                                                        "BANK_TRANSFER",
+                                                        "DIGITAL_WALLET"
+                                                    ]
+                                                }
+                                            },
+                                            {
+                                                "name": "lastFourDigits",
+                                                "type": [
+                                                    "null",
+                                                    "string"
+                                                ],
+                                                "default": null
+                                            },
+                                            {
+                                                "name": "expiryDate",
+                                                "type": [
+                                                    "null",
+                                                    {
+                                                        "type": "long",
+                                                        "logicalType": "date"
+                                                    }
+                                                ],
+                                                "default": null
+                                            }
+                                        ]
+                                    }
+                                ],
+                                "default": null
+                            }
+                        ]
+                    }
+                }
+            ],
+            "default": null,
+            "doc": "Historical record of customer subscriptions"
+        },
+        {
+            "name": "metadata",
+            "type": {
+                "type": "map",
+                "values": [
+                    "null",
+                    "string",
+                    "long",
+                    "boolean",
+                    {
+                        "type": "record",
+                        "name": "MetadataValue",
+                        "fields": [
+                            {
+                                "name": "value",
+                                "type": [
+                                    "null",
+                                    "string",
+                                    "long",
+                                    "boolean"
+                                ],
+                                "default": null
+                            },
+                            {
+                                "name": "timestamp",
+                                "type": {
+                                    "type": "long",
+                                    "logicalType": "timestamp-millis"
+                                }
+                            },
+                            {
+                                "name": "source",
+                                "type": "string"
+                            }
+                        ]
+                    }
+                ]
+            },
+            "doc": "Flexible metadata storage with various possible value types"
+        },
+        {
+            "name": "tags",
+            "type": [
+                "null",
+                {
+                    "type": "array",
+                    "items": {
+                        "type": "record",
+                        "name": "Tag",
+                        "fields": [
+                            {
+                                "name": "name",
+                                "type": "string"
+                            },
+                            {
+                                "name": "value",
+                                "type": [
+                                    "null",
+                                    "string"
+                                ],
+                                "default": null
+                            },
+                            {
+                                "name": "score",
+                                "type": [
+                                    "null",
+                                    "double"
+                                ],
+                                "default": null
+                            },
+                            {
+                                "name": "addedAt",
+                                "type": {
+                                    "type": "long",
+                                    "logicalType": "timestamp-millis"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ],
+            "default": null,
+            "doc": "Optional tags associated with the customer profile"
+        }
+    ]
+}
