@@ -643,8 +643,11 @@ class TableauUpstreamReference:
         cls, d: dict, default_schema_map: Optional[Dict[str, str]] = None
     ) -> "TableauUpstreamReference":
         # Values directly from `table` object from Tableau
-        database = t_database = d.get(c.DATABASE, {}).get(c.NAME)
-        database_id = d.get(c.DATABASE, {}).get(c.ID)
+        database_dict = (
+            d.get(c.DATABASE) or {}
+        )  # this sometimes is None, so we need the `or {}`
+        database = t_database = database_dict.get(c.NAME)
+        database_id = database_dict.get(c.ID)
         schema = t_schema = d.get(c.SCHEMA)
         table = t_table = d.get(c.NAME) or ""
         t_full_name = d.get(c.FULL_NAME)
