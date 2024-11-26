@@ -15,7 +15,7 @@ def tracking_uri(tmp_path: Path) -> str:
 
 
 @pytest.fixture
-def source(tracking_uri: str) -> Neo4jConfig:
+def source(tracking_uri: str) -> Neo4jSource:
     return Neo4jSource(
         ctx=PipelineContext(run_id="neo4j-test"),
         config=Neo4jConfig(

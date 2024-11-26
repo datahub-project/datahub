@@ -70,6 +70,9 @@ class Neo4jSourceReport(SourceReport):
 @config_class(Neo4jConfig)
 @support_status(SupportStatus.CERTIFIED)
 class Neo4jSource(Source):
+    NODE = "node"
+    RELATIONSHIP = "relationship"
+
     def __init__(self, ctx: PipelineContext, config: Neo4jConfig):
         self.ctx = ctx
         self.config = config
@@ -87,8 +90,8 @@ class Neo4jSource(Source):
     def get_schema_field_class(
         self, col_name: str, col_type: str, **kwargs: Any
     ) -> SchemaFieldClass:
-        if kwargs["obj_type"] == "node" and col_type == "relationship":
-            col_type = "node"
+        if kwargs["obj_type"] == self.NODE and col_type == self.RELATIONSHIP:
+            col_type = self.NODE
         else:
             col_type = col_type
         return SchemaFieldClass(
@@ -96,7 +99,7 @@ class Neo4jSource(Source):
             type=self.get_field_type(col_type),
             nativeDataType=col_type,
             description=col_type.upper()
-            if col_type in ("node", "relationship")
+            if col_type in (self.NODE, self.RELATIONSHIP)
             else col_type,
             lastModified=AuditStampClass(
                 time=round(time.time() * 1000), actor="urn:li:corpuser:ingestion"
@@ -195,7 +198,7 @@ class Neo4jSource(Source):
         return df
 
     def process_nodes(self, data: list) -> pd.DataFrame:
-        nodes = [record for record in data if record["value"]["type"] == "node"]
+        nodes = [record for record in data if record["value"]["type"] == self.NODE]
         node_df = pd.DataFrame(
             nodes,
             columns=["key", "value"],
@@ -218,7 +221,7 @@ class Neo4jSource(Source):
         return node_df
 
     def process_relationships(self, data: list, node_df: pd.DataFrame) -> pd.DataFrame:
-        rels = [record for record in data if record["value"]["type"] == "relationship"]
+        rels = [record for record in data if record["value"]["type"] == self.RELATIONSHIP]
         rel_df = pd.DataFrame(rels, columns=["key", "value"])
         rel_df["obj_type"] = rel_df["value"].apply(
             lambda record: self.get_obj_type(record)
@@ -277,7 +280,7 @@ class Neo4jSource(Source):
     def get_relationships(self, record: dict) -> dict:
         return record.get("relationships", None)
 
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+    def get_workunits_internal(self) -> MetadataWorkUnit:
         df = self.get_neo4j_metadata(
             "CALL apoc.meta.schema() YIELD value UNWIND keys(value) AS key RETURN key, value[key] AS value;"
         )
@@ -303,7 +306,7 @@ class Neo4jSource(Source):
                         aspect=SubTypesClass(
                             typeNames=[
                                 DatasetSubTypes.NEO4J_NODE
-                                if row["obj_type"] == "node"
+                                if row["obj_type"] == self.NODE
                                 else DatasetSubTypes.NEO4J_RELATIONSHIP
                             ]
                         ),
