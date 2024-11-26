@@ -1,7 +1,7 @@
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Type, Union
+from typing import Any, Dict, List, Optional, Type, Union
 
 import pandas as pd
 from neo4j import GraphDatabase
@@ -221,7 +221,9 @@ class Neo4jSource(Source):
         return node_df
 
     def process_relationships(self, data: list, node_df: pd.DataFrame) -> pd.DataFrame:
-        rels = [record for record in data if record["value"]["type"] == self.RELATIONSHIP]
+        rels = [
+            record for record in data if record["value"]["type"] == self.RELATIONSHIP
+        ]
         rel_df = pd.DataFrame(rels, columns=["key", "value"])
         rel_df["obj_type"] = rel_df["value"].apply(
             lambda record: self.get_obj_type(record)
