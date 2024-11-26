@@ -13,7 +13,7 @@ This guide provides an example of completing a Compliance Form, covering:
 2. Completing a Form for a single Asset or multiple Assets (DataHub Cloud only)
 3. Understanding different Form Question completion states
 
-The example uses the **Governance Initiative 2024**, a Verification Form with 3 Required Questions, assigned to the `dogs_in_movies` and `dog_rates_twitter` Datasets:
+The example uses the **Governance Initiative 2024**, a Verification Form with 3 Required Questions:
 
 <p align="center">
   <img
@@ -65,28 +65,71 @@ Here's what the **Governance Initiative 2024** Verification Form looks like for 
   <img
        width="80%"  
        src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/completion/complete-task-ready-to-verify.png"
-       alt="Asset Ready to Verifiy"/>
+       alt="Asset Ready to Verify"/>
 </p>
 
 And here's the `dogs_in_movies` sidebar after Verifying all responses:
 
 <p align="center">
   <img
-       width="80%"  
+       width="70%"  
        src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/completion/complete-task-asset-verified.png"
-       alt="Asset Ready to Verifiy"/>
+       alt="Asset is Verified"/>
 </p>
 
 ### Navigating to the Next Asset
 
-To continue working through the Compliance Forms assigned to you, use the navigation arrows located in the top-right corner. These arrows will take you to the next Asset that is still pending Form completion or Verification. Only Assets that require action will appear in this flow, allowing you to focus on the remaining tasks without unnecessary steps.
+To continue working through the Compliance Forms assigned to you, **use the navigation arrows located in the top-right corner**. These arrows will take you to the next Asset that is still pending Form completion or Verification. Only Assets that require action will appear in this flow, allowing you to focus on the remaining tasks without unnecessary steps.
 
-<!-- ## Completing a Form Question for Multiple Assets
+
+## Completing a Form Question for Multiple Assets
+
+When you want to provide the same response for a question to multiple assets, you can apply it in bulk by selecting the **By Question** option in the top-right corner. This allows you to navigate through the Form question-by-question and apply the same response to multiple assets.
 
 :::note
-Completing Form Questions in for multiple Assets is only supported for DataHub Cloud.
+Completing Form Questions for multiple Assets is only supported for DataHub Cloud.
 :::
- -->
+
+### Example: Applying a Response in Bulk
+
+Let's look at an example:
+
+1. **Filter Assets**: Filter down to all datasets in the `DEMO_DB` Snowflake schema.
+2. **Set a Response**: For the selected question, provide a response. In this case, we'll set the Deletion Date to be `2024-12-31`.
+3. **Apply to All Selected Assets**: Use the bulk application feature to apply this response to all filtered assets.
+
+<p align="center">
+  <img
+       width="90%"  
+       src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/completion/complete-tasks-by-question.png"
+       alt="Apply Response to Multiple Assets"/>
+</p>
+
+After setting the response, toggle through each question, providing the necessary responses to combinations of assets.
+
+### Verification for Multiple Assets
+
+For Verification Forms, as you complete responses, you will see the number of assets eligible for Verification in the top-right corner. This makes it easy to track which assets have met the requirements.
+
+<p align="center">
+  <img
+       width="70%"  
+       src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/completion/complete-tasks-by-question-ready-to-verify.png"
+       alt="Multiple Assets ready to Verify"/>
+</p>
+
+When you are ready to bulk Verify assets, you will be prompted to confirm that all responses are complete and accurate before proceeding.
+
+<p align="center">
+  <img
+       width="70%"  
+       src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/completion/complete-tasks-bulk-verify.png"
+       alt="Final Bulk Verification"/>
+</p>
+
+### Switching Between Views
+
+You can easily toggle between the **Complete By Asset** and **Complete By Question** views as needed, ensuring flexibility while completing and verifying the Compliance Forms.
 
 ## Understanding Different Form Question Completion States
 
@@ -94,7 +137,7 @@ When completing a Compliance Form, you may encounter various types of questions,
 
 **_1. What is the primary use case for this asset?_**
 
-This required Question is asking the Assignee to provide Documentation on how the Asset should be used. Note that there is no text populated in the description, meaning the Asset does not have any docuumenation at all.
+This required Question is asking the Assignee to provide Documentation on how the Asset should be used. Note that there is no text populated in the description, meaning the Asset does not have any documentation at all.
 
 <p align="center">
   <img
