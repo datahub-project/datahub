@@ -8,14 +8,14 @@ import com.linkedin.common.Urn
  */
 record SchemaFieldQualityDimensionInfo includes ChangeAuditStamps {
   /**
-  * schemaFieldURN attribute to capture schema field URN
+  * schemaFieldUrn attribute to capture schema field URN
   * Required field, if this record is initialized
   */
   @Relationship = {
      "name": "IsAssociatedWith",
      "entityTypes": [ "schemaField" ]
   }
-  schemaFieldURN: Urn
+  schemaFieldUrn: Urn
 
   /**
   * schemaFieldDimensionInfo attribute to capture schema field dimension

@@ -87,7 +87,7 @@ public class DataQualityMapper {
           .forEach(
               item -> {
                 SchemaFieldQualityDimensionInfo schemaInfo = new SchemaFieldQualityDimensionInfo();
-                schemaInfo.setSchemaFieldURN(item.getSchemaFieldURN().toString());
+                schemaInfo.setSchemaFieldUrn(item.getSchemaFieldUrn().toString());
                 if (item.hasSchemaFieldDimensionInfo()) {
                   schemaInfo.setSchemaFieldDimensionInfo(
                       mapDataQualityDimensionInfo(item.getSchemaFieldDimensionInfo()));

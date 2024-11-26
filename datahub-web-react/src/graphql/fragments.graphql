@@ -1118,7 +1118,7 @@ fragment dataQualityFields on DataQuality {
         ...dataQualityDimensionInfoFields
     }
     schemaFieldDimensionInfos {
-        schemaFieldURN
+        schemaFieldUrn
         schemaFieldDimensionInfo {
             ...dataQualityDimensionInfoFields
         }

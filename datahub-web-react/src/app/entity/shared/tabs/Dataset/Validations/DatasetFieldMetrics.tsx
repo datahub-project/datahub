@@ -168,8 +168,8 @@ export const DatasetFieldMetrics = ({ metrics }: MetricsProps) => {
     if (filteredQualityMetrics !== null) {
         filteredQualityMetrics?.forEach((d) => {
             const fieldDimension = {
-                key: d?.schemaFieldURN.toString() || '',
-                fieldName: getFieldNameFromUrn(d?.schemaFieldURN || ''),
+                key: d?.schemaFieldUrn.toString() || '',
+                fieldName: getFieldNameFromUrn(d?.schemaFieldUrn || ''),
                 recordCount: d?.schemaFieldDimensionInfo?.recordCount?.toLocaleString() || '',
                 obj: d?.schemaFieldDimensionInfo?.dimensions?.map((dimension) => {
                     const customDimensionNameEntity = Array.isArray(customDimensionNamesEntitys)

@@ -20,7 +20,7 @@ type DimensionScore {
 }
 
 type SchemaFieldQualityDimensionInfo {
-  schemaFieldURN: String!
+  schemaFieldUrn: String!
   schemaFieldDimensionInfo: DataQualityDimensionInfo!
   changeAuditStamps: ChangeAuditStamps
 }
