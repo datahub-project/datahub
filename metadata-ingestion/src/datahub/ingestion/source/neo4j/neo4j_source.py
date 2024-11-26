@@ -1,7 +1,7 @@
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 import pandas as pd
 from neo4j import GraphDatabase
@@ -84,7 +84,7 @@ class Neo4jSource(Source):
         return cls(ctx, config)
 
     def get_field_type(self, attribute_type: Union[type, str]) -> SchemaFieldDataType:
-        type_class: Optional[type] = _type_mapping.get(attribute_type, NullTypeClass)
+        type_class: type = _type_mapping.get(attribute_type, NullTypeClass)
         return SchemaFieldDataType(type=type_class())
 
     def get_schema_field_class(
@@ -282,7 +282,7 @@ class Neo4jSource(Source):
     def get_relationships(self, record: dict) -> dict:
         return record.get("relationships", None)
 
-    def get_workunits_internal(self) -> MetadataWorkUnit:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         df = self.get_neo4j_metadata(
             "CALL apoc.meta.schema() YIELD value UNWIND keys(value) AS key RETURN key, value[key] AS value;"
         )
@@ -295,6 +295,8 @@ class Neo4jSource(Source):
                         dataset=row["key"],
                         platform=self.config.platform,
                     ),
+                    treat_errors_as_warnings=False,
+                    is_primary_source=True,
                 )
 
                 yield MetadataWorkUnit(
