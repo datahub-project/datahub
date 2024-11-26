@@ -110,6 +110,7 @@ docker {
         include "datahub-executor/src/**"
         include "datahub-executor/pyproject.toml"
         include "metadata-ingestion/**"
+        include "metadata-ingestion-modules/acryl-cloud/**"
         include "datahub-executor/requirements*"
     }.exclude {
         i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())

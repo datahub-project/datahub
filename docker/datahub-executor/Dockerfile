@@ -13,6 +13,7 @@ FROM base AS build
 
 COPY ./datahub-executor /datahub-executor
 COPY ./metadata-ingestion /metadata-ingestion
+COPY ./metadata-ingestion-modules/acryl-cloud /acryl-cloud
 COPY ./docker/datahub-executor/start.sh /start_datahub_executor.sh
 COPY ./docker/datahub-executor/health_status.py /health_status
 COPY ./docker/datahub-executor/ingestion-pipeline-config.yaml /etc/datahub-executor/ingestion-pipeline-config.yaml
@@ -25,7 +26,7 @@ ARG RELEASE_VERSION
 RUN sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed 's/+/-/'|sed '1 s/-/+/')\"/" src/datahub_executor/__init__.py && \
     sed -i.bak "s/version = \"1!0.0.0.dev0\"/version = \"$(echo $RELEASE_VERSION|sed 's/+/-/'|sed '1 s/-/+/')\"/" pyproject.toml && \
     cat src/datahub_executor/__init__.py && \
-    chown -R datahub /metadata-ingestion /datahub-executor
+    chown -R datahub /metadata-ingestion /datahub-executor /acryl-cloud
 
 ARG PIP_MIRROR_URL
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
