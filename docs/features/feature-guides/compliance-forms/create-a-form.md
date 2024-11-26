@@ -31,7 +31,7 @@ In order to create or edit a Compliance Form, your DataHub User must have the **
 From the navigation bar, head to **Govern** > **Compliance Forms**. Click **+ Create** to start building your Form.
 
 <p align="center">
-  <img style="box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);" 
+  <img 
        width="90%"  
        src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/list-compliance-forms-before.png"
        alt="View of all Compliance Forms"/>
@@ -47,7 +47,7 @@ First up, provide the following details:
 4. Click **Add Question** to begin setting the requirements for your Form.   
 
 <p align="center">
-  <img style="box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);" 
+  <img
        width="90%"  
        src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-add-question.png"
        alt="Create a new Compliance Form"/>
@@ -71,7 +71,7 @@ Next, create Questions you want your users to complete to capture the desired me
 When creating a Question, be sure to give it an easy-to-understand Title, and provide additional context or direction in the Description.
 
 <p align="center">
-  <img style="box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);" 
+  <img
        width="90%"  
        src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-prompt.png"
        alt="Create a new Compliance Form prompt"/>
@@ -94,7 +94,7 @@ In the **Assign Assets** section, you can easily target the specific set of Asse
 4. Preview the relevant Assets to confirm you have applied the appropriate filters
 
 <p align="center">
-  <img style="box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);" 
+  <img 
        width="90%"  
        src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-assign-assets.png"
        alt="Assign assets to a Compliance Form"/>
@@ -110,7 +110,7 @@ In the **Add Recipients** section, decide who is responsible for completing the 
 * **Specific Users and/or Groups:** Select a specific set of Users and/or Groups within DataHub. This is useful when Ownership of the Assets may be poorly-defined.
 
 <p align="center">
-  <img style="box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);" 
+  <img 
        width="90%"  
        src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-add-users-or-groups.png"
        alt="Assign recipients to a Compliance Form"/>
@@ -125,7 +125,7 @@ Once you have published a Form, you **cannot** change or add Questions.
 :::
 
 <p align="center">
-  <img style="box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);" 
+  <img
        width="80%"  
        src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-publish.png"
        alt="Publish a Compliance Form"/>

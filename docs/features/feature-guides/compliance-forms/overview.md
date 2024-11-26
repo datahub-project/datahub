@@ -23,7 +23,7 @@ Key Features:
 * **Compliance Readiness:** Track and enforce documentation standards across assets.
 
 <p align="center">
-  <img style="box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);" 
+  <img 
        width="90%"  
        src="https://raw.githubusercontent.com/datahub-project/static-assets/eaffab01f020a60e97b2afcd85c2f04bb9b7d498/imgs/compliance_forms/sample-compliance-form.png" 
        alt="Sample Compliance Form"/>
