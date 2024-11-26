@@ -18,7 +18,7 @@ def tracking_uri(tmp_path: Path) -> str:
 def source(tracking_uri: str) -> Neo4jConfig:
     return Neo4jSource(
         ctx=PipelineContext(run_id="neo4j-test"),
-        config=Neo4jConfig(uri=tracking_uri),
+        config=Neo4jConfig(uri=tracking_uri, env='Prod', username='test', password='test'),
     )
 
 

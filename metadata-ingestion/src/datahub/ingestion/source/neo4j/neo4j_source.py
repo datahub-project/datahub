@@ -103,7 +103,10 @@ class Neo4jSource(Source):
         )
 
     def add_properties(
-        self, dataset: str, description: Optional[str] = None, custom_properties: Optional[str]=None
+        self,
+        dataset: str,
+        description: Optional[str] = None,
+        custom_properties: Optional[str] = None,
     ) -> MetadataChangeProposalWrapper:
         dataset_properties = DatasetPropertiesClass(
             description=description,
@@ -117,7 +120,7 @@ class Neo4jSource(Source):
         )
 
     def generate_neo4j_object(
-        self, platform: str, dataset: str, columns: list, obj_type: Optional[str]=None
+        self, platform: str, dataset: str, columns: list, obj_type: Optional[str] = None
     ) -> MetadataChangeProposalWrapper:
         try:
             fields = [
