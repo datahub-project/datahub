@@ -9,7 +9,8 @@ import sqlalchemy.dialects.mssql
 # This import verifies that the dependencies are available.
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
-from sqlalchemy.engine.base import URL, Connection
+from sqlalchemy.engine.base import Connection
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError, ResourceClosedError
 
@@ -317,8 +318,9 @@ class SQLServerSource(SQLAlchemySource):
                     f"Failed to list jobs due to error {e}",
                 )
 
-    def _is_azure_sql(self, url: URL) -> bool:
+    def _is_azure_sql(self, uri: str) -> bool:
         try:
+            url = make_url(uri)
             hostname = url.host
 
             if not hostname:
@@ -341,7 +343,7 @@ class SQLServerSource(SQLAlchemySource):
         jobs: Dict[str, Dict[str, Any]] = {}
 
         try:
-            if self._is_azure_sql(conn.engine.url):
+            if self._is_azure_sql(str(conn.engine.url)):
                 logger.debug(
                     f"Attempting to get Azure SQL Elastic Jobs for database {db_name}"
                 )
