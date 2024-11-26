@@ -151,7 +151,7 @@ You sure can! Please keep in mind that an Asset will only be considered Document
 
 ### Related Features
 
-- [DataHub Properties](../docs/features/feature-guides/properties.md)
+- [DataHub Properties](../../feature-guides/properties.md)
 
 ## Next Steps
 
