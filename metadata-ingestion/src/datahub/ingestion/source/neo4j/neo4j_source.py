@@ -110,7 +110,7 @@ class Neo4jSource(Source):
         self,
         dataset: str,
         description: Optional[str] = None,
-        custom_properties: Optional[str] = None,
+        custom_properties: Optional[Dict[str, str]] = None,
     ) -> MetadataChangeProposalWrapper:
         dataset_properties = DatasetPropertiesClass(
             description=description,
@@ -295,7 +295,6 @@ class Neo4jSource(Source):
                         dataset=row["key"],
                         platform=self.config.platform,
                     ),
-                    treat_errors_as_warnings=False,
                     is_primary_source=True,
                 )
 
