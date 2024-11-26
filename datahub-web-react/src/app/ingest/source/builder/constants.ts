@@ -138,7 +138,7 @@ export const DATAHUB_GC = 'datahub-gc';
 export const DATAHUB_LINEAGE_FILE = 'datahub-lineage-file';
 export const DATAHUB_BUSINESS_GLOSSARY = 'datahub-business-glossary';
 export const DATAHUB_URN = `urn:li:dataPlatform:${DATAHUB}`;
-export const NEO4J = "neo4j";
+export const NEO4J = 'neo4j';
 export const NEO4J_URN = `urn:li:dataPlatform:${NEO4J}`;
 
 export const PLATFORM_URN_TO_LOGO = {
@@ -183,7 +183,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [SAC_URN]: sacLogo,
     [CASSANDRA_URN]: cassandraLogo,
     [DATAHUB_URN]: datahubLogo,
-    [NEO4J_URN]: neo4j
+    [NEO4J_URN]: neo4j,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {

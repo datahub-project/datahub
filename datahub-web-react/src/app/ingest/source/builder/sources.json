@@ -324,6 +324,6 @@
         "displayName": "Neo4j",
         "description": "Import Nodes and Relationships from Neo4j.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/neo4j/",
-        "recipe":  "source:\n    type: 'neo4j'\n    config:\n        uri: 'neo4j+ssc://host:7687'\n        username: 'neo4j'\n        password: 'password'\n        env: 'PROD'\n\nsink:\n  type: \"datahub-rest\"\n  config:\n    server: 'http://localhost:8080'"
+        "recipe": "source:\n    type: 'neo4j'\n    config:\n        uri: 'neo4j+ssc://host:7687'\n        username: 'neo4j'\n        password: 'password'\n        env: 'PROD'\n\nsink:\n  type: \"datahub-rest\"\n  config:\n    server: 'http://localhost:8080'"
     }
 ]
