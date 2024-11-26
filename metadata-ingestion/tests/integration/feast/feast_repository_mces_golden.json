@@ -22,8 +22,8 @@
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpGroup:DataHub",
-                                "type": "TECHNICAL_OWNER"
+                                "owner": "urn:li:corpGroup:MOCK_OWNER",
+                                "type": "BUSINESS_OWNER"
                             }
                         ],
                         "ownerTypes": {},
@@ -207,8 +207,8 @@
                     "com.linkedin.pegasus2avro.common.Ownership": {
                         "owners": [
                             {
-                                "owner": "urn:li:corpGroup:DataHub",
-                                "type": "TECHNICAL_OWNER"
+                                "owner": "urn:li:corpGroup:MOCK_OWNER",
+                                "type": "BUSINESS_OWNER"
                             }
                         ],
                         "ownerTypes": {},

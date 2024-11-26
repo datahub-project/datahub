@@ -19,13 +19,11 @@ def test_feast_repository_ingest(pytestconfig, tmp_path, mock_time):
                 "config": {
                     "path": str(test_resources_dir / "feature_store"),
                     "environment": "PROD",
-                    "owner_mappings": [
-                        {
-                            "feast_owner_name": "DataHub",
-                            "datahub_owner_urn": "urn:li:corpGroup:DataHub",
-                            "ownership_type": "TECHNICAL_OWNER"
-                        }
-                    ],
+                    "owner_mappings": [{
+                        "feast_owner_name": "MOCK_OWNER",
+                        "datahub_owner_urn": "urn:li:corpGroup:MOCK_OWNER",
+                        "datahub_ownership_type": "BUSINESS_OWNER",
+                    }]
                 },
             },
             "sink": {
