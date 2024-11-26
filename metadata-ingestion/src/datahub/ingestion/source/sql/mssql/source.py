@@ -9,7 +9,7 @@ import sqlalchemy.dialects.mssql
 # This import verifies that the dependencies are available.
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
-from sqlalchemy.engine.base import Connection, URL
+from sqlalchemy.engine.base import URL, Connection
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError, ResourceClosedError
 
