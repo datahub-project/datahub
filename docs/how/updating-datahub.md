@@ -88,6 +88,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Other Notable Changes
 
 - Downgrade to previous version is not automatically supported.
+- Data Product Properties Unset side effect introduced
+  - Previously, Data Products could be set as linked to multiple Datasets if modified directly via the REST API rather than linked through the UI or GraphQL. This side effect aligns the REST API behavior with the GraphQL behavior by introducting a side effect that enforces the 1-to-1 constraint between Data Products and Datasets
+  - NOTE: There is a pathological pattern of writes for Data Products that can introduce issues with write processing that can occur with this side effect. If you are constantly changing all of the Datasets associated with a Data Product back and forth between multiple Data Products it will result in a high volume of writes due to the need to unset previous associations.
 
 ## 0.14.0.2
 
