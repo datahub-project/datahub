@@ -566,6 +566,12 @@ export const dataset3 = {
                     username: 'datahub',
                     type: EntityType.CorpUser,
                 },
+                actor: {
+                    __typename: 'CorpUser',
+                    urn: 'urn:li:corpuser:datahub',
+                    username: 'datahub',
+                    type: EntityType.CorpUser,
+                },
                 description: 'This only points to Google',
                 label: 'This only points to Google',
                 created: {

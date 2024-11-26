@@ -397,4 +397,40 @@ public class PropertyDefinitionValidatorTest {
             .count(),
         0);
   }
+
+  @Test
+  public void testUrnIdWithSpace()
+      throws URISyntaxException, CloneNotSupportedException, AspectValidationException {
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test me out.foo.bar");
+    StructuredPropertyDefinition newProperty = new StructuredPropertyDefinition();
+    newProperty.setEntityTypes(new UrnArray(Urn.createFromString("urn:li:logicalEntity:dataset")));
+    newProperty.setDisplayName("oldProp");
+    newProperty.setQualifiedName("foo.bar");
+    newProperty.setCardinality(PropertyCardinality.MULTIPLE);
+    newProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        1);
+  }
+
+  @Test
+  public void testQualifiedNameWithSpace()
+      throws URISyntaxException, CloneNotSupportedException, AspectValidationException {
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:foo.bar");
+    StructuredPropertyDefinition newProperty = new StructuredPropertyDefinition();
+    newProperty.setEntityTypes(new UrnArray(Urn.createFromString("urn:li:logicalEntity:dataset")));
+    newProperty.setDisplayName("oldProp");
+    newProperty.setQualifiedName("foo.bar with spaces");
+    newProperty.setCardinality(PropertyCardinality.MULTIPLE);
+    newProperty.setValueType(Urn.createFromString("urn:li:logicalType:STRING"));
+    assertEquals(
+        PropertyDefinitionValidator.validateDefinitionUpserts(
+                TestMCP.ofOneMCP(propertyUrn, null, newProperty, entityRegistry),
+                mockRetrieverContext)
+            .count(),
+        1);
+  }
 }
