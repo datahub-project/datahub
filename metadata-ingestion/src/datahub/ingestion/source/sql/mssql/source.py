@@ -9,7 +9,7 @@ import sqlalchemy.dialects.mssql
 # This import verifies that the dependencies are available.
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
-from sqlalchemy.engine.base import Connection
+from sqlalchemy.engine.base import Connection, URL
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError, ResourceClosedError
 
@@ -317,10 +317,13 @@ class SQLServerSource(SQLAlchemySource):
                     f"Failed to list jobs due to error {e}",
                 )
 
-    def _is_azure_sql(self, hostname: Optional[str]) -> bool:
-        if not hostname:
-            return False
-        else:
+    def _is_azure_sql(self, url: URL) -> bool:
+        try:
+            hostname = url.host
+
+            if not hostname:
+                return False
+
             return any(
                 domain in hostname.lower()
                 for domain in [
@@ -330,13 +333,15 @@ class SQLServerSource(SQLAlchemySource):
                     "database.usgovcloudapi.net",
                 ]
             )
+        except Exception as e:
+            logger.warning(f"Failed to parse SQL Server URI: {e}")
+            return False
 
     def _get_jobs(self, conn: Connection, db_name: str) -> Dict[str, Dict[str, Any]]:
-        hostname = conn.engine.url.host
         jobs: Dict[str, Dict[str, Any]] = {}
 
         try:
-            if self._is_azure_sql(hostname):
+            if self._is_azure_sql(conn.engine.url):
                 logger.debug(
                     f"Attempting to get Azure SQL Elastic Jobs for database {db_name}"
                 )
