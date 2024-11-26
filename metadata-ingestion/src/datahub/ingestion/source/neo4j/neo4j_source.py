@@ -1,7 +1,7 @@
 import logging
 import time
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, Optional, Type, Union
+from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 import pandas as pd
 from neo4j import GraphDatabase
@@ -26,6 +26,7 @@ from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     DatasetPropertiesClass,
     DateTypeClass,
+    NullTypeClass,
     NumberTypeClass,
     OtherSchemaClass,
     SchemaFieldClass,
@@ -80,7 +81,7 @@ class Neo4jSource(Source):
         return cls(ctx, config)
 
     def get_field_type(self, attribute_type: Union[type, str]) -> SchemaFieldDataType:
-        type_class: Optional[type] = _type_mapping.get(attribute_type)
+        type_class: Optional[type] = _type_mapping.get(attribute_type, NullTypeClass)
         return SchemaFieldDataType(type=type_class())
 
     def get_schema_field_class(
@@ -146,10 +147,10 @@ class Neo4jSource(Source):
                 ),
             )
             self.report.obj_created += 1
-            return mcp
         except Exception as e:
             log.error(e)
             self.report.obj_failures += 1
+        return mcp
 
     def get_neo4j_metadata(self, query: str) -> pd.DataFrame:
         driver = GraphDatabase.driver(
@@ -267,7 +268,7 @@ class Neo4jSource(Source):
 
         return "\n".join(descriptions)
 
-    def get_property_data_types(self, record: dict) -> list[dict]:
+    def get_property_data_types(self, record: dict) -> List[dict]:
         return [{k: v["type"]} for k, v in record.items()]
 
     def get_properties(self, record: dict) -> str:
