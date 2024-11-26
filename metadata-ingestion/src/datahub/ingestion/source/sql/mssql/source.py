@@ -10,8 +10,8 @@ import sqlalchemy.dialects.mssql
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
-from sqlalchemy.engine.url import make_url
 from sqlalchemy.engine.reflection import Inspector
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.exc import ProgrammingError, ResourceClosedError
 
 from datahub.configuration.common import AllowDenyPattern
