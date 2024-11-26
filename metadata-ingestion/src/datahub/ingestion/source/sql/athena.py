@@ -495,17 +495,17 @@ class AthenaSource(SQLAlchemySource):
         )
 
         partitions = []
+        for key in metadata.partition_keys:
+            if key.name:
+                partitions.append(key.name)
+        if not partitions:
+            return []
+
         with self.report.report_exc(
-            message="Failed to extract partition information",
+            message="Failed to extract partition details",
             context=f"{schema}.{table}",
             level=StructuredLogLevel.WARN,
         ):
-            for key in metadata.partition_keys:
-                if key.name:
-                    partitions.append(key.name)
-            if not partitions:
-                return []
-
             # We create an artifical concatenated partition key to be able to query max partition easier
             part_concat = " || '-' || ".join(
                 self._casted_partition_key(key) for key in partitions
@@ -523,6 +523,7 @@ class AthenaSource(SQLAlchemySource):
                 partitions=partitions,
                 max_partition=max_partition,
             )
+
         return partitions
 
     # Overwrite to modify the creation of schema fields
