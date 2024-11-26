@@ -45,14 +45,14 @@ bootstrap:
       revision_env: "DATAHUB_GC_BOOTSTRAP_REVISION"
 
     - name: ingestion-datahub-usage-reporting
-      version: v2
+      version: v3
       optional: true
       mcps_location: "bootstrap_mcps/ingestion-datahub-usage-reporting.yaml"
       values_env: "DATAHUB_USAGE_REPORTING_BOOTSTRAP_VALUES"
       revision_env: "DATAHUB_USAGE_REPORTING_REVISION"
 
     - name: ingestion-datahub-forms-reporting
-      version: v1
+      version: v2
       optional: true
       mcps_location: "bootstrap_mcps/ingestion-datahub-forms-reporting.yaml"
       values_env: "DATAHUB_FORMS_REPORTING_BOOTSTRAP_VALUES"

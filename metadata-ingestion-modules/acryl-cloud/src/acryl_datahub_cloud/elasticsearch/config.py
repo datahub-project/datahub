@@ -9,7 +9,7 @@ from datahub.configuration import ConfigModel
 class ElasticSearchClientConfig(ConfigModel):
     host: str = os.getenv("ELASTICSEARCH_HOST", "localhost")
     port: int = int(os.getenv("ELASTICSEARCH_PORT", "9200"))
-    use_ssl: bool = bool(os.getenv("ELASTICSEARCH_USE_SSL", ""))
+    use_ssl: bool = os.getenv("ELASTICSEARCH_USE_SSL", "").lower() == "true"
     verify_certs: bool = False
     ca_certs: Optional[str] = None
     client_cert: Optional[str] = None

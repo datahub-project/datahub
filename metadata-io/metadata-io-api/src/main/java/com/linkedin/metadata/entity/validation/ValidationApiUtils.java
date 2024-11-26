@@ -115,7 +115,8 @@ public class ValidationApiUtils {
 
   /** Recursively process URN parts with URL decoding */
   private static Stream<String> processUrnPartRecursively(String urnPart) {
-    String decodedPart = URLDecoder.decode(URLEncodingFixer.fixURLEncoding(urnPart), StandardCharsets.UTF_8);
+    String decodedPart =
+        URLDecoder.decode(URLEncodingFixer.fixURLEncoding(urnPart), StandardCharsets.UTF_8);
     if (decodedPart.startsWith("urn:li:")) {
       // Recursively process nested URN after decoding
       return UrnUtils.getUrn(decodedPart).getEntityKey().getParts().stream()
@@ -179,8 +180,8 @@ public class ValidationApiUtils {
   }
 
   /**
-   * Fixes malformed URL encoding by escaping unescaped % characters while
-   * preserving valid percent-encoded sequences.
+   * Fixes malformed URL encoding by escaping unescaped % characters while preserving valid
+   * percent-encoded sequences.
    */
   private static class URLEncodingFixer {
     /**

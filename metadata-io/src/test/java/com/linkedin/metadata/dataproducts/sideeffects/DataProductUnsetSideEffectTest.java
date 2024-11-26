@@ -15,7 +15,6 @@ import com.linkedin.dataproduct.DataProductAssociation;
 import com.linkedin.dataproduct.DataProductAssociationArray;
 import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
@@ -49,11 +48,7 @@ import org.testng.annotations.Test;
 public class DataProductUnsetSideEffectTest {
   private static final EntityRegistry TEST_REGISTRY = new TestEntityRegistry();
   private static final List<ChangeType> SUPPORTED_CHANGE_TYPES =
-      List.of(
-          ChangeType.CREATE,
-          ChangeType.CREATE_ENTITY,
-          ChangeType.UPSERT,
-          ChangeType.RESTATE);
+      List.of(ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.UPSERT, ChangeType.RESTATE);
   private static final Urn TEST_PRODUCT_URN =
       UrnUtils.getUrn("urn:li:dataProduct:someDataProductId");
 
@@ -384,31 +379,41 @@ public class DataProductUnsetSideEffectTest {
 
     // Create change item with previous aspect
     SystemAspect prevData = mock(SystemAspect.class);
-    when(prevData.getRecordTemplate())
-            .thenReturn(previousProperties);
+    when(prevData.getRecordTemplate()).thenReturn(previousProperties);
 
-    ChangeItemImpl dataProductPropertiesChangeItem = ChangeItemImpl.builder()
+    ChangeItemImpl dataProductPropertiesChangeItem =
+        ChangeItemImpl.builder()
             .urn(TEST_PRODUCT_URN)
             .aspectName(DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
             .changeType(ChangeType.UPSERT)
             .entitySpec(TEST_REGISTRY.getEntitySpec(DATA_PRODUCT_ENTITY_NAME))
-            .aspectSpec(TEST_REGISTRY.getEntitySpec(DATA_PRODUCT_ENTITY_NAME)
+            .aspectSpec(
+                TEST_REGISTRY
+                    .getEntitySpec(DATA_PRODUCT_ENTITY_NAME)
                     .getAspectSpec(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))
             .recordTemplate(newProperties)
             .previousSystemAspect(prevData)
             .auditStamp(AuditStampUtils.createDefaultAuditStamp())
             .build(mockAspectRetriever);
 
-    List<MCPItem> testOutput = test.postMCPSideEffect(
-                    List.of(MCLItemImpl.builder()
-                            .build(dataProductPropertiesChangeItem, null, null, retrieverContext.getAspectRetriever())),
-                    retrieverContext)
+    List<MCPItem> testOutput =
+        test.postMCPSideEffect(
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(
+                            dataProductPropertiesChangeItem,
+                            null,
+                            null,
+                            retrieverContext.getAspectRetriever())),
+                retrieverContext)
             .toList();
 
     // Verify that only one patch is generated for the new dataset
-    assertEquals(testOutput.size(), 1, "Expected removal of previous data product for new dataset only");
+    assertEquals(
+        testOutput.size(), 1, "Expected removal of previous data product for new dataset only");
     MCPItem patchItem = testOutput.get(0);
-    assertEquals(patchItem.getUrn(), TEST_PRODUCT_URN_2, "Patch should target the old data product");
+    assertEquals(
+        patchItem.getUrn(), TEST_PRODUCT_URN_2, "Patch should target the old data product");
     GenericJsonPatch.PatchOp expectedPatchOp = new GenericJsonPatch.PatchOp();
     expectedPatchOp.setOp(PatchOperationType.REMOVE.getValue());
     expectedPatchOp.setPath(String.format("/assets/%s", DATASET_URN_2));
@@ -422,25 +427,29 @@ public class DataProductUnsetSideEffectTest {
     sameProperties.setAssets(sameAssociations);
 
     SystemAspect prevSameData = mock(SystemAspect.class);
-    when(prevData.getRecordTemplate())
-            .thenReturn(sameProperties);
+    when(prevData.getRecordTemplate()).thenReturn(sameProperties);
 
-    ChangeItemImpl noChangeItem = ChangeItemImpl.builder()
+    ChangeItemImpl noChangeItem =
+        ChangeItemImpl.builder()
             .urn(TEST_PRODUCT_URN)
             .aspectName(DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
             .changeType(ChangeType.UPSERT)
             .entitySpec(TEST_REGISTRY.getEntitySpec(DATA_PRODUCT_ENTITY_NAME))
-            .aspectSpec(TEST_REGISTRY.getEntitySpec(DATA_PRODUCT_ENTITY_NAME)
+            .aspectSpec(
+                TEST_REGISTRY
+                    .getEntitySpec(DATA_PRODUCT_ENTITY_NAME)
                     .getAspectSpec(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))
             .recordTemplate(sameProperties)
             .previousSystemAspect(prevSameData)
             .auditStamp(AuditStampUtils.createDefaultAuditStamp())
             .build(mockAspectRetriever);
 
-    List<MCPItem> noChangeOutput = test.postMCPSideEffect(
-                    List.of(MCLItemImpl.builder()
-                            .build(noChangeItem, null, null, retrieverContext.getAspectRetriever())),
-                    retrieverContext)
+    List<MCPItem> noChangeOutput =
+        test.postMCPSideEffect(
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(noChangeItem, null, null, retrieverContext.getAspectRetriever())),
+                retrieverContext)
             .toList();
 
     // Verify no patches are generated when there are no new additions
