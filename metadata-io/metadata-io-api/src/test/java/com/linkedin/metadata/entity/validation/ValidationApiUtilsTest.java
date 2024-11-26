@@ -89,7 +89,24 @@ public class ValidationApiUtilsTest {
 
   @Test(expectedExceptions = NullPointerException.class)
   public void testUrnNull() {
-    // Act
     ValidationApiUtils.validateUrn(entityRegistry, null);
+  }
+
+  @Test
+  public void testValidPartialUrlEncode() {
+    Urn validUrn = UrnUtils.getUrn("urn:li:assertion:123=-%28__% weekly__%29");
+
+    ValidationApiUtils.validateUrn(entityRegistry, validUrn);
+    // If no exception is thrown, test passes
+  }
+
+  @Test
+  public void testValidPartialUrlEncode2() {
+    Urn validUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:s3,urn:li:dataset:%28urn:li:dataPlatform:s3%2Ctest-datalake-concepts%prog_maintenance%2CPROD%29,PROD)");
+
+    ValidationApiUtils.validateUrn(entityRegistry, validUrn);
+    // If no exception is thrown, test passes
   }
 }
