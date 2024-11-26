@@ -235,9 +235,16 @@ class DremioSQLQueries:
             TABLE_NAME ASC
             """
 
+    # Dremio Documentation: https://docs.dremio.com/current/reference/sql/system-tables/jobs_recent/
+    # queried_datasets incorrectly documented as [varchar]. Observed as varchar.
+    # LENGTH used as opposed to ARRAY_SIZE
     QUERY_ALL_JOBS = """
     SELECT
-        *
+        job_id,
+        user_name,
+        submitted_ts,
+        query,
+        queried_datasets
     FROM
         SYS.JOBS_RECENT
     WHERE
@@ -247,14 +254,20 @@ class DremioSQLQueries:
         AND query_type not like '%INTERNAL%'
     """
 
+    # Dremio Documentation: https://docs.dremio.com/cloud/reference/sql/system-tables/jobs-historical
+    # queried_datasets correctly documented as [varchar]
     QUERY_ALL_JOBS_CLOUD = """
         SELECT
-            *
+            job_id,
+            user_name,
+            submitted_ts,
+            query,
+            CONCAT('[', ARRAY_TO_STRING(queried_datasets, ','), ']') as queried_datasets
         FROM
-            SYS.PROJECT.HISTORY.JOBS
+            sys.project.history.jobs
         WHERE
             STATUS = 'COMPLETED'
-            AND LENGTH(queried_datasets)>0
+            AND ARRAY_SIZE(queried_datasets)>0
             AND user_name != '$dremio$'
             AND query_type not like '%INTERNAL%'
         """

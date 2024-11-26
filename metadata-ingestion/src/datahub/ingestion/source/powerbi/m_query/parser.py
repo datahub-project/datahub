@@ -37,15 +37,19 @@ def get_lark_parser() -> Lark:
     return Lark(grammar, start="let_expression", regex=True)
 
 
-def _parse_expression(expression: str) -> Tree:
+def _parse_expression(expression: str, parse_timeout: int = 60) -> Tree:
     lark_parser: Lark = get_lark_parser()
 
     # Replace U+00a0 NO-BREAK SPACE with a normal space.
     # Sometimes PowerBI returns expressions with this character and it breaks the parser.
     expression = expression.replace("\u00a0", " ")
 
+    # Parser resolves the variable=null value to variable='', and in the Tree we get empty string
+    # to distinguish between an empty and null set =null to ="null"
+    expression = expression.replace("=null", '="null"')
+
     logger.debug(f"Parsing expression = {expression}")
-    with threading_timeout(_M_QUERY_PARSE_TIMEOUT):
+    with threading_timeout(parse_timeout):
         parse_tree: Tree = lark_parser.parse(expression)
 
     if TRACE_POWERBI_MQUERY_PARSER:
@@ -62,7 +66,6 @@ def get_upstream_tables(
     config: PowerBiDashboardSourceConfig,
     parameters: Dict[str, str] = {},
 ) -> List[resolver.Lineage]:
-
     if table.expression is None:
         logger.debug(f"There is no M-Query expression in table {table.full_name}")
         return []
@@ -74,30 +77,33 @@ def get_upstream_tables(
     )
 
     try:
-        with reporter.m_query_parse_timer:
-            reporter.m_query_parse_attempts += 1
-            parse_tree: Tree = _parse_expression(table.expression)
-
         valid, message = validator.validate_parse_tree(
-            parse_tree, native_query_enabled=config.native_query_parsing
+            table.expression, native_query_enabled=config.native_query_parsing
         )
         if valid is False:
             assert message is not None
             logger.debug(f"Validation failed: {message}")
             reporter.info(
-                title="Unsupported M-Query",
-                message="DataAccess function is not present in M-Query expression",
+                title="Non-Data Platform Expression",
+                message=message,
                 context=f"table-full-name={table.full_name}, expression={table.expression}, message={message}",
             )
             reporter.m_query_parse_validation_errors += 1
             return []
+
+        with reporter.m_query_parse_timer:
+            reporter.m_query_parse_attempts += 1
+            parse_tree: Tree = _parse_expression(
+                table.expression, parse_timeout=config.m_query_parse_timeout
+            )
+
     except KeyboardInterrupt:
         raise
     except TimeoutException:
         reporter.m_query_parse_timeouts += 1
         reporter.warning(
             title="M-Query Parsing Timeout",
-            message=f"M-Query parsing timed out after {_M_QUERY_PARSE_TIMEOUT} seconds. Lineage for this table will not be extracted.",
+            message=f"M-Query parsing timed out after {config.m_query_parse_timeout} seconds. Lineage for this table will not be extracted.",
             context=f"table-full-name={table.full_name}, expression={table.expression}",
         )
         return []
@@ -112,7 +118,7 @@ def get_upstream_tables(
             reporter.m_query_parse_unknown_errors += 1
 
         reporter.warning(
-            title="Unable to extract lineage from M-Query expression",
+            title="Unable to parse M-Query expression",
             message=f"Got an '{error_type}' while parsing the expression. Lineage will be missing for this table.",
             context=f"table-full-name={table.full_name}, expression={table.expression}",
             exc=e,
@@ -132,6 +138,10 @@ def get_upstream_tables(
             platform_instance_resolver=platform_instance_resolver,
         )
 
+        if lineage:
+            reporter.m_query_resolver_successes += 1
+        else:
+            reporter.m_query_resolver_no_lineage += 1
         return lineage
 
     except BaseException as e:

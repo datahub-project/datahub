@@ -7,7 +7,6 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
     InstanceRunResult,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -43,7 +42,6 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
 )
-from datahub.metadata.schema_classes import StatusClass
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
@@ -280,15 +278,6 @@ class FivetranSource(StatefulIngestionSourceBase):
         datajob = self._generate_datajob_from_connector(connector)
         for mcp in datajob.generate_mcp(materialize_iolets=False):
             yield mcp.as_workunit()
-
-        # Materialize the upstream referenced datasets.
-        # We assume that the downstreams are materialized by other ingestion sources.
-        for iolet in datajob.inlets:
-            # We don't want these to be tracked by stateful ingestion.
-            yield MetadataChangeProposalWrapper(
-                entityUrn=str(iolet),
-                aspect=StatusClass(removed=False),
-            ).as_workunit(is_primary_source=False)
 
         # Map Fivetran's job/sync history entity with Datahub's data process entity
         if len(connector.jobs) >= MAX_JOBS_PER_CONNECTOR:

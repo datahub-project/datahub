@@ -11,6 +11,7 @@ import static com.linkedin.metadata.authorization.ApiGroup.TIMESERIES;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.operations.OperationsResource.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.utils.CriterionUtils.validateAndConvert;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -36,7 +37,6 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.internal.server.methods.AnyRecord;
@@ -124,6 +124,11 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
   @VisibleForTesting
   void setSystemOperationContext(OperationContext systemOperationContext) {
       this.systemOperationContext = systemOperationContext;
+  }
+
+  @VisibleForTesting
+  void setEntitySearchService(EntitySearchService entitySearchService) {
+    this.entitySearchService = entitySearchService;
   }
 
   /**
@@ -230,7 +235,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                       startTimeMillis,
                       endTimeMillis,
                       limit,
-                      filter,
+                      validateAndConvert(filter),
                       sort)));
           return response;
         },
@@ -320,15 +325,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
 
         List<IngestResult> results =
                 _entityService.ingestProposal(opContext, batch, asyncBool);
-
-            for (IngestResult result : results) {
-                // Update runIds, only works for existing documents, so ES document must exist
-                Urn resultUrn = result.getUrn();
-
-                if (resultUrn != null && (result.isProcessedMCL() || result.isUpdate())) {
-                    tryIndexRunId(opContext, resultUrn, result.getRequest().getSystemMetadata(), entitySearchService);
-                }
-            }
+        entitySearchService.appendRunId(opContext, results);
 
             // TODO: We don't actually use this return value anywhere. Maybe we should just stop returning it altogether?
             return RESTLI_SUCCESS;
@@ -396,15 +393,5 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
               aspectName, urn, urnLike, start, batchSize, limit, gePitEpochMs, lePitEpochMs, _authorizer, _entityService);
         },
         MetricRegistry.name(this.getClass(), "restoreIndices"));
-  }
-
-  private static void tryIndexRunId(
-          @Nonnull final OperationContext opContext,
-      final Urn urn,
-      final @Nullable SystemMetadata systemMetadata,
-      final EntitySearchService entitySearchService) {
-    if (systemMetadata != null && systemMetadata.hasRunId()) {
-      entitySearchService.appendRunId(opContext, urn.getEntityType(), urn, systemMetadata.getRunId());
-    }
   }
 }
