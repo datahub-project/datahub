@@ -130,7 +130,8 @@ docker {
     buildArgs(dockerBuildArgs)
 }
 tasks.getByName('dockerPrepare').dependsOn(['install',
-                                            ':docker:datahub-ingestion:docker'])
+                                            ':docker:datahub-ingestion:docker',
+                                            ':metadata-ingestion-modules:acryl-cloud:codegen'])
 
 task cleanLocalDockerImages {
     doLast {
