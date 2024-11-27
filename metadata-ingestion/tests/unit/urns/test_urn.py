@@ -42,16 +42,19 @@ def test_url_encode_urn() -> None:
 
 def test_invalid_urn() -> None:
     with pytest.raises(InvalidUrnError):
-        Urn.create_from_string("urn:li:abc")
+        Urn.from_string("urn:li:abc")
 
     with pytest.raises(InvalidUrnError):
-        Urn.create_from_string("urn:li:abc:")
+        Urn.from_string("urn:li:abc:")
 
     with pytest.raises(InvalidUrnError):
-        Urn.create_from_string("urn:li:abc:()")
+        Urn.from_string("urn:li:abc:()")
 
     with pytest.raises(InvalidUrnError):
-        Urn.create_from_string("urn:li:abc:(abc,)")
+        Urn.from_string("urn:li:abc:(abc,)")
+
+    with pytest.raises(InvalidUrnError):
+        Urn.from_string("urn:li:corpuser:abc)")
 
 
 def test_urn_colon() -> None:
@@ -73,6 +76,13 @@ def test_urn_colon() -> None:
     assert isinstance(urn, CorpUserUrn)
     assert urn.username == ":"
     assert urn == CorpUserUrn(":")
+
+
+def test_urn_coercion() -> None:
+    urn = CorpUserUrn("foo␟bar")
+    assert urn.urn() == "urn:li:corpuser:foo%E2%90%9Fbar"
+
+    assert urn == Urn.from_string(urn.urn())
 
 
 def test_urn_type_dispatch() -> None:
