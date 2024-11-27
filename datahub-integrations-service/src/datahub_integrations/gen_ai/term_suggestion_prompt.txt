@@ -12,7 +12,7 @@ A dictionary of available glossary terms. Each term has a unique identifier and 
   - name: Name of the parent node
   - description: Description of the parent node
 
-{glossary_terms_info}
+Glossary Term Info: {glossary_terms_info}
 
 Example:
 {{
@@ -32,7 +32,7 @@ A dictionary describing the table:
 - name: Name of the table
 - description: Description of the table
 
-{table_info}
+Table Info : {table_info}
 
 1.3 Column Information
 A dictionary describing each column in the table:
@@ -41,7 +41,7 @@ A dictionary describing each column in the table:
 - sample_values: Sample values of the column
 - datatype: Data type of the column
 
-{column_info}
+Column Info : {column_info}
 
 2. Output Format
 
@@ -53,13 +53,21 @@ Your output should be a JSON object with the following structure:
   ...
 }}
 
+3. Confidence Score Guidelines
+
+- 10: Perfect match, term directly describes the column/table :  example "urn": "urn:li:glossaryTerm:id_government" = "name": "Government ID",
+- 8-9: Strong match, term is highly relevant : example "urn": "urn:li:glossaryTerm:id_gov" = "name": "Government ID"
+- 5-7: Moderate match, term is related but not perfectly aligned to provide absolute certainty :"urn": "urn:li:glossaryTerm:login_history_timestamp" = "name": "Login_history" (  atleast 1 substantiated assumption is required to make this match. )
+- 1-4: Weak match, term is tangentially related Example : "urn": "urn:li:glossaryTerm:login_history" = "name": "timestamp" (  atleast 1 unsubstantiated assumption is required to make this match. )  
+
+
 Each assigned glossary term should be an object with:
 - urn: Unique identifier of the glossary term
 - name: Name of the glossary term
-- reasoning: Brief explanation of term relevance in less than 15 words. 
-- confidence_score: Float from 1 to 10 (10 = perfect match)
+- reasoning: Selection reasoning max 15 words + confidence reason max 20 words. Confidence reasoning is why did you decide to assign the score below instead of higher or lower
+- confidence_score: Float from 1 to 10 (10 = perfect match). See confidence score guideline above before assigning.
 
-3. Instructions
+4. Instructions
 
 - When assigning terms, compare the term name and description with the column information to ensure a proper match.
 - Assign only glossary terms from the provided list.
@@ -71,305 +79,5 @@ Each assigned glossary term should be an object with:
 - For partial matches or ambiguous cases, use a lower confidence score and explain the partial match in the reasoning.
 - In case of overlapping terms, assign the most specific or relevant term and explain the choice in the reasoning.
 
-4. Confidence Score Guidelines
-
-- 10: Perfect match, term directly describes the column/table
-- 7-9: Strong match, term is highly relevant
-- 4-6: Moderate match, term is related but not perfectly aligned
-- 1-3: Weak match, term is tangentially related
-
-5. Following are few examples of column name and assigned terms for reference. It is in JSON format, where key is a column name and value is the list possible terms that can be assigned with higher confidence
-
-{{
-  "table": [],
-  "case_number": [
-    {{
-      "urn": "urn:li:glossaryTerm:id_number_gov",
-      "name": "Government ID",
-      "confidence_score": 10
-    }}
-  ],
-  "location_id": [
-    {{
-      "urn": "urn:li:glossaryTerm:latlong-precise",
-      "name": "Geo Location - Precise",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:geo_location",
-      "name": "Geolocation",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:latlong_coarse",
-      "name": "Geo Location - Coarse",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:address",
-      "name": "Address",
-      "confidence_score": 10
-    }}
-  ],
-  "user_agent": [
-    {{
-      "urn": "urn:li:glossaryTerm:username",
-      "name": "Username",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:id_user",
-      "name": "User ID",
-      "confidence_score": 10
-    }}
-  ],
-  "other_party_id": [
-    {{
-      "urn": "urn:li:glossaryTerm:id_user",
-      "name": "User ID",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:id_member",
-      "name": "Member ID",
-      "confidence_score": 10
-    }}
-  ],
-  "review_request_member_id": [
-    {{
-      "urn": "urn:li:glossaryTerm:id_member",
-      "name": "Member ID",
-      "confidence_score": 10
-    }}
-  ],
-  "parent_member_id": [
-    {{
-      "urn": "urn:li:glossaryTerm:id_member",
-      "name": "Member ID",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:id_user",
-      "name": "User ID",
-      "confidence_score": 10
-    }}
-  ],
-  "quizlet_id": [
-    {{
-      "urn": "urn:li:glossaryTerm:id_user",
-      "name": "User ID",
-      "confidence_score": 10
-    }}
-  ],
-  "middle_name_provided": [
-    {{
-      "urn": "urn:li:glossaryTerm:name_middle",
-      "name": "Middle Name",
-      "confidence_score": 10
-    }}
-  ],
-  "resume_source": [
-    {{
-      "urn": "urn:li:glossaryTerm:id_user",
-      "name": "User ID",
-      "confidence_score": 10
-    }}
-  ],
-  "destination": [
-    {{
-      "urn": "urn:li:glossaryTerm:address",
-      "name": "Address",
-      "confidence_score": 10
-    }}
-  ],
-  "miles_from_zipcode": [
-    {{
-      "urn": "urn:li:glossaryTerm:address_zipcode",
-      "name": "Zip Code",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:address",
-      "name": "Address",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:latlong_coarse",
-      "name": "Geo Location - Coarse",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:geo_location",
-      "name": "Geolocation",
-      "confidence_score": 10
-    }}
-  ],
-  "referrer_id": [
-    {{
-      "urn": "urn:li:glossaryTerm:id_user",
-      "name": "User ID",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:id_member",
-      "name": "Member ID",
-      "confidence_score": 10
-    }}
-  ],
-  "visitor_id": [
-    {{
-      "urn": "urn:li:glossaryTerm:id_user",
-      "name": "User ID",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:id_member",
-      "name": "Member ID",
-      "confidence_score": 10
-    }}
-  ],
-  "csr_id": [
-    {{
-      "urn": "urn:li:glossaryTerm:id_user",
-      "name": "User ID",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:id_member",
-      "name": "Member ID",
-      "confidence_score": 10
-    }}
-  ],
-  "site": [
-    {{
-      "urn": "urn:li:glossaryTerm:address",
-      "name": "Address",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:latlong-precise",
-      "name": "Geo Location - Precise",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:latlong_coarse",
-      "name": "Geo Location - Coarse",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:geo_location",
-      "name": "Geolocation",
-      "confidence_score": 10
-    }}
-  ],
-  "name": [
-    {{
-      "urn": "urn:li:glossaryTerm:name_fullname",
-      "name": "Full Name",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:person_name",
-      "name": "Person Name",
-      "confidence_score": 10
-    }}
-  ],
-  "page_image": [
-    {{
-      "urn": "urn:li:glossaryTerm:photo_personal",
-      "name": "Personal Photo",
-      "confidence_score": 10
-    }}
-  ],
-  "page_action_image": [
-    {{
-      "urn": "urn:li:glossaryTerm:photo_personal",
-      "name": "Personal Photo",
-      "confidence_score": 10
-    }}
-  ],
-  "miles_from_zip_code": [
-    {{
-      "urn": "urn:li:glossaryTerm:address_zipcode",
-      "name": "Zip Code",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:address",
-      "name": "Address",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:latlong-precise",
-      "name": "Geo Location - Precise",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:latlong_coarse",
-      "name": "Geo Location - Coarse",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:geo_location",
-      "name": "Geolocation",
-      "confidence_score": 10
-    }}
-  ],
-  "hourly_rate": [
-    {{
-      "urn": "urn:li:glossaryTerm:income",
-      "name": "Income",
-      "confidence_score": 10
-    }}
-  ],
-  "non_smoker": [
-    {{
-      "urn": "urn:li:glossaryTerm:health_info",
-      "name": "Health Information",
-      "confidence_score": 10
-    }}
-  ],
-  "has_video": [
-    {{
-      "urn": "urn:li:glossaryTerm:photo_personal",
-      "name": "Personal Photo",
-      "confidence_score": 10
-    }}
-  ],
-  "created_by": [
-    {{
-      "urn": "urn:li:glossaryTerm:username",
-      "name": "Username",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:id_user",
-      "name": "User ID",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:id_member",
-      "name": "Member ID",
-      "confidence_score": 10
-    }}
-  ],
-  "updated_by": [
-    {{
-      "urn": "urn:li:glossaryTerm:username",
-      "name": "Username",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:id_user",
-      "name": "User ID",
-      "confidence_score": 10
-    }},
-    {{
-      "urn": "urn:li:glossaryTerm:id_member",
-      "name": "Member ID",
-      "confidence_score": 10
-    }}
-  ]
-}}
 
 Remember to adhere strictly to the provided glossary terms and format in your response.

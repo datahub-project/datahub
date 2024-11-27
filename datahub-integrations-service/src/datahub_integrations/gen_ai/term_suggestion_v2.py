@@ -1,10 +1,10 @@
 import ast
-import math
 import os
 import pathlib
 import re
 from typing import Dict, List, Tuple
 
+import more_itertools
 from datahub.ingestion.graph.client import DataHubGraph
 from loguru import logger
 from pydantic import BaseModel, Field, ValidationError, parse_obj_as
@@ -25,11 +25,18 @@ TERM_SUGGESTION_GENERATION_MODEL: BedrockModel = parse_obj_as(
 )
 
 # Suggestions with a confidence score strictly below this should be filtered out.
-TERM_SUGGESTION_CONFIDENCE_THRESHOLD: float = 8.0
-COLUMN_SPLIT_LENGTH = 30
+TERM_SUGGESTION_CONFIDENCE_THRESHOLD = 8.0
 
-_USE_REFLECTION = False
-_REFLECTION_PROMPT_PATH = pathlib.Path(__file__).parent / "reflection_prompt.txt"
+# The maximum number of columns to include in a single prompt.
+# If there's more columns than this, we split it across multiple prompts.
+COLUMN_SPLIT_LENGTH = 40
+
+# The maximum number of glossary terms to include in a single prompt.
+# If there's more glossary terms than this, we split it across multiple prompts.
+NUM_GLOSSARY_TERMS_IN_BATCH = 12
+
+_USE_EXTRACTION = False
+_EXTRACTION_PROMPT_PATH = pathlib.Path(__file__).parent / "extraction_prompt.txt"
 _PROMPT_PATH = pathlib.Path(__file__).parent / "term_suggestion_prompt.txt"
 _TABLE_INFO_FOR_PROMPT = ["name", "description"]
 _COLUMN_INFO_FOR_PROMPT = [
@@ -85,30 +92,6 @@ def parse_llm_output(
         return None, None
 
 
-def parse_llm_reflection_output(
-    text: str,
-) -> Dict[str, List[TermSuggestionBundle]] | None:
-    match = re.search(r"\{[\s\S]*\}", text, re.DOTALL)
-    if match:
-        dict_str = match.group(0)
-        dict_str_cleaned = dict_str.strip()
-        dict_str_cleaned = re.sub("(?<=[a-z])'(?=[a-z])", "\\'", dict_str_cleaned)
-        try:
-            extracted_dict: dict = ast.literal_eval(dict_str_cleaned)
-            parsed_extracted_dict: Dict[str, List[TermSuggestionBundle]] = {
-                key: parse_terms_list_obj(value)
-                for key, value in extracted_dict.items()
-            }
-            # table_terms = parsed_extracted_dict.pop("table", None)
-            return parsed_extracted_dict
-        except (SyntaxError, ValueError) as e:
-            logger.info(f"Error evaluating dictionary: {e}")  # . Text: {text}")
-            return None
-    else:
-        logger.info("No dictionary found in the text.")
-        return None
-
-
 def label_fake_column_terms(
     column_terms: Dict[str, List[TermSuggestionBundle]] | None,
     all_terms: List[str],
@@ -127,11 +110,21 @@ def label_fake_column_terms(
     return column_terms
 
 
+def generate_extraction_prompt(
+    raw_llm_response: str,
+) -> str:
+    prompt_template = _EXTRACTION_PROMPT_PATH.read_text()
+    prompt = prompt_template.format(
+        raw_llm_response=raw_llm_response,
+    )
+    return prompt
+
+
 def generate_prompt(
     table_info: dict,
     column_info: dict,
     glossary_info: GlossaryInfo,
-    prompt_path: str | None,
+    prompt_path: str | None | pathlib.Path,
 ) -> str:
     if prompt_path is not None:
         logger.info(f"Reading prompt from {prompt_path}")
@@ -148,18 +141,8 @@ def generate_prompt(
     return prompt
 
 
-def split_columns_list(columns: list[str], limit: int) -> list[list[str]]:
-    column_count = len(columns)
-    if column_count <= limit:
-        return [columns]
-    else:
-        num_parts = math.ceil(len(columns) / limit)  # Calculate the number of parts
-        part_size = math.ceil(len(columns) / num_parts)  # Calculate ideal part size
-        # num_parts = -(-column_count // limit)
-    column_splits = [
-        columns[(i * part_size) : ((i + 1) * part_size)] for i in range(num_parts)
-    ]
-    return column_splits
+def split_list_in_equal_parts(columns: list[str], limit: int) -> list[list[str]]:
+    return list(more_itertools.chunked_even(columns, limit))
 
 
 def filter_table_information(table_info: dict, column_info: dict) -> tuple[dict, dict]:
@@ -182,20 +165,17 @@ def filter_table_information(table_info: dict, column_info: dict) -> tuple[dict,
     return table_info_filtered, column_info_filtered
 
 
-def generate_reflection_prompt(
-    preassigned_glossary_terms: Dict[str, List[TermSuggestionBundle]],
-    column_info: dict,
-    table_info: dict,
-    glossary_info: GlossaryInfo,
-) -> str:
-    prompt_template = _REFLECTION_PROMPT_PATH.read_text()
-    prompt = prompt_template.format(
-        preassigned_glossary_terms=preassigned_glossary_terms,
-        table_info=table_info,
-        column_info=column_info,
-        glossary_info=glossary_info.glossary,
+def get_terms_splits(glossary_info: GlossaryInfo) -> list[GlossaryInfo]:
+    glossary_term_urns = list(glossary_info.glossary.keys())
+    glossary_term_splits = split_list_in_equal_parts(
+        glossary_term_urns, limit=NUM_GLOSSARY_TERMS_IN_BATCH
     )
-    return prompt
+    glossary_batches = []
+    for glossary_term_split in glossary_term_splits:
+        glossary_batches.append(
+            GlossaryInfo({k: glossary_info.glossary[k] for k in glossary_term_split})
+        )
+    return glossary_batches
 
 
 def get_term_recommendations_for_column_splits(
@@ -203,7 +183,7 @@ def get_term_recommendations_for_column_splits(
     table_info: dict,
     column_info: dict,
     glossary_info: GlossaryInfo,
-    prompt_path: str | None,
+    prompt_path: str | None | pathlib.Path,
 ) -> tuple[
     List[TermSuggestionBundle] | None, Dict[str, List[TermSuggestionBundle]] | None, str
 ]:
@@ -215,45 +195,52 @@ def get_term_recommendations_for_column_splits(
         column_split_info = {
             key: value for key, value in column_info.items() if key in column_split
         }
-        prompt = generate_prompt(
-            table_info,
-            column_split_info,
-            glossary_info=glossary_info,
-            prompt_path=prompt_path,
-        )
-        raw_llm_response_for_column_split = call_bedrock_llm(
-            prompt, model=TERM_SUGGESTION_GENERATION_MODEL, max_tokens=5000
-        )
-        table_terms, column_split_terms = parse_llm_output(
-            raw_llm_response_for_column_split
-        )
 
-        if column_split_terms and _USE_REFLECTION:
-            reflection_prompt = generate_reflection_prompt(
-                table_info=table_info,
-                column_info=column_info,
-                glossary_info=glossary_info,
-                preassigned_glossary_terms=column_split_terms,
+        term_splits = get_terms_splits(glossary_info)
+        for term_split in term_splits:
+            prompt = generate_prompt(
+                table_info,
+                column_split_info,
+                glossary_info=term_split,
+                prompt_path=prompt_path,
             )
-            logger.debug("Running Reflection...")
-            reassessed_column_split_terms_raw = call_bedrock_llm(
-                prompt=reflection_prompt,
+            raw_llm_response_for_column_split = call_bedrock_llm(
+                prompt=prompt,
                 model=TERM_SUGGESTION_GENERATION_MODEL,
                 max_tokens=5000,
+                temperature=0.2,
             )
-            reassessed_column_split_terms = parse_llm_reflection_output(
-                reassessed_column_split_terms_raw
-            )
-            column_split_terms = reassessed_column_split_terms
 
-        if isinstance(column_split_terms, dict):
-            if isinstance(column_terms, dict):
-                column_terms.update(column_split_terms)
-            else:
-                column_terms = column_split_terms
-        raw_llm_response = (
-            f"{raw_llm_response} \n\n {raw_llm_response_for_column_split}"
-        )
+            if _USE_EXTRACTION:
+                extraction_prompt = generate_extraction_prompt(
+                    raw_llm_response=raw_llm_response_for_column_split
+                )
+                raw_llm_response_for_column_split = call_bedrock_llm(
+                    prompt=extraction_prompt,
+                    model=TERM_SUGGESTION_GENERATION_MODEL,
+                    max_tokens=5000,
+                    temperature=0.2,
+                )
+
+            table_terms, column_split_terms = parse_llm_output(
+                raw_llm_response_for_column_split
+            )
+
+            if isinstance(column_split_terms, dict):
+                if isinstance(column_terms, dict):
+                    for key, value in column_split_terms.items():
+                        if key in column_terms:
+                            column_terms[key].extend(
+                                value
+                            )  # Append values to the existing list
+                        else:
+                            column_terms[key] = value  # Create a new entry
+                    # column_terms.update(column_split_terms)
+                else:
+                    column_terms = column_split_terms
+            raw_llm_response = (
+                f"{raw_llm_response} \n\n {raw_llm_response_for_column_split}"
+            )
     return table_terms, column_terms, raw_llm_response
 
 
@@ -273,7 +260,7 @@ def get_term_recommendations(
     table_info_filtered, column_info_filtered = filter_table_information(
         table_info, column_info
     )
-    column_splits = split_columns_list(
+    column_splits = split_list_in_equal_parts(
         list(column_info_filtered.keys()), limit=COLUMN_SPLIT_LENGTH
     )
     (
