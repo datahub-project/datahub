@@ -19,6 +19,7 @@ jar {
 dependencies {
   api project(':entity-registry')
   api project(':metadata-integration:java:datahub-event')
+  implementation project(':metadata-integration:java:datahub-schematron:lib')
   implementation(externalDependency.kafkaAvroSerializer) {
     exclude group: "org.apache.avro"
   }
@@ -114,7 +115,7 @@ shadowJar {
   relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
   relocate 'com.google.errorprone', 'datahub.shaded.com.google.errorprone'
   // Below jars added for kafka emitter only
-  relocate 'org.apache.avro', 'datahub.shaded.org.apache.avro'
+//  relocate 'org.apache.avro', 'datahub.shaded.org.apache.avro'
   relocate 'com.thoughtworks.paranamer', 'datahub.shaded.com.thoughtworks.paranamer'
   relocate 'org.xerial.snappy', 'datahub.shaded.org.xerial.snappy'
   relocate 'org.apache.kafka', 'datahub.shaded.org.apache.kafka'
