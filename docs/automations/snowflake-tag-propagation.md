@@ -4,6 +4,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
+> Note that this Automation in currently in open **Beta**. With any questions or issues, please reach out to your Acryl representative. 
+
 ## Introduction
 
 Snowflake Tag Propagation is an automation that allows you to sync DataHub Glossary Terms and Tags on
