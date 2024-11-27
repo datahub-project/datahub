@@ -157,7 +157,9 @@ def get_kafka_consumer(
     if CallableConsumerConfig.is_callable_config(connection.consumer_config):
         # As per documentation, we need to explicitly call the poll method to make sure OAuth callback gets executed
         # https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration
+        logger.debug("Initiating polling for kafka consumer")
         consumer.poll(timeout=30)
+        logger.debug("Initiated polling for kafka consumer")
 
     return consumer
 

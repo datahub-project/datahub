@@ -67,6 +67,7 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
+from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import Urn, guess_entity_type
@@ -1819,4 +1820,5 @@ def get_default_graph() -> DataHubGraph:
     graph_config = config_utils.load_client_config()
     graph = DataHubGraph(graph_config)
     graph.test_connection()
+    telemetry_instance.set_context(server=graph)
     return graph
