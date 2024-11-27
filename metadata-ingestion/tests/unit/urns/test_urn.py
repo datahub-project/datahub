@@ -1,6 +1,12 @@
 import pytest
 
-from datahub.metadata.urns import DashboardUrn, DataPlatformUrn, DatasetUrn, Urn
+from datahub.metadata.urns import (
+    CorpUserUrn,
+    DashboardUrn,
+    DataPlatformUrn,
+    DatasetUrn,
+    Urn,
+)
 from datahub.utilities.urns.error import InvalidUrnError
 
 pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
@@ -58,13 +64,19 @@ def test_urn_colon() -> None:
 
     assert DataPlatformUrn.from_string("urn:li:dataPlatform:abc:def")
     assert DatasetUrn.from_string(
-        "urn:li:dataset:(urn:li:dataPlatform:abc:def,table_name,prod)"
+        "urn:li:dataset:(urn:li:dataPlatform:abc:def,table_name,PROD)"
     )
     assert Urn.from_string("urn:li:corpuser:foo:bar@example.com")
 
+    # I'm not sure why you'd ever want this, but technically it's a valid urn.
+    urn = Urn.from_string("urn:li:corpuser::")
+    assert isinstance(urn, CorpUserUrn)
+    assert urn.username == ":"
+    assert urn == CorpUserUrn(":")
+
 
 def test_urn_type_dispatch() -> None:
-    urn = Urn.from_string("urn:li:dataset:(urn:li:dataPlatform:abc,def,prod)")
+    urn = Urn.from_string("urn:li:dataset:(urn:li:dataPlatform:abc,def,PROD)")
     assert isinstance(urn, DatasetUrn)
 
     with pytest.raises(InvalidUrnError, match="Passed an urn of type corpuser"):
