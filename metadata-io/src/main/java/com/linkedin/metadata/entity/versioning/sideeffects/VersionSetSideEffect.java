@@ -17,6 +17,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.versionset.VersionSetProperties;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -26,8 +27,8 @@ import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Side effect that enforces single data product being associated with each entity by removing any
- * previous relation when evaluation updates to Data Product Properties aspects.
+ * Side effect that updates the isLatest property for the referenced versioned entity's Version
+ * Properties aspect.
  */
 @Slf4j
 @Getter
@@ -70,7 +71,11 @@ public class VersionSetSideEffect extends MCPSideEffect {
           mclItem.getPreviousAspect(VersionSetProperties.class);
       if (previousVersionSetProperties != null) {
         Urn previousLatest = previousVersionSetProperties.getLatest();
-        if (!newLatest.equals(previousLatest)) {
+        if (!newLatest.equals(previousLatest)
+            && retrieverContext
+                .getAspectRetriever()
+                .entityExists(Collections.singleton(previousLatest))
+                .getOrDefault(previousLatest, false)) {
           EntitySpec entitySpec =
               retrieverContext
                   .getAspectRetriever()

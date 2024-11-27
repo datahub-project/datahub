@@ -469,6 +469,11 @@ public class Constants {
   public static final String VERSION_SET_ENTITY_NAME = "versionSet";
   public static final String VERSION_SET_KEY_ASPECT_NAME = "versionSetKey";
   public static final String VERSION_SET_PROPERTIES_ASPECT_NAME = "versionSetProperties";
+  
+  // Versioning related
+  public static final String INITIAL_VERSION_SORT_ID = "AAAAAAAA";
+
+  public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
 
   // Config
   public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";
