@@ -35,11 +35,18 @@ urn:li:dataset:(urn:li:dataPlatform:hdfs,PageViewEvent,EI)
 
 ## Restrictions
 
-There are a few restrictions when creating an urn:
+There are a few restrictions when creating an URN:
+
+The following characters are not allowed anywhere in the URN
 
 1. Commas are reserved character in URN fields: `,`
 2. Parentheses are reserved characters in URN fields: `(` or `)`
-3. Colons are reserved characters in URN fields: `:`
-4. Urn separator UTF-8 character `␟`
+3. URN separator UTF-8 character `␟`
+
+The following characters are allowed within an URN tuple only.
+
+1. Colons are reserved characters in URN fields: `:`
+
+Example: `urn:li:dashboard:(looker,dashboards.thelook::cohort_data_tool)`
 
 Please do not use these characters when creating or generating urns. One approach is to use URL encoding for the characters.

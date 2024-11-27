@@ -31,6 +31,7 @@ public class ValidationApiUtils {
   public static final String URN_DELIMITER_SEPARATOR = "␟";
   // https://datahubproject.io/docs/what/urn/#restrictions
   public static final Set<String> ILLEGAL_URN_COMPONENT_CHARACTERS = Set.of(":", "(", ")", ",");
+  public static final String URN_TUPLE_ALLOWED_CHARACTERS_REGEX = "[:]";
 
   /**
    * Validates a {@link RecordTemplate} and throws {@link ValidationException} if validation fails.
@@ -86,9 +87,10 @@ public class ValidationApiUtils {
           "Error: URN cannot contain " + URN_DELIMITER_SEPARATOR + " character");
     }
 
+    int totalParts = urn.getEntityKey().getParts().size();
     List<String> illegalComponents =
         urn.getEntityKey().getParts().stream()
-            .flatMap(ValidationApiUtils::processUrnPartRecursively)
+            .flatMap(part -> processUrnPartRecursively(part, totalParts))
             .filter(
                 urnPart -> ILLEGAL_URN_COMPONENT_CHARACTERS.stream().anyMatch(urnPart::contains))
             .collect(Collectors.toList());
@@ -114,15 +116,19 @@ public class ValidationApiUtils {
   }
 
   /** Recursively process URN parts with URL decoding */
-  private static Stream<String> processUrnPartRecursively(String urnPart) {
+  private static Stream<String> processUrnPartRecursively(String urnPart, int totalParts) {
     String decodedPart =
         URLDecoder.decode(URLEncodingFixer.fixURLEncoding(urnPart), StandardCharsets.UTF_8);
     if (decodedPart.startsWith("urn:li:")) {
       // Recursively process nested URN after decoding
+      int nestedParts = UrnUtils.getUrn(decodedPart).getEntityKey().getParts().size();
       return UrnUtils.getUrn(decodedPart).getEntityKey().getParts().stream()
-          .flatMap(ValidationApiUtils::processUrnPartRecursively);
+          .flatMap(part -> processUrnPartRecursively(part, nestedParts));
     }
-    return Stream.of(decodedPart);
+    if (totalParts > 1) {
+      return Stream.of(urnPart.replaceAll(URN_TUPLE_ALLOWED_CHARACTERS_REGEX, "%3A"));
+    }
+    return Stream.of(urnPart);
   }
 
   /**
