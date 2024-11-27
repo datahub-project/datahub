@@ -19,6 +19,8 @@ def test_feast_repository_ingest(pytestconfig, tmp_path, mock_time):
                 "config": {
                     "path": str(test_resources_dir / "feature_store"),
                     "environment": "PROD",
+                    "enable_tag_extraction": True,
+                    "enable_owner_extraction": True,
                     "owner_mappings": [
                         {
                             "feast_owner_name": "MOCK_OWNER",

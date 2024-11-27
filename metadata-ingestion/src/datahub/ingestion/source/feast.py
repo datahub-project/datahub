@@ -105,6 +105,15 @@ class FeastRepositorySourceConfig(ConfigModel):
     owner_mappings: Optional[List[Dict[str, str]]] = Field(
         default=None, description="Mapping of owner names to owner types"
     )
+    enable_owner_extraction: bool = Field(
+        default=False,
+        description="If this is disabled, then we NEVER try to map owners. "
+        "If this is enabled, then owner_mappings is REQUIRED to extract ownership.",
+    )
+    enable_tag_extraction: bool = Field(
+        default=False,
+        description="If this is disabled, then we NEVER try to extract tags.",
+    )
 
 
 @platform_name("Feast")
@@ -385,7 +394,8 @@ class FeastRepositorySource(Source):
 
         return MetadataWorkUnit(id=on_demand_feature_view_name, mce=mce)
 
-    # If a tag is specified in a Feast object, then the tag will be ingested into Datahub
+    # If a tag is specified in a Feast object, then the tag will be ingested into Datahub if enable_tag_extraction is
+    # True, otherwise NO tags will be ingested
     def _get_tags(self, obj: Union[Entity, FeatureView, FeastField]) -> list:
         """
         Extracts tags from the given object and returns a list of aspects.
@@ -393,16 +403,19 @@ class FeastRepositorySource(Source):
         aspects: List[Union[GlobalTagsClass]] = []
 
         # Extract tags
-        if obj.tags.get("name"):
-            tag_name = obj.tags.get("name")
-            tag_association = TagAssociationClass(tag=builder.make_tag_urn(tag_name))
-            global_tags_aspect = GlobalTagsClass(tags=[tag_association])
-            aspects.append(global_tags_aspect)
+        if self.source_config.enable_tag_extraction:
+            if obj.tags.get("name"):
+                tag_name = obj.tags.get("name")
+                tag_association = TagAssociationClass(
+                    tag=builder.make_tag_urn(tag_name)
+                )
+                global_tags_aspect = GlobalTagsClass(tags=[tag_association])
+                aspects.append(global_tags_aspect)
 
         return aspects
 
     # If an owner is specified in a Feast object, it will only be ingested into Datahub if owner_mappings is specified
-    # in FeastRepositorySourceConfig, otherwise NO owners will be ingested
+    # and enable_owner_extraction is True in FeastRepositorySourceConfig, otherwise NO owners will be ingested
     def _get_owners(self, obj: Union[Entity, FeatureView, FeastField]) -> list:
         """
         Extracts owners from the given object and returns a list of aspects.
@@ -410,13 +423,14 @@ class FeastRepositorySource(Source):
         aspects: List[Union[OwnershipClass]] = []
 
         # Extract owner
-        owner = getattr(obj, "owner", None)
-        if owner:
-            # Create owner association, skipping if None
-            owner_association = self._create_owner_association(owner)
-            if owner_association:  # Only add valid owner associations
-                owners_aspect = OwnershipClass(owners=[owner_association])
-                aspects.append(owners_aspect)
+        if self.source_config.enable_owner_extraction:
+            owner = getattr(obj, "owner", None)
+            if owner:
+                # Create owner association, skipping if None
+                owner_association = self._create_owner_association(owner)
+                if owner_association:  # Only add valid owner associations
+                    owners_aspect = OwnershipClass(owners=[owner_association])
+                    aspects.append(owners_aspect)
 
         return aspects
 
