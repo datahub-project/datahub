@@ -22,6 +22,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn,
     make_dataset_urn_with_platform_instance,
     make_domain_urn,
+    make_user_urn,
 )
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.ingestion.api.common import PipelineContext
@@ -72,6 +73,9 @@ from datahub.metadata.schema_classes import (
     ChartTypeClass,
     DashboardInfoClass,
     DatasetPropertiesClass,
+    OwnershipClass,
+    OwnerClass,
+    OwnershipTypeClass,
 )
 from datahub.utilities import config_clean
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -232,6 +236,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 graph=self.ctx.graph,
             )
         self.session = self.login()
+        self.owners_dict = self.build_preset_owner_dict()
 
     def login(self) -> requests.Session:
         login_response = requests.post(
@@ -354,6 +359,58 @@ class SupersetSource(StatefulIngestionSourceBase):
                 env=self.config.env,
             )
         raise ValueError("Could not construct dataset URN")
+    
+    def parse_owner_payload(self, payload: dict, owners_dict: dict) -> None:
+        for owner_data in payload.get("result", []):
+            email = owner_data.get("extra", {}).get("email")
+            value = owner_data.get("value")
+
+            if value and email and value not in owners_dict:
+                owners_dict[value] = email
+
+    def build_preset_owner_dict(self) -> Dict[str, str]: 
+        owners_dict = {}
+        dataset_payload = self.get_all_entity_owners("dataset")
+        chart_payload = self.get_all_entity_owners("chart")
+        dashboard_payload = self.get_all_entity_owners("dashboard")
+
+        owners_dict.update(self.parse_owner_payload(dataset_payload))
+        owners_dict.update(self.parse_owner_payload(chart_payload))
+        owners_dict.update(self.parse_owner_payload(dashboard_payload))
+        
+        return owners_dict
+    
+    def build_owners_urn_list(self, data: dict) -> List[str]:
+        owners_urn_list = []
+        for owner in data.get("owners", []):
+            owner_id = owner.get("id")
+            owner_email = self.owners_dict.get(owner_id)
+            if owner_email is not None:
+                owners_urn = make_user_urn(owner_email)
+                owners_urn_list.append(owners_urn)
+        return owners_urn_list
+    
+    def get_all_entity_owners(self, entity: str) -> Iterable[Dict]:
+        current_page = 1
+        total_owners = PAGE_SIZE
+        all_owners = []
+
+        while (current_page - 1) * PAGE_SIZE <= total_owners:
+            full_owners_response = self.session.get(
+                f"{self.config.connect_uri}/api/v1/{entity}/related/owners",
+                params=f"q=(page:{current_page},page_size:{PAGE_SIZE})",
+            )
+            if full_owners_response.status_code != 200:
+                logger.warning(f"Failed to get {entity} data: {full_owners_response.text}")
+            full_owners_response.raise_for_status()
+
+            payload = full_owners_response.json()
+            total_owners = payload.get("count", total_owners)
+            all_owners.extend(payload.get("result", []))
+            current_page += 1
+        
+        #return combined payload
+        return {"result": all_owners, "count": total_owners}
 
     def construct_dashboard_from_api_data(
         self, dashboard_data: dict
@@ -427,6 +484,20 @@ class SupersetSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
         )
         dashboard_snapshot.aspects.append(dashboard_info)
+
+        dashboard_owners_list = self.build_owners_urn_list(dashboard_data)
+        owners_info = OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=urn,
+                    #default as Technical Owners from Preset
+                    type=OwnershipTypeClass.TECHNICAL_OWNER,
+                )
+                for urn in (dashboard_owners_list or [])
+            ],
+        )
+        dashboard_snapshot.aspects.append(owners_info)
+
         return dashboard_snapshot
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
@@ -526,6 +597,20 @@ class SupersetSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
         )
         chart_snapshot.aspects.append(chart_info)
+
+        chart_owners_list = self.build_owners_urn_list(chart_data)
+        owners_info = OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=urn,
+                    #default as Technical Owners from Preset
+                    type=OwnershipTypeClass.TECHNICAL_OWNER,
+                )
+                for urn in (chart_owners_list or [])
+            ],
+        )
+        chart_snapshot.aspects.append(owners_info)
+
         return chart_snapshot
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
@@ -615,6 +700,19 @@ class SupersetSource(StatefulIngestionSourceBase):
             ]
         )
 
+        dataset_owners_list = self.build_owners_urn_list(dataset_data)
+        owners_info = OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=urn,
+                    #default as Technical Owners from Preset
+                    type=OwnershipTypeClass.TECHNICAL_OWNER,
+                )
+                for urn in (dataset_owners_list or [])
+            ],
+        )
+        aspects_items.append(owners_info)
+        
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
             aspects=aspects_items,
