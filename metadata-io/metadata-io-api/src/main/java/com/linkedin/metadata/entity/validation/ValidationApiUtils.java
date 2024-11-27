@@ -30,8 +30,8 @@ public class ValidationApiUtils {
   // Related to BrowsePathv2
   public static final String URN_DELIMITER_SEPARATOR = "␟";
   // https://datahubproject.io/docs/what/urn/#restrictions
-  public static final Set<String> ILLEGAL_URN_COMPONENT_CHARACTERS = Set.of(":", "(", ")", ",");
-  public static final String URN_TUPLE_ALLOWED_CHARACTERS_REGEX = "[:]";
+  public static final Set<String> ILLEGAL_URN_COMPONENT_CHARACTERS = Set.of("(", ")");
+  public static final Set<String> ILLEGAL_URN_TUPLE_CHARACTERS = Set.of(",");
 
   /**
    * Validates a {@link RecordTemplate} and throws {@link ValidationException} if validation fails.
@@ -91,8 +91,6 @@ public class ValidationApiUtils {
     List<String> illegalComponents =
         urn.getEntityKey().getParts().stream()
             .flatMap(part -> processUrnPartRecursively(part, totalParts))
-            .filter(
-                urnPart -> ILLEGAL_URN_COMPONENT_CHARACTERS.stream().anyMatch(urnPart::contains))
             .collect(Collectors.toList());
 
     if (!illegalComponents.isEmpty()) {
@@ -126,9 +124,15 @@ public class ValidationApiUtils {
           .flatMap(part -> processUrnPartRecursively(part, nestedParts));
     }
     if (totalParts > 1) {
-      return Stream.of(urnPart.replaceAll(URN_TUPLE_ALLOWED_CHARACTERS_REGEX, "%3A"));
+      if (ILLEGAL_URN_TUPLE_CHARACTERS.stream().anyMatch(c -> urnPart.contains(c))) {
+        return Stream.of(urnPart);
+      }
     }
-    return Stream.of(urnPart);
+    if (ILLEGAL_URN_COMPONENT_CHARACTERS.stream().anyMatch(c -> urnPart.contains(c))) {
+      return Stream.of(urnPart);
+    }
+
+    return Stream.empty();
   }
 
   /**

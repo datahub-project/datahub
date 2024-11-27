@@ -18,10 +18,36 @@ public class ValidationApiUtilsTest {
     // If no exception is thrown, test passes
   }
 
-  @Test(expectedExceptions = IllegalArgumentException.class)
+  @Test
   public void testSimpleUrnColon() {
-    Urn invalidUrn = UrnUtils.getUrn("urn:li:corpuser:foo:bar");
-    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn, true);
+    ValidationApiUtils.validateUrn(
+        entityRegistry, UrnUtils.getUrn("urn:li:corpuser:foo:bar"), true);
+    ValidationApiUtils.validateUrn(
+        entityRegistry, UrnUtils.getUrn("urn:li:dataPlatform:abc:def"), true);
+    ValidationApiUtils.validateUrn(
+        entityRegistry, UrnUtils.getUrn("urn:li:corpuser:foo:bar@example.com"), true);
+    // If no exception is thrown, test passes
+  }
+
+  @Test
+  public void testSimpleUrnComma() {
+    ValidationApiUtils.validateUrn(entityRegistry, UrnUtils.getUrn("urn:li:corpuser:,"), true);
+    // If no exception is thrown, test passes
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testTupleUrnComma() {
+    ValidationApiUtils.validateUrn(
+        entityRegistry, UrnUtils.getUrn("urn:li:dashboard:(looker,dashboards,thelook)"), true);
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testFabricTypeCasing() {
+    // prod != PROD
+    ValidationApiUtils.validateUrn(
+        entityRegistry,
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:abc:def,table_name,prod)"),
+        true);
   }
 
   @Test
@@ -34,7 +60,7 @@ public class ValidationApiUtilsTest {
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
-  public void testUrnFabricType() {
+  public void testFabricTypeParen() {
     Urn invalidUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,/path/to/data,())");
     ValidationApiUtils.validateUrn(entityRegistry, invalidUrn, true);
   }
@@ -119,15 +145,10 @@ public class ValidationApiUtilsTest {
     // If no exception is thrown, test passes
   }
 
-  @Test(expectedExceptions = IllegalArgumentException.class)
-  public void testNoTupleColon() {
-    Urn invalidUrn = UrnUtils.getUrn("urn:li:corpuser::");
-    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn, true);
-  }
-
-  @Test(expectedExceptions = IllegalArgumentException.class)
+  @Test
   public void testNoTupleComma() {
     Urn invalidUrn = UrnUtils.getUrn("urn:li:corpuser:,");
     ValidationApiUtils.validateUrn(entityRegistry, invalidUrn, true);
+    // If no exception is thrown, test passes
   }
 }
