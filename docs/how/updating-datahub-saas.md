@@ -32,6 +32,48 @@ This is over and above updating-datahub.md file
 
 ### Environment Variables
 
+## v0.3.7
+
+### Breaking Changes
+
+- None
+
+### Potential Downtime
+
+- None
+
+### Deprecations
+
+- None
+
+### Other Notable Changes
+
+- Introduced Usage Based Search Ranking By Default
+- Introduced Compliance Forms Feature
+- Introduced Structured Properties Feature
+- Introduced Column Level Lineage View
+- Introduced AI Glossary Term Classification Automation
+- Introduced BigQuery Metadata Sync Automation
+- Introduced Support for Running Remote Automations (Remote Executor)
+
+### Environment Variables
+
+datahub-gms
+
+- `FORM_CREATION_ENABLED` (app default: true, helm default should be: true): Controls whether users can see the Create Forms flow in the UI. This is important to be enabled for Compliance Forms feature, but if customers do not want it they can disable.
+- `FORM_ANALYTICS_ENABLED` (app default: false, helm default should be: false): Controls whether users can see the "Analytics" sub-tab within the Compliance Forms page. This is disabled until we have form analytics ingestion source + UI ready for V1 (likely 1-2 releases from now). Caveat: This can be enabled for anyone who requests it explicitly. 
+- `SHOW_MANAGE_STRUCTURED_PROPERTIES` (app default: true, helm default should be: true): Controls whether the Structured Properties page is visible and accessible viat he UI. This allows users to create and update structured properties. It should be enabled by default unless folks request otherwise.
+- `SCHEMA_FIELD_CLL_ENABLED` (app default: false, helm default should be: true): Controls whether the Column-level lineage focus view is accessible via the lineage Graph. This should actually be TRUE for all customers by default, unless explicitly opted out of.
+- `SCHEMA_FIELD_LINEAGE_IGNORE_STATUS` (app default: true, helm default should be: true): Controls whether lineage ignores the schema field status aspect, reading the parent's status aspect instead.
+- `SLACK_INTEGRATIONS_SERVICE_NOTIFICATIONS_ENABLED` (app default: false, helm default should be: true): Controls whether some Slack notification types are routed to integrations service, which is responsible for decorating and adding functionality (like callbcak buttons and hooks). In practice, this uplifts the incident notifications specifically. It is already enabled for WB Games but should be enabled for everyone being changed to TRUE by default. As of v0.3.7 we should enable this for everyone, since it's been running in prod successfully for WB games for many months now. Luckily we already have these flags in helm and set for WB:
+
+      notifications:
+        slack:
+          # Enable the new sink v2 for EVERYONE
+          sinkV2: true
+          # and stateful message handling for EVERYONE
+          statefulMessagesEnabled: true
+
 ## v0.3.6
 
 ### Breaking Changes
