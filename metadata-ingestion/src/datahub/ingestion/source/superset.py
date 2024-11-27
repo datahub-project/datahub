@@ -436,7 +436,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
         return None
     
-    def parse_owner_payload(self, payload, owners_dict):
+    def parse_owner_payload(self, payload: dict, owners_dict: dict) -> None:
         for owner_data in payload.get("result", []):
             email = owner_data.get("extra", {}).get("email")
             value = owner_data.get("value")
@@ -444,19 +444,19 @@ class SupersetSource(StatefulIngestionSourceBase):
             if value and email and value not in owners_dict:
                 owners_dict[value] = email
 
-    def build_preset_owner_dict(self): 
+    def build_preset_owner_dict(self) -> Dict[str, str]: 
         owners_dict = {}
-        dataset_payload = self.get_all_dataset_owners()
-        chart_payload = self.get_all_chart_owners()
-        dashboard_payload = self.get_all_dashboard_owners()
+        dataset_payload = self.get_all_entity_owners("dataset")
+        chart_payload = self.get_all_entity_owners("chart")
+        dashboard_payload = self.get_all_entity_owners("dashboard")
 
-        self.parse_owner_payload(dataset_payload, owners_dict)
-        self.parse_owner_payload(chart_payload, owners_dict)
-        self.parse_owner_payload(dashboard_payload, owners_dict)
+        owners_dict.update(self.parse_owner_payload(dataset_payload))
+        owners_dict.update(self.parse_owner_payload(chart_payload))
+        owners_dict.update(self.parse_owner_payload(dashboard_payload))
         
         return owners_dict
     
-    def build_owners_urn_list(self, data):
+    def build_owners_urn_list(self, data: dict) -> List[str]:
         owners_urn_list = []
         for owner in data.get("owners", []):
             owner_id = owner.get("id")
@@ -465,70 +465,28 @@ class SupersetSource(StatefulIngestionSourceBase):
                 owners_urn = make_user_urn(owner_email)
                 owners_urn_list.append(owners_urn)
         return owners_urn_list
+    
+    def get_all_entity_owners(self, entity: str) -> Iterable[Dict]:
+        current_page = 1
+        total_owners = PAGE_SIZE
+        all_owners = []
 
-    def get_all_dataset_owners(self) -> Iterable[Dict]:
-        current_dataset_page = 1
-        total_dataset_owners = PAGE_SIZE
-        all_dataset_owners = []
-
-        while (current_dataset_page - 1) * PAGE_SIZE <= total_dataset_owners:
+        while (current_page - 1) * PAGE_SIZE <= total_owners:
             full_owners_response = self.session.get(
-                f"{self.config.connect_uri}/api/v1/dataset/related/owners",
-                params=f"q=(page:{current_dataset_page},page_size:{PAGE_SIZE})",
+                f"{self.config.connect_uri}/api/v1/{entity}/related/owners",
+                params=f"q=(page:{current_page},page_size:{PAGE_SIZE})",
             )
             if full_owners_response.status_code != 200:
-                logger.warning(f"Failed to get dataset data: {full_owners_response.text}")
+                logger.warning(f"Failed to get {entity} data: {full_owners_response.text}")
             full_owners_response.raise_for_status()
 
             payload = full_owners_response.json()
-            total_dataset_owners = payload.get("count", total_dataset_owners)
-            all_dataset_owners.extend(payload.get("result", []))
-            current_dataset_page += 1
+            total_owners = payload.get("count", total_owners)
+            all_owners.extend(payload.get("result", []))
+            current_page += 1
         
         #return combined payload
-        return {"result": all_dataset_owners, "count": total_dataset_owners}
-
-    def get_all_chart_owners(self) -> Iterable[Dict]:
-        current_chart_page = 1
-        total_chart_owners = PAGE_SIZE
-        all_chart_owners = []
-
-        while (current_chart_page - 1) * PAGE_SIZE <= total_chart_owners:
-            full_owners_response = self.session.get(
-                f"{self.config.connect_uri}/api/v1/chart/related/owners",
-                params=f"q=(page:{current_chart_page},page_size:{PAGE_SIZE})",
-            )
-            if full_owners_response.status_code != 200:
-                logger.warning(f"Failed to get chart data: {full_owners_response.text}")
-            full_owners_response.raise_for_status()
-
-            payload = full_owners_response.json()
-            total_chart_owners = payload.get("count", total_chart_owners)
-            all_chart_owners.extend(payload.get("result", []))
-            current_chart_page += 1
-        
-        return {"result": all_chart_owners, "count": total_chart_owners}
-    
-    def get_all_dashboard_owners(self) -> Iterable[Dict]:
-        current_dashboard_page = 1
-        total_dashboard_owners = PAGE_SIZE
-        all_dashboard_owners = []
-
-        while current_dashboard_page * PAGE_SIZE <= total_dashboard_owners:
-            full_owners_response = self.session.get(
-                f"{self.config.connect_uri}/api/v1/dashboard/related/owners",
-                params=f"q=(page:{current_dashboard_page},page_size:{PAGE_SIZE})",
-            )
-            if full_owners_response.status_code != 200:
-                logger.warning(f"Failed to get dashboard data: {full_owners_response.text}")
-            full_owners_response.raise_for_status()
-
-            payload = full_owners_response.json()
-            total_dashboard_owners = payload.get("count", total_dashboard_owners)
-            all_dashboard_owners.extend(payload.get("result", []))
-            current_dashboard_page += 1
-        
-        return {"result": all_dashboard_owners, "count": total_dashboard_owners}
+        return {"result": all_owners, "count": total_owners}
 
     def construct_dashboard_from_api_data(self, dashboard_data):
         dashboard_urn = make_dashboard_urn(
