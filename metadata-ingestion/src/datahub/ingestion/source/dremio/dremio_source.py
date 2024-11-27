@@ -123,6 +123,7 @@ class DremioSource(StatefulIngestionSourceBase):
         self.dremio_aspects = DremioAspects(
             platform=self.get_platform(),
             domain=self.config.domain,
+            ingest_owner=self.config.ingest_owner,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
             ui_url=dremio_api.ui_url,
@@ -569,11 +570,14 @@ class DremioSource(StatefulIngestionSourceBase):
             )
 
         # Add observed query
+
         self.sql_parsing_aggregator.add_observed_query(
             ObservedQuery(
                 query=query.query,
                 timestamp=query.submitted_ts,
-                user=CorpUserUrn(username=query.username),
+                user=CorpUserUrn(username=query.username)
+                if self.config.ingest_owner
+                else None,
                 default_db=self.default_db,
             )
         )
