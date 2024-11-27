@@ -118,7 +118,6 @@ class BigqueryTable(BaseTable):
     active_billable_bytes: Optional[int] = None
     long_term_billable_bytes: Optional[int] = None
     partition_info: Optional[PartitionInfo] = None
-    columns_ignore_from_profiling: List[str] = field(default_factory=list)
     external: bool = False
     constraints: List[BigqueryTableConstraint] = field(default_factory=list)
     table_type: Optional[str] = None
