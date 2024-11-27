@@ -16,3 +16,7 @@ dependencies {
   testImplementation externalDependency.lombok
   testAnnotationProcessor externalDependency.lombok
 }
+
+test {
+  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
+}
