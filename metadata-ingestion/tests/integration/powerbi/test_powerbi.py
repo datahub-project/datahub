@@ -96,7 +96,6 @@ def read_mock_data(path: Union[Path, str]) -> dict:
 def register_mock_api(
     pytestconfig: pytest.Config, request_mock: Any, override_data: Optional[dict] = None
 ) -> None:
-
     default_mock_data_path = (
         pytestconfig.rootpath
         / "tests/integration/powerbi/mock_data/default_mock_response.json"
@@ -467,7 +466,6 @@ def test_scan_all_workspaces(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
@@ -517,7 +515,6 @@ def test_extract_reports(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -1219,7 +1216,6 @@ def test_independent_datasets_extraction(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(
@@ -1323,7 +1319,6 @@ def test_cll_extraction(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(
@@ -1380,7 +1375,6 @@ def test_cll_extraction_flags(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     register_mock_api(
         pytestconfig=pytestconfig,
         request_mock=requests_mock,
@@ -1392,7 +1386,6 @@ def test_cll_extraction_flags(
     )
 
     with pytest.raises(Exception, match=pattern):
-
         Pipeline.create(
             {
                 "run_id": "powerbi-test",
@@ -1559,7 +1552,6 @@ def test_powerbi_app_ingest(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     common_app_ingest(
         pytestconfig=pytestconfig,
         requests_mock=requests_mock,
@@ -1590,7 +1582,6 @@ def test_powerbi_app_ingest_info_message(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     pipeline = common_app_ingest(
         pytestconfig=pytestconfig,
         requests_mock=requests_mock,

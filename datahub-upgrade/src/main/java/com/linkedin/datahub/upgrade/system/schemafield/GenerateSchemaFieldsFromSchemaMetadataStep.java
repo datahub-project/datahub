@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade.system.schemafield;
 
+import static com.linkedin.datahub.upgrade.system.AbstractMCLStep.LAST_URN_KEY;
 import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
@@ -61,7 +62,6 @@ import org.jetbrains.annotations.Nullable;
  */
 @Slf4j
 public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
-  private static final String LAST_URN_KEY = "lastUrn";
   private static final List<String> REQUIRED_ASPECTS =
       List.of(SCHEMA_METADATA_ASPECT_NAME, STATUS_ASPECT_NAME);
 

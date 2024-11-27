@@ -98,8 +98,7 @@ public class SpringStandardPluginConfiguration {
         AspectPluginConfig.builder()
             .enabled(true)
             .className(DataProductUnsetSideEffect.class.getName())
-            .supportedOperations(
-                List.of("CREATE", "CREATE_ENTITY", "UPSERT", "RESTATE", "DELETE", "PATCH"))
+            .supportedOperations(List.of("CREATE", "CREATE_ENTITY", "UPSERT", "RESTATE"))
             .supportedEntityAspectNames(
                 List.of(
                     AspectPluginConfig.EntityAspectName.builder()

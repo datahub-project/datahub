@@ -10,6 +10,7 @@ from typing import Iterable, List, Optional, Tuple, Union
 import more_itertools
 
 import datahub.emitter.mce_builder as builder
+import datahub.ingestion.source.powerbi.m_query.data_classes
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
@@ -42,12 +43,13 @@ from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
+    SupportedDataPlatform,
 )
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser, resolver
+from datahub.ingestion.source.powerbi.m_query import parser
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
@@ -182,7 +184,9 @@ class Mapper:
         return [schema_mcp]
 
     def make_fine_grained_lineage_class(
-        self, lineage: resolver.Lineage, dataset_urn: str
+        self,
+        lineage: datahub.ingestion.source.powerbi.m_query.data_classes.Lineage,
+        dataset_urn: str,
     ) -> List[FineGrainedLineage]:
         fine_grained_lineages: List[FineGrainedLineage] = []
 
@@ -234,7 +238,9 @@ class Mapper:
         upstream: List[UpstreamClass] = []
         cll_lineage: List[FineGrainedLineage] = []
 
-        upstream_lineage: List[resolver.Lineage] = parser.get_upstream_tables(
+        upstream_lineage: List[
+            datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+        ] = parser.get_upstream_tables(
             table=table,
             reporter=self.__reporter,
             platform_instance_resolver=self.__dataplatform_instance_resolver,
@@ -1294,7 +1300,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
     def validate_dataset_type_mapping(self):
         powerbi_data_platforms: List[str] = [
             data_platform.value.powerbi_data_platform_name
-            for data_platform in resolver.SupportedDataPlatform
+            for data_platform in SupportedDataPlatform
         ]
 
         for key in self.source_config.dataset_type_mapping.keys():
@@ -1481,7 +1487,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         # As modified_workspaces is not idempotent, hence workunit processors are run later for each workspace_id
-        # This will result in creating checkpoint for each workspace_id
+        # This will result in creating a checkpoint for each workspace_id
         if self.source_config.modified_since:
             return []  # Handle these in get_workunits_internal
         else:
@@ -1492,7 +1498,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """
-        Datahub Ingestion framework invoke this method
+        Datahub Ingestion framework invokes this method
         """
         logger.info("PowerBi plugin execution is started")
         # Validate dataset type mapping
