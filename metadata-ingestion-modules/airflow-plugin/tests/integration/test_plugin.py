@@ -8,6 +8,7 @@ import pathlib
 import random
 import signal
 import subprocess
+import textwrap
 import time
 from typing import Any, Iterator, Sequence
 
@@ -108,6 +109,48 @@ def _wait_for_dag_finish(
 
     elif dag_run["state"] != "success":
         raise NotReadyError(f"DAG has not finished yet: {dag_run['state']}")
+
+
+def _dump_dag_logs(airflow_instance: AirflowInstance, dag_id: str) -> None:
+    # Get the dag run info
+    res = airflow_instance.session.get(
+        f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns", timeout=5
+    )
+    res.raise_for_status()
+    dag_run = res.json()["dag_runs"][0]
+    dag_run_id = dag_run["dag_run_id"]
+
+    # List the tasks in the dag run
+    res = airflow_instance.session.get(
+        f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances",
+        timeout=5,
+    )
+    res.raise_for_status()
+    task_instances = res.json()["task_instances"]
+
+    # Sort tasks by start_date to maintain execution order
+    task_instances.sort(key=lambda x: x["start_date"] or "")
+
+    print(f"\nTask execution order for DAG {dag_id}:")
+    for task in task_instances:
+        task_id = task["task_id"]
+        state = task["state"]
+        try_number = task.get("try_number", 1)
+
+        task_header = f"Task: {task_id} (State: {state}; Try: {try_number})"
+
+        # Get logs for the task's latest try number
+        try:
+            res = airflow_instance.session.get(
+                f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}"
+                f"/taskInstances/{task_id}/logs/{try_number}",
+                params={"full_content": "true"},
+                timeout=5,
+            )
+            res.raise_for_status()
+            print(f"\n=== {task_header} ===\n{textwrap.indent(res.text, '    ')}")
+        except Exception as e:
+            print(f"Failed to fetch logs for {task_header}: {e}")
 
 
 @contextlib.contextmanager
@@ -376,6 +419,11 @@ def test_airflow_plugin(
 
         print("Sleeping for a few seconds to let the plugin finish...")
         time.sleep(10)
+
+        try:
+            _dump_dag_logs(airflow_instance, dag_id)
+        except Exception as e:
+            print(f"Failed to dump DAG logs: {e}")
 
     if dag_id == DAG_TO_SKIP_INGESTION:
         # Verify that no MCPs were generated.
