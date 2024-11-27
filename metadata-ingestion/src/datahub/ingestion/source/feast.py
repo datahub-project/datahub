@@ -48,7 +48,6 @@ from datahub.metadata.schema_classes import (
     MLPrimaryKeyPropertiesClass,
     OwnerClass,
     OwnershipClass,
-    OwnershipTypeClass,
     StatusClass,
     TagAssociationClass,
 )
@@ -405,7 +404,7 @@ class FeastRepositorySource(Source):
         # Extract tags
         if self.source_config.enable_tag_extraction:
             if obj.tags.get("name"):
-                tag_name = obj.tags.get("name")
+                tag_name: str = obj.tags["name"]
                 tag_association = TagAssociationClass(
                     tag=builder.make_tag_urn(tag_name)
                 )
@@ -440,17 +439,16 @@ class FeastRepositorySource(Source):
         """
         if self.source_config.owner_mappings is not None:
             for mapping in self.source_config.owner_mappings:
-                # Match the provided Feast owner name
                 if mapping["feast_owner_name"] == owner:
-                    ownership_type_class: Optional[OwnershipTypeClass] = mapping.get(
+                    ownership_type_class: str = mapping.get(
                         "datahub_ownership_type", "TECHNICAL_OWNER"
                     )
                     datahub_owner_urn = mapping.get("datahub_owner_urn")
-                    return OwnerClass(
-                        owner=datahub_owner_urn,
-                        type=ownership_type_class,
-                    )
-        # Return None if no matching mapping is found
+                    if datahub_owner_urn:
+                        return OwnerClass(
+                            owner=datahub_owner_urn,
+                            type=ownership_type_class,
+                        )
         return None
 
     @classmethod
