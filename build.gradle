@@ -350,6 +350,7 @@ allprojects {
       }
     }
   }
+
 }
 
 configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
