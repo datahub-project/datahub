@@ -45,10 +45,6 @@ jacocoTestReport {
 
 test.finalizedBy jacocoTestReport
 
-task checkShadowJar(type: Exec) {
-   commandLine 'sh', '-c', 'scripts/check_jar.sh'
-}
-
 configurations {
     provided
     implementation.extendsFrom provided
