@@ -31,6 +31,10 @@ const Container = styled.div<{ showHover: boolean; entity: GenericEntityProperti
     }
 `;
 
+const IconWrapper = styled.div`
+    padding-right: 4px;
+`;
+
 const LinkButton = styled(Link)<{ includePadding: boolean }>`
     padding: ${(props) => (props.includePadding ? '2px 4px' : '0px')};
     height: auto;
@@ -131,11 +135,13 @@ export const EntityLink = ({ entity, styles, render, displayTextStyle, onClick, 
                         </LinkButton>
                     </HoverEntityTooltip>
                     {entity?.health && showHealthIcon && (
-                        <HealthIcon
-                            urn={entity?.urn}
-                            health={entity.health}
-                            baseUrl={entityRegistry.getEntityUrl(entity.type, entity.urn)}
-                        />
+                        <IconWrapper>
+                            <HealthIcon
+                                urn={entity?.urn}
+                                health={entity.health}
+                                baseUrl={entityRegistry.getEntityUrl(entity.type, entity.urn)}
+                            />
+                        </IconWrapper>
                     )}
                 </>
             )}
