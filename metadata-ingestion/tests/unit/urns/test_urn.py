@@ -1,6 +1,6 @@
 import pytest
 
-from datahub.metadata.urns import DatasetUrn, Urn
+from datahub.metadata.urns import DashboardUrn, DataPlatformUrn, DatasetUrn, Urn
 from datahub.utilities.urns.error import InvalidUrnError
 
 pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
@@ -46,6 +46,21 @@ def test_invalid_urn() -> None:
 
     with pytest.raises(InvalidUrnError):
         Urn.create_from_string("urn:li:abc:(abc,)")
+
+
+def test_urn_colon() -> None:
+    # Colon characters are valid in urns, and should not mess up parsing.
+
+    urn = Urn.from_string(
+        "urn:li:dashboard:(looker,dashboards.thelook::customer_lookup)"
+    )
+    assert isinstance(urn, DashboardUrn)
+
+    assert DataPlatformUrn.from_string("urn:li:dataPlatform:abc:def")
+    assert DatasetUrn.from_string(
+        "urn:li:dataset:(urn:li:dataPlatform:abc:def,table_name,prod)"
+    )
+    assert Urn.from_string("urn:li:corpuser:foo:bar@example.com")
 
 
 def test_urn_type_dispatch() -> None:
