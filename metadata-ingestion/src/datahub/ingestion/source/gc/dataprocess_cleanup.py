@@ -404,7 +404,9 @@ class DataProcessCleanup:
                     try:
                         self.delete_dpi_from_datajobs(datajob_entity)
                     except Exception as e:
-                        logger.error(f"While trying to delete {datajob_entity} got {e}")
+                        self.report.failure(
+                            f"While trying to delete {datajob_entity} ", exc=e
+                        )
                 if (
                     datajob_entity.total_runs == 0
                     and self.config.delete_empty_data_jobs
