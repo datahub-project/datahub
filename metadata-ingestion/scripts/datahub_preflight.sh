@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
+echo "Not running anymore preflight script"
+exit
 #From https://stackoverflow.com/questions/4023830/how-to-compare-two-strings-in-dot-separated-version-format-in-bash
 verlte() {
   [  "$1" == "$(echo -e "$1\n$2" | sort -V | head -n1)" ]
