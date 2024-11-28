@@ -15,7 +15,7 @@ const csvConfig: SourceConfig = {
     type: 'csv-enricher',
     placeholderRecipe,
     displayName: 'CSV',
-    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/csv',
+    docsUrl: 'https://datahubproject.io/docs/generated/ingestion/sources/csv-enricher',
     logoUrl: csvLogo,
 };
 
