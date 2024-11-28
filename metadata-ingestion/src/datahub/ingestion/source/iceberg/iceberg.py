@@ -9,6 +9,7 @@ from pyiceberg.exceptions import (
     NoSuchIcebergTableError,
     NoSuchNamespaceError,
     NoSuchPropertyException,
+    NoSuchTableError,
 )
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
@@ -104,7 +105,7 @@ logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default.")
 @capability(
     SourceCapability.OWNERSHIP,
-    "Optionally enabled via configuration by specifying which Iceberg table property holds user or group ownership.",
+    "Automatically ingests ownership information from table properties based on `user_ownership_property` and `group_ownership_property`",
 )
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class IcebergSource(StatefulIngestionSourceBase):
@@ -204,11 +205,19 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
             except NoSuchIcebergTableError as e:
                 self.report.report_warning(
-                    "no-iceberg-table",
+                    "not-an-iceberg-table",
                     f"Failed to create workunit for {dataset_name}. {e}",
                 )
                 LOGGER.warning(
                     f"NoSuchIcebergTableError while processing table {dataset_path}, skipping it.",
+                )
+            except NoSuchTableError as e:
+                self.report.report_warning(
+                    "no-such-table",
+                    f"Failed to create workunit for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"NoSuchTableError while processing table {dataset_path}, skipping it.",
                 )
             except Exception as e:
                 self.report.report_failure("general", f"Failed to create workunit: {e}")
