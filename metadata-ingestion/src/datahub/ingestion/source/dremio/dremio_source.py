@@ -570,14 +570,11 @@ class DremioSource(StatefulIngestionSourceBase):
             )
 
         # Add observed query
-
         self.sql_parsing_aggregator.add_observed_query(
             ObservedQuery(
                 query=query.query,
                 timestamp=query.submitted_ts,
-                user=CorpUserUrn(username=query.username)
-                if self.config.ingest_owner
-                else None,
+                user=CorpUserUrn(username=query.username),
                 default_db=self.default_db,
             )
         )
