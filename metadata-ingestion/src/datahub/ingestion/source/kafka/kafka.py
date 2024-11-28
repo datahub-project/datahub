@@ -148,7 +148,7 @@ def get_kafka_consumer(
 ) -> confluent_kafka.Consumer:
     consumer = confluent_kafka.Consumer(
         {
-            "group.id": "test",
+            "group.id": "datahub-kafka-ingestion",
             "bootstrap.servers": connection.bootstrap,
             **connection.consumer_config,
         }
@@ -162,6 +162,25 @@ def get_kafka_consumer(
         logger.debug("Initiated polling for kafka consumer")
 
     return consumer
+
+
+def get_kafka_admin_client(
+    connection: KafkaConsumerConnectionConfig,
+) -> AdminClient:
+    client = AdminClient(
+        {
+            "group.id": "datahub-kafka-ingestion",
+            "bootstrap.servers": connection.bootstrap,
+            **connection.consumer_config,
+        }
+    )
+    if CallableConsumerConfig.is_callable_config(connection.consumer_config):
+        # As per documentation, we need to explicitly call the poll method to make sure OAuth callback gets executed
+        # https://docs.confluent.io/platform/current/clients/confluent-kafka-python/html/index.html#kafka-client-configuration
+        logger.debug("Initiating polling for kafka admin client")
+        client.poll(timeout=30)
+        logger.debug("Initiated polling for kafka admin client")
+    return client
 
 
 @dataclass
@@ -278,13 +297,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     def init_kafka_admin_client(self) -> None:
         try:
             # TODO: Do we require separate config than existing consumer_config ?
-            self.admin_client = AdminClient(
-                {
-                    "group.id": "test",
-                    "bootstrap.servers": self.source_config.connection.bootstrap,
-                    **self.source_config.connection.consumer_config,
-                }
-            )
+            self.admin_client = get_kafka_admin_client(self.source_config.connection)
         except Exception as e:
             logger.debug(e, exc_info=e)
             self.report.report_warning(
