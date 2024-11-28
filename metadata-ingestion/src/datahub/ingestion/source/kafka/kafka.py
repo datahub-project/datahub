@@ -164,7 +164,7 @@ def get_kafka_consumer(
     return consumer
 
 
-def get_kakfa_admin_client(
+def get_kafka_admin_client(
     connection: KafkaConsumerConnectionConfig,
 ) -> AdminClient:
     client = AdminClient(
