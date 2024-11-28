@@ -80,12 +80,12 @@ class PulsarSchema:
 
         schema_data = schema.get("data")
         if not schema_data:
-            logger.warning(f"Schema data is empty or None. Using default empty schema.")
+            logger.warning("Schema data is empty or None. Using default empty schema.")
             schema_data = "{}"
 
         try:
             avro_schema = json.loads(schema_data)
-        except JSONDecodeError as e:
+        except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON schema: {schema_data}. Error: {str(e)}")
             avro_schema = {}
 
