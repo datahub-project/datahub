@@ -22,6 +22,7 @@ public class CustomPropertiesPatchBuilder<T extends AbstractMultiFieldPatchBuild
   public CustomPropertiesPatchBuilder(T parentBuilder) {
     this.parent = parentBuilder;
     if (parentBuilder != null) {
+      // If a parent builder is provided, we use the same path operations list.
       this.operations = parentBuilder.getPathValues();
     } else {
       this.operations = new ArrayList<>();
