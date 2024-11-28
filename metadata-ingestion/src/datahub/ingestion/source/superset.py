@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Type, Union
+from typing import Any, Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
 import requests
@@ -33,6 +33,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sql.sql_types import POSTGRES_TYPES_MAP
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
@@ -58,18 +59,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    ArrayType,
-    BooleanType,
-    BytesType,
     MySqlDDL,
     NullType,
-    NumberType,
-    RecordType,
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
-    StringType,
-    TimeType,
 )
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
@@ -101,60 +95,8 @@ chart_type_from_viz_type = {
     "box_plot": ChartTypeClass.BAR,
 }
 
-SUPERSET_FIELD_TYPE_MAPPINGS: Dict[
-    str,
-    Type[
-        Union[
-            ArrayType,
-            BytesType,
-            BooleanType,
-            NumberType,
-            RecordType,
-            StringType,
-            TimeType,
-            NullType,
-        ]
-    ],
-] = {
-    "BYTES": BytesType,
-    "BOOL": BooleanType,
-    "BOOLEAN": BooleanType,
-    "DOUBLE": NumberType,
-    "DOUBLE PRECISION": NumberType,
-    "DECIMAL": NumberType,
-    "NUMERIC": NumberType,
-    "BIGNUMERIC": NumberType,
-    "BIGDECIMAL": NumberType,
-    "FLOAT64": NumberType,
-    "INT": NumberType,
-    "INT64": NumberType,
-    "SMALLINT": NumberType,
-    "INTEGER": NumberType,
-    "BIGINT": NumberType,
-    "TINYINT": NumberType,
-    "BYTEINT": NumberType,
-    "STRING": StringType,
-    "TIME": TimeType,
-    "TIMESTAMP": TimeType,
-    "DATE": TimeType,
-    "DATETIME": TimeType,
-    "GEOGRAPHY": NullType,
-    "JSON": NullType,
-    "INTERVAL": NullType,
-    "ARRAY": ArrayType,
-    "STRUCT": RecordType,
-    "CHARACTER VARYING": StringType,
-    "CHARACTER": StringType,
-    "CHAR": StringType,
-    "TIMESTAMP WITHOUT TIME ZONE": TimeType,
-    "REAL": NumberType,
-    "VARCHAR": StringType,
-    "TIMESTAMPTZ": TimeType,
-    "GEOMETRY": NullType,
-    "HLLSKETCH": NullType,
-    "TIMETZ": TimeType,
-    "VARBYTE": StringType,
-}
+# Set Mapping to Postgres by default
+SUPERSET_FIELD_TYPE_MAPPINGS = POSTGRES_TYPES_MAP
 
 platform_without_databases = ["druid"]
 
@@ -177,11 +119,6 @@ class SupersetConfig(
     )
     username: Optional[str] = Field(default=None, description="Superset username.")
     password: Optional[str] = Field(default=None, description="Superset password.")
-    api_key: Optional[str] = Field(default=None, description="Preset.io API key.")
-    api_secret: Optional[str] = Field(default=None, description="Preset.io API secret.")
-    manager_uri: Optional[str] = Field(
-        default=None, description="Preset.io API secret."
-    )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Superset Stateful Ingestion Config."
@@ -304,6 +241,30 @@ class SupersetSource(StatefulIngestionSourceBase):
         return cls(ctx, config)
 
     @lru_cache(maxsize=None)
+    def paginate_api_results(self, entity_type, page_size=100):
+        current_page = 0
+        total_items = page_size
+
+        while current_page * page_size < total_items:
+            response = self.session.get(
+                f"{self.config.connect_uri}/api/v1/{entity_type}/",
+                params={"q": f"(page:{current_page},page_size:{page_size})"},
+            )
+
+            if response.status_code != 200:
+                logger.warning(f"Failed to get {entity_type} data: {response.text}")
+                response.raise_for_status()
+
+            payload = response.json()
+            # Update total_items with the actual count from the response
+            total_items = payload.get("count", total_items)
+            # Yield each item in the result, this gets passed into the construct functions
+            for item in payload.get("result", []):
+                yield item
+
+            current_page += 1
+
+    @lru_cache(maxsize=None)
     def get_platform_from_database_id(self, database_id):
         database_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/database/{database_id}"
@@ -358,7 +319,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         if database_id and table_name:
             return make_dataset_urn(
-                platform=platform_instance,
+                platform=self.platform,
                 name=".".join(
                     name for name in [database_name, schema_name, table_name] if name
                 ),
@@ -441,36 +402,14 @@ class SupersetSource(StatefulIngestionSourceBase):
         return dashboard_snapshot
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
-        current_dashboard_page = 0
-        # we will set total dashboards to the actual number after we get the response
-        total_dashboards = PAGE_SIZE
-
-        while current_dashboard_page * PAGE_SIZE <= total_dashboards:
-            dashboard_response = self.session.get(
-                f"{self.config.connect_uri}/api/v1/dashboard/",
-                params=f"q=(page:{current_dashboard_page},page_size:{PAGE_SIZE})",
+        for dashboard_data in self.paginate_api_results("dashboard", PAGE_SIZE):
+            dashboard_snapshot = self.construct_dashboard_from_api_data(dashboard_data)
+            mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
+            yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+            yield from self._get_domain_wu(
+                title=dashboard_data.get("dashboard_title", ""),
+                entity_urn=dashboard_snapshot.urn,
             )
-            if dashboard_response.status_code != 200:
-                logger.warning(
-                    f"Failed to get dashboard data: {dashboard_response.text}"
-                )
-            dashboard_response.raise_for_status()
-
-            payload = dashboard_response.json()
-            total_dashboards = payload.get("count") or 0
-
-            current_dashboard_page += 1
-
-            for dashboard_data in payload["result"]:
-                dashboard_snapshot = self.construct_dashboard_from_api_data(
-                    dashboard_data
-                )
-                mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-                yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-                yield from self._get_domain_wu(
-                    title=dashboard_data.get("dashboard_title", ""),
-                    entity_urn=dashboard_snapshot.urn,
-                )
 
     def construct_chart_from_chart_data(self, chart_data: dict) -> ChartSnapshot:
         chart_urn = make_chart_urn(
@@ -553,37 +492,21 @@ class SupersetSource(StatefulIngestionSourceBase):
         return chart_snapshot
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
-        current_chart_page = 0
-        # we will set total charts to the actual number after we get the response
-        total_charts = PAGE_SIZE
+        for chart_data in self.paginate_api_results("chart", PAGE_SIZE):
+            chart_snapshot = self.construct_chart_from_chart_data(chart_data)
 
-        while current_chart_page * PAGE_SIZE <= total_charts:
-            chart_response = self.session.get(
-                f"{self.config.connect_uri}/api/v1/chart/",
-                params=f"q=(page:{current_chart_page},page_size:{PAGE_SIZE})",
+            mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+            yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
+            yield from self._get_domain_wu(
+                title=chart_data.get("slice_name", ""),
+                entity_urn=chart_snapshot.urn,
             )
-            if chart_response.status_code != 200:
-                logger.warning(f"Failed to get chart data: {chart_response.text}")
-            chart_response.raise_for_status()
-
-            current_chart_page += 1
-
-            payload = chart_response.json()
-            total_charts = payload["count"]
-            for chart_data in payload["result"]:
-                chart_snapshot = self.construct_chart_from_chart_data(chart_data)
-
-                mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-                yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
-                yield from self._get_domain_wu(
-                    title=chart_data.get("slice_name", ""),
-                    entity_urn=chart_snapshot.urn,
-                )
 
     def gen_schema_fields(self, column_data: List[Dict[str, str]]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
         for col in column_data:
-            data_type = SUPERSET_FIELD_TYPE_MAPPINGS.get(col.get("type", ""))
+            col_type = col.get("type", "").lower()
+            data_type = SUPERSET_FIELD_TYPE_MAPPINGS.get(col_type)
             field = SchemaField(
                 fieldPath=col.get("column_name", ""),
                 type=SchemaFieldDataType(data_type() if data_type else NullType()),
@@ -667,34 +590,14 @@ class SupersetSource(StatefulIngestionSourceBase):
         return dataset_snapshot
 
     def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
-        current_dataset_page = 0
-        total_datasets = PAGE_SIZE
-        while current_dataset_page * PAGE_SIZE <= total_datasets:
-            full_dataset_response = self.session.get(
-                f"{self.config.connect_uri}/api/v1/dataset/",
-                params=f"q=(page:{current_dataset_page},page_size:{PAGE_SIZE})",
+        for dataset_data in self.paginate_api_results("dataset", PAGE_SIZE):
+            dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
+            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+            yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+            yield from self._get_domain_wu(
+                title=dataset_data.get("table_name", ""),
+                entity_urn=dataset_snapshot.urn,
             )
-            if full_dataset_response.status_code != 200:
-                logger.warning(
-                    f"Failed to get dataset data: {full_dataset_response.text}"
-                )
-            full_dataset_response.raise_for_status()
-
-            current_dataset_page += 1
-
-            payload = full_dataset_response.json()
-            total_datasets = payload["count"]
-
-            for dataset_data in payload["result"]:
-                dataset_snapshot = self.construct_dataset_from_dataset_data(
-                    dataset_data
-                )
-                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
-                yield from self._get_domain_wu(
-                    title=dataset_data.get("table_name", ""),
-                    entity_urn=dataset_snapshot.urn,
-                )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()
