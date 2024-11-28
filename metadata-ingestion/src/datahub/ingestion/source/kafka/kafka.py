@@ -297,7 +297,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
     def init_kafka_admin_client(self) -> None:
         try:
             # TODO: Do we require separate config than existing consumer_config ?
-            self.admin_client = get_kakfa_admin_client(self.source_config.connection)
+            self.admin_client = get_kafka_admin_client(self.source_config.connection)
         except Exception as e:
             logger.debug(e, exc_info=e)
             self.report.report_warning(
