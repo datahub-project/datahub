@@ -17,10 +17,15 @@ public class CustomPropertiesPatchBuilder<T extends AbstractMultiFieldPatchBuild
   public static final String CUSTOM_PROPERTIES_BASE_PATH = "/customProperties";
 
   private final T parent;
-  private final List<ImmutableTriple<String, String, JsonNode>> operations = new ArrayList<>();
+  private final List<ImmutableTriple<String, String, JsonNode>> operations;
 
   public CustomPropertiesPatchBuilder(T parentBuilder) {
     this.parent = parentBuilder;
+    if (parentBuilder != null) {
+      this.operations = parentBuilder.getPathValues();
+    } else {
+      this.operations = new ArrayList<>();
+    }
   }
 
   /**
@@ -71,10 +76,5 @@ public class CustomPropertiesPatchBuilder<T extends AbstractMultiFieldPatchBuild
   @Override
   public T getParent() {
     return parent;
-  }
-
-  @Override
-  public List<ImmutableTriple<String, String, JsonNode>> getSubPaths() {
-    return operations;
   }
 }
