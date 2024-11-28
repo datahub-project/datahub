@@ -490,12 +490,14 @@ class TableauConfig(
 
     ingest_hidden_assets: bool = Field(
         True,
-        description="When enabled, hidden views and dashboards are ingested into Datahub. If a dashboard or view is hidden in Tableau the luid is blank. Default of this config field is True.",
+        description="When enabled, hidden views and dashboards are ingested into Datahub. "
+        "If a dashboard or view is hidden in Tableau the luid is blank. Default of this config field is True.",
     )
 
     tags_for_hidden_assets: List[str] = Field(
         default=[],
-        description="Tags to be added to hidden dashboards and views. If a dashboard or view is hidden in Tableau the luid is blank.",
+        description="Tags to be added to hidden dashboards and views. If a dashboard or view is hidden in Tableau the luid is blank. "
+        "This can only be used with ingest_tags enabled as it will overwrite tags entered from the UI.",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -521,6 +523,20 @@ class TableauConfig(
                 "project_pattern is deprecated. Please use project_path_pattern only."
             )
 
+        return values
+
+    @root_validator()
+    def validate_config_values(cls, values: Dict) -> Dict:
+        tags_for_hidden_assets = values.get("tags_for_hidden_assets")
+        ingest_tags = values.get("ingest_tags")
+        if (
+            not ingest_tags
+            and tags_for_hidden_assets
+            and len(tags_for_hidden_assets) > 0
+        ):
+            raise ValueError(
+                "tags_for_hidden_assets is only allowed with ingest_tags enabled. Be aware that this will overwrite tags entered from the UI."
+            )
         return values
 
 
@@ -610,6 +626,7 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
     num_csql_field_skipped_no_name: int = 0
     num_table_field_skipped_no_name: int = 0
     num_upstream_table_skipped_no_name: int = 0
+    num_hidden_assets_skipped: int = 0
 
 
 @platform_name("Tableau")
@@ -2268,7 +2285,7 @@ class TableauSiteSource:
         )
 
         # Tags
-        if datasource_info:
+        if datasource_info and self.config.ingest_tags:
             tags = self.get_tags(datasource_info)
             dataset_snapshot.aspects.append(
                 builder.make_global_tag_aspect_with_tag_list(tags)
@@ -2661,6 +2678,7 @@ class TableauSiteSource:
             if self.config.ingest_hidden_assets or not self._is_hidden_view(sheet):
                 yield from self.emit_sheets_as_charts(sheet, sheet.get(c.WORKBOOK))
             else:
+                self.report.num_hidden_assets_skipped += 1
                 logger.debug(
                     f"Skip view {sheet.get(c.ID)} because it's hidden (luid is blank)."
                 )
@@ -2754,13 +2772,16 @@ class TableauSiteSource:
             chart_snapshot.aspects.append(owner)
 
         #  Tags
-        tags = self.get_tags(sheet)
-        if len(self.config.tags_for_hidden_assets) > 0 and self._is_hidden_view(sheet):
-            tags.extend(self.config.tags_for_hidden_assets)
+        if self.config.ingest_tags:
+            tags = self.get_tags(sheet)
+            if len(self.config.tags_for_hidden_assets) > 0 and self._is_hidden_view(
+                sheet
+            ):
+                tags.extend(self.config.tags_for_hidden_assets)
 
-        chart_snapshot.aspects.append(
-            builder.make_global_tag_aspect_with_tag_list(tags)
-        )
+            chart_snapshot.aspects.append(
+                builder.make_global_tag_aspect_with_tag_list(tags)
+            )
 
         yield self.get_metadata_change_event(chart_snapshot)
         if sheet_external_url is not None and self.config.ingest_embed_url is True:
@@ -2843,7 +2864,7 @@ class TableauSiteSource:
             else None
         )
 
-        tags = self.get_tags(workbook)
+        tags = self.get_tags(workbook) if self.config.ingest_tags else None
 
         parent_key = None
         project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
@@ -2978,13 +2999,14 @@ class TableauSiteSource:
             if self.config.ingest_hidden_assets or not self._is_hidden_view(dashboard):
                 yield from self.emit_dashboard(dashboard, dashboard.get(c.WORKBOOK))
             else:
+                self.report.num_hidden_assets_skipped += 1
                 logger.debug(
                     f"Skip dashboard {dashboard.get(c.ID)} because it's hidden (luid is blank)."
                 )
 
     def get_tags(self, obj: dict) -> List[str]:
         tag_list = obj.get(c.TAGS, [])
-        if tag_list and self.config.ingest_tags:
+        if tag_list:
             tag_list_str = [
                 t[c.NAME] for t in tag_list if t is not None and t.get(c.NAME)
             ]
@@ -3041,15 +3063,16 @@ class TableauSiteSource:
         )
         dashboard_snapshot.aspects.append(dashboard_info_class)
 
-        tags = self.get_tags(dashboard)
-        if len(self.config.tags_for_hidden_assets) > 0 and self._is_hidden_view(
-            dashboard
-        ):
-            tags.extend(self.config.tags_for_hidden_assets)
+        if self.config.ingest_tags:
+            tags = self.get_tags(dashboard)
+            if len(self.config.tags_for_hidden_assets) > 0 and self._is_hidden_view(
+                dashboard
+            ):
+                tags.extend(self.config.tags_for_hidden_assets)
 
-        dashboard_snapshot.aspects.append(
-            builder.make_global_tag_aspect_with_tag_list(tags)
-        )
+            dashboard_snapshot.aspects.append(
+                builder.make_global_tag_aspect_with_tag_list(tags)
+            )
 
         if self.config.extract_usage_stats:
             # dashboard_snapshot doesn't support the stat aspect as list element and hence need to emit MetadataWorkUnit

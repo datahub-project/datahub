@@ -1251,6 +1251,28 @@ def test_no_hidden_assets(pytestconfig, tmp_path, mock_datahub_graph):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
+def test_ingest_tags_disabled(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_ingest_tags_disabled_mces.json"
+    golden_file_name: str = "tableau_ingest_tags_disabled_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    new_config["ingest_tags"] = False
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_tableau_ingest_tags_disabled",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
 def test_hidden_asset_tags(pytestconfig, tmp_path, mock_datahub_graph):
     enable_logging()
     output_file_name: str = "tableau_hidden_asset_tags_mces.json"
@@ -1270,6 +1292,33 @@ def test_hidden_asset_tags(pytestconfig, tmp_path, mock_datahub_graph):
         pipeline_config=new_config,
         pipeline_name="test_tableau_hidden_asset_tags_ingest",
     )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_hidden_assets_without_ingest_tags(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_hidden_asset_tags_error_mces.json"
+    golden_file_name: str = "tableau_hidden_asset_tags_error_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    new_config["tags_for_hidden_assets"] = ["hidden", "private"]
+    new_config["ingest_tags"] = False
+
+    try:
+        tableau_ingest_common(
+            pytestconfig,
+            tmp_path,
+            mock_data(),
+            golden_file_name,
+            output_file_name,
+            mock_datahub_graph,
+            pipeline_config=new_config,
+        )
+    except Exception as e:
+        assert (
+            "tags_for_hidden_assets is only allowed with ingest_tags enabled." in str(e)
+        )
 
 
 @freeze_time(FROZEN_TIME)
