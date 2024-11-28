@@ -2994,7 +2994,6 @@ class TableauSiteSource:
             c.DASHBOARDS_CONNECTION,
             dashboards_filter,
         ):
-
             if self.config.ingest_hidden_assets or not self._is_hidden_view(dashboard):
                 yield from self.emit_dashboard(dashboard, dashboard.get(c.WORKBOOK))
             else:
