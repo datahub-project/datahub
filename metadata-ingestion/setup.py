@@ -249,7 +249,8 @@ microsoft_common = {"msal>=1.24.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
-    "pyiceberg>=0.4,<0.7",
+    # Kept at 0.4.0 due to higher versions requiring pydantic>2, as soon as we are fine with it, bump this dependency
+    "pyiceberg>=0.4.0",
 }
 
 mssql_common = {
