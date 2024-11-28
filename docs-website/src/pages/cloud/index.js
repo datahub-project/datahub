@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Layout from "@theme/Layout";
 import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
@@ -10,7 +10,10 @@ import UnifiedTabs from "./UnifiedTabs";
 import FeatureCards from "./FeatureCards";
 import Hero from "./Hero";
 import DemoForm from "./DemoForm";
+import ServiceBell from "@servicebell/widget";
 import DemoFormModal from "./DemoFormModal";
+
+const SERVICE_BELL_ID = "00892146e5bc46d98d55ecc2b2fa67e2";
 
 function Home() {
   const context = useDocusaurusContext();
@@ -23,6 +26,10 @@ function Home() {
   if (siteConfig.customFields.isSaas) {
     window.location.replace("/docs");
   }
+
+  useEffect(() => {
+    ServiceBell("init", SERVICE_BELL_ID, { hidden: false });
+  }, []);
 
   return !siteConfig.customFields.isSaas ? (
     <Layout
