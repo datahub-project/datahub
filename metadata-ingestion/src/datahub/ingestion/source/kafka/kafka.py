@@ -148,7 +148,7 @@ def get_kafka_consumer(
 ) -> confluent_kafka.Consumer:
     consumer = confluent_kafka.Consumer(
         {
-            "group.id": "test",
+            "group.id": "datahub-kafka-ingestion",
             "bootstrap.servers": connection.bootstrap,
             **connection.consumer_config,
         }
@@ -169,7 +169,7 @@ def get_kafka_admin_client(
 ) -> AdminClient:
     client = AdminClient(
         {
-            "group.id": "test",
+            "group.id": "datahub-kafka-ingestion",
             "bootstrap.servers": connection.bootstrap,
             **connection.consumer_config,
         }
