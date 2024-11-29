@@ -3,6 +3,7 @@ import ContainerPath from '@app/lineageV2/LineageEntityNode/ContainerPath';
 import GhostEntityMenu from '@app/lineageV2/LineageEntityNode/GhostEntityMenu';
 import SchemaFieldNodeContents from '@app/lineageV2/LineageEntityNode/SchemaFieldNodeContents';
 import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
+import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
 import { Skeleton, Spin } from 'antd';
 import { Tooltip } from '@components';
@@ -434,6 +435,14 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                                     highlightText={searchQuery}
                                     highlightColor={highlightColor}
                                 />
+                                {entity?.deprecation?.deprecated && (
+                                    <DeprecationIcon
+                                        urn={urn}
+                                        deprecation={entity?.deprecation}
+                                        showText={false}
+                                        showUndeprecate={false}
+                                    />
+                                )}
                                 {entity?.health && (
                                     <HealthIcon
                                         urn={urn}

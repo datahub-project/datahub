@@ -198,6 +198,7 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
             type: EntityType.MlfeatureTable,
             icon: entity.platform.properties?.logoUrl || undefined,
             platform: entity.platform,
+            deprecation: entity?.deprecation,
         };
     };
 

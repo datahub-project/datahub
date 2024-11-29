@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import { Container, DataPlatform, EntityType, Post } from '../../../../../../types.generated';
-import { useEntityData } from '../../../../../entity/shared/EntityContext';
+import { useEntityData, useRefetch } from '../../../../../entity/shared/EntityContext';
 import ContextPath from '../../../../../previewV2/ContextPath';
 import HealthIcon from '../../../../../previewV2/HealthIcon';
 import NotesIcon from '../../../../../previewV2/NotesIcon';
@@ -15,6 +15,7 @@ import ContainerIcon from '../header/PlatformContent/ContainerIcon';
 import PlatformHeaderIcons from '../header/PlatformContent/PlatformHeaderIcons';
 import StructuredPropertyBadge from '../header/StructuredPropertyBadge';
 import { getDisplayedEntityType } from '../header/utils';
+import { DeprecationIcon } from '../../../components/styled/DeprecationIcon';
 
 const TitleContainer = styled(HorizontalScroller)`
     display: flex;
@@ -30,13 +31,14 @@ const EntityDetailsContainer = styled.div`
 
 const NameWrapper = styled.div`
     display: flex;
-    gap: 8px;
+    gap: 6px;
 
     font-size: 16px;
 `;
 
 const SidebarEntityHeader = () => {
     const { urn, entityType, entityData, loading } = useEntityData();
+    const refetch = useRefetch();
     const entityRegistry = useEntityRegistry();
     const entityUrl = entityRegistry.getEntityUrl(entityType, entityData?.urn as string);
 
@@ -68,6 +70,15 @@ const SidebarEntityHeader = () => {
                     <EntityName isNameEditable={false} />
                     {!!entityData?.notes?.total && (
                         <NotesIcon notes={entityData?.notes?.relationships?.map((r) => r.entity as Post) || []} />
+                    )}
+                    {entityData?.deprecation?.deprecated && (
+                        <DeprecationIcon
+                            urn={urn}
+                            deprecation={entityData?.deprecation}
+                            showUndeprecate
+                            refetch={refetch}
+                            showText={false}
+                        />
                     )}
                     {entityData?.health && <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />}
                     <StructuredPropertyBadge entityData={entityData} />

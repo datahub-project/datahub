@@ -262,7 +262,7 @@ export default function SchemaTable({
     const extractFieldGlossaryTermsInfo = useExtractFieldGlossaryTermsInfo(editableSchemaMetadata);
     const extractFieldTagsInfo = useExtractFieldTagsInfo(editableSchemaMetadata);
     const extractFieldDescription = useExtractFieldDescriptionInfo(editableSchemaMetadata);
-    const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, filterText);
+    const schemaTitleRenderer = useSchemaTitleRenderer(entityUrn, schemaMetadata, filterText);
     const schemaTypeRenderer = useSchemaTypeRenderer();
 
     const tableColumnStructuredProps = useGetTableColumnProperties();

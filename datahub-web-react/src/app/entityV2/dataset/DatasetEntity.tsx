@@ -492,6 +492,7 @@ export class DatasetEntity implements Entity<Dataset> {
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
             health: entity?.health || undefined,
+            deprecation: entity?.deprecation,
         };
     };
 

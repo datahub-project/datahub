@@ -1,33 +1,24 @@
+import React from 'react';
+import styled from 'styled-components';
 import { Popover, Tooltip } from '@components';
 import { Divider, Modal, Typography, message } from 'antd';
 import moment from 'moment';
-import React from 'react';
-import styled from 'styled-components';
+import { TooltipPlacement } from 'antd/es/tooltip';
+import DeprecatedIcon from '../../../../../images/deprecated-status.svg?react';
 import { useBatchUpdateDeprecationMutation } from '../../../../../graphql/mutations.generated';
 import { Deprecation, SubResourceType } from '../../../../../types.generated';
 import { EntityLink } from '../../../../homeV2/reference/sections/EntityLink';
 import { getV1FieldPathFromSchemaFieldUrn } from '../../../../lineageV2/lineageUtils';
-import { getLocaleTimezone } from '../../../../shared/time/timeUtils';
+import { getLocaleTimezone, toLocalDateString } from '../../../../shared/time/timeUtils';
 import { REDESIGN_COLORS } from '../../constants';
 import MarkAsDeprecatedButton from './MarkAsDeprecatedButton';
 
 const DeprecatedContainer = styled.div`
-    background-color: ${REDESIGN_COLORS.WHITE};
-    height: 22px;
-    border: 1px solid ${REDESIGN_COLORS.DEPRECATION_RED_LIGHT};
-    border-radius: 20px;
     display: flex;
     justify-content: center;
+    gap: 4px;
     align-items: center;
     color: ${REDESIGN_COLORS.DEPRECATION_RED};
-    padding: 4px 8px;
-`;
-
-const DeprecatedText = styled.div`
-    font-size: 12px;
-    text-align: center;
-    color: ${REDESIGN_COLORS.DEPRECATION_RED_LIGHT} !important;
-    border: 0.5px;
 `;
 
 const DeprecatedTitle = styled(Typography.Text)`
@@ -80,6 +71,16 @@ const IconGroup = styled.div`
     }
 `;
 
+const StyledDeprecatedIcon = styled(DeprecatedIcon)`
+    color: inherit;
+    path {
+        fill: currentColor;
+    }
+    && {
+        fill: currentColor;
+    }
+`;
+
 type Props = {
     urn: string;
     subResource?: string | null;
@@ -87,10 +88,12 @@ type Props = {
     deprecation: Deprecation;
     refetch?: () => void;
     showUndeprecate: boolean | null;
+    showText?: boolean;
     zIndexOverride?: number;
+    popoverPlacement?: TooltipPlacement;
 };
 
-export const DeprecationPill = ({
+export const DeprecationIcon = ({
     deprecation,
     urn,
     subResource,
@@ -98,6 +101,8 @@ export const DeprecationPill = ({
     refetch,
     showUndeprecate,
     zIndexOverride,
+    showText = true,
+    popoverPlacement = 'bottom',
 }: Props) => {
     const [batchUpdateDeprecationMutation] = useBatchUpdateDeprecationMutation();
     const localeTimezone = getLocaleTimezone(); // Deprecation Decommission Timestamp
@@ -113,9 +118,9 @@ export const DeprecationPill = ({
     }
     const decommissionTimeLocal =
         (decommissionTimeSeconds &&
-            `Scheduled to be decommissioned on ${moment
-                .unix(decommissionTimeSeconds)
-                .format('DD/MMM/YYYY')} (${localeTimezone})`) ||
+            `Scheduled to be decommissioned on ${toLocalDateString(
+                decommissionTimeSeconds * 1000,
+            )} (${localeTimezone})`) ||
         undefined;
     const decommissionTimeGMT =
         decommissionTimeSeconds && moment.unix(decommissionTimeSeconds).utc().format('dddd, DD/MMM/YYYY HH:mm:ss z');
@@ -148,16 +153,17 @@ export const DeprecationPill = ({
     };
 
     const isReplacementSchemaField = deprecation?.replacement?.urn?.startsWith('urn:li:schemaField');
+    const entityTypeDisplayName = subResourceType === SubResourceType.DatasetField ? 'column' : 'asset';
 
     return (
         <Popover
             overlayStyle={{ maxWidth: 240 }}
             zIndex={zIndexOverride || 999} // set to 999 to ensure it is below the 1000 mark of the entity popover if on the entity level
-            placement="bottom"
+            placement={popoverPlacement}
             content={
                 hasDetails ? (
                     <>
-                        {deprecation?.note !== '' && <DeprecatedTitle>Deprecation note</DeprecatedTitle>}
+                        <DeprecatedTitle>This {entityTypeDisplayName} is deprecated</DeprecatedTitle>
                         {isDividerNeeded && <ThinDivider />}
                         {deprecation.replacement && (
                             <DeprecatedSubTitle>
@@ -183,7 +189,7 @@ export const DeprecationPill = ({
                                 </Tooltip>
                             </Typography.Text>
                         )}
-                        {isDividerNeeded && <ThinDivider />}
+                        {isDividerNeeded && showUndeprecate ? <ThinDivider /> : null}
                         {showUndeprecate && (
                             <IconGroup
                                 onClick={() =>
@@ -210,7 +216,8 @@ export const DeprecationPill = ({
             }
         >
             <DeprecatedContainer>
-                <DeprecatedText>Deprecated</DeprecatedText>
+                <StyledDeprecatedIcon />
+                {showText ? 'Deprecated' : null}
             </DeprecatedContainer>
         </Popover>
     );

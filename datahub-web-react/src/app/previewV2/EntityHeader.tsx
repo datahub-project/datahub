@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { Deprecation, Health, Maybe } from '../../types.generated';
 import { GenericEntityProperties } from '../entity/shared/types';
 import { PreviewType } from '../entityV2/Entity';
-import { DeprecationPill } from '../entityV2/shared/components/styled/DeprecationPill';
+import { DeprecationIcon } from '../entityV2/shared/components/styled/DeprecationIcon';
 import { REDESIGN_COLORS, SEARCH_COLORS } from '../entityV2/shared/constants';
 import StructuredPropertyBadge from '../entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { getNumberWithOrdinal } from '../entityV2/shared/utils';
@@ -114,7 +114,9 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
                     <DegreeText>{getNumberWithOrdinal(degree)}</DegreeText>
                 </Tooltip>
             )}
-            {deprecation?.deprecated && <DeprecationPill urn={urn} deprecation={deprecation} showUndeprecate />}
+            {deprecation?.deprecated && (
+                <DeprecationIcon urn={urn} deprecation={deprecation} showUndeprecate showText={false} />
+            )}
             {health && <HealthIcon urn={urn} health={health} baseUrl={url} />}
             <StructuredPropertyBadge entityData={previewData} />
         </EntityTitleContainer>

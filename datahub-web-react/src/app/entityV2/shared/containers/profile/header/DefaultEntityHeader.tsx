@@ -17,7 +17,7 @@ import useContentTruncation from '../../../../../shared/useContentTruncation';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { IconStyleType } from '../../../../Entity';
 import EntityMenuActions, { EntityMenuItems } from '../../../EntityDropdown/EntityMenuActions';
-import { DeprecationPill } from '../../../components/styled/DeprecationPill';
+import { DeprecationIcon } from '../../../components/styled/DeprecationIcon';
 import EntityActions, { EntityActionItem } from '../../../entity/EntityActions';
 import { DomainColoredIcon } from '../../../links/DomainColoredIcon';
 import { EntityBackButton } from '../sidebar/EntityBackButton';
@@ -200,11 +200,12 @@ export const DefaultEntityHeader = ({
                                             />
                                         )}
                                         {entityData?.deprecation?.deprecated && (
-                                            <DeprecationPill
+                                            <DeprecationIcon
                                                 urn={urn}
                                                 deprecation={entityData?.deprecation}
                                                 showUndeprecate
                                                 refetch={refetch}
+                                                showText={false}
                                             />
                                         )}
                                         {entityData?.health && (

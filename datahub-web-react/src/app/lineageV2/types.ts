@@ -1,6 +1,7 @@
 import { GenericEntityProperties } from '@app/entity/shared/types';
 import {
     DataPlatform,
+    Deprecation,
     EntityType,
     FineGrainedLineage,
     Health,
@@ -69,4 +70,5 @@ export interface FetchedEntityV2 {
     lineageSiblingIcon?: string;
     containers?: GenericEntityProperties[];
     parent?: GenericEntityProperties; // Schema field parent
+    deprecation?: Deprecation;
 }

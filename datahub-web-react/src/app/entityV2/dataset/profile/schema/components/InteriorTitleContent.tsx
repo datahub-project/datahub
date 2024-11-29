@@ -1,9 +1,9 @@
-import { MarkAsDeprecatedButtonContents } from '@src/app/entityV2/shared/components/styled/MarkAsDeprecatedButton';
 import { Tooltip, Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
-import { SchemaMetadata } from '../../../../../../types.generated';
+import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
+import { SchemaMetadata, SubResourceType } from '../../../../../../types.generated';
 import { REDESIGN_COLORS } from '../../../../shared/constants';
 import NullableLabel, {
     ForeignKeyLabel,
@@ -49,6 +49,7 @@ const FieldPathText = styled(Typography.Text)<{ $isCompact: boolean }>`
 `;
 
 type InteriorTitleProps = {
+    parentUrn: string;
     schemaMetadata: SchemaMetadata | undefined | null;
     filterText: string;
     fieldPath: string;
@@ -57,6 +58,7 @@ type InteriorTitleProps = {
 };
 
 export const InteriorTitleContent = ({
+    parentUrn,
     schemaMetadata,
     filterText,
     fieldPath,
@@ -65,7 +67,6 @@ export const InteriorTitleContent = ({
 }: InteriorTitleProps) => {
     const fieldPathWithoutAnnotations = translateFieldPath(fieldPath);
     const parentPathWithoutAnnotations = translateFieldPath(record.parent?.fieldPath || '');
-    const isDeprecated = !!record.schemaFieldEntity?.deprecation?.deprecated;
     let pathToDisplay = fieldPathWithoutAnnotations;
 
     // if the parent path is a prefix of the field path, remove it for display purposes
@@ -84,13 +85,17 @@ export const InteriorTitleContent = ({
 
     return (
         <FieldTitleWrapper $isCompact={!!isCompact}>
-            {isDeprecated && !isCompact && (
+            {!!record.schemaFieldEntity?.deprecation?.deprecated && !isCompact && (
                 <DeprecatedContainer>
-                    <Tooltip title="This column has been deprecated.">
-                        <span>
-                            <MarkAsDeprecatedButtonContents internalText=" " />
-                        </span>
-                    </Tooltip>
+                    <DeprecationIcon
+                        urn={parentUrn}
+                        subResource={fieldPath}
+                        subResourceType={SubResourceType.DatasetField}
+                        deprecation={record.schemaFieldEntity?.deprecation}
+                        showUndeprecate={false}
+                        showText={false}
+                        popoverPlacement="right"
+                    />
                 </DeprecatedContainer>
             )}
             <FieldPathContainer>

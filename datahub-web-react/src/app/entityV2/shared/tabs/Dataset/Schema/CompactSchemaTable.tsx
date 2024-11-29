@@ -102,7 +102,7 @@ export default function CompactSchemaTable({
     const descriptionRender = useDescriptionRenderer(editableSchemaMetadata, true);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats);
 
-    const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, '', true);
+    const schemaTitleRenderer = useSchemaTitleRenderer(urn, schemaMetadata, '', true);
 
     const shortenedRows = useMemo(() => rows.slice(0, numberOfRowsToShow), [rows, numberOfRowsToShow]);
     const hasSeeMore = rows.length > numberOfRowsToShow;

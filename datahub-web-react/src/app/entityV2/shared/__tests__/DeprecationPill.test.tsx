@@ -2,7 +2,7 @@ import { MockedProvider } from '@apollo/client/testing';
 import { EntityType, SubResourceType } from '@src/types.generated';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
-import { DeprecationPill } from '../components/styled/DeprecationPill';
+import { DeprecationIcon } from '../components/styled/DeprecationIcon';
 
 describe('DeprecationPill', () => {
     const defaultProps = {
@@ -16,7 +16,7 @@ describe('DeprecationPill', () => {
     it('correctly converts v2 schema field replacement path', async () => {
         render(
             <MockedProvider>
-                <DeprecationPill
+                <DeprecationIcon
                     {...defaultProps}
                     deprecation={{
                         note: 'Deprecating this field',
@@ -41,7 +41,7 @@ describe('DeprecationPill', () => {
     it('shows note and decommission time when both present', async () => {
         render(
             <MockedProvider>
-                <DeprecationPill
+                <DeprecationIcon
                     {...defaultProps}
                     deprecation={{
                         note: 'This is deprecated',
@@ -64,7 +64,7 @@ describe('DeprecationPill', () => {
     it('shows "No additional details" when no details provided', async () => {
         render(
             <MockedProvider>
-                <DeprecationPill
+                <DeprecationIcon
                     {...defaultProps}
                     deprecation={{
                         note: '',

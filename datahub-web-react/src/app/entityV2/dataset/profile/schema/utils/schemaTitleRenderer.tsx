@@ -4,6 +4,7 @@ import { InteriorTitleContent } from '../components/InteriorTitleContent';
 import { ExtendedSchemaFields } from './types';
 
 export default function useSchemaTitleRenderer(
+    parentUrn: string,
     schemaMetadata: SchemaMetadata | undefined | null,
     filterText: string,
     isCompact?: boolean,
@@ -11,6 +12,7 @@ export default function useSchemaTitleRenderer(
     return (fieldPath: string, record: ExtendedSchemaFields): JSX.Element => {
         return (
             <InteriorTitleContent
+                parentUrn={parentUrn}
                 isCompact={isCompact}
                 filterText={filterText}
                 fieldPath={fieldPath}

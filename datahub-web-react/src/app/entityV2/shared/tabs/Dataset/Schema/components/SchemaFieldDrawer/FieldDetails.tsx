@@ -7,7 +7,7 @@ import { Deprecation, SubResourceType, UsageQueryResult } from '../../../../../.
 import { useMutationUrn } from '../../../../../../../entity/shared/EntityContext';
 import { UpdateDeprecationModal } from '../../../../../EntityDropdown/UpdateDeprecationModal';
 import CreateEntityAnnouncementModal from '../../../../../announce/CreateEntityAnnouncementModal';
-import { DeprecationPill } from '../../../../../components/styled/DeprecationPill';
+import { DeprecationIcon } from '../../../../../components/styled/DeprecationIcon';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { FieldPopularity } from './FieldPopularity';
 
@@ -143,7 +143,7 @@ export const FieldDetails = ({ fieldPath, deprecation, usageStats, refetch }: Fi
                         </MarkAsDeprecatedButtonContainer>
                     )}
                     {!!deprecation?.deprecated && (
-                        <DeprecationPill
+                        <DeprecationIcon
                             urn={datasetUrn}
                             subResource={fieldPath}
                             subResourceType={SubResourceType.DatasetField}
