@@ -57,7 +57,6 @@ class Neo4jConfig(EnvConfigMixin):
     password: str = Field(description="Neo4j Password")
     uri: str = Field(description="The URI for the Neo4j server")
     env: str = Field(description="Neo4j env")
-    platform: str = Field(default="neo4j", description="Neo4j platform")
 
 
 @dataclass
@@ -72,6 +71,7 @@ class Neo4jSourceReport(SourceReport):
 class Neo4jSource(Source):
     NODE = "node"
     RELATIONSHIP = "relationship"
+    PLATFORM = "neo4j"
 
     def __init__(self, ctx: PipelineContext, config: Neo4jConfig):
         self.ctx = ctx
@@ -118,13 +118,13 @@ class Neo4jSource(Source):
         )
         return MetadataChangeProposalWrapper(
             entityUrn=make_dataset_urn(
-                platform=self.config.platform, name=dataset, env=self.config.env
+                platform=self.PLATFORM, name=dataset, env=self.config.env
             ),
             aspect=dataset_properties,
         )
 
     def generate_neo4j_object(
-        self, platform: str, dataset: str, columns: list, obj_type: Optional[str] = None
+        self, dataset: str, columns: list, obj_type: Optional[str] = None
     ) -> MetadataChangeProposalWrapper:
         try:
             fields = [
@@ -134,11 +134,11 @@ class Neo4jSource(Source):
             ]
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=make_dataset_urn(
-                    platform=platform, name=dataset, env=self.config.env
+                    platform=self.PLATFORM, name=dataset, env=self.config.env
                 ),
                 aspect=SchemaMetadataClass(
                     schemaName=dataset,
-                    platform=make_data_platform_urn(platform),
+                    platform=make_data_platform_urn(self.PLATFORM),
                     version=0,
                     hash="",
                     platformSchema=OtherSchemaClass(rawSchema=""),
@@ -293,7 +293,6 @@ class Neo4jSource(Source):
                     mcp=self.generate_neo4j_object(
                         columns=row["property_data_types"],
                         dataset=row["key"],
-                        platform=self.config.platform,
                     ),
                     is_primary_source=True,
                 )
@@ -302,7 +301,7 @@ class Neo4jSource(Source):
                     id=row["key"],
                     mcp=MetadataChangeProposalWrapper(
                         entityUrn=make_dataset_urn(
-                            platform=self.config.platform,
+                            platform=self.PLATFORM,
                             name=row["key"],
                             env=self.config.env,
                         ),
