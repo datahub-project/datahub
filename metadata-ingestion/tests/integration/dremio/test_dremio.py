@@ -248,7 +248,7 @@ def upload_dataset(headers):
             "oracle-departments.xlsx",
         ],
         "format": {"extractHeader": True, "hasMergedCells": False, "type": "Excel"},
-        }
+    }
 
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     assert response.status_code == 200, f"Failed to add dataset: {response.text}"
@@ -514,7 +514,7 @@ def test_dremio_platform_instance_urns(
         mces = []
         for line in content.splitlines():
             line = line.strip()
-            if line and not line in ('[', ']'):  # Skip empty lines and bare brackets
+            if line and not line in ("[", "]"):  # Skip empty lines and bare brackets
                 mce = json.loads(line)
                 mces.append(mce)
     except json.JSONDecodeError:
