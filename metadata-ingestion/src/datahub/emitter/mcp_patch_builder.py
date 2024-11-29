@@ -15,7 +15,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
     SystemMetadataClass,
 )
-from datahub.metadata.urn import Urn
+from datahub.metadata.urns import Urn
 from datahub.utilities.urns.urn import guess_entity_type
 
 
