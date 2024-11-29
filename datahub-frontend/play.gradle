@@ -55,6 +55,13 @@ dependencies {
   implementation externalDependency.antlr4Runtime
   implementation externalDependency.antlr4
   implementation externalDependency.akkaHttp
+  implementation externalDependency.akkaActor
+  implementation externalDependency.akkaStream
+  implementation externalDependency.akkaActorTyped
+  implementation externalDependency.akkaSlf4j
+  implementation externalDependency.akkaJackson
+  implementation externalDependency.akkaParsing
+  implementation externalDependency.akkaProtobuf
 
   implementation externalDependency.jerseyCore
   implementation externalDependency.jerseyGuava
