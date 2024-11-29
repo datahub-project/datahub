@@ -11,6 +11,8 @@ source:
     username: admin
     password: "2310Admin1234!@"
 
+    platform_instance: test-platform
+
     include_query_lineage: false
 
     source_mappings:
