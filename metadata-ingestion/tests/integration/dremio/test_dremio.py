@@ -230,7 +230,7 @@ def upload_dataset(headers):
             "trimHeader": True,
             "skipFirstLine": False,
             "type": "Text",
-        }
+        },
     }
 
     response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -247,11 +247,7 @@ def upload_dataset(headers):
             "Dremio University",
             "oracle-departments.xlsx",
         ],
-        "format": {
-            "extractHeader": True,
-            "hasMergedCells": False,
-            "type": "Excel"
-            }
+        "format": {"extractHeader": True, "hasMergedCells": False, "type": "Excel"},
         }
 
     response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -278,7 +274,7 @@ def upload_dataset(headers):
             "trimHeader": True,
             "skipFirstLine": False,
             "type": "Text",
-        }
+        },
     }
 
     response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -310,7 +306,7 @@ def create_view(headers):
         "entityType": "dataset",
         "type": "VIRTUAL_DATASET",
         "path": ["space", "test_folder", "raw"],
-        "sql": 'SELECT * FROM s3.warehouse',
+        "sql": "SELECT * FROM s3.warehouse",
     }
     response = requests.post(url, headers=headers, data=json.dumps(payload))
     assert response.status_code == 200, f"Failed to create view: {response.text}"
@@ -330,7 +326,7 @@ def create_view(headers):
         "entityType": "dataset",
         "type": "VIRTUAL_DATASET",
         "path": ["space", "test_folder", "customers"],
-        "sql": 'SELECT * FROM mysql.northwind.customers',
+        "sql": "SELECT * FROM mysql.northwind.customers",
         "sqlContext": ["mysql", "northwind"],
     }
     response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -340,7 +336,7 @@ def create_view(headers):
         "entityType": "dataset",
         "type": "VIRTUAL_DATASET",
         "path": ["space", "test_folder", "orders"],
-        "sql": 'SELECT * FROM mysql.northwind.orders',
+        "sql": "SELECT * FROM mysql.northwind.orders",
         "sqlContext": ["mysql", "northwind"],
     }
     response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -350,7 +346,7 @@ def create_view(headers):
         "entityType": "dataset",
         "type": "VIRTUAL_DATASET",
         "path": ["space", "test_folder", "metadata_aspect"],
-        "sql": 'SELECT * FROM mysql.metagalaxy.metadata_aspect',
+        "sql": "SELECT * FROM mysql.metagalaxy.metadata_aspect",
         "sqlContext": ["mysql", "metagalaxy"],
     }
     response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -360,7 +356,7 @@ def create_view(headers):
         "entityType": "dataset",
         "type": "VIRTUAL_DATASET",
         "path": ["space", "test_folder", "metadata_index"],
-        "sql": 'SELECT * FROM mysql.metagalaxy.metadata_index',
+        "sql": "SELECT * FROM mysql.metagalaxy.metadata_index",
         "sqlContext": ["mysql", "metagalaxy"],
     }
     response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -370,7 +366,7 @@ def create_view(headers):
         "entityType": "dataset",
         "type": "VIRTUAL_DATASET",
         "path": ["space", "test_folder", "metadata_index_view"],
-        "sql": 'SELECT * FROM mysql.metagalaxy.metadata_index_view',
+        "sql": "SELECT * FROM mysql.metagalaxy.metadata_index_view",
         "sqlContext": ["mysql", "metagalaxy"],
     }
     response = requests.post(url, headers=headers, data=json.dumps(payload))
@@ -497,10 +493,10 @@ def test_dremio_ingest(
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_dremio_platform_instance_urns(
-        test_resources_dir,
-        dremio_setup,
-        pytestconfig,
-        tmp_path,
+    test_resources_dir,
+    dremio_setup,
+    pytestconfig,
+    tmp_path,
 ):
     config_file = (test_resources_dir / "dremio_to_file.yml").resolve()
     output_path = tmp_path / "dremio_mces.json"
@@ -510,7 +506,7 @@ def test_dremio_platform_instance_urns(
     with output_path.open() as f:
         content = f.read()
         # Skip if file is empty or just contains brackets
-        if not content or content.strip() in ('[]', '[', ']'):
+        if not content or content.strip() in ("[]", "[", "]"):
             pytest.fail(f"Output file is empty or invalid: {content}")
 
     try:
@@ -539,8 +535,9 @@ def test_dremio_platform_instance_urns(
 
         # Check dataset URN structure
         if mce["entityType"] == "dataset" and "entityUrn" in mce:
-            assert "test-platform.dremio" in mce["entityUrn"], \
-                f"Platform instance missing in dataset URN: {mce['entityUrn']}"
+            assert (
+                "test-platform.dremio" in mce["entityUrn"]
+            ), f"Platform instance missing in dataset URN: {mce['entityUrn']}"
 
         # Check aspects for both datasets and containers
         if "aspectName" in mce:
@@ -559,15 +556,17 @@ def test_dremio_platform_instance_urns(
 
                 instance = aspect_json["instance"]
                 expected_instance = "urn:li:dataPlatformInstance:(urn:li:dataPlatform:dremio,test-platform)"
-                assert instance == expected_instance, \
-                    f"Invalid platform instance format: {instance}"
+                assert (
+                    instance == expected_instance
+                ), f"Invalid platform instance format: {instance}"
 
             # Check browse paths
             elif mce["aspectName"] == "browsePathsV2":
                 paths = mce["aspect"]["json"]["path"]
                 assert len(paths) > 0, "Browse paths should not be empty"
-                assert paths[0]["id"] == "test-platform", \
-                    f"First browse path element should be test-platform, got: {paths[0]}"
+                assert (
+                    paths[0]["id"] == "test-platform"
+                ), f"First browse path element should be test-platform, got: {paths[0]}"
 
     # Verify against golden file
     mce_helpers.check_golden_file(
