@@ -134,6 +134,9 @@ class SupersetConfig(
         description="Can be used to change mapping for database names in superset to what you have in datahub",
     )
 
+    class Config:
+        extra = "allow"
+
     @validator("connect_uri", "display_uri")
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
@@ -241,7 +244,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         return cls(ctx, config)
 
     @lru_cache(maxsize=None)
-    def paginate_api_results(self, entity_type, page_size=100):
+    def paginate_entity_api_results(self, entity_type, page_size=100):
         current_page = 0
         total_items = page_size
 
@@ -253,7 +256,6 @@ class SupersetSource(StatefulIngestionSourceBase):
 
             if response.status_code != 200:
                 logger.warning(f"Failed to get {entity_type} data: {response.text}")
-                response.raise_for_status()
 
             payload = response.json()
             # Update total_items with the actual count from the response
@@ -402,14 +404,22 @@ class SupersetSource(StatefulIngestionSourceBase):
         return dashboard_snapshot
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
-        for dashboard_data in self.paginate_api_results("dashboard", PAGE_SIZE):
-            dashboard_snapshot = self.construct_dashboard_from_api_data(dashboard_data)
-            mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-            yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-            yield from self._get_domain_wu(
-                title=dashboard_data.get("dashboard_title", ""),
-                entity_urn=dashboard_snapshot.urn,
-            )
+        for dashboard_data in self.paginate_entity_api_results("dashboard", PAGE_SIZE):
+            try:
+                dashboard_snapshot = self.construct_dashboard_from_api_data(
+                    dashboard_data
+                )
+                mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
+                yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+                yield from self._get_domain_wu(
+                    title=dashboard_data.get("dashboard_title", ""),
+                    entity_urn=dashboard_snapshot.urn,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to emit dashboard MCE {dashboard_data.get('dashboard_title')}. Error: \n{e}"
+                )
+                continue
 
     def construct_chart_from_chart_data(self, chart_data: dict) -> ChartSnapshot:
         chart_urn = make_chart_urn(
@@ -492,20 +502,26 @@ class SupersetSource(StatefulIngestionSourceBase):
         return chart_snapshot
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
-        for chart_data in self.paginate_api_results("chart", PAGE_SIZE):
-            chart_snapshot = self.construct_chart_from_chart_data(chart_data)
+        for chart_data in self.paginate_entity_api_results("chart", PAGE_SIZE):
+            try:
+                chart_snapshot = self.construct_chart_from_chart_data(chart_data)
 
-            mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-            yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
-            yield from self._get_domain_wu(
-                title=chart_data.get("slice_name", ""),
-                entity_urn=chart_snapshot.urn,
-            )
+                mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+                yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
+                yield from self._get_domain_wu(
+                    title=chart_data.get("slice_name", ""),
+                    entity_urn=chart_snapshot.urn,
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Failed to emit dataset MCE {chart_data.get('table_name')}. Error: \n{e}"
+                )
+                continue
 
     def gen_schema_fields(self, column_data: List[Dict[str, str]]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
         for col in column_data:
-            col_type = col.get("type", "").lower()
+            col_type = (col.get("type") or "").lower()
             data_type = SUPERSET_FIELD_TYPE_MAPPINGS.get(col_type)
             field = SchemaField(
                 fieldPath=col.get("column_name", ""),
@@ -590,14 +606,23 @@ class SupersetSource(StatefulIngestionSourceBase):
         return dataset_snapshot
 
     def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
-        for dataset_data in self.paginate_api_results("dataset", PAGE_SIZE):
-            dataset_snapshot = self.construct_dataset_from_dataset_data(dataset_data)
-            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-            yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
-            yield from self._get_domain_wu(
-                title=dataset_data.get("table_name", ""),
-                entity_urn=dataset_snapshot.urn,
-            )
+        for dataset_data in self.paginate_entity_api_results("dataset", PAGE_SIZE):
+            try:
+                dataset_snapshot = self.construct_dataset_from_dataset_data(
+                    dataset_data
+                )
+                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+                yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+                yield from self._get_domain_wu(
+                    title=dataset_data.get("table_name", ""),
+                    entity_urn=dataset_snapshot.urn,
+                )
+            except Exception as e:
+                logger.warning(f"Dataset full logs: {dataset_data}")
+                logger.warning(
+                    f"Failed to emit dataset MCE {dataset_data.get('table_name')}. Error: \n{e}"
+                )
+                continue
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()
