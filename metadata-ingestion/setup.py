@@ -14,8 +14,8 @@ _self_pin = (
 )
 
 base_requirements = {
-    # Typing extension should be >=3.10.0.2 ideally but we can't restrict due to a Airflow 2.1 dependency conflict.
-    "typing_extensions>=3.7.4.3",
+    # Our min version of typing_extensions is somewhat constrained by Airflow.
+    "typing_extensions>=3.10.0.2",
     # Actual dependencies.
     "typing-inspect",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
@@ -249,7 +249,8 @@ microsoft_common = {"msal>=1.24.0"}
 
 iceberg_common = {
     # Iceberg Python SDK
-    "pyiceberg>=0.4,<0.7",
+    # Kept at 0.4.0 due to higher versions requiring pydantic>2, as soon as we are fine with it, bump this dependency
+    "pyiceberg>=0.4.0",
 }
 
 mssql_common = {
@@ -773,7 +774,7 @@ entry_points = {
         "trino = datahub.ingestion.source.sql.trino:TrinoSource",
         "starburst-trino-usage = datahub.ingestion.source.usage.starburst_trino_usage:TrinoUsageSource",
         "nifi = datahub.ingestion.source.nifi:NifiSource",
-        "powerbi = datahub.ingestion.source.powerbi:PowerBiDashboardSource",
+        "powerbi = datahub.ingestion.source.powerbi.powerbi:PowerBiDashboardSource",
         "powerbi-report-server = datahub.ingestion.source.powerbi_report_server:PowerBiReportServerDashboardSource",
         "iceberg = datahub.ingestion.source.iceberg.iceberg:IcebergSource",
         "vertica = datahub.ingestion.source.sql.vertica:VerticaSource",
