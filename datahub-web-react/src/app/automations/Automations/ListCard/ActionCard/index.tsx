@@ -114,7 +114,7 @@ export const ActionCard = ({ automation, openEditModal }: ActionCardProps) => {
         <>
             <ListCardHeader status={state}>
                 <TitleColumn>
-                    <Category>{category.toString().toUpperCase() || 'Uncategorized'.toUpperCase()}</Category>
+                    <Category>{category?.toString()?.toUpperCase() || 'Uncategorized'.toUpperCase()}</Category>
                     <Name>{name}</Name>
                 </TitleColumn>
                 <div className="deployedAndStatus">

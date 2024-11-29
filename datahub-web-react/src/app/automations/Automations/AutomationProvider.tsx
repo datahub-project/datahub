@@ -76,6 +76,9 @@ const resolveVirtualFormStateFields = (formState: any): any => {
     const configMap = configMaps[formState.type];
     const virtualFormState = { ...formState };
 
+    if (!configMap) {
+        return virtualFormState;
+    }
     Object.keys(configMap).forEach((field) => {
         const fieldConfig = configMap[field];
         if (fieldConfig?.isVirtual) {
