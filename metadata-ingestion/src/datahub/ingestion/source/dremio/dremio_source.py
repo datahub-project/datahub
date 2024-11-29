@@ -394,10 +394,12 @@ class DremioSource(StatefulIngestionSourceBase):
         ):
             yield dremio_mcp
             # Check if the emitted aspect is SchemaMetadataClass
-            if isinstance(dremio_mcp.metadata, SchemaMetadataClass):
+            if isinstance(
+                dremio_mcp.metadata, MetadataChangeProposalWrapper
+            ) and isinstance(dremio_mcp.metadata.aspect, SchemaMetadataClass):
                 self.sql_parsing_aggregator.register_schema(
                     urn=dataset_urn,
-                    schema=dremio_mcp.metadata,
+                    schema=dremio_mcp.metadata.aspect,
                 )
 
         if dataset_info.dataset_type == DremioDatasetType.VIEW:
