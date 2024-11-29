@@ -61,7 +61,7 @@ def is_dialect_instance(
     else:
         platforms = list(platforms)
 
-    dialects = [sqlglot.Dialect.get_or_raise(platform) for platform in platforms]
+    dialects = [get_dialect(platform) for platform in platforms]
 
     if any(isinstance(dialect, dialect_class.__class__) for dialect_class in dialects):
         return True

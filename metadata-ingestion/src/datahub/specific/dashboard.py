@@ -433,7 +433,6 @@ class DashboardPatchBuilder(MetadataPatchProposal):
     def add_custom_properties(
         self, custom_properties: Optional[Dict[str, str]] = None
     ) -> "DashboardPatchBuilder":
-
         if custom_properties:
             for key, value in custom_properties.items():
                 self.custom_properties_patch_helper.add_property(key, value)

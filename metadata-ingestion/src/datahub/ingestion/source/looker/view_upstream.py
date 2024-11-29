@@ -12,6 +12,7 @@ from datahub.ingestion.source.looker.looker_common import (
     ViewField,
     ViewFieldType,
 )
+from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
 from datahub.ingestion.source.looker.looker_view_id_cache import LookerViewIdCache
 from datahub.ingestion.source.looker.lookml_concept_context import (
     LookerFieldContext,
@@ -20,7 +21,6 @@ from datahub.ingestion.source.looker.lookml_concept_context import (
 from datahub.ingestion.source.looker.lookml_config import (
     DERIVED_VIEW_SUFFIX,
     NAME,
-    LookerConnectionDefinition,
     LookMLSourceConfig,
     LookMLSourceReport,
 )
@@ -72,7 +72,6 @@ def resolve_derived_view_urn_of_col_ref(
     base_folder_path: str,
     config: LookMLSourceConfig,
 ) -> List[ColumnRef]:
-
     new_column_refs: List[ColumnRef] = []
     for col_ref in column_refs:
         if is_derived_view(col_ref.table.lower()):
@@ -641,7 +640,6 @@ def create_view_upstream(
     ctx: PipelineContext,
     reporter: LookMLSourceReport,
 ) -> AbstractViewUpstream:
-
     if view_context.is_regular_case():
         return RegularViewUpstream(
             view_context=view_context,
@@ -666,7 +664,6 @@ def create_view_upstream(
             view_context.is_sql_based_derived_view_without_fields_case(),
         ]
     ):
-
         return DerivedQueryUpstreamSource(
             view_context=view_context,
             config=config,

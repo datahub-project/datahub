@@ -356,7 +356,6 @@ class BigQuerySchemaGenerator:
                 project_id
             )
         except Exception as e:
-
             if self.config.project_ids and "not enabled BigQuery." in str(e):
                 action_mesage = (
                     "The project has not enabled BigQuery API. "
@@ -417,7 +416,6 @@ class BigQuerySchemaGenerator:
         bigquery_project: BigqueryProject,
         db_tables: Dict[str, List[BigqueryTable]],
     ) -> Iterable[MetadataWorkUnit]:
-
         db_views: Dict[str, List[BigqueryView]] = {}
         db_snapshots: Dict[str, List[BigqueryTableSnapshot]] = {}
         project_id = bigquery_project.id
@@ -500,7 +498,10 @@ class BigQuerySchemaGenerator:
                 report=self.report,
                 rate_limiter=rate_limiter,
             )
-            if self.config.include_table_constraints:
+            if (
+                self.config.include_table_constraints
+                and bigquery_dataset.supports_table_constraints()
+            ):
                 constraints = self.schema_api.get_table_constraints_for_dataset(
                     project_id=project_id, dataset_name=dataset_name, report=self.report
                 )
@@ -597,18 +598,6 @@ class BigQuerySchemaGenerator:
                     dataset_name=dataset_name,
                 )
 
-    # This method is used to generate the ignore list for datatypes the profiler doesn't support we have to do it here
-    # because the profiler doesn't have access to columns
-    def generate_profile_ignore_list(self, columns: List[BigqueryColumn]) -> List[str]:
-        ignore_list: List[str] = []
-        for column in columns:
-            if not column.data_type or any(
-                word in column.data_type.lower()
-                for word in ["array", "struct", "geography", "json"]
-            ):
-                ignore_list.append(column.field_path)
-        return ignore_list
-
     def _process_table(
         self,
         table: BigqueryTable,
@@ -629,15 +618,6 @@ class BigQuerySchemaGenerator:
                 str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
             )
         table.column_count = len(columns)
-
-        # We only collect profile ignore list if profiling is enabled and profile_table_level_only is false
-        if (
-            self.config.is_profiling_enabled()
-            and not self.config.profiling.profile_table_level_only
-        ):
-            table.columns_ignore_from_profiling = self.generate_profile_ignore_list(
-                columns
-            )
 
         if not table.column_count:
             logger.warning(
@@ -1141,7 +1121,6 @@ class BigQuerySchemaGenerator:
         columns: List[BigqueryColumn],
         dataset_name: BigqueryTableIdentifier,
     ) -> MetadataWorkUnit:
-
         foreign_keys: List[ForeignKeyConstraint] = []
         # Foreign keys only make sense for tables
         if isinstance(table, BigqueryTable):
@@ -1160,9 +1139,11 @@ class BigQuerySchemaGenerator:
             # fields=[],
             fields=self.gen_schema_fields(
                 columns,
-                table.constraints
-                if (isinstance(table, BigqueryTable) and table.constraints)
-                else [],
+                (
+                    table.constraints
+                    if (isinstance(table, BigqueryTable) and table.constraints)
+                    else []
+                ),
             ),
             foreignKeys=foreign_keys if foreign_keys else None,
         )
@@ -1183,14 +1164,9 @@ class BigQuerySchemaGenerator:
     ) -> Iterable[BigqueryTable]:
         # In bigquery there is no way to query all tables in a Project id
         with PerfTimer() as timer:
-
-            # PARTITIONS INFORMATION_SCHEMA view is not available for BigLake tables
-            # based on Amazon S3 and Blob Storage data.
-            # https://cloud.google.com/bigquery/docs/omni-introduction#limitations
-            # Omni Locations - https://cloud.google.com/bigquery/docs/omni-introduction#locations
-            with_partitions = self.config.have_table_data_read_permission and not (
-                dataset.location
-                and dataset.location.lower().startswith(("aws-", "azure-"))
+            with_partitions = (
+                self.config.have_table_data_read_permission
+                and dataset.supports_table_partitions()
             )
 
             # Partitions view throw exception if we try to query partition info for too many tables

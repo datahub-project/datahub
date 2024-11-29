@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Dict, List, MutableSet, Optional
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
-from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionReport,
 )
@@ -59,7 +59,7 @@ class SnowflakeUsageReport:
 
 
 @dataclass
-class SnowflakeReport(ProfilingSqlReport, BaseTimeWindowReport):
+class SnowflakeReport(SQLSourceReport, BaseTimeWindowReport):
     num_table_to_table_edges_scanned: int = 0
     num_table_to_view_edges_scanned: int = 0
     num_view_to_table_edges_scanned: int = 0

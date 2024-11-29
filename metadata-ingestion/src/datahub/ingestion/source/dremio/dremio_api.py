@@ -566,7 +566,6 @@ class DremioAPIOperations:
         return tables
 
     def validate_schema_format(self, schema):
-
         if "." in schema:
             schema_path = self.get(
                 url=f"/catalog/{self.get_dataset_id(schema=schema, dataset='')}"
@@ -687,7 +686,6 @@ class DremioAPIOperations:
                     response.get("entityType")
                     == DremioEntityContainerType.FOLDER.value.lower()
                 ):
-
                     containers.append(
                         {
                             "id": location_id,
