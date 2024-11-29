@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple, Union
 
@@ -21,6 +22,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DatasetPropertiesClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
@@ -196,6 +198,13 @@ class Dataset(BaseModel):
         if v.startswith("urn:li:dataPlatform:"):
             return v[len("urn:li:dataPlatform:") :]
         return v
+
+    def _mint_auditstamp(self, message: str) -> AuditStampClass:
+        return AuditStampClass(
+            time=int(time.time() * 1000.0),
+            actor="urn:li:corpuser:datahub",
+            message=message,
+        )
 
     def _mint_owner(self, owner: Union[str, Ownership]) -> OwnerClass:
         if isinstance(owner, str):

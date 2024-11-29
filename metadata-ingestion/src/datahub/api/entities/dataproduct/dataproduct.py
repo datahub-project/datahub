@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
@@ -12,6 +13,7 @@ from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DataProductAssociationClass,
     DataProductPropertiesClass,
     DomainsClass,
@@ -136,6 +138,13 @@ class DataProduct(ConfigModel):
             self._resolved_domain_urn = self.domain
         else:
             self._resolved_domain_urn = None
+
+    def _mint_auditstamp(self, message: str) -> AuditStampClass:
+        return AuditStampClass(
+            time=int(time.time() * 1000.0),
+            actor="urn:li:corpuser:datahub",
+            message=message,
+        )
 
     def _mint_owner(self, owner: Union[str, Ownership]) -> OwnerClass:
         if isinstance(owner, str):
