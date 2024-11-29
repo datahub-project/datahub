@@ -1,10 +1,12 @@
 import json
 import logging
+from datetime import datetime, timezone
 from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
 import requests
+from pydantic import BaseModel
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
@@ -99,6 +101,13 @@ chart_type_from_viz_type = {
 SUPERSET_FIELD_TYPE_MAPPINGS = POSTGRES_TYPES_MAP
 
 platform_without_databases = ["druid"]
+
+
+class SupersetDataset(BaseModel):
+    id: int
+    table_name: str
+    changed_on_utc: Optional[str] = None
+    explore_url: Optional[str] = ""
 
 
 class SupersetConfig(
@@ -561,35 +570,23 @@ class SupersetSource(StatefulIngestionSourceBase):
         self, dataset_data: dict
     ) -> DatasetSnapshot:
         dataset_response = self.get_dataset_info(dataset_data.get("id"))
+        dataset = SupersetDataset(**dataset_response["result"])
         datasource_urn = self.get_datasource_urn_from_id(
             dataset_response, self.platform
         )
-        # Check API format for dataset
-        modified_ts = int(
-            dp.parse(dataset_data.get("changed_on_utc", "now")).timestamp() * 1000
-        )
-        table_name = dataset_data.get("table_name", "")
-        dataset_url = f"{self.config.display_uri}{dataset_data.get('explore_url', '')}"
-        metrics = [
-            metric.get("metric_name")
-            for metric in (dataset_response.get("result", {}).get("metrics", []))
-        ]
+        if dataset.changed_on_utc:
+            modified_dt = dp.parse(dataset.changed_on_utc)
+        else:
+            modified_dt = datetime.now(timezone.utc)
 
-        owners = [
-            owner.get("first_name") + "_" + str(owner.get("id"))
-            for owner in (dataset_response.get("result", {}).get("owners", []))
-        ]
-        custom_properties = {
-            "Metrics": ", ".join(metrics),
-            "Owners": ", ".join(owners),
-        }
+        modified_ts = int(modified_dt.timestamp() * 1000)
+        dataset_url = f"{self.config.display_uri}{dataset.explore_url or ''}"
 
         dataset_info = DatasetPropertiesClass(
-            name=table_name,
+            name=dataset.table_name,
             description="",
             lastModified=TimeStamp(time=modified_ts),
             externalUrl=dataset_url,
-            customProperties=custom_properties,
         )
         aspects_items: List[Any] = []
         aspects_items.extend(
@@ -625,8 +622,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                 continue
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.emit_dashboard_mces()
-        yield from self.emit_chart_mces()
+        # yield from self.emit_dashboard_mces()
+        # yield from self.emit_chart_mces()
         yield from self.emit_dataset_mces()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
