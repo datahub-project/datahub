@@ -21,6 +21,7 @@ plugins {
 }
 
 apply from: "../gradle/versioning/versioning.gradle"
+apply from: "../gradle/coverage/python-coverage.gradle"
 
 ext {
     python_executable = 'python3'
@@ -82,7 +83,7 @@ task lintFix(type: Exec, dependsOn: installDev) {
 
 task pytest(type: Exec, dependsOn: [installDev]) {
     commandLine 'bash', '-x', '-c',
-        "${venv_name}/bin/pytest -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
+        "${venv_name}/bin/pytest ${get_coverage_args()} -vv --continue-on-collection-errors --junit-xml=junit.full.xml"
 }
 test.finalizedBy(pytest)
 

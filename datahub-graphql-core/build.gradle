@@ -3,6 +3,7 @@ plugins {
     id "io.github.kobylynskyi.graphql.codegen" version "4.1.1"
 }
 
+apply from: '../gradle/coverage/java-coverage.gradle'
 
 dependencies {
     implementation platform('software.amazon.awssdk:bom:2.23.6')

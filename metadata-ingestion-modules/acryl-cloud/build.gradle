@@ -2,6 +2,8 @@ plugins {
     id 'base'
 }
 
+apply from: "../../gradle/coverage/python-coverage.gradle"
+
 ext {
   python_executable = 'python3'
   venv_name = '../../metadata-ingestion/venv'
@@ -54,7 +56,7 @@ task test(type: Exec, dependsOn: installDev) {
   inputs.files(project.fileTree(dir: "tests/"))
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "pytest --cov-config=setup.cfg --cov-report xml:coverage_quick.xml -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+    "pytest --cov-config=setup.cfg ${get_coverage_args()} -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
 task cleanPythonCache(type: Exec) {

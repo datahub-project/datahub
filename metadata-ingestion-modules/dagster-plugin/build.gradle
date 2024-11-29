@@ -2,6 +2,8 @@ plugins {
     id 'base'
 }
 
+apply from: "../../gradle/coverage/python-coverage.gradle"
+
 ext {
   python_executable = 'python3'
   venv_name = 'venv'
@@ -84,7 +86,7 @@ task testQuick(type: Exec, dependsOn: installDevTest) {
   outputs.dir("${venv_name}")
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "pytest -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+    "pytest -vv ${get_coverage_args('quick')} --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
 task buildWheel(type: Exec, dependsOn: [environmentSetup]) {

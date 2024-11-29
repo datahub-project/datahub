@@ -2,6 +2,8 @@ plugins {
   id 'pegasus'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 dependencies {
   dataModel project(':metadata-models')
   dataModel spec.product.pegasus.restliCommon

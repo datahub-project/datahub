@@ -6,7 +6,6 @@ apply plugin: 'com.github.johnrengelman.shadow'
 apply plugin: 'signing'
 apply plugin: 'io.codearte.nexus-staging'
 apply plugin: 'maven-publish'
-apply plugin: 'jacoco'
 apply from: '../versioning.gradle'
 
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
@@ -122,10 +121,6 @@ shadowJar {
   relocate 'org.apache.maven', 'io.acryl.shaded.org.apache.maven'
 }
 
-jacocoTestReport {
-    dependsOn test // tests are required to run before generating the report
-}
-
 test {
   exclude '**' // This has historically been disabled for Saas
 
@@ -150,7 +145,6 @@ test {
   ]
   jvmArgs = sparkJava17CompatibleJvmArgs
 
-  finalizedBy jacocoTestReport
 }
 
 assemble {
