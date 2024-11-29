@@ -417,6 +417,7 @@ class DremioSource(StatefulIngestionSourceBase):
                     view_urn=dataset_urn,
                     view_definition=dataset_info.sql_definition,
                     default_db=self.default_db,
+                    default_schema=dataset_info.default_schema,
                 )
 
         elif dataset_info.dataset_type == DremioDatasetType.TABLE:
