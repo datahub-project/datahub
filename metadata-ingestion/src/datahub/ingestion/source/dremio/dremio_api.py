@@ -761,10 +761,16 @@ class DremioAPIOperations:
             }
 
             for future in concurrent.futures.as_completed(future_to_source):
+                source = future_to_source[future]
                 try:
                     containers.extend(future.result())
-                except Exception as e:
-                    logger.error(f"Error processing source: {e}")
+                except Exception as exc:
+                    logger.error(f"Error processing source: {exc}")
+                    self.report.warning(
+                        message="Failed to process source",
+                        context=f"{source}",
+                        exc=exc,
+                    )
 
         return containers
 
