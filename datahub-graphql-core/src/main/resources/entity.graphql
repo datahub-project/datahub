@@ -2546,6 +2546,30 @@ type GlossaryNode implements Entity {
   Display properties for the glossary node
   """
   displayProperties: DisplayProperties
+
+  """
+  Carries information about where an entity originated from.
+  """
+  childrenCount: GlossaryNodeChildrenCount
+
+  """
+  Executes a search on the children of this glossary node
+  """
+  glossaryChildrenSearch(input: ScrollAcrossEntitiesInput!): ScrollResults
+}
+
+"""
+All of the parent nodes for GlossaryTerms and GlossaryNodes
+"""
+type GlossaryNodeChildrenCount {
+  """
+  The number of child glossary terms
+  """
+  termsCount: Int!
+  """
+  The number of child glossary nodes
+  """
+  nodesCount: Int!
 }
 
 """

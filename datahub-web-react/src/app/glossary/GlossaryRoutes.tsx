@@ -14,6 +14,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useGetAuthenticatedUser } from '@app/useGetAuthenticatedUser';
 import { useIsThemeV2 } from '@app/useIsThemeV2';
 import { PageRoutes } from '@conf/Global';
+import { Entity } from '@src/types.generated';
 
 const ContentWrapper = styled.div`
     display: flex;
@@ -26,6 +27,8 @@ export default function GlossaryRoutes() {
     const [entityData, setEntityData] = useState<GenericEntityProperties | null>(null);
     const [urnsToUpdate, setUrnsToUpdate] = useState<string[]>([]);
     const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+    const [nodeToNewEntity, setNodeToNewEntity] = useState<Record<string, Entity>>({});
+    const [nodeToDeletedUrn, setNodeToDeletedUrn] = useState<Record<string, string>>({});
 
     const appConfig = useAppConfig();
     const authenticatedUser = useGetAuthenticatedUser();
@@ -57,6 +60,10 @@ export default function GlossaryRoutes() {
                 setUrnsToUpdate,
                 isSidebarOpen,
                 setIsSidebarOpen,
+                nodeToNewEntity,
+                setNodeToNewEntity,
+                nodeToDeletedUrn,
+                setNodeToDeletedUrn,
             }}
         >
             <ContentWrapper>
