@@ -785,7 +785,6 @@ class DremioAPIOperations:
         else:
             return ""
 
-
     def get_containers_for_location(
         self, resource_id: str, path: List[str]
     ) -> List[Dict[str, str]]:
