@@ -1,6 +1,6 @@
 import logging
 import pathlib
-from typing import Any, List
+from typing import Any, List, Optional, Tuple
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
@@ -25,6 +25,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeEventClass,
     UpstreamLineageClass,
 )
+from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import get_current_checkpoint_from_pipeline
 
@@ -1029,19 +1030,16 @@ def test_gms_schema_resolution(pytestconfig, tmp_path, mock_time):
         "my_connection": "hive"
     }
 
-    with patch(
-        "datahub.ingestion.source.looker.view_upstream.SchemaResolver"
-    ) as MockSchemaResolver:
-        mock_instance = MockSchemaResolver.return_value
-        mock_instance.__enter__.return_value = mock_instance
-        mock_instance.resolve_urn.return_value = (
-            "urn:li:dataset:(urn:li:dataPlatform:dbt, db.public.employee, PROD)",
-            {
-                "Id": "String",
-                "Name": "String",
-                "source": "String",
-            },
-        )
+    return_value: Tuple[str, Optional[SchemaInfo]] = (
+        "urn:li:dataset:(urn:li:dataPlatform:dbt, db.public.employee, PROD)",
+        {
+            "Id": "String",
+            "Name": "String",
+            "source": "String",
+        },
+    )
+
+    with patch.object(SchemaResolver, "resolve_urn", return_value=return_value):
         pipeline = Pipeline.create(new_recipe)
         pipeline.run()
         pipeline.pretty_print_summary()

@@ -1,7 +1,6 @@
 import contextlib
 import pathlib
-from types import TracebackType
-from typing import Dict, List, Optional, Protocol, Set, Tuple, Type
+from typing import Dict, List, Optional, Protocol, Set, Tuple
 
 from typing_extensions import TypedDict
 
@@ -73,17 +72,6 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             shared_connection=shared_conn,
             extra_columns={"is_missing": lambda v: v is None},
         )
-
-    def __enter__(self) -> "SchemaResolver":
-        return self
-
-    def __exit__(
-        self,
-        exc_type: Optional[Type[BaseException]],
-        exc_value: Optional[BaseException],
-        traceback: Optional[TracebackType],
-    ) -> None:
-        self.close()
 
     @property
     def platform(self) -> str:

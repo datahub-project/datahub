@@ -1181,6 +1181,7 @@ def sqlglot_lineage(
         )
 
 
+@functools.lru_cache(maxsize=128)
 def create_schema_resolver(
     platform: str,
     env: str,
@@ -1193,6 +1194,7 @@ def create_schema_resolver(
             platform=platform,
             platform_instance=platform_instance,
             env=env,
+            graph=graph,
         )
 
     return SchemaResolver(
@@ -1256,6 +1258,20 @@ def infer_output_schema(result: SqlParsingResult) -> Optional[List[SchemaFieldCl
             )
         )
     return output_schema
+
+
+def infer_schema_columns(
+    schema_info: SchemaInfo, expected_columns: List[str]
+) -> List[str]:
+    column_from_gms: List[str] = list(schema_info.keys())  # list() to silent lint
+
+    actual_columns: List[str] = [
+        column
+        for column in column_from_gms
+        if column.lower() in map(str.lower, expected_columns)
+    ]
+
+    return actual_columns
 
 
 def view_definition_lineage_helper(

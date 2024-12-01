@@ -32,6 +32,8 @@ from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     Urn,
     create_lineage_sql_parsed_result,
+    create_schema_resolver,
+    infer_schema_columns,
 )
 
 logger = logging.getLogger(__name__)
@@ -257,29 +259,22 @@ class AbstractViewUpstream(ABC):
 
         - This function ensures consistency in column-level lineage by consulting GMS before creating the final `ColumnRef` instance, avoiding discrepancies.
         """
-        actual_columns: List[str] = []
-        with SchemaResolver(
+        schema_resolver = create_schema_resolver(
             platform=self.view_context.view_connection.platform,
             platform_instance=self.view_context.view_connection.platform_instance,
             env=self.view_context.view_connection.platform_env or self.config.env,
             graph=self.ctx.graph,
-        ) as schema_resolver:
-            urn, schema_info = _get_schema_info(schema_resolver, upstream_urn)
+        )
 
-            if schema_info:
-                column_from_gms: List[str] = list(
-                    schema_info.keys()
-                )  # list() to silent lint
-                actual_columns = [
-                    column
-                    for column in column_from_gms
-                    if column.lower() in map(str.lower, expected_columns)
-                ]
-            else:
-                logger.info(
-                    f"schema_info not found for dataset {urn} in GMS. Using expected_columns to form ColumnRef"
-                )
-                actual_columns = expected_columns
+        urn, schema_info = _get_schema_info(schema_resolver, upstream_urn)
+
+        if schema_info:
+            actual_columns = infer_schema_columns(schema_info, expected_columns)
+        else:
+            logger.info(
+                f"schema_info not found for dataset {urn} in GMS. Using expected_columns to form ColumnRef"
+            )
+            actual_columns = expected_columns
 
         upstream_column_refs: List[ColumnRef] = []
 
