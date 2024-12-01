@@ -98,7 +98,7 @@ describe("siblings", () => {
 
   it("will combine results in search", () => {
     cy.login();
-    cy.visit("/search?page=1&query=raw_orders");
+    cy.visit("/search?page=1&query=%22raw_orders%22");
 
     cy.contains("Showing 1 - 2 of ");
 

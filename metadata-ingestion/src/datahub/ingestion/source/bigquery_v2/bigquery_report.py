@@ -8,7 +8,7 @@ import pydantic
 
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
-from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
@@ -77,7 +77,7 @@ class BigQueryQueriesExtractorReport(Report):
 
 @dataclass
 class BigQueryV2Report(
-    ProfilingSqlReport,
+    SQLSourceReport,
     IngestionStageReport,
     BaseTimeWindowReport,
     ClassificationReportMixin,

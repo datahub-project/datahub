@@ -30,7 +30,8 @@ public class ValidationApiUtils {
   // Related to BrowsePathv2
   public static final String URN_DELIMITER_SEPARATOR = "␟";
   // https://datahubproject.io/docs/what/urn/#restrictions
-  public static final Set<String> ILLEGAL_URN_COMPONENT_CHARACTERS = Set.of(":", "(", ")", ",");
+  public static final Set<String> ILLEGAL_URN_COMPONENT_CHARACTERS = Set.of("(", ")");
+  public static final Set<String> ILLEGAL_URN_TUPLE_CHARACTERS = Set.of(",");
 
   /**
    * Validates a {@link RecordTemplate} and throws {@link ValidationException} if validation fails.
@@ -86,11 +87,10 @@ public class ValidationApiUtils {
           "Error: URN cannot contain " + URN_DELIMITER_SEPARATOR + " character");
     }
 
+    int totalParts = urn.getEntityKey().getParts().size();
     List<String> illegalComponents =
         urn.getEntityKey().getParts().stream()
-            .flatMap(ValidationApiUtils::processUrnPartRecursively)
-            .filter(
-                urnPart -> ILLEGAL_URN_COMPONENT_CHARACTERS.stream().anyMatch(urnPart::contains))
+            .flatMap(part -> processUrnPartRecursively(part, totalParts))
             .collect(Collectors.toList());
 
     if (!illegalComponents.isEmpty()) {
@@ -114,14 +114,25 @@ public class ValidationApiUtils {
   }
 
   /** Recursively process URN parts with URL decoding */
-  private static Stream<String> processUrnPartRecursively(String urnPart) {
-    String decodedPart = URLDecoder.decode(urnPart, StandardCharsets.UTF_8);
+  private static Stream<String> processUrnPartRecursively(String urnPart, int totalParts) {
+    String decodedPart =
+        URLDecoder.decode(URLEncodingFixer.fixURLEncoding(urnPart), StandardCharsets.UTF_8);
     if (decodedPart.startsWith("urn:li:")) {
       // Recursively process nested URN after decoding
+      int nestedParts = UrnUtils.getUrn(decodedPart).getEntityKey().getParts().size();
       return UrnUtils.getUrn(decodedPart).getEntityKey().getParts().stream()
-          .flatMap(ValidationApiUtils::processUrnPartRecursively);
+          .flatMap(part -> processUrnPartRecursively(part, nestedParts));
     }
-    return Stream.of(decodedPart);
+    if (totalParts > 1) {
+      if (ILLEGAL_URN_TUPLE_CHARACTERS.stream().anyMatch(c -> urnPart.contains(c))) {
+        return Stream.of(urnPart);
+      }
+    }
+    if (ILLEGAL_URN_COMPONENT_CHARACTERS.stream().anyMatch(c -> urnPart.contains(c))) {
+      return Stream.of(urnPart);
+    }
+
+    return Stream.empty();
   }
 
   /**
@@ -175,6 +186,55 @@ public class ValidationApiUtils {
 
     if (aspect != null) {
       RecordTemplateValidator.validate(aspect, resultFunction, validator);
+    }
+  }
+
+  /**
+   * Fixes malformed URL encoding by escaping unescaped % characters while preserving valid
+   * percent-encoded sequences.
+   */
+  private static class URLEncodingFixer {
+    /**
+     * @param input The potentially malformed URL-encoded string
+     * @return A string with proper URL encoding that can be safely decoded
+     */
+    public static String fixURLEncoding(String input) {
+      if (input == null) {
+        return null;
+      }
+
+      StringBuilder result = new StringBuilder(input.length() * 2);
+      int i = 0;
+
+      while (i < input.length()) {
+        char currentChar = input.charAt(i);
+
+        if (currentChar == '%') {
+          if (i + 2 < input.length()) {
+            // Check if the next two characters form a valid hex pair
+            String hexPair = input.substring(i + 1, i + 3);
+            if (isValidHexPair(hexPair)) {
+              // This is a valid percent-encoded sequence, keep it as is
+              result.append(currentChar);
+            } else {
+              // Invalid sequence, escape the % character
+              result.append("%25");
+            }
+          } else {
+            // % at the end of string, escape it
+            result.append("%25");
+          }
+        } else {
+          result.append(currentChar);
+        }
+        i++;
+      }
+
+      return result.toString();
+    }
+
+    private static boolean isValidHexPair(String pair) {
+      return pair.matches("[0-9A-Fa-f]{2}");
     }
   }
 }

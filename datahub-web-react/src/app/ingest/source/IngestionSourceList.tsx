@@ -193,7 +193,9 @@ export const IngestionSourceList = () => {
 
     const formatExtraArgs = (extraArgs): StringMapEntryInput[] => {
         if (extraArgs === null || extraArgs === undefined) return [];
-        return extraArgs.map((entry) => ({ key: entry.key, value: entry.value }));
+        return extraArgs
+            .filter((entry) => entry.value !== null && entry.value !== undefined && entry.value !== '')
+            .map((entry) => ({ key: entry.key, value: entry.value }));
     };
 
     const createOrUpdateIngestionSource = (

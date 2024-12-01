@@ -40,4 +40,5 @@ jobs:
       - name: check ${{ matrix.command }} jar
         run: |
           ./gradlew :metadata-integration:java:${{ matrix.command }}:build --info
+          ./gradlew :metadata-integration:java:${{ matrix.command }}:checkShadowJar
           ./gradlew :metadata-integration:java:${{ matrix.command }}:javadoc
