@@ -774,6 +774,17 @@ class DremioAPIOperations:
 
         return containers
 
+    def get_context_for_vds(self, resource_id: str) -> str:
+        context_array = self.get(
+            url=f"/catalog/{resource_id}",
+        ).get("sqlContext")
+        if context_array:
+            return ".".join(
+                f'"{part}"' if "." in part else f"{part}" for part in context_array
+            )
+        else:
+            return ""
+
     def get_containers_for_location(
         self, resource_id: str, path: List[str]
     ) -> List[Dict[str, str]]:
@@ -825,14 +836,3 @@ class DremioAPIOperations:
             return containers
 
         return traverse_path(location_id=resource_id, entity_path=path)
-
-    def get_context_for_vds(self, resource_id: str) -> str:
-        context_array = self.get(
-            url=f"/catalog/{resource_id}",
-        ).get("sqlContext")
-        if context_array:
-            return ".".join(
-                f'"{part}"' if "." in part else f"{part}" for part in context_array
-            )
-        else:
-            return ""
