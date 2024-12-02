@@ -277,17 +277,12 @@ class DataProcessCleanup:
         assert self.ctx.graph
 
         dpis = self.fetch_dpis(job.urn, self.config.batch_size)
-        try:
-            dpis.sort(key=lambda x: x["created"]["time"], reverse=True)
-        except Exception as e:
-            # Delete all cases where created is not present
-            for dpi in dpis:
-                try:
-                    dpi["created"]["time"]
-                except Exception as e:
-                    self.delete_entity(dpi["urn"], "dataprocessInstance")
-            # We will try again for this job next time
-            return
+        dpis.sort(
+            key=lambda x: x["created"]["time"]
+            if x["created"] and x["created"]["time"]
+            else 0,
+            reverse=True,
+        )
 
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
             if self.config.keep_last_n:
