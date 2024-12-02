@@ -79,7 +79,12 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    FineGrainedLineage,
+    FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamType,
+    UpstreamLineage,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -758,16 +763,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        if self.config.include_table_location_lineage and location_urn:
-            external_upstream_table = UpstreamClass(
-                dataset=location_urn,
-                type=DatasetLineageTypeClass.COPY,
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_snapshot.urn,
-                aspect=UpstreamLineage(upstreams=[external_upstream_table]),
-            ).as_workunit()
-
         extra_tags = self.get_extra_tags(inspector, schema, table)
         pk_constraints: dict = inspector.get_pk_constraint(table, schema)
         partitions: Optional[List[str]] = self.get_partitions(inspector, schema, table)
@@ -780,6 +775,40 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             tags=extra_tags,
             partition_keys=partitions,
         )
+
+        if self.config.include_table_location_lineage and location_urn:
+            external_upstream_table = UpstreamClass(
+                dataset=location_urn,
+                type=DatasetLineageTypeClass.COPY,
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_snapshot.urn,
+                aspect=UpstreamLineage(
+                    upstreams=[external_upstream_table],
+                    fineGrainedLineages=[
+                        (
+                            FineGrainedLineage(
+                                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                                downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                                upstreams=[
+                                    make_schema_field_urn(
+                                        parent_urn=location_urn,
+                                        field_path=field_urn.fieldPath,
+                                    )
+                                ],
+                                downstreams=[
+                                    make_schema_field_urn(
+                                        parent_urn=dataset_snapshot.urn,
+                                        field_path=field_urn.fieldPath,
+                                    )
+                                ],
+                                confidenceScore=1.0,
+                            )
+                        ) for field_urn in schema_fields
+                    ]
+               ),
+            ).as_workunit()
+
         schema_metadata = get_schema_metadata(
             self.report,
             dataset_name,
