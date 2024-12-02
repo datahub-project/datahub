@@ -49,6 +49,7 @@ public class EvaluateTests implements Upgrade {
     final List<UpgradeStep> steps = new ArrayList<>();
     steps.add(
         new EvaluateTestsStep(systemOpContext, entityClient, entitySearchService, testEngine));
+    steps.add(new WaitForTestActionsStep(testEngine));
     return steps;
   }
 
