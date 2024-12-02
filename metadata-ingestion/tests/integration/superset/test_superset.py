@@ -637,7 +637,7 @@ def test_superset_stateful_ingest(
         dataset_difference_urns = list(
             state1.get_urns_not_in(type="dataset", other_checkpoint_state=state2)
         )
-        
+
         assert len(dashboard_difference_urns) == 1
         assert len(chart_difference_urns) == 1
         assert len(dataset_difference_urns) == 1
