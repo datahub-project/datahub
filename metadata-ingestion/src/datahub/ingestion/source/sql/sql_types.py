@@ -276,7 +276,6 @@ def resolve_vertica_modified_type(type_string: str) -> Any:
     return VERTICA_SQL_TYPES_MAP[type_string]
 
 
-# see https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html
 SNOWFLAKE_TYPES_MAP: Dict[str, Any] = {
     "NUMBER": NumberType,
     "DECIMAL": NumberType,
@@ -311,6 +310,18 @@ SNOWFLAKE_TYPES_MAP: Dict[str, Any] = {
     "ARRAY": ArrayType,
     "GEOGRAPHY": None,
 }
+
+
+def resolve_snowflake_modified_type(type_string: str) -> Any:
+    # Match types with precision and scale, e.g., 'DECIMAL(38,0)'
+    match = re.match(r"([a-zA-Z_]+)\(\d+,\s\d+\)", type_string)
+    if match:
+        modified_type_base = match.group(1)  # Extract the base type
+        return SNOWFLAKE_TYPES_MAP.get(modified_type_base, None)
+
+    # Fallback for types without precision/scale
+    return SNOWFLAKE_TYPES_MAP.get(type_string, None)
+
 
 # see https://github.com/googleapis/python-bigquery-sqlalchemy/blob/main/sqlalchemy_bigquery/_types.py#L32
 BIGQUERY_TYPES_MAP: Dict[str, Any] = {
@@ -380,6 +391,7 @@ TRINO_SQL_TYPES_MAP: Dict[str, Any] = {
     "row": RecordType,
     "map": MapType,
     "array": ArrayType,
+    "json": RecordType,
 }
 
 # https://docs.aws.amazon.com/athena/latest/ug/data-types.html
@@ -490,7 +502,7 @@ def resolve_sql_type(
             TypeClass = resolve_vertica_modified_type(column_type)
         elif platform == "snowflake":
             # Snowflake types are uppercase, so we check that.
-            TypeClass = _merged_mapping.get(column_type.upper())
+            TypeClass = resolve_snowflake_modified_type(column_type.upper())
 
     if TypeClass:
         return TypeClass()

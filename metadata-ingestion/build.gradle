@@ -28,15 +28,7 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
     "touch ${sentinel_file}"
 }
 
-task runPreFlightScript(type: Exec, dependsOn: environmentSetup) {
-  def sentinel_file = ".preflight_sentinel"
-  outputs.file(sentinel_file)
-  commandLine 'bash', '-c',
-    "scripts/datahub_preflight.sh && " +
-    "touch ${sentinel_file}"
-}
-
-task installPackageOnly(type: Exec, dependsOn: runPreFlightScript) {
+task installPackageOnly(type: Exec, dependsOn: environmentSetup) {
   def sentinel_file = "${venv_name}/.build_install_package_only_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
