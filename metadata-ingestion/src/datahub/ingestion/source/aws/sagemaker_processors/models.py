@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -64,6 +65,8 @@ ENDPOINT_STATUS_MAP: Dict[str, str] = {
     "Failed": DeploymentStatusClass.FAILED,
     "Unknown": DeploymentStatusClass.UNKNOWN,
 }
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -424,9 +427,19 @@ class ModelProcessor:
 
         model_group_arns = model_uri_groups | model_image_groups
 
+        # Filter, sort the model group names, and log missing keys in one shot
         model_group_names = sorted(
-            [self.group_arn_to_name[x] for x in model_group_arns]
+            [
+                self.group_arn_to_name[arn]
+                if arn in self.group_arn_to_name
+                else logger.warning(
+                    f"Model is associated with a group ARN {arn} which was not listed in the model groups"
+                )
+                or arn
+                for arn in model_group_arns
+            ]
         )
+
         model_group_urns = [
             builder.make_ml_model_group_urn("sagemaker", x, self.env)
             for x in model_group_names
