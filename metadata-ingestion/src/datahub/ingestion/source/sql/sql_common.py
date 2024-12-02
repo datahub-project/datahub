@@ -997,15 +997,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                         FineGrainedLineage(
                             downstreamType=FineGrainedLineageDownstreamType.FIELD,
                             downstreams=[
-                                make_schema_field_urn(
-                                    dataset_urn, field_path_v1
-                                )
+                                make_schema_field_urn(dataset_urn, field_path_v1)
                             ],
                             upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
                             upstreams=[
                                 make_schema_field_urn(
                                     upstream_dataset_urn,
-                                    simplify_field_path(matching_upstream_field.fieldPath),
+                                    simplify_field_path(
+                                        matching_upstream_field.fieldPath
+                                    ),
                                 )
                             ],
                         )
