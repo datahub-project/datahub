@@ -16,7 +16,7 @@ fastapi = "^0.95.1"
 uvicorn = {extras = ["standard"], version = "^0.22.0"}
 loguru = "^0.7.0"
 slack-bolt = "^1.18.0"
-apscheduler = "^3.10.1"
+apscheduler = "3.10.1"
 pydantic = "^1.10.7"
 snowflake-connector-python = ">2.8.2"
 cronitor = "^4.6.0"
