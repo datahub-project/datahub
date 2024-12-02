@@ -27,7 +27,7 @@ from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
-RUNS_TABLE_COLUMNS = ["runId", "rows", "created at"]
+RUNS_TABLE_COLUMNS = ["runId", "source", "startTime", "status"]
 RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
 
 
@@ -442,17 +442,22 @@ def mcps(path: str) -> None:
 @click.argument("page_size", type=int, default=100)
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
-def list_sources(page_offset: int, page_size: int) -> None:
-    """List ingestion sources with their number of executions"""
+def list_runs(page_offset: int, page_size: int) -> None:
+    """List ingestion runs with their execution details"""
 
     query = """
     query listIngestionRuns($input: ListIngestionSourcesInput!) {
       listIngestionSources(input: $input) {
         ingestionSources {
-          urn
           name
           executions {
-            total
+            executionRequests {
+              id
+              result {
+                startTimeMs
+                status
+              }
+            }
           }
         }
       }
@@ -467,72 +472,33 @@ def list_sources(page_offset: int, page_size: int) -> None:
 
     url = f"{gms_host}/api/graphql"
     response = session.post(url, json={"query": query, "variables": variables})
-
     data = response.json()
 
     rows = []
     if "data" in data and "listIngestionSources" in data["data"]:
         sources = data["data"]["listIngestionSources"]["ingestionSources"]
         for source in sources:
-            urn = source.get("urn", "N/A")
             name = source.get("name", "N/A")
-            executions = source.get("executions", {})
-            total = executions.get("total", 0)
-            rows.append([urn, name, total])
+            executions = source.get("executions", {}).get("executionRequests", [])
+            for execution in executions:
+                execution_id = execution.get("id", "N/A")
+                start_time = execution.get("result", {}).get("startTimeMs", "N/A")
+                start_time = datetime.fromtimestamp(start_time / 1000).strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+                status = execution.get("result", {}).get("status", "N/A")
+
+                rows.append([execution_id, name, start_time, status])
 
     click.echo(
-        tabulate(rows, headers=["URN", "Name", "Total Executions"], tablefmt="grid")
+        tabulate(
+            rows,
+            headers=RUNS_TABLE_COLUMNS,
+            tablefmt="grid",
+        )
         if rows
-        else "No ingestion sources found."
+        else "No ingestion sources or executions found."
     )
-
-
-@ingest.command()
-@click.argument("page_offset", type=int, default=0)
-@click.argument("page_size", type=int, default=100)
-@click.option(
-    "--include-soft-deletes",
-    is_flag=True,
-    default=False,
-    help="If enabled, will list ingestion runs which have been soft deleted",
-)
-@upgrade.check_upgrade
-@telemetry.with_telemetry()
-def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
-    """List recent ingestion runs to datahub"""
-
-    client = get_default_graph()
-    session = client._session
-    gms_host = client.config.server
-
-    url = f"{gms_host}/runs?action=list"
-
-    payload_obj = {
-        "pageOffset": page_offset,
-        "pageSize": page_size,
-        "includeSoft": include_soft_deletes,
-    }
-
-    payload = json.dumps(payload_obj)
-
-    response = session.post(url, data=payload)
-
-    rows = parse_restli_response(response)
-    local_timezone = datetime.now().astimezone().tzinfo
-
-    structured_rows = [
-        [
-            row.get("runId"),
-            row.get("rows"),
-            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
-            + f" ({local_timezone})",
-        ]
-        for row in rows
-    ]
-
-    click.echo(tabulate(structured_rows, RUNS_TABLE_COLUMNS, tablefmt="grid"))
 
 
 @ingest.command()
