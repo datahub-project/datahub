@@ -391,6 +391,7 @@ TRINO_SQL_TYPES_MAP: Dict[str, Any] = {
     "row": RecordType,
     "map": MapType,
     "array": ArrayType,
+    "json": RecordType,
 }
 
 # https://docs.aws.amazon.com/athena/latest/ug/data-types.html

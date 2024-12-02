@@ -438,9 +438,15 @@ class _SingleDatasetProfiler(BasicDatasetProfilerBase):
         )
 
         if column_spec.type_ == ProfilerDataType.UNKNOWN:
-            datahub_field_type = resolve_sql_type(
-                self.column_types[column], self.dataset.engine.dialect.name.lower()
-            )
+            try:
+                datahub_field_type = resolve_sql_type(
+                    self.column_types[column], self.dataset.engine.dialect.name.lower()
+                )
+            except Exception as e:
+                logger.debug(
+                    f"Error resolving sql type {self.column_types[column]}: {e}"
+                )
+                datahub_field_type = None
             if datahub_field_type is None:
                 return
             if isinstance(datahub_field_type, NumberType):
