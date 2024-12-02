@@ -982,8 +982,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         if schema_fields and upstream_schema_metadata:
             fine_grained_lineages: List[FineGrainedLineage] = []
-            for field in schema_fields:
-                field_path_v1 = simplify_field_path(field.fieldPath)
+            for schema_field in schema_fields:
+                field_path_v1 = simplify_field_path(schema_field.fieldPath)
                 matching_upstream_field = next(
                     (
                         f
