@@ -28,6 +28,7 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
+from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -785,30 +786,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 entityUrn=dataset_snapshot.urn,
                 aspect=UpstreamLineage(
                     upstreams=[external_upstream_table],
-                    fineGrainedLineages=[
-                        (
-                            FineGrainedLineage(
-                                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                                downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                                upstreams=[
-                                    make_schema_field_urn(
-                                        parent_urn=location_urn,
-                                        field_path=field_urn.fieldPath.replace(
-                                            "[version=2.0].[type=string].", ""
-                                        ),
-                                    )
-                                ],
-                                downstreams=[
-                                    make_schema_field_urn(
-                                        parent_urn=dataset_snapshot.urn,
-                                        field_path=field_urn.fieldPath,
-                                    )
-                                ],
-                                confidenceScore=1.0,
-                            )
-                        )
-                        for field_urn in schema_fields
-                    ],
+                    fineGrainedLineages=self.get_fine_grained_lineages(
+                        dataset_urn=dataset_snapshot.urn,
+                        upstream_dataset_urn=location_urn,
+                        schema_fields=schema_fields,
+                    ),
                 ),
             ).as_workunit()
 
@@ -984,6 +966,52 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             )
             foreign_keys = []
         return foreign_keys
+
+    def get_fine_grained_lineages(
+        self,
+        dataset_urn: str,
+        upstream_dataset_urn: str,
+        schema_fields: Optional[List[SchemaField]],
+    ) -> Optional[List[FineGrainedLineage]]:
+        def simplify_field_path(field_path):
+            return Dataset._simplify_field_path(field_path)
+
+        upstream_schema_metadata: Optional[
+            SchemaMetadata
+        ] = self.ctx.graph.get_schema_metadata(upstream_dataset_urn)
+
+        if schema_fields and upstream_schema_metadata:
+            fine_grained_lineages: List[FineGrainedLineage] = []
+            for field in schema_fields:
+                field_path_v1 = simplify_field_path(field.fieldPath)
+                matching_upstream_field = next(
+                    (
+                        f
+                        for f in upstream_schema_metadata.fields
+                        if simplify_field_path(f.fieldPath) == field_path_v1
+                    ),
+                    None,
+                )
+                if matching_upstream_field:
+                    fine_grained_lineages.append(
+                        FineGrainedLineage(
+                            downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                            downstreams=[
+                                make_schema_field_urn(
+                                    dataset_urn, field_path_v1
+                                )
+                            ],
+                            upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                            upstreams=[
+                                make_schema_field_urn(
+                                    upstream_dataset_urn,
+                                    simplify_field_path(matching_upstream_field.fieldPath),
+                                )
+                            ],
+                        )
+                    )
+            return fine_grained_lineages
+        return None
 
     def get_schema_fields(
         self,
