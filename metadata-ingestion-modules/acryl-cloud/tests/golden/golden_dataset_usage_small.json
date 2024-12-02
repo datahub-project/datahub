@@ -18,6 +18,7 @@
             "uniqueUserPercentileLast30Days": 77,
             "uniqueUserRankLast30Days": 2,
             "writeCountPercentileLast30Days": 0,
+            "writeCountRankLast30Days": 5,
             "topUsersLast30Days": [
                 "urn:li:corpuser:user2",
                 "urn:li:corpuser:user3",
@@ -32,8 +33,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1720523190294,
-        "runId": "datahub-usage-reporting-2024_07_09-13_06_30",
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-4mglto",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -56,6 +57,7 @@
             "uniqueUserPercentileLast30Days": 44,
             "uniqueUserRankLast30Days": 4,
             "writeCountPercentileLast30Days": 0,
+            "writeCountRankLast30Days": 5,
             "topUsersLast30Days": [
                 "urn:li:corpuser:user1",
                 "urn:li:corpuser:user0"
@@ -67,8 +69,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1720523190294,
-        "runId": "datahub-usage-reporting-2024_07_09-13_06_30",
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-4mglto",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -91,6 +93,7 @@
             "uniqueUserPercentileLast30Days": 25,
             "uniqueUserRankLast30Days": 5,
             "writeCountPercentileLast30Days": 0,
+            "writeCountRankLast30Days": 5,
             "topUsersLast30Days": [
                 "urn:li:corpuser:user0"
             ],
@@ -101,8 +104,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1720523190294,
-        "runId": "datahub-usage-reporting-2024_07_09-13_06_30",
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-4mglto",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -125,6 +128,7 @@
             "uniqueUserPercentileLast30Days": 77,
             "uniqueUserRankLast30Days": 2,
             "writeCountPercentileLast30Days": 0,
+            "writeCountRankLast30Days": 5,
             "topUsersLast30Days": [
                 "urn:li:corpuser:user2",
                 "urn:li:corpuser:user1",
@@ -139,8 +143,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1720523190293,
-        "runId": "datahub-usage-reporting-2024_07_09-13_06_30",
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-4mglto",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -163,6 +167,7 @@
             "uniqueUserPercentileLast30Days": 69,
             "uniqueUserRankLast30Days": 3,
             "writeCountPercentileLast30Days": 0,
+            "writeCountRankLast30Days": 5,
             "topUsersLast30Days": [
                 "urn:li:corpuser:user3",
                 "urn:li:corpuser:user1",
@@ -176,8 +181,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1720523190295,
-        "runId": "datahub-usage-reporting-2024_07_09-13_06_30",
+        "lastObserved": 1720681200000,
+        "runId": "datahub-usage-reporting-2024_07_11-07_00_00-4mglto",
         "lastRunId": "no-run-id-provided"
     }
 }

@@ -449,7 +449,6 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
     def queries_entities_batch(self, results: Iterable) -> Iterable[Dict]:
         with PerfTimer() as timer:
-
             for doc in results:
                 if "platform" not in doc["_source"] or not doc["_source"]["platform"]:
                     logger.warning(
@@ -473,9 +472,11 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                         )
                     ),
                     "platform": doc["_source"]["platform"],
-                    "removed": doc["_source"]["removed"]
-                    if "removed" in doc["_source"]
-                    else False,
+                    "removed": (
+                        doc["_source"]["removed"]
+                        if "removed" in doc["_source"]
+                        else False
+                    ),
                 }
 
             time_taken = timer.elapsed_seconds()
@@ -587,7 +588,6 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
     def process_batch(self, results: Iterable) -> Iterable[Dict]:
         with PerfTimer() as timer:
-
             for doc in results:
                 match = re.match(platform_regexp, doc["_source"]["urn"])
                 if match:
@@ -754,7 +754,6 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         prefix: Optional[str] = None,
         use_exp_cdf: Optional[bool] = None,
     ) -> polars.LazyFrame:
-
         logger.debug(f"Generating rank and percentile for {count_field} field")
         lf = lf.with_columns(
             polars.col(count_field)
@@ -880,7 +879,6 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     def load_write_usage(
         self, soft_deleted_entities_df: polars.LazyFrame
     ) -> polars.LazyFrame:
-
         if self.config.streaming_mode:
             wdf = self.load_es_data_to_lf(
                 index="dataset_operationaspect_v1",
@@ -1557,10 +1555,8 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             usage_with_top_users_with_ranks.join(
                 write_lf, on="urn", how="full", suffix="_write"
             )
-            .with_columns("write_count")
-            .fill_null(polars.lit(0))
-            .with_columns("totalSqlQueries")
-            .fill_null(polars.lit(0))
+            .with_columns(polars.col("write_count").fill_null(polars.lit(0)))
+            .with_columns(polars.col("totalSqlQueries").fill_null(polars.lit(0)))
         )
 
         # If we get a dataset from the operation aspect index only then we have to use its urn and platform
