@@ -27,7 +27,8 @@ from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
-RUNS_TABLE_COLUMNS = ["runId", "source", "startTime", "status"]
+INGEST_SRC_TABLE_COLUMNS = ["runId", "URN", "source", "startTime", "status"]
+RUNS_TABLE_COLUMNS = ["runId", "rows", "created at"]
 RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
 
 
@@ -440,15 +441,17 @@ def mcps(path: str) -> None:
 @ingest.command()
 @click.argument("page_offset", type=int, default=0)
 @click.argument("page_size", type=int, default=100)
+@click.option("--urn", type=str, default=None, help="Filter by ingestion source URN.")
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
-def list_runs(page_offset: int, page_size: int) -> None:
-    """List ingestion runs with their execution details"""
+def list_source_runs(page_offset: int, page_size: int, urn: str) -> None:
+    """List ingestion source runs with their details, optionally filtered by URN"""
 
     query = """
     query listIngestionRuns($input: ListIngestionSourcesInput!) {
       listIngestionSources(input: $input) {
         ingestionSources {
+          urn
           name
           executions {
             executionRequests {
@@ -464,41 +467,127 @@ def list_runs(page_offset: int, page_size: int) -> None:
     }
     """
 
-    variables = {"input": {"start": page_offset, "count": page_size}}
+    # filter by urn using CONTAINS
+    filters = []
+    if urn:
+        filters.append({"field": "urn", "values": [urn], "condition": "CONTAIN"})
+
+    variables = {
+        "input": {
+            "start": page_offset,
+            "count": page_size,
+            "filters": filters,
+        }
+    }
 
     client = get_default_graph()
     session = client._session
     gms_host = client.config.server
 
     url = f"{gms_host}/api/graphql"
-    response = session.post(url, json={"query": query, "variables": variables})
-    data = response.json()
+    try:
+        response = session.post(url, json={"query": query, "variables": variables})
+        response.raise_for_status()
+    except Exception as e:
+        click.echo(f"Error fetching data: {str(e)}")
+        return
+
+    try:
+        data = response.json()
+    except ValueError:
+        click.echo("Failed to parse JSON response from server.")
+        return
+
+    if not data:
+        click.echo("No response received from the server.")
+        return
+
+    # when urn filter does not match
+    if (
+        not isinstance(data.get("data"), dict)
+        or "listIngestionSources" not in data["data"]
+    ):
+        click.echo("No matching ingestion sources found. Please check your filters.")
+        return
+
+    sources = data["data"]["listIngestionSources"]["ingestionSources"]
+    if not sources:
+        click.echo("No ingestion sources or executions found.")
+        return
 
     rows = []
-    if "data" in data and "listIngestionSources" in data["data"]:
-        sources = data["data"]["listIngestionSources"]["ingestionSources"]
-        for source in sources:
-            name = source.get("name", "N/A")
-            executions = source.get("executions", {}).get("executionRequests", [])
-            for execution in executions:
-                execution_id = execution.get("id", "N/A")
-                start_time = execution.get("result", {}).get("startTimeMs", "N/A")
-                start_time = datetime.fromtimestamp(start_time / 1000).strftime(
-                    "%Y-%m-%d %H:%M:%S"
-                )
-                status = execution.get("result", {}).get("status", "N/A")
+    for source in sources:
+        urn = source.get("urn", "N/A")
+        name = source.get("name", "N/A")
 
-                rows.append([execution_id, name, start_time, status])
+        executions = source.get("executions", {}).get("executionRequests", [])
+        for execution in executions:
+            execution_id = execution.get("id", "N/A")
+            start_time = execution.get("result", {}).get("startTimeMs", "N/A")
+            start_time = (
+                datetime.fromtimestamp(start_time / 1000).strftime("%Y-%m-%d %H:%M:%S")
+                if start_time != "N/A"
+                else "N/A"
+            )
+            status = execution.get("result", {}).get("status", "N/A")
+
+            rows.append([execution_id, urn, name, start_time, status])
 
     click.echo(
         tabulate(
             rows,
-            headers=RUNS_TABLE_COLUMNS,
+            headers=INGEST_SRC_TABLE_COLUMNS,
             tablefmt="grid",
         )
-        if rows
-        else "No ingestion sources or executions found."
     )
+
+
+@ingest.command()
+@click.argument("page_offset", type=int, default=0)
+@click.argument("page_size", type=int, default=100)
+@click.option(
+    "--include-soft-deletes",
+    is_flag=True,
+    default=False,
+    help="If enabled, will list ingestion runs which have been soft deleted",
+)
+@upgrade.check_upgrade
+@telemetry.with_telemetry()
+def list_run_ids(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
+    """List recent ingestion runs to datahub"""
+
+    client = get_default_graph()
+    session = client._session
+    gms_host = client.config.server
+
+    url = f"{gms_host}/runs?action=list"
+
+    payload_obj = {
+        "pageOffset": page_offset,
+        "pageSize": page_size,
+        "includeSoft": include_soft_deletes,
+    }
+
+    payload = json.dumps(payload_obj)
+
+    response = session.post(url, data=payload)
+
+    rows = parse_restli_response(response)
+    local_timezone = datetime.now().astimezone().tzinfo
+
+    structured_rows = [
+        [
+            row.get("runId"),
+            row.get("rows"),
+            datetime.fromtimestamp(row.get("timestamp") / 1000).strftime(
+                "%Y-%m-%d %H:%M:%S"
+            )
+            + f" ({local_timezone})",
+        ]
+        for row in rows
+    ]
+
+    click.echo(tabulate(structured_rows, RUNS_TABLE_COLUMNS, tablefmt="grid"))
 
 
 @ingest.command()
