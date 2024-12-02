@@ -786,11 +786,13 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 entityUrn=dataset_snapshot.urn,
                 aspect=UpstreamLineage(
                     upstreams=[external_upstream_table],
-                    fineGrainedLineages=self.get_fine_grained_lineages(
-                        dataset_urn=dataset_snapshot.urn,
-                        upstream_dataset_urn=location_urn,
-                        schema_fields=schema_fields,
-                    ),
+                    fineGrainedLineages=(
+                        self.get_fine_grained_lineages(
+                            dataset_urn=dataset_snapshot.urn,
+                            upstream_dataset_urn=location_urn,
+                            schema_fields=schema_fields,
+                        ),
+                    ) if self.ctx.graph else None
                 ),
             ).as_workunit()
 
