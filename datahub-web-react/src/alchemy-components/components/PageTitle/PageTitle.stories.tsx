@@ -26,12 +26,16 @@ const meta = {
         subTitle: {
             description: 'The subtitle text',
         },
+        variant: {
+            description: 'The variant of header based on its usage',
+        },
     },
 
     // Define default args
     args: {
         title: 'Automations',
         subTitle: 'Create & manage automations',
+        variant: 'pageHeader',
     },
 } satisfies Meta<typeof PageTitle>;
 
@@ -60,4 +64,8 @@ export const withLink = () => (
             </>
         }
     />
+);
+
+export const sectionHeader = () => (
+    <PageTitle title="Section header title" subTitle="Section header subtitle text" variant="sectionHeader" />
 );
