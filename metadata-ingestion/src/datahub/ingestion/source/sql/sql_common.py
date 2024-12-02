@@ -794,7 +794,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                         ),
                     )
                     if self.ctx.graph
-                    else None
+                    else None,
                 ),
             ).as_workunit()
 
