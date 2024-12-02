@@ -49,6 +49,7 @@ const Icon = styled.div`
 `;
 
 const CustomLogo = styled.img`
+    object-fit: contain;
     max-height: 26px;
     max-width: 26px;
     min-height: 20px;
