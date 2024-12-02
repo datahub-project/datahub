@@ -79,8 +79,16 @@ public class ValidationApiUtilsTest {
   }
 
   @Test(expectedExceptions = IllegalArgumentException.class)
-  public void testComplexUrnWithParens() {
+  public void testComplexUrnWithParens1() {
     Urn invalidUrn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hdfs,(illegal),PROD)");
+    ValidationApiUtils.validateUrn(entityRegistry, invalidUrn, true);
+  }
+
+  @Test(expectedExceptions = IllegalArgumentException.class)
+  public void testComplexUrnWithParens2() {
+    Urn invalidUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataJob:(urn:li:dataFlow:(mssql,1/2/3/4.c_n on %28LOCAL%29,PROD),1/2/3/4.c_n on (LOCAL))");
     ValidationApiUtils.validateUrn(entityRegistry, invalidUrn, true);
   }
 
