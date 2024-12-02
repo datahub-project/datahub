@@ -17,3 +17,4 @@ export * from './components/Text';
 export * from './components/TextArea';
 export * from './components/Tooltip';
 export * from './components/Badge';
+export * from './components/BarChart';
