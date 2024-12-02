@@ -804,9 +804,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                                 ],
                                 confidenceScore=1.0,
                             )
-                        ) for field_urn in schema_fields
+                        )
+                        for field_urn in schema_fields
                     ],
-               ),
+                ),
             ).as_workunit()
 
         schema_metadata = get_schema_metadata(
