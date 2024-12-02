@@ -459,12 +459,7 @@ def list_sources(page_offset: int, page_size: int) -> None:
     }
     """
 
-    variables = {
-        "input": {
-            "start": page_offset,
-            "count": page_size
-        }
-    }
+    variables = {"input": {"start": page_offset, "count": page_size}}
 
     client = get_default_graph()
     session = client._session
@@ -485,7 +480,11 @@ def list_sources(page_offset: int, page_size: int) -> None:
             total = executions.get("total", 0)
             rows.append([urn, name, total])
 
-    click.echo(tabulate(rows, headers=["URN", "Name", "Total Executions"], tablefmt="grid") if rows else "No ingestion sources found.")
+    click.echo(
+        tabulate(rows, headers=["URN", "Name", "Total Executions"], tablefmt="grid")
+        if rows
+        else "No ingestion sources found."
+    )
 
 
 @ingest.command()
