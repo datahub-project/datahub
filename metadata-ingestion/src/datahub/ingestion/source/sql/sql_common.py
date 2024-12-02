@@ -792,7 +792,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                             upstream_dataset_urn=location_urn,
                             schema_fields=schema_fields,
                         ),
-                    ) if self.ctx.graph else None
+                    )
+                    if self.ctx.graph
+                    else None
                 ),
             ).as_workunit()
 
