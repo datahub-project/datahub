@@ -1194,7 +1194,6 @@ def create_schema_resolver(
             platform=platform,
             platform_instance=platform_instance,
             env=env,
-            graph=graph,
         )
 
     return SchemaResolver(
