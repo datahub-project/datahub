@@ -1,5 +1,4 @@
 import logging
-
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Iterable, List
 
