@@ -12,6 +12,7 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
         margin: 8px 0;
         margin-bottom: 0;
         height: 36px;
+        min-height: 36px;
         border-radius: 6px;
         border: 0;
         display: flex;
