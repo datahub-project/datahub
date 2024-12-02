@@ -241,8 +241,7 @@ export default function DefaultPreviewCard({
 
     // TODO: Replace with something less hacky
     const finalType = type || entityRegistry.getEntityName(entityType);
-    const hasPlatformIcons =
-        platform || logoUrl || (platforms && platforms.length) || (logoUrls && logoUrls.length) || isOutputPort;
+    const hasPlatformIcons = logoUrl || (logoUrls && logoUrls.length) || isOutputPort;
     const isIconPresent = !!hasPlatformIcons || !!entityIcon;
 
     const { isFullViewCard } = useSearchContext();
