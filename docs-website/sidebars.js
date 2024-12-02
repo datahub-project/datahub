@@ -158,11 +158,11 @@ module.exports = {
               type: "doc",
               id: "docs/features/feature-guides/compliance-forms/overview",
             },
-             {
+            {
               type: "doc",
               id: "docs/features/feature-guides/compliance-forms/create-a-form",
             },
-             {
+            {
               type: "doc",
               id: "docs/features/feature-guides/compliance-forms/complete-a-form",
             },
