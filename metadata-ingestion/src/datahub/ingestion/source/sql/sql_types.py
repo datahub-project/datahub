@@ -468,7 +468,7 @@ _merged_mapping = {
 
 
 def resolve_sql_type(
-    column_type: Optional[str],
+    column_type: Optional[str] = None,
     platform: Optional[str] = None,
 ) -> Optional[DATAHUB_FIELD_TYPE]:
     # In theory, we should use the platform-specific mapping where available.

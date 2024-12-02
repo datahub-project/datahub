@@ -35,7 +35,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.sql.sql_types import POSTGRES_TYPES_MAP
+from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
@@ -97,8 +97,6 @@ chart_type_from_viz_type = {
     "box_plot": ChartTypeClass.BAR,
 }
 
-# Set Mapping to Postgres by default
-SUPERSET_FIELD_TYPE_MAPPINGS = POSTGRES_TYPES_MAP
 
 platform_without_databases = ["druid"]
 
@@ -131,6 +129,13 @@ class SupersetConfig(
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Superset Stateful Ingestion Config."
+    )
+    ingest_dashboards: bool = Field(
+        default=True, description="Enable to ingest dashboards."
+    )
+    ingest_charts: bool = Field(default=True, description="Enable to ingest charts.")
+    ingest_datasets: bool = Field(
+        default=False, description="Enable to ingest datasets."
     )
 
     provider: str = Field(default="db", description="Superset provider.")
@@ -214,6 +219,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                 graph=self.ctx.graph,
             )
         self.session = self.login()
+        # Default to postgres field type mappings
+        self.superset_field_type_mappings = resolve_sql_type(platform="postgres")
 
     def login(self) -> requests.Session:
         login_response = requests.post(
@@ -288,10 +295,15 @@ class SupersetSource(StatefulIngestionSourceBase):
         else:
             platform_name = get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
         if platform_name == "awsathena":
+            self.superset_field_type_mappings = resolve_sql_type(platform="athena")
             return "athena"
         if platform_name == "clickhousedb":
+            self.superset_field_type_mappings = resolve_sql_type(
+                platform="clickhousedb"
+            )
             return "clickhouse"
         if platform_name == "postgresql":
+            self.superset_field_type_mappings = resolve_sql_type(platform="postgres")
             return "postgres"
         return platform_name
 
@@ -418,17 +430,17 @@ class SupersetSource(StatefulIngestionSourceBase):
                 dashboard_snapshot = self.construct_dashboard_from_api_data(
                     dashboard_data
                 )
-                mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-                yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-                yield from self._get_domain_wu(
-                    title=dashboard_data.get("dashboard_title", ""),
-                    entity_urn=dashboard_snapshot.urn,
-                )
             except Exception as e:
-                logger.warning(
-                    f"Failed to emit dashboard MCE {dashboard_data.get('dashboard_title')}. Error: \n{e}"
+                self.report.warning(
+                    f"Failed to construct dashboard snapshot. Dashboard name: {dashboard_data.get('dashboard_title')}. Error: \n{e}"
                 )
                 continue
+            mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
+            yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+            yield from self._get_domain_wu(
+                title=dashboard_data.get("dashboard_title", ""),
+                entity_urn=dashboard_snapshot.urn,
+            )
 
     def construct_chart_from_chart_data(self, chart_data: dict) -> ChartSnapshot:
         chart_urn = make_chart_urn(
@@ -522,8 +534,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                     entity_urn=chart_snapshot.urn,
                 )
             except Exception as e:
-                logger.warning(
-                    f"Failed to emit dataset MCE {chart_data.get('table_name')}. Error: \n{e}"
+                self.report.warning(
+                    f"Failed to construct chart snapshot. Chart name: {chart_data.get('table_name')}. Error: \n{e}"
                 )
                 continue
 
@@ -531,10 +543,13 @@ class SupersetSource(StatefulIngestionSourceBase):
         schema_fields: List[SchemaField] = []
         for col in column_data:
             col_type = (col.get("type") or "").lower()
-            data_type = SUPERSET_FIELD_TYPE_MAPPINGS.get(col_type)
+            if self.superset_field_type_mappings is not None:
+                data_type = self.superset_field_type_mappings.get(col_type, NullType())
+            else:
+                data_type = NullType()
             field = SchemaField(
                 fieldPath=col.get("column_name", ""),
-                type=SchemaFieldDataType(data_type() if data_type else NullType()),
+                type=SchemaFieldDataType(data_type()),
                 nativeDataType="",
                 description=col.get("column_name", ""),
                 nullable=True,
@@ -615,16 +630,18 @@ class SupersetSource(StatefulIngestionSourceBase):
                     entity_urn=dataset_snapshot.urn,
                 )
             except Exception as e:
-                logger.warning(f"Dataset full logs: {dataset_data}")
-                logger.warning(
-                    f"Failed to emit dataset MCE {dataset_data.get('table_name')}. Error: \n{e}"
+                self.report.warning(
+                    f"Failed to construct dataset snapshot. Dataset name: {dataset_data.get('table_name')}. Error: \n{e}"
                 )
                 continue
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        # yield from self.emit_dashboard_mces()
-        # yield from self.emit_chart_mces()
-        yield from self.emit_dataset_mces()
+        if self.config.ingest_dashboards:
+            yield from self.emit_dashboard_mces()
+        if self.config.ingest_datasets:
+            yield from self.emit_chart_mces()
+        if self.config.ingest_datasets:
+            yield from self.emit_dataset_mces()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
