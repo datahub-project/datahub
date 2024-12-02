@@ -1182,6 +1182,22 @@ def sqlglot_lineage(
 
 
 @functools.lru_cache(maxsize=128)
+def create_and_cache_schema_resolver(
+    platform: str,
+    env: str,
+    graph: Optional[DataHubGraph] = None,
+    platform_instance: Optional[str] = None,
+    schema_aware: bool = True,
+) -> SchemaResolver:
+    return create_schema_resolver(
+        platform=platform,
+        env=env,
+        graph=graph,
+        platform_instance=platform_instance,
+        schema_aware=schema_aware,
+    )
+
+
 def create_schema_resolver(
     platform: str,
     env: str,
@@ -1222,9 +1238,9 @@ def create_lineage_sql_parsed_result(
         graph=graph,
     )
 
-    needs_close: bool = False
+    needs_close: bool = True
     if graph and schema_aware:
-        needs_close = True
+        needs_close = False
 
     try:
         return sqlglot_lineage(
@@ -1259,7 +1275,7 @@ def infer_output_schema(result: SqlParsingResult) -> Optional[List[SchemaFieldCl
     return output_schema
 
 
-def infer_schema_columns(
+def infer_upstream_columns(
     schema_info: SchemaInfo, expected_columns: List[str]
 ) -> List[str]:
     column_from_gms: List[str] = list(schema_info.keys())  # list() to silent lint

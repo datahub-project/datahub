@@ -31,9 +31,9 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     SqlParsingResult,
     Urn,
+    create_and_cache_schema_resolver,
     create_lineage_sql_parsed_result,
-    create_schema_resolver,
-    infer_schema_columns,
+    infer_upstream_columns,
 )
 
 logger = logging.getLogger(__name__)
@@ -259,7 +259,7 @@ class AbstractViewUpstream(ABC):
 
         - This function ensures consistency in column-level lineage by consulting GMS before creating the final `ColumnRef` instance, avoiding discrepancies.
         """
-        schema_resolver = create_schema_resolver(
+        schema_resolver = create_and_cache_schema_resolver(
             platform=self.view_context.view_connection.platform,
             platform_instance=self.view_context.view_connection.platform_instance,
             env=self.view_context.view_connection.platform_env or self.config.env,
@@ -269,7 +269,7 @@ class AbstractViewUpstream(ABC):
         urn, schema_info = _get_schema_info(schema_resolver, upstream_urn)
 
         if schema_info:
-            actual_columns = infer_schema_columns(schema_info, expected_columns)
+            actual_columns = infer_upstream_columns(schema_info, expected_columns)
         else:
             logger.info(
                 f"schema_info not found for dataset {urn} in GMS. Using expected_columns to form ColumnRef"
