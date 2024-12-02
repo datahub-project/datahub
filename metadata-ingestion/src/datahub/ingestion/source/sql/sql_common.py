@@ -794,8 +794,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                                     make_schema_field_urn(
                                         parent_urn=location_urn,
                                         field_path=field_urn.fieldPath.replace(
-                                            "[version=2.0].[type=string].",
-                                            ""
+                                            "[version=2.0].[type=string].", ""
                                         ),
                                     )
                                 ],
