@@ -108,7 +108,12 @@ export default function EditStructuredPropertyModal({
                     <Button onClick={closeModal} type="text">
                         Cancel
                     </Button>
-                    <Button type="primary" onClick={upsertProperties} disabled={!selectedValues.length}>
+                    <Button
+                        type="primary"
+                        onClick={upsertProperties}
+                        disabled={!selectedValues.length}
+                        data-testid="add-update-structured-prop-on-entity-button"
+                    >
                         {isAddMode ? 'Add' : 'Update'}
                     </Button>
                 </>

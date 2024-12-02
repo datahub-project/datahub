@@ -97,11 +97,12 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                 const propertyRow: PropertyRow | undefined = getPropertyRowFromSearchResult(property, allProperties);
                 const isRichText = propertyRow?.dataType?.info.type === StdDataType.RichText;
                 const values = propertyRow?.values;
+                const propertyName = getDisplayName(property.entity as StructuredPropertyEntity);
 
                 return (
                     <>
                         <SidebarSection
-                            title={getDisplayName(property.entity as StructuredPropertyEntity)}
+                            title={propertyName}
                             key={property.entity.urn}
                             content={
                                 <>
@@ -126,6 +127,7 @@ const SidebarStructuredProperties = ({ properties }: Props) => {
                                             event.stopPropagation();
                                         }}
                                         actionPrivilege={canEditProps}
+                                        dataTestId={`${propertyName}-add-or-edit-button`}
                                     />
                                 </>
                             }

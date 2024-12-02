@@ -64,7 +64,7 @@ export const SchemaFieldDrawerTabs = ({ tabs, selectedTab, onSelectTab }: Props)
                     <Tab
                         tab={
                             <Tooltip title={name} placement="left" showArrow={false}>
-                                <TabIcon style={tabIconStyle} />
+                                <TabIcon style={tabIconStyle} data-testid={`${name}-field-drawer-tab-header`} />
                             </Tooltip>
                         }
                         key={tab.name}

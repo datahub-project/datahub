@@ -74,6 +74,7 @@ const DisplayPreferences = ({
                                 checked={formValues?.settings?.isHidden}
                                 onChange={(e) => handleDisplaySettingChange('isHidden', e.target.checked)}
                                 labelHoverText="If enabled, this property will be hidden everywhere"
+                                data-testid="structured-props-hide-switch"
                             />
                         </StyledFormItem>
                         <StyledFormItem name={['settings', 'showInSearchFilters']}>
@@ -128,6 +129,7 @@ const DisplayPreferences = ({
                                 }
                                 labelHoverText="If enabled, this property will appear as a column in the Columns table for Datasets"
                                 disabledHoverText="Property must apply to Columns in order to show in columns table."
+                                data-testid="structured-props-show-in-columns-table-switch"
                             />
                         </StyledFormItem>
                     </TogglesContainer>

@@ -100,10 +100,10 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
                     return (
                         <Tab
                             tab={
-                                <>
+                                <span data-testid={`${tab.name}-entity-tab-header`}>
                                     {TabIcon && <TabIcon style={tabIconStyle} />}
                                     {tab.name}
-                                </>
+                                </span>
                             }
                             key={tab.name}
                             disabled
@@ -113,7 +113,7 @@ export const EntityTabs = <T,>({ tabs, selectedTab }: Props) => {
                 return (
                     <Tab
                         tab={
-                            <Header>
+                            <Header data-testid={`${tab.name}-entity-tab-header`}>
                                 {TabIcon && <TabIcon style={tabIconStyle} />}
                                 {tabName}
                             </Header>

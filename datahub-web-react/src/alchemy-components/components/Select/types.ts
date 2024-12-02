@@ -24,6 +24,7 @@ export interface SelectProps {
     disabledValues?: string[];
     showSelectAll?: boolean;
     selectAllLabel?: string;
+    optionListTestId?: string;
     showDescriptions?: boolean;
 }
 

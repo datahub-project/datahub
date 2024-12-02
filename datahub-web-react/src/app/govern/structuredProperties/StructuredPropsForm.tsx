@@ -61,10 +61,14 @@ const StructuredPropsForm = ({
                     },
                 ]}
             >
-                <Input label="Name" placeholder="Provide a name" isRequired />
+                <Input label="Name" placeholder="Provide a name" isRequired data-testid="structured-props-input-name" />
             </Form.Item>
             <Form.Item name="description">
-                <TextArea label="Description" placeholder="Provide a description" />
+                <TextArea
+                    label="Description"
+                    placeholder="Provide a description"
+                    data-testid="structured-props-input-description"
+                />
             </Form.Item>
             <RowContainer>
                 <FieldLabel>
@@ -99,6 +103,8 @@ const StructuredPropsForm = ({
                             values={formValues?.valueType ? [formValues?.valueType] : undefined}
                             isDisabled={isEditMode}
                             showDescriptions
+                            data-testid="structured-props-select-input-type"
+                            optionListTestId="structured-props-property-type-options-list"
                         />
                     </GridFormItem>
                 </Tooltip>

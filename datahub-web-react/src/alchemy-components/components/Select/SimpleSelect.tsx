@@ -119,6 +119,7 @@ export const SimpleSelect = ({
     disabledValues = [],
     showSelectAll = selectDefaults.showSelectAll,
     selectAllLabel = selectDefaults.selectAllLabel,
+    optionListTestId,
     showDescriptions = selectDefaults.showDescriptions,
     ...props
 }: SelectProps) => {
@@ -243,7 +244,7 @@ export const SimpleSelect = ({
                             <SearchIcon icon="Search" size={size} color="gray" />
                         </SearchInputContainer>
                     )}
-                    <OptionList>
+                    <OptionList data-testid={optionListTestId}>
                         {showSelectAll && isMultiSelect && (
                             <SelectAllOption
                                 isSelected={areAllSelected}

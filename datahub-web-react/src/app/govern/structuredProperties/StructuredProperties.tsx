@@ -75,6 +75,7 @@ const StructuredProperties = () => {
                         <Button
                             disabled={!canEditProps}
                             icon="Add"
+                            data-testid="structured-props-create-button"
                             onClick={() => {
                                 setIsDrawerOpen(true);
                                 analytics.event({ type: EventType.CreateStructuredPropertyClickEvent });

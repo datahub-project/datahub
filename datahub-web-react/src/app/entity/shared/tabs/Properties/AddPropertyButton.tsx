@@ -209,7 +209,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                 )}
             >
                 <Tooltip title="Add property" placement="left" showArrow={false}>
-                    <AddButton isThemeV2={isThemeV2} isV1Drawer={isV1Drawer}>
+                    <AddButton isThemeV2={isThemeV2} isV1Drawer={isV1Drawer} data-testid="add-structured-prop-button">
                         <Icon icon="Add" size={isV1Drawer ? 'lg' : '2xl'} color="white" />
                     </AddButton>
                 </Tooltip>

@@ -345,7 +345,7 @@ const StructuredPropsTable = ({
                     <>
                         <CardIcons>
                             <Dropdown menu={{ items }} trigger={['click']}>
-                                <Icon icon="MoreVert" size="md" />
+                                <Icon icon="MoreVert" size="md" data-testid="structured-props-more-options-icon" />
                             </Dropdown>
                         </CardIcons>
                     </>
@@ -355,7 +355,13 @@ const StructuredPropsTable = ({
     ];
     return (
         <>
-            <Table columns={columns} data={filteredProperties} isLoading={loading} isScrollable />
+            <Table
+                columns={columns}
+                data={filteredProperties}
+                isLoading={loading}
+                isScrollable
+                data-testid="structured-props-table"
+            />
             <ConfirmationModal
                 isOpen={showConfirmDelete}
                 handleClose={handleDeleteClose}

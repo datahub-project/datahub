@@ -354,6 +354,7 @@ const StructuredPropsDrawer = ({
                                 style={{ display: 'block', width: '100%' }}
                                 onClick={handleSubmit}
                                 isDisabled={isLoading || !canEditProps}
+                                data-testid="structured-props-create-update-button"
                             >
                                 {isEditMode ? 'Update' : 'Create'}
                             </Button>

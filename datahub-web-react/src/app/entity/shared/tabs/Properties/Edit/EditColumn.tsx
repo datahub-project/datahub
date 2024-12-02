@@ -120,7 +120,7 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
         <>
             <MoreOptionsContainer>
                 <Dropdown menu={{ items }} trigger={['click']}>
-                    <Icon icon="MoreVert" size="md" />
+                    <Icon icon="MoreVert" size="md" data-testid="structured-prop-entity-more-icon" />
                 </Dropdown>
             </MoreOptionsContainer>
             <EditStructuredPropertyModal

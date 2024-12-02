@@ -164,6 +164,8 @@ const StructuredPropsFormSection = ({
                         width="full"
                         showSelectAll
                         selectAllLabel="All Asset Types"
+                        data-testid="structured-props-select-input-applies-to"
+                        optionListTestId="applies-to-options-list"
                     />
                 </Form.Item>
             </RowContainer>

@@ -27,5 +27,12 @@ export default function StringInput({ selectedValues, cardinality, updateSelecte
         return <MultipleOpenEndedInput selectedValues={selectedValues} updateSelectedValues={updateSelectedValues} />;
     }
 
-    return <StyledInput type="text" value={selectedValues[0] || ''} onChange={updateInput} />;
+    return (
+        <StyledInput
+            type="text"
+            value={selectedValues[0] || ''}
+            onChange={updateInput}
+            data-testid="structured-property-string-value-input"
+        />
+    );
 }

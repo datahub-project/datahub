@@ -57,7 +57,7 @@ export const ConfirmationModal = ({
                     <Button variant="text" onClick={handleClose}>
                         {closeButtonText || 'Cancel'}
                     </Button>
-                    <Button variant="filled" onClick={handleConfirm}>
+                    <Button variant="filled" onClick={handleConfirm} data-testid="modal-confirm-button">
                         {confirmButtonText || 'Yes'}
                     </Button>
                 </ButtonsContainer>
