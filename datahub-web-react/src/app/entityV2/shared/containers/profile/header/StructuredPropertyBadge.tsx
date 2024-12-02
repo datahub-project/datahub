@@ -2,7 +2,6 @@ import { colors, Pill, Text, Tooltip } from '@src/alchemy-components';
 import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { getStructuredPropertyValue } from '@src/app/entity/shared/utils';
 import { getDisplayName } from '@src/app/govern/structuredProperties/utils';
-import { useIsThemeV2 } from '@src/app/useIsThemeV2';
 import React from 'react';
 import styled from 'styled-components';
 import { mapStructuredPropertyToPropertyRow } from '../../../tabs/Properties/useStructuredProperties';
@@ -24,9 +23,8 @@ const ValueContainer = styled.div`
     gap: 4px;
 `;
 
-const BadgeContainer = styled.div<{ $isThemeV2?: boolean }>`
+const BadgeContainer = styled.div`
     max-width: 150px;
-    margin-left: ${(props) => !props.$isThemeV2 && '8px'};
 `;
 
 interface Props {
@@ -34,7 +32,6 @@ interface Props {
 }
 
 const StructuredPropertyBadge = ({ entityData }: Props) => {
-    const isThemeV2 = useIsThemeV2();
     const badgeStructuredProperty = entityData?.structuredProperties?.properties?.find(
         (prop) => prop.structuredProperty.settings?.showAsAssetBadge && !prop.structuredProperty.settings?.isHidden,
     );
@@ -79,7 +76,7 @@ const StructuredPropertyBadge = ({ entityData }: Props) => {
             color={colors.white}
             overlayInnerStyle={{ width: 250, padding: 16 }}
         >
-            <BadgeContainer $isThemeV2={isThemeV2}>
+            <BadgeContainer>
                 <Pill
                     label={propRow?.values[0].value?.toString() || ''}
                     size="sm"

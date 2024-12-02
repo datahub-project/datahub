@@ -26,6 +26,7 @@ const TitleWrapper = styled.div`
     display: flex;
     justify-content: left;
     align-items: center;
+    gap: 8px;
 
     .ant-typography-edit-content {
         padding-top: 7px;

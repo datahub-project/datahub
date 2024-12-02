@@ -8,8 +8,6 @@ import { useEntityData, useRefetch } from '../../../EntityContext';
 import { useGlossaryEntityData } from '../../../GlossaryEntityContext';
 
 export const EntityTitle = styled(Typography.Title)`
-    margin-right: 10px;
-
     &&& {
         margin-bottom: 0;
         word-break: break-all;

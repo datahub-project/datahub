@@ -426,6 +426,11 @@ fragment searchResultsWithoutSchemaField on Entity {
                         siblings {
                             isPrimary
                         }
+                        structuredProperties {
+                            properties {
+                                ...structuredPropertiesFields
+                            }
+                        }
                     }
                 }
             }
