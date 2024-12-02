@@ -30,7 +30,8 @@ public class ValidationApiUtils {
   // Related to BrowsePathv2
   public static final String URN_DELIMITER_SEPARATOR = "␟";
   // https://datahubproject.io/docs/what/urn/#restrictions
-  public static final Set<String> ILLEGAL_URN_COMPONENT_CHARACTERS = Set.of(":", "(", ")", ",");
+  public static final Set<String> ILLEGAL_URN_COMPONENT_CHARACTERS = Set.of("(", ")");
+  public static final Set<String> ILLEGAL_URN_TUPLE_CHARACTERS = Set.of(",");
   public static final String URN_TUPLE_ALLOWED_CHARACTERS_REGEX = "[:]";
 
   /**
@@ -126,9 +127,15 @@ public class ValidationApiUtils {
           .flatMap(part -> processUrnPartRecursively(part, nestedParts));
     }
     if (totalParts > 1) {
-      return Stream.of(urnPart.replaceAll(URN_TUPLE_ALLOWED_CHARACTERS_REGEX, "%3A"));
+      if (ILLEGAL_URN_TUPLE_CHARACTERS.stream().anyMatch(c -> urnPart.contains(c))) {
+        return Stream.of(urnPart);
+      }
     }
-    return Stream.of(urnPart);
+    if (ILLEGAL_URN_COMPONENT_CHARACTERS.stream().anyMatch(c -> urnPart.contains(c))) {
+      return Stream.of(urnPart);
+    }
+
+    return Stream.empty();
   }
 
   /**
