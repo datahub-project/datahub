@@ -638,7 +638,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.ingest_dashboards:
             yield from self.emit_dashboard_mces()
-        if self.config.ingest_datasets:
+        if self.config.ingest_charts:
             yield from self.emit_chart_mces()
         if self.config.ingest_datasets:
             yield from self.emit_dataset_mces()
