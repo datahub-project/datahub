@@ -5,6 +5,7 @@ import {
     removeFromListPoliciesCache,
     getFieldValues,
     getFieldCondition,
+    setFieldValues,
 } from '../policyUtils';
 
 // Mock the Apollo Client readQuery and writeQuery methods
@@ -214,5 +215,49 @@ describe('getFieldCondition', () => {
 
         // should only return values from main field
         expect(getFieldCondition(filter, 'TYPE', 'RESOURCE_TYPE')).toBe(PolicyMatchCondition.Equals);
+    });
+});
+describe('setFieldValues', () => {
+    it('should remove a field if you pass in an empty array', () => {
+        const filter = {
+            criteria: [
+                {
+                    condition: PolicyMatchCondition.Equals,
+                    field: 'RESOURCE_TYPE',
+                    values: [{ value: 'dataset' }],
+                },
+                {
+                    condition: PolicyMatchCondition.Equals,
+                    field: 'TYPE',
+                    values: [{ value: 'dataJob' }],
+                },
+            ],
+        };
+
+        expect(setFieldValues(filter, 'RESOURCE_TYPE', [])).toMatchObject({
+            criteria: [
+                {
+                    condition: PolicyMatchCondition.Equals,
+                    field: 'TYPE',
+                    values: [{ value: 'dataJob' }],
+                },
+            ],
+        });
+    });
+
+    it('should set values for a field properly', () => {
+        const filter = {
+            criteria: [],
+        };
+
+        expect(setFieldValues(filter, 'TYPE', [{ value: 'dataFlow' }])).toMatchObject({
+            criteria: [
+                {
+                    condition: PolicyMatchCondition.Equals,
+                    field: 'TYPE',
+                    values: [{ value: 'dataFlow' }],
+                },
+            ],
+        });
     });
 });
