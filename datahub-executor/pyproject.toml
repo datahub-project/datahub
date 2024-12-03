@@ -30,7 +30,7 @@ oscrypto = { git = "https://github.com/wbond/oscrypto.git", rev = "1547f53" }
 celery = {extras = ["redis", "sqs"], version = "^5.3.4"}
 kombu = "<5.4.1" # 5.4.1 silently breaks
 watchdog = "^3.0.0"
-acryl-executor = "^0.1.3"
+acryl-executor = "^0.1.4"
 acryl-datahub-actions = "^0.1.4"
 pycurl = "^7.45.2"
 
