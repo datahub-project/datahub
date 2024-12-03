@@ -18,11 +18,10 @@ from tableauserverclient.models import (
     WorkbookItem,
 )
 from tableauserverclient.models.reference_item import ResourceReference
-from datahub.ingestion.run.pipeline import PipelineInitError
 
 from datahub.emitter.mce_builder import DEFAULT_ENV, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
+from datahub.ingestion.run.pipeline import Pipeline, PipelineContext, PipelineInitError
 from datahub.ingestion.source.tableau.tableau import (
     TableauConfig,
     TableauSiteSource,
@@ -580,7 +579,10 @@ def test_value_error_projects_and_project_pattern(
     new_config["projects"] = ["default"]
     new_config["project_pattern"] = {"allow": ["^Samples$"]}
 
-    with pytest.raises(PipelineInitError, match=r".*projects is deprecated. Please use project_path_pattern only.*"):
+    with pytest.raises(
+        PipelineInitError,
+        match=r".*projects is deprecated. Please use project_path_pattern only.*",
+    ):
         tableau_ingest_common(
             pytestconfig,
             tmp_path,
@@ -602,7 +604,10 @@ def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph)
     new_config["project_pattern"] = {"allow": ["^Samples$"]}
     new_config["project_path_pattern"] = {"allow": ["^Samples$"]}
 
-    with pytest.raises(PipelineInitError, match=r".*project_pattern is deprecated. Please use project_path_pattern only*"):
+    with pytest.raises(
+        PipelineInitError,
+        match=r".*project_pattern is deprecated. Please use project_path_pattern only*",
+    ):
         tableau_ingest_common(
             pytestconfig,
             tmp_path,
@@ -1297,7 +1302,10 @@ def test_hidden_assets_without_ingest_tags(pytestconfig, tmp_path, mock_datahub_
     new_config["tags_for_hidden_assets"] = ["hidden", "private"]
     new_config["ingest_tags"] = False
 
-    with pytest.raises(PipelineInitError, match=r".*tags_for_hidden_assets is only allowed with ingest_tags enabled.*"):
+    with pytest.raises(
+        PipelineInitError,
+        match=r".*tags_for_hidden_assets is only allowed with ingest_tags enabled.*",
+    ):
         tableau_ingest_common(
             pytestconfig,
             tmp_path,
