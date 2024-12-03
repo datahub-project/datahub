@@ -908,9 +908,8 @@ class TableauSiteSource:
         return is_allowed
 
     def _is_denied_project(self, project: TableauProject) -> bool:
-        # Either project name or project path should exist in deny
+        # Either project_pattern or project_path_pattern is set
         deny_patterns: List[str] = self.config.project_pattern.deny
-
         deny_patterns.extend(self.config.project_path_pattern.deny)
 
         for deny_pattern in deny_patterns:
