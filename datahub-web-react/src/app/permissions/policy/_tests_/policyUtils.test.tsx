@@ -1,4 +1,11 @@
-import { addOrUpdatePoliciesInList, updateListPoliciesCache, removeFromListPoliciesCache } from '../policyUtils';
+import { PolicyMatchCondition } from '@src/types.generated';
+import {
+    addOrUpdatePoliciesInList,
+    updateListPoliciesCache,
+    removeFromListPoliciesCache,
+    getFieldValues,
+    getFieldCondition,
+} from '../policyUtils';
 
 // Mock the Apollo Client readQuery and writeQuery methods
 const mockReadQuery = vi.fn();
@@ -101,5 +108,111 @@ describe('removeFromListPoliciesCache', () => {
             variables: { input: { start: 0, count: pageSize } },
             data: expect.any(Object),
         });
+    });
+});
+
+describe('getFieldValues', () => {
+    it('should get field values for a given field', () => {
+        const filter = {
+            criteria: [
+                {
+                    condition: PolicyMatchCondition.Equals,
+                    field: 'TYPE',
+                    values: [{ value: 'dataset' }, { value: 'dataJob' }],
+                },
+            ],
+        };
+
+        expect(getFieldValues(filter, 'TYPE')).toMatchObject([{ value: 'dataset' }, { value: 'dataJob' }]);
+    });
+
+    it('should get field values for a alternate field (for deprecated fields)', () => {
+        const filter = {
+            criteria: [
+                {
+                    condition: PolicyMatchCondition.Equals,
+                    field: 'RESOURCE_TYPE',
+                    values: [{ value: 'dataset' }, { value: 'dataJob' }],
+                },
+            ],
+        };
+
+        expect(getFieldValues(filter, 'TYPE', 'RESOURCE_TYPE')).toMatchObject([
+            { value: 'dataset' },
+            { value: 'dataJob' },
+        ]);
+    });
+
+    it('should get field values for main field with alternative field given and has values', () => {
+        const filter = {
+            criteria: [
+                {
+                    condition: PolicyMatchCondition.Equals,
+                    field: 'RESOURCE_TYPE',
+                    values: [{ value: 'container' }, { value: 'dataFlow' }],
+                },
+                {
+                    condition: PolicyMatchCondition.Equals,
+                    field: 'TYPE',
+                    values: [{ value: 'dataset' }, { value: 'dataJob' }],
+                },
+            ],
+        };
+
+        // should only return values from main field
+        expect(getFieldValues(filter, 'TYPE', 'RESOURCE_TYPE')).toMatchObject([
+            { value: 'dataset' },
+            { value: 'dataJob' },
+        ]);
+    });
+});
+
+describe('getFieldCondition', () => {
+    it('should get field values for a given field', () => {
+        const filter = {
+            criteria: [
+                {
+                    condition: PolicyMatchCondition.Equals,
+                    field: 'TYPE',
+                    values: [{ value: 'dataset' }],
+                },
+            ],
+        };
+
+        expect(getFieldCondition(filter, 'TYPE')).toBe(PolicyMatchCondition.Equals);
+    });
+
+    it('should get field values for a alternate field (for deprecated fields)', () => {
+        const filter = {
+            criteria: [
+                {
+                    condition: PolicyMatchCondition.Equals,
+                    field: 'RESOURCE_TYPE',
+                    values: [{ value: 'dataset' }],
+                },
+            ],
+        };
+
+        expect(getFieldCondition(filter, 'TYPE', 'RESOURCE_TYPE')).toBe(PolicyMatchCondition.Equals);
+    });
+
+    it('should get field values for main field with alternative field given and has values', () => {
+        const filter = {
+            criteria: [
+                {
+                    condition: PolicyMatchCondition.StartsWith,
+                    field: 'RESOURCE_TYPE',
+                    values: [{ value: 'container' }, { value: 'dataFlow' }],
+                },
+                {
+                    condition: PolicyMatchCondition.Equals,
+                    field: 'TYPE',
+                    values: [{ value: 'dataset' }],
+                },
+            ],
+        };
+
+        // should only return values from main field
+        expect(getFieldCondition(filter, 'TYPE', 'RESOURCE_TYPE')).toBe(PolicyMatchCondition.Equals);
     });
 });
