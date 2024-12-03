@@ -119,6 +119,8 @@ const OBFUSCATED_STARS = '***';
 export const SlackIntegration = () => {
     const appConfig = useAppConfig();
 
+    const isRequestMinimalSlackPermissions =
+        appConfig.config.featureFlags.requestMinimalSlackPermissions === true ? 'true' : 'false';
     const isBotTokensTabVisibleByDefault = appConfig.config.featureFlags?.slackBotTokensConfigEnabled;
     const isBotTokensTabVisibleByQueryParam = useShouldDisplayBotTokensTabFromQueryParams();
     const isBotTokensTabVisible = isBotTokensTabVisibleByDefault || isBotTokensTabVisibleByQueryParam;
@@ -249,9 +251,13 @@ export const SlackIntegration = () => {
                             // If we are using the app-token path, redirect once settings are updated.
                             if (isOnAppConfigTab) {
                                 if (isConnected) {
-                                    redirectToSlackRefreshInstallation();
+                                    redirectToSlackRefreshInstallation({
+                                        requestMinimalSlackPermissions: isRequestMinimalSlackPermissions,
+                                    });
                                 } else {
-                                    redirectToSlackInstall();
+                                    redirectToSlackInstall({
+                                        requestMinimalSlackPermissions: isRequestMinimalSlackPermissions,
+                                    });
                                 }
                             }
                         })
@@ -281,7 +287,11 @@ export const SlackIntegration = () => {
                                     title: `Install a new Slack App?`,
                                     content: `This will create and install a new Slack app with the currently set App Tokens.\nEnsure the tokens entered are up-to-date.`,
                                     onOk() {
-                                        updateSlackSettings(true, redirectToSlackInstall);
+                                        updateSlackSettings(true, () =>
+                                            redirectToSlackInstall({
+                                                requestMinimalSlackPermissions: isRequestMinimalSlackPermissions,
+                                            }),
+                                        );
                                     },
                                     onCancel() {},
                                     okText: 'Continue',

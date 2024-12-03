@@ -8,7 +8,7 @@ import fastapi
 import slack_bolt
 import slack_sdk.errors
 import slack_sdk.web
-from fastapi import HTTPException, status
+from fastapi import HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 from loguru import logger
 from pydantic import BaseModel
@@ -92,11 +92,23 @@ def reload_slack_credentials() -> None:
 
 
 @public_router.get("/slack/install")
-def install_slack_app() -> RedirectResponse:
+def install_slack_app(request: Request) -> RedirectResponse:
     config = slack_config.reload()
 
+    # Get all query parameters as a dict
+    query_params = (
+        dict(request.query_params) if request.query_params is not None else None
+    )
+    is_minimal_slack_permissions = (
+        (query_params["requestMinimalSlackPermissions"] == "true")
+        if query_params is not None
+        else False
+    )
+
     # Create the Slack app manifest before attempting to install.
-    manifest = get_slack_app_manifest()
+    manifest = get_slack_app_manifest(
+        is_minimal_permissions=is_minimal_slack_permissions
+    )
     config = create_app_with_manifest(config, manifest)
     slack_config.save_config(config)
     assert config.app_details, "App details should be present after provisioning."
@@ -112,11 +124,23 @@ def install_slack_app() -> RedirectResponse:
 
 
 @public_router.get("/slack/refresh-installation")
-def refresh_slack_app() -> RedirectResponse:
+def refresh_slack_app(request: Request) -> RedirectResponse:
     config = slack_config.reload()
 
+    # Get all query parameters as a dict
+    query_params = (
+        dict(request.query_params) if request.query_params is not None else None
+    )
+    is_minimal_slack_permissions = (
+        (query_params["requestMinimalSlackPermissions"] == "true")
+        if query_params is not None
+        else False
+    )
+
     # Update the Slack app manifest before attempting to install.
-    manifest = get_slack_app_manifest()
+    manifest = get_slack_app_manifest(
+        is_minimal_permissions=is_minimal_slack_permissions
+    )
     config = update_app_with_manifest(config, manifest)
     slack_config.save_config(config)
     assert config.app_details, "App details should be present after provisioning."

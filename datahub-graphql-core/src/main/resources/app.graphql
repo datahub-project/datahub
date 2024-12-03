@@ -1313,6 +1313,11 @@ type FeatureFlagsConfig {
   If turned on, show the re-designed Stats tab on the entity page
   """
   showStatsTabRedesign: Boolean!
+
+  """
+  If turned on, request minimal required slack permissions
+  """
+  requestMinimalSlackPermissions: Boolean!
 }
 
 """

@@ -15,6 +15,7 @@
 ### Other Notable Changes
 
 ### Environment Variables
+- `REQUEST_MINIMAL_SLACK_PERMISSIONS` (default: false) -  If turned on, request minimal required slack permissions.
 
 -->
 

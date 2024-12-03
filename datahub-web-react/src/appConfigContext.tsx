@@ -98,6 +98,7 @@ export const DEFAULT_APP_CONFIG = {
         showAutoCompleteResults: false,
         showFormAnalytics: false,
         showStatsTabRedesign: false,
+        requestMinimalSlackPermissions: false,
     },
     chromeExtensionConfig: {
         enabled: false,

@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timezone
+from typing import Optional
 from urllib.parse import urlparse
 
 import slack_sdk
@@ -22,7 +23,8 @@ if USE_SOCKET_MODE:
         "Slack socket mode is enabled. To receive events from Slack, you must also run `python scripts/slack_socket_mode.py`"
     )
 
-slack_bot_scopes = [
+
+minimal_slack_bot_scopes = [
     # Required for slash commands / shortcuts.
     "commands",
     # Required to get @DataHub messages and send messages as @DataHub.
@@ -31,16 +33,6 @@ slack_bot_scopes = [
     "chat:write.public",
     # When sending messages, we want to use a custom icon_url so that we can display the DataHub Cloud logo.
     "chat:write.customize",
-    # Required to see conversation details + read messages.
-    "channels:history",
-    "channels:read",
-    "groups:history",
-    "groups:read",
-    "im:history",
-    "im:read",
-    "mpim:history",
-    "mpim:read",
-    "metadata.message:read",
     # Required to get workspace ID and create links to user profiles
     "team:read",
     # Allows the bot to join a public channel when someone configures notifications to be sent to one
@@ -51,13 +43,25 @@ slack_bot_scopes = [
     # Required to resolve user IDs to names/emails + enable lookup by email address.
     "users:read",
     "users:read.email",
+]
+slack_bot_scopes = minimal_slack_bot_scopes + [
+    # Required to see conversation details + read messages.
+    "channels:history",
+    "channels:read",
+    "groups:history",
+    "groups:read",
+    "im:history",
+    "im:read",
+    "mpim:read",
+    "mpim:history",
+    "metadata.message:read",
     # Future-proofing.
     "reactions:read",
     "reactions:write",
 ]
 
 
-def get_slack_app_manifest() -> str:
+def get_slack_app_manifest(is_minimal_permissions: Optional[bool]) -> str:
     manifest = {
         "_metadata": {
             "major_version": 1,
@@ -114,20 +118,32 @@ def get_slack_app_manifest() -> str:
                 {f"{DATAHUB_FRONTEND_URL}/integrations/slack/oauth_callback"}
             ),
             "scopes": {
-                "bot": slack_bot_scopes,
+                "bot": (
+                    slack_bot_scopes
+                    if not is_minimal_permissions
+                    else minimal_slack_bot_scopes
+                ),
             },
         },
         "settings": {
             "event_subscriptions": {
                 "request_url": f"{DATAHUB_FRONTEND_URL}/integrations/slack/events",
-                "bot_events": [
-                    "app_mention",
-                    "link_shared",
-                    "message.channels",
-                    "message.groups",
-                    "message.im",
-                    "message.mpim",
-                ],
+                "bot_events": (
+                    [
+                        "app_mention",
+                        "link_shared",
+                    ]
+                    + (
+                        [
+                            "message.channels",
+                            "message.groups",
+                            "message.im",
+                            "message.mpim",
+                        ]
+                        if not is_minimal_permissions
+                        else []
+                    )
+                ),
             },
             "interactivity": {
                 "is_enabled": True,
@@ -234,7 +250,8 @@ if __name__ == "__main__":
     config = slack_config.get_config()
     logger.debug(f"Config: {config.json(indent=2)}")
 
-    manifest = get_slack_app_manifest()
+    manifest = get_slack_app_manifest(is_minimal_permissions=None)
+    # only called during testing
     config2 = update_app_with_manifest(config, manifest)
     # breakpoint()
     slack_config.save_config(config2)

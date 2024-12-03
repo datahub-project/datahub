@@ -52,4 +52,5 @@ public class FeatureFlags {
   private boolean showAutoCompleteResults = false;
   private boolean showFormAnalytics = false;
   private boolean showStatsTabRedesign = false;
+  private boolean requestMinimalSlackPermissions = false;
 }

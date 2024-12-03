@@ -60,13 +60,15 @@ export const encodeSlackConnection = (config: SlackConnection, isUsingAppConfigT
 /**
  * Performs a hard browser redirect to the Slack install link.
  */
-export const redirectToSlackInstall = () => {
-    window.location.replace(SLACK_INSTALL_REDIRECT_PATH);
+export const redirectToSlackInstall = (queryParams?: { requestMinimalSlackPermissions: string }) => {
+    const params = queryParams && new URLSearchParams(queryParams);
+    window.location.replace(`${SLACK_INSTALL_REDIRECT_PATH}${params ? `?${params.toString()}` : ''}`);
 };
 
 /**
  * Performs a hard browser redirect to the Slack refresh-installation link.
  */
-export const redirectToSlackRefreshInstallation = () => {
-    window.location.replace(SLACK_REFRESH_INSTALLATION_REDIRECT_PATH);
+export const redirectToSlackRefreshInstallation = (queryParams?: { requestMinimalSlackPermissions: string }) => {
+    const params = queryParams && new URLSearchParams(queryParams);
+    window.location.replace(`${SLACK_REFRESH_INSTALLATION_REDIRECT_PATH}${params ? `?${params.toString()}` : ''}`);
 };
