@@ -5,6 +5,7 @@ from acryl.executor.request.execution_request import ExecutionRequest
 from datahub.metadata.schema_classes import MetadataChangeLogClass
 
 from datahub_executor.common.constants import (
+    CLI_EXECUTOR_ID,
     DATAHUB_EXECUTION_REQUEST_ENTITY_NAME,
     DATAHUB_EXECUTION_REQUEST_SQS_TRUNCATED_ASPECT_NAME,
 )
@@ -25,6 +26,8 @@ logger = logging.getLogger(__name__)
 def apply_remote_assertion_request(
     execution_request: ExecutionRequest, executor_id: str
 ) -> Any:
+    if executor_id == CLI_EXECUTOR_ID:
+        return
     if DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION == "default":
         logger.info(
             f"Going to submit SQS assertion execution request {execution_request.args['urn']} via {executor_id}"
@@ -86,6 +89,8 @@ def truncate_remote_ingestion_request(
 def apply_remote_ingestion_request(
     event: MetadataChangeLogClass, executor_id: str
 ) -> Any:
+    if executor_id == CLI_EXECUTOR_ID:
+        return
     if DATAHUB_EXECUTOR_WORKER_IMPLEMENTATION == "default":
         logger.info(
             f"Going to submit SQS ingestion execution request {event.entityUrn} via {executor_id}"
