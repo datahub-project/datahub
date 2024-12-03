@@ -190,7 +190,7 @@ class BigQueryTableRef:
     @classmethod
     def from_urn(cls, urn: str) -> "BigQueryTableRef":
         """Raises: ValueError if urn is not a valid BigQuery table URN."""
-        dataset_urn = DatasetUrn.create_from_string(urn)
+        dataset_urn = DatasetUrn.from_string(urn)
         split = dataset_urn.name.rsplit(".", 3)
         if len(split) == 3:
             project, dataset, table = split
