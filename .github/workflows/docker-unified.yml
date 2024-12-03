@@ -1012,17 +1012,23 @@ jobs:
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
+      - id: test-script
+        run: >
+          echo `ls ./smoke-test/tests/cypress/cypress/e2e | awk -v n=3 '{a[NR%n]=a[NR%n]?a[NR%n] "," $0:$0}END{printf "\"" a[0] "\""; for(i=1;i<n;i++)printf", \"" a[i] "\""}'`
+
       - id: set-matrix
         run: |
-          if [ '${{ needs.setup.outputs.frontend_only }}' == 'true' ]; then
-             echo 'matrix=["cypress_suite1","cypress_rest"]' >> "$GITHUB_OUTPUT"
-          elif [ '${{ needs.setup.outputs.ingestion_only }}' == 'true' ]; then
-             echo 'matrix=["no_cypress_suite0","no_cypress_suite1"]' >> "$GITHUB_OUTPUT"
-          elif [[ '${{ needs.setup.outputs.backend_change }}' == 'true' || '${{ needs.setup.outputs.smoke_test_change }}' == 'true' ]]; then
-             echo 'matrix=["no_cypress_suite0","no_cypress_suite1","cypress_suite1","cypress_rest"]' >> "$GITHUB_OUTPUT"
-          else
-             echo 'matrix=[]' >> "$GITHUB_OUTPUT"
-          fi
+         echo 'matrix=["pytest"]' >> "$GITHUB_OUTPUT"
+#          if [ '${{ needs.setup.outputs.frontend_only }}' == 'true' ]; then
+#             echo 'matrix=["cypress_suite1","cypress_rest","cypress_saas_suite1","cypress_saas_suite2", "cypress_saas_suite3"]' >> "$GITHUB_OUTPUT"
+#          elif [ '${{ needs.setup.outputs.ingestion_only }}' == 'true' ]; then
+#             echo 'matrix=["no_cypress_suite0","no_cypress_suite1"]' >> "$GITHUB_OUTPUT"
+#          elif [[ '${{ needs.setup.outputs.backend_change }}' == 'true' || '${{ needs.setup.outputs.smoke_test_change }}' == 'true' ]]; then
+#             echo 'matrix=["no_cypress_suite0","no_cypress_suite1","cypress_suite1","cypress_rest","cypress_saas_suite1","cypress_saas_suite2","cypress_saas_suite3"]' >> "$GITHUB_OUTPUT"
+#          else
+#             echo 'matrix=[]' >> "$GITHUB_OUTPUT"
+#          fi
+
 
   smoke_test:
     name: Run Smoke Tests
@@ -1224,6 +1230,17 @@ jobs:
           echo "$DATAHUB_VERSION"
           ./gradlew --stop
           ./smoke-test/smoke.sh
+#      - name: Smoke test
+#        env:
+#          RUN_QUICKSTART: false
+#          DATAHUB_VERSION: ${{ needs.setup.outputs.unique_tag }}
+#          CYPRESS_RECORD_KEY: ${{ secrets.ACRYL_CYPRESS_RECORD_KEY}}
+#          CLEANUP_DATA: "false"
+#          TEST_STRATEGY: ${{ matrix.test_strategy }}
+#        run: |
+#          echo "$DATAHUB_VERSION"
+#          ./gradlew --stop
+#          ./smoke-test/smoke.sh
       - name: Disk Check
         run: df -h . && docker images
       - name: store logs

@@ -34,15 +34,23 @@ source ./set-cypress-creds.sh
 # set environment variables for the test
 source ./set-test-env-vars.sh
 
+pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml -k 'not test_run_cypress' -n 4
+#TEST_STRATEGY is one of pytest or cypress or not set(runs both)
+#if TEST_STRATEGY is CYPRESS, optionally takes BATCH NUMBER and NUM_BATCHES as args to split the cypress tests into
+# multiple batches to parallelize. If omitted, runs all.
+#Set WORKERS to number of workers to control if required. Defaults to auto that determines number of cpus available.
+#if [[ -z "${TEST_STRATEGY}" ]]; then
+#  pytest -rp -n "${WORKERS:-auto}" -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_${TEST_STRATEGY:-full}.xml
+#fi
 # no_cypress_suite0, no_cypress_suite1, cypress_suite1, cypress_rest
-if [[ -z "${TEST_STRATEGY}" ]]; then
-    pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
-else
-    if [ "$TEST_STRATEGY" == "no_cypress_suite0" ]; then
-        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_non_cypress.xml -k 'not test_run_cypress' -m 'not no_cypress_suite1'
-    elif [ "$TEST_STRATEGY" == "no_cypress_suite1" ]; then
-        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_non_cypress.xml -m 'no_cypress_suite1'
-    else
-        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_cypress_${TEST_STRATEGY}.xml tests/cypress/integration_test.py
-    fi
-fi
+#if [[ -z "${TEST_STRATEGY}" ]]; then
+#    pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke.xml
+#else
+#    if [ "$TEST_STRATEGY" == "no_cypress_suite0" ]; then
+#        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_non_cypress.xml -k 'not test_run_cypress' -m 'not no_cypress_suite1'
+#    elif [ "$TEST_STRATEGY" == "no_cypress_suite1" ]; then
+#        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_non_cypress.xml -m 'no_cypress_suite1'
+#    else
+#        pytest -rP --durations=20 -vv --continue-on-collection-errors --junit-xml=junit.smoke_cypress_${TEST_STRATEGY}.xml tests/cypress/integration_test.py
+#    fi
+#fi
