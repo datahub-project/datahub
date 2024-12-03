@@ -547,19 +547,20 @@ Cypress.Commands.add(
 );
 
 Cypress.Commands.add("doInInbox", (action) => {
-  cy.contains("span", "Inbox").click({ force: true });
+  cy.contains("span", "Tasks").click();
+  cy.clickOptionWithTestId("proposals-tab");
   cy.get(".action-request-test-id").should("have.length", 1);
-  cy.contains(action).first().click({ force: true });
+  cy.getWithTestId(action).first().click({ force: true });
   cy.contains("Yes").click({ force: true });
   cy.get(".action-request-test-id").should("have.length", 0);
 });
 
 Cypress.Commands.add("acceptProposalInbox", () => {
-  cy.doInInbox("Approve");
+  cy.doInInbox("approve-button");
 });
 
 Cypress.Commands.add("rejectProposalInbox", () => {
-  cy.doInInbox("Decline");
+  cy.doInInbox("decline-button");
 });
 
 Cypress.Commands.add("handleIntroducePage", () => {

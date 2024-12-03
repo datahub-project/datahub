@@ -173,11 +173,16 @@ export default function MetadataAssociationRequestItem({
     } else {
         actionResultView = (
             <>
-                <Button type="primary" style={{ background: REDESIGN_COLORS.TITLE_PURPLE }} onClick={acceptRequest}>
+                <Button
+                    type="primary"
+                    style={{ background: REDESIGN_COLORS.TITLE_PURPLE }}
+                    onClick={acceptRequest}
+                    data-testid="approve-button"
+                >
                     <CheckOutlined />
                     Approve
                 </Button>
-                <Button type="text" onClick={rejectRequest}>
+                <Button type="text" onClick={rejectRequest} data-testid="decline-button">
                     <CloseCircleOutlined />
                     Decline
                 </Button>

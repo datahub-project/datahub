@@ -31,10 +31,22 @@ const DetailsForm = () => {
                         },
                     ]}
                 >
-                    <Input placeholder="Form name" onChange={handleInputChange} label="Name" id="formName" required />
+                    <Input
+                        placeholder="Form name"
+                        onChange={handleInputChange}
+                        label="Name"
+                        id="formName"
+                        data-testid="name-input"
+                        required
+                    />
                 </Form.Item>
                 <Form.Item name="formDescription">
-                    <TextArea label="Description" placeholder="Form description" onChange={handleInputChange} />
+                    <TextArea
+                        label="Description"
+                        placeholder="Form description"
+                        onChange={handleInputChange}
+                        data-testid="description-textarea"
+                    />
                 </Form.Item>
                 <FieldLabel> Type</FieldLabel>
                 <Form.Item

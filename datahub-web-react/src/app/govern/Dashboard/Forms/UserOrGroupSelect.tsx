@@ -44,6 +44,7 @@ const UserOrGroupSelect = ({ onSelect, onDeselect, setInputOnSearch, handleActor
             }}
             tagRender={tagRender}
             onBlur={() => setInputOnSearch('')}
+            data-testid={`${isGroup ? 'group-select' : 'user-select'}`}
         >
             {options}
         </Select>

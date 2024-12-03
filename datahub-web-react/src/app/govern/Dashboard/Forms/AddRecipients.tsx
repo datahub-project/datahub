@@ -27,6 +27,7 @@ const AddRecipients = () => {
                 buttonLabel="Add Users or Groups"
                 buttonOnClick={() => setShowUsersModal(true)}
                 buttonTooltip="Assign specific users or groups"
+                dataTestIdPrefix="add-recipients"
             />
             <OwnershipCheckbox>
                 <StyledCheckbox checked={formValues.actors?.owners} onChange={(e) => handleOwnersCheckBox(e)} />

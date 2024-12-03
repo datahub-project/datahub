@@ -17,9 +17,10 @@ const PropertySelect = ({ selectedProperty, properties, onChangeProperty }: Prop
             onChange={onChangeProperty}
             placeholder="Select a property"
             defaultActiveFirstOption={false}
+            data-testid="condition-select"
         >
             {properties.map((prop) => (
-                <Select.Option key={prop.id} value={prop.id}>
+                <Select.Option key={prop.id} value={prop.id} data-testid={`condition-select-option-${prop.id}`}>
                     <Tooltip title={prop.description} placement="top" showArrow={false}>
                         <Text color="gray" type="span">
                             {prop.displayName}

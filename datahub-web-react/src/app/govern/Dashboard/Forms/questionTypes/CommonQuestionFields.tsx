@@ -18,10 +18,15 @@ const CommonQuestionFields = ({ isFormDisabled }: Props) => {
                     },
                 ]}
             >
-                <Input placeholder="Question title" label="Title" />
+                <Input placeholder="Question title" label="Title" data-testid="question-title-input" />
             </Form.Item>
             <Form.Item name="description">
-                <TextArea label="Description" placeholder="Question description" isDisabled={isFormDisabled} />
+                <TextArea
+                    label="Description"
+                    placeholder="Question description"
+                    isDisabled={isFormDisabled}
+                    data-testid="question-description-textarea"
+                />
             </Form.Item>
         </>
     );

@@ -211,10 +211,14 @@ const FormsTable = ({ searchQuery, searchData, loading, networkStatus, refetch, 
                             }}
                         >
                             <FormName>
-                                <Highlight search={searchQuery}>{record.entity.formInfo.name}</Highlight>
+                                <Highlight search={searchQuery} data-testid={`${record.entity.urn}-name`}>
+                                    {record.entity.formInfo.name}
+                                </Highlight>
                             </FormName>
                         </Link>
-                        <FormDescription> {record.entity.formInfo.description}</FormDescription>
+                        <FormDescription data-testid={`${record.entity.urn}-description`}>
+                            {record.entity.formInfo.description}
+                        </FormDescription>
                     </CellContainer>
                 );
             },
@@ -232,7 +236,7 @@ const FormsTable = ({ searchQuery, searchData, loading, networkStatus, refetch, 
                 if (status === FormState.Published) colorScheme = 'violet';
                 else if (status === FormState.Unpublished) colorScheme = 'blue';
                 return (
-                    <StatusContainer>
+                    <StatusContainer data-testid={`${record.entity.urn}-status-${status.toLowerCase()}`}>
                         <Pill
                             label={status.charAt(0) + status.slice(1).toLowerCase()}
                             colorScheme={colorScheme}
@@ -334,6 +338,7 @@ const FormsTable = ({ searchQuery, searchData, loading, networkStatus, refetch, 
                                         searchAcrossEntities: searchData?.searchAcrossEntities,
                                     });
                                 }}
+                                data-testid="action-edit"
                             >
                                 Edit
                             </MenuItem>
@@ -358,6 +363,7 @@ const FormsTable = ({ searchQuery, searchData, loading, networkStatus, refetch, 
                                             setShowConfirmDelete(true);
                                         }
                                     }}
+                                    data-testid="action-delete"
                                 >
                                     <Text color="red">Delete</Text>
                                 </MenuItem>
@@ -386,6 +392,7 @@ const FormsTable = ({ searchQuery, searchData, loading, networkStatus, refetch, 
                                             setShowConfirmUnpublish(true);
                                         }
                                     }}
+                                    data-testid="action-unpublish"
                                 >
                                     Unpublish
                                 </MenuItem>
@@ -417,7 +424,11 @@ const FormsTable = ({ searchQuery, searchData, loading, networkStatus, refetch, 
                                     />
                                 </Tooltip>
                             )}
-                            <Dropdown menu={{ items }} trigger={['click']}>
+                            <Dropdown
+                                menu={{ items }}
+                                trigger={['click']}
+                                data-testid={`${record.entity.urn}-actions-dropdown`}
+                            >
                                 <Icon icon="MoreVert" size="md" />
                             </Dropdown>
                         </CardIcons>

@@ -63,6 +63,9 @@ export default function IncompleteView({
                         isOpen={isOpen}
                         isUserAssigned={isUserAssigned}
                         onClick={() => isUserAssigned && setIsOpen(!isOpen)}
+                        data-testid={
+                            showVerificationStyles ? 'incomplete-verification-title' : 'incomplete-documentation-title'
+                        }
                     >
                         <Title>
                             {isUserAssigned && (
@@ -90,7 +93,12 @@ export default function IncompleteView({
             </FlexWrapper>
             {!!openFormModal && isUserAssigned && isOpen && (
                 <StyledButtonWrapper>
-                    <StyledButtonV2 onClick={openFormModal}>
+                    <StyledButtonV2
+                        onClick={openFormModal}
+                        data-testid={
+                            showVerificationStyles ? 'complete-verification-button' : 'complete-documentation-button'
+                        }
+                    >
                         {showVerificationStyles ? 'Complete Verification' : 'Complete Documentation'}
                     </StyledButtonV2>
                 </StyledButtonWrapper>

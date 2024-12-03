@@ -199,7 +199,9 @@ const FormFooter = ({ inputs, searchAcrossEntities }: Props) => {
     return (
         <FooterContainer $showV1Styles={!isThemeV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <Link to={`${PageRoutes.GOVERN_DASHBOARD}?documentationTab=forms`}>
-                <Button variant="outline">Cancel</Button>
+                <Button variant="outline" data-testid="form-cancel-button">
+                    Cancel
+                </Button>
             </Link>
             <Tooltip title="Save the current state of your compliance form." showArrow={false}>
                 <Tooltip
@@ -209,7 +211,12 @@ const FormFooter = ({ inputs, searchAcrossEntities }: Props) => {
                     }
                 >
                     <>
-                        <Button disabled={!canEditForms} variant="outline" onClick={() => saveForm()}>
+                        <Button
+                            disabled={!canEditForms}
+                            variant="outline"
+                            onClick={() => saveForm()}
+                            data-testid={FormState.Draft ? 'form-save-draft-button' : 'form-save-button'}
+                        >
                             {formValues.state === FormState.Draft ? 'Save Draft' : 'Save'}
                         </Button>
                     </>
@@ -229,6 +236,11 @@ const FormFooter = ({ inputs, searchAcrossEntities }: Props) => {
                         <Button
                             disabled={!canEditForms}
                             onClick={() => form?.validateFields().then(() => setShowConfirmationModal(true))}
+                            data-testid={
+                                formValues.state === FormState.Published
+                                    ? 'form-unpublish-button'
+                                    : 'form-publish-button'
+                            }
                         >
                             {formValues.state === FormState.Published ? 'Unpublish' : 'Publish'}
                         </Button>

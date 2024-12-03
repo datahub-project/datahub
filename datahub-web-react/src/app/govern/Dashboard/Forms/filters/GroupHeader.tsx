@@ -63,14 +63,27 @@ const GroupHeader = ({
                 </Tooltip>
             </Button.Group>
             <ActionsContainer>
-                <ButtonComponent variant="text" onClick={onAddPropertyPredicate}>
+                <ButtonComponent
+                    variant="text"
+                    onClick={onAddPropertyPredicate}
+                    data-testid="query-builder-add-condition-button"
+                >
                     Add Condition
                 </ButtonComponent>
-                <ButtonComponent variant="text" onClick={onAddLogicalPredicate}>
+                <ButtonComponent
+                    variant="text"
+                    onClick={onAddLogicalPredicate}
+                    data-testid="query-builder-add-group-button"
+                >
                     Add Group
                 </ButtonComponent>
                 <CardIcons>
-                    <Icon icon="Delete" size="md" onClick={() => onDeletePredicate(index)} />
+                    <Icon
+                        icon="Delete"
+                        size="md"
+                        onClick={() => onDeletePredicate(index)}
+                        data-testid="query-builder-delete-button"
+                    />
                 </CardIcons>
             </ActionsContainer>
         </ToolbarContainer>

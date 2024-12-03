@@ -11,6 +11,7 @@ interface Props {
     isButtonDisabled?: boolean;
     isButtonHidden?: boolean;
     buttonTooltip?: string;
+    dataTestIdPrefix?: string;
 }
 
 const AddElement = ({
@@ -21,6 +22,7 @@ const AddElement = ({
     isButtonDisabled = false,
     isButtonHidden = false,
     buttonTooltip,
+    dataTestIdPrefix,
 }: Props) => {
     return (
         <AddElementContainer>
@@ -35,7 +37,11 @@ const AddElement = ({
             {!isButtonHidden && (
                 <Tooltip title={buttonTooltip} showArrow={false}>
                     <div>
-                        <Button onClick={buttonOnClick} isDisabled={isButtonDisabled}>
+                        <Button
+                            onClick={buttonOnClick}
+                            isDisabled={isButtonDisabled}
+                            data-testid={dataTestIdPrefix && `${dataTestIdPrefix}-button`}
+                        >
                             {buttonLabel}
                         </Button>
                     </div>

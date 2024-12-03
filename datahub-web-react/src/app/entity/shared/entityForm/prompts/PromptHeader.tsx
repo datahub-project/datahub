@@ -42,10 +42,14 @@ export default function PromptHeader({ title, description, promptNumber, require
     } = useEntityFormContext();
     return (
         <>
-            <PromptTitle displayBulkStyles={displayBulkPromptStyles}>
+            <PromptTitle displayBulkStyles={displayBulkPromptStyles} data-testid="prompt-title">
                 {promptNumber !== undefined && <>{promptNumber}. </>}
                 {title}
-                {required && <RequiredText displayBulkStyles={displayBulkPromptStyles}>required</RequiredText>}
+                {required && (
+                    <RequiredText displayBulkStyles={displayBulkPromptStyles} data-testid="prompt-required">
+                        required
+                    </RequiredText>
+                )}
             </PromptTitle>
             {description && (
                 <PromptSubTitle>

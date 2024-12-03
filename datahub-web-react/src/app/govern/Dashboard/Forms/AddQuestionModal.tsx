@@ -175,7 +175,9 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                                 <Button variant="text" onClick={handleModalClose}>
                                     Cancel
                                 </Button>
-                                <Button onClick={handleCreateOrUpdateQuestion}>{question ? 'Update' : 'Create'}</Button>
+                                <Button onClick={handleCreateOrUpdateQuestion} data-testid="save-button">
+                                    {question ? 'Update' : 'Create'}
+                                </Button>
                             </>
                         )}
                     </FooterButtonsContainer>
@@ -211,10 +213,15 @@ const AddQuestionModal = ({ showQuestionModal, setShowQuestionModal, setCurrentQ
                                 );
                             }}
                             dropdownRender={(menu) => <CustomDropdown>{menu}</CustomDropdown>}
+                            data-testid="select-question-type"
                         >
                             {questionTypes.map((questionType) => {
                                 return (
-                                    <Select.Option key={questionType.value} value={questionType.value}>
+                                    <Select.Option
+                                        key={questionType.value}
+                                        value={questionType.value}
+                                        data-testid={`select-question-type-option-${questionType.value.toLowerCase()}`}
+                                    >
                                         <SelectOptionContainer>
                                             <Text color="gray" weight="medium" size="md">
                                                 {questionType.label}

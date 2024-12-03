@@ -151,6 +151,7 @@ export const EntitySearchInput = ({
             onSelect={onSelect}
             onDeselect={onDeselect}
             onSearch={onSearch}
+            data-testid="entity-search-input"
             tagRender={(tagProps) => {
                 let displayName = tagProps.value;
                 if (entityCache.has(tagProps.value as string)) {
@@ -165,7 +166,11 @@ export const EntitySearchInput = ({
             }}
         >
             {searchResults?.map((result) => (
-                <Select.Option value={result.entity.urn} style={optionStyle}>
+                <Select.Option
+                    value={result.entity.urn}
+                    style={optionStyle}
+                    data-testid={`${result.entity.urn}-entity-search-input-result`}
+                >
                     <EntitySearchInputResult entity={result.entity} />
                 </Select.Option>
             ))}

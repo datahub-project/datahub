@@ -50,6 +50,7 @@ const AddToForm = () => {
                 buttonLabel="Add Question"
                 buttonOnClick={() => setShowQuestionModal(true)}
                 isButtonDisabled={isAddQuestionDisabled}
+                dataTestIdPrefix="add-questions"
                 buttonTooltip={
                     isAddQuestionDisabled
                         ? 'New questions cannot be added once a form has been published. To add new questions create a new compliance form.'
@@ -63,6 +64,7 @@ const AddToForm = () => {
                 heading="Assign Assets"
                 description="Select the assets that this form must be completed for. Assets will be dynamically assigned using the filters provided below."
                 buttonLabel="Add Assets"
+                dataTestIdPrefix="add-assets"
                 buttonOnClick={addFilters}
                 isButtonHidden={!!formValues.assets?.logicalPredicate}
             />

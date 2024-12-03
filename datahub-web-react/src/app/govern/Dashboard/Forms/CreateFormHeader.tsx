@@ -29,7 +29,7 @@ const CreateFormHeader = () => {
                 </Text>
             </BreadcrumbContainer>
             <Header>
-                <Text size="2xl" weight="bold">
+                <Text size="2xl" weight="bold" data-testid="form-title">
                     Compliance Forms
                 </Text>
                 <Pill

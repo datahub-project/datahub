@@ -127,7 +127,7 @@ const AddUsersModal = ({ showUsersModal, setShowUsersModal }: Props) => {
         const avatarUrl = entity.editableProperties?.pictureLink || undefined;
         const displayName = entityRegistry.getDisplayName(entity.type, entity);
         return (
-            <Select.Option value={entity.urn} key={entity.urn}>
+            <Select.Option value={entity.urn} key={entity.urn} data-testid={`select-result-option-${entity.urn}`}>
                 <OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />
             </Select.Option>
         );
@@ -187,7 +187,9 @@ const AddUsersModal = ({ showUsersModal, setShowUsersModal }: Props) => {
                     <Button variant="text" onClick={handleModalClose}>
                         Cancel
                     </Button>
-                    <Button onClick={handleAddUserOrGroup}>Add</Button>
+                    <Button onClick={handleAddUserOrGroup} data-testid="add-button">
+                        Add
+                    </Button>
                 </FooterButtonsContainer>
             }
         >

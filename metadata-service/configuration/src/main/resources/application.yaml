@@ -585,7 +585,7 @@ featureFlags:
   themeV2Default: ${THEME_V2_DEFAULT:true} # Sets the default theme for users. The default is the only available theme if theme is not toggleable.
   themeV2Toggleable: ${THEME_V2_TOGGLEABLE:true} # Acryl only! Allows theme v2 to be toggled on / off by users.
   metadataShareEnabled: ${METADATA_SHARE_ENABLED:false} # Enables the metadata sharing feature to share entities between instances
-  documentationFormsEnabled: ${FEATURE_DOCUMENTATION_FORMS_ENABLED:false} # Enables the documentation forms feature and shows/hides everything for it in the UI
+  documentationFormsEnabled: ${FEATURE_DOCUMENTATION_FORMS_ENABLED:true} # Enables the documentation forms feature and shows/hides everything for it in the UI
   emailNotificationsEnabled: ${EMAIL_NOTIFICATIONS_ENABLED:false} # Enables the email notifications feature.
   slackBotTokensConfigEnabled: ${SLACK_BOT_TOKENS_CONFIG_ENABLED:false} # Enables the ability to configure slack bot tokens via the integrations settings UI
   slackBotTokensObfuscationEnabled: ${SLACK_BOT_TOKENS_OBFUSCATION_ENABLED:true} # Obfuscates sensitive tokens in graphQL endpoints where connection details are surfaced
