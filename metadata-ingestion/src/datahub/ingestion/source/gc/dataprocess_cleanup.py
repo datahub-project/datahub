@@ -114,11 +114,11 @@ class DataProcessCleanupConfig(ConfigModel):
     )
 
     delete_empty_data_jobs: bool = Field(
-        True, description="Wether to delete Data Jobs without runs"
+        True, description="Whether to delete Data Jobs without runs"
     )
 
     delete_empty_data_flows: bool = Field(
-        True, description="Wether to delete Data Flows without runs"
+        True, description="Whether to delete Data Flows without runs"
     )
 
     hard_delete_entities: bool = Field(
@@ -128,7 +128,7 @@ class DataProcessCleanupConfig(ConfigModel):
 
     batch_size: int = Field(
         500,
-        description="The number of entities to get in a batch from GraphQL",
+        description="The number of entities to get in a batch from API",
     )
 
     max_workers: int = Field(
@@ -173,9 +173,9 @@ class DataProcessCleanup:
     """
     This source is a maintenance source which cleans up old/unused aspects.
 
-    Currently it only supports:.
+    Currently it only supports:
         - DataFlow
-        -DataJob
+        - DataJob
         - DataProcessInstance
 
     """
@@ -267,7 +267,7 @@ class DataProcessCleanup:
 
         if self.dry_run:
             logger.info(
-                f"Dry run is on otherwise it would have deleted {urn} with hard deletion is{self.config.hard_delete_entities}"
+                f"Dry run is on otherwise it would have deleted {urn} with hard deletion is {self.config.hard_delete_entities}"
             )
             return
 
