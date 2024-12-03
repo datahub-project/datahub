@@ -826,7 +826,7 @@ class TableauSiteSource:
     def _re_authenticate(self):
         tableau_auth: Union[
             TableauAuth, PersonalAccessTokenAuth
-        ] = self.config.get_tableau_auth(self.site.content_url)
+        ] = self.config.get_tableau_auth(self.site_id)
         self.server.auth.sign_in(tableau_auth)
 
     @property
