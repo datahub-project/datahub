@@ -20,6 +20,7 @@ dependencies {
   api project(':entity-registry')
   api project(':metadata-integration:java:datahub-event')
   implementation project(':metadata-integration:java:datahub-schematron:lib')
+  
   implementation(externalDependency.kafkaAvroSerializer) {
     exclude group: "org.apache.avro"
   }
@@ -60,10 +61,35 @@ task copyAvroSchemas {
 compileJava.dependsOn copyAvroSchemas
 
 
+// Add Python environment validation task
+task validatePythonEnv {
+    doFirst {
+        def venvPath = System.getProperty('python.venv.path', '../../../metadata-ingestion/venv')
+        def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+        def pythonExe = isWindows ? "${venvPath}/Scripts/python.exe" : "${venvPath}/bin/python"
+        
+        def result = exec {
+            commandLine pythonExe, "-c", "import sys; print(sys.executable)"
+            ignoreExitValue = true
+            standardOutput = new ByteArrayOutputStream()
+            errorOutput = new ByteArrayOutputStream()
+        }
+        
+        if (result.exitValue != 0) {
+            throw new GradleException("Python virtual environment not properly set up at ${venvPath}")
+        }
+    }
+}
+
 test {
   // to avoid simultaneous executions of tests when complete build is run
   mustRunAfter(":metadata-io:test")
   useJUnit()
+  // Add Python environment configuration
+  dependsOn validatePythonEnv
+  dependsOn tasks.getByPath(":metadata-ingestion:installDev")
+  systemProperty 'python.venv.path', System.getProperty('python.venv.path', '../../../metadata-ingestion/venv')
+  finalizedBy jacocoTestReport
 }
 
 task checkShadowJar(type: Exec) {
@@ -111,7 +137,6 @@ shadowJar {
   relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
   relocate 'com.google.errorprone', 'datahub.shaded.com.google.errorprone'
   // Below jars added for kafka emitter only
-//  relocate 'org.apache.avro', 'datahub.shaded.org.apache.avro'
   relocate 'com.thoughtworks.paranamer', 'datahub.shaded.com.thoughtworks.paranamer'
   relocate 'org.xerial.snappy', 'datahub.shaded.org.xerial.snappy'
   relocate 'org.apache.kafka', 'datahub.shaded.org.apache.kafka'
