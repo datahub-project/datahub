@@ -498,7 +498,7 @@ def test_dremio_platform_instance_urns(
     pytestconfig,
     tmp_path,
 ):
-    config_file = (test_resources_dir / "dremio_to_file.yml").resolve()
+    config_file = (test_resources_dir / "dremio_platform_instance_to_file.yml").resolve()
     output_path = tmp_path / "dremio_mces.json"
 
     run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
@@ -572,6 +572,27 @@ def test_dremio_platform_instance_urns(
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=output_path,
-        golden_path=test_resources_dir / "dremio_mces_golden.json",
+        golden_path=test_resources_dir / "dremio_platform_instance_mces_golden.json",
+        ignore_paths=[],
+    )
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_dremio_schema_filter(
+    test_resources_dir,
+    dremio_setup,
+    pytestconfig,
+    tmp_path,
+):
+    config_file = (test_resources_dir / "dremio_schema_filter_to_file.yml").resolve()
+    output_path = tmp_path / "dremio_mces.json"
+
+    run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
+
+    # Verify against golden file
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "dremio_schema_filter_mces_golden.json",
         ignore_paths=[],
     )
