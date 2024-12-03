@@ -356,7 +356,7 @@ class TableauConfig(
 
     project_path_separator: str = Field(
         default="/",
-        description="The separator used for the project_pattern field between project names. By default, we use a slash. "
+        description="The separator used for the project_path_pattern field between project names. By default, we use a slash. "
         "You can change this if your Tableau projects contain slashes in their names, and you'd like to filter by project.",
     )
 
@@ -909,7 +909,11 @@ class TableauSiteSource:
 
     def _is_denied_project(self, project: TableauProject) -> bool:
         # Either project name or project path should exist in deny
-        for deny_pattern in self.config.project_pattern.deny:
+        deny_patterns: List[str] = self.config.project_pattern.deny
+
+        deny_patterns.extend(self.config.project_path_pattern.deny)
+
+        for deny_pattern in deny_patterns:
             # Either name or project path is denied
             if re.match(
                 deny_pattern, project.name, self.config.project_pattern.regex_flags
