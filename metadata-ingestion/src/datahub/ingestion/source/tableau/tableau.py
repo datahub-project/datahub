@@ -876,7 +876,7 @@ class TableauSiteSource:
                 ancestors = [cur_proj.name]
                 while cur_proj.parent_id is not None:
                     if cur_proj.parent_id not in all_project_map:
-                        self.report.report_warning(
+                        self.report.warning(
                             "project-issue",
                             f"Parent project {cur_proj.parent_id} not found. We need Site Administrator Explorer permissions.",
                         )
