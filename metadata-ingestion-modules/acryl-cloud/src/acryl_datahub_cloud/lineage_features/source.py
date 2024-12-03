@@ -83,16 +83,31 @@ class DataHubLineageFeaturesSource(Source):
         query = {
             "query": {
                 "bool": {
-                    "filter": [
-                        {"term": {"source.entityType": "schemaField"}},
-                        {"term": {"destination.entityType": "schemaField"}},
+                    "should": [
+                        {"term": {"relationshipType": "Consumes"}},
                         {"term": {"relationshipType": "DownstreamOf"}},
+                        {"term": {"relationshipType": "TrainedBy"}},
+                        {"term": {"relationshipType": "UsedBy"}},
+                        {"term": {"relationshipType": "MemberOf"}},
+                        {"term": {"relationshipType": "DerivedFrom"}},
+                        {"term": {"relationshipType": "Produces"}},
+                        {"term": {"relationshipType": "DashboardContainsDashboard"}},
+                        {
+                            "bool": {
+                                "must": [
+                                    {"term": {"relationshipType": "Contains"}},
+                                    {"term": {"source.entityType": "dashboard"}},
+                                    {"term": {"destination.entityType": "chart"}},
+                                ]
+                            }
+                        },
                     ],
-                }
+                },
             },
             "sort": [
                 {"source.urn": {"order": "desc"}},
                 {"destination.urn": {"order": "desc"}},
+                {"relationshipType": {"order": "desc"}},
                 {"lifecycleOwner": {"order": "desc"}},
             ],
         }
@@ -124,7 +139,9 @@ class DataHubLineageFeaturesSource(Source):
         for urn in set(self.upstream_counts.keys()).union(
             self.downstream_counts.keys()
         ):
-            print(urn, self.upstream_counts[urn], self.downstream_counts[urn])
+            logger.debug(
+                f"{urn}: {self.upstream_counts[urn]}, {self.downstream_counts[urn]}"
+            )
             yield MetadataChangeProposalWrapper(
                 entityUrn=urn,
                 aspect=LineageFeaturesClass(
