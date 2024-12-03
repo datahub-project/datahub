@@ -455,9 +455,7 @@ plugins: Dict[str, Set[str]] = {
         # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
         "setuptools",
     },
-    "mode": {"requests", "python-liquid", "tenacity>=8.0.1"}
-    | sqllineage_lib
-    | sqlglot_lib,
+    "mode": {"requests", "python-liquid", "tenacity>=8.0.1"} | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc"},
@@ -473,7 +471,7 @@ plugins: Dict[str, Set[str]] = {
     | pyhive_common
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
-    "redash": {"redash-toolbelt", "sql-metadata"} | sqllineage_lib,
+    "redash": {"redash-toolbelt", "sql-metadata"} | sqlglot_lib,
     "redshift": sql_common
     | redshift_common
     | usage_common
@@ -518,9 +516,9 @@ plugins: Dict[str, Set[str]] = {
     ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
-    "unity-catalog": databricks | sql_common | sqllineage_lib,
+    "unity-catalog": databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
-    "databricks": databricks | sql_common | sqllineage_lib,
+    "databricks": databricks | sql_common,
     "fivetran": snowflake_common | bigquery_common | sqlglot_lib,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},

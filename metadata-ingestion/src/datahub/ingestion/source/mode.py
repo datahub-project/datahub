@@ -11,6 +11,7 @@ import dateutil.parser as dp
 import pydantic
 import requests
 import sqlglot
+import sqlglot.expressions
 import tenacity
 import yaml
 from liquid import Template, Undefined
@@ -18,7 +19,6 @@ from pydantic import Field, validator
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import ConnectionError
 from requests.models import HTTPBasicAuth, HTTPError
-from sqllineage.runner import LineageRunner
 from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
 
 import datahub.emitter.mce_builder as builder
@@ -822,17 +822,15 @@ class ModeSource(StatefulIngestionSourceBase):
 
     @lru_cache(maxsize=None)
     def _get_source_from_query(self, raw_query: str) -> set:
-        query = self._replace_definitions(raw_query)
-        parser = LineageRunner(query)
-        source_paths = set()
-        try:
-            for table in parser.source_tables:
-                sources = str(table).split(".")
-                source_schema, source_table = sources[-2], sources[-1]
-                if source_schema == "<default>":
-                    source_schema = str(self.config.default_schema)
+        # Note: this function is not used
 
-                source_paths.add(f"{source_schema}.{source_table}")
+        query = self._replace_definitions(raw_query)
+        source_tables: List[str] = []
+        try:
+            parsed = sqlglot.parse_one(query)
+            for table in parsed.find_all(sqlglot.expressions.Table):
+                table.name
+                source_tables.append(table.name.lower())
         except Exception as e:
             self.report.report_failure(
                 title="Failed to Extract Lineage From Query",
@@ -840,6 +838,14 @@ class ModeSource(StatefulIngestionSourceBase):
                 context=f"Query: {raw_query}, Error: {str(e)}",
             )
 
+        source_paths = set()
+        for table_name in source_tables:
+            sources = table_name.split(".")
+            source_schema, source_table = sources[-2], sources[-1]
+            if source_schema == "<default>":
+                source_schema = str(self.config.default_schema)
+
+            source_paths.add(f"{source_schema}.{source_table}")
         return source_paths
 
     def _get_datasource_urn(
