@@ -3,6 +3,7 @@ plugins {
     id 'java-library'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
 
 dependencies {
 // Dependencies for open api
