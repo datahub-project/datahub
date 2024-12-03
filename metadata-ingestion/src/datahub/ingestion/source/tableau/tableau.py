@@ -289,16 +289,12 @@ class TableauConnectionConfig(ConfigModel):
             server.auth.sign_in(authentication)
             return server
         except ServerResponseError as e:
+            message = f"Unable to login (invalid/expired credentials or missing permissions): {str(e)}"
             if isinstance(authentication, PersonalAccessTokenAuth):
                 # Docs on token expiry in Tableau:
                 # https://help.tableau.com/current/server/en-us/security_personal_access_tokens.htm#token-expiry
-                logger.info(
-                    "Error authenticating with Tableau. Note that Tableau personal access tokens "
-                    "expire if not used for 15 days or if over 1 year old"
-                )
-            raise ValueError(
-                f"Unable to login (invalid/expired credentials or missing permissions): {str(e)}"
-            ) from e
+                message = f"Error authenticating with Tableau. Note that Tableau personal access tokens expire if not used for 15 days or if over 1 year old: {str(e)}"
+            raise ValueError(message) from e
         except Exception as e:
             raise ValueError(
                 f"Unable to login (check your Tableau connection and credentials): {str(e)}"
@@ -722,6 +718,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 title="Failed to Retrieve Tableau Metadata",
                 message="Unable to retrieve metadata from tableau.",
                 context=str(md_exception),
+                exc=md_exception,
             )
 
     def close(self) -> None:
@@ -826,6 +823,7 @@ class TableauSiteSource:
             if not view.id:
                 continue
             self.tableau_stat_registry[view.id] = UsageStat(view_count=view.total_views)
+        logger.info(f"Got Tableau stats for {len(self.tableau_stat_registry)} assets")
         logger.debug("Tableau stats %s", self.tableau_stat_registry)
 
     def _populate_database_server_hostname_map(self) -> None:
@@ -974,8 +972,11 @@ class TableauSiteSource:
                 self.datasource_project_map[ds.id] = ds.project_id
         except Exception as e:
             self.report.get_all_datasources_query_failed = True
-            logger.info(f"Get all datasources query failed due to error {e}")
-            logger.debug("Error stack trace", exc_info=True)
+            self.report.warning(
+                title="Unexpected Query Error",
+                message="Get all datasources query failed due to error",
+                exc=e,
+            )
 
     def _init_workbook_registry(self) -> None:
         if self.server is None:
@@ -1141,7 +1142,6 @@ class TableauSiteSource:
                     )
 
                 if node_limit_errors:
-                    logger.debug(f"Node Limit Error. query_data {query_data}")
                     self.report.warning(
                         title="Tableau Data Exceed Predefined Limit",
                         message="The numbers of record in result set exceeds a predefined limit. Increase the tableau "
@@ -1257,9 +1257,10 @@ class TableauSiteSource:
                     wrk_id: Optional[str] = workbook.get(c.ID)
                     prj_name: Optional[str] = workbook.get(c.PROJECT_NAME)
 
-                    logger.debug(
-                        f"Skipping workbook {wrk_name}({wrk_id}) as it is project {prj_name}({project_luid}) not "
-                        f"present in project registry"
+                    self.report.warning(
+                        title="Skipping Missing Workbook",
+                        message="Skipping workbook as its project is not present in project registry",
+                        context=f"workbook={wrk_name}({wrk_id}), project={prj_name}({project_luid})",
                     )
                     continue
 
@@ -1453,7 +1454,7 @@ class TableauSiteSource:
                 c.COLUMNS_CONNECTION
             ].get("totalCount")
             if not is_custom_sql and not num_tbl_cols:
-                logger.debug(
+                logger.warning(
                     f"Skipping upstream table with id {table[c.ID]}, no columns: {table}"
                 )
                 continue
@@ -1469,7 +1470,12 @@ class TableauSiteSource:
                     table, default_schema_map=self.config.default_schema_map
                 )
             except Exception as e:
-                logger.info(f"Failed to generate upstream reference for {table}: {e}")
+                self.report.warning(
+                    title="Potentially Missing Lineage Issue",
+                    message="Failed to generate upstream reference",
+                    exc=e,
+                    context=f"table={table}",
+                )
                 continue
 
             table_urn = ref.make_dataset_urn(
@@ -1917,10 +1923,12 @@ class TableauSiteSource:
                 self.datasource_project_map[ds_result.id] = ds_result.project_id
         except Exception as e:
             self.report.num_get_datasource_query_failures += 1
-            logger.warning(
-                f"Failed to get datasource project_luid for {ds_luid} due to error {e}"
+            self.report.warning(
+                title="Unexpected Query Error",
+                message="Failed to get datasource project_luid",
+                exc=e,
+                context=f"ds_luid={ds_luid}",
             )
-            logger.debug("Error stack trace", exc_info=True)
 
     def _get_workbook_project_luid(self, wb: dict) -> Optional[str]:
         if wb.get(c.LUID) and self.workbook_project_map.get(wb[c.LUID]):
