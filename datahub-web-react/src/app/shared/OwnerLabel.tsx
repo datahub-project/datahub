@@ -27,7 +27,14 @@ export const OwnerLabel = ({ name, avatarUrl, type }: Props) => {
         <OwnerContainerWrapper>
             <OwnerContentWrapper>
                 <CustomAvatar size={24} name={name} photoUrl={avatarUrl} isGroup={type === EntityType.CorpGroup} />
-                <div>{name}</div>
+                <div>
+                    {name.split('\n').map((line, index) => (
+                        <span key={index} style={index > 0 ? { color: 'gray' } : {}}>
+                            {line}
+                            <br />
+                        </span>
+                    ))}
+                </div>
             </OwnerContentWrapper>
         </OwnerContainerWrapper>
     );

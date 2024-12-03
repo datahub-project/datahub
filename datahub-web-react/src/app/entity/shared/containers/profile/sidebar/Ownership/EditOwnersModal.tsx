@@ -79,15 +79,15 @@ export const EditOwnersModal = ({
         const avatarUrl =
             (entity.type === EntityType.CorpUser && (entity as CorpUser).editableProperties?.pictureLink) || undefined;
         const isCorpUser = (entity.type as EntityType) === EntityType.CorpUser;
-        const displayCorpUserDepartmentName =
+        const corpUserDepartmentName =
             (entity.type === EntityType.CorpUser && (entity as CorpUser).properties?.departmentName) || '';
-        const displayCorpUserUserName = (entity.type === EntityType.CorpUser && (entity as CorpUser).username) || '';
-    
+        const corpUserId = (entity.type === EntityType.CorpUser && (entity as CorpUser).username) || '';
+        const corpUserTitle = (entity.type === EntityType.CorpUser && (entity as CorpUser).properties?.title) || '';
         const displayName = entityRegistry.getDisplayName(entity.type, entity);
         const concatenatedValue = isCorpUser
-            ? displayName
-                  .concat(displayCorpUserUserName ? ` - ${displayCorpUserUserName}` : '')
-                  .concat(displayCorpUserDepartmentName ? ` - ${displayCorpUserDepartmentName}` : '')
+            ? `${displayName}\n${corpUserId ? `${corpUserId}` : ''}${corpUserTitle ? ` ${corpUserTitle}` : ''}${
+                  corpUserDepartmentName ? ` ${corpUserDepartmentName}` : ''
+              }`
             : displayName;
     
         return (
