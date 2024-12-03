@@ -485,7 +485,7 @@ def test_dremio_ingest(
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=output_path,
-        golden_path=test_resources_dir / "dremio_mces_golden.json",
+        golden_path=test_resources_dir / "dremio_base_mces_golden.json",
         ignore_paths=[],
     )
 
