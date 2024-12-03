@@ -125,9 +125,10 @@ information like tokens.
   configurations under `Spark Config`.
 
     ```text
-    spark.extraListeners                datahub.spark.DatahubSparkListener
-    spark.datahub.rest.server           http://localhost:8080
-    spark.datahub.databricks.cluster    cluster-name<any preferred cluster identifier>
+    spark.extraListeners                    datahub.spark.DatahubSparkListener
+    spark.datahub.rest.server               http://localhost:8080
+    spark.datahub.stage_metadata_coalescing true
+    spark.datahub.databricks.cluster        cluster-name<any preferred cluster identifier>
     ```
 
 - Click the **Init Scripts** tab. Set cluster init script as `dbfs:/datahub/init.sh`.
