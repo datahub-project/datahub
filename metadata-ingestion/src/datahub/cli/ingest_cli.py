@@ -515,17 +515,17 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
         click.echo("No matching ingestion sources found. Please check your filters.")
         return
 
-    sources = data["data"]["listIngestionSources"]["ingestionSources"]
-    if not sources:
+    ingestion_sources = data["data"]["listIngestionSources"]["ingestionSources"]
+    if not ingestion_sources:
         click.echo("No ingestion sources or executions found.")
         return
 
     rows = []
-    for source in sources:
-        urn = source.get("urn", "N/A")
-        name = source.get("name", "N/A")
+    for ingestion_source in ingestion_sources:
+        urn = ingestion_source.get("urn", "N/A")
+        name = ingestion_source.get("name", "N/A")
 
-        executions = source.get("executions", {}).get("executionRequests", [])
+        executions = ingestion_source.get("executions", {}).get("executionRequests", [])
         for execution in executions:
             execution_id = execution.get("id", "N/A")
             start_time = execution.get("result", {}).get("startTimeMs", "N/A")
