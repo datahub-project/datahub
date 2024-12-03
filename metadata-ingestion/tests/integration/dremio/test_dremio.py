@@ -498,7 +498,9 @@ def test_dremio_platform_instance_urns(
     pytestconfig,
     tmp_path,
 ):
-    config_file = (test_resources_dir / "dremio_platform_instance_to_file.yml").resolve()
+    config_file = (
+        test_resources_dir / "dremio_platform_instance_to_file.yml"
+    ).resolve()
     output_path = tmp_path / "dremio_mces.json"
 
     run_datahub_cmd(["ingest", "-c", f"{config_file}"], tmp_path=tmp_path)
@@ -575,6 +577,7 @@ def test_dremio_platform_instance_urns(
         golden_path=test_resources_dir / "dremio_platform_instance_mces_golden.json",
         ignore_paths=[],
     )
+
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
