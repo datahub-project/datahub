@@ -42,7 +42,7 @@ def get_entity_name(assertion: BaseEntityAssertion) -> Tuple[str, str, str]:
         if qualified_name is not None:
             parts = qualified_name.split(".")
         else:
-            urn_id = Urn.create_from_string(assertion.entity).entity_ids[1]
+            urn_id = Urn.from_string(assertion.entity).entity_ids[1]
             parts = urn_id.split(".")
             if len(parts) > 3:
                 parts = parts[-3:]
