@@ -122,7 +122,7 @@ def make_generic_dataset_mcp(
 ) -> MetadataChangeProposalWrapper:
     return MetadataChangeProposalWrapper(
         entityUrn=entity_urn,
-        entityType=Urn.create_from_string(entity_urn).get_type(),
+        entityType=Urn.from_string(entity_urn).get_type(),
         aspectName=aspect_name,
         changeType="UPSERT",
         aspect=aspect,
@@ -138,7 +138,7 @@ def make_generic_container_mcp(
         aspect = models.StatusClass(removed=False)
     return MetadataChangeProposalWrapper(
         entityUrn=entity_urn,
-        entityType=Urn.create_from_string(entity_urn).get_type(),
+        entityType=Urn.from_string(entity_urn).get_type(),
         aspectName=aspect_name,
         changeType="UPSERT",
         aspect=aspect,
