@@ -214,14 +214,47 @@ def references(urn: str, dry_run: bool, force: bool) -> None:
 
 
 @delete.command()
-@click.option("--urn", required=True, type=str, help="the urn of the entity")
-def undo_by_filter(urn: str) -> None:
+@click.option("--urn", required=False, type=str, help="the urn of the entity")
+@click.option(
+    "-p",
+    "--platform",
+    required=False,
+    type=str,
+    help="Platform filter (e.g. snowflake)",
+)
+@click.option(
+    "-b",
+    "--batch-size",
+    required=False,
+    default=3000,
+    type=int,
+    help="Batch size when querying for entities to un-soft delete."
+    "Maximum 10000. Large batch sizes may cause timeouts.",
+)
+def undo_by_filter(
+    urn: Optional[str], platform: Optional[str], batch_size: int
+) -> None:
     """
-    Undo a soft deletion of an entity
+    Undo soft deletion by filters
     """
     graph = get_default_graph()
     logger.info(f"Using {graph}")
-    graph.set_soft_delete_status(urn=urn, delete=False)
+    if urn:
+        graph.set_soft_delete_status(urn=urn, delete=False)
+    else:
+        urns = list(
+            graph.get_urns_by_filter(
+                platform=platform,
+                query="*",
+                status=RemovedStatusFilter.ONLY_SOFT_DELETED,
+                batch_size=batch_size,
+            )
+        )
+        logger.info(f"Going to un-soft delete {len(urns)} urns")
+        urns_iter = progressbar.progressbar(urns, redirect_stdout=True)
+        for urn in urns_iter:
+            assert urn
+            graph.set_soft_delete_status(urn=urn, delete=False)
 
 
 @delete.command(no_args_is_help=True)
