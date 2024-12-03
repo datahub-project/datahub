@@ -1,4 +1,5 @@
 import logging
+import textwrap
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Iterable, List
 
@@ -201,9 +202,11 @@ class FeatureGroupProcessor:
                 full_table_name = f"{glue_database}.{glue_table}"
 
                 logging.info(
-                    f"""Note: table {full_table_name} is an AWS Glue object. This source does not ingest all metadata for Glue tables.
+                    textwrap.dedent(
+                        f"""Note: table {full_table_name} is an AWS Glue object. This source does not ingest all metadata for Glue tables.
                         To view full table metadata, run Glue ingestion
-                        (see https://datahubproject.io/docs/generated/ingestion/sources/glue)""",
+                        (see https://datahubproject.io/docs/generated/ingestion/sources/glue)"""
+                    )
                 )
 
                 feature_sources.append(

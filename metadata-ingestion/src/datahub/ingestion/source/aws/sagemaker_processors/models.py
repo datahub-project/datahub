@@ -400,11 +400,10 @@ class ModelProcessor:
             str: Name of the model package group
 
         Example:
-            >>> arn = "arn:aws:sagemaker:eu-west-1:123456789:model-package-group/my-model-group"
-            >>> get_group_name_from_arn(arn)
-            "my-model-group"
+            >>> ModelProcessor.get_group_name_from_arn("arn:aws:sagemaker:eu-west-1:123456789:model-package-group/my-model-group")
+            'my-model-group'
         """
-        logger.info(
+        logger.debug(
             f"Extracting group name from ARN: {arn} because group was not seen before"
         )
         return arn.split("/")[-1]
