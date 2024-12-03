@@ -599,7 +599,13 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
     num_datasource_field_skipped_no_name: int = 0
     num_csql_field_skipped_no_name: int = 0
     num_table_field_skipped_no_name: int = 0
+    # lineage
+    num_upstream_table_lineage: int = 0
+    num_upstream_fine_grained_lineage: int = 0
     num_upstream_table_skipped_no_name: int = 0
+    num_upstream_table_skipped_no_columns: int = 0
+    num_upstream_table_failed_generate_reference: int = 0
+    num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
 
 
 @platform_name("Tableau")
@@ -1292,7 +1298,7 @@ class TableauSiteSource:
         datasource: dict,
         browse_path: Optional[str],
         is_embedded_ds: bool = False,
-    ) -> Tuple:
+    ) -> Tuple[List[Upstream], List[FineGrainedLineage]]:
         upstream_tables: List[Upstream] = []
         fine_grained_lineages: List[FineGrainedLineage] = []
         table_id_to_urn = {}
@@ -1453,7 +1459,8 @@ class TableauSiteSource:
                 c.COLUMNS_CONNECTION
             ].get("totalCount")
             if not is_custom_sql and not num_tbl_cols:
-                logger.debug(
+                self.report.num_upstream_table_skipped_no_columns += 1
+                logger.warning(
                     f"Skipping upstream table with id {table[c.ID]}, no columns: {table}"
                 )
                 continue
@@ -1469,7 +1476,10 @@ class TableauSiteSource:
                     table, default_schema_map=self.config.default_schema_map
                 )
             except Exception as e:
-                logger.info(f"Failed to generate upstream reference for {table}: {e}")
+                self.report.num_upstream_table_failed_generate_reference += 1
+                logger.warning(
+                    f"Failed to generate upstream reference for {table}: {e}"
+                )
                 continue
 
             table_urn = ref.make_dataset_urn(
@@ -1635,15 +1645,7 @@ class TableauSiteSource:
             func_overridden_info=None,  # Here we don't want to override any information from configuration
         )
 
-        if parsed_result is None:
-            logger.info(
-                f"Failed to extract column level lineage from datasource {datasource_urn}"
-            )
-            return []
-        if parsed_result.debug_info.error:
-            logger.info(
-                f"Failed to extract column level lineage from datasource {datasource_urn}: {parsed_result.debug_info.error}"
-            )
+        if parsed_result is None or parsed_result.debug_info.error:
             return []
 
         cll: List[ColumnLineageInfo] = (
@@ -2005,6 +2007,7 @@ class TableauSiteSource:
                 aspect_name=c.UPSTREAM_LINEAGE,
                 aspect=upstream_lineage,
             )
+            self.report.num_upstream_table_lineage += len(upstream_tables)
 
     @staticmethod
     def _clean_tableau_query_parameters(query: str) -> str:
@@ -2104,7 +2107,7 @@ class TableauSiteSource:
             f"Overridden info upstream_db={upstream_db}, platform_instance={platform_instance}, platform={platform}"
         )
 
-        return create_lineage_sql_parsed_result(
+        parsed_result = create_lineage_sql_parsed_result(
             query=query,
             default_db=upstream_db,
             platform=platform,
@@ -2113,6 +2116,15 @@ class TableauSiteSource:
             graph=self.ctx.graph,
             schema_aware=not self.config.sql_parsing_disable_schema_awareness,
         )
+
+        if parsed_result is None or parsed_result.debug_info.error:
+            message = f"Failed to extract column level lineage from datasource {datasource_urn}"
+            if parsed_result is not None and parsed_result.debug_info.error:
+                message += f": {parsed_result.debug_info.error}"
+            logger.warning(message)
+            self.report.num_upstream_fine_grained_lineage_failed_parse_sql += 1
+
+        return parsed_result
 
     def _enrich_database_tables_with_parsed_schemas(
         self, parsing_result: SqlParsingResult
@@ -2148,9 +2160,6 @@ class TableauSiteSource:
         )
 
         if parsed_result is None:
-            logger.info(
-                f"Failed to extract table level lineage for datasource {csql_urn}"
-            )
             return
 
         self._enrich_database_tables_with_parsed_schemas(parsed_result)
@@ -2170,12 +2179,13 @@ class TableauSiteSource:
             upstreams=upstream_tables,
             fineGrainedLineages=fine_grained_lineages,
         )
-
         yield self.get_metadata_change_proposal(
             csql_urn,
             aspect_name=c.UPSTREAM_LINEAGE,
             aspect=upstream_lineage,
         )
+        self.report.num_upstream_table_lineage += len(upstream_tables)
+        self.report.num_upstream_fine_grained_lineage += len(fine_grained_lineages)
 
     def _get_schema_metadata_for_datasource(
         self, datasource_fields: List[dict]
@@ -2325,6 +2335,10 @@ class TableauSiteSource:
                     datasource_urn,
                     aspect_name=c.UPSTREAM_LINEAGE,
                     aspect=upstream_lineage,
+                )
+                self.report.num_upstream_table_lineage += len(upstream_tables)
+                self.report.num_upstream_fine_grained_lineage += len(
+                    fine_grained_lineages
                 )
 
         # Datasource Fields
