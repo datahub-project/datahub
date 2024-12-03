@@ -27,7 +27,7 @@ from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
-INGEST_SRC_TABLE_COLUMNS = ["runId", "URN", "source", "startTime", "status"]
+INGEST_SRC_TABLE_COLUMNS = ["runId", "source", "startTime", "status", "URN"]
 RUNS_TABLE_COLUMNS = ["runId", "rows", "created at"]
 RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
 
@@ -442,10 +442,13 @@ def mcps(path: str) -> None:
 @click.argument("page_offset", type=int, default=0)
 @click.argument("page_size", type=int, default=100)
 @click.option("--urn", type=str, default=None, help="Filter by ingestion source URN.")
+@click.option(
+    "--source", type=str, default=None, help="Filter by ingestion source name."
+)
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
-def list_source_runs(page_offset: int, page_size: int, urn: str) -> None:
-    """List ingestion source runs with their details, optionally filtered by URN"""
+def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) -> None:
+    """List ingestion source runs with their details, optionally filtered by URN or source."""
 
     query = """
     query listIngestionRuns($input: ListIngestionSourcesInput!) {
@@ -467,10 +470,12 @@ def list_source_runs(page_offset: int, page_size: int, urn: str) -> None:
     }
     """
 
-    # filter by urn using CONTAINS
+    # filter by urn and/or source using CONTAINS
     filters = []
     if urn:
         filters.append({"field": "urn", "values": [urn], "condition": "CONTAIN"})
+    if source:
+        filters.append({"field": "name", "values": [source], "condition": "CONTAIN"})
 
     variables = {
         "input": {
@@ -502,7 +507,7 @@ def list_source_runs(page_offset: int, page_size: int, urn: str) -> None:
         click.echo("No response received from the server.")
         return
 
-    # when urn filter does not match
+    # when urn or source filter does not match, exit gracefully
     if (
         not isinstance(data.get("data"), dict)
         or "listIngestionSources" not in data["data"]
@@ -531,7 +536,7 @@ def list_source_runs(page_offset: int, page_size: int, urn: str) -> None:
             )
             status = execution.get("result", {}).get("status", "N/A")
 
-            rows.append([execution_id, urn, name, start_time, status])
+            rows.append([execution_id, name, start_time, status, urn])
 
     click.echo(
         tabulate(
