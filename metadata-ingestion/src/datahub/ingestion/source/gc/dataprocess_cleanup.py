@@ -114,11 +114,11 @@ class DataProcessCleanupConfig(ConfigModel):
     )
 
     delete_empty_data_jobs: bool = Field(
-        True, description="Whether to delete Data Jobs without runs"
+        False, description="Whether to delete Data Jobs without runs"
     )
 
     delete_empty_data_flows: bool = Field(
-        True, description="Whether to delete Data Flows without runs"
+        False, description="Whether to delete Data Flows without runs"
     )
 
     hard_delete_entities: bool = Field(
