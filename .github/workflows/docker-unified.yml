@@ -29,6 +29,7 @@ env:
   DATAHUB_KAFKA_SETUP_IMAGE: "acryldata/datahub-kafka-setup"
   DATAHUB_ELASTIC_SETUP_IMAGE: "acryldata/datahub-elasticsearch-setup"
   DATAHUB_MYSQL_SETUP_IMAGE: "acryldata/datahub-mysql-setup"
+  DATAHUB_POSTGRES_SETUP_IMAGE: "acryldata/datahub-postgres-setup"
   DATAHUB_UPGRADE_IMAGE: "acryldata/datahub-upgrade"
   DATAHUB_INGESTION_BASE_IMAGE: "acryldata/datahub-ingestion-base"
   DATAHUB_INGESTION_IMAGE: "acryldata/datahub-ingestion"
@@ -617,6 +618,62 @@ jobs:
         with:
           sarif_file: "trivy-results.sarif"
 
+  postgres_setup_build:
+    name: Build and Push DataHub Postgres Setup Docker Image
+    runs-on: ubuntu-latest
+    needs: setup
+    if: ${{ needs.setup.outputs.postgres_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+      - name: Build and push
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.DATAHUB_POSTGRES_SETUP_IMAGE }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+          context: .
+          file: ./docker/postgres-setup/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+  postgres_setup_scan:
+    permissions:
+      contents: read # for actions/checkout to fetch code
+      security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
+      actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
+    name: "[Monitoring] Scan Postgres Setup images for vulnerabilities"
+    runs-on: ubuntu-latest
+    needs: [ setup, postgres_setup_build ]
+    if: ${{ needs.setup.outputs.postgres_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
+    steps:
+      - name: Checkout # adding checkout step just to make trivy upload happy
+        uses: acryldata/sane-checkout-action@v3
+      - name: Download image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
+        with:
+          image: ${{ env.DATAHUB_POSTGRES_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@0.26.0
+        env:
+          TRIVY_OFFLINE_SCAN: true
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2,ghcr.io/aquasecurity/trivy-db:2
+          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1,ghcr.io/aquasecurity/trivy-java-db:1
+        with:
+          image-ref: ${{ env.DATAHUB_POSTGRES_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+          format: "template"
+          template: "@/contrib/sarif.tpl"
+          output: "trivy-results.sarif"
+          severity: "CRITICAL,HIGH"
+          ignore-unfixed: true
+          vuln-type: "os,library"
+      - name: Upload Trivy scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: "trivy-results.sarif"
+
   elasticsearch_setup_build:
     name: Build and Push DataHub Elasticsearch Setup Docker Image
     runs-on: ubuntu-latest
@@ -1035,6 +1092,7 @@ jobs:
         frontend_build,
         kafka_setup_build,
         mysql_setup_build,
+        postgres_setup_build,
         elasticsearch_setup_build,
         mae_consumer_build,
         mce_consumer_build,
@@ -1098,6 +1156,11 @@ jobs:
         if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.mysql_setup_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
+      - name: Download Postgres Setup image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.postgres_setup_build.result == 'success' }}
+        with:
+          image: ${{ env.DATAHUB_POSTGRES_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download Elastic Setup image
         uses: ishworkh/docker-image-artifact-download@v1
         if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.elasticsearch_setup_build.result == 'success' }}
@@ -1154,6 +1217,11 @@ jobs:
             echo 'mysql-setup head images'
             docker pull '${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:head'
             docker tag '${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:head' '${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
+          fi
+          if [ '${{ needs.setup.outputs.postgres_setup_change }}' == 'false' ]; then
+            echo 'postgres-setup head images'
+            docker pull '${{ env.DATAHUB_POSTGRES_SETUP_IMAGE }}:head'
+            docker tag '${{ env.DATAHUB_POSTGRES_SETUP_IMAGE }}:head' '${{ env.DATAHUB_POSTGRES_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}'
           fi
           if [ '${{ needs.setup.outputs.elasticsearch_setup_change }}' == 'false' ]; then
             echo 'elasticsearch-setup head images'
