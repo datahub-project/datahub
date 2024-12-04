@@ -1,5 +1,6 @@
 import logging
 import pathlib
+from typing import List
 
 import pytest
 
@@ -75,7 +76,7 @@ def test_urn_type_dispatch_2() -> None:
         CorpUserUrn.from_string(urn)
 
 
-def _load_urns(file_name: pathlib.Path) -> list[str]:
+def _load_urns(file_name: pathlib.Path) -> List[str]:
     urns = [
         line.strip()
         for line in file_name.read_text().splitlines()
