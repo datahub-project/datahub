@@ -39,3 +39,6 @@ export type VariantOptions = 'filled' | 'outline';
 
 // Alignment types
 export type AlignmentOptions = 'left' | 'right' | 'center' | 'justify';
+
+// Icon Alignment types
+export type IconAlignmentOptions = 'horizontal' | 'vertical';

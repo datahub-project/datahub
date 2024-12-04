@@ -2,7 +2,10 @@
 export * from './theme';
 
 // example usage: import { Button } from '@components';
+export * from './components/Badge';
+export * from './components/BarChart';
 export * from './components/Button';
+export * from './components/Card';
 export * from './components/Checkbox';
 export * from './components/Heading';
 export * from './components/Icon';
@@ -16,5 +19,3 @@ export * from './components/Table';
 export * from './components/Text';
 export * from './components/TextArea';
 export * from './components/Tooltip';
-export * from './components/Badge';
-export * from './components/BarChart';

@@ -11,7 +11,7 @@ export const PillContainer = styled.div(
         // Base root styles
         display: 'inline-flex',
         alignItems: 'center',
-        gap: spacing.xsm,
+        gap: spacing.xxsm,
         cursor: 'pointer',
         padding: '0px 8px',
         borderRadius: '200px',
