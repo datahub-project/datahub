@@ -76,11 +76,13 @@ def test_urn_type_dispatch_2() -> None:
 
 
 def _load_urns(file_name: pathlib.Path) -> list[str]:
-    return [
+    urns = [
         line.strip()
         for line in file_name.read_text().splitlines()
         if line.strip() and not line.startswith("#")
     ]
+    assert len(urns) > 0, f"No urns found in {file_name}"
+    return urns
 
 
 def test_valid_urns() -> None:

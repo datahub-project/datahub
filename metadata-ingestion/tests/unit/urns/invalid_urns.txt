@@ -7,6 +7,7 @@ urn:li:corpuser:abc)
 
 # Reserved characters
 urn:li:corpuser:foo␟bar
+urn:li:tag:a,b,c
 
 # CorpUser URN tests
 urn:li:corpuser:(part1,part2)
