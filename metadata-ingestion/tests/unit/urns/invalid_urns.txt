@@ -5,6 +5,9 @@ urn:li:abc:()
 urn:li:abc:(abc,)
 urn:li:corpuser:abc)
 
+# Reserved characters
+urn:li:corpuser:foo␟bar
+
 # CorpUser URN tests
 urn:li:corpuser:(part1,part2)
 
