@@ -89,7 +89,7 @@ export default function TableStats({
                     </InfoItem>
                 )}
                 {sortedUsers && sortedUsers.length > 0 && (
-                    <InfoItem title="Top Users">
+                    <InfoItem title="Top Users" width="inherit">
                         <div style={{ paddingTop: 8 }}>
                             <ExpandedActorGroup
                                 containerStyle={{
