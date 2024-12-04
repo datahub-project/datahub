@@ -150,13 +150,6 @@ sql_common = (
     | classification_lib
 )
 
-sqllineage_lib = {
-    "sqllineage==1.3.8",
-    # We don't have a direct dependency on sqlparse but it is a dependency of sqllineage.
-    # There have previously been issues from not pinning sqlparse, so it's best to pin it.
-    # Related: https://github.com/reata/sqllineage/issues/361 and https://github.com/reata/sqllineage/pull/360
-    "sqlparse==0.4.4",
-}
 
 aws_common = {
     # AWS Python SDK
@@ -207,7 +200,6 @@ redshift_common = {
     "sqlalchemy-redshift>=0.8.3",
     "GeoAlchemy2",
     "redshift-connector>=2.1.0",
-    *sqllineage_lib,
     *path_spec_common,
 }
 
@@ -492,9 +484,7 @@ plugins: Dict[str, Set[str]] = {
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,
-    # FIXME: I don't think tableau uses sqllineage anymore so we should be able
-    # to remove that dependency.
-    "tableau": {"tableauserverclient>=0.24.0"} | sqllineage_lib | sqlglot_lib,
+    "tableau": {"tableauserverclient>=0.24.0"} | sqlglot_lib,
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
