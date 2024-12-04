@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import { useCreateGroupMutation } from '../../../graphql/group.generated';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { validateCustomUrnId } from '../../shared/textUtil';
@@ -19,6 +20,7 @@ const StyledEditor = styled(MarkdownEditor)`
 `;
 
 export default function CreateGroupModal({ onClose, onCreate }: Props) {
+    const { t } = useTranslation();
     const [stagedName, setStagedName] = useState('');
     const [stagedDescription, setStagedDescription] = useState('');
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
@@ -50,7 +52,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                             type: EventType.CreateGroupEvent,
                         });
                         message.success({
-                            content: `Created group!`,
+                            content: t('crud.success.createWithName', { name: t('common.group') }),
                             duration: 3,
                         });
                         // TODO: Get a full corp group back from create endpoint.
@@ -66,7 +68,12 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                 })
                 .catch((e) => {
                     message.destroy();
-                    message.error({ content: `Failed to create group!: \n ${e.message || ''}`, duration: 3 });
+                    message.error({
+                        content: `${t('crud.error.createWithName', { name: t('common.group') })}!: \n ${
+                            e.message || ''
+                        }`,
+                        duration: 3,
+                    });
                 })
                 .finally(() => {
                     setStagedName('');
@@ -88,16 +95,16 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
     return (
         <Modal
             width={700}
-            title="Create new group"
+            title={t('group.create')}
             open
             onCancel={onClose}
             footer={
                 <>
                     <Button onClick={onClose} type="text">
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button id="createGroupButton" onClick={onCreateGroup} disabled={createButtonEnabled}>
-                        Create
+                        {t('common.create')}
                     </Button>
                 </>
             }
@@ -110,14 +117,14 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     setCreateButtonEnabled(form.getFieldsError().some((field) => field.errors.length > 0))
                 }
             >
-                <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
-                    <Typography.Paragraph>Give your new group a name.</Typography.Paragraph>
+                <Form.Item label={<Typography.Text strong>{t('common.name')}</Typography.Text>}>
+                    <Typography.Paragraph>{t('group.nameDescription')}</Typography.Paragraph>
                     <Form.Item
                         name="name"
                         rules={[
                             {
                                 required: true,
-                                message: 'Enter a Group name.',
+                                message: t('form.enterAGroupName'),
                             },
                             { whitespace: true },
                             { min: 1, max: 50 },
@@ -125,14 +132,14 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                         hasFeedback
                     >
                         <Input
-                            placeholder="A name for your group"
+                            placeholder={t('placeholder.groupName')}
                             value={stagedName}
                             onChange={(event) => setStagedName(event.target.value)}
                         />
                     </Form.Item>
                 </Form.Item>
-                <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
-                    <Typography.Paragraph>An optional description for your new group.</Typography.Paragraph>
+                <Form.Item label={<Typography.Text strong>{t('common.description')}</Typography.Text>}>
+                    <Typography.Paragraph>{t('placeholder.groupOptionalDescription')}</Typography.Paragraph>
                     <Form.Item name="description" rules={[{ whitespace: true }]} hasFeedback>
                         {/* Styled editor for the group description */}
                         <div ref={styledEditorRef}>
@@ -141,14 +148,12 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                     </Form.Item>
                 </Form.Item>
                 <Collapse ghost>
-                    <Collapse.Panel header={<Typography.Text type="secondary">Advanced</Typography.Text>} key="1">
-                        <Form.Item label={<Typography.Text strong>Group Id</Typography.Text>}>
-                            <Typography.Paragraph>
-                                By default, a random UUID will be generated to uniquely identify this group. If
-                                you&apos;d like to provide a custom id instead to more easily keep track of this group,
-                                you may provide it here. Be careful, you cannot easily change the group id after
-                                creation.
-                            </Typography.Paragraph>
+                    <Collapse.Panel
+                        header={<Typography.Text type="secondary">{t('common.advanced')}</Typography.Text>}
+                        key="1"
+                    >
+                        <Form.Item label={<Typography.Text strong>{t('group.groupId')}</Typography.Text>}>
+                            <Typography.Paragraph>{t('group.groupIdDescription')}</Typography.Paragraph>
                             <Form.Item
                                 name="groupId"
                                 rules={[
@@ -157,7 +162,7 @@ export default function CreateGroupModal({ onClose, onCreate }: Props) {
                                             if (value && validateCustomUrnId(value)) {
                                                 return Promise.resolve();
                                             }
-                                            return Promise.reject(new Error('Please enter correct Group name'));
+                                            return Promise.reject(new Error(t('form.enterCorrectGroupName')));
                                         },
                                     }),
                                 ]}

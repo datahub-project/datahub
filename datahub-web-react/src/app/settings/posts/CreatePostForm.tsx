@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Form, Input, Typography, FormInstance, Radio } from 'antd';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
 import {
     DESCRIPTION_FIELD_NAME,
     LINK_FIELD_NAME,
@@ -26,7 +27,7 @@ type Props = {
 
 export default function CreatePostForm({ setCreateButtonEnabled, form, contentType }: Props) {
     const [postType, setPostType] = useState<PostContentType>(PostContentType.Text);
-
+    const { t } = useTranslation();
     useEffect(() => {
         if (contentType) {
             setPostType(contentType);
@@ -42,7 +43,7 @@ export default function CreatePostForm({ setCreateButtonEnabled, form, contentTy
                 setCreateButtonEnabled(!form.getFieldsError().some((field) => field.errors.length > 0));
             }}
         >
-            <TopFormItem name={TYPE_FIELD_NAME} label={<Typography.Text strong>Post Type</Typography.Text>}>
+            <TopFormItem name={TYPE_FIELD_NAME} label={<Typography.Text strong>{t('post.postType')}</Typography.Text>}>
                 <Radio.Group
                     onChange={(e) => setPostType(e.target.value)}
                     value={postType}
@@ -50,45 +51,44 @@ export default function CreatePostForm({ setCreateButtonEnabled, form, contentTy
                     optionType="button"
                     buttonStyle="solid"
                 >
-                    <Radio value={PostContentType.Text}>Announcement</Radio>
-                    <Radio value={PostContentType.Link}>Link</Radio>
+                    <Radio value={PostContentType.Text}>{t('common.announcement')}</Radio>
+                    <Radio value={PostContentType.Link}>{t('common.link')}</Radio>
                 </Radio.Group>
             </TopFormItem>
 
-            <TopFormItem label={<Typography.Text strong>Title</Typography.Text>}>
-                <Typography.Paragraph>The title for your new post.</Typography.Paragraph>
+            <TopFormItem label={<Typography.Text strong>{t('common.title')}</Typography.Text>}>
+                <Typography.Paragraph>{t('post.titleDescription')}</Typography.Paragraph>
                 <SubFormItem name={TITLE_FIELD_NAME} rules={[{ required: true }]} hasFeedback>
-                    <Input data-testid="create-post-title" placeholder="Your post title" />
+                    <Input data-testid="create-post-title" placeholder={t('post.titlePlaceholder')} />
                 </SubFormItem>
             </TopFormItem>
             {postType === PostContentType.Text && (
-                <TopFormItem label={<Typography.Text strong>Description</Typography.Text>}>
-                    <Typography.Paragraph>The main content for your new post.</Typography.Paragraph>
+                <TopFormItem label={<Typography.Text strong>{t('common.description')}</Typography.Text>}>
+                    <Typography.Paragraph>{t('post.descriptionDescription')}</Typography.Paragraph>
                     <SubFormItem name={DESCRIPTION_FIELD_NAME} rules={[{ min: 0, max: 500 }]} hasFeedback>
-                        <Input.TextArea placeholder="Your post description" />
+                        <Input.TextArea placeholder={t('post.titleDescription')} />
                     </SubFormItem>
                 </TopFormItem>
             )}
             {postType === PostContentType.Link && (
                 <>
-                    <TopFormItem label={<Typography.Text strong>Link URL</Typography.Text>}>
-                        <Typography.Paragraph>
-                            Where users will be directed when they click this post.
-                        </Typography.Paragraph>
+                    <TopFormItem label={<Typography.Text strong>{t('post.linkUrl')}</Typography.Text>}>
+                        <Typography.Paragraph>{t('post.linkUrlDescription')}</Typography.Paragraph>
                         <SubFormItem name={LINK_FIELD_NAME} rules={[{ type: 'url', warningOnly: true }]} hasFeedback>
-                            <Input data-testid="create-post-link" placeholder="Your post link URL" />
+                            <Input data-testid="create-post-link" placeholder={t('post.linkUrlPlaceholder')} />
                         </SubFormItem>
                     </TopFormItem>
-                    <SubFormItem label={<Typography.Text strong>Image URL</Typography.Text>}>
-                        <Typography.Paragraph>
-                            A URL to an image you want to display on your link post.
-                        </Typography.Paragraph>
+                    <SubFormItem label={<Typography.Text strong>{t('post.imageUrl')}</Typography.Text>}>
+                        <Typography.Paragraph>{t('post.imageUrlDescription')}</Typography.Paragraph>
                         <SubFormItem
                             name={LOCATION_FIELD_NAME}
                             rules={[{ type: 'url', warningOnly: true }]}
                             hasFeedback
                         >
-                            <Input data-testid="create-post-media-location" placeholder="Your post image URL" />
+                            <Input
+                                data-testid="create-post-media-location"
+                                placeholder={t('post.imageUrlPlaceholder')}
+                            />
                         </SubFormItem>
                     </SubFormItem>
                 </>

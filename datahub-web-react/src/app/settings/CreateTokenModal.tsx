@@ -3,6 +3,7 @@ import { message, Button, Input, Modal, Typography, Form, Select } from 'antd';
 import styled from 'styled-components';
 import { red } from '@ant-design/colors';
 
+import { useTranslation } from 'react-i18next';
 import { useEnterKeyListener } from '../shared/useEnterKeyListener';
 import { ACCESS_TOKEN_DURATIONS, getTokenExpireDate } from './utils';
 import { useCreateAccessTokenMutation } from '../../graphql/auth.generated';
@@ -40,6 +41,7 @@ const OptionText = styled.span<{ isRed: boolean }>`
 `;
 
 export default function CreateTokenModal({ currentUserUrn, open, onClose, onCreateToken }: Props) {
+    const { t } = useTranslation();
     const [selectedTokenDuration, setSelectedTokenDuration] = useState<AccessTokenDuration | null>(null);
 
     const [showModal, setShowModal] = useState(false);
@@ -112,13 +114,13 @@ export default function CreateTokenModal({ currentUserUrn, open, onClose, onCrea
     return (
         <>
             <Modal
-                title="Create new Token"
+                title={t('settings.createNewToken')}
                 open={open}
                 onCancel={onModalClose}
                 footer={
                     <>
                         <Button onClick={onModalClose} type="text" data-testid="cancel-create-access-token-button">
-                            Cancel
+                            {t('common.cancel')}
                         </Button>
                         <Button
                             id="createTokenButton"
@@ -126,7 +128,7 @@ export default function CreateTokenModal({ currentUserUrn, open, onClose, onCrea
                             disabled={createButtonEnabled}
                             data-testid="create-access-token-button"
                         >
-                            Create
+                            {t('common.create')}
                         </Button>
                     </>
                 }
@@ -139,34 +141,39 @@ export default function CreateTokenModal({ currentUserUrn, open, onClose, onCrea
                         setCreateButtonEnabled(form.getFieldsError().some((field) => field.errors.length > 0))
                     }
                 >
-                    <Form.Item label={<Typography.Text strong>Name</Typography.Text>}>
-                        <Typography.Paragraph>Give your new token a name. </Typography.Paragraph>
+                    <Form.Item label={<Typography.Text strong>{t('common.name')}</Typography.Text>}>
+                        <Typography.Paragraph>{t('settings.giveYourNewTokenAName')} </Typography.Paragraph>
                         <Form.Item
                             name="name"
                             rules={[
                                 {
                                     required: true,
-                                    message: 'Enter a token name.',
+                                    message: t('settings.enterATokenName'),
                                 },
                                 { whitespace: true },
                                 { min: 1, max: 50 },
                             ]}
                             hasFeedback
                         >
-                            <Input placeholder="A name for your token" data-testid="create-access-token-name" />
+                            <Input
+                                placeholder={t('settings.aNameForYourToken')}
+                                data-testid="create-access-token-name"
+                            />
                         </Form.Item>
                     </Form.Item>
-                    <Form.Item label={<Typography.Text strong>Description</Typography.Text>}>
-                        <Typography.Paragraph>An optional description for your new token.</Typography.Paragraph>
+                    <Form.Item label={<Typography.Text strong>{t('common.description')}</Typography.Text>}>
+                        <Typography.Paragraph>
+                            {t('settings.anOptionalDescriptionForYourNewToken')}
+                        </Typography.Paragraph>
                         <Form.Item name="description" rules={[{ whitespace: true }, { min: 1, max: 500 }]} hasFeedback>
                             <Input
-                                placeholder="A description for your token"
+                                placeholder={t('settings.aDescriptionForYourToken')}
                                 data-testid="create-access-token-description"
                             />
                         </Form.Item>
                     </Form.Item>
                     <ExpirationSelectContainer>
-                        <Typography.Text strong>Expires in</Typography.Text>
+                        <Typography.Text strong>{t('token.expireIn')}</Typography.Text>
                         <Form.Item name="duration" data-testid="create-access-token-duration" noStyle>
                             <ExpirationDurationSelect>
                                 {ACCESS_TOKEN_DURATIONS.map((duration) => (
