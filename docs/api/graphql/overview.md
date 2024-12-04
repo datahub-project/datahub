@@ -3,8 +3,14 @@
 DataHub provides a rich [`graphql`](https://graphql.org/) API for programmatically interacting with the Entities & Relationships comprising your organization's Metadata Graph.
 
 ## Getting Started
+To begin using the DataHub GraphQL API, please consult the [Getting Started](/docs/api/graphql/getting-started.md).
 
+For detailed guidance on using GraphQL for specific use cases, please refer to [Datahub API Comparison](/docs/api/datahub-apis.md#datahub-api-comparison).
+
+<<<<<<< HEAD
+=======
 To begin using the DataHub `graphql` API, please consult the [Getting Started](/docs/api/graphql/getting-started.md).
+>>>>>>> upstream/master
 
 For detailed guidance on using `graphql` for specific use cases, please refer to [Datahub API Comparison](/docs/api/datahub-apis.md#datahub-api-comparison).
 
@@ -38,3 +44,9 @@ that may be performed using the API.
 
 - Available Operations: [Queries](/graphql/queries.md) (Reads) & [Mutations](/graphql/mutations.md) (Writes)
 - Schema Types: [Objects](/graphql/objects.md), [Input Objects](/graphql/inputObjects.md), [Interfaces](/graphql/interfaces.md), [Unions](/graphql/unions.md), [Enums](/graphql/enums.md), [Scalars](/graphql/scalars.md)
+<<<<<<< HEAD
+
+> Visit our [Slack channel](https://slack.datahubproject.io) to ask questions, tell us what we can do better, & make requests for what you'd like to see in the future. Or just
+stop by to say 'Hi'. 
+=======
+>>>>>>> upstream/master

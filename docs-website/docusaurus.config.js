@@ -3,9 +3,15 @@ const isSaas = process.env.DOCUSAURUS_IS_SAAS === "true";
 
 module.exports = {
   title: process.env.DOCUSAURUS_CONFIG_TITLE || "DataHub",
+<<<<<<< HEAD
+  tagline: "A Metadata Platform for the Modern Data Stack",
+  url: process.env.DOCUSAURUS_CONFIG_URL || "https://yoonhyejin.github.io",
+  baseUrl: process.env.DOCUSAURUS_CONFIG_BASE_URL || "/datahub-project-forked/",
+=======
   tagline: "The #1 Open Source Metadata Platform",
   url: process.env.DOCUSAURUS_CONFIG_URL || "https://datahubproject.io",
   baseUrl: process.env.DOCUSAURUS_CONFIG_BASE_URL || "/",
+>>>>>>> upstream/master
   onBrokenLinks: "throw",
   onBrokenMarkdownLinks: "throw",
   favicon: "img/favicon.ico",
@@ -125,6 +131,10 @@ module.exports = {
           position: "right",
         },
         {
+<<<<<<< HEAD
+          to: "https://demo.datahubproject.io/",
+          label: "Demo",
+=======
           type: "dropdown",
           activeBasePath: "learn",
           label: "Learn",
@@ -189,6 +199,7 @@ module.exports = {
             </style>
             <img class='slack-logo' src='https://upload.wikimedia.org/wikipedia/commons/d/d5/Slack_icon_2019.svg', alt='slack', height='20px' style='margin: 10px 0 0 0;'/>
           `,
+>>>>>>> upstream/master
           position: "right",
         },
         {
