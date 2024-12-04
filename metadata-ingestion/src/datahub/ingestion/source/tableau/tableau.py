@@ -68,6 +68,7 @@ from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
     Source,
+    StructuredLogLevel,
     TestableSource,
     TestConnectionReport,
 )
@@ -289,16 +290,12 @@ class TableauConnectionConfig(ConfigModel):
             server.auth.sign_in(authentication)
             return server
         except ServerResponseError as e:
+            message = f"Unable to login (invalid/expired credentials or missing permissions): {str(e)}"
             if isinstance(authentication, PersonalAccessTokenAuth):
                 # Docs on token expiry in Tableau:
                 # https://help.tableau.com/current/server/en-us/security_personal_access_tokens.htm#token-expiry
-                logger.info(
-                    "Error authenticating with Tableau. Note that Tableau personal access tokens "
-                    "expire if not used for 15 days or if over 1 year old"
-                )
-            raise ValueError(
-                f"Unable to login (invalid/expired credentials or missing permissions): {str(e)}"
-            ) from e
+                message = f"Error authenticating with Tableau. Note that Tableau personal access tokens expire if not used for 15 days or if over 1 year old: {str(e)}"
+            raise ValueError(message) from e
         except Exception as e:
             raise ValueError(
                 f"Unable to login (check your Tableau connection and credentials): {str(e)}"
@@ -706,6 +703,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         config=self.config,
                         ctx=self.ctx,
                         site=site,
+                        site_id=site.id,
                         report=self.report,
                         server=self.server,
                         platform=self.platform,
@@ -713,11 +711,19 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     logger.info(f"Ingesting assets of site '{site.content_url}'.")
                     yield from site_source.ingest_tableau_site()
             else:
-                site = self.server.sites.get_by_id(self.server.site_id)
+                site = None
+                with self.report.report_exc(
+                    title="Unable to fetch site details. Site hierarchy may be incomplete and external urls may be missing.",
+                    message="This usually indicates missing permissions. Ensure that you have all necessary permissions.",
+                    level=StructuredLogLevel.WARN,
+                ):
+                    site = self.server.sites.get_by_id(self.server.site_id)
+
                 site_source = TableauSiteSource(
                     config=self.config,
                     ctx=self.ctx,
                     site=site,
+                    site_id=self.server.site_id,
                     report=self.report,
                     server=self.server,
                     platform=self.platform,
@@ -728,6 +734,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 title="Failed to Retrieve Tableau Metadata",
                 message="Unable to retrieve metadata from tableau.",
                 context=str(md_exception),
+                exc=md_exception,
             )
 
     def close(self) -> None:
@@ -749,7 +756,8 @@ class TableauSiteSource:
         self,
         config: TableauConfig,
         ctx: PipelineContext,
-        site: SiteItem,
+        site: Optional[SiteItem],
+        site_id: Optional[str],
         report: TableauSourceReport,
         server: Server,
         platform: str,
@@ -758,8 +766,15 @@ class TableauSiteSource:
         self.report = report
         self.server: Server = server
         self.ctx: PipelineContext = ctx
-        self.site: SiteItem = site
         self.platform = platform
+
+        self.site: Optional[SiteItem] = site
+        if site_id is not None:
+            self.site_id: str = site_id
+        else:
+            assert self.site is not None, "site or site_id is required"
+            assert self.site.id is not None, "site_id is required when site is provided"
+            self.site_id = self.site.id
 
         self.database_tables: Dict[str, DatabaseTable] = {}
         self.tableau_stat_registry: Dict[str, UsageStat] = {}
@@ -814,7 +829,7 @@ class TableauSiteSource:
     def _re_authenticate(self):
         tableau_auth: Union[
             TableauAuth, PersonalAccessTokenAuth
-        ] = self.config.get_tableau_auth(self.site.content_url)
+        ] = self.config.get_tableau_auth(self.site_id)
         self.server.auth.sign_in(tableau_auth)
 
     @property
@@ -832,6 +847,7 @@ class TableauSiteSource:
             if not view.id:
                 continue
             self.tableau_stat_registry[view.id] = UsageStat(view_count=view.total_views)
+        logger.info(f"Got Tableau stats for {len(self.tableau_stat_registry)} assets")
         logger.debug("Tableau stats %s", self.tableau_stat_registry)
 
     def _populate_database_server_hostname_map(self) -> None:
@@ -882,7 +898,7 @@ class TableauSiteSource:
                 ancestors = [cur_proj.name]
                 while cur_proj.parent_id is not None:
                     if cur_proj.parent_id not in all_project_map:
-                        self.report.report_warning(
+                        self.report.warning(
                             "project-issue",
                             f"Parent project {cur_proj.parent_id} not found. We need Site Administrator Explorer permissions.",
                         )
@@ -980,8 +996,11 @@ class TableauSiteSource:
                 self.datasource_project_map[ds.id] = ds.project_id
         except Exception as e:
             self.report.get_all_datasources_query_failed = True
-            logger.info(f"Get all datasources query failed due to error {e}")
-            logger.debug("Error stack trace", exc_info=True)
+            self.report.warning(
+                title="Unexpected Query Error",
+                message="Get all datasources query failed due to error",
+                exc=e,
+            )
 
     def _init_workbook_registry(self) -> None:
         if self.server is None:
@@ -1147,7 +1166,6 @@ class TableauSiteSource:
                     )
 
                 if node_limit_errors:
-                    logger.debug(f"Node Limit Error. query_data {query_data}")
                     self.report.warning(
                         title="Tableau Data Exceed Predefined Limit",
                         message="The numbers of record in result set exceeds a predefined limit. Increase the tableau "
@@ -1263,9 +1281,10 @@ class TableauSiteSource:
                     wrk_id: Optional[str] = workbook.get(c.ID)
                     prj_name: Optional[str] = workbook.get(c.PROJECT_NAME)
 
-                    logger.debug(
-                        f"Skipping workbook {wrk_name}({wrk_id}) as it is project {prj_name}({project_luid}) not "
-                        f"present in project registry"
+                    self.report.warning(
+                        title="Skipping Missing Workbook",
+                        message="Skipping workbook as its project is not present in project registry",
+                        context=f"workbook={wrk_name}({wrk_id}), project={prj_name}({project_luid})",
                     )
                     continue
 
@@ -1477,8 +1496,11 @@ class TableauSiteSource:
                 )
             except Exception as e:
                 self.report.num_upstream_table_failed_generate_reference += 1
-                logger.warning(
-                    f"Failed to generate upstream reference for {table}: {e}"
+                self.report.warning(
+                    title="Potentially Missing Lineage Issue",
+                    message="Failed to generate upstream reference",
+                    exc=e,
+                    context=f"table={table}",
                 )
                 continue
 
@@ -1919,10 +1941,12 @@ class TableauSiteSource:
                 self.datasource_project_map[ds_result.id] = ds_result.project_id
         except Exception as e:
             self.report.num_get_datasource_query_failures += 1
-            logger.warning(
-                f"Failed to get datasource project_luid for {ds_luid} due to error {e}"
+            self.report.warning(
+                title="Unexpected Query Error",
+                message="Failed to get datasource details",
+                exc=e,
+                context=f"ds_luid={ds_luid}",
             )
-            logger.debug("Error stack trace", exc_info=True)
 
     def _get_workbook_project_luid(self, wb: dict) -> Optional[str]:
         if wb.get(c.LUID) and self.workbook_project_map.get(wb[c.LUID]):
@@ -3195,10 +3219,10 @@ class TableauSiteSource:
             else:
                 # This is a root Tableau project since the parent_project_id is None.
                 # For a root project, either the site is the parent, or the platform is the default parent.
-                if self.config.add_site_container and self.site and self.site.id:
+                if self.config.add_site_container:
                     # The site containers have already been generated by emit_site_container, so we
                     # don't need to emit them again here.
-                    parent_project_key = self.gen_site_key(self.site.id)
+                    parent_project_key = self.gen_site_key(self.site_id)
 
             yield from gen_containers(
                 container_key=project_key,
@@ -3215,12 +3239,12 @@ class TableauSiteSource:
             yield from emit_project_in_topological_order(project)
 
     def emit_site_container(self):
-        if not self.site or not self.site.id:
+        if not self.site:
             logger.warning("Can not ingest site container. No site information found.")
             return
 
         yield from gen_containers(
-            container_key=self.gen_site_key(self.site.id),
+            container_key=self.gen_site_key(self.site_id),
             name=self.site.name or "Default",
             sub_types=[c.SITE],
         )
