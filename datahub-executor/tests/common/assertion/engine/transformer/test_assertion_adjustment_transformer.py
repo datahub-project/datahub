@@ -21,6 +21,8 @@ from datahub_executor.common.types import (
     AssertionEvaluationContext,
     AssertionEvaluationParameters,
     AssertionEvaluationParametersType,
+    AssertionEvaluationSpec,
+    AssertionEvaluationSpecContext,
     AssertionSourceType,
     AssertionStdOperator,
     AssertionStdParameter,
@@ -203,6 +205,92 @@ def test_assertion_tranformer_default_adjustment(
             ),
             minValue=AssertionStdParameter(
                 type=AssertionStdParameterType.NUMBER, value="65.0"
+            ),
+        )
+    )
+    assert parameters == eval_parameters
+    assert context.base_assertion_info != new_assertion.raw_info_aspect
+
+
+def test_assertion_tranformer_default_adjustment_std_dev(
+    assertion_default_adjustment: Assertion,
+) -> None:
+    assertion_context_with_std = AssertionEvaluationContext(
+        assertion_evaluation_spec=AssertionEvaluationSpec(
+            assertion=assertion_default_adjustment,
+            schedule=CronSchedule(cron="* * * * *", timezone="America/Los_Angeles"),
+            parameters=AssertionEvaluationParameters(
+                type=AssertionEvaluationParametersType.DATASET_VOLUME,
+                datasetFieldParameters=None,
+                datasetSchemaParameters=None,
+                datasetVolumeParameters=None,
+                datasetFreshnessParameters=None,
+            ),
+            rawParameters=None,
+            context=AssertionEvaluationSpecContext(embeddedAssertions=[], stdDev=5.0),
+        )
+    )
+
+    graph = MagicMock(spec=DataHubGraph)
+    transformer = AssertionAdjustmentTransformer(graph)
+    new_assertion, parameters, context = transformer.transform(
+        assertion_default_adjustment, eval_parameters, assertion_context_with_std
+    )
+
+    assert new_assertion.volume_assertion
+    assert new_assertion.raw_info_aspect
+    assert new_assertion.volume_assertion.row_count_total
+    assert (
+        new_assertion.volume_assertion.row_count_total.parameters
+        == AssertionStdParameters(
+            maxValue=AssertionStdParameter(
+                type=AssertionStdParameterType.NUMBER, value="101.25"
+            ),
+            minValue=AssertionStdParameter(
+                type=AssertionStdParameterType.NUMBER, value="88.75"
+            ),
+        )
+    )
+    assert parameters == eval_parameters
+    assert context.base_assertion_info != new_assertion.raw_info_aspect
+
+
+def test_assertion_tranformer_default_adjustment_std_dev_with_floor(
+    assertion_default_adjustment: Assertion,
+) -> None:
+    assertion_context_with_std = AssertionEvaluationContext(
+        assertion_evaluation_spec=AssertionEvaluationSpec(
+            assertion=assertion_default_adjustment,
+            schedule=CronSchedule(cron="* * * * *", timezone="America/Los_Angeles"),
+            parameters=AssertionEvaluationParameters(
+                type=AssertionEvaluationParametersType.DATASET_VOLUME,
+                datasetFieldParameters=None,
+                datasetSchemaParameters=None,
+                datasetVolumeParameters=None,
+                datasetFreshnessParameters=None,
+            ),
+            rawParameters=None,
+            context=AssertionEvaluationSpecContext(embeddedAssertions=[], stdDev=500),
+        )
+    )
+
+    graph = MagicMock(spec=DataHubGraph)
+    transformer = AssertionAdjustmentTransformer(graph)
+    new_assertion, parameters, context = transformer.transform(
+        assertion_default_adjustment, eval_parameters, assertion_context_with_std
+    )
+
+    assert new_assertion.volume_assertion
+    assert new_assertion.raw_info_aspect
+    assert new_assertion.volume_assertion.row_count_total
+    assert (
+        new_assertion.volume_assertion.row_count_total.parameters
+        == AssertionStdParameters(
+            maxValue=AssertionStdParameter(
+                type=AssertionStdParameterType.NUMBER, value="225.0"
+            ),
+            minValue=AssertionStdParameter(
+                type=AssertionStdParameterType.NUMBER, value="0"
             ),
         )
     )

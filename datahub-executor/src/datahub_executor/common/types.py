@@ -1159,11 +1159,17 @@ class AssertionEvaluationSpecContext(PermissiveBaseModel):
         alias="embeddedAssertions"
     )
 
+    std_dev: Optional[float] = Field(alias="stdDev")
+
     @property
     def has_embedded_assertions(self) -> bool:
         return (
             self.embedded_assertions is not None and len(self.embedded_assertions) > 0
         )
+
+    @property
+    def has_stddev(self) -> bool:
+        return self.std_dev is not None
 
 
 class AssertionEvaluationSpec(PermissiveBaseModel):

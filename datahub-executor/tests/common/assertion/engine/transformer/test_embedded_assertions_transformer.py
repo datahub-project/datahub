@@ -98,7 +98,9 @@ smart_assertion_spec = AssertionEvaluationSpec(
     assertion=assertion,
     schedule=schedule,
     parameters=eval_parameters,
-    context=AssertionEvaluationSpecContext(embeddedAssertions=[embedded_assertion]),
+    context=AssertionEvaluationSpecContext(
+        embeddedAssertions=[embedded_assertion], stdDev=None
+    ),
 )
 smart_assertion_context = AssertionEvaluationContext(
     assertion_evaluation_spec=smart_assertion_spec

@@ -10,4 +10,10 @@ record AssertionEvaluationContext {
     * if present and if the EmbeddedAssertion's evaluationTimeWindow period is valid
     */
     embeddedAssertions: optional array[EmbeddedAssertion]
+
+    /**
+     * The std deviation of the metric values used for training.
+     * This is used to determine the final adjusted threshold for the assertion.
+     */
+    stdDev: optional float
 }

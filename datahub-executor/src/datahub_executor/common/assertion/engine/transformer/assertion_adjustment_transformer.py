@@ -11,6 +11,7 @@ from datahub_executor.common.aspect_builder import (
 from datahub_executor.common.assertion.engine.transformer.assertion_adjustment.algorithm import (
     AdjustmentAlgorithm,
     IQRAdjustmentAlgorithm,
+    StdDevAdjustmentAlgorithm,
 )
 from datahub_executor.common.assertion.engine.transformer.transformer import (
     AssertionTransformer,
@@ -53,7 +54,7 @@ class AssertionAdjustmentTransformer(AssertionTransformer):
             try:
                 context.base_assertion_info = assertion.raw_info_aspect
                 algorithm = get_adjustment_algorithm_from_settings(
-                    assertion.adjustmentSettings
+                    assertion.adjustmentSettings, context
                 )
                 new_assertion = algorithm.adjust_assertion_info(assertion)
                 self._update_raw_info_aspect_parameters(new_assertion)
@@ -111,11 +112,22 @@ class AssertionAdjustmentTransformer(AssertionTransformer):
 
 def get_adjustment_algorithm_from_settings(
     adjustment_settings: Optional[AssertionAdjustmentSettings],
+    context: AssertionEvaluationContext,
 ) -> AdjustmentAlgorithm:
     """
     Adjustment Algorithm Registry
     """
     if adjustment_settings is None:  # default:
+        if (
+            context.evaluation_spec is not None
+            and context.evaluation_spec.context is not None
+            and context.evaluation_spec.context.std_dev is not None
+        ):
+            # In this case, use the new Std Deviation adjustment algo by default!
+            # TODO: In the future, we can allow users to configure this themselves using the adjustment_settings flow.
+            std_dev = context.evaluation_spec.context.std_dev
+            return StdDevAdjustmentAlgorithm(std_dev=std_dev)
+        # Else fall back to legacy IQR.
         return IQRAdjustmentAlgorithm()
     elif adjustment_settings.algorithmName == IQRAdjustmentAlgorithm.name():
         try:

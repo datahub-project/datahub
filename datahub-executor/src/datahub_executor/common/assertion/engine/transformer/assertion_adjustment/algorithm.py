@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 
 from pydantic import BaseModel, Field
@@ -117,5 +118,88 @@ class IQRAdjustmentAlgorithm(AdjustmentAlgorithm):
             ),
             maxValue=AssertionStdParameter(
                 type=AssertionStdParameterType.NUMBER, value=str(max_val + buffer)
+            ),
+        )
+
+
+STD_DEV_ALGORITHM_NAME = "STDDEV"
+
+
+class StdDevAdjustmentContext(BaseModel):
+    buffer_factor: float = Field(
+        default_factory=lambda: float(
+            os.getenv("ASSERTION_ADJUSTMENT_STDDEV_BUFFER_FACTOR", 0.25)
+        ),
+        description="The multiplier to apply to StdDev to compute parameter values allowed range.",
+    )
+
+
+class StdDevAdjustmentAlgorithm(AdjustmentAlgorithm):
+    """
+    Applicable for BETWEEN operator only
+    """
+
+    @classmethod
+    def name(cls) -> str:
+        return STD_DEV_ALGORITHM_NAME
+
+    algorithmName: str = STD_DEV_ALGORITHM_NAME
+    std_dev: float = Field(description="The std deviation itself")
+    context: StdDevAdjustmentContext = Field(default=StdDevAdjustmentContext())
+
+    def adjust_assertion_info(self, assertion: Assertion) -> Assertion:
+        if (
+            assertion.volume_assertion
+            and assertion.volume_assertion.row_count_total
+            and assertion.volume_assertion.row_count_total.operator
+            == AssertionStdOperator.BETWEEN
+        ):
+            assertion.volume_assertion.row_count_total.parameters = (
+                self._adjust_parameters(
+                    assertion.volume_assertion.row_count_total.parameters, floor=0
+                )
+            )
+
+        elif (
+            assertion.field_assertion
+            and assertion.field_assertion.field_metric_assertion
+            and assertion.field_assertion.field_metric_assertion.operator
+            == AssertionStdOperator.BETWEEN
+        ):
+            floor = (
+                0
+                if assertion.field_assertion.field_metric_assertion.metric
+                in POSITIVE_VALUE_FIELD_METRICS
+                else None
+            )
+            assertion.field_assertion.field_metric_assertion.parameters = (
+                self._adjust_parameters(
+                    assertion.field_assertion.field_metric_assertion.parameters,
+                    floor=floor,
+                )
+            )
+
+        return assertion
+
+    def _adjust_parameters(
+        self, parameters: AssertionStdParameters, floor: float | None
+    ) -> AssertionStdParameters:
+        assert parameters.max_value is not None
+        assert parameters.min_value is not None
+        max_val = float(parameters.max_value.value)
+        min_val = float(parameters.min_value.value)
+        max_val_with_buffer = max_val + self.context.buffer_factor * float(self.std_dev)
+        min_val_with_buffer = min_val - self.context.buffer_factor * float(self.std_dev)
+        return AssertionStdParameters(
+            minValue=AssertionStdParameter(
+                type=AssertionStdParameterType.NUMBER,
+                value=str(
+                    max(min_val_with_buffer, floor)
+                    if floor is not None
+                    else min_val_with_buffer
+                ),
+            ),
+            maxValue=AssertionStdParameter(
+                type=AssertionStdParameterType.NUMBER, value=str(max_val_with_buffer)
             ),
         )
