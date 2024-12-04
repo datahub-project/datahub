@@ -1925,7 +1925,7 @@ class TableauSiteSource:
             self.report.num_get_datasource_query_failures += 1
             self.report.warning(
                 title="Unexpected Query Error",
-                message="Failed to get datasource project_luid",
+                message="Failed to get datasource details",
                 exc=e,
                 context=f"ds_luid={ds_luid}",
             )
