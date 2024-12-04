@@ -1,9 +1,7 @@
-import time
 from typing import Dict, List, Optional, Union
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     DataJobInfoClass as DataJobInfo,
     DataJobInputOutputClass as DataJobInputOutput,
     EdgeClass as Edge,
@@ -16,10 +14,9 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TagAssociationClass as Tag,
 )
+from datahub.metadata.urns import SchemaFieldUrn, TagUrn, Urn
 from datahub.specific.custom_properties import CustomPropertiesPatchHelper
 from datahub.specific.ownership import OwnershipPatchHelper
-from datahub.utilities.urns.tag_urn import TagUrn
-from datahub.utilities.urns.urn import Urn
 
 
 class DataJobPatchBuilder(MetadataPatchProposal):
@@ -44,43 +41,6 @@ class DataJobPatchBuilder(MetadataPatchProposal):
             self, DataJobInfo.ASPECT_NAME
         )
         self.ownership_patch_helper = OwnershipPatchHelper(self)
-
-    def _mint_auditstamp(self, message: Optional[str] = None) -> AuditStampClass:
-        """
-        Creates an AuditStampClass instance with the current timestamp and other default values.
-
-        Args:
-            message: The message associated with the audit stamp (optional).
-
-        Returns:
-            An instance of AuditStampClass.
-        """
-        return AuditStampClass(
-            time=int(time.time() * 1000.0),
-            actor="urn:li:corpuser:datahub",
-            message=message,
-        )
-
-    def _ensure_urn_type(
-        self, entity_type: str, edges: List[Edge], context: str
-    ) -> None:
-        """
-        Ensures that the destination URNs in the given edges have the specified entity type.
-
-        Args:
-            entity_type: The entity type to check against.
-            edges: A list of Edge objects.
-            context: The context or description of the operation.
-
-        Raises:
-            ValueError: If any of the destination URNs is not of the specified entity type.
-        """
-        for e in edges:
-            urn = Urn.create_from_string(e.destinationUrn)
-            if not urn.get_type() == entity_type:
-                raise ValueError(
-                    f"{context}: {e.destinationUrn} is not of type {entity_type}"
-                )
 
     def add_owner(self, owner: Owner) -> "DataJobPatchBuilder":
         """
@@ -392,9 +352,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
             ValueError: If the input is not a Schema Field urn.
         """
         input_urn = str(input)
-        urn = Urn.create_from_string(input_urn)
-        if not urn.get_type() == "schemaField":
-            raise ValueError(f"Input {input} is not a Schema Field urn")
+        assert SchemaFieldUrn.from_string(input_urn)
 
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
@@ -466,9 +424,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
             ValueError: If the output is not a Schema Field urn.
         """
         output_urn = str(output)
-        urn = Urn.create_from_string(output_urn)
-        if not urn.get_type() == "schemaField":
-            raise ValueError(f"Input {output} is not a Schema Field urn")
+        assert SchemaFieldUrn.from_string(output_urn)
 
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
