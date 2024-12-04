@@ -69,8 +69,7 @@ public class UpsertCustomAssertionResolver implements DataFetcher<CompletableFut
                 _assertionService.getAssertionEntityResponse(
                     context.getOperationContext(), assertionUrn));
           }
-          throw new AuthorizationException(
-              "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          throw new AuthorizationException(AssertionUtils.getErrorAuthorizedToEditAssertion());
         });
   }
 

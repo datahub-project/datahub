@@ -20,4 +20,8 @@ public class AssertionUtils {
     return AuthorizationUtils.isAuthorized(
         context, asserteeUrn.getEntityType(), asserteeUrn.toString(), orPrivilegeGroups);
   }
+
+  public static String getErrorAuthorizedToEditAssertion() {
+    return "Unauthorized to perform this action due to missing EDIT_ENTITY_ASSERTIONS. Please contact your DataHub administrator.";
+  }
 }

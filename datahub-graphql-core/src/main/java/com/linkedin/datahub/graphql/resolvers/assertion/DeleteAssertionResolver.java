@@ -74,8 +74,7 @@ public class DeleteAssertionResolver implements DataFetcher<CompletableFuture<Bo
                   e);
             }
           }
-          throw new AuthorizationException(
-              "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          throw new AuthorizationException(AssertionUtils.getErrorAuthorizedToEditAssertion());
         },
         this.getClass().getSimpleName(),
         "get");

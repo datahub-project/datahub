@@ -78,8 +78,7 @@ public class ReportAssertionResultResolver implements DataFetcher<CompletableFut
                 assertionResult);
             return true;
           }
-          throw new AuthorizationException(
-              "Unauthorized to perform this action. Please contact your DataHub administrator.");
+          throw new AuthorizationException(AssertionUtils.getErrorAuthorizedToEditAssertion());
         });
   }
 
