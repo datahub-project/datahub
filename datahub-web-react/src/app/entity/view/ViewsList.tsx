@@ -117,7 +117,7 @@ export const ViewsList = () => {
                     entityRegistry={entityRegistry}
                 />
             </TabToolbar>
-            <ViewsTable views={views} onEditView={onClickEditView} />
+            <ViewsTable views={views} onEditView={onClickEditView} isOwnedByUser />
             {totalViews >= pageSize && (
                 <PaginationContainer>
                     <StyledPagination
