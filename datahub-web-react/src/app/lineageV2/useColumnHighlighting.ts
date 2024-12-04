@@ -2,7 +2,7 @@ import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { TENTATIVE_EDGE_NAME } from '@app/lineageV2/LineageEdge/TentativeEdge';
 import { useContext, useEffect, useMemo } from 'react';
 import { Edge, MarkerType, useReactFlow } from 'reactflow';
-import { LineageDirection } from '@types';
+import { EntityType, LineageDirection } from '@types';
 import {
     ColumnRef,
     createLineageFilterNodeId,
@@ -11,6 +11,7 @@ import {
     FineGrainedOperationRef,
     HighlightedColumns,
     HOVER_COLOR,
+    isTransformational,
     isUrnQuery,
     LineageNodesContext,
     NodeContext,
@@ -32,7 +33,8 @@ export default function useColumnHighlighting(
 } {
     const entityRegistry = useEntityRegistryV2();
     const { setEdges } = useReactFlow();
-    const { nodes, edges, nodeVersion, columnEdgeVersion, hideTransformations } = useContext(LineageNodesContext);
+    const { nodes, adjacencyList, edges, rootUrn, rootType, nodeVersion, columnEdgeVersion, hideTransformations } =
+        useContext(LineageNodesContext);
 
     const { cllHighlightedNodes, highlightedColumns, columnEdges } = useMemo(() => {
         const displayedNodeIds = new Set(shownUrns);
@@ -44,9 +46,12 @@ export default function useColumnHighlighting(
         return processColumnHighlights(selectedColumn, hoveredColumn, {
             fineGrainedLineage,
             nodes,
+            adjacencyList,
             displayedNodeIds,
             validQueryIds,
             entityRegistry,
+            rootUrn,
+            rootType,
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [columnEdgeVersion, selectedColumn, hoveredColumn, nodes, edges, fineGrainedLineage, shownUrns, entityRegistry]);
@@ -76,9 +81,12 @@ export default function useColumnHighlighting(
 interface ArgumentBundle {
     fineGrainedLineage: FineGrainedLineage;
     nodes: NodeContext['nodes'];
+    adjacencyList: NodeContext['adjacencyList'];
     displayedNodeIds: Set<string>;
     validQueryIds: Set<string>;
     entityRegistry: EntityRegistry;
+    rootUrn: string;
+    rootType: EntityType;
 }
 
 function processColumnHighlights(
@@ -94,7 +102,16 @@ function processColumnHighlights(
 
 function computeSingleColumnHighlights(
     column: ColumnRef | null,
-    { fineGrainedLineage, nodes, displayedNodeIds, validQueryIds, entityRegistry }: ArgumentBundle,
+    {
+        fineGrainedLineage,
+        nodes,
+        adjacencyList,
+        displayedNodeIds,
+        validQueryIds,
+        entityRegistry,
+        rootUrn,
+        rootType,
+    }: ArgumentBundle,
     stroke: string,
 ): {
     cllHighlightedNodes: Map<string, Set<FineGrainedOperationRef> | null>;
@@ -132,8 +149,15 @@ function computeSingleColumnHighlights(
             const fromDirection = nodes.get(fromUrn)?.direction;
             const toDirection = nodes.get(toUrn)?.direction;
             if (fromDirection && toDirection && fromDirection !== toDirection) {
-                // Don't render edges between nodes upstream of home node and nodes downstream of home node
-                return;
+                const isRootTransformation = isTransformational({ urn: rootUrn, type: rootType });
+                const throughRoot =
+                    adjacencyList.UPSTREAM.get(rootUrn)?.has(fromUrn) &&
+                    adjacencyList.DOWNSTREAM.get(rootUrn)?.has(toUrn);
+                if (!(isRootTransformation && throughRoot)) {
+                    // Don't render edges between nodes upstream of home node and nodes downstream of home node
+                    // Exception for edges through the root if it's a transformation
+                    return;
+                }
             }
             const id = `${fromRef}-${toRef}`;
             columnEdges.set(id, {
