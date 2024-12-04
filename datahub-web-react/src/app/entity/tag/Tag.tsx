@@ -38,7 +38,7 @@ export class TagEntity implements Entity<Tag> {
         );
     };
 
-    isSearchEnabled = () => false;
+    isSearchEnabled = () => true;
 
     isBrowseEnabled = () => false;
 

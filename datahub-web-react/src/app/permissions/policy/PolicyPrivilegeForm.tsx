@@ -149,6 +149,10 @@ export default function PolicyPrivilegeForm({
     );
     const privilegeOptions = policyType === PolicyType.Platform ? platformPrivileges : resourcePrivilegesForType;
 
+    privilegeOptions.sort((a, b) => {
+        return (a.displayName || a.type).localeCompare(b.displayName || b.type);
+    });
+
     const getEntityFromSearchResults = (searchResults, urn) =>
         searchResults?.map((result) => result.entity).find((entity) => entity.urn === urn);
 
@@ -474,9 +478,20 @@ export default function PolicyPrivilegeForm({
                                 {mapResourceTypeToDisplayName(tagProps.value.toString(), resourcePrivileges)}
                             </Tag>
                         )}
+                        filterOption={(input, option) =>
+                            (option?.children?.toString() || '')
+                                .toLocaleLowerCase()
+                                .includes(input.toLocaleLowerCase()) ||
+                            (option?.value?.toString() || '').toLocaleLowerCase().includes(input.toLocaleLowerCase())
+                        }
                     >
                         {resourcePrivileges
                             .filter((privs) => privs.resourceType !== 'all')
+                            .sort((a, b) =>
+                                (a.resourceTypeDisplayName || a.resourceType).localeCompare(
+                                    b.resourceTypeDisplayName || b.resourceType,
+                                ),
+                            )
                             .map((resPrivs) => {
                                 return (
                                     <Select.Option key={resPrivs.resourceType} value={resPrivs.resourceType}>
@@ -607,6 +622,10 @@ export default function PolicyPrivilegeForm({
                             {tagProps.label}
                         </Tag>
                     )}
+                    filterOption={(input, option) =>
+                        (option?.children?.toString() || '').toLocaleLowerCase().includes(input.toLocaleLowerCase()) ||
+                        (option?.value?.toString() || '').toLocaleLowerCase().includes(input.toLocaleLowerCase())
+                    }
                 >
                     {privilegeOptions.map((priv, index) => {
                         const key = `${priv.type}-${index}`;
