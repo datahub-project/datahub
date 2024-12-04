@@ -358,6 +358,15 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 + 
 ## Changelog
 
+### Version 0.2.17
+- *Major changes*: 
+  - Finegrained lineage is emitted on the DataJob and not on the emitted Datasets. This is the correct behaviour which was not correct earlier. This causes earlier emitted finegrained lineages won't be overwritten by the new ones.
+
+- *Changes*:
+  - OpenLineage 1.24.2 upgrade
+  - Add option to disable chunked encoding in the datahub rest sink -> `spark.datahub.rest.disable_chunked_encoding`
+  - Add option to specify the mcp kafka topic for the datahub kafka sink -> `spark.datahub.kafka.mcp_topic`
+- 
 ### Version 0.2.16
 - Remove logging DataHub config into logs
 

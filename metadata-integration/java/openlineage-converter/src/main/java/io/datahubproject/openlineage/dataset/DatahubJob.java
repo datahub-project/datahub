@@ -27,12 +27,10 @@ import com.linkedin.dataprocess.DataProcessInstanceOutput;
 import com.linkedin.dataprocess.DataProcessInstanceProperties;
 import com.linkedin.dataprocess.DataProcessInstanceRelationships;
 import com.linkedin.dataprocess.DataProcessInstanceRunEvent;
-import com.linkedin.dataset.FineGrainedLineage;
-import com.linkedin.dataset.Upstream;
+import com.linkedin.dataset.FineGrainedLineageArray;
 import com.linkedin.domain.Domains;
 import com.linkedin.metadata.aspect.patch.builder.DataJobInputOutputPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.GlobalTagsPatchBuilder;
-import com.linkedin.metadata.aspect.patch.builder.UpstreamLineagePatchBuilder;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.event.EventFormatter;
@@ -167,11 +165,34 @@ public class DatahubJob {
     return mcps;
   }
 
+  private FineGrainedLineageArray mergeFinegrainedLineages() {
+    FineGrainedLineageArray fgls = new FineGrainedLineageArray();
+
+    for (DatahubDataset dataset : inSet) {
+      if (dataset.lineage != null && dataset.lineage.getFineGrainedLineages() != null) {
+        dataset.lineage.getFineGrainedLineages().stream()
+            .filter(Objects::nonNull)
+            .forEach(fgls::add);
+      }
+    }
+
+    for (DatahubDataset dataset : outSet) {
+      if (dataset.lineage != null && dataset.lineage.getFineGrainedLineages() != null) {
+        dataset.lineage.getFineGrainedLineages().stream()
+            .filter(Objects::nonNull)
+            .forEach(fgls::add);
+      }
+    }
+
+    return fgls;
+  }
+
   private void generateDataJobInputOutputMcp(
       EdgeArray inputEdges,
       EdgeArray outputEdges,
       DatahubOpenlineageConfig config,
       List<MetadataChangeProposal> mcps) {
+
     DataJobInputOutput dataJobInputOutput = new DataJobInputOutput();
     log.info("Adding DataJob edges to {}", jobUrn);
     if (config.isUsePatch() && (!parentJobs.isEmpty() || !inSet.isEmpty() || !outSet.isEmpty())) {
@@ -186,6 +207,27 @@ public class DatahubJob {
       for (DataJobUrn parentJob : parentJobs) {
         dataJobInputOutputPatchBuilder.addInputDatajobEdge(parentJob);
       }
+
+      FineGrainedLineageArray fgls = mergeFinegrainedLineages();
+      fgls.forEach(
+          fgl -> {
+            Objects.requireNonNull(fgl.getUpstreams())
+                .forEach(
+                    upstream -> {
+                      Objects.requireNonNull(fgl.getDownstreams())
+                          .forEach(
+                              downstream -> {
+                                dataJobInputOutputPatchBuilder.addFineGrainedUpstreamField(
+                                    upstream,
+                                    fgl.getConfidenceScore(),
+                                    StringUtils.defaultIfEmpty(
+                                        fgl.getTransformOperation(), "TRANSFORM"),
+                                    downstream,
+                                    fgl.getQuery());
+                              });
+                    });
+          });
+
       MetadataChangeProposal dataJobInputOutputMcp = dataJobInputOutputPatchBuilder.build();
       log.info(
           "dataJobInputOutputMcp: {}",
@@ -195,6 +237,8 @@ public class DatahubJob {
       mcps.add(dataJobInputOutputPatchBuilder.build());
 
     } else {
+      FineGrainedLineageArray fgls = mergeFinegrainedLineages();
+      dataJobInputOutput.setFineGrainedLineages(fgls);
       dataJobInputOutput.setInputDatasetEdges(inputEdges);
       dataJobInputOutput.setInputDatasets(new DatasetUrnArray());
       dataJobInputOutput.setOutputDatasetEdges(outputEdges);
@@ -262,43 +306,6 @@ public class DatahubJob {
             addAspectToMcps(
                 dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getSchemaMetadata(), mcps);
           }
-
-          if (dataset.getLineage() != null) {
-            if (config.isUsePatch()) {
-              if (!dataset.getLineage().getUpstreams().isEmpty()) {
-                UpstreamLineagePatchBuilder upstreamLineagePatchBuilder =
-                    new UpstreamLineagePatchBuilder().urn(dataset.getUrn());
-                for (Upstream upstream : dataset.getLineage().getUpstreams()) {
-                  upstreamLineagePatchBuilder.addUpstream(
-                      upstream.getDataset(), upstream.getType());
-                }
-
-                log.info("Adding FineGrainedLineage to {}", dataset.getUrn());
-                for (FineGrainedLineage fineGrainedLineage :
-                    Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())) {
-                  for (Urn upstream : Objects.requireNonNull(fineGrainedLineage.getUpstreams())) {
-                    for (Urn downstream :
-                        Objects.requireNonNull(fineGrainedLineage.getDownstreams())) {
-                      upstreamLineagePatchBuilder.addFineGrainedUpstreamField(
-                          upstream,
-                          fineGrainedLineage.getConfidenceScore(),
-                          StringUtils.defaultIfEmpty(
-                              fineGrainedLineage.getTransformOperation(), "TRANSFORM"),
-                          downstream,
-                          null);
-                    }
-                  }
-                }
-                MetadataChangeProposal mcp = upstreamLineagePatchBuilder.build();
-                log.info(
-                    "upstreamLineagePatch: {}",
-                    mcp.getAspect().getValue().asString(Charset.defaultCharset()));
-                mcps.add(mcp);
-              }
-            } else {
-              addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getLineage(), mcps);
-            }
-          }
         });
     return Pair.of(outputUrnArray, outputEdges);
   }
@@ -329,10 +336,6 @@ public class DatahubJob {
           if (dataset.getSchemaMetadata() != null && config.isIncludeSchemaMetadata()) {
             addAspectToMcps(
                 dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getSchemaMetadata(), mcps);
-          }
-
-          if (dataset.getLineage() != null) {
-            addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getLineage(), mcps);
           }
         });
     return Pair.of(inputUrnArray, inputEdges);
