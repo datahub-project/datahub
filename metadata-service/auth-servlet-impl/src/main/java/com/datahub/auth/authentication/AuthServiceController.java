@@ -164,7 +164,7 @@ public class AuthServiceController {
           }
           throw HttpClientErrorException.create(
               HttpStatus.UNAUTHORIZED,
-              "Unauthorized to perform this action.",
+              actorId + " unauthorized to perform this action.",
               new HttpHeaders(),
               null,
               null);

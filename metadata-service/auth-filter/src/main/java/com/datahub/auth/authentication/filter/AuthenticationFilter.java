@@ -96,13 +96,14 @@ public class AuthenticationFilter implements Filter {
           .sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized to perform this action.");
       return;
     }
+    String actorUrnStr = authentication.getActor().toUrnStr();
 
     if (authentication != null) {
       // Successfully authenticated.
       log.debug(
-          String.format(
-              "Successfully authenticated request for Actor with type: %s, id: %s",
-              authentication.getActor().getType(), authentication.getActor().getId()));
+          "Successfully authenticated request for Actor with type: {}, id: {}",
+          authentication.getActor().getType(),
+          authentication.getActor().getId());
       AuthenticationContext.setAuthentication(authentication);
       chain.doFilter(request, response);
     } else {
@@ -110,7 +111,9 @@ public class AuthenticationFilter implements Filter {
       log.debug(
           "Failed to authenticate request. Received 'null' Authentication value from authenticator chain.");
       ((HttpServletResponse) response)
-          .sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized to perform this action.");
+          .sendError(
+              HttpServletResponse.SC_UNAUTHORIZED,
+              actorUrnStr + " unauthorized to perform this action.");
       return;
     }
     AuthenticationContext.remove();
