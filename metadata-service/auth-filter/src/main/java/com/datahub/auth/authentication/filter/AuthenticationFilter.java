@@ -96,9 +96,9 @@ public class AuthenticationFilter implements Filter {
           .sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized to perform this action.");
       return;
     }
-    String actorUrnStr = authentication.getActor().toUrnStr();
 
     if (authentication != null) {
+      String actorUrnStr = authentication.getActor().toUrnStr();
       // Successfully authenticated.
       log.debug(
           "Successfully authenticated request for Actor with type: {}, id: {}",
@@ -113,7 +113,7 @@ public class AuthenticationFilter implements Filter {
       ((HttpServletResponse) response)
           .sendError(
               HttpServletResponse.SC_UNAUTHORIZED,
-              actorUrnStr + " unauthorized to perform this action.");
+              "Unauthorized to perform this action due to expired auth.");
       return;
     }
     AuthenticationContext.remove();
