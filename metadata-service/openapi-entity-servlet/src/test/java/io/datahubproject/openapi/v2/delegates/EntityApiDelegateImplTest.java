@@ -4,6 +4,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.testng.Assert.*;
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import io.datahubproject.openapi.config.OpenAPIEntityTestConfiguration;
 import io.datahubproject.openapi.config.SpringWebConfig;
@@ -38,6 +39,7 @@ import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
@@ -68,6 +70,7 @@ public class EntityApiDelegateImplTest extends AbstractTestNGSpringContextTests 
   @Autowired private DatasetApiController datasetApiController;
   @Autowired private EntityRegistry entityRegistry;
   @Autowired private MockMvc mockMvc;
+  @MockBean private ConfigurationProvider configurationProvider;
 
   @Test
   public void initTest() {

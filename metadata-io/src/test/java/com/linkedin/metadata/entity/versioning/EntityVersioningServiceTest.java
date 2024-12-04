@@ -9,6 +9,7 @@ import static org.testng.Assert.*;
 
 import com.linkedin.common.FabricType;
 import com.linkedin.common.VersionProperties;
+import com.linkedin.common.VersionTag;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.Urn;
@@ -16,19 +17,20 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
-import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
-import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
 import com.linkedin.metadata.entity.RollbackResult;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.key.VersionSetKey;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
-import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.versionset.VersionSetProperties;
 import com.linkedin.versionset.VersioningScheme;
@@ -36,7 +38,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.util.TestEntityRegistry;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -51,12 +52,14 @@ public class EntityVersioningServiceTest {
   private EntityService mockEntityService;
   private OperationContext mockOpContext;
   private AspectRetriever mockAspectRetriever;
-  private GraphRetriever mockGraphRetriever;
+  private SearchRetriever mockSearchRetriever;
   private static Urn TEST_VERSION_SET_URN = UrnUtils.getUrn("urn:li:versionSet:(123456,dataset)");
   private static Urn TEST_DATASET_URN =
       new DatasetUrn(new DataPlatformUrn("kafka"), "myDataset", FabricType.PROD);
   private static Urn TEST_DATASET_URN_2 =
       new DatasetUrn(new DataPlatformUrn("hive"), "myHiveDataset", FabricType.PROD);
+  private static Urn TEST_DATASET_URN_3 =
+      new DatasetUrn(new DataPlatformUrn("hive"), "myHiveDataset2", FabricType.PROD);
 
   @BeforeMethod
   public void setup() throws EntityRegistryException {
@@ -68,7 +71,7 @@ public class EntityVersioningServiceTest {
     final EntityRegistry testEntityRegistry =
         new MergedEntityRegistry(snapshotEntityRegistry).apply(configEntityRegistry);
     mockAspectRetriever = mock(EntityServiceAspectRetriever.class);
-    mockGraphRetriever = mock(GraphRetriever.class);
+    mockSearchRetriever = mock(SearchRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(testEntityRegistry);
     mockOpContext =
         TestOperationContexts.systemContext(
@@ -79,8 +82,8 @@ public class EntityVersioningServiceTest {
             () ->
                 RetrieverContext.builder()
                     .aspectRetriever(mockAspectRetriever)
-                    .graphRetriever(mockGraphRetriever)
-                    .searchRetriever(TestOperationContexts.emptySearchRetriever)
+                    .graphRetriever(TestOperationContexts.emptyGraphRetriever)
+                    .searchRetriever(mockSearchRetriever)
                     .build(),
             null,
             opContext ->
@@ -94,12 +97,8 @@ public class EntityVersioningServiceTest {
   @Test
   public void testLinkLatestVersionNewVersionSet() throws Exception {
 
-    VersionPropertiesInput input = new VersionPropertiesInput();
-    input.setComment("Test comment");
-    input.setLabel("Test label");
-    input.setSourceCreationTimestamp(1234567890L);
-    input.setSourceCreator("testCreator");
-
+    VersionPropertiesInput input =
+        new VersionPropertiesInput("Test comment", "Test label", 123456789L, "testCreator");
     // Mock version set doesn't exist
     when(mockAspectRetriever.entityExists(anySet()))
         .thenReturn(Map.of(TEST_VERSION_SET_URN, false));
@@ -167,9 +166,8 @@ public class EntityVersioningServiceTest {
   @Test
   public void testLinkLatestVersionExistingVersionSet() throws Exception {
 
-    VersionPropertiesInput input = new VersionPropertiesInput();
-    input.setComment("Test comment");
-    input.setLabel("Label2");
+    VersionPropertiesInput input =
+        new VersionPropertiesInput("Test comment", "Label2", 123456789L, "testCreator");
 
     // Mock version set exists
     when(mockAspectRetriever.entityExists(anySet())).thenReturn(Map.of(TEST_VERSION_SET_URN, true));
@@ -188,7 +186,7 @@ public class EntityVersioningServiceTest {
     VersionProperties existingVersionProps =
         new VersionProperties()
             .setSortId("AAAAAAAA")
-            .setLabel("Label1")
+            .setVersion(new VersionTag().setVersionTag("Label1"))
             .setVersionSet(TEST_VERSION_SET_URN);
     Aspect mockVersionPropertiesAspect = mock(Aspect.class);
     when(mockVersionPropertiesAspect.data()).thenReturn(existingVersionProps.data());
@@ -238,6 +236,15 @@ public class EntityVersioningServiceTest {
     when(mockAspectRetriever.getLatestAspectObject(
             eq(TEST_DATASET_URN), eq(VERSION_PROPERTIES_ASPECT_NAME)))
         .thenReturn(mockVersionPropsAspect);
+    VersionSetProperties versionSetProps =
+        new VersionSetProperties()
+            .setVersioningScheme(VersioningScheme.ALPHANUMERIC_GENERATED_BY_DATAHUB)
+            .setLatest(TEST_DATASET_URN);
+    Aspect mockVersionSetPropsAspect = mock(Aspect.class);
+    when(mockVersionSetPropsAspect.data()).thenReturn(versionSetProps.data());
+    when(mockAspectRetriever.getLatestAspectObject(
+            eq(TEST_VERSION_SET_URN), eq(VERSION_SET_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(mockVersionSetPropsAspect);
 
     // Mock delete aspect responses
     RollbackResult versionSetDeleteResult =
@@ -276,9 +283,17 @@ public class EntityVersioningServiceTest {
             eq(mockOpContext), anyString(), eq(VERSION_PROPERTIES_ASPECT_NAME), anyMap(), eq(true)))
         .thenReturn(Optional.of(versionPropsDeleteResult));
 
+    // Mock graph retriever response
+    SearchEntityArray relatedEntities = new SearchEntityArray();
+    relatedEntities.add(new SearchEntity().setEntity(TEST_DATASET_URN));
+
+    ScrollResult scrollResult =
+        new ScrollResult().setEntities(relatedEntities).setMetadata(new SearchResultMetadata());
+    when(mockSearchRetriever.scroll(any(), any(), any(), eq(2), any())).thenReturn(scrollResult);
+
     // Execute
     List<RollbackResult> results =
-        versioningService.unlinkLatestVersion(mockOpContext, TEST_DATASET_URN);
+        versioningService.unlinkVersion(mockOpContext, TEST_VERSION_SET_URN, TEST_DATASET_URN);
 
     // Verify
     assertEquals(results.size(), 2);
@@ -296,9 +311,7 @@ public class EntityVersioningServiceTest {
             eq(VERSION_PROPERTIES_ASPECT_NAME),
             anyMap(),
             eq(true));
-    verify(mockGraphRetriever, never())
-        .scrollRelatedEntities(
-            any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), anyLong(), anyLong());
+    verify(mockSearchRetriever, never()).scroll(any(), any(), anyString(), anyInt(), any());
   }
 
   @Test
@@ -315,28 +328,24 @@ public class EntityVersioningServiceTest {
             eq(TEST_DATASET_URN), eq(VERSION_PROPERTIES_ASPECT_NAME)))
         .thenReturn(mockVersionPropsAspect);
 
-    // Mock graph retriever response
-    List<RelatedEntities> relatedEntities = new ArrayList<>();
-    relatedEntities.add(
-        new RelatedEntities(
-            "VersionOf",
-            TEST_DATASET_URN.toString(),
-            TEST_DATASET_URN.toString(),
-            RelationshipDirection.INCOMING,
-            null));
-    relatedEntities.add(
-        new RelatedEntities(
-            "VersionOf",
-            TEST_DATASET_URN_2.toString(),
-            TEST_DATASET_URN_2.toString(),
-            RelationshipDirection.INCOMING,
-            null));
+    VersionSetProperties versionSetProps =
+        new VersionSetProperties()
+            .setVersioningScheme(VersioningScheme.ALPHANUMERIC_GENERATED_BY_DATAHUB)
+            .setLatest(TEST_DATASET_URN);
+    Aspect mockVersionSetPropsAspect = mock(Aspect.class);
+    when(mockVersionSetPropsAspect.data()).thenReturn(versionSetProps.data());
+    when(mockAspectRetriever.getLatestAspectObject(
+            eq(TEST_VERSION_SET_URN), eq(VERSION_SET_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(mockVersionSetPropsAspect);
 
-    RelatedEntitiesScrollResult scrollResult =
-        new RelatedEntitiesScrollResult(2, 2, null, relatedEntities);
-    when(mockGraphRetriever.scrollRelatedEntities(
-            any(), any(), any(), any(), any(), any(), any(), any(), eq(2), any(), any()))
-        .thenReturn(scrollResult);
+    // Mock graph retriever response
+    SearchEntityArray relatedEntities = new SearchEntityArray();
+    relatedEntities.add(new SearchEntity().setEntity(TEST_DATASET_URN));
+    relatedEntities.add(new SearchEntity().setEntity(TEST_DATASET_URN_2));
+
+    ScrollResult scrollResult =
+        new ScrollResult().setEntities(relatedEntities).setMetadata(new SearchResultMetadata());
+    when(mockSearchRetriever.scroll(any(), any(), any(), eq(2), any())).thenReturn(scrollResult);
 
     // Mock delete aspect response
     RollbackResult versionPropsDeleteResult =
@@ -357,7 +366,7 @@ public class EntityVersioningServiceTest {
 
     // Execute
     List<RollbackResult> results =
-        versioningService.unlinkLatestVersion(mockOpContext, TEST_DATASET_URN);
+        versioningService.unlinkVersion(mockOpContext, TEST_VERSION_SET_URN, TEST_DATASET_URN);
 
     // Verify
     assertEquals(results.size(), 1);
@@ -365,6 +374,227 @@ public class EntityVersioningServiceTest {
         .deleteAspect(
             eq(mockOpContext),
             eq(TEST_DATASET_URN.toString()),
+            eq(VERSION_PROPERTIES_ASPECT_NAME),
+            anyMap(),
+            eq(true));
+    verify(mockEntityService).ingestProposal(eq(mockOpContext), any(), eq(false));
+    verify(mockEntityService, never())
+        .deleteAspect(
+            eq(mockOpContext),
+            eq(TEST_VERSION_SET_URN.toString()),
+            eq(VERSION_SET_PROPERTIES_ASPECT_NAME),
+            anyMap(),
+            eq(true));
+  }
+
+  @Test
+  public void testUnlinkNotLatestVersionWithPriorVersion() throws Exception {
+
+    // Mock version properties aspect
+    VersionProperties versionProps =
+        new VersionProperties()
+            .setVersionSet(TEST_VERSION_SET_URN)
+            .setSortId("AAAAAAAB"); // Not initial version
+    Aspect mockVersionPropsAspect = mock(Aspect.class);
+    when(mockVersionPropsAspect.data()).thenReturn(versionProps.data());
+    when(mockAspectRetriever.getLatestAspectObject(
+            eq(TEST_DATASET_URN_2), eq(VERSION_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(mockVersionPropsAspect);
+
+    VersionSetProperties versionSetProps =
+        new VersionSetProperties()
+            .setVersioningScheme(VersioningScheme.ALPHANUMERIC_GENERATED_BY_DATAHUB)
+            .setLatest(TEST_DATASET_URN);
+    Aspect mockVersionSetPropsAspect = mock(Aspect.class);
+    when(mockVersionSetPropsAspect.data()).thenReturn(versionSetProps.data());
+    when(mockAspectRetriever.getLatestAspectObject(
+            eq(TEST_VERSION_SET_URN), eq(VERSION_SET_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(mockVersionSetPropsAspect);
+
+    // Mock graph retriever response
+    SearchEntityArray relatedEntities = new SearchEntityArray();
+    relatedEntities.add(new SearchEntity().setEntity(TEST_DATASET_URN));
+    relatedEntities.add(new SearchEntity().setEntity(TEST_DATASET_URN_2));
+
+    ScrollResult scrollResult =
+        new ScrollResult().setEntities(relatedEntities).setMetadata(new SearchResultMetadata());
+    when(mockSearchRetriever.scroll(any(), any(), any(), eq(2), any())).thenReturn(scrollResult);
+
+    // Mock delete aspect response
+    RollbackResult versionPropsDeleteResult =
+        new RollbackResult(
+            TEST_DATASET_URN_2,
+            "dataset",
+            VERSION_PROPERTIES_ASPECT_NAME,
+            null,
+            null,
+            null,
+            null,
+            null,
+            false,
+            0);
+    when(mockEntityService.deleteAspect(
+            eq(mockOpContext),
+            eq(TEST_DATASET_URN_2.toString()),
+            eq(VERSION_PROPERTIES_ASPECT_NAME),
+            anyMap(),
+            eq(true)))
+        .thenReturn(Optional.of(versionPropsDeleteResult));
+
+    // Execute
+    List<RollbackResult> results =
+        versioningService.unlinkVersion(mockOpContext, TEST_VERSION_SET_URN, TEST_DATASET_URN_2);
+
+    // Verify
+    assertEquals(results.size(), 1);
+    verify(mockEntityService)
+        .deleteAspect(
+            eq(mockOpContext),
+            eq(TEST_DATASET_URN_2.toString()),
+            eq(VERSION_PROPERTIES_ASPECT_NAME),
+            anyMap(),
+            eq(true));
+    verify(mockEntityService, never())
+        .deleteAspect(
+            eq(mockOpContext),
+            eq(TEST_VERSION_SET_URN.toString()),
+            eq(VERSION_SET_PROPERTIES_ASPECT_NAME),
+            anyMap(),
+            eq(true));
+  }
+
+  @Test
+  public void testUnlinkNotReturnedSingleVersionWithPriorVersion() throws Exception {
+
+    // Mock version properties aspect
+    VersionProperties versionProps =
+        new VersionProperties()
+            .setVersionSet(TEST_VERSION_SET_URN)
+            .setSortId("AAAAAAAB"); // Not initial version
+    Aspect mockVersionPropsAspect = mock(Aspect.class);
+    when(mockVersionPropsAspect.data()).thenReturn(versionProps.data());
+    when(mockAspectRetriever.getLatestAspectObject(
+            eq(TEST_DATASET_URN_2), eq(VERSION_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(mockVersionPropsAspect);
+
+    VersionSetProperties versionSetProps =
+        new VersionSetProperties()
+            .setVersioningScheme(VersioningScheme.ALPHANUMERIC_GENERATED_BY_DATAHUB)
+            .setLatest(TEST_DATASET_URN_2);
+    Aspect mockVersionSetPropsAspect = mock(Aspect.class);
+    when(mockVersionSetPropsAspect.data()).thenReturn(versionSetProps.data());
+    when(mockAspectRetriever.getLatestAspectObject(
+            eq(TEST_VERSION_SET_URN), eq(VERSION_SET_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(mockVersionSetPropsAspect);
+
+    // Mock graph retriever response
+    SearchEntityArray relatedEntities = new SearchEntityArray();
+    relatedEntities.add(new SearchEntity().setEntity(TEST_DATASET_URN));
+
+    ScrollResult scrollResult =
+        new ScrollResult().setEntities(relatedEntities).setMetadata(new SearchResultMetadata());
+    when(mockSearchRetriever.scroll(any(), any(), any(), eq(2), any())).thenReturn(scrollResult);
+
+    // Mock delete aspect response
+    RollbackResult versionPropsDeleteResult =
+        new RollbackResult(
+            TEST_DATASET_URN_2,
+            "dataset",
+            VERSION_PROPERTIES_ASPECT_NAME,
+            null,
+            null,
+            null,
+            null,
+            null,
+            false,
+            0);
+    when(mockEntityService.deleteAspect(
+            eq(mockOpContext), anyString(), eq(VERSION_PROPERTIES_ASPECT_NAME), anyMap(), eq(true)))
+        .thenReturn(Optional.of(versionPropsDeleteResult));
+
+    // Execute
+    List<RollbackResult> results =
+        versioningService.unlinkVersion(mockOpContext, TEST_VERSION_SET_URN, TEST_DATASET_URN_2);
+
+    // Verify
+    assertEquals(results.size(), 1);
+    verify(mockEntityService)
+        .deleteAspect(
+            eq(mockOpContext),
+            eq(TEST_DATASET_URN_2.toString()),
+            eq(VERSION_PROPERTIES_ASPECT_NAME),
+            anyMap(),
+            eq(true));
+    verify(mockEntityService).ingestProposal(eq(mockOpContext), any(), eq(false));
+    verify(mockEntityService, never())
+        .deleteAspect(
+            eq(mockOpContext),
+            eq(TEST_VERSION_SET_URN.toString()),
+            eq(VERSION_SET_PROPERTIES_ASPECT_NAME),
+            anyMap(),
+            eq(true));
+  }
+
+  @Test
+  public void testUnlinkNotReturnedDoubleVersionWithPriorVersion() throws Exception {
+
+    // Mock version properties aspect
+    VersionProperties versionProps =
+        new VersionProperties()
+            .setVersionSet(TEST_VERSION_SET_URN)
+            .setSortId("AAAAAAAB"); // Not initial version
+    Aspect mockVersionPropsAspect = mock(Aspect.class);
+    when(mockVersionPropsAspect.data()).thenReturn(versionProps.data());
+    when(mockAspectRetriever.getLatestAspectObject(
+            eq(TEST_DATASET_URN_3), eq(VERSION_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(mockVersionPropsAspect);
+
+    VersionSetProperties versionSetProps =
+        new VersionSetProperties()
+            .setVersioningScheme(VersioningScheme.ALPHANUMERIC_GENERATED_BY_DATAHUB)
+            .setLatest(TEST_DATASET_URN_3);
+    Aspect mockVersionSetPropsAspect = mock(Aspect.class);
+    when(mockVersionSetPropsAspect.data()).thenReturn(versionSetProps.data());
+    when(mockAspectRetriever.getLatestAspectObject(
+            eq(TEST_VERSION_SET_URN), eq(VERSION_SET_PROPERTIES_ASPECT_NAME)))
+        .thenReturn(mockVersionSetPropsAspect);
+
+    // Mock graph retriever response
+    SearchEntityArray relatedEntities = new SearchEntityArray();
+    relatedEntities.add(new SearchEntity().setEntity(TEST_DATASET_URN));
+    relatedEntities.add(new SearchEntity().setEntity(TEST_DATASET_URN_2));
+
+    ScrollResult scrollResult =
+        new ScrollResult().setEntities(relatedEntities).setMetadata(new SearchResultMetadata());
+    when(mockSearchRetriever.scroll(any(), any(), any(), eq(2), any())).thenReturn(scrollResult);
+
+    // Mock delete aspect response
+    RollbackResult versionPropsDeleteResult =
+        new RollbackResult(
+            TEST_DATASET_URN_3,
+            "dataset",
+            VERSION_PROPERTIES_ASPECT_NAME,
+            null,
+            null,
+            null,
+            null,
+            null,
+            false,
+            0);
+    when(mockEntityService.deleteAspect(
+            eq(mockOpContext), anyString(), eq(VERSION_PROPERTIES_ASPECT_NAME), anyMap(), eq(true)))
+        .thenReturn(Optional.of(versionPropsDeleteResult));
+
+    // Execute
+    List<RollbackResult> results =
+        versioningService.unlinkVersion(mockOpContext, TEST_VERSION_SET_URN, TEST_DATASET_URN_3);
+
+    // Verify
+    assertEquals(results.size(), 1);
+    verify(mockEntityService)
+        .deleteAspect(
+            eq(mockOpContext),
+            eq(TEST_DATASET_URN_3.toString()),
             eq(VERSION_PROPERTIES_ASPECT_NAME),
             anyMap(),
             eq(true));
@@ -388,13 +618,11 @@ public class EntityVersioningServiceTest {
 
     // Execute
     List<RollbackResult> results =
-        versioningService.unlinkLatestVersion(mockOpContext, TEST_DATASET_URN);
+        versioningService.unlinkVersion(mockOpContext, TEST_VERSION_SET_URN, TEST_DATASET_URN);
 
     // Verify
     assertTrue(results.isEmpty());
     verify(mockEntityService, never()).deleteAspect(any(), any(), any(), any(), anyBoolean());
-    verify(mockGraphRetriever, never())
-        .scrollRelatedEntities(
-            any(), any(), any(), any(), any(), any(), any(), any(), anyInt(), anyLong(), anyLong());
+    verify(mockSearchRetriever, never()).scroll(any(), any(), anyString(), anyInt(), any());
   }
 }

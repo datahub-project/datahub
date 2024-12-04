@@ -39,6 +39,7 @@ import org.springframework.context.annotation.Configuration;
 public class SpringStandardPluginConfiguration {
   private static final String ALL = "*";
   private static final String UPSERT = "UPSERT";
+  private static final String UPDATE = "UPDATE";
   private static final String CREATE = "CREATE";
   private static final String CREATE_ENTITY = "CREATE_ENTITY";
   private static final String PATCH = "PATCH";
@@ -203,13 +204,14 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
+  @ConditionalOnProperty(name = "featureFlags.entityVersioning", havingValue = "true")
   public AspectPayloadValidator versionPropertiesValidator() {
     return new VersionPropertiesValidator()
         .setConfig(
             AspectPluginConfig.builder()
                 .className(VersionPropertiesValidator.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(ALL))
+                .supportedOperations(List.of(UPSERT, UPDATE, PATCH, CREATE, CREATE_ENTITY))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
@@ -220,13 +222,14 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
+  @ConditionalOnProperty(name = "featureFlags.entityVersioning", havingValue = "true")
   public AspectPayloadValidator versionSetPropertiesValidator() {
     return new VersionSetPropertiesValidator()
         .setConfig(
             AspectPluginConfig.builder()
                 .className(VersionSetPropertiesValidator.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(ALL))
+                .supportedOperations(List.of(UPSERT, UPDATE, PATCH, CREATE, CREATE_ENTITY))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()
@@ -237,13 +240,14 @@ public class SpringStandardPluginConfiguration {
   }
 
   @Bean
+  @ConditionalOnProperty(name = "featureFlags.entityVersioning", havingValue = "true")
   public MCPSideEffect versionSetSideEffect() {
     return new VersionSetSideEffect()
         .setConfig(
             AspectPluginConfig.builder()
                 .className(VersionSetSideEffect.class.getName())
                 .enabled(true)
-                .supportedOperations(List.of(ALL))
+                .supportedOperations(List.of(UPSERT, UPDATE, PATCH, CREATE, CREATE_ENTITY))
                 .supportedEntityAspectNames(
                     List.of(
                         AspectPluginConfig.EntityAspectName.builder()

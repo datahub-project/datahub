@@ -4,7 +4,6 @@ import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.query.filter.SortOrder;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -34,16 +33,14 @@ public class SearchServiceSearchRetriever implements SearchRetriever {
       @Nonnull List<String> entities,
       @Nullable Filter filters,
       @Nullable String scrollId,
-      int count) {
-    SortCriterion urnSort = new SortCriterion();
-    urnSort.setField("urn");
-    urnSort.setOrder(SortOrder.ASCENDING);
+      int count,
+      List<SortCriterion> sortCriteria) {
     return searchService.scrollAcrossEntities(
         systemOperationContext.withSearchFlags(flags -> RETRIEVER_SEARCH_FLAGS),
         entities,
         "*",
         filters,
-        List.of(urnSort),
+        sortCriteria,
         scrollId,
         null,
         count);
