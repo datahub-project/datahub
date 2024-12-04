@@ -121,7 +121,7 @@ export const AnalyticsPage = () => {
                                 placeholder="Select a domain"
                                 onChange={onDomainChange}
                                 filterOption={(input, option) =>
-                                    option?.children?.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                                    option?.children?.toLowerCase()?.indexOf(input.toLowerCase()) >= 0
                                 }
                             >
                                 <Select.Option value="ALL">All</Select.Option>
