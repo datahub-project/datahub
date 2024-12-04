@@ -7,9 +7,11 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 # Complete a DataHub Compliance Form
 <FeatureAvailability/>
 
+Once a Compliance Form has been published (see [Create a Compliance Form](create-a-form.md)), Assignees will receive notifications in their Task Center prompting them to complete the Form for each Asset they are responsible for.
+
 This guide provides an example of completing a Compliance Form, covering:
 
-1. Accessing a Form from an Asset Page or the DataHub Cloud Task Center
+1. Accessing a Form from an Asset Page or the Task Center
 2. Completing a Form for a single Asset or multiple Assets (DataHub Cloud only)
 3. Understanding different Form Question completion states
 
@@ -22,7 +24,7 @@ The example uses the **Governance Initiative 2024**, a Verification Form with 3 
        alt="Sample Compliance Form"/>
 </p>
 
-## Accessing a Compliance Form
+## Access a Compliance Form
 
 Once you have been assigned to complete a Compliance Form, you will see a **Complete Documentation** or **Complete Verification** option on the right-hand side of an Asset Page:
 
@@ -42,7 +44,7 @@ Once you have been assigned to complete a Compliance Form, you will see a **Comp
        alt="Open Compliance Form from Task Center"/>
 </p>
 
-## Completing a Form for a Single Asset
+## Complete a Form for a Single Asset
 
 When filling out a Compliance Form for a single Asset, you'll see a list of Questions tailored to that Asset, with clear labels showing which ones are required. Here's how it works:
 
@@ -77,12 +79,11 @@ And here's the `dogs_in_movies` sidebar after Verifying all responses:
        alt="Asset is Verified"/>
 </p>
 
-### Navigating to the Next Asset
+### Navigate to the Next Asset
 
 To continue working through the Compliance Forms assigned to you, **use the navigation arrows located in the top-right corner**. These arrows will take you to the next Asset that is still pending Form completion or Verification. Only Assets that require action will appear in this flow, allowing you to focus on the remaining tasks without unnecessary steps.
 
-
-## Completing a Form Question for Multiple Assets
+## Complete a Form Question for Multiple Assets
 
 When you want to provide the same response for a question to multiple assets, you can apply it in bulk by selecting the **By Question** option in the top-right corner. This allows you to navigate through the Form question-by-question and apply the same response to multiple assets.
 
@@ -90,13 +91,13 @@ When you want to provide the same response for a question to multiple assets, yo
 Completing Form Questions for multiple Assets is only supported for DataHub Cloud.
 :::
 
-### Example: Applying a Response in Bulk
+### Example: Apply a Response in Bulk
 
-Let's look at an example:
+Let's look at an example. Imagine we are trying to provide the same answer to a Question for all Assets in a Snowflake schema called `DEMO_DB`. Here's how we'd do it:
 
 1. **Filter Assets**: Filter down to all datasets in the `DEMO_DB` Snowflake schema.
-2. **Set a Response**: For the selected question, provide a response. In this case, we'll set the Deletion Date to be `2024-12-31`.
-3. **Apply to All Selected Assets**: Use the bulk application feature to apply this response to all filtered assets.
+2. **Set a Response**: For the selected Question, provide a response. In this case, we'll set the Deletion Date to be `2024-12-31`.
+3. **Apply to All Selected Assets**: Use the bulk application feature to apply this response to all filtered Assets.
 
 <p align="center">
   <img
@@ -105,11 +106,11 @@ Let's look at an example:
        alt="Apply Response to Multiple Assets"/>
 </p>
 
-After setting the response, toggle through each question, providing the necessary responses to combinations of assets.
+After setting the response, toggle through each Question, providing the necessary responses to combinations of Assets.
 
 ### Verification for Multiple Assets
 
-For Verification Forms, as you complete responses, you will see the number of assets eligible for Verification in the top-right corner. This makes it easy to track which assets have met the requirements.
+For Verification Forms, as you complete Questions, you will see the number of assets eligible for Verification in the top-right corner. This makes it easy to track which Assets have met the requirements.
 
 <p align="center">
   <img
@@ -118,7 +119,7 @@ For Verification Forms, as you complete responses, you will see the number of as
        alt="Multiple Assets ready to Verify"/>
 </p>
 
-When you are ready to bulk Verify assets, you will be prompted to confirm that all responses are complete and accurate before proceeding.
+When you are ready to bulk Verify Assets, you will be prompted to confirm that all responses are complete and accurate before proceeding.
 
 <p align="center">
   <img
@@ -127,13 +128,13 @@ When you are ready to bulk Verify assets, you will be prompted to confirm that a
        alt="Final Bulk Verification"/>
 </p>
 
-### Switching Between Views
+### Switch Between Completion Modes
 
 You can easily toggle between the **Complete By Asset** and **Complete By Question** views as needed, ensuring flexibility while completing and verifying the Compliance Forms.
 
 ## Understanding Different Form Question Completion States
 
-When completing a Compliance Form, you may encounter various types of questions, each with unique completion states based on existing metadata or prior user responses. This section highlights these scenarios to help you understand how questions can be answered, confirmed, or updated during the process.
+When completing a Compliance Form, you may encounter various types of Questions, each with unique completion states based on existing metadata or prior responses from other Assignees. This section highlights examples of various completion states to help you understand how Questions can be answered, confirmed, or updated when completing a Form.
 
 **_1. What is the primary use case for this asset?_**
 
@@ -171,6 +172,6 @@ Here's an example where a different Form Assignee has already provided an answer
 
 ## FAQ and Troubleshooting
 
-**Why can't I complete a Compliance Form for an Asset?**
+**Why don’t I see any Compliance Forms in the Task Center or on an Asset Page?**
 
-Forms can be assigned to Asset Owners, specific DataHub Users, or a combination of the two. Please confirm with the Form author that your DataHub user is in-scope for the Form.
+If you don’t see any Compliance Forms, check with the Form author to ensure your DataHub user account has been assigned to complete a Form for one or more Assets. Forms can be assigned to Asset Owners, specific DataHub Users, or a combination of both.
