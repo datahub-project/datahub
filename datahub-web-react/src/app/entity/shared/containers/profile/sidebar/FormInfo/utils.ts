@@ -317,6 +317,6 @@ export function getVerificationAuditStamp(entityData: GenericEntityProperties | 
 export function getBulkByQuestionPrompts(formUrn: string, entityData: GenericEntityProperties | null) {
     const formAssociation = getFormAssociation(formUrn, entityData);
     return (
-        formAssociation?.form?.info?.prompts.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type)) || []
+        formAssociation?.form?.info?.prompts?.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type)) || []
     );
 }
