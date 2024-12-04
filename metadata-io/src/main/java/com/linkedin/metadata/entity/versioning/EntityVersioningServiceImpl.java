@@ -23,6 +23,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackResult;
+import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.key.VersionSetKey;
@@ -280,7 +281,8 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
         updatedLatestVersionUrn = maybePriorLatestVersion.getEntity().toString();
       } else {
         // Delete Version Set if we are removing the last version
-        entityService.deleteUrn(opContext, versionSetUrn);
+        RollbackRunResult deleteResult = entityService.deleteUrn(opContext, versionSetUrn);
+        deletedAspects.addAll(deleteResult.getRollbackResults());
       }
     }
 
