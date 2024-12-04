@@ -25,7 +25,9 @@ TERM_SUGGESTION_GENERATION_MODEL: BedrockModel = parse_obj_as(
 )
 
 # Suggestions with a confidence score strictly below this should be filtered out.
-TERM_SUGGESTION_CONFIDENCE_THRESHOLD = 8.0
+TERM_SUGGESTION_CONFIDENCE_THRESHOLD = float(
+    os.getenv("TERM_SUGGESTION_CONFIDENCE_THRESHOLD", 9)
+)
 
 # The maximum number of columns to include in a single prompt.
 # If there's more columns than this, we split it across multiple prompts.
