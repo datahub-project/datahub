@@ -88,7 +88,7 @@ The `docker` command allows you to start up a local DataHub instance using `data
 
 The `ingest` command allows you to ingest metadata from your sources using ingestion configuration files, which we call recipes.
 Source specific crawlers are provided by plugins and might sometimes need additional extras to be installed. See [installing plugins](#installing-plugins) for more information.
-[Removing Metadata from DataHub](./how/delete-metadata.md) contains detailed instructions about how you can use the ingest command to perform operations like rolling-back previously ingested metadata through the `rollback` sub-command and listing all runs that happened through `list-runs` sub-command.
+[Removing Metadata from DataHub](./how/delete-metadata.md) contains detailed instructions about how you can use the ingest command to perform operations like rolling-back previously ingested metadata through the `rollback` sub-command and listing all runs that happened through `list-run-ids` sub-command.
 
 ```console
 Usage: datahub [datahub-options] ingest [command-options]
@@ -113,6 +113,19 @@ ingestion recipe is producing the desired metadata events before ingesting them 
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml --dry-run
 # Short-form
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml -n
+```
+
+#### ingest --list-source-runs
+
+The `--list-source-runs` option of the `ingest` command lists the previous runs, displaying their run ID, source name, 
+start time, status, and source URN. This command allows you to filter results using the --urn option for URN-based 
+filtering or the --source option to filter by source name (partial or complete matches are supported).
+
+```shell
+# List all ingestion runs
+datahub ingest --list-source-runs
+# Filter runs by a source name containing "demo"
+datahub ingest --list-source-runs --source "demo"
 ```
 
 #### ingest --preview

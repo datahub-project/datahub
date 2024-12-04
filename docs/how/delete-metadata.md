@@ -4,7 +4,7 @@
 To follow this guide, you'll need the [DataHub CLI](../cli.md).
 :::
 
-There are a two ways to delete metadata from DataHub:
+There are two ways to delete metadata from DataHub:
 
 1. Delete metadata attached to entities by providing a specific urn or filters that identify a set of urns (delete CLI).
 2. Delete metadata created by a single ingestion run (rollback).
@@ -230,7 +230,7 @@ The second way to delete metadata is to identify entities (and the aspects affec
 To view the ids of the most recent set of ingestion batches, execute
 
 ```shell
-datahub ingest list-runs
+datahub ingest list-run-ids
 ```
 
 That will print out a table of all the runs. Once you have an idea of which run you want to roll back, run
