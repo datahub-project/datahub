@@ -182,6 +182,7 @@ public class StructuredPropertyMapper
     definition.setEntityTypes(
         ImmutableList.of(
             createEntityTypeEntity(UrnUtils.getUrn("urn:li:entityType:datahub.dataset"))));
+    definition.setFilterStatus(StructuredPropertyFilterStatus.DISABLED);
     result.setDefinition(definition);
   }
 }

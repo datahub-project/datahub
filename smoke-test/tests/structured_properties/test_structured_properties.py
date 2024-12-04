@@ -1,5 +1,6 @@
 import logging
 import os
+import pathlib
 import tempfile
 from random import randint
 from typing import Iterable, List, Optional, Union
@@ -821,3 +822,18 @@ def test_dataset_structured_property_delete(ingest_cleanup_data, graph_client, c
     # Validate search works for property #1 & #2
     validate_search(property1.qualified_name, expected=[])
     validate_search(property2.qualified_name, expected=[dataset_urns[0]])
+
+
+def test_get_non_existent_property(graph_client, pytestconfig):
+    test_resources_dir = pytestconfig.rootpath / "tests/structured_properties/"
+    properties_gql = (pathlib.Path(test_resources_dir) / "properties.gql").read_text()
+    variables = {"urn": "urn:li:structuredProperty:nonExistent"}
+    data = graph_client.execute_graphql(
+        query=properties_gql,
+        operation_name="getStructuredProperty",
+        variables=variables,
+    )
+
+    assert "errors" not in data
+    prop_urn = data["structuredProperty"]["urn"]
+    assert prop_urn == "urn:li:structuredProperty:nonExistent"
