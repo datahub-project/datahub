@@ -45,7 +45,8 @@ jobs:
                 "skrydal",
                 "kevinkarchacryl",
                 "sgomezvillamor",
-                "acrylJonny"
+                "acrylJonny",
+                "chakru-r"
               ]'), 
               github.actor
             ) 
