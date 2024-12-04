@@ -5,7 +5,9 @@ import TabItem from '@theme/TabItem';
 
 ## Why Would You Use Compliance Forms?
 
-Compliance Forms are a way for end-users to fill out all mandatory attributes associated with a data asset. The form will be dynamically generated based on the definitions provided by administrators and stewards and matching rules.
+**DataHub Compliance Forms** streamline the process of documenting, annotating, and classifying your most critical Data Assets through a collaborative, crowdsourced approach.
+
+With Compliance Forms, you can execute large-scale compliance initiatives by assigning tasks (e.g., documentation, tagging, or classification requirements) to the appropriate stakeholders — data owners, stewards, and subject matter experts.
 
 Learn more about forms in the [Compliance Forms Feature Guide](../../../docs/features/feature-guides/compliance-forms/overview.md).
 

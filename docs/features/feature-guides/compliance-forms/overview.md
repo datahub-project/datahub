@@ -7,20 +7,32 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 # About DataHub Compliance Forms
 <FeatureAvailability/>
 
-**DataHub Compliance Forms** simplify the process of documenting, annotating, and classifying your data assets while ensuring accountability by assigning tasks to the appropriate data owners, stewards, and subject matter experts.
+**DataHub Compliance Forms** streamline the process of documenting, annotating, and classifying your most critical Data Assets through a collaborative, crowdsourced approach.
 
-With flexible configurations, Compliance Forms empower teams to ask the right questions to the right people for a targeted set of assets, streamlining compliance and governance workflows.
+With Compliance Forms, you can execute large-scale compliance initiatives by assigning tasks (e.g., documentation, tagging, or classification requirements) to the appropriate stakeholders — data owners, stewards, and subject matter experts.
 
-## What are DataHub Compliance Forms?
+## What are Compliance Forms?
 
-Think of **Compliance Forms** as structured surveys for your data assets: a series of questions that must be answered to ensure an asset meets your documentation and classification standards.
+A **Compliance Form** is a flexible and centrally managed tool that enables your data governance or compliance teams to define, enforce, and monitor requirements for specific Data Assets or Columns.
 
-Key Features:
+A Compliance Form consists of:
 
-* **Configurable Questions:** Tailor Forms to collect exactly the information you need.
-* **Targeted Assignments:** Direct specific questions about specific data assets to relevant stakeholders.
-* **Verification Workflow:** Use Verification Forms to require a final review and sign-off for all responses, ensuring assets are fully verified. This adds an extra layer of accountability, critical for compliance and governance programs.
-* **Compliance Readiness:** Track and enforce documentation standards across assets.
+1. **Assets:** The Data Assets or Columns for which the Form must be completed. These represent the scope of the compliance initiative.
+
+2. **Questions:** The set of requirements or conditions that must be completed for each asset. Questions are a vehicle to collect key attributes for your data assets. These can range from simple to complex, with questions that require differing types of answers to complete. Examples include Descriptions, Domains, Owners, Tags, Glossary Terms, and custom Structured Properties.
+
+3. **Assignees:** The users or groups responsible for completing the Form (e.g., asset owners, domain experts, or stewards).
+
+Once a Compliance Form is defined, it can be published. When a form is published, the assignees who are required to complete the requirements will be notified via the Inbox of the tasks that they must complete. In addition, analytics will begin to be gathered about the assets that are meeting or violating the requirements in the form so you can understand your initiative's progress over time.
+
+### Why Use Compliance Forms?
+
+Compliance Forms enable organizations to:  
+- Standardize documentation and metadata across critical Data Assets.  
+- Crowdsource compliance-related tasks to domain experts who are best equipped to provide accurate information.  
+- Scale governance initiatives efficiently while maintaining accuracy and accountability.  
+
+By leveraging Compliance Forms, organizations can ensure consistent metadata quality and foster collaboration between data experts and governance teams.
 
 <p align="center">
   <img 
