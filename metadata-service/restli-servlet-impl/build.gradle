@@ -3,6 +3,8 @@ plugins {
   id 'pegasus'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 sourceSets {
   integTest {
     compileClasspath += sourceSets.main.output

@@ -4,6 +4,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
+> Note that this Automation in currently in open **Beta**. With any questions or issues, please reach out to your Acryl representative. 
+
 ## Introduction
 
 Snowflake Tag Propagation is an automation that allows you to sync DataHub Glossary Terms and Tags on
@@ -14,6 +16,41 @@ both columns and tables back to Snowflake. This automation is available in DataH
 - Automatically Add DataHub Glossary Terms to Snowflake Tables and Columns
 - Automatically Add DataHub Tags to Snowflake Tables and Columns
 - Automatically Remove DataHub Glossary Terms and Tags from Snowflake Tables and Columns when they are removed in DataHub
+
+## Prerequisites
+
+### Permissions Required for Tag Management
+
+- `CREATE TAG`: Required to create new tags in Snowflake.
+Ensure the user or role has this privilege on the specific schema or database where tags will be created.
+- `APPLY TAG`: Required to assign tags to Snowflake objects such as tables, columns, or other database objects.
+This permission must be granted at the database, schema, or object level depending on the scope.
+
+
+### Permissions Required for Object Access
+
+- `USAGE` on the database and schema: Allows access to the database and schema to view and apply changes.
+- `SELECT` on the objects (tables, views, etc.): Enables the automation to read metadata and verify existing tags.
+
+### Example Permission Grant Statements
+
+To grant the necessary permissions for a specific role (DATAHUB_AUTOMATION_ROLE), you can use the following SQL commands:
+
+```sql
+-- Tag management permissions
+GRANT CREATE TAG ON SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT APPLY TAG ON SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+
+-- Object access for metadata operations
+GRANT USAGE ON DATABASE your_database TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT USAGE ON SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT SELECT ON ALL TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+
+-- Future privileges for tagging
+GRANT SELECT ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+GRANT APPLY TAG ON FUTURE TABLES IN SCHEMA your_database.your_schema TO ROLE DATAHUB_AUTOMATION_ROLE;
+```
+
 
 ## Enabling Snowflake Tag Sync
 

@@ -119,6 +119,16 @@
     displayName: Hive
     type: FILE_SYSTEM
     logoUrl: "/assets/platforms/hivelogo.png"
+- entityUrn: urn:li:dataPlatform:hudi
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: hudi
+    displayName: Hudi
+    type: FILE_SYSTEM
+    logoUrl: "/assets/platforms/hudilogo.png"
 - entityUrn: urn:li:dataPlatform:iceberg
   entityType: dataPlatform
   aspectName: dataPlatformInfo
@@ -727,3 +737,14 @@
     displayName: Cassandra
     type: KEY_VALUE_STORE
     logoUrl: "/assets/platforms/cassandralogo.png"
+- entityUrn: urn:li:dataPlatform:neo4j
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: neo4j
+    displayName: Neo4j
+    type: OTHERS
+    logoUrl: "/assets/platforms/neo4j.png"
+

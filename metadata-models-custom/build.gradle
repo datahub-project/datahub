@@ -19,6 +19,8 @@ plugins {
     id 'pegasus'
 }
 
+apply from: '../gradle/coverage/java-coverage.gradle'
+
 if (project.hasProperty('projVersion')) {
   project.version = project.projVersion
 } else {

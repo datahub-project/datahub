@@ -103,6 +103,7 @@ from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecuto
 logger = logging.getLogger(__name__)
 
 # https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html
+# TODO: Move to the standardized types in sql_types.py
 SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
     "DATE": DateType,
     "BIGINT": NumberType,

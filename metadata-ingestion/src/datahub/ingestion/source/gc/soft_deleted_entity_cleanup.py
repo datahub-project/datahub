@@ -104,7 +104,7 @@ class SoftDeletedEntitiesCleanup:
     def delete_entity(self, urn: str) -> None:
         assert self.ctx.graph
 
-        entity_urn = Urn.create_from_string(urn)
+        entity_urn = Urn.from_string(urn)
         self.report.num_soft_deleted_entity_removed += 1
         self.report.num_soft_deleted_entity_removed_by_type[entity_urn.entity_type] = (
             self.report.num_soft_deleted_entity_removed_by_type.get(

@@ -323,7 +323,7 @@ def assert_entity_mce_aspect(
 ) -> int:
     # TODO: Replace with read_metadata_file()
     test_output = load_json_file(file)
-    entity_type = Urn.create_from_string(entity_urn).get_type()
+    entity_type = Urn.from_string(entity_urn).get_type()
     assert isinstance(test_output, list)
     # mce urns
     mces: List[MetadataChangeEventClass] = [
@@ -346,7 +346,7 @@ def assert_entity_mcp_aspect(
 ) -> int:
     # TODO: Replace with read_metadata_file()
     test_output = load_json_file(file)
-    entity_type = Urn.create_from_string(entity_urn).get_type()
+    entity_type = Urn.from_string(entity_urn).get_type()
     assert isinstance(test_output, list)
     # mcps that match entity_urn
     mcps: List[MetadataChangeProposalWrapper] = [

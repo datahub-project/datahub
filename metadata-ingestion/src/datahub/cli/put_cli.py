@@ -105,7 +105,7 @@ def platform(
     """
 
     if name.startswith(f"urn:li:{DataPlatformUrn.ENTITY_TYPE}"):
-        platform_urn = DataPlatformUrn.create_from_string(name)
+        platform_urn = DataPlatformUrn.from_string(name)
         platform_name = platform_urn.get_entity_id_as_string()
     else:
         platform_name = name.lower()

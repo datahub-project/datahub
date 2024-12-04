@@ -3,6 +3,8 @@ plugins {
     id 'java-library'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 configurations {
     enhance
 }

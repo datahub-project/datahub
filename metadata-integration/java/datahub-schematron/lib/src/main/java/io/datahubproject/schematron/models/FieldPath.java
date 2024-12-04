@@ -2,6 +2,7 @@ package io.datahubproject.schematron.models;
 
 import com.linkedin.schema.*;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -117,8 +118,8 @@ public class FieldPath {
           .getPath()
           .add(
               new FieldElement(
-                  new ArrayList<>(List.of(type)),
-                  new ArrayList<>(List.of(typeSchema.toString())),
+                  new ArrayList<>(Collections.singletonList(type)),
+                  new ArrayList<>(Collections.singletonList(typeSchema.toString())),
                   null,
                   null));
     }

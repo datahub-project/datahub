@@ -4,6 +4,8 @@ plugins {
   id 'io.ebean' version "${ebeanVersion}" // Use the latest version from global build.gradle
 }
 
+apply from: '../gradle/coverage/java-coverage.gradle'
+
 configurations {
   enhance
 }

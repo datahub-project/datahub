@@ -889,7 +889,7 @@ def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_t
 
 @freeze_time(FROZEN_TIME)
 def test_special_liquid_variables():
-    text: str = """
+    text: str = """{% assign source_table_variable = "source_table" | sql_quote | non_existing_filter_where_it_should_not_fail %}
         SELECT
           employee_id,
           employee_name,
@@ -903,7 +903,7 @@ def test_special_liquid_variables():
             'default_table' as source
           {% endif %},
           employee_income
-        FROM source_table
+        FROM {{ source_table_variable }}
     """
     input_liquid_variable: dict = {}
 
@@ -958,7 +958,7 @@ def test_special_liquid_variables():
     expected_text: str = (
         "\n        SELECT\n          employee_id,\n          employee_name,\n          \n            "
         "prod_core.data.r_metric_summary_v2\n          ,\n          employee_income\n        FROM "
-        "source_table\n    "
+        "'source_table'\n    "
     )
     assert actual_text == expected_text
 

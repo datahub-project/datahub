@@ -128,11 +128,32 @@ def test_kafka_oauth_callback(
 
     pipeline.run()
 
-    is_found: bool = False
-    with open(log_file, "r") as file:
-        for line_number, line in enumerate(file, 1):
-            if oauth.MESSAGE in line:
-                is_found = True
-                break
+    # Initialize flags to track oauth events
+    checks = {
+        "consumer_polling": False,
+        "consumer_oauth_callback": False,
+        "admin_polling": False,
+        "admin_oauth_callback": False,
+    }
 
-    assert is_found
+    # Read log file and check for oauth events
+    with open(log_file, "r") as file:
+        for line in file:
+            # Check for polling events
+            if "Initiating polling for kafka admin client" in line:
+                checks["admin_polling"] = True
+            elif "Initiating polling for kafka consumer" in line:
+                checks["consumer_polling"] = True
+
+            # Check for oauth callbacks
+            if oauth.MESSAGE in line:
+                if checks["consumer_polling"] and not checks["admin_polling"]:
+                    checks["consumer_oauth_callback"] = True
+                elif checks["consumer_polling"] and checks["admin_polling"]:
+                    checks["admin_oauth_callback"] = True
+
+    # Verify all oauth events occurred
+    assert checks["consumer_polling"], "Consumer polling was not initiated"
+    assert checks["consumer_oauth_callback"], "Consumer oauth callback not found"
+    assert checks["admin_polling"], "Admin polling was not initiated"
+    assert checks["admin_oauth_callback"], "Admin oauth callback not found"

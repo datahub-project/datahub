@@ -345,7 +345,8 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
       log.debug("Array Field Path before expand: {}", fieldPath.asString());
       fieldPath = fieldPath.popLast();
       fieldPath =
-          fieldPath.clonePlus(new FieldElement(List.of("array"), new ArrayList<>(), null, null));
+          fieldPath.clonePlus(
+              new FieldElement(Collections.singletonList("array"), new ArrayList<>(), null, null));
       Schema.Field elementField =
           new Schema.Field(
               field.name(),
@@ -400,7 +401,9 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
       FieldPath valueFieldPath =
           fieldPath
               .popLast()
-              .clonePlus(new FieldElement(List.of("map"), new ArrayList<>(), null, null));
+              .clonePlus(
+                  new FieldElement(
+                      Collections.singletonList("map"), new ArrayList<>(), null, null));
       processField(valueField, valueFieldPath, defaultNullable, fields, isNullable, mapDataHubType);
     } else {
       SchemaField mapField =
@@ -434,7 +437,7 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
           unionTypes.stream()
               .filter(s -> s.getType() != Schema.Type.NULL)
               .findFirst()
-              .orElseThrow();
+              .orElseThrow(NoSuchElementException::new);
 
       processField(
           new Schema.Field(field.name(), nonNullSchema, field.doc()),
@@ -476,7 +479,8 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
         FieldPath indexedFieldPath = fieldPath.popLast();
         indexedFieldPath =
             indexedFieldPath.clonePlus(
-                new FieldElement(List.of("union"), new ArrayList<>(), null, null));
+                new FieldElement(
+                    Collections.singletonList("union"), new ArrayList<>(), null, null));
         log.debug("TypeIndex: {}, Indexed Field path : {}", typeIndex, indexedFieldPath.asString());
         // FieldPath unionFieldPath =
         // fieldPath.expandType(getDiscriminatedType(unionSchema),

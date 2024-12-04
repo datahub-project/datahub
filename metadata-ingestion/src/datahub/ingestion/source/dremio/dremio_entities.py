@@ -200,6 +200,7 @@ class DremioDataset:
     columns: List[DremioDatasetColumn]
     sql_definition: Optional[str]
     dataset_type: DremioDatasetType
+    default_schema: Optional[str]
     owner: Optional[str]
     owner_type: Optional[str]
     created: str
@@ -235,6 +236,9 @@ class DremioDataset:
 
         if self.sql_definition:
             self.dataset_type = DremioDatasetType.VIEW
+            self.default_schema = api_operations.get_context_for_vds(
+                resource_id=self.resource_id
+            )
         else:
             self.dataset_type = DremioDatasetType.TABLE
 

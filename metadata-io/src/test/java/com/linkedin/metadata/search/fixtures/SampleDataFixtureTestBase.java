@@ -1367,8 +1367,8 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
       resultUrns.addAll(result.getEntities().stream().map(SearchEntity::getEntity).toList());
       scrollId = result.getScrollId();
     } while (scrollId != null);
-    // expect 2 total matching results
-    assertEquals(totalResults, 2, String.format("query `%s` Results: %s", query, resultUrns));
+    // expect 8 total matching results
+    assertEquals(totalResults, 8, String.format("query `%s` Results: %s", query, resultUrns));
   }
 
   @Test
@@ -1745,7 +1745,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         String.format("%s - Expected search results to include matched fields", query));
     assertEquals(
         result.getEntities().size(),
-        2,
+        8,
         String.format(
             "Query: `%s` Results: %s",
             query,
@@ -1776,7 +1776,7 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         String.format("%s - Expected search results to include matched fields", query));
     assertEquals(
         result.getEntities().size(),
-        2,
+        8,
         String.format(
             "Query: `%s` Results: %s",
             query,

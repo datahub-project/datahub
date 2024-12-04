@@ -241,3 +241,18 @@ def test_sagemaker_ingest(tmp_path, pytestconfig):
         output_path=tmp_path / "sagemaker_mces.json",
         golden_path=test_resources_dir / "sagemaker_mces_golden.json",
     )
+
+
+def test_doc_test_run():
+    import doctest
+
+    import datahub.ingestion.source.aws.sagemaker_processors.models
+
+    assert (
+        doctest.testmod(
+            datahub.ingestion.source.aws.sagemaker_processors.models,
+            raise_on_error=True,
+            verbose=True,
+        ).attempted
+        == 1
+    )

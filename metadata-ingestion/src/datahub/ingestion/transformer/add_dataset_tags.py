@@ -74,7 +74,7 @@ class AddDatasetTags(DatasetTagsTransformer):
         logger.debug("Generating tags")
 
         for tag_association in self.processed_tags.values():
-            tag_urn = TagUrn.create_from_string(tag_association.tag)
+            tag_urn = TagUrn.from_string(tag_association.tag)
             mcps.append(
                 MetadataChangeProposalWrapper(
                     entityUrn=tag_urn.urn(),

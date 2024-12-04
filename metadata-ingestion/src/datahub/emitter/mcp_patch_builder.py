@@ -1,4 +1,5 @@
 import json
+import time
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
@@ -6,12 +7,15 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
 from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     ChangeTypeClass,
+    EdgeClass,
     GenericAspectClass,
     KafkaAuditHeaderClass,
     MetadataChangeProposalClass,
     SystemMetadataClass,
 )
+from datahub.metadata.urns import Urn
 from datahub.utilities.urns.urn import guess_entity_type
 
 
@@ -89,3 +93,42 @@ class MetadataPatchProposal:
             )
             for aspect_name, patches in self.patches.items()
         ]
+
+    @classmethod
+    def _mint_auditstamp(cls, message: Optional[str] = None) -> AuditStampClass:
+        """
+        Creates an AuditStampClass instance with the current timestamp and other default values.
+
+        Args:
+            message: The message associated with the audit stamp (optional).
+
+        Returns:
+            An instance of AuditStampClass.
+        """
+        return AuditStampClass(
+            time=int(time.time() * 1000.0),
+            actor="urn:li:corpuser:datahub",
+            message=message,
+        )
+
+    @classmethod
+    def _ensure_urn_type(
+        cls, entity_type: str, edges: List[EdgeClass], context: str
+    ) -> None:
+        """
+        Ensures that the destination URNs in the given edges have the specified entity type.
+
+        Args:
+            entity_type: The entity type to check against.
+            edges: A list of Edge objects.
+            context: The context or description of the operation.
+
+        Raises:
+            ValueError: If any of the destination URNs is not of the specified entity type.
+        """
+        for e in edges:
+            urn = Urn.from_string(e.destinationUrn)
+            if not urn.entity_type == entity_type:
+                raise ValueError(
+                    f"{context}: {e.destinationUrn} is not of type {entity_type}"
+                )

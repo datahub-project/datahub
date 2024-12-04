@@ -173,7 +173,7 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="redshift",
     )
 
-    DATABRICK_SQL = DataPlatformPair(
+    DATABRICKS_SQL = DataPlatformPair(
         powerbi_data_platform_name="Databricks", datahub_data_platform_name="databricks"
     )
 
@@ -313,8 +313,8 @@ class PowerBiDashboardSourceConfig(
         " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
     )
 
-    # Dataset type mapping PowerBI support many type of data-sources. Here user need to define what type of PowerBI
-    # DataSource need to be mapped to corresponding DataHub Platform DataSource. For example PowerBI `Snowflake` is
+    # Dataset type mapping PowerBI support many type of data-sources. Here user needs to define what type of PowerBI
+    # DataSource needs to be mapped to corresponding DataHub Platform DataSource. For example, PowerBI `Snowflake` is
     # mapped to DataHub `snowflake` PowerBI `PostgreSQL` is mapped to DataHub `postgres` and so on.
     dataset_type_mapping: Union[
         Dict[str, str], Dict[str, PlatformDetail]

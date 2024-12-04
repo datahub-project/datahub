@@ -142,6 +142,7 @@ class DremioAspects:
         platform: str,
         ui_url: str,
         env: str,
+        ingest_owner: bool,
         domain: Optional[str] = None,
         platform_instance: Optional[str] = None,
     ):
@@ -150,6 +151,7 @@ class DremioAspects:
         self.env = env
         self.domain = domain
         self.ui_url = ui_url
+        self.ingest_owner = ingest_owner
 
     def get_container_key(
         self, name: Optional[str], path: Optional[List[str]]
@@ -426,21 +428,23 @@ class DremioAspects:
         return f'{self.ui_url}/{container_type}/{dataset_url_path}"{dataset.resource_name}"'
 
     def _create_ownership(self, dataset: DremioDataset) -> Optional[OwnershipClass]:
-        if not dataset.owner:
-            return None
-        owner = (
-            make_user_urn(dataset.owner)
-            if dataset.owner_type == "USER"
-            else make_group_urn(dataset.owner)
-        )
-        return OwnershipClass(
-            owners=[
-                OwnerClass(
-                    owner=owner,
-                    type=OwnershipTypeClass.TECHNICAL_OWNER,
-                )
-            ]
-        )
+        if self.ingest_owner and dataset.owner:
+            owner_urn = (
+                make_user_urn(dataset.owner)
+                if dataset.owner_type == "USER"
+                else make_group_urn(dataset.owner)
+            )
+            ownership: OwnershipClass = OwnershipClass(
+                owners=[
+                    OwnerClass(
+                        owner=owner_urn,
+                        type=OwnershipTypeClass.TECHNICAL_OWNER,
+                    )
+                ]
+            )
+            return ownership
+
+        return None
 
     def _create_glossary_terms(self, entity: DremioDataset) -> GlossaryTermsClass:
         return GlossaryTermsClass(

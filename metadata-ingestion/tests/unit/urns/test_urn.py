@@ -1,6 +1,12 @@
 import pytest
 
-from datahub.metadata.urns import DatasetUrn, Urn
+from datahub.metadata.urns import (
+    CorpUserUrn,
+    DashboardUrn,
+    DataPlatformUrn,
+    DatasetUrn,
+    Urn,
+)
 from datahub.utilities.urns.error import InvalidUrnError
 
 pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
@@ -36,20 +42,51 @@ def test_url_encode_urn() -> None:
 
 def test_invalid_urn() -> None:
     with pytest.raises(InvalidUrnError):
-        Urn.create_from_string("urn:li:abc")
+        Urn.from_string("urn:li:abc")
 
     with pytest.raises(InvalidUrnError):
-        Urn.create_from_string("urn:li:abc:")
+        Urn.from_string("urn:li:abc:")
 
     with pytest.raises(InvalidUrnError):
-        Urn.create_from_string("urn:li:abc:()")
+        Urn.from_string("urn:li:abc:()")
 
     with pytest.raises(InvalidUrnError):
-        Urn.create_from_string("urn:li:abc:(abc,)")
+        Urn.from_string("urn:li:abc:(abc,)")
+
+    with pytest.raises(InvalidUrnError):
+        Urn.from_string("urn:li:corpuser:abc)")
+
+
+def test_urn_colon() -> None:
+    # Colon characters are valid in urns, and should not mess up parsing.
+
+    urn = Urn.from_string(
+        "urn:li:dashboard:(looker,dashboards.thelook::customer_lookup)"
+    )
+    assert isinstance(urn, DashboardUrn)
+
+    assert DataPlatformUrn.from_string("urn:li:dataPlatform:abc:def")
+    assert DatasetUrn.from_string(
+        "urn:li:dataset:(urn:li:dataPlatform:abc:def,table_name,PROD)"
+    )
+    assert Urn.from_string("urn:li:corpuser:foo:bar@example.com")
+
+    # I'm not sure why you'd ever want this, but technically it's a valid urn.
+    urn = Urn.from_string("urn:li:corpuser::")
+    assert isinstance(urn, CorpUserUrn)
+    assert urn.username == ":"
+    assert urn == CorpUserUrn(":")
+
+
+def test_urn_coercion() -> None:
+    urn = CorpUserUrn("foo␟bar")
+    assert urn.urn() == "urn:li:corpuser:foo%E2%90%9Fbar"
+
+    assert urn == Urn.from_string(urn.urn())
 
 
 def test_urn_type_dispatch() -> None:
-    urn = Urn.from_string("urn:li:dataset:(urn:li:dataPlatform:abc,def,prod)")
+    urn = Urn.from_string("urn:li:dataset:(urn:li:dataPlatform:abc,def,PROD)")
     assert isinstance(urn, DatasetUrn)
 
     with pytest.raises(InvalidUrnError, match="Passed an urn of type corpuser"):
