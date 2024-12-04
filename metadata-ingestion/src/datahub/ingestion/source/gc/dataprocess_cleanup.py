@@ -114,11 +114,11 @@ class DataProcessCleanupConfig(ConfigModel):
     )
 
     delete_empty_data_jobs: bool = Field(
-        True, description="Wether to delete Data Jobs without runs"
+        False, description="Whether to delete Data Jobs without runs"
     )
 
     delete_empty_data_flows: bool = Field(
-        True, description="Wether to delete Data Flows without runs"
+        False, description="Whether to delete Data Flows without runs"
     )
 
     hard_delete_entities: bool = Field(
@@ -128,7 +128,7 @@ class DataProcessCleanupConfig(ConfigModel):
 
     batch_size: int = Field(
         500,
-        description="The number of entities to get in a batch from GraphQL",
+        description="The number of entities to get in a batch from API",
     )
 
     max_workers: int = Field(
