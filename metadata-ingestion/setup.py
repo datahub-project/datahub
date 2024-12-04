@@ -142,6 +142,7 @@ sql_common = (
         # datahub does not depend on traitlets directly but great expectations does.
         # https://github.com/ipython/traitlets/issues/741
         "traitlets!=5.2.2",
+        # GE depends on IPython - we have no direct dependency on it.
         # IPython 8.22.0 added a dependency on traitlets 5.13.x, but only declared a
         # version requirement of traitlets>5.
         # See https://github.com/ipython/ipython/issues/14352.
