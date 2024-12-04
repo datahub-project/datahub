@@ -41,20 +41,19 @@ def test_url_encode_urn() -> None:
 
 
 def test_invalid_urn() -> None:
-    with pytest.raises(InvalidUrnError):
-        Urn.from_string("urn:li:abc")
+    # Load invalid URNs from file
+    with open("tests/unit/urns/invalid_urns.txt") as f:
+        invalid_urns = [
+            line.strip()
+            for line in f.readlines()
+            if line.strip() and not line.startswith("#")
+        ]
 
-    with pytest.raises(InvalidUrnError):
-        Urn.from_string("urn:li:abc:")
-
-    with pytest.raises(InvalidUrnError):
-        Urn.from_string("urn:li:abc:()")
-
-    with pytest.raises(InvalidUrnError):
-        Urn.from_string("urn:li:abc:(abc,)")
-
-    with pytest.raises(InvalidUrnError):
-        Urn.from_string("urn:li:corpuser:abc)")
+    # Test each invalid URN
+    for invalid_urn in invalid_urns:
+        with pytest.raises(InvalidUrnError):
+            print(f"Testing invalid URN: {invalid_urn}")
+            Urn.from_string(invalid_urn)
 
 
 def test_urn_colon() -> None:
@@ -83,6 +82,15 @@ def test_urn_coercion() -> None:
     assert urn.urn() == "urn:li:corpuser:foo%E2%90%9Fbar"
 
     assert urn == Urn.from_string(urn.urn())
+
+
+def test_incorrect_urn_type() -> None:
+    urn = "urn:li:dataJob:(urn:li:dataFlow:(airflow,flow_id,prod),job_id)"
+
+    assert Urn.from_string(urn).urn() == urn
+
+    with pytest.raises(InvalidUrnError, match="Passed an urn of type dataJob"):
+        CorpUserUrn.from_string(urn)
 
 
 def test_urn_type_dispatch() -> None:
