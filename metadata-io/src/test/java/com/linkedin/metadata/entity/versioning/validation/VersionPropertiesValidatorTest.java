@@ -155,9 +155,8 @@ public class VersionPropertiesValidatorTest {
     properties.setIsLatest(true); // Should not be specified
 
     Stream<AspectValidationException> validationResult =
-        VersionPropertiesValidator.validatePropertiesUpserts(
-            TestMCP.ofOneUpsertItem(TEST_ENTITY_URN, properties, new TestEntityRegistry()),
-            retrieverContext);
+        VersionPropertiesValidator.validatePropertiesProposals(
+            TestMCP.ofOneUpsertItem(TEST_ENTITY_URN, properties, new TestEntityRegistry()));
 
     AspectValidationException exception = validationResult.findAny().get();
     Assert.assertNotNull(exception);

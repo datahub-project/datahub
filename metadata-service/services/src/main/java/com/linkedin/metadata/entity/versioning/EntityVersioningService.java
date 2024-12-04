@@ -32,5 +32,5 @@ public interface EntityVersioningService {
    * @param currentLatest the currently linked latest versioned entity urn
    * @return the deletion result
    */
-  List<RollbackResult> unlinkLatestVersion(OperationContext opContext, Urn currentLatest);
+  List<RollbackResult> unlinkVersion(OperationContext opContext, Urn versionSet, Urn currentLatest);
 }

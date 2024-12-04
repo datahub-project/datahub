@@ -42,6 +42,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -399,7 +400,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       Urn urn,
       String entityName,
       AspectSpec aspectSpec,
-      RecordTemplate aspect,
+      @Nullable RecordTemplate aspect,
       Boolean isKeyAspect) {
     String docId;
     try {

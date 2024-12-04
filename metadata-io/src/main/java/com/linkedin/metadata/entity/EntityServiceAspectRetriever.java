@@ -55,6 +55,18 @@ public class EntityServiceAspectRetriever implements AspectRetriever {
   }
 
   @Nonnull
+  public Map<Urn, Boolean> entityExists(Set<Urn> urns) {
+    if (urns.isEmpty()) {
+      return Map.of();
+    } else {
+      return urns.stream()
+          .collect(
+              Collectors.toMap(
+                  urn -> urn, urn -> entityService.exists(systemOperationContext, urn)));
+    }
+  }
+
+  @Nonnull
   @Override
   public Map<Urn, Map<String, SystemAspect>> getLatestSystemAspects(
       Map<Urn, Set<String>> urnAspectNames) {

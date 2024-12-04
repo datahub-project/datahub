@@ -5,13 +5,14 @@ import static com.linkedin.metadata.Constants.VERSION_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_PROPERTIES_ASPECT_NAME;
-import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.MetadataAttribution;
 import com.linkedin.common.VersionProperties;
+import com.linkedin.common.VersionTag;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -19,18 +20,18 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
-import com.linkedin.metadata.aspect.GraphRetriever;
-import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
-import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackResult;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.key.VersionSetKey;
 import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
@@ -94,7 +95,7 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
       sortId = INITIAL_VERSION_SORT_ID;
     } else {
       Aspect versionSetPropertiesAspect =
-          aspectRetriever.getLatestAspectObject(versionSet, VERSION_PROPERTIES_ASPECT_NAME);
+          aspectRetriever.getLatestAspectObject(versionSet, VERSION_SET_PROPERTIES_ASPECT_NAME);
       VersionSetProperties versionSetProperties =
           RecordUtils.toRecordTemplate(
               VersionSetProperties.class, versionSetPropertiesAspect.data());
@@ -108,11 +109,33 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
       sortId = AlphanumericSortIdGenerator.increment(latestVersionProperties.getSortId());
     }
 
+    Aspect currentVersionPropertiesAspect =
+        aspectRetriever.getLatestAspectObject(newLatestVersion, VERSION_PROPERTIES_ASPECT_NAME);
+    if (currentVersionPropertiesAspect != null) {
+      VersionProperties currentVersionProperties =
+          RecordUtils.toRecordTemplate(
+              VersionProperties.class, currentVersionPropertiesAspect.data());
+      if (currentVersionProperties.getVersionSet().equals(versionSet)) {
+        return new ArrayList<>();
+      } else {
+        throw new IllegalStateException(
+            String.format(
+                "Version already exists for specified entity: %s for a different Version Set: %s",
+                newLatestVersion, currentVersionProperties.getVersionSet()));
+      }
+    }
+
+    VersionTag versionTag = new VersionTag();
+    versionTag.setVersionTag(inputProperties.getVersion());
+    MetadataAttribution metadataAttribution = new MetadataAttribution();
+    metadataAttribution.setActor(opContext.getActorContext().getActorUrn());
+    metadataAttribution.setTime(System.currentTimeMillis());
+    versionTag.setMetadataAttribution(metadataAttribution);
     VersionProperties versionProperties =
         new VersionProperties()
             .setVersionSet(versionSet)
             .setComment(inputProperties.getComment(), SetMode.IGNORE_NULL)
-            .setLabel(inputProperties.getLabel())
+            .setVersion(versionTag)
             .setMetadataCreatedTimestamp(opContext.getAuditStamp())
             .setSortId(sortId);
     if (inputProperties.getSourceCreationTimestamp() != null) {
@@ -133,7 +156,7 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
     versionPropertiesProposal.setAspectName(VERSION_PROPERTIES_ASPECT_NAME);
     versionPropertiesProposal.setAspect(GenericRecordUtils.serializeAspect(versionProperties));
     // Error if properties already exist
-    versionPropertiesProposal.setChangeType(ChangeType.CREATE);
+    versionPropertiesProposal.setChangeType(ChangeType.UPSERT);
     proposals.add(versionPropertiesProposal);
 
     // Might want to refactor this to a Patch w/ Create if not exists logic if more properties get
@@ -164,140 +187,133 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
   }
 
   /**
-   * Unlinks the latest version from a version set. Will attempt to set up the previous version as
-   * the new latest. This fully removes the version properties and unversions the specified entity.
+   * Unlinks a version from a version set. Will attempt to set up the previous version as the new
+   * latest. This fully removes the version properties and unversions the specified entity.
    *
    * @param opContext operational context containing various information about the current execution
-   * @param currentLatest the currently linked latest versioned entity urn
+   * @param linkedVersion the currently linked latest versioned entity urn
    * @return the deletion result
    */
   @Override
-  public List<RollbackResult> unlinkLatestVersion(OperationContext opContext, Urn currentLatest) {
+  public List<RollbackResult> unlinkVersion(
+      OperationContext opContext, Urn versionSet, Urn linkedVersion) {
     List<RollbackResult> deletedAspects = new ArrayList<>();
     AspectRetriever aspectRetriever = opContext.getAspectRetriever();
-    Aspect latestVersionPropertiesAspect =
-        aspectRetriever.getLatestAspectObject(currentLatest, VERSION_PROPERTIES_ASPECT_NAME);
+    Aspect linkedVersionPropertiesAspect =
+        aspectRetriever.getLatestAspectObject(linkedVersion, VERSION_PROPERTIES_ASPECT_NAME);
     // Not currently versioned, do nothing
-    if (latestVersionPropertiesAspect == null) {
+    if (linkedVersionPropertiesAspect == null) {
       return deletedAspects;
     }
-    VersionProperties latestVersionProperties =
-        RecordUtils.toRecordTemplate(VersionProperties.class, latestVersionPropertiesAspect.data());
-    Urn versionSetUrn = latestVersionProperties.getVersionSet();
-    // If initial version, delete the version set properties as well (technically if there was a
-    // loopback would
-    // potentially be problematic, but this requires a couple of hundred billion versions and is
-    // unlikely)
-    if (INITIAL_VERSION_SORT_ID.equals(latestVersionProperties.getSortId())) {
-      entityService
-          .deleteAspect(
-              opContext,
-              versionSetUrn.toString(),
-              VERSION_SET_PROPERTIES_ASPECT_NAME,
-              Collections.emptyMap(),
-              true)
-          .ifPresent(deletedAspects::add);
-    } else {
-      // Determine previous version
-      VersionSetKey versionSetKey =
-          (VersionSetKey)
-              EntityKeyUtils.convertUrnToEntityKey(
-                  versionSetUrn,
-                  opContext.getEntityRegistryContext().getKeyAspectSpec(versionSetUrn));
-      GraphRetriever graphRetriever = opContext.getRetrieverContext().get().getGraphRetriever();
-      RelatedEntitiesScrollResult versionRelationships =
-          graphRetriever.scrollRelatedEntities(
-              ImmutableList.of(versionSetKey.getEntityType()),
-              QueryUtils.newConjunctiveFilter(
-                  CriterionUtils.buildCriterion(
-                      "versionSet", Condition.EQUAL, versionSetUrn.toString())),
-              null,
-              EMPTY_FILTER,
-              ImmutableList.of("VersionOf"),
-              QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING),
-              ImmutableList.of(
-                  new SortCriterion().setField("sortId").setOrder(SortOrder.DESCENDING)),
-              null,
-              // Grab current latest and one before it
-              2,
-              null,
-              null);
-      String updatedLatestVersionUrn = null;
-      List<RelatedEntities> linkedEntities = versionRelationships.getEntities();
-      if (linkedEntities.size() == 2) {
-        // Happy path, all expected data is there. Get second to latest and set to the prior latest
-        // version.
-        // Note: this relies on Alpha sorting for the sort id, for different versioning schemes may
-        // need to enforce
-        // strict order at the search index
-        RelatedEntities priorLatestVersion = linkedEntities.get(1);
-        updatedLatestVersionUrn = priorLatestVersion.getDestinationUrn();
-      } else if (versionRelationships.getEntities().size() == 1) {
-        // Missing a version, if that version is not the one being unlinked then set as latest
-        // version
-        RelatedEntities maybePriorLatestVersion = linkedEntities.get(0);
-        if (!currentLatest.equals(UrnUtils.getUrn(maybePriorLatestVersion.getDestinationUrn()))) {
-          updatedLatestVersionUrn = maybePriorLatestVersion.getDestinationUrn();
-        }
-        // Otherwise version has been updated, but previous versions have all been deleted.
-        // Delete Version Set like if only initial version remains
-      }
-
-      if (updatedLatestVersionUrn == null) {
-        // One of:
-        // 1. Missing all data
-        // 2. Somehow got more back than requested
-        // 3. Version has been updated, but previous versions have all been deleted.
-        // Delete Version Set like if only initial version remains
-        entityService
-            .deleteAspect(
-                opContext,
-                versionSetUrn.toString(),
-                VERSION_SET_PROPERTIES_ASPECT_NAME,
-                Collections.emptyMap(),
-                true)
-            .ifPresent(deletedAspects::add);
-      } else {
-
-        // Might want to refactor this to a Patch w/ Create if not exists logic if more properties
-        // get added
-        // to Version Set Properties
-        VersionSetProperties versionSetProperties =
-            new VersionSetProperties()
-                .setVersioningScheme(
-                    VersioningScheme
-                        .ALPHANUMERIC_GENERATED_BY_DATAHUB) // Only one available, will need to add
-                // to input properties once more are
-                // added.
-                .setLatest(UrnUtils.getUrn(updatedLatestVersionUrn));
-        MetadataChangeProposal versionSetPropertiesProposal = new MetadataChangeProposal();
-        versionSetPropertiesProposal.setEntityUrn(versionSetUrn);
-        versionSetPropertiesProposal.setEntityType(VERSION_SET_ENTITY_NAME);
-        versionSetPropertiesProposal.setAspectName(VERSION_SET_PROPERTIES_ASPECT_NAME);
-        versionSetPropertiesProposal.setAspect(
-            GenericRecordUtils.serializeAspect(versionSetProperties));
-        versionSetPropertiesProposal.setChangeType(ChangeType.UPSERT);
-        entityService.ingestProposal(
-            opContext,
-            AspectsBatchImpl.builder()
-                .mcps(
-                    ImmutableList.of(versionSetPropertiesProposal),
-                    opContext.getAuditStamp(),
-                    opContext.getRetrieverContext().get())
-                .build(),
-            false);
-      }
+    VersionProperties linkedVersionProperties =
+        RecordUtils.toRecordTemplate(VersionProperties.class, linkedVersionPropertiesAspect.data());
+    Urn versionSetUrn = linkedVersionProperties.getVersionSet();
+    if (!versionSet.equals(versionSetUrn)) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Version is not linked to specified version set: %s but is linked to: %s",
+              versionSet, versionSetUrn));
     }
-
     // Delete latest version properties
     entityService
         .deleteAspect(
             opContext,
-            currentLatest.toString(),
+            linkedVersion.toString(),
             VERSION_PROPERTIES_ASPECT_NAME,
             Collections.emptyMap(),
             true)
         .ifPresent(deletedAspects::add);
+
+    // Get Version Set details
+    VersionSetKey versionSetKey =
+        (VersionSetKey)
+            EntityKeyUtils.convertUrnToEntityKey(
+                versionSetUrn,
+                opContext.getEntityRegistryContext().getKeyAspectSpec(versionSetUrn));
+    SearchRetriever searchRetriever = opContext.getRetrieverContext().get().getSearchRetriever();
+
+    // Find current latest version and previous
+    ScrollResult linkedVersions =
+        searchRetriever.scroll(
+            ImmutableList.of(versionSetKey.getEntityType()),
+            QueryUtils.newConjunctiveFilter(
+                CriterionUtils.buildCriterion(
+                    "versionSet", Condition.EQUAL, versionSetUrn.toString())),
+            null,
+            2,
+            ImmutableList.of(
+                new SortCriterion().setField("sortId").setOrder(SortOrder.DESCENDING)));
+    String updatedLatestVersionUrn = null;
+
+    SearchEntityArray linkedEntities = linkedVersions.getEntities();
+    Aspect versionSetPropertiesAspect =
+        aspectRetriever.getLatestAspectObject(versionSetUrn, VERSION_SET_PROPERTIES_ASPECT_NAME);
+    if (versionSetPropertiesAspect == null) {
+      throw new IllegalStateException(
+          String.format(
+              "Version Set Properties must exist if entity version exists: %s", versionSetUrn));
+    }
+    VersionSetProperties versionSetProperties =
+        RecordUtils.toRecordTemplate(VersionSetProperties.class, versionSetPropertiesAspect.data());
+    boolean isLatest = linkedVersion.equals(versionSetProperties.getLatest());
+
+    if (linkedEntities.size() == 2 && isLatest) {
+      // If the version to unlink is the same as the last search result and is currently the latest
+      // based on SQL, set to one immediately before.
+      // Otherwise set to most current one in search results assuming we have not gotten the index
+      // update for a recent update to latest.
+      // Does assume that there are not multiple index updates waiting in the queue so rapid fire
+      // updates intermixed with deletes should be avoided.
+      SearchEntity maybeLatestVersion = linkedEntities.get(0);
+      if (maybeLatestVersion.getEntity().equals(linkedVersion)) {
+        SearchEntity priorLatestVersion = linkedEntities.get(1);
+        updatedLatestVersionUrn = priorLatestVersion.getEntity().toString();
+      } else {
+        updatedLatestVersionUrn = maybeLatestVersion.getEntity().toString();
+      }
+
+    } else if (linkedEntities.size() == 1 && isLatest) {
+      // Missing a version, if that version is not the one being unlinked then set as latest
+      // version. Same reasoning as above
+      SearchEntity maybePriorLatestVersion = linkedEntities.get(0);
+      if (!linkedVersion.equals(maybePriorLatestVersion.getEntity())) {
+        updatedLatestVersionUrn = maybePriorLatestVersion.getEntity().toString();
+      } else {
+        // Delete Version Set if we are removing the last version
+        entityService.deleteUrn(opContext, versionSetUrn);
+      }
+    }
+
+    if (updatedLatestVersionUrn != null) {
+
+      // Might want to refactor this to a Patch w/ Create if not exists logic if more properties
+      // get added
+      // to Version Set Properties
+      VersionSetProperties newVersionSetProperties =
+          new VersionSetProperties()
+              .setVersioningScheme(
+                  VersioningScheme
+                      .ALPHANUMERIC_GENERATED_BY_DATAHUB) // Only one available, will need to add
+              // to input properties once more are
+              // added.
+              .setLatest(UrnUtils.getUrn(updatedLatestVersionUrn));
+      MetadataChangeProposal versionSetPropertiesProposal = new MetadataChangeProposal();
+      versionSetPropertiesProposal.setEntityUrn(versionSetUrn);
+      versionSetPropertiesProposal.setEntityType(VERSION_SET_ENTITY_NAME);
+      versionSetPropertiesProposal.setAspectName(VERSION_SET_PROPERTIES_ASPECT_NAME);
+      versionSetPropertiesProposal.setAspect(
+          GenericRecordUtils.serializeAspect(newVersionSetProperties));
+      versionSetPropertiesProposal.setChangeType(ChangeType.UPSERT);
+      entityService.ingestProposal(
+          opContext,
+          AspectsBatchImpl.builder()
+              .mcps(
+                  ImmutableList.of(versionSetPropertiesProposal),
+                  opContext.getAuditStamp(),
+                  opContext.getRetrieverContext().get())
+              .build(),
+          false);
+    }
 
     return deletedAspects;
   }
