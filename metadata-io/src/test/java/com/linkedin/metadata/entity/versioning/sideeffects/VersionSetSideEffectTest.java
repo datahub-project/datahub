@@ -71,8 +71,14 @@ public class VersionSetSideEffectTest {
             .setVersionSet(TEST_VERSION_SET_URN)
             .setIsLatest(false)
             .setSortId("AAAAAAAA");
+    VersionProperties previousLatestProperties =
+        new VersionProperties()
+            .setVersionSet(TEST_VERSION_SET_URN)
+            .setIsLatest(true)
+            .setSortId("AAAAAAAB");
     Map<Urn, List<RecordTemplate>> data = new HashMap<>();
     data.put(NEW_LATEST_URN, Collections.singletonList(existingProperties));
+    data.put(PREVIOUS_LATEST_URN, Collections.singletonList(previousLatestProperties));
     mockAspectRetriever = new MockAspectRetriever(data);
     mockAspectRetriever.setEntityRegistry(TEST_REGISTRY);
 

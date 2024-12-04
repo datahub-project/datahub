@@ -21,6 +21,7 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
 import com.linkedin.metadata.entity.RollbackResult;
+import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.key.VersionSetKey;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
@@ -38,6 +39,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.util.TestEntityRegistry;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -259,6 +261,8 @@ public class EntityVersioningServiceTest {
             null,
             false,
             0);
+    RollbackRunResult rollbackRunResult =
+        new RollbackRunResult(new ArrayList<>(), 1, List.of(versionSetDeleteResult));
     RollbackResult versionPropsDeleteResult =
         new RollbackResult(
             TEST_DATASET_URN,
@@ -272,13 +276,8 @@ public class EntityVersioningServiceTest {
             false,
             0);
 
-    when(mockEntityService.deleteAspect(
-            eq(mockOpContext),
-            anyString(),
-            eq(VERSION_SET_PROPERTIES_ASPECT_NAME),
-            anyMap(),
-            eq(true)))
-        .thenReturn(Optional.of(versionSetDeleteResult));
+    when(mockEntityService.deleteUrn(eq(mockOpContext), eq(TEST_VERSION_SET_URN)))
+        .thenReturn(rollbackRunResult);
     when(mockEntityService.deleteAspect(
             eq(mockOpContext), anyString(), eq(VERSION_PROPERTIES_ASPECT_NAME), anyMap(), eq(true)))
         .thenReturn(Optional.of(versionPropsDeleteResult));
@@ -297,13 +296,7 @@ public class EntityVersioningServiceTest {
 
     // Verify
     assertEquals(results.size(), 2);
-    verify(mockEntityService)
-        .deleteAspect(
-            eq(mockOpContext),
-            eq(TEST_VERSION_SET_URN.toString()),
-            eq(VERSION_SET_PROPERTIES_ASPECT_NAME),
-            anyMap(),
-            eq(true));
+    verify(mockEntityService).deleteUrn(eq(mockOpContext), eq(TEST_VERSION_SET_URN));
     verify(mockEntityService)
         .deleteAspect(
             eq(mockOpContext),
