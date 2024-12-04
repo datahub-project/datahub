@@ -2,10 +2,11 @@ name: PR Comment
 
 on:
   pull_request:
-    types: [opened]
+    types: [opened, synchronize, edited]
 
 permissions:
   pull-requests: write
+  issues: write
 
 jobs:
   post-pr-opened-comment:

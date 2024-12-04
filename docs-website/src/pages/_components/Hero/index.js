@@ -6,10 +6,14 @@ import useBaseUrl from "@docusaurus/useBaseUrl";
 // import { useColorMode } from "@docusaurus/theme-common";
 import { HeartOutlined } from "@ant-design/icons";
 import styles from "./hero.module.scss";
+<<<<<<< HEAD
+import CodeBlock from "@theme/CodeBlock";
+=======
 import { animate, motion, useMotionValue, useTransform } from "framer-motion";
 // import CodeBlock from "@theme/CodeBlock";
 // import TownhallButton from "../TownhallButton";
 // import { Section } from "../Section";
+>>>>>>> upstream/master
 
 // const HeroAnnouncement = ({ message, linkUrl, linkText }) => (
 //   <div className={clsx("hero__alert alert alert--primary", styles.hero__alert)}>
@@ -87,8 +91,38 @@ const Hero = ({ onOpenTourModal }) => {
             <img src={useBaseUrl("/img/hero.png")} />
           </div>
         </div>
+<<<<<<< HEAD
+        <Image className="hero__image" img={require(`/img/diagrams/datahub-flow-diagram-${colorMode}.png`)} alt="DataHub Flow Diagram" />
+        <div className="quickstart__content">
+            <h1 className="quickstart__title">Start DataHub Now</h1>
+            <p className="quickstart__subtitle">Run the following command to get started with DataHub.</p>
+            <div className="quickstart__codeblock">
+              <CodeBlock className={"language-shell"}>
+                python3 -m pip install --upgrade pip wheel setuptools <br />
+                python3 -m pip install --upgrade acryl-datahub <br />
+                datahub docker quickstart
+              </CodeBlock>
+            </div>
+              <Link className="button button--primary button--md" to={useBaseUrl("docs/quickstart")}>
+              DataHub Quickstart Guide
+              </Link>
+              <Link className="button button--secondary button--outline button--md" to={useBaseUrl("docs/deploy/kubernetes")}>
+              Deploying With Kubernetes
+              </Link>
+        </div>
+        <div className={clsx("card", styles.quickLinks)}>
+          <div className={styles.quickLinksLabel}>
+            <QuestionCircleOutlined />
+            Learn
+          </div>
+          <Link to={useBaseUrl("docs/introduction")}>What is DataHub?</Link>
+          <Link to={useBaseUrl("docs/features")}>What can I do with DataHub?</Link>
+          <Link to={useBaseUrl("docs/architecture/architecture")}>How is DataHub architected?</Link>
+          <Link to="https://demo.datahubproject.io">See DataHub in action</Link>
+=======
         <div className="hero__content_footer">
           Built with&nbsp;<HeartOutlined />&nbsp;by&nbsp;<a href="https://acryldata.io" target="_blank">Acryl Data</a>&nbsp;and&nbsp;<a href="https://www.acryldata.io/press/founded-by-airbnb-and-linkedin-data-veterans-acryl-data-re-imagines-metadata-management-with-dollar9-million-in-seed-funding" target="_blank">LinkedIn</a>.
+>>>>>>> upstream/master
         </div>
       </div>
     </header>
