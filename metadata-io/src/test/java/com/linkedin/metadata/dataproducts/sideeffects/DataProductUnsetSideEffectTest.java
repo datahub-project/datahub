@@ -17,6 +17,7 @@ import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
@@ -47,13 +48,7 @@ import org.testng.annotations.Test;
 public class DataProductUnsetSideEffectTest {
   private static final EntityRegistry TEST_REGISTRY = new TestEntityRegistry();
   private static final List<ChangeType> SUPPORTED_CHANGE_TYPES =
-      List.of(
-          ChangeType.CREATE,
-          ChangeType.PATCH,
-          ChangeType.CREATE_ENTITY,
-          ChangeType.UPSERT,
-          ChangeType.DELETE,
-          ChangeType.RESTATE);
+      List.of(ChangeType.CREATE, ChangeType.CREATE_ENTITY, ChangeType.UPSERT, ChangeType.RESTATE);
   private static final Urn TEST_PRODUCT_URN =
       UrnUtils.getUrn("urn:li:dataProduct:someDataProductId");
 
@@ -356,6 +351,109 @@ public class DataProductUnsetSideEffectTest {
           op.getString("path"),
           String.format("/assets/urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_%d,PROD)", i));
     }
+  }
+
+  @Test
+  public void testUpsertWithPreviousAspect() {
+    DataProductUnsetSideEffect test = new DataProductUnsetSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+
+    // Case 1: UPSERT with new additions
+    DataProductProperties previousProperties = new DataProductProperties();
+    DataProductAssociationArray previousAssociations = new DataProductAssociationArray();
+    DataProductAssociation previousAssociation = new DataProductAssociation();
+    previousAssociation.setDestinationUrn(DATASET_URN_1);
+    previousAssociations.add(previousAssociation);
+    previousProperties.setAssets(previousAssociations);
+
+    // New properties include both old and new datasets
+    DataProductProperties newProperties = new DataProductProperties();
+    DataProductAssociationArray newAssociations = new DataProductAssociationArray();
+    DataProductAssociation association1 = new DataProductAssociation();
+    association1.setDestinationUrn(DATASET_URN_1);
+    DataProductAssociation association2 = new DataProductAssociation();
+    association2.setDestinationUrn(DATASET_URN_2);
+    newAssociations.add(association1);
+    newAssociations.add(association2);
+    newProperties.setAssets(newAssociations);
+
+    // Create change item with previous aspect
+    SystemAspect prevData = mock(SystemAspect.class);
+    when(prevData.getRecordTemplate()).thenReturn(previousProperties);
+
+    ChangeItemImpl dataProductPropertiesChangeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_PRODUCT_URN)
+            .aspectName(DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATA_PRODUCT_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY
+                    .getEntitySpec(DATA_PRODUCT_ENTITY_NAME)
+                    .getAspectSpec(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))
+            .recordTemplate(newProperties)
+            .previousSystemAspect(prevData)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    List<MCPItem> testOutput =
+        test.postMCPSideEffect(
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(
+                            dataProductPropertiesChangeItem,
+                            null,
+                            null,
+                            retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .toList();
+
+    // Verify that only one patch is generated for the new dataset
+    assertEquals(
+        testOutput.size(), 1, "Expected removal of previous data product for new dataset only");
+    MCPItem patchItem = testOutput.get(0);
+    assertEquals(
+        patchItem.getUrn(), TEST_PRODUCT_URN_2, "Patch should target the old data product");
+    GenericJsonPatch.PatchOp expectedPatchOp = new GenericJsonPatch.PatchOp();
+    expectedPatchOp.setOp(PatchOperationType.REMOVE.getValue());
+    expectedPatchOp.setPath(String.format("/assets/%s", DATASET_URN_2));
+
+    // Case 2: UPSERT with no new additions
+    DataProductProperties sameProperties = new DataProductProperties();
+    DataProductAssociationArray sameAssociations = new DataProductAssociationArray();
+    DataProductAssociation sameAssociation = new DataProductAssociation();
+    sameAssociation.setDestinationUrn(DATASET_URN_1);
+    sameAssociations.add(sameAssociation);
+    sameProperties.setAssets(sameAssociations);
+
+    SystemAspect prevSameData = mock(SystemAspect.class);
+    when(prevData.getRecordTemplate()).thenReturn(sameProperties);
+
+    ChangeItemImpl noChangeItem =
+        ChangeItemImpl.builder()
+            .urn(TEST_PRODUCT_URN)
+            .aspectName(DATA_PRODUCT_PROPERTIES_ASPECT_NAME)
+            .changeType(ChangeType.UPSERT)
+            .entitySpec(TEST_REGISTRY.getEntitySpec(DATA_PRODUCT_ENTITY_NAME))
+            .aspectSpec(
+                TEST_REGISTRY
+                    .getEntitySpec(DATA_PRODUCT_ENTITY_NAME)
+                    .getAspectSpec(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))
+            .recordTemplate(sameProperties)
+            .previousSystemAspect(prevSameData)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(mockAspectRetriever);
+
+    List<MCPItem> noChangeOutput =
+        test.postMCPSideEffect(
+                List.of(
+                    MCLItemImpl.builder()
+                        .build(noChangeItem, null, null, retrieverContext.getAspectRetriever())),
+                retrieverContext)
+            .toList();
+
+    // Verify no patches are generated when there are no new additions
+    assertEquals(noChangeOutput.size(), 0, "Expected no changes when assets are the same");
   }
 
   private static DataProductProperties getTestDataProductProperties(Urn destinationUrn) {

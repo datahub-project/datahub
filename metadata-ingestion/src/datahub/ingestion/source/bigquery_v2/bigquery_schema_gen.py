@@ -598,18 +598,6 @@ class BigQuerySchemaGenerator:
                     dataset_name=dataset_name,
                 )
 
-    # This method is used to generate the ignore list for datatypes the profiler doesn't support we have to do it here
-    # because the profiler doesn't have access to columns
-    def generate_profile_ignore_list(self, columns: List[BigqueryColumn]) -> List[str]:
-        ignore_list: List[str] = []
-        for column in columns:
-            if not column.data_type or any(
-                word in column.data_type.lower()
-                for word in ["array", "struct", "geography", "json"]
-            ):
-                ignore_list.append(column.field_path)
-        return ignore_list
-
     def _process_table(
         self,
         table: BigqueryTable,
@@ -630,15 +618,6 @@ class BigQuerySchemaGenerator:
                 str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
             )
         table.column_count = len(columns)
-
-        # We only collect profile ignore list if profiling is enabled and profile_table_level_only is false
-        if (
-            self.config.is_profiling_enabled()
-            and not self.config.profiling.profile_table_level_only
-        ):
-            table.columns_ignore_from_profiling = self.generate_profile_ignore_list(
-                columns
-            )
 
         if not table.column_count:
             logger.warning(

@@ -114,11 +114,11 @@ class DataProcessCleanupConfig(ConfigModel):
     )
 
     delete_empty_data_jobs: bool = Field(
-        True, description="Wether to delete Data Jobs without runs"
+        False, description="Whether to delete Data Jobs without runs"
     )
 
     delete_empty_data_flows: bool = Field(
-        True, description="Wether to delete Data Flows without runs"
+        False, description="Whether to delete Data Flows without runs"
     )
 
     hard_delete_entities: bool = Field(
@@ -128,7 +128,7 @@ class DataProcessCleanupConfig(ConfigModel):
 
     batch_size: int = Field(
         500,
-        description="The number of entities to get in a batch from GraphQL",
+        description="The number of entities to get in a batch from API",
     )
 
     max_workers: int = Field(
@@ -173,9 +173,9 @@ class DataProcessCleanup:
     """
     This source is a maintenance source which cleans up old/unused aspects.
 
-    Currently it only supports:.
+    Currently it only supports:
         - DataFlow
-        -DataJob
+        - DataJob
         - DataProcessInstance
 
     """
@@ -267,7 +267,7 @@ class DataProcessCleanup:
 
         if self.dry_run:
             logger.info(
-                f"Dry run is on otherwise it would have deleted {urn} with hard deletion is{self.config.hard_delete_entities}"
+                f"Dry run is on otherwise it would have deleted {urn} with hard deletion is {self.config.hard_delete_entities}"
             )
             return
 
@@ -277,7 +277,12 @@ class DataProcessCleanup:
         assert self.ctx.graph
 
         dpis = self.fetch_dpis(job.urn, self.config.batch_size)
-        dpis.sort(key=lambda x: x["created"]["time"], reverse=True)
+        dpis.sort(
+            key=lambda x: x["created"]["time"]
+            if x["created"] and x["created"]["time"]
+            else 0,
+            reverse=True,
+        )
 
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
             if self.config.keep_last_n:
@@ -404,7 +409,9 @@ class DataProcessCleanup:
                     try:
                         self.delete_dpi_from_datajobs(datajob_entity)
                     except Exception as e:
-                        logger.error(f"While trying to delete {datajob_entity} got {e}")
+                        self.report.failure(
+                            f"While trying to delete {datajob_entity} ", exc=e
+                        )
                 if (
                     datajob_entity.total_runs == 0
                     and self.config.delete_empty_data_jobs
