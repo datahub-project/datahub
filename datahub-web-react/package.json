@@ -123,11 +123,8 @@
     },
     "lint-staged": {
         "*/**/*.{js,jsx,ts,tsx,json}": [
-            "yarn lint-fix",
-            "yarn format"
-        ],
-        "*/**/*.{ts,tsx}": [
-            "yarn tsc-files --noEmit --pretty"
+            "prettier --write",
+            "eslint --quiet --fix"
         ]
     },
     "browserslist": {
