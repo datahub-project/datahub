@@ -145,10 +145,10 @@ export class DashboardEntity implements Entity<Dashboard> {
                     display: {
                         visible: (_, dashboard: GetDashboardQuery) =>
                             !!dashboard?.dashboard?.embed?.renderUrl &&
-                            dashboard?.dashboard?.platform.urn === LOOKER_URN,
+                            dashboard?.dashboard?.platform?.urn === LOOKER_URN,
                         enabled: (_, dashboard: GetDashboardQuery) =>
                             !!dashboard?.dashboard?.embed?.renderUrl &&
-                            dashboard?.dashboard?.platform.urn === LOOKER_URN,
+                            dashboard?.dashboard?.platform?.urn === LOOKER_URN,
                     },
                 },
                 {
@@ -166,7 +166,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                     name: 'Incidents',
                     component: IncidentTab,
                     getDynamicName: (_, dashboard) => {
-                        const activeIncidentCount = dashboard?.dashboard?.activeIncidents.total;
+                        const activeIncidentCount = dashboard?.dashboard?.activeIncidents?.total;
                         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },

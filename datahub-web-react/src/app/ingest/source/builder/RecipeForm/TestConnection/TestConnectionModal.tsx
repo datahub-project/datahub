@@ -158,9 +158,9 @@ function TestConnectionModal({
                     {testConnectionResult?.basic_connectivity && (
                         <ConnectionCapabilityView
                             capability="Basic Connectivity"
-                            displayMessage={testConnectionResult?.basic_connectivity.failure_reason}
-                            success={testConnectionResult?.basic_connectivity.capable}
-                            tooltipMessage={testConnectionResult?.basic_connectivity.mitigation_message}
+                            displayMessage={testConnectionResult?.basic_connectivity?.failure_reason}
+                            success={testConnectionResult?.basic_connectivity?.capable}
+                            tooltipMessage={testConnectionResult?.basic_connectivity?.mitigation_message}
                             number={1}
                         />
                     )}

@@ -136,9 +136,9 @@ export class ChartEntity implements Entity<Chart> {
                     component: EmbedTab,
                     display: {
                         visible: (_, chart: GetChartQuery) =>
-                            !!chart?.chart?.embed?.renderUrl && chart?.chart?.platform.urn === LOOKER_URN,
+                            !!chart?.chart?.embed?.renderUrl && chart?.chart?.platform?.urn === LOOKER_URN,
                         enabled: (_, chart: GetChartQuery) =>
-                            !!chart?.chart?.embed?.renderUrl && chart?.chart?.platform.urn === LOOKER_URN,
+                            !!chart?.chart?.embed?.renderUrl && chart?.chart?.platform?.urn === LOOKER_URN,
                     },
                 },
                 {
@@ -164,7 +164,7 @@ export class ChartEntity implements Entity<Chart> {
                     name: 'Incidents',
                     component: IncidentTab,
                     getDynamicName: (_, chart) => {
-                        const activeIncidentCount = chart?.chart?.activeIncidents.total;
+                        const activeIncidentCount = chart?.chart?.activeIncidents?.total;
                         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },

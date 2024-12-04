@@ -188,7 +188,7 @@ export default function SchemaTable({
     function getCount(fieldPath: any) {
         const data: any =
             usageStats?.aggregations?.fields &&
-            usageStats?.aggregations?.fields.find((field) => {
+            usageStats?.aggregations?.fields?.find((field) => {
                 return field?.fieldName === fieldPath;
             });
         return data && data.count;
