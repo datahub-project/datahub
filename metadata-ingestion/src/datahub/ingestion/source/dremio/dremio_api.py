@@ -685,25 +685,52 @@ class DremioAPIOperations:
         if re.search(f"^{pattern}$", full_path, re.IGNORECASE):
             return True
 
-        # Handle prefix matches (patterns ending with .*)
-        if pattern.endswith(".*"):
-            base_pattern = pattern[:-2]  # Remove .*
-            for path in paths:
-                if re.search(f"^{base_pattern}$", path, re.IGNORECASE):
-                    return True
+            # Handle patterns that use .* as a wildcard
+        if ".*" in pattern:
+            # Split pattern into parts before applying regex
+            pattern_parts = pattern.split(".*")
 
-        # Handle suffix matches (patterns starting with .*)
-        elif pattern.startswith(".*"):
-            end_pattern = pattern[2:]  # Remove .*
-            for path in reversed(paths):  # Check from longest to shortest
-                if re.search(f"^{end_pattern}$", path, re.IGNORECASE):
-                    return True
+            # If pattern starts with .*, first part will be empty
+            if pattern.startswith(".*"):
+                pattern_parts = pattern_parts[1:]
 
-        # Handle middle wildcards (patterns containing .*)
-        elif ".*" in pattern:
+            # If pattern ends with .*, last part will be empty
+            if pattern.endswith(".*"):
+                pattern_parts = pattern_parts[:-1]
+
+            # For a path to match:
+            # 1. If we have just a prefix (e.g. 'a.*'), the path must start with it
+            # 2. If we have just a suffix (e.g. '*.b'), the path must end with it
+            # 3. If we have both, the path must contain all parts in order
+
             for path in paths:
-                if re.search(f"^{pattern}$", path, re.IGNORECASE):
-                    return True
+                # For prefix matches (e.g. landingZone.*)
+                if len(pattern_parts) == 1 and pattern.endswith(".*"):
+                    if path.startswith(pattern_parts[0]):
+                        return True
+
+                # For suffix matches (e.g. *.ECommerce)
+                elif len(pattern_parts) == 1 and pattern.startswith(".*"):
+                    if path.endswith(pattern_parts[0]):
+                        return True
+
+                # For patterns with wildcards in the middle
+                else:
+                    current_pos = 0
+                    matches = True
+
+                    for part in pattern_parts:
+                        if not part:  # Skip empty parts from consecutive .*
+                            continue
+
+                        pos = path.find(part, current_pos)
+                        if pos == -1:
+                            matches = False
+                            break
+                        current_pos = pos + len(part)
+
+                    if matches:
+                        return True
 
         return False
 
