@@ -199,7 +199,7 @@ public class DataJobInputOutputPatchBuilder
   /**
    * Removes a field as a fine grained upstream
    *
-   * @param upstreamSchemaFieldUrn a schema field to be marked as upstream, format:
+   * @param upstreamSchemaField a schema field to be marked as upstream, format:
    *     urn:li:schemaField(DATASET_URN, COLUMN NAME)
    * @param transformationOperation string operation type that describes the transformation
    *     operation happening in the lineage edge
@@ -209,7 +209,7 @@ public class DataJobInputOutputPatchBuilder
    * @return this builder
    */
   public DataJobInputOutputPatchBuilder removeFineGrainedUpstreamField(
-      @Nonnull Urn upstreamSchemaFieldUrn,
+      @Nonnull Urn upstreamSchemaField,
       @Nonnull String transformationOperation,
       @Nonnull Urn downstreamSchemaField,
       @Nullable Urn queryUrn) {
@@ -226,11 +226,11 @@ public class DataJobInputOutputPatchBuilder
             FINE_GRAINED_PATH_START
                 + transformationOperation
                 + "/"
-                + downstreamSchemaField
+                + encodeValueUrn(downstreamSchemaField)
                 + "/"
                 + finalQueryUrn
                 + "/"
-                + encodeValueUrn(upstreamSchemaFieldUrn),
+                + encodeValueUrn(upstreamSchemaField),
             null));
 
     return this;
