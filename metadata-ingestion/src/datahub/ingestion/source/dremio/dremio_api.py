@@ -685,6 +685,9 @@ class DremioAPIOperations:
         Handles hierarchical matching where each level is matched independently.
         Also handles prefix matching for partial paths.
         """
+        if pattern == ".*":
+            return True
+
         pattern_parts = re.split(r"\.|\\.", pattern)
 
         for path in paths:
