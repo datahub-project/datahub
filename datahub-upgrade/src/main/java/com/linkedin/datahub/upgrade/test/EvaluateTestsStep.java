@@ -9,6 +9,8 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.AcrylConstants;
 import com.linkedin.metadata.entity.AspectUtils;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
@@ -51,7 +53,7 @@ import lombok.extern.slf4j.Slf4j;
 public class EvaluateTestsStep implements UpgradeStep {
 
   private static final String ELASTIC_TIMEOUT =
-      System.getenv().getOrDefault(EvaluateTests.ELASTIC_TIMEOUT_ENV_NAME, "5m");
+      System.getenv().getOrDefault(EvaluateTests.ELASTIC_TIMEOUT_ENV_NAME, "15m");
 
   private final OperationContext systemOpContext;
   private final EntityClient entityClient;
@@ -145,7 +147,7 @@ public class EvaluateTestsStep implements UpgradeStep {
                     systemOpContext,
                     Collections.singletonList(entityType),
                     null,
-                    null,
+                    List.of(new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING)),
                     batchSize,
                     nextScrollId,
                     ELASTIC_TIMEOUT,

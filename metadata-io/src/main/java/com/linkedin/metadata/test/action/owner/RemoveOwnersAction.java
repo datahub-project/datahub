@@ -7,12 +7,13 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.service.OwnerServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
-import com.linkedin.metadata.test.action.api.ValuesAction;
+import com.linkedin.metadata.test.action.api.UrnValuesAction;
 import com.linkedin.metadata.test.definition.ActionType;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
@@ -20,7 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
-public class RemoveOwnersAction extends ValuesAction {
+public class RemoveOwnersAction extends UrnValuesAction {
 
   private final OwnerServiceAsync ownerService;
 
@@ -40,6 +41,11 @@ public class RemoveOwnersAction extends ValuesAction {
     for (Map.Entry<String, List<Urn>> entityTypeToUrns : entityTypesToUrns.entrySet()) {
       applyInternal(opContext, ownerUrns, entityTypeToUrns.getValue());
     }
+  }
+
+  @Override
+  protected Set<String> validValueEntityTypes() {
+    return Set.of(CORP_USER_ENTITY_NAME, CORP_GROUP_ENTITY_NAME);
   }
 
   private void applyInternal(

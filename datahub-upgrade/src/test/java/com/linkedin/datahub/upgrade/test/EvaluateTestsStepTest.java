@@ -15,6 +15,8 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeReport;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
@@ -42,13 +44,16 @@ import org.testng.annotations.Test;
 @ActiveProfiles("test")
 @SpringBootTest(
     args = {"-u", "EvaluateTests"},
-    classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class})
+    classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
+    properties = {"metadataTests.cacheRefreshIntervalSecs=0"})
 public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
   private static final Urn DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)");
   private static final Urn CHART_URN1 = UrnUtils.getUrn("urn:li:chart:(looker,SampleChartOne)");
   private static final Urn CHART_URN2 = UrnUtils.getUrn("urn:li:chart:(looker,SampleChartTwo)");
   private static final String SCROLL_ID = "test123";
+  private static final List<SortCriterion> DEFAULT_SORT =
+      List.of(new SortCriterion().setField("urn").setOrder(SortOrder.ASCENDING));
 
   @Autowired private TestEngine testEngine;
 
@@ -157,7 +162,7 @@ public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
                 Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.DATASET_ENTITY_NAME)),
                 Mockito.eq(null),
-                Mockito.eq(null),
+                Mockito.eq(DEFAULT_SORT),
                 Mockito.eq(1),
                 Mockito.eq(null),
                 Mockito.eq(ELASTIC_TIMEOUT),
@@ -177,7 +182,7 @@ public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
                 Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.CHART_ENTITY_NAME)),
                 Mockito.eq(null),
-                Mockito.eq(null),
+                Mockito.eq(DEFAULT_SORT),
                 Mockito.eq(1),
                 Mockito.eq(null),
                 Mockito.eq(ELASTIC_TIMEOUT),
@@ -197,7 +202,7 @@ public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
                 Mockito.any(),
                 Mockito.eq(Collections.singletonList(Constants.CHART_ENTITY_NAME)),
                 Mockito.eq(null),
-                Mockito.eq(null),
+                Mockito.eq(DEFAULT_SORT),
                 Mockito.eq(1),
                 Mockito.eq(SCROLL_ID),
                 Mockito.eq(ELASTIC_TIMEOUT),

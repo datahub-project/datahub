@@ -18,7 +18,7 @@ public class PropagateTerms implements Upgrade {
 
   public static final String ELASTIC_TIMEOUT_ENV_NAME = "PROPAGATE_TERMS_ELASTIC_TIMEOUT";
   public static final String ELASTIC_TIMEOUT =
-      System.getenv().getOrDefault(ELASTIC_TIMEOUT_ENV_NAME, "5m");
+      System.getenv().getOrDefault(ELASTIC_TIMEOUT_ENV_NAME, "15m");
 
   private final List<UpgradeStep> _steps;
   private final OperationContext systemOpContext;

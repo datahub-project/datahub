@@ -1,21 +1,23 @@
 package com.linkedin.metadata.test.action.domain;
 
+import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
 import static com.linkedin.metadata.test.action.ActionUtils.getEntityTypeToUrns;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.service.DomainServiceAsync;
 import com.linkedin.metadata.test.action.ActionParameters;
-import com.linkedin.metadata.test.action.api.ValuesAction;
+import com.linkedin.metadata.test.action.api.UrnValuesAction;
 import com.linkedin.metadata.test.exception.InvalidOperandException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
-public abstract class DomainAbstractAction extends ValuesAction {
+public abstract class DomainAbstractAction extends UrnValuesAction {
 
   protected final DomainServiceAsync domainService;
 
@@ -33,6 +35,11 @@ public abstract class DomainAbstractAction extends ValuesAction {
       }
       applyInternal(opContext, domainUrn, entityUrns);
     }
+  }
+
+  @Override
+  protected Set<String> validValueEntityTypes() {
+    return Set.of(DOMAIN_ENTITY_NAME);
   }
 
   abstract void applyInternal(@Nonnull OperationContext opContext, Urn domainUrn, List<Urn> urns);
