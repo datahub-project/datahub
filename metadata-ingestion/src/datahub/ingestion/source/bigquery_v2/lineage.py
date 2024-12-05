@@ -934,7 +934,6 @@ class BigqueryLineageExtractor:
         ddl: Optional[str],
         graph: Optional[DataHubGraph] = None,
     ) -> Iterable[MetadataWorkUnit]:
-
         if not ddl:
             return
 
@@ -972,7 +971,6 @@ class BigqueryLineageExtractor:
         source_uris: List[str],
         graph: Optional[DataHubGraph] = None,
     ) -> Optional[UpstreamLineageClass]:
-
         upstreams_list: List[UpstreamClass] = []
         fine_grained_lineages: List[FineGrainedLineageClass] = []
         gcs_urns: Set[str] = set()

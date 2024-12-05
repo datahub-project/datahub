@@ -958,7 +958,6 @@ def test_table_lineage_via_temp_table_disordered_add(
 
 @freeze_time(FROZEN_TIME)
 def test_basic_usage(pytestconfig: pytest.Config) -> None:
-
     frozen_timestamp = parse_user_datetime(FROZEN_TIME)
     aggregator = SqlParsingAggregator(
         platform="redshift",

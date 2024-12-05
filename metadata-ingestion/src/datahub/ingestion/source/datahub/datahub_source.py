@@ -107,7 +107,6 @@ class DataHubSource(StatefulIngestionSourceBase):
         logger.info(f"Fetching database aspects starting from {from_createdon}")
         mcps = reader.get_aspects(from_createdon, self.report.stop_time)
         for i, (mcp, createdon) in enumerate(mcps):
-
             if not self.urn_pattern.allowed(str(mcp.entityUrn)):
                 continue
 

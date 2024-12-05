@@ -121,7 +121,6 @@ class DremioSourceConfig(
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 ):
-
     domain: Optional[str] = Field(
         default=None,
         description="Domain for all source objects.",
@@ -174,4 +173,9 @@ class DremioSourceConfig(
     include_query_lineage: bool = Field(
         default=False,
         description="Whether to include query-based lineage information.",
+    )
+
+    ingest_owner: bool = Field(
+        default=True,
+        description="Ingest Owner from source. This will override Owner info entered from UI",
     )

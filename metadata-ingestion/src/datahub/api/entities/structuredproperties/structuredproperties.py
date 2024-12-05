@@ -121,7 +121,7 @@ class StructuredProperties(ConfigModel):
         return (
             self.qualified_name
             or self.id
-            or Urn.create_from_string(self.urn).get_entity_id()[0]
+            or Urn.from_string(self.urn).get_entity_id()[0]
         )
 
     @validator("urn", pre=True, always=True)
@@ -190,7 +190,6 @@ class StructuredProperties(ConfigModel):
 
     @classmethod
     def from_datahub(cls, graph: DataHubGraph, urn: str) -> "StructuredProperties":
-
         with StructuredPropertiesConfig.use_graph(graph):
             structured_property: Optional[
                 StructuredPropertyDefinitionClass

@@ -56,7 +56,6 @@ schema_test_cases: Dict[str, Tuple[str, List[str]]] = {
 def test_cassandra_schema_conversion(
     schema: str, expected_field_paths: List[str]
 ) -> None:
-
     schema_dict: Dict[str, List[Any]] = json.loads(schema)
     column_infos: List = schema_dict["column_infos"]
 

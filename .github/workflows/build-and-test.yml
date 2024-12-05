@@ -83,6 +83,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v3
       - name: Gradle build (and test) for NOT metadata ingestion
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
+        # datahub-schematron:cli excluded due to dependency on metadata-ingestion
         run: |
           ./gradlew build \
             -x :metadata-ingestion:build \
@@ -100,6 +101,7 @@ jobs:
             -x :metadata-ingestion-modules:gx-plugin:check \
             -x :datahub-frontend:build \
             -x :datahub-web-react:build \
+            -x :metadata-integration:java:datahub-schematron:cli:test \
             --parallel
       - name: Gradle build (and test) for frontend
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}

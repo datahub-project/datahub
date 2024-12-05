@@ -95,7 +95,6 @@ class GEProfilingBaseConfig(ConfigModel):
 
 
 class GEProfilingConfig(GEProfilingBaseConfig):
-
     report_dropped_profiles: bool = Field(
         default=False,
         description="Whether to report datasets or dataset columns which were not profiled. Set to `True` for debugging purposes.",
@@ -126,12 +125,16 @@ class GEProfilingConfig(GEProfilingBaseConfig):
 
     profile_table_size_limit: Optional[int] = Field(
         default=5,
-        description="Profile tables only if their size is less then specified GBs. If set to `null`, no limit on the size of tables to profile. Supported only in `snowflake` and `BigQuery`",
+        description="Profile tables only if their size is less than specified GBs. If set to `null`, "
+        "no limit on the size of tables to profile. Supported only in `snowflake` and `BigQuery`"
+        "Supported for `oracle` based on calculated size from gathered stats.",
     )
 
     profile_table_row_limit: Optional[int] = Field(
         default=5000000,
-        description="Profile tables only if their row count is less then specified count. If set to `null`, no limit on the row count of tables to profile. Supported only in `snowflake` and `BigQuery`",
+        description="Profile tables only if their row count is less than specified count. If set to `null`, "
+        "no limit on the row count of tables to profile. Supported only in `snowflake` and `BigQuery`"
+        "Supported for `oracle` based on gathered stats.",
     )
 
     profile_table_row_count_estimate_only: bool = Field(
@@ -183,6 +186,11 @@ class GEProfilingConfig(GEProfilingBaseConfig):
             "Fixed list of tags to ignore sampling."
             " If not specified, tables will be sampled based on `use_sampling`."
         ),
+    )
+
+    profile_nested_fields: bool = Field(
+        default=False,
+        description="Whether to profile complex types like structs, arrays and maps. ",
     )
 
     @pydantic.root_validator(pre=True)
