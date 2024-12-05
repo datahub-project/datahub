@@ -2151,7 +2151,7 @@ class TableauSiteSource:
                 f"Failed to extract table lineage from datasource {datasource_urn}: {parsed_result.debug_info.table_error}"
             )
             self.report.num_upstream_table_lineage_failed_parse_sql += 1
-        if parsed_result.debug_info.column_error:
+        elif parsed_result.debug_info.column_error:
             logger.warning(
                 f"Failed to extract column level lineage from datasource {datasource_urn}: {parsed_result.debug_info.column_error}"
             )
