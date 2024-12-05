@@ -220,7 +220,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
         self.session = self.login()
         # Default to postgres field type mappings
-        self.superset_field_type_mappings = resolve_sql_type(platform="postgres")
 
     def login(self) -> requests.Session:
         login_response = requests.post(
@@ -295,15 +294,10 @@ class SupersetSource(StatefulIngestionSourceBase):
         else:
             platform_name = get_platform_from_sqlalchemy_uri(sqlalchemy_uri)
         if platform_name == "awsathena":
-            self.superset_field_type_mappings = resolve_sql_type(platform="athena")
             return "athena"
         if platform_name == "clickhousedb":
-            self.superset_field_type_mappings = resolve_sql_type(
-                platform="clickhousedb"
-            )
             return "clickhouse"
         if platform_name == "postgresql":
-            self.superset_field_type_mappings = resolve_sql_type(platform="postgres")
             return "postgres"
         return platform_name
 
@@ -435,6 +429,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     f"Failed to construct dashboard snapshot. Dashboard name: {dashboard_data.get('dashboard_title')}. Error: \n{e}"
                 )
                 continue
+            # Emit the dashboard
             mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
             yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
             yield from self._get_domain_wu(
@@ -528,28 +523,29 @@ class SupersetSource(StatefulIngestionSourceBase):
                 chart_snapshot = self.construct_chart_from_chart_data(chart_data)
 
                 mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-                yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
-                yield from self._get_domain_wu(
-                    title=chart_data.get("slice_name", ""),
-                    entity_urn=chart_snapshot.urn,
-                )
             except Exception as e:
                 self.report.warning(
                     f"Failed to construct chart snapshot. Chart name: {chart_data.get('table_name')}. Error: \n{e}"
                 )
                 continue
+            # Emit the chart
+            yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
+            yield from self._get_domain_wu(
+                title=chart_data.get("slice_name", ""),
+                entity_urn=chart_snapshot.urn,
+            )
 
     def gen_schema_fields(self, column_data: List[Dict[str, str]]) -> List[SchemaField]:
         schema_fields: List[SchemaField] = []
         for col in column_data:
             col_type = (col.get("type") or "").lower()
-            if self.superset_field_type_mappings is not None:
-                data_type = self.superset_field_type_mappings.get(col_type, NullType())
-            else:
+            data_type = resolve_sql_type(col_type)
+            if data_type is None:
                 data_type = NullType()
+
             field = SchemaField(
                 fieldPath=col.get("column_name", ""),
-                type=SchemaFieldDataType(data_type()),
+                type=SchemaFieldDataType(data_type),
                 nativeDataType="",
                 description=col.get("column_name", ""),
                 nullable=True,
@@ -624,16 +620,17 @@ class SupersetSource(StatefulIngestionSourceBase):
                     dataset_data
                 )
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-                yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
-                yield from self._get_domain_wu(
-                    title=dataset_data.get("table_name", ""),
-                    entity_urn=dataset_snapshot.urn,
-                )
             except Exception as e:
                 self.report.warning(
                     f"Failed to construct dataset snapshot. Dataset name: {dataset_data.get('table_name')}. Error: \n{e}"
                 )
                 continue
+            # Emit the dataset
+            yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+            yield from self._get_domain_wu(
+                title=dataset_data.get("table_name", ""),
+                entity_urn=dataset_snapshot.urn,
+            )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         if self.config.ingest_dashboards:
