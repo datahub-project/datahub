@@ -710,7 +710,7 @@ class DremioAPIOperations:
                 pattern_part = pattern_parts[pattern_idx]
 
                 # Handle wildcards
-                if pattern_part == '*' or pattern_part == '.*':
+                if pattern_part == "*" or pattern_part == ".*":
                     # If this is the last pattern part, it's a match
                     if pattern_idx == len(pattern_parts) - 1:
                         break
@@ -719,7 +719,7 @@ class DremioAPIOperations:
                     next_pattern_part = None
                     next_pattern_idx = pattern_idx + 1
                     while next_pattern_idx < len(pattern_parts):
-                        if pattern_parts[next_pattern_idx] not in ('*', '.*'):
+                        if pattern_parts[next_pattern_idx] not in ("*", ".*"):
                             next_pattern_part = pattern_parts[next_pattern_idx]
                             break
                         next_pattern_idx += 1
@@ -731,7 +731,11 @@ class DremioAPIOperations:
                     # Try to find the next matching part in the path
                     found = False
                     while path_idx < len(path_parts):
-                        if re.search(f"^{next_pattern_part}$", path_parts[path_idx], re.IGNORECASE):
+                        if re.search(
+                            f"^{next_pattern_part}$",
+                            path_parts[path_idx],
+                            re.IGNORECASE,
+                        ):
                             pattern_idx = next_pattern_idx
                             found = True
                             break
@@ -742,7 +746,11 @@ class DremioAPIOperations:
                         break
                 else:
                     # Regular (non-wildcard) matching
-                    if not re.search(f"^{pattern_part}$", path_parts[path_idx], re.IGNORECASE):
+                    if not re.search(
+                        f"^{pattern_part}$",
+                        path_parts[path_idx],
+                        re.IGNORECASE,
+                    ):
                         matches = False
                         break
                     pattern_idx += 1
@@ -750,11 +758,12 @@ class DremioAPIOperations:
 
             # Check if we matched all non-wildcard pattern parts
             if matches:
-                remaining_non_wildcards = sum(1 for p in pattern_parts[pattern_idx:]
-                                            if p != '*' and p != '.*')
+                remaining_non_wildcards = sum(
+                    1 for p in pattern_parts[pattern_idx:] if p != '*' and p != '.*'
+                )
                 if remaining_non_wildcards == 0:
                     return True
-    
+                
         return False
 
     def _check_allow_patterns(
