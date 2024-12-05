@@ -79,7 +79,7 @@ When creating a Question, use a clear and concise Title that is easy for Assigne
 
 <p align="center">
   <img
-       width="90%"  
+       width="50%"  
        src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/compliance_forms/management/create-compliance-form-prompt.png"
        alt="Create a new Compliance Form prompt"/>
 </p>
