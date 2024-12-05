@@ -425,22 +425,21 @@ class RedashSource(Source):
             # Getting table lineage from SQL parsing
             if self.parse_table_names_from_sql and data_source_syntax == "sql":
                 dataset_urns = list()
-                try:
-                    sql_parser_in_tables = create_lineage_sql_parsed_result(
-                        query=query,
-                        platform=platform,
-                        env=self.config.env,
-                        platform_instance=None,
-                        default_db=database_name,
-                    )
-                    # make sure dataset_urns is not empty list
-                    dataset_urns = sql_parser_in_tables.in_tables
-                except Exception as e:
+                sql_parser_in_tables = create_lineage_sql_parsed_result(
+                    query=query,
+                    platform=platform,
+                    env=self.config.env,
+                    platform_instance=None,
+                    default_db=database_name,
+                )
+                # make sure dataset_urns is not empty list
+                dataset_urns = sql_parser_in_tables.in_tables
+                if sql_parser_in_tables.debug_info.table_error:
                     self.report.queries_problem_parsing.add(str(query_id))
                     self.error(
                         logger,
                         "sql-parsing",
-                        f"exception {e} in parsing query-{query_id}-datasource-{data_source_id}",
+                        f"exception {sql_parser_in_tables.debug_info.table_error} in parsing query-{query_id}-datasource-{data_source_id}",
                     )
 
                 return dataset_urns if len(dataset_urns) > 0 else None

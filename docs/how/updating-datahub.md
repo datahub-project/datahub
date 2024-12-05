@@ -19,19 +19,21 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ## Next
 
 - #11560 - The PowerBI ingestion source configuration option include_workspace_name_in_dataset_urn determines whether the workspace name is included in the PowerBI dataset's URN.<br/> PowerBI allows to have identical name of semantic model and their tables across the workspace, It will overwrite the semantic model in-case of multi-workspace ingestion.<br/>
-   Entity urn with `include_workspace_name_in_dataset_urn: false`
-   ```
-    urn:li:dataset:(urn:li:dataPlatform:powerbi,[<PlatformInstance>.]<SemanticModelName>.<TableName>,<ENV>)
-   ```
+  Entity urn with `include_workspace_name_in_dataset_urn: false`
 
-   Entity urn with `include_workspace_name_in_dataset_urn: true`
-   ```
-    urn:li:dataset:(urn:li:dataPlatform:powerbi,[<PlatformInstance>.].<WorkspaceName>.<SemanticModelName>.<TableName>,<ENV>)
-   ```
+  ```
+   urn:li:dataset:(urn:li:dataPlatform:powerbi,[<PlatformInstance>.]<SemanticModelName>.<TableName>,<ENV>)
+  ```
+
+  Entity urn with `include_workspace_name_in_dataset_urn: true`
+
+  ```
+   urn:li:dataset:(urn:li:dataPlatform:powerbi,[<PlatformInstance>.].<WorkspaceName>.<SemanticModelName>.<TableName>,<ENV>)
+  ```
 
   The config `include_workspace_name_in_dataset_urn` is default to `false` for backward compatiblity, However, we recommend enabling this flag after performing the necessary cleanup.
   If stateful ingestion is enabled, running ingestion with the latest CLI version will handle the cleanup automatically. Otherwise, we recommend soft deleting all powerbi data via the DataHub CLI:
-     `datahub delete --platform powerbi --soft` and then re-ingest with the latest CLI version, ensuring the `include_workspace_name_in_dataset_urn` configuration is set to true.
+  `datahub delete --platform powerbi --soft` and then re-ingest with the latest CLI version, ensuring the `include_workspace_name_in_dataset_urn` configuration is set to true.
 
 - #11701: The Fivetran `sources_to_database` field is deprecated in favor of setting directly within `sources_to_platform_instance.<key>.database`.
 - #11742: For PowerBi ingestion, `use_powerbi_email` is now enabled by default when extracting ownership information.
@@ -46,7 +48,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #11619 - schema field/column paths can no longer be duplicated within the schema
 - #11570 - The `DatahubClientConfig`'s server field no longer defaults to `http://localhost:8080`. Be sure to explicitly set this.
 - #11570 - If a `datahub_api` is explicitly passed to a stateful ingestion config provider, it will be used. We previously ignored it if the pipeline context also had a graph object.
-- #11518 - DataHub Garbage Collection: Various entities that are soft-deleted (after 10d) or are timeseries *entities* (dataprocess, execution requests) will be removed automatically using logic in the `datahub-gc` ingestion source.
+- #11518 - DataHub Garbage Collection: Various entities that are soft-deleted (after 10d) or are timeseries _entities_ (dataprocess, execution requests) will be removed automatically using logic in the `datahub-gc` ingestion source.
+- #12020 - Removed the `sqlparse` and `sqllineage` dependencies from ingestion and eliminated the `sql_parser` configuration from the Redash source, as Redash now exclusively uses the SQLGlot-based parser for lineage extraction.
 
 ### Potential Downtime
 

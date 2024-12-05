@@ -11,7 +11,6 @@ import dateutil.parser as dp
 import pydantic
 import requests
 import sqlglot
-import sqlglot.expressions
 import tenacity
 import yaml
 from liquid import Template, Undefined
@@ -819,34 +818,6 @@ class ModeSource(StatefulIngestionSourceBase):
                 context=f"Definition Name: {definition_name}, Error: {str(http_error)}",
             )
         return None
-
-    @lru_cache(maxsize=None)
-    def _get_source_from_query(self, raw_query: str) -> set:
-        # Note: this function is not used
-
-        query = self._replace_definitions(raw_query)
-        source_tables: List[str] = []
-        try:
-            parsed = sqlglot.parse_one(query)
-            for table in parsed.find_all(sqlglot.expressions.Table):
-                table.name
-                source_tables.append(table.name.lower())
-        except Exception as e:
-            self.report.report_failure(
-                title="Failed to Extract Lineage From Query",
-                message="Unable to retrieve lineage from Mode query.",
-                context=f"Query: {raw_query}, Error: {str(e)}",
-            )
-
-        source_paths = set()
-        for table_name in source_tables:
-            sources = table_name.split(".")
-            source_schema, source_table = sources[-2], sources[-1]
-            if source_schema == "<default>":
-                source_schema = str(self.config.default_schema)
-
-            source_paths.add(f"{source_schema}.{source_table}")
-        return source_paths
 
     def _get_datasource_urn(
         self,

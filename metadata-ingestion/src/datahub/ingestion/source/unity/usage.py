@@ -200,7 +200,7 @@ class UnityCatalogUsageExtractor:
                 default_db=None,
                 platform=self.platform,
                 env=self.config.env,
-                platform_instance=self.config.platform_instance,
+                platform_instance=None,
             )
 
             return GenericTableInfo(
