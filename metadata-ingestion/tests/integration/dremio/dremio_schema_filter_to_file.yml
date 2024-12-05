@@ -20,7 +20,7 @@ source:
 
     schema_pattern:
       allow:
-        - "Samples.*"
+        - "Samples"
 
 sink:
   type: file
