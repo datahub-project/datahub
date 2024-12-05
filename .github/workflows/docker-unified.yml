@@ -1392,6 +1392,11 @@ jobs:
       - uses: gradle/gradle-build-action@v2
       - name: Build codegen
         run: ./gradlew :datahub-integrations-service:codegenPython
+      - name: Download datahub-ingestion-slim image
+        uses: ishworkh/docker-image-artifact-download@v1
+        if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' && needs.datahub_ingestion_slim_build.result == 'success' }}
+        with:
+          image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
