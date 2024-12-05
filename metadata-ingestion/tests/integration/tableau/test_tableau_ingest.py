@@ -1028,6 +1028,7 @@ def test_tableau_unsupported_csql():
         ctx=context,
         platform="tableau",
         site=SiteItem(name="Site 1", content_url="site1"),
+        site_id="site1",
         report=TableauSourceReport(),
         server=Server("https://test-tableau-server.com"),
     )
@@ -1248,6 +1249,7 @@ def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_gra
                 config=mock.MagicMock(),
                 ctx=mock.MagicMock(),
                 site=mock.MagicMock(),
+                site_id=None,
                 server=mock_sdk.return_value,
                 report=reporter,
             )
