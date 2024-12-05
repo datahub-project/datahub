@@ -15,6 +15,7 @@ const Wrapper = styled.div`
 const IconWrapper = styled.div`
     margin-right: 4px;
     font-size: 14px;
+    display: flex;
 `;
 
 interface Props {

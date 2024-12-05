@@ -7,7 +7,6 @@ import styled from 'styled-components';
 import { UsageQueryResult } from '../../../../../../../types.generated';
 // import { ReactComponent as LineageDisabledIcon } from '../../../../../../../images/lineage-disabled-icon.svg';
 import { GetDatasetQuery } from '../../../../../../../graphql/dataset.generated';
-import { REDESIGN_COLORS } from '../../../../constants';
 import { FieldPopularity } from '../components/SchemaFieldDrawer/FieldPopularity';
 
 export const UsageBar = styled.div<{ width: number }>`
@@ -29,9 +28,6 @@ const IconWrapper = styled.div<{ hasStats: boolean; isFieldSelected: boolean }>`
         width: 18px;
         height: 18px;
         color: ${(props) => {
-            if (props.isFieldSelected) {
-                return `${REDESIGN_COLORS.WHITE}`;
-            }
             return props.hasStats ? '#533fd1' : '#C6C0E0';
         }};
         opacity: ${(props) => (props.isFieldSelected && !props.hasStats ? '0.5' : '')};

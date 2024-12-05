@@ -15,7 +15,6 @@ import {
 } from '../../../../../../../../types.generated';
 import { useBaseEntity } from '../../../../../../../entity/shared/EntityContext';
 import { ExtendedSchemaFields } from '../../../../../../dataset/profile/schema/utils/types';
-import { REDESIGN_COLORS } from '../../../../../constants';
 import { PropertiesTab } from '../../../../Properties/PropertiesTab';
 import { SchemaTimelineSection } from '../../../Timeline/SchemaTimelineSection';
 import { AboutFieldTab } from './AboutFieldTab';
@@ -46,7 +45,6 @@ const DrawerContent = styled.div`
 `;
 
 const TimelineHeader = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.WHITE_WIRE};
     font-size: 16px;
     font-weight: 700;
     line-height: 24px;
@@ -59,18 +57,20 @@ const TimelineHeaderWrapper = styled.div`
     padding: 16px;
     display: flex;
     justify-content: space-between;
-    background: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
 `;
+
 const Body = styled.div`
     display: flex;
     flex-direction: row;
     height: 100%;
 `;
+
 const Content = styled.div`
     flex: 1;
     border-right: 1px solid #e8e8e8;
     max-width: calc(100% - ${TABS_WIDTH}px);
 `;
+
 const Tabs = styled.div``;
 
 interface Props {
@@ -253,7 +253,7 @@ export default function SchemaFieldDrawer({
                                 setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                                 expandedField={expandedField}
                             />
-                            <Body>
+                            <Body onKeyDown={(e) => e.stopPropagation()}>
                                 {selectedTab && (
                                     <Content>
                                         <selectedTab.component properties={selectedTab.properties} />

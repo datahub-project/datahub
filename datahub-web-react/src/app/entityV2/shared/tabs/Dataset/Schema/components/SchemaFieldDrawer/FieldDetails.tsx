@@ -12,37 +12,44 @@ import { REDESIGN_COLORS } from '../../../../../constants';
 import { FieldPopularity } from './FieldPopularity';
 
 const FieldDetailsWrapper = styled.div`
-    padding: 16px 24px;
-    background: rgba(217, 217, 217, 0.2);
-    margin-bottom: 24px;
+    padding: 16px 12px;
 `;
+
 const FieldDetailsContent = styled.div`
     display: flex;
-    flex-direction: row;
     gap: 10px;
+    border-bottom: 1px dashed;
+    border-color: rgba(0, 0, 0, 0.3);
+    padding-bottom: 16px;
+    & > div {
+        &:not(:first-child) {
+            border-left: 1px dashed;
+            border-color: rgba(0, 0, 0, 0.3);
+        }
+    }
 `;
 
 const PopularityContainer = styled.div`
     display: flex;
     flex-direction: column;
-    flex: 1;
     gap: 5px;
+    padding: 0px 12px;
 `;
 
 const NotesWrapper = styled.div`
     align-items: start;
     display: flex;
     flex-direction: column;
-    flex: 1;
     gap: 8px;
+    padding: 0px 16px;
 `;
 
 const DeprecationWrapper = styled.div`
     align-items: start;
     display: flex;
     flex-direction: column;
-    flex: 1;
     gap: 8px;
+    padding: 0px 16px;
 `;
 
 const MarkAsDeprecatedButtonContainer = styled.div`
@@ -50,9 +57,9 @@ const MarkAsDeprecatedButtonContainer = styled.div`
 `;
 
 const DetailLabel = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: rgb(55, 64, 102);
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 600;
     line-height: 16px;
 `;
 

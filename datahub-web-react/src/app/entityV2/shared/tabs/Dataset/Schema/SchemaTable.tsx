@@ -8,6 +8,7 @@ import { useVT } from 'virtualizedtableforantd4';
 import { useDebounce } from 'react-use';
 import { message } from 'antd';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { colors } from '@src/alchemy-components';
 import {
     EditableSchemaMetadata,
     SchemaField,
@@ -27,7 +28,6 @@ import useDescriptionRenderer from './utils/useDescriptionRenderer';
 import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
 import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
 import useKeyboardControls from './useKeyboardControls';
-import { ProposedTag, ProposedTerm } from '../../../../../sharedV2/tags/TagTermGroup';
 import { useInferDocumentationForItem } from '../../../components/inferredDocs/utils';
 import { findIndexOfFieldPathExcludingCollapsedFields } from '../../../../dataset/profile/schema/utils/utils';
 import useExtractFieldGlossaryTermsInfo from './utils/useExtractFieldGlossaryTermsInfo';
@@ -72,27 +72,8 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
     }
 
     &&& .selected-row * {
-        color: white;
-
         .ant-typography mark {
             background-color: ${REDESIGN_COLORS.HEADING_COLOR} !important;
-        }
-
-        .field-type {
-            border-color: white !important;
-        }
-
-        .depth-container {
-            background: ${REDESIGN_COLORS.WHITE} !important;
-        }
-
-        .depth-text {
-            background: transparent !important;
-            color: ${REDESIGN_COLORS.BACKGROUND_PURPLE} !important;
-        }
-
-        .usage-bars {
-            background: ${REDESIGN_COLORS.WHITE} !important;
         }
 
         .row-icon-tooltip .ant-tooltip-inner {
@@ -100,20 +81,13 @@ const TableContainer = styled.div<{ isSearchActive: boolean; hasRowWithDepth: bo
             color: ${REDESIGN_COLORS.DARK_GREY} !important;
         }
 
-        .row-icon-container svg {
-            stroke: white !important;
-        }
-
         .ant-tag {
-            background-color: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
+            background-color: ${REDESIGN_COLORS.WHITE};
         }
     }
 
     &&& .selected-row {
-        background: ${REDESIGN_COLORS.BACKGROUND_PURPLE} !important;
-        ${ProposedTerm}, ${ProposedTag} {
-            background-color: ${REDESIGN_COLORS.BACKGROUND_PRIMARY_2}!important;
-        }
+        background: ${colors.gray[100]} !important;
     }
 
     &&& .level-0 td .row-icon-container .row-icon {

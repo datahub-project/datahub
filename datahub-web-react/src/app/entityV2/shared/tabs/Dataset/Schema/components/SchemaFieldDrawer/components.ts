@@ -12,6 +12,5 @@ export const SectionHeader = styled.div`
 `;
 
 export const StyledDivider = styled(Divider)`
-    border-color: ${REDESIGN_COLORS.BLACK};
-    opacity: 0.2;
+    border-color: rgba(0, 0, 0, 0.3);
 `;

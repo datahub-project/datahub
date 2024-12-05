@@ -1,12 +1,12 @@
 import { CloseOutlined } from '@ant-design/icons';
 import { useAppConfig } from '@app/useAppConfig';
-import { Typography } from 'antd';
+import { Divider } from 'antd';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 import { SchemaField } from '../../../../../../../../types.generated';
 import translateFieldPath from '../../../../../../dataset/profile/schema/utils/translateFieldPath';
-import { REDESIGN_COLORS } from '../../../../../constants';
 import NullableLabel, { PartitioningKeyLabel, PrimaryKeyLabel } from '../ConstraintLabels';
 import MenuColumn from '../MenuColumn';
 import TypeLabel from '../TypeLabel';
@@ -17,7 +17,7 @@ const FieldHeaderWrapper = styled.div`
     padding: 16px;
     display: flex;
     justify-content: space-between;
-    background: ${REDESIGN_COLORS.BACKGROUND_PURPLE};
+    border-bottom: 1px solid rgb(213, 213, 213);
 `;
 
 const NameTypesWrapper = styled.div`
@@ -29,10 +29,7 @@ const TitleWrapper = styled.div`
     display: flex;
     align-items: center;
     gap: 5px;
-
-    color: ${REDESIGN_COLORS.WHITE_WIRE};
     font-size: 16px;
-    font-weight: bold;
 `;
 
 const RightGroup = styled.div`
@@ -41,16 +38,13 @@ const RightGroup = styled.div`
 `;
 
 const MenuWrapper = styled.div`
-    color: ${REDESIGN_COLORS.WHITE};
     margin-right: 5px;
 `;
 
-const FieldText = styled(Typography.Text)`
-    color: ${REDESIGN_COLORS.WHITE};
-    opacity: 0.5;
+const FieldText = styled.div`
     font-size: 12px;
-    font-weight: 700;
     line-height: 24px;
+    color: #8d95b1;
 `;
 
 const CloseIcon = styled.div`
@@ -64,33 +58,30 @@ const CloseIcon = styled.div`
 
     &&:hover {
         cursor: pointer;
-        stroke: ${REDESIGN_COLORS.WHITE};
         stroke-width: 10px;
     }
 
     svg {
         height: 16px;
         width: 16px;
-        color: ${REDESIGN_COLORS.WHITE};
     }
 `;
 
-const VerticalDivider = styled.hr`
-    align-self: center;
-    border: 1px solid;
+const StyledDivider = styled(Divider)`
     height: 75%;
     margin: 0;
 `;
 
 const StyledTypeLabel = styled(TypeLabel)`
     font-size: 14px;
+    color: ${colors.gray[500]};
 `;
 
 const StyleLink = styled(Link)`
-    color: ${REDESIGN_COLORS.WHITE};
+    color: ${colors.gray[800]};
+    font-weight: 700;
 
     &:hover {
-        color: ${REDESIGN_COLORS.WHITE};
         text-decoration: underline;
     }
 `;
@@ -110,7 +101,6 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
     return (
         <FieldHeaderWrapper>
             <NameTypesWrapper>
-                <FieldText>Field</FieldText>
                 <TitleWrapper>
                     {linkEnabled ? (
                         <StyleLink
@@ -127,13 +117,14 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                     ) : (
                         displayName.split('.').pop()
                     )}
-                    <VerticalDivider />
+                    <StyledDivider type="vertical" />
                     <StyledTypeLabel type={expandedField.type} nativeDataType={expandedField.nativeDataType} />
                     {expandedField.isPartOfKey && <PrimaryKeyLabel />}
                     {expandedField.isPartitioningKey && <PartitioningKeyLabel />}
                     {expandedField.nullable && <NullableLabel />}
                     <FieldPath displayName={displayName} setExpandedDrawerFieldPath={setExpandedDrawerFieldPath} />
                 </TitleWrapper>
+                <FieldText>Column</FieldText>
             </NameTypesWrapper>
             <RightGroup>
                 <MenuWrapper>

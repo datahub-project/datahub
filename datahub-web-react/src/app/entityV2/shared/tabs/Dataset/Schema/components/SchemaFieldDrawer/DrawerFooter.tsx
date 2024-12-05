@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import KeyboardArrowLeftIcon from '@mui/icons-material/KeyboardArrowLeft';
-import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { pluralize } from '../../../../../../../shared/textUtil';
 import { REDESIGN_COLORS } from '../../../../../constants';
 import { ExtendedSchemaFields } from '../../../../../../dataset/profile/schema/utils/types';
@@ -55,6 +55,7 @@ const FieldIndexText = styled.span`
 
 const ButtonsWrapper = styled.div`
     display: flex;
+    flex-direction: column;
     align-items: center;
 `;
 
@@ -75,13 +76,13 @@ export default function DrawerFooter({
         <HeaderWrapper>
             <ButtonsWrapper>
                 <StyledIcon onClick={selectPreviousField}>
-                    <KeyboardArrowLeftIcon />
+                    <KeyboardArrowUpIcon />
                 </StyledIcon>
                 <FieldIndexText>
                     {expandedFieldIndex + 1} of {displayedRows.length} {pluralize(displayedRows.length, 'field')}
                 </FieldIndexText>
                 <StyledIcon onClick={selectNextField}>
-                    <KeyboardArrowRightIcon />
+                    <KeyboardArrowDownIcon />
                 </StyledIcon>
             </ButtonsWrapper>
         </HeaderWrapper>
