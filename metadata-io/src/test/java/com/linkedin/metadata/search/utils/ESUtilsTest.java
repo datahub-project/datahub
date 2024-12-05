@@ -26,6 +26,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.opensearch.index.query.QueryBuilder;
@@ -45,6 +46,7 @@ public class ESUtilsTest {
     Urn abFghTenUrn = Urn.createFromString("urn:li:structuredProperty:ab.fgh.ten");
     Urn underscoresAndDotsUrn =
         Urn.createFromString("urn:li:structuredProperty:under.scores.and.dots_make_a_mess");
+    Urn ownerCountsUrn = Urn.createFromString("urn:li:structuredProperty:owner_counts");
     Urn dateWithDotsUrn = Urn.createFromString("urn:li:structuredProperty:date_here.with_dot");
 
     // legacy
@@ -91,6 +93,19 @@ public class ESUtilsTest {
                     STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
                     new Aspect(dateWithDotsDefinition.data()))));
 
+    StructuredPropertyDefinition structPropOwnerCountsDefinition =
+        new StructuredPropertyDefinition();
+    structPropOwnerCountsDefinition.setVersion(null, SetMode.REMOVE_IF_NULL);
+    structPropOwnerCountsDefinition.setValueType(
+        Urn.createFromString(DATA_TYPE_URN_PREFIX + "number"));
+    structPropOwnerCountsDefinition.setQualifiedName("owner_counts");
+    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(ownerCountsUrn)), anySet()))
+        .thenReturn(
+            Map.of(
+                ownerCountsUrn,
+                Map.of(
+                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                    new Aspect(structPropOwnerCountsDefinition.data()))));
     // V1
     aspectRetrieverV1 = mock(AspectRetriever.class);
     when(aspectRetrieverV1.getEntityRegistry())
@@ -799,6 +814,63 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
     Assert.assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testGetQueryBuilderFromStructPropInRange() {
+
+    final Criterion singleValueCriterion =
+        buildCriterion("structuredProperties.owner_counts", Condition.BETWEEN, List.of("0", "10"));
+
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion, false, new HashMap<>(), opContext, QueryFilterRewriteChain.EMPTY);
+    String expected =
+        "{\n"
+            + "  \"range\" : {\n"
+            + "    \"structuredProperties.owner_counts\" : {\n"
+            + "      \"from\" : 0.0,\n"
+            + "      \"to\" : 10.0,\n"
+            + "      \"include_lower\" : true,\n"
+            + "      \"include_upper\" : true,\n"
+            + "      \"boost\" : 1.0,\n"
+            + "      \"_name\" : \"structuredProperties.owner_counts\"\n"
+            + "    }\n"
+            + "  }\n"
+            + "}";
+    Assert.assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testGetQueryBuilderFromStructPropInRangeNoUpper() {
+
+    final Criterion singleValueCriterion =
+        buildCriterion("structuredProperties.owner_counts", Condition.BETWEEN, Set.of("0"));
+
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion, false, new HashMap<>(), opContext, QueryFilterRewriteChain.EMPTY);
+
+    // results should match the same as GTE
+    final Criterion singleValueCriterion2 =
+        buildCriterion(
+            "structuredProperties.owner_counts", Condition.GREATER_THAN_OR_EQUAL_TO, Set.of("0"));
+
+    OperationContext opContext2 = mock(OperationContext.class);
+    when(opContext2.getAspectRetriever()).thenReturn(aspectRetriever);
+    QueryBuilder result2 =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion2,
+            false,
+            new HashMap<>(),
+            opContext2,
+            QueryFilterRewriteChain.EMPTY);
+
+    Assert.assertEquals(result.toString(), result2.toString());
   }
 
   @Test

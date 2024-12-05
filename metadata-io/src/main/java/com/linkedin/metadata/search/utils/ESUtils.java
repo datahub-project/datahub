@@ -27,6 +27,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -90,7 +91,8 @@ public class ESUtils {
           Condition.GREATER_THAN,
           Condition.GREATER_THAN_OR_EQUAL_TO,
           Condition.LESS_THAN,
-          Condition.LESS_THAN_OR_EQUAL_TO);
+          Condition.LESS_THAN_OR_EQUAL_TO,
+          Condition.BETWEEN);
   public static final String ENTITY_NAME_FIELD = "_entityName";
   public static final String NAME_SUGGESTION = "nameSuggestion";
 
@@ -802,25 +804,42 @@ public class ESUtils {
     // Determine criterion value, range query only accepts single value so take first value in
     // values if multiple
     String criterionValueString = criterion.getValues().get(0).trim();
+    String maybeSecondCriterionValueString =
+        criterion.getValues().size() > 1 ? criterion.getValues().get(1).trim() : null;
 
     Object criterionValue;
+    Object maybeSecondCriterionValue = null;
     String documentFieldName;
     if (fieldTypes.contains(BOOLEAN_FIELD_TYPE)) {
       criterionValue = Boolean.parseBoolean(criterionValueString);
       documentFieldName = fieldName;
     } else if (fieldTypes.contains(LONG_FIELD_TYPE) || fieldTypes.contains(DATE_FIELD_TYPE)) {
       criterionValue = Long.parseLong(criterionValueString);
+      if (Objects.nonNull(maybeSecondCriterionValueString)) {
+        maybeSecondCriterionValue = Long.parseLong(maybeSecondCriterionValueString);
+      }
+
       documentFieldName = fieldName;
     } else if (fieldTypes.contains(DOUBLE_FIELD_TYPE)) {
       criterionValue = Double.parseDouble(criterionValueString);
+      if (Objects.nonNull(maybeSecondCriterionValueString)) {
+        maybeSecondCriterionValue = Double.parseDouble(maybeSecondCriterionValueString);
+      }
       documentFieldName = fieldName;
     } else {
       criterionValue = criterionValueString;
+      maybeSecondCriterionValue = maybeSecondCriterionValueString;
       documentFieldName = toKeywordField(fieldName, isTimeseries, aspectRetriever);
     }
 
     // Set up QueryBuilder based on condition
-    if (condition == Condition.GREATER_THAN) {
+    if (condition == Condition.BETWEEN) {
+      RangeQueryBuilder qb = QueryBuilders.rangeQuery(documentFieldName).gte(criterionValue);
+      if (Objects.nonNull(maybeSecondCriterionValue)) {
+        qb = qb.lte(maybeSecondCriterionValue);
+      }
+      return qb.queryName(fieldName);
+    } else if (condition == Condition.GREATER_THAN) {
       return QueryBuilders.rangeQuery(documentFieldName).gt(criterionValue).queryName(fieldName);
     } else if (condition == Condition.GREATER_THAN_OR_EQUAL_TO) {
       return QueryBuilders.rangeQuery(documentFieldName).gte(criterionValue).queryName(fieldName);

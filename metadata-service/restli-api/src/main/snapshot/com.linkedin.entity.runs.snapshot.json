@@ -994,7 +994,8 @@
       },
       "Searchable" : {
         "fieldName" : "ownershipTypeUrn",
-        "fieldType" : "URN"
+        "fieldType" : "URN",
+        "queryByDefault" : false
       }
     }, {
       "name" : "source",
@@ -1271,13 +1272,17 @@
       "type" : "com.linkedin.common.Time",
       "doc" : "The time when this dashboard last refreshed",
       "optional" : true,
-      "Searchable" : { }
+      "Searchable" : {
+        "queryByDefault" : false
+      }
     }, {
       "name" : "lastRefreshedBy",
       "type" : "com.linkedin.common.Urn",
       "doc" : "The actor who last refreshed this dashboard",
       "optional" : true,
-      "Searchable" : { }
+      "Searchable" : {
+        "queryByDefault" : false
+      }
     } ],
     "Aspect" : {
       "name" : "dashboardInfo"
@@ -2327,7 +2332,7 @@
       "Searchable" : {
         "fieldName" : "managerLdap",
         "fieldType" : "URN",
-        "queryByDefault" : true
+        "queryByDefault" : false
       }
     }, {
       "name" : "departmentId",
@@ -2734,7 +2739,7 @@
               "type" : "com.linkedin.dataset.SchemaFieldPath",
               "doc" : "Flattened name of the field. Field is computed from jsonPath field.",
               "Searchable" : {
-                "boostScore" : 5.0,
+                "boostScore" : 1.0,
                 "fieldName" : "fieldPaths",
                 "fieldType" : "TEXT",
                 "queryByDefault" : "true"

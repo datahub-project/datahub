@@ -1192,13 +1192,13 @@
       "type" : "string",
       "doc" : "Additional information about the entity deprecation plan, such as the wiki, doc, RB."
     }, {
-      "name" : "replacement",
-      "type" : "Urn",
-      "optional" : true
-    }, {
       "name" : "actor",
       "type" : "Urn",
       "doc" : "The user URN which will be credited for modifying this deprecation content."
+    }, {
+      "name" : "replacement",
+      "type" : "Urn",
+      "optional" : true
     } ],
     "Aspect" : {
       "name" : "deprecation"
@@ -1667,7 +1667,8 @@
       },
       "Searchable" : {
         "fieldName" : "ownershipTypeUrn",
-        "fieldType" : "URN"
+        "fieldType" : "URN",
+        "queryByDefault" : false
       }
     }, {
       "name" : "source",
@@ -1944,13 +1945,17 @@
       "type" : "com.linkedin.common.Time",
       "doc" : "The time when this dashboard last refreshed",
       "optional" : true,
-      "Searchable" : { }
+      "Searchable" : {
+        "queryByDefault" : false
+      }
     }, {
       "name" : "lastRefreshedBy",
       "type" : "com.linkedin.common.Urn",
       "doc" : "The actor who last refreshed this dashboard",
       "optional" : true,
-      "Searchable" : { }
+      "Searchable" : {
+        "queryByDefault" : false
+      }
     } ],
     "Aspect" : {
       "name" : "dashboardInfo"
@@ -3218,7 +3223,7 @@
                     "Searchable" : {
                       "fieldName" : "managerLdap",
                       "fieldType" : "URN",
-                      "queryByDefault" : true
+                      "queryByDefault" : false
                     }
                   }, {
                     "name" : "departmentId",
@@ -3808,7 +3813,7 @@
                           "type" : "com.linkedin.dataset.SchemaFieldPath",
                           "doc" : "Flattened name of the field. Field is computed from jsonPath field.",
                           "Searchable" : {
-                            "boostScore" : 5.0,
+                            "boostScore" : 1.0,
                             "fieldName" : "fieldPaths",
                             "fieldType" : "TEXT",
                             "queryByDefault" : "true"
@@ -5018,7 +5023,11 @@
                     "name" : "description",
                     "type" : "string",
                     "doc" : "Documentation of the MLPrimaryKey",
-                    "optional" : true
+                    "optional" : true,
+                    "Searchable" : {
+                      "fieldType" : "TEXT",
+                      "hasValuesFieldName" : "hasDescription"
+                    }
                   }, {
                     "name" : "dataType",
                     "type" : "com.linkedin.common.MLFeatureDataType",
@@ -5659,9 +5668,9 @@
                     },
                     "Searchable" : {
                       "/*" : {
-                        "boostScore" : 2.0,
                         "fieldName" : "isRelatedTerms",
-                        "fieldType" : "URN"
+                        "fieldType" : "URN",
+                        "queryByDefault" : false
                       }
                     }
                   }, {
@@ -5680,9 +5689,9 @@
                     },
                     "Searchable" : {
                       "/*" : {
-                        "boostScore" : 2.0,
                         "fieldName" : "hasRelatedTerms",
-                        "fieldType" : "URN"
+                        "fieldType" : "URN",
+                        "queryByDefault" : false
                       }
                     }
                   }, {

@@ -96,11 +96,13 @@
               "/*/test" : {
                 "fieldName" : "failingTests",
                 "fieldType" : "URN",
-                "hasValuesFieldName" : "hasFailingTests"
+                "hasValuesFieldName" : "hasFailingTests",
+                "queryByDefault" : false
               },
               "/*/testDefinitionMd5" : {
                 "fieldName" : "failingTestDefinitionMd5",
-                "fieldType" : "KEYWORD"
+                "fieldType" : "KEYWORD",
+                "queryByDefault" : false
               }
             }
           }, {
@@ -120,11 +122,13 @@
               "/*/test" : {
                 "fieldName" : "passingTests",
                 "fieldType" : "URN",
-                "hasValuesFieldName" : "hasPassingTests"
+                "hasValuesFieldName" : "hasPassingTests",
+                "queryByDefault" : false
               },
               "/*/testDefinitionMd5" : {
                 "fieldName" : "passingTestDefinitionMd5",
-                "fieldType" : "KEYWORD"
+                "fieldType" : "KEYWORD",
+                "queryByDefault" : false
               }
             }
           } ],

@@ -613,6 +613,12 @@ enum FilterOperator {
   LESS_THAN_OR_EQUAL_TO
 
   """
+  Represent the relation within an inclusive range, e.g. 3 <= ownerCount <= 5
+  Note, the `values` in FacetFilter must have two entries for a lower and upper bound.
+  """
+  BETWEEN
+
+  """
   Represent the relation: String field starts with value, e.g. name starts with PageView
   """
   START_WITH
