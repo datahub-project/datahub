@@ -1,14 +1,15 @@
-import React, { useState } from 'react';
 import { colors } from '@src/alchemy-components/theme';
 import { abbreviateNumber } from '@src/app/dataviz/utils';
 import { TickLabelProps } from '@visx/axis';
+import { curveMonotoneX } from '@visx/curve';
 import { LinearGradient } from '@visx/gradient';
 import { ParentSize } from '@visx/responsive';
-import { Axis, AxisScale, BarSeries, Grid, Tooltip, XYChart } from '@visx/xychart';
+import { AreaSeries, Axis, AxisScale, Grid, LineSeries, Tooltip, XYChart } from '@visx/xychart';
 import dayjs from 'dayjs';
+import React, { useState } from 'react';
 import { Popover } from '../Popover';
-import { ChartWrapper, StyledBarSeries } from './components';
-import { BarChartProps } from './types';
+import { ChartWrapper } from './components';
+import { LineChartProps } from './types';
 
 const commonTickLabelProps: TickLabelProps<any> = {
     fontSize: 10,
@@ -16,7 +17,13 @@ const commonTickLabelProps: TickLabelProps<any> = {
     fill: colors.gray[1700],
 };
 
-export const barChartDefault: BarChartProps<any> = {
+const GLYPH_DROP_SHADOW_FILTER = `
+    drop-shadow(0px 1px 3px rgba(33, 23, 95, 0.30))
+    drop-shadow(0px 2px 5px rgba(33, 23, 95, 0.25))
+    drop-shadow(0px -2px 5px rgba(33, 23, 95, 0.25)
+`;
+
+export const lineChartDefault: LineChartProps<any> = {
     data: [],
     xAccessor: (datum) => datum?.x,
     yAccessor: (datum) => datum?.y,
@@ -25,40 +32,56 @@ export const barChartDefault: BarChartProps<any> = {
         ...commonTickLabelProps,
         textAnchor: 'end',
     },
-    bottomAxisTickFormat: (value) => dayjs(value).format('DD MMM'),
+    bottomAxisTickFormat: (x) => dayjs(x).format('D MMM'),
     bottomAxisTickLabelProps: {
         ...commonTickLabelProps,
         textAnchor: 'middle',
         verticalAnchor: 'start',
-        width: 20,
     },
-    barColor: 'url(#bar-gradient)',
-    barSelectedColor: colors.violet[500],
+    lineColor: colors.violet[500],
+    areaColor: 'url(#line-gradient)',
     gridColor: '#e0e0e0',
-    renderGradients: () => <LinearGradient id="bar-gradient" from={colors.violet[500]} to="#917FFF" toOpacity={0.6} />,
+    renderGradients: () => (
+        <LinearGradient id="line-gradient" from={colors.violet[200]} to={colors.white} toOpacity={0.6} />
+    ),
+    toolbarVerticalCrosshairStyle: {
+        stroke: colors.white,
+        strokeWidth: 2,
+        filter: GLYPH_DROP_SHADOW_FILTER,
+    },
+    renderTooltipGlyph: (props) => {
+        return (
+            <>
+                <circle cx={props.x} cy={props.y} r="8" fill={colors.white} filter={GLYPH_DROP_SHADOW_FILTER} />
+                <circle cx={props.x} cy={props.y} r="6" fill={colors.violet[500]} />
+            </>
+        );
+    },
 };
 
-export function BarChart<DatumType extends object = any>({
+export function LineChart<DatumType extends object>({
     data,
-    xAccessor = barChartDefault.xAccessor,
-    yAccessor = barChartDefault.yAccessor,
+    xAccessor = lineChartDefault.xAccessor,
+    yAccessor = lineChartDefault.yAccessor,
     renderTooltipContent,
     margin,
-    leftAxisTickFormat = barChartDefault.leftAxisTickFormat,
-    leftAxisTickLabelProps = barChartDefault.leftAxisTickLabelProps,
-    bottomAxisTickFormat = barChartDefault.bottomAxisTickFormat,
-    bottomAxisTickLabelProps = barChartDefault.bottomAxisTickLabelProps,
-    barColor = barChartDefault.barColor,
-    barSelectedColor = barChartDefault.barSelectedColor,
-    gridColor = barChartDefault.gridColor,
-    renderGradients = barChartDefault.renderGradients,
-}: BarChartProps<DatumType>) {
-    const [hasSelectedBar, setHasSelectedBar] = useState<boolean>(false);
+    leftAxisTickFormat = lineChartDefault.leftAxisTickFormat,
+    leftAxisTickLabelProps = lineChartDefault.leftAxisTickLabelProps,
+    bottomAxisTickFormat = lineChartDefault.bottomAxisTickFormat,
+    bottomAxisTickLabelProps = lineChartDefault.bottomAxisTickLabelProps,
+    lineColor = lineChartDefault.lineColor,
+    areaColor = lineChartDefault.areaColor,
+    gridColor = lineChartDefault.gridColor,
+    renderGradients = lineChartDefault.renderGradients,
+    toolbarVerticalCrosshairStyle = lineChartDefault.toolbarVerticalCrosshairStyle,
+    renderTooltipGlyph = lineChartDefault.renderTooltipGlyph,
+}: LineChartProps<DatumType>) {
+    const [showGrid, setShowGrid] = useState<boolean>(false);
 
     // FYI: additional margins to show left and bottom axises
     const internalMargin = {
         top: (margin?.top ?? 0) + 30,
-        right: margin?.right ?? 0,
+        right: (margin?.right ?? 0) + 20,
         bottom: (margin?.bottom ?? 0) + 35,
         left: (margin?.left ?? 0) + 40,
     };
@@ -66,31 +89,31 @@ export function BarChart<DatumType extends object = any>({
     const accessors = { xAccessor, yAccessor };
 
     return (
-        <ChartWrapper>
+        <ChartWrapper onMouseEnter={() => setShowGrid(true)} onMouseLeave={() => setShowGrid(false)}>
             <ParentSize>
                 {({ width, height }) => {
                     return (
                         <XYChart
                             width={width}
                             height={height}
-                            xScale={{ type: 'band', paddingInner: 0.4, paddingOuter: 0.1 }}
+                            xScale={{ type: 'time' }}
                             yScale={{ type: 'linear', nice: true, round: true }}
                             margin={internalMargin}
-                            captureEvents={false}
+                            captureEvents
                         >
                             {renderGradients?.()}
 
                             <Axis
                                 orientation="left"
-                                hideAxisLine
-                                hideTicks
                                 tickFormat={leftAxisTickFormat}
                                 tickLabelProps={leftAxisTickLabelProps}
+                                hideAxisLine
+                                hideTicks
                             />
 
                             <Axis
                                 orientation="bottom"
-                                numTicks={data.length}
+                                numTicks={Math.floor(data.length / 2)}
                                 tickFormat={bottomAxisTickFormat}
                                 tickLabelProps={bottomAxisTickLabelProps}
                                 hideAxisLine
@@ -105,32 +128,34 @@ export function BarChart<DatumType extends object = any>({
                                 stroke={gridColor}
                             />
 
-                            <Grid rows columns={false} stroke={gridColor} strokeWidth={1} lineStyle={{}} />
+                            {showGrid && (
+                                <Grid rows={false} columns stroke={gridColor} numTicks={data.length} lineStyle={{}} />
+                            )}
 
-                            <StyledBarSeries
-                                as={BarSeries<AxisScale, AxisScale, DatumType>}
-                                $hasSelectedItem={hasSelectedBar}
-                                $color={barColor}
-                                $selectedColor={barSelectedColor}
-                                dataKey="bar-seria-0"
+                            <AreaSeries<AxisScale, AxisScale, DatumType>
+                                dataKey="line-chart-seria-01"
                                 data={data}
-                                radius={4}
-                                radiusTop
-                                onBlur={() => setHasSelectedBar(false)}
-                                onFocus={() => setHasSelectedBar(true)}
-                                // Internally the library doesn't emmit these events if handlers are empty
-                                // They are requred to show/hide/move tooltip
-                                onPointerMove={() => null}
-                                onPointerUp={() => null}
-                                onPointerOut={() => null}
+                                fill={areaColor}
+                                curve={curveMonotoneX}
+                                {...accessors}
+                            />
+                            <LineSeries<AxisScale, AxisScale, DatumType>
+                                dataKey="line-chart-seria-01"
+                                data={data}
+                                stroke={lineColor}
+                                curve={curveMonotoneX}
                                 {...accessors}
                             />
 
                             <Tooltip<DatumType>
                                 snapTooltipToDatumX
                                 snapTooltipToDatumY
-                                unstyled
+                                showVerticalCrosshair
                                 applyPositionStyle
+                                showSeriesGlyphs
+                                verticalCrosshairStyle={toolbarVerticalCrosshairStyle}
+                                renderGlyph={renderTooltipGlyph}
+                                unstyled
                                 renderTooltip={({ tooltipData }) => {
                                     return (
                                         tooltipData?.nearestDatum && (

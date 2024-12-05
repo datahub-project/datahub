@@ -1,19 +1,19 @@
 import React from 'react';
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
-import { BarChart } from './BarChart';
-import { getMockedProps } from './utils';
+import { LineChart } from './LineChart';
+import { getMockedProps } from '../BarChart/utils';
 
 const meta = {
-    title: 'Charts / BarChart',
-    component: BarChart,
+    title: 'Charts / LineChart',
+    component: LineChart,
 
     // Display Properties
     parameters: {
         layout: 'centered',
         badges: [BADGE.EXPERIMENTAL],
         docs: {
-            subtitle: 'A component that is used to show BarChart',
+            subtitle: 'A component that is used to show LineChart',
         },
     },
 
@@ -46,14 +46,14 @@ const meta = {
         bottomAxisTickLabelProps: {
             description: 'Props for label of bottom axis',
         },
-        barColor: {
-            description: 'Color of bar',
+        lineColor: {
+            description: 'Color of line on chart',
             control: {
                 type: 'color',
             },
         },
-        barSelectedColor: {
-            description: 'Color of selected bar',
+        areaColor: {
+            description: 'Color of area under line',
             control: {
                 type: 'color',
             },
@@ -67,6 +67,12 @@ const meta = {
         renderGradients: {
             description: 'A function to render different gradients that can be used as colors',
         },
+        toolbarVerticalCrosshairStyle: {
+            description: "Styles of toolbar's vertical line",
+        },
+        renderTooltipGlyph: {
+            description: 'A function to render a glyph',
+        },
     },
 
     // Define defaults
@@ -74,7 +80,7 @@ const meta = {
         ...getMockedProps(),
         renderTooltipContent: (datum) => <>DATUM: {JSON.stringify(datum)}</>,
     },
-} satisfies Meta<typeof BarChart>;
+} satisfies Meta<typeof LineChart>;
 
 export default meta;
 
@@ -84,7 +90,7 @@ export const sandbox: Story = {
     tags: ['dev'],
     render: (props) => (
         <div style={{ width: '900px', height: '350px' }}>
-            <BarChart {...props} />
+            <LineChart {...props} />
         </div>
     ),
 };

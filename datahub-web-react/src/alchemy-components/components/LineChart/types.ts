@@ -1,7 +1,9 @@
 import { TickFormatter, TickLabelProps } from '@visx/axis';
 import { Margin } from '@visx/xychart';
+import { RenderTooltipGlyphProps } from '@visx/xychart/lib/components/Tooltip';
+import React from 'react';
 
-export type BarChartProps<DatumType extends object> = {
+export type LineChartProps<DatumType extends object> = {
     data: DatumType[];
     xAccessor: (datum: DatumType) => string | number;
     yAccessor: (datum: DatumType) => number;
@@ -11,8 +13,10 @@ export type BarChartProps<DatumType extends object> = {
     leftAxisTickLabelProps?: TickLabelProps<DatumType>;
     bottomAxisTickFormat?: TickFormatter<DatumType>;
     bottomAxisTickLabelProps?: TickLabelProps<DatumType>;
-    barColor?: string;
-    barSelectedColor?: string;
+    lineColor?: string;
+    areaColor?: string;
     gridColor?: string;
     renderGradients?: () => React.ReactNode;
+    toolbarVerticalCrosshairStyle?: React.SVGProps<SVGLineElement>;
+    renderTooltipGlyph?: (props: RenderTooltipGlyphProps<object>) => React.ReactNode | undefined;
 };
