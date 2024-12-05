@@ -1007,6 +1007,7 @@ module.exports = {
     // "metadata-ingestion/examples/structured_properties/README"
     // "smoke-test/tests/openapi/README"
     // "docs/SECURITY_STANCE"
+    // "metadata-integration/java/datahub-schematron/README"
     // ],
   ],
 };

@@ -8,6 +8,7 @@ import pathlib
 import random
 import signal
 import subprocess
+import textwrap
 import time
 from typing import Any, Iterator, Sequence
 
@@ -110,6 +111,66 @@ def _wait_for_dag_finish(
         raise NotReadyError(f"DAG has not finished yet: {dag_run['state']}")
 
 
+@tenacity.retry(
+    reraise=True,
+    wait=tenacity.wait_fixed(1),
+    stop=tenacity.stop_after_delay(90),
+    retry=tenacity.retry_if_exception_type(NotReadyError),
+)
+def _wait_for_dag_to_load(airflow_instance: AirflowInstance, dag_id: str) -> None:
+    print("Checking if DAG was loaded")
+    res = airflow_instance.session.get(
+        url=f"{airflow_instance.airflow_url}/api/v1/dags",
+        timeout=5,
+    )
+    res.raise_for_status()
+
+    if len(list(filter(lambda x: x["dag_id"] == dag_id, res.json()["dags"]))) == 0:
+        raise NotReadyError("DAG was not loaded yet")
+
+
+def _dump_dag_logs(airflow_instance: AirflowInstance, dag_id: str) -> None:
+    # Get the dag run info
+    res = airflow_instance.session.get(
+        f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns", timeout=5
+    )
+    res.raise_for_status()
+    dag_run = res.json()["dag_runs"][0]
+    dag_run_id = dag_run["dag_run_id"]
+
+    # List the tasks in the dag run
+    res = airflow_instance.session.get(
+        f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances",
+        timeout=5,
+    )
+    res.raise_for_status()
+    task_instances = res.json()["task_instances"]
+
+    # Sort tasks by start_date to maintain execution order
+    task_instances.sort(key=lambda x: x["start_date"] or "")
+
+    print(f"\nTask execution order for DAG {dag_id}:")
+    for task in task_instances:
+        task_id = task["task_id"]
+        state = task["state"]
+        try_number = task.get("try_number", 1)
+
+        task_header = f"Task: {task_id} (State: {state}; Try: {try_number})"
+
+        # Get logs for the task's latest try number
+        try:
+            res = airflow_instance.session.get(
+                f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}"
+                f"/taskInstances/{task_id}/logs/{try_number}",
+                params={"full_content": "true"},
+                timeout=5,
+            )
+            res.raise_for_status()
+            print(f"\n=== {task_header} ===\n{textwrap.indent(res.text, '    ')}")
+        except Exception as e:
+            print(f"Failed to fetch logs for {task_header}: {e}")
+
+
 @contextlib.contextmanager
 def _run_airflow(
     tmp_path: pathlib.Path,
@@ -161,6 +222,15 @@ def _run_airflow(
                 "warehouse": "fake_warehouse",
                 "role": "fake_role",
                 "insecure_mode": "true",
+            },
+        ).get_uri(),
+        "AIRFLOW_CONN_MY_AWS": Connection(
+            conn_id="my_aws",
+            conn_type="aws",
+            extra={
+                "region_name": "us-east-1",
+                "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+                "aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
             },
         ).get_uri(),
         "AIRFLOW_CONN_MY_SQLITE": Connection(
@@ -284,6 +354,7 @@ test_cases = [
     DagTestCase("sqlite_operator", v2_only=True),
     DagTestCase("custom_operator_dag", v2_only=True),
     DagTestCase("datahub_emitter_operator_jinja_template_dag", v2_only=True),
+    DagTestCase("athena_operator", v2_only=True),
 ]
 
 
@@ -355,6 +426,7 @@ def test_airflow_plugin(
         tmp_path, dags_folder=DAGS_FOLDER, is_v1=is_v1
     ) as airflow_instance:
         print(f"Running DAG {dag_id}...")
+        _wait_for_dag_to_load(airflow_instance, dag_id)
         subprocess.check_call(
             [
                 "airflow",
@@ -376,6 +448,11 @@ def test_airflow_plugin(
 
         print("Sleeping for a few seconds to let the plugin finish...")
         time.sleep(10)
+
+        try:
+            _dump_dag_logs(airflow_instance, dag_id)
+        except Exception as e:
+            print(f"Failed to dump DAG logs: {e}")
 
     if dag_id == DAG_TO_SKIP_INGESTION:
         # Verify that no MCPs were generated.
