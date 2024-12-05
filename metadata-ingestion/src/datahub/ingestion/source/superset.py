@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -107,6 +107,18 @@ class SupersetDataset(BaseModel):
     changed_on_utc: Optional[str] = None
     explore_url: Optional[str] = ""
 
+    @property
+    def modified_dt(self) -> Optional[datetime]:
+        if self.changed_on_utc:
+            return dp.parse(self.changed_on_utc)
+        return None
+
+    @property
+    def modified_ts(self) -> Optional[int]:
+        if self.modified_dt:
+            return int(self.modified_dt.timestamp() * 1000)
+        return None
+
 
 class SupersetConfig(
     StatefulIngestionConfigBase, EnvConfigMixin, PlatformInstanceConfigMixin
@@ -149,6 +161,7 @@ class SupersetConfig(
     )
 
     class Config:
+        # This is required to allow preset configs to get parsed
         extra = "allow"
 
     @validator("connect_uri", "display_uri")
@@ -219,7 +232,6 @@ class SupersetSource(StatefulIngestionSourceBase):
                 graph=self.ctx.graph,
             )
         self.session = self.login()
-        # Default to postgres field type mappings
 
     def login(self) -> requests.Session:
         login_response = requests.post(
@@ -258,7 +270,6 @@ class SupersetSource(StatefulIngestionSourceBase):
         config = SupersetConfig.parse_obj(config_dict)
         return cls(ctx, config)
 
-    @lru_cache(maxsize=None)
     def paginate_entity_api_results(self, entity_type, page_size=100):
         current_page = 0
         total_items = page_size
@@ -336,7 +347,7 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         if database_id and table_name:
             return make_dataset_urn(
-                platform=self.platform,
+                platform=platform,
                 name=".".join(
                     name for name in [database_name, schema_name, table_name] if name
                 ),
@@ -585,18 +596,15 @@ class SupersetSource(StatefulIngestionSourceBase):
         datasource_urn = self.get_datasource_urn_from_id(
             dataset_response, self.platform
         )
-        if dataset.changed_on_utc:
-            modified_dt = dp.parse(dataset.changed_on_utc)
-        else:
-            modified_dt = datetime.now(timezone.utc)
 
-        modified_ts = int(modified_dt.timestamp() * 1000)
         dataset_url = f"{self.config.display_uri}{dataset.explore_url or ''}"
 
         dataset_info = DatasetPropertiesClass(
             name=dataset.table_name,
             description="",
-            lastModified=TimeStamp(time=modified_ts),
+            lastModified=TimeStamp(time=dataset.modified_ts)
+            if dataset.modified_ts
+            else None,
             externalUrl=dataset_url,
         )
         aspects_items: List[Any] = []
