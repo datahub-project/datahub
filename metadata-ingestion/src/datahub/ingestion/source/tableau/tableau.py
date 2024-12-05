@@ -603,6 +603,7 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
     num_upstream_table_skipped_no_name: int = 0
     num_upstream_table_skipped_no_columns: int = 0
     num_upstream_table_failed_generate_reference: int = 0
+    num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
 
 
@@ -2143,11 +2144,17 @@ class TableauSiteSource:
             schema_aware=not self.config.sql_parsing_disable_schema_awareness,
         )
 
-        if parsed_result is None or parsed_result.debug_info.error:
-            message = f"Failed to extract column level lineage from datasource {datasource_urn}"
-            if parsed_result is not None and parsed_result.debug_info.error:
-                message += f": {parsed_result.debug_info.error}"
-            logger.warning(message)
+        assert parsed_result is not None
+
+        if parsed_result.debug_info.table_error:
+            logger.warning(
+                f"Failed to extract table lineage from datasource {datasource_urn}: {parsed_result.debug_info.table_error}"
+            )
+            self.report.num_upstream_table_lineage_failed_parse_sql += 1
+        if parsed_result.debug_info.column_error:
+            logger.warning(
+                f"Failed to extract column level lineage from datasource {datasource_urn}: {parsed_result.debug_info.column_error}"
+            )
             self.report.num_upstream_fine_grained_lineage_failed_parse_sql += 1
 
         return parsed_result
