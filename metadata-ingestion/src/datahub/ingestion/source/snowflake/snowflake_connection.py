@@ -150,6 +150,11 @@ class SnowflakeConnectionConfig(ConfigModel):
                 )
         elif v == "OAUTH_AUTHENTICATOR":
             cls._check_oauth_config(values.get("oauth_config"))
+        elif v == "OAUTH_AUTHENTICATOR_TOKEN":
+            if values.get("token") is None:
+                raise ValueError(
+                    "token is required when using OAUTH_AUTHENTICATOR_TOKEN authentication"
+                )
         logger.info(f"using authenticator type '{v}'")
         return v
 
