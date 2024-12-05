@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.VERSION_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.VERSION_SORT_ID_FIELD_NAME;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
@@ -243,7 +244,9 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
             null,
             2,
             ImmutableList.of(
-                new SortCriterion().setField("sortId").setOrder(SortOrder.DESCENDING)));
+                new SortCriterion()
+                    .setField(VERSION_SORT_ID_FIELD_NAME)
+                    .setOrder(SortOrder.DESCENDING)));
     String updatedLatestVersionUrn = null;
 
     SearchEntityArray linkedEntities = linkedVersions.getEntities();

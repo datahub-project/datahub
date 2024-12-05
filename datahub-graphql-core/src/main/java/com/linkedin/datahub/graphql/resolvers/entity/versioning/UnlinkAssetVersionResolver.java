@@ -19,12 +19,12 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.concurrent.CompletableFuture;
 
-public class UnlinkVersionResolver implements DataFetcher<CompletableFuture<Boolean>> {
+public class UnlinkAssetVersionResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityVersioningService entityVersioningService;
   private final FeatureFlags featureFlags;
 
-  public UnlinkVersionResolver(
+  public UnlinkAssetVersionResolver(
       EntityVersioningService entityVersioningService, FeatureFlags featureFlags) {
     this.entityVersioningService = entityVersioningService;
     this.featureFlags = featureFlags;
