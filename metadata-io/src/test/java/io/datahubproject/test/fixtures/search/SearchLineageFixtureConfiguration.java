@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 import static io.datahubproject.test.search.SearchTestUtils.getGraphQueryConfiguration;
 
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.client.JavaEntityClient;
 import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.MetadataChangeProposalConfig;
@@ -276,6 +277,6 @@ public class SearchLineageFixtureConfiguration {
         null,
         null,
         null,
-        1);
+        EntityClientConfig.builder().batchGetV2Size(1).build());
   }
 }
