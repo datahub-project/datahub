@@ -795,7 +795,10 @@ class LookMLSource(StatefulIngestionSourceBase):
 
             for include in model.resolved_includes:
                 logger.debug(f"Considering {include} for model {model_name}")
-                if include.include in processed_view_files and 'model' not in self.source_config.view_naming_pattern.pattern:
+                if (
+                    include.include in processed_view_files 
+                    and 'model' not in self.source_config.view_naming_pattern.pattern
+                ):
                     # This makes sure when 'model' is in view_naming_pattern, views being used by different models but
                     # with same connection still gets added ingested
                     logger.debug(f"view '{include}' already processed, skipping it")
