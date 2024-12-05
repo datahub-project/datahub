@@ -680,13 +680,13 @@ class DremioAPIOperations:
         Used by both get_all_containers and get_containers_for_location.
         """
         path_components = path + [name] if path else [name]
-        full_path = '.'.join(path_components)
+        full_path = ".".join(path_components)
 
         # Generate all possible subpaths to check against patterns
         # This allows matching at any level of the hierarchy
         sub_paths = []
         for i in range(1, len(path_components) + 1):
-            sub_path = '.'.join(path_components[:i])
+            sub_path = ".".join(path_components[:i])
             sub_paths.append(sub_path)
 
         if self.allow_schema_pattern:
@@ -708,7 +708,9 @@ class DremioAPIOperations:
                 # Handle suffix matches (patterns starting with .*)
                 elif pattern.startswith(".*"):
                     end_pattern = pattern[2:]  # Remove .*
-                    for sub_path in reversed(sub_paths):  # Check from longest to shortest
+                    for sub_path in reversed(
+                            sub_paths
+                    ):  # Check from longest to shortest
                         if re.search(f"^{end_pattern}$", sub_path, re.IGNORECASE):
                             matches_allow = True
                             break
@@ -742,7 +744,9 @@ class DremioAPIOperations:
                 # Handle suffix matches (patterns starting with .*)
                 elif pattern.startswith(".*"):
                     end_pattern = pattern[2:]  # Remove .*
-                    for sub_path in reversed(sub_paths):  # Check from longest to shortest
+                    for sub_path in reversed(
+                            sub_paths
+                    ):  # Check from longest to shortest
                         if re.search(f"^{end_pattern}$", sub_path, re.IGNORECASE):
                             self.report.report_container_filtered(full_path)
                             return False
