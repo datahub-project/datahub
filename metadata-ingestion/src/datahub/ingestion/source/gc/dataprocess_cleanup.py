@@ -127,7 +127,7 @@ class DataProcessCleanupConfig(ConfigModel):
     )
 
     batch_size: int = Field(
-        500,
+        50,
         description="The number of entities to get in a batch from API",
     )
 
@@ -209,18 +209,21 @@ class DataProcessCleanup:
         start = 0
         while True:
             try:
+                logger.info(
+                    f"Fetching DPIs for dataJobUrn={job_urn} start={start} count={batch_size}"
+                )
                 job_query_result = self.ctx.graph.execute_graphql(
                     DATA_PROCESS_INSTANCES_QUERY,
                     {"dataJobUrn": job_urn, "start": start, "count": batch_size},
                 )
                 job_data = job_query_result.get("dataJob")
                 if not job_data:
-                    logger.error(f"Error getting job {job_urn}")
+                    self.report.report_exc(f"Error getting job {job_urn}")
                     break
 
                 runs_data = job_data.get("runs")
                 if not runs_data:
-                    logger.error(f"Error getting runs for {job_urn}")
+                    self.report.report_exc(f"Error getting runs for {job_urn}")
                     break
 
                 runs = runs_data.get("runs")
@@ -229,8 +232,11 @@ class DataProcessCleanup:
                 if len(runs) < batch_size:
                     break
             except Exception as e:
-                logger.error(f"Exception while fetching DPIs for job {job_urn}: {e}")
+                self.report.report_exc(
+                    f"Exception while fetching DPIs for job {job_urn}: {e}"
+                )
                 break
+        logger.info(f"Got {len(dpis)} DPIs for dataJobUrn={job_urn}")
         return dpis
 
     def keep_last_n_dpi(
@@ -293,6 +299,7 @@ class DataProcessCleanup:
             else 0,
             reverse=True,
         )
+        logger.info(f"Sorted DPIs for {job.urn}")
 
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
             if self.config.keep_last_n:
