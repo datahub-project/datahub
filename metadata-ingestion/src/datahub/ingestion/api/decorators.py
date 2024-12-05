@@ -36,9 +36,9 @@ def platform_name(
     """Adds a get_platform_name method to the decorated class"""
 
     def wrapper(cls: Type) -> Type:
-        cls.get_platform_name = lambda: platform_name
-        cls.get_platform_id = lambda: id or platform_name.lower().replace(" ", "-")
-        cls.get_platform_doc_order = lambda: doc_order or None
+        cls.get_platform_name = lambda _: platform_name
+        cls.get_platform_id = lambda _: id or platform_name.lower().replace(" ", "-")
+        cls.get_platform_doc_order = lambda _: doc_order or None
 
         return cls
 
