@@ -960,12 +960,12 @@ type Mutation {
     """
     Link the latest versioned entity to a Version Set
     """
-    linkVersion(input: LinkVersionInput!): String
+    linkAssetVersion(input: LinkVersionInput!): String
 
     """
     Unlink a versioned entity from a Version Set
     """
-    unlinkVersion(input: UnlinkVersionInput!): Boolean
+    unlinkAssetVersion(input: UnlinkVersionInput!): Boolean
 }
 
 """

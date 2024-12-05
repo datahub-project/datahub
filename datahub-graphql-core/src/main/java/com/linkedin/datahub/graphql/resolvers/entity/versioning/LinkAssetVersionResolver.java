@@ -26,12 +26,12 @@ import org.apache.commons.lang.StringUtils;
 /**
  * Currently only supports linking the latest version, but may be modified later to support inserts
  */
-public class LinkVersionResolver implements DataFetcher<CompletableFuture<String>> {
+public class LinkAssetVersionResolver implements DataFetcher<CompletableFuture<String>> {
 
   private final EntityVersioningService entityVersioningService;
   private final FeatureFlags featureFlags;
 
-  public LinkVersionResolver(
+  public LinkAssetVersionResolver(
       EntityVersioningService entityVersioningService, FeatureFlags featureFlags) {
     this.entityVersioningService = entityVersioningService;
     this.featureFlags = featureFlags;

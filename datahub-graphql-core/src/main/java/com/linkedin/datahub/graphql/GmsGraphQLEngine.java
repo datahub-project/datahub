@@ -174,8 +174,8 @@ import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.embed.UpdateEmbedResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.EntityExistsResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver;
-import com.linkedin.datahub.graphql.resolvers.entity.versioning.LinkVersionResolver;
-import com.linkedin.datahub.graphql.resolvers.entity.versioning.UnlinkVersionResolver;
+import com.linkedin.datahub.graphql.resolvers.entity.versioning.LinkAssetVersionResolver;
+import com.linkedin.datahub.graphql.resolvers.entity.versioning.UnlinkAssetVersionResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchAssignFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchRemoveFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.CreateDynamicFormAssignmentResolver;
@@ -1400,11 +1400,12 @@ public class GmsGraphQLEngine {
           if (featureFlags.isEntityVersioning()) {
             typeWiring
                 .dataFetcher(
-                    "linkVersion",
-                    new LinkVersionResolver(this.entityVersioningService, this.featureFlags))
+                    "linkAssetVersion",
+                    new LinkAssetVersionResolver(this.entityVersioningService, this.featureFlags))
                 .dataFetcher(
-                    "unlinkVersion",
-                    new UnlinkVersionResolver(this.entityVersioningService, this.featureFlags));
+                    "unlinkAssetVersion",
+                    new UnlinkAssetVersionResolver(
+                        this.entityVersioningService, this.featureFlags));
           }
           return typeWiring;
         });
