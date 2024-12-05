@@ -10,6 +10,7 @@ dependencies {
   implementation externalDependency.jacksonDataBind
   implementation externalDependency.httpClient
 
+  compileOnly externalDependency.swaggerAnnotations
   compileOnly externalDependency.lombok
 
   annotationProcessor externalDependency.lombok
