@@ -104,6 +104,10 @@ class SnowflakeConnectionConfig(ConfigModel):
         description="Connect args to pass to Snowflake SqlAlchemy driver",
         exclude=True,
     )
+    token: Optional[str] = pydantic.Field(
+        default=None,
+        description="OAuth token from external identity provider. Not recommended for most use cases because it will not be able to refresh once expired.",
+    )
 
     def get_account(self) -> str:
         assert self.account_id
@@ -146,6 +150,29 @@ class SnowflakeConnectionConfig(ConfigModel):
         elif v == "OAUTH_AUTHENTICATOR":
             cls._check_oauth_config(values.get("oauth_config"))
         logger.info(f"using authenticator type '{v}'")
+        return v
+
+    @pydantic.validator("token")
+    def validate_token_oauth_config(cls, v, values):
+        if v is not None:
+            # First check auth type
+            if values.get("authentication_type") != "OAUTH_AUTHENTICATOR":
+                raise ValueError(
+                    "Token can only be provided when using OAUTH_AUTHENTICATOR. Token bypasses authenticating with the OAuth server."
+                )
+
+            # Then check no oauth_config credentials are present
+            oauth_config = values.get("oauth_config")
+            if oauth_config:
+                if (
+                    oauth_config.client_secret
+                    or oauth_config.encoded_oauth_public_key
+                    or oauth_config.encoded_oauth_private_key
+                ):
+                    raise ValueError(
+                        "Cannot provide both token and oauth credentials (client_secret/public_key/private_key). "
+                        "Use either token for external OAuth or configure oauth_config for managed OAuth."
+                    )
         return v
 
     @staticmethod
@@ -328,6 +355,17 @@ class SnowflakeConnectionConfig(ConfigModel):
                 user=self.username,
                 password=self.password.get_secret_value() if self.password else None,
                 account=self.account_id,
+                warehouse=self.warehouse,
+                role=self.role,
+                application=_APPLICATION_NAME,
+                **connect_args,
+            )
+        elif self.authentication_type == "OAUTH_AUTHENTICATOR" and self.token:
+            return snowflake.connector.connect(
+                user=self.username,
+                account=self.account_id,
+                authenticator="oauth",
+                token=self.token,  # Token generated externally and provided directly to the recipe
                 warehouse=self.warehouse,
                 role=self.role,
                 application=_APPLICATION_NAME,
