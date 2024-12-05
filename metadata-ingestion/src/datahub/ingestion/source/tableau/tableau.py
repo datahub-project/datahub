@@ -254,6 +254,46 @@ class TableauConnectionConfig(ConfigModel):
             )
         return authentication
 
+    def check_user_role(
+        self, server: Server
+    ) -> Dict[Union[SourceCapability, str], CapabilityReport]:
+        assert server.user_id, "make the connection with tableau"
+
+        capability_dict: Dict[Union[SourceCapability, str], CapabilityReport] = {
+            "metadataRole": CapabilityReport(
+                capable=True,
+            )
+        }
+
+        failure_reason: str = (
+            "The user does not possess the `Site Administrator Explorer` role."
+        )
+
+        mitigation_message: str = "Assign `Site Administrator Explorer` role to the user {}. Refer setup guide: https://datahubproject.io/docs/quick-ingestion-guides/tableau/setup"
+
+        try:
+            user = server.users.get_by_id(server.user_id)
+
+            # TODO: Add check for `Enable Derived Permissions`
+            if user.site_role != "SiteAdministratorExplorer":
+                capability_dict["metadataRole"] = CapabilityReport(
+                    capable=False,
+                    failure_reason=failure_reason,
+                    mitigation_message=mitigation_message.format(user.name),
+                )
+
+            return capability_dict
+
+        except Exception as e:
+            logger.warning(e)
+            capability_dict["metadataRole"] = CapabilityReport(
+                capable=False,
+                failure_reason=failure_reason,
+                mitigation_message=mitigation_message.format(""),  # user is unknown
+            )
+
+            return capability_dict
+
     def make_tableau_client(self, site: str) -> Server:
         authentication: Union[
             TableauAuth, PersonalAccessTokenAuth
@@ -657,9 +697,15 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         test_report = TestConnectionReport()
         try:
             source_config = TableauConfig.parse_obj_allow_extras(config_dict)
-            source_config.make_tableau_client(source_config.site)
+
+            server = source_config.make_tableau_client(source_config.site)
+
             test_report.basic_connectivity = CapabilityReport(capable=True)
+
+            test_report.capability_report = source_config.check_user_role(server=server)
+
         except Exception as e:
+            logger.warning(msg=e, exc_info=e)
             test_report.basic_connectivity = CapabilityReport(
                 capable=False, failure_reason=str(e)
             )

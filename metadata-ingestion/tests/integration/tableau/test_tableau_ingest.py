@@ -22,6 +22,7 @@ from tableauserverclient.models.reference_item import ResourceReference
 from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.source import TestConnectionReport
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.tableau.tableau import (
     TableauConfig,
@@ -1273,3 +1274,89 @@ def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_gra
                 "Turn on your derived permissions. See for details "
                 "https://community.tableau.com/s/question/0D54T00000QnjHbSAJ/how-to-fix-the-permissionsmodeswitched-error"
             )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_connection_report_test(requests_mock):
+    server_info_response = """
+        <tsResponse xmlns:t="http://tableau.com/api">
+            <t:serverInfo>
+                <t:productVersion build="build-number">foo</t:productVersion>
+                <t:restApiVersion>2.4</t:restApiVersion>
+            </t:serverInfo>
+        </tsResponse>
+
+    """
+
+    requests_mock.register_uri(
+        "GET",
+        "https://do-not-connect/api/2.4/serverInfo",
+        text=server_info_response,
+        status_code=200,
+        headers={"Content-Type": "application/xml"},
+    )
+
+    signin_response = """
+        <tsResponse xmlns:t="http://tableau.com/api">
+            <t:credentials token="fake_token">
+                <t:site id="fake_site_luid" contentUrl="fake_site_content_url"/>
+                <t:user id="fake_user_id"/>
+            </t:credentials>
+        </tsResponse>
+    """
+
+    requests_mock.register_uri(
+        "POST",
+        "https://do-not-connect/api/2.4/auth/signin",
+        text=signin_response,
+        status_code=200,
+        headers={"Content-Type": "application/xml"},
+    )
+
+    user_by_id_response = """
+        <tsResponse xmlns:t="http://tableau.com/api">
+          <t:user id="user-id" name="foo@abc.com" siteRole="SiteAdministratorExplorer" />
+        </tsResponse>
+    """
+
+    requests_mock.register_uri(
+        "GET",
+        "https://do-not-connect/api/2.4/sites/fake_site_luid/users/fake_user_id",
+        text=user_by_id_response,
+        status_code=200,
+        headers={"Content-Type": "application/xml"},
+    )
+
+    report: TestConnectionReport = TableauSource.test_connection(config_source_default)
+
+    assert report
+    assert report.capability_report
+    assert report.capability_report.get("metadataRole")
+    assert report.capability_report["metadataRole"].capable
+
+    # Role other than SiteAdministratorExplorer
+    user_by_id_response = """
+        <tsResponse xmlns:t="http://tableau.com/api">
+          <t:user id="user-id" name="foo@abc.com" siteRole="Explorer" />
+        </tsResponse>
+    """
+
+    requests_mock.register_uri(
+        "GET",
+        "https://do-not-connect/api/2.4/sites/fake_site_luid/users/fake_user_id",
+        text=user_by_id_response,
+        status_code=200,
+        headers={"Content-Type": "application/xml"},
+    )
+
+    report = TableauSource.test_connection(config_source_default)
+
+    assert report
+    assert report.capability_report
+    assert report.capability_report.get("metadataRole")
+    assert report.capability_report["metadataRole"].capable is False
+    assert (
+        report.capability_report["metadataRole"].failure_reason
+        == "The user does not possess the `Site Administrator Explorer` role."
+    )
