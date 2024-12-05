@@ -680,58 +680,81 @@ class DremioAPIOperations:
         paths: List[str],
         full_path: str,
     ) -> bool:
-        """Helper method to check if a pattern matches any of the paths."""
-        # Handle exact pattern matches
-        if re.search(f"^{pattern}$", full_path, re.IGNORECASE):
-            return True
+        """
+        Helper method to check if a pattern matches any of the paths.
+        Handles hierarchical matching where each level is matched independently.
+        """
+        # Handle start/end anchors with regex
+        if pattern.startswith("^") or pattern.endswith("$"):
+            return bool(re.search(pattern, full_path, re.IGNORECASE))
 
-            # Handle patterns that use .* as a wildcard
-        if ".*" in pattern:
-            # Split pattern into parts before applying regex
-            pattern_parts = pattern.split(".*")
+        # Split pattern into its hierarchical components
+        pattern_parts = re.split(r'\.|\\.', pattern)
 
-            # If pattern starts with .*, first part will be empty
-            if pattern.startswith(".*"):
-                pattern_parts = pattern_parts[1:]
+        # For each path we're checking
+        for path in paths:
+            # Split the current path into components
+            path_parts = path.split('.')
 
-            # If pattern ends with .*, last part will be empty
-            if pattern.endswith(".*"):
-                pattern_parts = pattern_parts[:-1]
+            # Skip if path is shorter than non-wildcard parts in pattern
+            non_wildcard_count = sum(1 for p in pattern_parts if p != '*' and p != '.*')
+            if len(path_parts) < non_wildcard_count:
+                continue
 
-            # For a path to match:
-            # 1. If we have just a prefix (e.g. 'a.*'), the path must start with it
-            # 2. If we have just a suffix (e.g. '*.b'), the path must end with it
-            # 3. If we have both, the path must contain all parts in order
+            # Match with wildcards
+            pattern_idx = 0
+            path_idx = 0
+            matches = True
 
-            for path in paths:
-                # For prefix matches (e.g. landingZone.*)
-                if len(pattern_parts) == 1 and pattern.endswith(".*"):
-                    if path.startswith(pattern_parts[0]):
-                        return True
+            while pattern_idx < len(pattern_parts) and path_idx < len(path_parts):
+                pattern_part = pattern_parts[pattern_idx]
 
-                # For suffix matches (e.g. *.ECommerce)
-                elif len(pattern_parts) == 1 and pattern.startswith(".*"):
-                    if path.endswith(pattern_parts[0]):
-                        return True
+                # Handle wildcards
+                if pattern_part == '*' or pattern_part == '.*':
+                    # If this is the last pattern part, it's a match
+                    if pattern_idx == len(pattern_parts) - 1:
+                        break
 
-                # For patterns with wildcards in the middle
-                else:
-                    current_pos = 0
-                    matches = True
-
-                    for part in pattern_parts:
-                        if not part:  # Skip empty parts from consecutive .*
-                            continue
-
-                        pos = path.find(part, current_pos)
-                        if pos == -1:
-                            matches = False
+                    # Look ahead to next non-wildcard pattern part
+                    next_pattern_part = None
+                    next_pattern_idx = pattern_idx + 1
+                    while next_pattern_idx < len(pattern_parts):
+                        if pattern_parts[next_pattern_idx] not in ('*', '.*'):
+                            next_pattern_part = pattern_parts[next_pattern_idx]
                             break
-                        current_pos = pos + len(part)
+                        next_pattern_idx += 1
 
-                    if matches:
-                        return True
+                    # If no more non-wildcard parts, it's a match
+                    if next_pattern_part is None:
+                        break
 
+                    # Try to find the next matching part in the path
+                    found = False
+                    while path_idx < len(path_parts):
+                        if re.search(f"^{next_pattern_part}$", path_parts[path_idx], re.IGNORECASE):
+                            pattern_idx = next_pattern_idx
+                            found = True
+                            break
+                        path_idx += 1
+
+                    if not found:
+                        matches = False
+                        break
+                else:
+                    # Regular (non-wildcard) matching
+                    if not re.search(f"^{pattern_part}$", path_parts[path_idx], re.IGNORECASE):
+                        matches = False
+                        break
+                    pattern_idx += 1
+                path_idx += 1
+
+            # Check if we matched all non-wildcard pattern parts
+            if matches:
+                remaining_non_wildcards = sum(1 for p in pattern_parts[pattern_idx:]
+                                            if p != '*' and p != '.*')
+                if remaining_non_wildcards == 0:
+                    return True
+    
         return False
 
     def _check_allow_patterns(
@@ -780,28 +803,51 @@ class DremioAPIOperations:
         path_components = path + [name] if path else [name]
         full_path = ".".join(path_components)
 
-        # Generate all possible subpaths to check against patterns
+        # Generate progressive paths for matching
+        # e.g. ["landingzone", "landingzone.folder1", "landingzone.folder1.folder2"]
         sub_paths = [
             ".".join(path_components[:i]) for i in range(1, len(path_components) + 1)
         ]
 
         # Check allow patterns first
-        if not self._check_allow_patterns(
-            patterns=self.allow_schema_pattern,
-            sub_paths=sub_paths,
-            full_path=full_path,
-        ):
-            self.report.report_container_filtered(full_path)
-            return False
+        if self.allow_schema_pattern:
+            matches_allow = False
+            for pattern in self.allow_schema_pattern:
+                if self._check_pattern_match(
+                    pattern=pattern,
+                    paths=[full_path],
+                    full_path=full_path,
+                ):
+                    matches_allow = True
+                    break
+
+                # Also check if the current path matches a prefix of the pattern
+                elif self._check_pattern_match(
+                    pattern=pattern,
+                    paths=sub_paths,
+                    full_path=full_path,
+                ):
+                    matches_allow = True
+                    break
+
+            if not matches_allow:
+                self.report.report_container_filtered(full_path)
+                return False
 
         # Check deny patterns
-        if self._check_deny_patterns(
-            patterns=self.deny_schema_pattern,
-            sub_paths=sub_paths,
-            full_path=full_path,
-        ):
-            self.report.report_container_filtered(full_path)
-            return False
+        if self.deny_schema_pattern:
+            for pattern in self.deny_schema_pattern:
+                if self._check_pattern_match(
+                    pattern=pattern,
+                    paths=[full_path],
+                    full_path=full_path,
+                ) or self._check_pattern_match(
+                    pattern=pattern,
+                    paths=sub_paths,
+                    full_path=full_path,
+                ):
+                    self.report.report_container_filtered(full_path)
+                    return False
 
         self.report.report_container_scanned(full_path)
         return True
