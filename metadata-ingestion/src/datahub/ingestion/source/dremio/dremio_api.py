@@ -679,37 +679,83 @@ class DremioAPIOperations:
         Helper method to check if a container should be included based on schema patterns.
         Used by both get_all_containers and get_containers_for_location.
         """
-        full_path = ".".join(path + [name]) if path else name
+        path_components = path + [name] if path else [name]
+        full_path = '.'.join(path_components)
 
+        # Generate all possible subpaths to check against patterns
+        # This allows matching at any level of the hierarchy
         sub_paths = []
-        for i in range(1, len(full_path) + 1):
-            sub_path = '.'.join(full_path[:i])
+        for i in range(1, len(path_components) + 1):
+            sub_path = '.'.join(path_components[:i])
             sub_paths.append(sub_path)
 
-        # Check allow patterns
         if self.allow_schema_pattern:
             matches_allow = False
-            for sub_path in sub_paths:
-                for pattern in self.allow_schema_pattern:
-                    if re.search(pattern, sub_path, re.IGNORECASE):
-                        matches_allow = True
-                        break
-                if matches_allow:
+            for pattern in self.allow_schema_pattern:
+                # Handle exact pattern matches (with regex support)
+                if re.search(f"^{pattern}$", full_path, re.IGNORECASE):
+                    matches_allow = True
                     break
 
+                # Handle prefix matches (patterns ending with .*)
+                if pattern.endswith(".*"):
+                    base_pattern = pattern[:-2]  # Remove .*
+                    for sub_path in sub_paths:
+                        if re.search(f"^{base_pattern}$", sub_path, re.IGNORECASE):
+                            matches_allow = True
+                            break
+
+                # Handle suffix matches (patterns starting with .*)
+                elif pattern.startswith(".*"):
+                    end_pattern = pattern[2:]  # Remove .*
+                    for sub_path in reversed(sub_paths):  # Check from longest to shortest
+                        if re.search(f"^{end_pattern}$", sub_path, re.IGNORECASE):
+                            matches_allow = True
+                            break
+
+                # Handle middle wildcards (patterns containing .*)
+                elif ".*" in pattern:
+                    for sub_path in sub_paths:
+                        if re.search(f"^{pattern}$", sub_path, re.IGNORECASE):
+                            matches_allow = True
+                            break
+
             if not matches_allow:
-                self.report.report_container_filtered('.'.join(full_path))
+                self.report.report_container_filtered(full_path)
                 return False
 
         if self.deny_schema_pattern:
-            for sub_path in sub_paths:
-                for pattern in self.deny_schema_pattern:
-                    if re.search(pattern, sub_path, re.IGNORECASE):
-                        self.report.report_container_filtered('.'.join(full_path))
-                        return False
+            for pattern in self.deny_schema_pattern:
+                # Handle exact pattern matches (with regex support)
+                if re.search(f"^{pattern}$", full_path, re.IGNORECASE):
+                    self.report.report_container_filtered(full_path)
+                    return False
+
+                # Handle prefix matches (patterns ending with .*)
+                if pattern.endswith(".*"):
+                    base_pattern = pattern[:-2]  # Remove .*
+                    for sub_path in sub_paths:
+                        if re.search(f"^{base_pattern}$", sub_path, re.IGNORECASE):
+                            self.report.report_container_filtered(full_path)
+                            return False
+
+                # Handle suffix matches (patterns starting with .*)
+                elif pattern.startswith(".*"):
+                    end_pattern = pattern[2:]  # Remove .*
+                    for sub_path in reversed(sub_paths):  # Check from longest to shortest
+                        if re.search(f"^{end_pattern}$", sub_path, re.IGNORECASE):
+                            self.report.report_container_filtered(full_path)
+                            return False
+
+                # Handle middle wildcards (patterns containing .*)
+                elif ".*" in pattern:
+                    for sub_path in sub_paths:
+                        if re.search(f"^{pattern}$", sub_path, re.IGNORECASE):
+                            self.report.report_container_filtered(full_path)
+                            return False
 
         # If we get here, the path passed all filters
-        self.report.report_container_scanned('.'.join(full_path))
+        self.report.report_container_scanned(full_path)
         return True
 
     def get_all_containers(self):
