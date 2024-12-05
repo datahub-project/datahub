@@ -64,6 +64,12 @@ const meta = {
                 type: 'text',
             },
         },
+        width: {
+            description: 'The width of the card',
+            control: {
+                type: 'text',
+            },
+        },
         onClick: {
             description: 'The on click function for the card',
         },
@@ -74,6 +80,7 @@ const meta = {
         title: 'Title',
         subTitle: 'Subtitle',
         iconAlignment: 'horizontal',
+        width: '150px',
     },
 } satisfies Meta<typeof Card>;
 

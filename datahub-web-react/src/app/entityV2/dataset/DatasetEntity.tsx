@@ -49,7 +49,6 @@ import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessMana
 import { GovernanceTab } from '../shared/tabs/Dataset/Governance/GovernanceTab';
 import QueriesTab from '../shared/tabs/Dataset/Queries/QueriesTab';
 import { SchemaTab } from '../shared/tabs/Dataset/Schema/SchemaTab';
-import StatsTab from '../shared/tabs/Dataset/Stats/StatsTab';
 import { AcrylValidationsTab } from '../shared/tabs/Dataset/Validations/AcrylValidationsTab';
 import ViewDefinitionTab from '../shared/tabs/Dataset/View/ViewDefinitionTab';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
@@ -63,6 +62,7 @@ import { SidebarTitleActionType, getDataProduct, getDatasetLastUpdatedMs, isOutp
 import { Preview } from './preview/Preview';
 import { OperationsTab } from './profile/OperationsTab';
 import { DatasetStatsSummarySubHeader } from './profile/stats/stats/DatasetStatsSummarySubHeader';
+import StatsTabWrapper from '../shared/tabs/Dataset/Stats/StatsTabWrapper';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -205,7 +205,7 @@ export class DatasetEntity implements Entity<Dataset> {
                 },
                 {
                     name: 'Stats',
-                    component: StatsTab,
+                    component: StatsTabWrapper,
                     icon: FundOutlined,
                     display: {
                         visible: (_, _1) => true,

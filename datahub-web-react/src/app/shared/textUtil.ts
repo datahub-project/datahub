@@ -29,7 +29,7 @@ export function validateCustomUrnId(str: string) {
 }
 
 export function pluralize(count: number, noun: string, suffix = 's') {
-    return `${noun}${count !== 1 ? suffix : ''}`;
+    return count !== 1 ? pluralizeIfIrregular(noun, suffix) : noun;
 }
 
 export function forcePluralize(noun: string, suffix = 's') {

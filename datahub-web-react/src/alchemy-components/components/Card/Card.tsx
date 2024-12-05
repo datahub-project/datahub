@@ -17,9 +17,10 @@ export const Card = ({
     onClick,
     icon,
     children,
+    width,
 }: CardProps) => {
     return (
-        <CardContainer hasButton={!!button} onClick={onClick}>
+        <CardContainer hasButton={!!button} onClick={onClick} width={width}>
             <Header iconAlignment={iconAlignment}>
                 {icon && <div>{icon}</div>}
                 <TitleContainer>
