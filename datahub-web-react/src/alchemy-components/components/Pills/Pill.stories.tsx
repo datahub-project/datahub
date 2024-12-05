@@ -8,7 +8,7 @@ import { AVAILABLE_ICONS } from '../Icon';
 import { Pill, pillDefault } from './Pill';
 
 const meta = {
-    title: 'Component / Pill',
+    title: 'Components / Pill',
     component: Pill,
 
     // Display Properties

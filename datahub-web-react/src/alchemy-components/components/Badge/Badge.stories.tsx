@@ -12,7 +12,7 @@ const pillMetaArgTypes = omitKeys(pillMeta.argTypes, ['label']);
 const pillMetaArgs = omitKeys(pillMeta.args, ['label']);
 
 const meta = {
-    title: 'Component / Badge',
+    title: 'Components / Badge',
     component: Badge,
 
     // Display Properties

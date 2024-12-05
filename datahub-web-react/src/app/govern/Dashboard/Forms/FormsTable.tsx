@@ -1,5 +1,5 @@
 import { NetworkStatus } from '@apollo/client';
-import { colors, Icon, Pill, Table, Text, typography, Tooltip } from '@components';
+import { colors, Icon, Pill, Table, Text, Tooltip, typography } from '@components';
 import { AlignmentOptions, ColorOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
@@ -9,13 +9,13 @@ import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 import { toLocalDateString, toRelativeTimeString } from '@src/app/shared/time/timeUtils';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
+import { useAppConfig } from '@src/app/useAppConfig';
 import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { PageRoutes } from '@src/conf/Global';
 import { useFormAnalyticsQuery } from '@src/graphql/analytics.generated';
 import { useDeleteFormMutation, useUpdateFormMutation } from '@src/graphql/form.generated';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { Entity, EntityType, FormState, SearchAcrossEntitiesInput } from '@src/types.generated';
-import { useAppConfig } from '@src/app/useAppConfig';
 import { Dropdown, Typography } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
@@ -73,7 +73,6 @@ export const EditedByContainer = styled.div`
     padding: 3px 6px 3px 4px;
     border-radius: 20px;
     border: 1px solid ${colors.gray[1400]};
-
     :hover {
         cursor: pointer;
     }
