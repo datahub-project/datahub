@@ -118,7 +118,7 @@ const EntityHeader: React.FC<EntityHeaderProps> = ({
                 <DeprecationIcon urn={urn} deprecation={deprecation} showUndeprecate showText={false} />
             )}
             {health && <HealthIcon urn={urn} health={health} baseUrl={url} />}
-            <StructuredPropertyBadge entityData={previewData} />
+            <StructuredPropertyBadge structuredProperties={previewData?.structuredProperties} />
         </EntityTitleContainer>
     );
 };

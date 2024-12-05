@@ -10,6 +10,7 @@ import {
     SchemaFieldDataType,
     SchemaMetadata,
     Status,
+    StructuredProperties,
 } from '@types';
 
 export enum LineageAssetType {
@@ -70,5 +71,6 @@ export interface FetchedEntityV2 {
     lineageSiblingIcon?: string;
     containers?: GenericEntityProperties[];
     parent?: GenericEntityProperties; // Schema field parent
+    structuredProperties?: StructuredProperties;
     deprecation?: Deprecation;
 }

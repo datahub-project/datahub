@@ -19,7 +19,7 @@ const Wrapper = styled.div`
     border-radius: 4px;
     position: absolute;
     right: 3px;
-    top: 4px;
+    top: 8px;
 
     :hover {
         color: ${Colors.violet[500]};

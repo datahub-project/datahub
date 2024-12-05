@@ -68,6 +68,7 @@ export default function constructFetchedNode(
             upstreamRelationships: fetchedNode?.upstreamRelationships || [],
             downstreamRelationships: fetchedNode?.downstreamRelationships || [],
             health: fetchedNode?.health,
+            structuredProperties: fetchedNode?.structuredProperties,
         };
 
         // eslint-disable-next-line no-param-reassign

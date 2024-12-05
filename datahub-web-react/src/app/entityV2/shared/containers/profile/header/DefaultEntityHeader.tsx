@@ -211,7 +211,9 @@ export const DefaultEntityHeader = ({
                                         {entityData?.health && (
                                             <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />
                                         )}
-                                        <StructuredPropertyBadge entityData={entityData} />
+                                        <StructuredPropertyBadge
+                                            structuredProperties={entityData?.structuredProperties}
+                                        />
                                     </TitleRow>
                                     <HeaderRow>
                                         <ContextPath

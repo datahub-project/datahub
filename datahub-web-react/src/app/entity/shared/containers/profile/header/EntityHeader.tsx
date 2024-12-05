@@ -139,7 +139,7 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
                                         baseUrl={entityRegistry.getEntityUrl(entityType, urn)}
                                     />
                                 )}
-                                <StructuredPropertyBadge entityData={entityData} />
+                                <StructuredPropertyBadge structuredProperties={entityData?.structuredProperties} />
                             </TitleWrapper>
                             <EntityCount
                                 entityCount={entityCount}

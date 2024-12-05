@@ -1,10 +1,13 @@
 import { colors, Pill, Text, Tooltip } from '@src/alchemy-components';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { getStructuredPropertyValue } from '@src/app/entity/shared/utils';
 import { getDisplayName } from '@src/app/govern/structuredProperties/utils';
+import { StructuredProperties } from '@src/types.generated';
 import React from 'react';
 import styled from 'styled-components';
 import { mapStructuredPropertyToPropertyRow } from '../../../tabs/Properties/useStructuredProperties';
+import { filterForAssetBadge } from './utils';
+
+export const MAX_PROP_BADGE_WIDTH = 150;
 
 const StyledTooltip = styled(Tooltip)`
     .ant-tooltip-inner {
@@ -24,17 +27,15 @@ const ValueContainer = styled.div`
 `;
 
 const BadgeContainer = styled.div`
-    max-width: 150px;
+    max-width: ${MAX_PROP_BADGE_WIDTH}px;
 `;
 
 interface Props {
-    entityData?: GenericEntityProperties | null;
+    structuredProperties?: StructuredProperties | null;
 }
 
-const StructuredPropertyBadge = ({ entityData }: Props) => {
-    const badgeStructuredProperty = entityData?.structuredProperties?.properties?.find(
-        (prop) => prop.structuredProperty.settings?.showAsAssetBadge && !prop.structuredProperty.settings?.isHidden,
-    );
+const StructuredPropertyBadge = ({ structuredProperties }: Props) => {
+    const badgeStructuredProperty = structuredProperties?.properties?.find(filterForAssetBadge);
 
     const propRow = badgeStructuredProperty ? mapStructuredPropertyToPropertyRow(badgeStructuredProperty) : undefined;
 

@@ -793,6 +793,11 @@ fragment nonRecursiveMLFeature on MLFeature {
     assetOrigin {
         ...originFields
     }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
 }
 
 fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
@@ -866,6 +871,11 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
     assetOrigin {
         ...originFields
     }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
 }
 
 fragment nonRecursiveMLFeatureTable on MLFeatureTable {
@@ -924,6 +934,11 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     assetOrigin {
         ...originFields
+    }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
     }
 }
 

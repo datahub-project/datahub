@@ -226,6 +226,7 @@ export default class EntityRegistry {
                 schemaMetadata: genericEntityProperties?.schemaMetadata,
                 inputFields: genericEntityProperties?.inputFields,
                 canEditLineage: genericEntityProperties?.privileges?.canEditLineage,
+                structuredProperties: genericEntityProperties?.structuredProperties,
             } as FetchedEntity) || undefined
         );
     }

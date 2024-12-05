@@ -342,7 +342,7 @@ export default function DefaultPreviewCard({
                             <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} />
                         )}
                         {health && health.length > 0 ? <EntityHealth urn={urn} baseUrl={url} health={health} /> : null}
-                        <StructuredPropertyBadge entityData={previewData} />
+                        <StructuredPropertyBadge structuredProperties={previewData?.structuredProperties} />
                         {externalUrl && (
                             <ExternalUrlButton
                                 externalUrl={externalUrl}

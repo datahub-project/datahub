@@ -250,6 +250,7 @@ export default class EntityRegistry {
             inputFields: genericEntityProperties.inputFields ?? undefined,
             canEditLineage: genericEntityProperties.privileges?.canEditLineage ?? undefined,
             lineageSiblingIcon: genericEntityProperties?.lineageSiblingIcon,
+            structuredProperties: genericEntityProperties.structuredProperties ?? undefined,
         };
     }
 

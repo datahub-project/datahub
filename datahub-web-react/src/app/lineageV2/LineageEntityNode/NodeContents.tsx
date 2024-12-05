@@ -5,6 +5,7 @@ import SchemaFieldNodeContents from '@app/lineageV2/LineageEntityNode/SchemaFiel
 import MatchTextSizeWrapper from '@app/sharedV2/text/MatchTextSizeWrapper';
 import { DeprecationIcon } from '@src/app/entityV2/shared/components/styled/DeprecationIcon';
 import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material';
+import StructuredPropertyBadge from '@src/app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { Skeleton, Spin } from 'antd';
 import { Tooltip } from '@components';
 import React, { Dispatch, SetStateAction, useCallback } from 'react';
@@ -213,6 +214,12 @@ const ExpandColumnsWrapper = styled(MatchTextSizeWrapper)`
 
 const SkeletonImage = styled(Skeleton.Avatar)`
     line-height: 0;
+`;
+
+const PropertyBadgeWrapper = styled.div`
+    position: absolute;
+    right: 12px;
+    top: -16px;
 `;
 
 interface Props {
@@ -460,6 +467,11 @@ function NodeContents(props: Props & LineageEntity & DisplayedColumns) {
                             </ExpandColumnsWrapper>
                         )}
                         {isGhost ? <GhostEntityMenu urn={urn} /> : <ManageLineageMenu node={props} refetch={refetch} />}
+                        {entity && (
+                            <PropertyBadgeWrapper>
+                                <StructuredPropertyBadge structuredProperties={entity.structuredProperties} />
+                            </PropertyBadgeWrapper>
+                        )}
                     </MainTextWrapper>
                 )}
                 {!entity && <NodeSkeleton />}

@@ -81,7 +81,7 @@ const SidebarEntityHeader = () => {
                         />
                     )}
                     {entityData?.health && <HealthIcon urn={urn} health={entityData.health} baseUrl={entityUrl} />}
-                    <StructuredPropertyBadge entityData={entityData} />
+                    <StructuredPropertyBadge structuredProperties={entityData?.structuredProperties} />
                 </NameWrapper>
                 <ContextPath
                     instanceId={entityData?.dataPlatformInstance?.instanceId}

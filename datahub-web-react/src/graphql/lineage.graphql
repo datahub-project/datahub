@@ -64,6 +64,11 @@ fragment lineageNodeProperties on EntityWithRelationships {
         browsePathV2 {
             ...browsePathV2Fields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on DataFlow {
         exists
@@ -102,6 +107,11 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         browsePathV2 {
             ...browsePathV2Fields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
         }
     }
     ... on Dashboard {
@@ -163,6 +173,11 @@ fragment lineageNodeProperties on EntityWithRelationships {
         health {
             ...entityHealth
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on Chart {
         exists
@@ -200,6 +215,11 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         health {
             ...entityHealth
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
         }
     }
     ... on Dataset {
@@ -246,6 +266,11 @@ fragment lineageNodeProperties on EntityWithRelationships {
         health {
             ...entityHealth
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
         deprecation {
             ...deprecationFields
         }
@@ -267,6 +292,11 @@ fragment lineageNodeProperties on EntityWithRelationships {
         browsePathV2 {
             ...browsePathV2Fields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
         deprecation {
             ...deprecationFields
         }
@@ -287,6 +317,11 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         browsePathV2 {
             ...browsePathV2Fields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
         }
         deprecation {
             ...deprecationFields
