@@ -709,7 +709,7 @@ class DremioAPIOperations:
                 elif pattern.startswith(".*"):
                     end_pattern = pattern[2:]  # Remove .*
                     for sub_path in reversed(
-                            sub_paths
+                        sub_paths
                     ):  # Check from longest to shortest
                         if re.search(f"^{end_pattern}$", sub_path, re.IGNORECASE):
                             matches_allow = True
@@ -745,7 +745,7 @@ class DremioAPIOperations:
                 elif pattern.startswith(".*"):
                     end_pattern = pattern[2:]  # Remove .*
                     for sub_path in reversed(
-                            sub_paths
+                        sub_paths
                     ):  # Check from longest to shortest
                         if re.search(f"^{end_pattern}$", sub_path, re.IGNORECASE):
                             self.report.report_container_filtered(full_path)
