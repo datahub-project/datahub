@@ -681,23 +681,35 @@ class DremioAPIOperations:
         """
         full_path = ".".join(path + [name]) if path else name
 
+        sub_paths = []
+        for i in range(1, len(full_path) + 1):
+            sub_path = '.'.join(full_path[:i])
+            sub_paths.append(sub_path)
+
+        # Check allow patterns
         if self.allow_schema_pattern:
             matches_allow = False
-            for pattern in self.allow_schema_pattern:
-                if re.search(pattern, full_path, re.IGNORECASE):
-                    matches_allow = True
+            for sub_path in sub_paths:
+                for pattern in self.allow_schema_pattern:
+                    if re.search(pattern, sub_path, re.IGNORECASE):
+                        matches_allow = True
+                        break
+                if matches_allow:
                     break
+
             if not matches_allow:
-                self.report.report_container_filtered(full_path)
+                self.report.report_container_filtered('.'.join(full_path))
                 return False
 
         if self.deny_schema_pattern:
-            for pattern in self.deny_schema_pattern:
-                if re.search(pattern, full_path, re.IGNORECASE):
-                    self.report.report_container_filtered(full_path)
-                    return False
+            for sub_path in sub_paths:
+                for pattern in self.deny_schema_pattern:
+                    if re.search(pattern, sub_path, re.IGNORECASE):
+                        self.report.report_container_filtered('.'.join(full_path))
+                        return False
 
-        self.report.report_container_scanned(full_path)
+        # If we get here, the path passed all filters
+        self.report.report_container_scanned('.'.join(full_path))
         return True
 
     def get_all_containers(self):
