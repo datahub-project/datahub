@@ -43,6 +43,7 @@ _VALID_AUTH_TYPES: Dict[str, str] = {
     "EXTERNAL_BROWSER_AUTHENTICATOR": EXTERNAL_BROWSER_AUTHENTICATOR,
     "KEY_PAIR_AUTHENTICATOR": KEY_PAIR_AUTHENTICATOR,
     "OAUTH_AUTHENTICATOR": OAUTH_AUTHENTICATOR,
+    "OAUTH_AUTHENTICATOR_TOKEN": OAUTH_AUTHENTICATOR,
 }
 
 _SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com"
@@ -156,23 +157,10 @@ class SnowflakeConnectionConfig(ConfigModel):
     def validate_token_oauth_config(cls, v, values):
         if v is not None:
             # First check auth type
-            if values.get("authentication_type") != "OAUTH_AUTHENTICATOR":
+            if values.get("authentication_type") != "OAUTH_AUTHENTICATOR_TOKEN":
                 raise ValueError(
                     "Token can only be provided when using OAUTH_AUTHENTICATOR. Token bypasses authenticating with the OAuth server."
                 )
-
-            # Then check no oauth_config credentials are present
-            oauth_config = values.get("oauth_config")
-            if oauth_config:
-                if (
-                    oauth_config.client_secret
-                    or oauth_config.encoded_oauth_public_key
-                    or oauth_config.encoded_oauth_private_key
-                ):
-                    raise ValueError(
-                        "Cannot provide both token and oauth credentials (client_secret/public_key/private_key). "
-                        "Use either token for external OAuth or configure oauth_config for managed OAuth."
-                    )
         return v
 
     @staticmethod
@@ -360,7 +348,7 @@ class SnowflakeConnectionConfig(ConfigModel):
                 application=_APPLICATION_NAME,
                 **connect_args,
             )
-        elif self.authentication_type == "OAUTH_AUTHENTICATOR" and self.token:
+        elif self.authentication_type == "OAUTH_AUTHENTICATOR_TOKEN":
             return snowflake.connector.connect(
                 user=self.username,
                 account=self.account_id,
