@@ -378,11 +378,6 @@ class TableauConfig(
 
     page_size: int = Field(
         default=10,
-        description="[advanced] Nu.",
-    )
-
-    number_of_object_in_page: int = Field(
-        default=10,
         description="[advanced] Number of metadata objects (e.g. CustomSQLTable, PublishedDatasource, etc) to query at a time using the Tableau API.",
     )
 
