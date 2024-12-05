@@ -675,7 +675,10 @@ class DremioAPIOperations:
         return None
 
     def _check_pattern_match(
-            self, pattern: str, paths: List[str], full_path: str,
+        self,
+        pattern: str,
+        paths: List[str],
+        full_path: str,
     ) -> bool:
         """Helper method to check if a pattern matches any of the paths."""
         # Handle exact pattern matches
@@ -705,7 +708,10 @@ class DremioAPIOperations:
         return False
 
     def _check_allow_patterns(
-            self, patterns: List[str], sub_paths: List[str], full_path: str,
+        self,
+        patterns: List[str],
+        sub_paths: List[str],
+        full_path: str,
     ) -> bool:
         """Check if path matches any allow patterns."""
         if not patterns:
@@ -721,7 +727,10 @@ class DremioAPIOperations:
         return False
 
     def _check_deny_patterns(
-            self, patterns: List[str], sub_paths: List[str], full_path: str,
+        self,
+        patterns: List[str],
+        sub_paths: List[str],
+        full_path: str,
     ) -> bool:
         """Check if path matches any deny patterns."""
         if not patterns:
@@ -746,8 +755,7 @@ class DremioAPIOperations:
 
         # Generate all possible subpaths to check against patterns
         sub_paths = [
-            ".".join(path_components[:i])
-            for i in range(1, len(path_components) + 1)
+            ".".join(path_components[:i]) for i in range(1, len(path_components) + 1)
         ]
 
         # Check allow patterns first
