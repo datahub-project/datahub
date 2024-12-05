@@ -597,6 +597,7 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
     num_csql_field_skipped_no_name: int = 0
     num_table_field_skipped_no_name: int = 0
     # lineage
+    num_tables_with_upstream_lineage: int = 0
     num_upstream_table_lineage: int = 0
     num_upstream_fine_grained_lineage: int = 0
     num_upstream_table_skipped_no_name: int = 0
@@ -2031,6 +2032,7 @@ class TableauSiteSource:
                 aspect_name=c.UPSTREAM_LINEAGE,
                 aspect=upstream_lineage,
             )
+            self.report.num_tables_with_upstream_lineage += 1
             self.report.num_upstream_table_lineage += len(upstream_tables)
 
     @staticmethod
@@ -2208,6 +2210,7 @@ class TableauSiteSource:
             aspect_name=c.UPSTREAM_LINEAGE,
             aspect=upstream_lineage,
         )
+        self.report.num_tables_with_upstream_lineage += 1
         self.report.num_upstream_table_lineage += len(upstream_tables)
         self.report.num_upstream_fine_grained_lineage += len(fine_grained_lineages)
 
@@ -2360,6 +2363,7 @@ class TableauSiteSource:
                     aspect_name=c.UPSTREAM_LINEAGE,
                     aspect=upstream_lineage,
                 )
+                self.report.num_tables_with_upstream_lineage += 1
                 self.report.num_upstream_table_lineage += len(upstream_tables)
                 self.report.num_upstream_fine_grained_lineage += len(
                     fine_grained_lineages
