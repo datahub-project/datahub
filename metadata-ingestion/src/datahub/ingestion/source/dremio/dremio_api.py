@@ -685,13 +685,16 @@ class DremioAPIOperations:
         Handles hierarchical matching where each level is matched independently.
         Also handles prefix matching for partial paths.
         """
-        pattern_parts = re.split(r'\.|\\.', pattern)
+        pattern_parts = re.split(r"\.|\\.", pattern)
 
         for path in paths:
-            path_parts = path.split('.')
+            path_parts = path.split(".")
 
             if allow_prefix:
-                if len(path_parts) == 1 and pattern_parts[0].lower() == path_parts[0].lower():
+                if (
+                    len(path_parts) == 1
+                    and pattern_parts[0].lower() == path_parts[0].lower()
+                ):
                     return True
 
                 # For partial paths, only need to match up to our length
@@ -699,7 +702,7 @@ class DremioAPIOperations:
                     all_parts_match = True
                     for i, path_part in enumerate(path_parts):
                         pattern_part = pattern_parts[i]
-                        if pattern_part in ('*', '.*'):
+                        if pattern_part in ("*", ".*"):
                             continue
                         if not re.search(f"^{pattern_part}$", path_part, re.IGNORECASE):
                             all_parts_match = False
@@ -710,8 +713,10 @@ class DremioAPIOperations:
                 # For deny patterns, require exact depth match
                 if len(path_parts) == len(pattern_parts):
                     matches = True
-                    for i, (pattern_part, path_part) in enumerate(zip(pattern_parts, path_parts)):
-                        if pattern_part in ('*', '.*'):
+                    for i, (pattern_part, path_part) in enumerate(
+                        zip(pattern_parts, path_parts)
+                    ):
+                        if pattern_part in ("*", ".*"):
                             continue
                         if not re.search(f"^{pattern_part}$", path_part, re.IGNORECASE):
                             matches = False
