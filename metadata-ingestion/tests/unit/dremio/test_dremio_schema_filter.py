@@ -5,6 +5,7 @@ from datahub.ingestion.source.dremio.dremio_api import DremioAPIOperations
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
 from datahub.ingestion.source.dremio.dremio_reporting import DremioSourceReport
 
+
 class TestDremioContainerFiltering:
     @pytest.fixture
     def dremio_api(self, monkeypatch):
@@ -20,15 +21,10 @@ class TestDremioContainerFiltering:
             hostname="dummy-host",
             port=9047,
             tls=False,
-
             authentication_method="password",
             username="dummy-user",
             password="dummy-password",
-
-            schema_pattern=dict(
-                allow=[".*"],
-                deny=[]
-            )
+            schema_pattern=dict(allow=[".*"], deny=[])
         )
         report = DremioSourceReport()
         return DremioAPIOperations(config, report)

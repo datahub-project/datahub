@@ -664,10 +664,12 @@ class DremioAPIOperations:
 
         # Convert the pattern to regex with proper anchoring
         regex_pattern = pattern
-        if pattern.startswith('^'):
+        if pattern.startswith("^"):
             # Already has start anchor
             regex_pattern = pattern.replace(".", r"\.")  # Escape dots
-            regex_pattern = regex_pattern.replace(r"\.*", ".*")  # Convert .* to wildcard
+            regex_pattern = regex_pattern.replace(
+                r"\.*", ".*"
+            )  # Convert .* to wildcard
         else:
             # Add start anchor and handle dots
             regex_pattern = "^" + pattern.replace(".", r"\.").replace(r"\.*", ".*")
