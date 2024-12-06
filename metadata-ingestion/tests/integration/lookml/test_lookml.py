@@ -1031,7 +1031,7 @@ def test_gms_schema_resolution(pytestconfig, tmp_path, mock_time):
     }
 
     return_value: Tuple[str, Optional[SchemaInfo]] = (
-        "urn:li:dataset:(urn:li:dataPlatform:dbt, db.public.employee, PROD)",
+        "fake_dataset_urn",
         {
             "Id": "String",
             "Name": "String",
