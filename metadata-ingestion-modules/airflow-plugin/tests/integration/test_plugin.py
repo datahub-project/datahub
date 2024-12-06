@@ -12,6 +12,7 @@ import textwrap
 import time
 from typing import Any, Iterator, Sequence
 
+import packaging.version
 import pytest
 import requests
 import tenacity
@@ -20,6 +21,7 @@ from datahub.ingestion.sink.file import write_metadata_file
 from datahub.testing.compare_metadata_json import assert_metadata_files_equal
 
 from datahub_airflow_plugin._airflow_shims import (
+    AIRFLOW_VERSION,
     HAS_AIRFLOW_DAG_LISTENER_API,
     HAS_AIRFLOW_LISTENER_API,
     HAS_AIRFLOW_STANDALONE_CMD,
@@ -35,6 +37,8 @@ DAGS_FOLDER = pathlib.Path(__file__).parent / "dags"
 GOLDENS_FOLDER = pathlib.Path(__file__).parent / "goldens"
 
 DAG_TO_SKIP_INGESTION = "dag_to_skip"
+
+TEST_V1_PLUGIN = AIRFLOW_VERSION < packaging.version.parse("2.4.0")
 
 
 @dataclasses.dataclass
@@ -242,6 +246,7 @@ def _run_airflow(
         # Note that we could also disable the RUN_IN_THREAD entirely,
         # but I want to minimize the difference between CI and prod.
         "DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT": "30",
+        "DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN": "true" if is_v1 else "false",
         # Convenience settings.
         "AIRFLOW__DATAHUB__LOG_LEVEL": "DEBUG",
         "AIRFLOW__DATAHUB__DEBUG_EMITTER": "True",
@@ -361,7 +366,6 @@ test_cases = [
 @pytest.mark.parametrize(
     ["golden_filename", "test_case", "is_v1"],
     [
-        # On Airflow <= 2.2, test plugin v1.
         *[
             pytest.param(
                 f"v1_{test_case.dag_id}",
@@ -369,7 +373,7 @@ test_cases = [
                 True,
                 id=f"v1_{test_case.dag_id}",
                 marks=pytest.mark.skipif(
-                    HAS_AIRFLOW_LISTENER_API,
+                    not TEST_V1_PLUGIN,
                     reason="Not testing plugin v1 on newer Airflow versions",
                 ),
             )

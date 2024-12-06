@@ -24,8 +24,8 @@ _self_pin = (
 
 base_requirements = {
     f"acryl-datahub[datahub-rest]{_self_pin}",
-    # Actual dependencies.
-    "apache-airflow >= 2.0.2",
+    # We require Airflow 2.3.x, since we need the new DAG listener API.
+    "apache-airflow>=2.3.0",
 }
 
 plugins: Dict[str, Set[str]] = {
@@ -48,8 +48,9 @@ plugins: Dict[str, Set[str]] = {
     },
 }
 
-# Include datahub-rest in the base requirements.
+# Require some plugins by default.
 base_requirements.update(plugins["datahub-rest"])
+base_requirements.update(plugins["plugin-v2"])
 
 
 mypy_stubs = {
