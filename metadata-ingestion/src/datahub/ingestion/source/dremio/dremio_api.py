@@ -662,44 +662,28 @@ class DremioAPIOperations:
         if pattern == ".*":
             return True
 
-        pattern_parts = re.split(r"\.|\\.", pattern)
+        # Convert the pattern to regex with proper anchoring
+        regex_pattern = pattern
+        if pattern.startswith('^'):
+            # Already has start anchor
+            regex_pattern = pattern.replace(".", r"\.")  # Escape dots
+            regex_pattern = regex_pattern.replace(r"\.*", ".*")  # Convert .* to wildcard
+        else:
+            # Add start anchor and handle dots
+            regex_pattern = "^" + pattern.replace(".", r"\.").replace(r"\.*", ".*")
+
+        # Handle end matching
+        if not pattern.endswith(".*"):
+            if pattern.endswith("$"):
+                # Keep explicit end anchor
+                pass
+            elif not allow_prefix:
+                # Add end anchor for exact matching
+                regex_pattern = regex_pattern + "$"
 
         for path in paths:
-            path_parts = path.split(".")
-
-            if allow_prefix:
-                if (
-                    len(path_parts) == 1
-                    and pattern_parts[0].lower() == path_parts[0].lower()
-                ):
-                    return True
-
-                # For partial paths, only need to match up to our length
-                if len(path_parts) <= len(pattern_parts):
-                    all_parts_match = True
-                    for i, path_part in enumerate(path_parts):
-                        pattern_part = pattern_parts[i]
-                        if pattern_part in ("*", ".*"):
-                            continue
-                        if not re.search(f"^{pattern_part}$", path_part, re.IGNORECASE):
-                            all_parts_match = False
-                            break
-                    if all_parts_match:
-                        return True
-            else:
-                # For deny patterns, require exact depth match
-                if len(path_parts) == len(pattern_parts):
-                    matches = True
-                    for i, (pattern_part, path_part) in enumerate(
-                        zip(pattern_parts, path_parts)
-                    ):
-                        if pattern_part in ("*", ".*"):
-                            continue
-                        if not re.search(f"^{pattern_part}$", path_part, re.IGNORECASE):
-                            matches = False
-                            break
-                    if matches:
-                        return True
+            if re.match(regex_pattern, path, re.IGNORECASE):
+                return True
 
         return False
 
@@ -711,28 +695,12 @@ class DremioAPIOperations:
         path_components = path + [name] if path else [name]
         full_path = ".".join(path_components)
 
-        # Generate progressive paths for matching
-        sub_paths = [
-            ".".join(path_components[:i]) for i in range(1, len(path_components) + 1)
-        ]
+        # Default allow everything case
+        if self.allow_schema_pattern == [".*"] and not self.deny_schema_pattern:
+            self.report.report_container_scanned(full_path)
+            return True
 
-        # Check allow patterns first - with prefix matching enabled
-        if self.allow_schema_pattern:
-            matches_allow = False
-            for pattern in self.allow_schema_pattern:
-                if self._check_pattern_match(
-                    pattern=pattern,
-                    paths=sub_paths,
-                    allow_prefix=True,
-                ):
-                    matches_allow = True
-                    break
-
-            if not matches_allow:
-                self.report.report_container_filtered(full_path)
-                return False
-
-        # Check deny patterns with prefix matching disabled
+        # Check deny patterns first
         if self.deny_schema_pattern:
             for pattern in self.deny_schema_pattern:
                 if self._check_pattern_match(
@@ -743,8 +711,30 @@ class DremioAPIOperations:
                     self.report.report_container_filtered(full_path)
                     return False
 
-        self.report.report_container_scanned(full_path)
-        return True
+        # Check allow patterns
+        for pattern in self.allow_schema_pattern:
+            # Check if the current full path matches
+            if self._check_pattern_match(
+                pattern=pattern,
+                paths=[full_path],
+                allow_prefix=True,
+            ):
+                self.report.report_container_scanned(full_path)
+                return True
+
+            # For hierarchical patterns ending with .*, also check parent paths
+            if pattern.endswith(".*") and path:
+                current_path = ".".join(path)
+                if self._check_pattern_match(
+                    pattern=pattern[:-2],
+                    paths=[current_path],
+                    allow_prefix=True,
+                ):
+                    self.report.report_container_scanned(full_path)
+                    return True
+
+        self.report.report_container_filtered(full_path)
+        return False
 
     def get_all_containers(self):
         """
