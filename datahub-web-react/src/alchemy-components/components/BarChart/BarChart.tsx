@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { colors } from '@src/alchemy-components/theme';
-import { abbreviateNumber } from '@src/app/dataviz/utils';
 import { TickLabelProps } from '@visx/axis';
 import { LinearGradient } from '@visx/gradient';
 import { ParentSize } from '@visx/responsive';
@@ -9,6 +8,7 @@ import dayjs from 'dayjs';
 import { Popover } from '../Popover';
 import { ChartWrapper, StyledBarSeries } from './components';
 import { BarChartProps } from './types';
+import { abbreviateNumber } from '../dataviz/utils';
 
 const commonTickLabelProps: TickLabelProps<any> = {
     fontSize: 10,

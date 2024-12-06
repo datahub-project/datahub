@@ -1,5 +1,5 @@
 import { colors } from '@src/alchemy-components/theme';
-import { abbreviateNumber } from '@src/app/dataviz/utils';
+// import { abbreviateNumber } from '@src/app/dataviz/utils';
 import { TickLabelProps } from '@visx/axis';
 import { curveMonotoneX } from '@visx/curve';
 import { LinearGradient } from '@visx/gradient';
@@ -10,6 +10,7 @@ import React, { useState } from 'react';
 import { Popover } from '../Popover';
 import { ChartWrapper } from './components';
 import { LineChartProps } from './types';
+import { abbreviateNumber } from '../dataviz/utils';
 
 const commonTickLabelProps: TickLabelProps<any> = {
     fontSize: 10,
