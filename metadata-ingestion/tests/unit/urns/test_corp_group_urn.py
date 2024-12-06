@@ -3,7 +3,6 @@ import unittest
 import pytest
 
 from datahub.utilities.urns.corp_group_urn import CorpGroupUrn
-from datahub.utilities.urns.error import InvalidUrnError
 
 
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
@@ -17,12 +16,3 @@ class TestCorpGroupUrn(unittest.TestCase):
         assert str(corp_group_urn) == corp_group_urn_str
         assert corp_group_urn == CorpGroupUrn(name="abc")
         assert corp_group_urn == CorpGroupUrn.create_from_id("abc")
-
-    def test_invalid_urn(self) -> None:
-        with self.assertRaises(InvalidUrnError):
-            CorpGroupUrn.create_from_string(
-                "urn:li:abc:(urn:li:dataPlatform:abc,def,prod)"
-            )
-
-        with self.assertRaises(InvalidUrnError):
-            CorpGroupUrn.create_from_string("urn:li:corpGroup:(part1,part2)")

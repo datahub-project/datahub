@@ -18,6 +18,7 @@ dependencies {
   implementation externalDependency.jacksonDataBind
   runtimeOnly externalDependency.jna
 
+  compileOnly externalDependency.swaggerAnnotations
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
   // VisibleForTesting

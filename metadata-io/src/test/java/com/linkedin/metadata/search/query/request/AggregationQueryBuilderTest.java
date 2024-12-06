@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.query.request;
 import static com.linkedin.metadata.Constants.DATA_TYPE_URN_PREFIX;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.utils.SearchUtil.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -12,23 +13,36 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
+import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.query.filter.Condition;
+import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.search.AggregationMetadata;
+import com.linkedin.metadata.search.FilterValue;
+import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.elasticsearch.query.request.AggregationQueryBuilder;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.mockito.Mockito;
 import org.opensearch.search.aggregations.AggregationBuilder;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.testng.Assert;
@@ -597,5 +611,95 @@ public class AggregationQueryBuilderTest {
                     agg.getName()
                         .equals(
                             MISSING_SPECIAL_TYPE + AGGREGATION_SPECIAL_TYPE_DELIMITER + "test")));
+  }
+
+  @Test
+  public void testAddFiltersToMetadataWithStructuredPropsNoResults() {
+    final Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test_me.one");
+
+    SearchConfiguration config = new SearchConfiguration();
+    config.setMaxTermBucketSize(25);
+
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    Criterion criterion =
+        new Criterion()
+            .setField("structuredProperties.test_me.one")
+            .setValues(new StringArray("test123"))
+            .setCondition(Condition.EQUAL);
+
+    AspectRetriever mockAspectRetriever = getMockAspectRetriever(propertyUrn);
+
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    builder.addCriterionFiltersToAggregationMetadata(
+        criterion, aggregationMetadataList, mockAspectRetriever);
+
+    // ensure we add the correct structured prop aggregation here
+    Assert.assertEquals(aggregationMetadataList.size(), 1);
+    //    Assert.assertEquals(aggregationMetadataList.get(0).getEntity(), propertyUrn);
+    Assert.assertEquals(
+        aggregationMetadataList.get(0).getName(), "structuredProperties.test_me.one");
+    Assert.assertEquals(aggregationMetadataList.get(0).getAggregations().size(), 1);
+    Assert.assertEquals(aggregationMetadataList.get(0).getAggregations().get("test123"), 0);
+  }
+
+  @Test
+  public void testAddFiltersToMetadataWithStructuredPropsWithAggregations() {
+    final Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test_me.one");
+
+    final AggregationMetadata aggregationMetadata = new AggregationMetadata();
+    aggregationMetadata.setName("structuredProperties.test_me.one");
+    FilterValue filterValue =
+        new FilterValue().setValue("test123").setFiltered(false).setFacetCount(1);
+    aggregationMetadata.setFilterValues(new FilterValueArray(filterValue));
+    LongMap aggregations = new LongMap();
+    aggregations.put("test123", 1L);
+    aggregationMetadata.setAggregations(aggregations);
+
+    SearchConfiguration config = new SearchConfiguration();
+    config.setMaxTermBucketSize(25);
+
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    Criterion criterion =
+        new Criterion()
+            .setField("structuredProperties.test_me.one")
+            .setValues(new StringArray("test123"))
+            .setCondition(Condition.EQUAL);
+
+    AspectRetriever mockAspectRetriever = getMockAspectRetriever(propertyUrn);
+
+    final List<AggregationMetadata> aggregationMetadataList = new ArrayList<>();
+    aggregationMetadataList.add(aggregationMetadata);
+    builder.addCriterionFiltersToAggregationMetadata(
+        criterion, aggregationMetadataList, mockAspectRetriever);
+
+    Assert.assertEquals(aggregationMetadataList.size(), 1);
+    Assert.assertEquals(
+        aggregationMetadataList.get(0).getName(), "structuredProperties.test_me.one");
+    Assert.assertEquals(aggregationMetadataList.get(0).getAggregations().size(), 1);
+    Assert.assertEquals(aggregationMetadataList.get(0).getAggregations().get("test123"), 1);
+  }
+
+  private AspectRetriever getMockAspectRetriever(Urn propertyUrn) {
+    AspectRetriever mockAspectRetriever = Mockito.mock(AspectRetriever.class);
+    Map<Urn, Map<String, Aspect>> mockResult = new HashMap<>();
+    Map<String, Aspect> aspectMap = new HashMap<>();
+    DataMap definition = new DataMap();
+    definition.put("qualifiedName", "test_me.one");
+    definition.put("valueType", "urn:li:dataType:datahub.string");
+    Aspect definitionAspect = new Aspect(definition);
+    aspectMap.put(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, definitionAspect);
+    mockResult.put(propertyUrn, aspectMap);
+    Set<Urn> urns = new HashSet<>();
+    urns.add(propertyUrn);
+    Mockito.when(mockAspectRetriever.getLatestAspectObjects(eq(urns), any()))
+        .thenReturn(mockResult);
+
+    return mockAspectRetriever;
   }
 }

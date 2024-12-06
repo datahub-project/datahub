@@ -155,4 +155,4 @@ Please see the following API guides related to Custom and Structured Properties:
 
 ### Related Features
 
-- [Documentation Forms](/docs/features/feature-guides/documentation-forms.md)
+- [Compliance Forms](compliance-forms/overview.md)

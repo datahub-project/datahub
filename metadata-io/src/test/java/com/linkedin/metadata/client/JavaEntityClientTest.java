@@ -12,6 +12,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RequiredFieldNotPresentException;
 import com.linkedin.domain.Domains;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
@@ -90,7 +91,7 @@ public class JavaEntityClientTest {
         _timeseriesAspectService,
         rollbackService,
         _eventProducer,
-        1);
+        EntityClientConfig.builder().batchGetV2Size(1).build());
   }
 
   @Test

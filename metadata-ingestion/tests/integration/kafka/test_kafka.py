@@ -5,9 +5,10 @@ import pytest
 import yaml
 from freezegun import freeze_time
 
+from datahub.configuration.common import ConfigurationError
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.kafka.kafka import KafkaSource
+from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
 from tests.integration.kafka import oauth  # type: ignore
 from tests.test_helpers import mce_helpers, test_connection_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -157,3 +158,31 @@ def test_kafka_oauth_callback(
     assert checks["consumer_oauth_callback"], "Consumer oauth callback not found"
     assert checks["admin_polling"], "Admin polling was not initiated"
     assert checks["admin_oauth_callback"], "Admin oauth callback not found"
+
+
+def test_kafka_source_oauth_cb_signature():
+    with pytest.raises(
+        ConfigurationError,
+        match=("oauth_cb function must accept single positional argument."),
+    ):
+        KafkaSourceConfig.parse_obj(
+            {
+                "connection": {
+                    "bootstrap": "foobar:9092",
+                    "consumer_config": {"oauth_cb": "oauth:create_token_no_args"},
+                }
+            }
+        )
+
+    with pytest.raises(
+        ConfigurationError,
+        match=("oauth_cb function must accept single positional argument."),
+    ):
+        KafkaSourceConfig.parse_obj(
+            {
+                "connection": {
+                    "bootstrap": "foobar:9092",
+                    "consumer_config": {"oauth_cb": "oauth:create_token_only_kwargs"},
+                }
+            }
+        )

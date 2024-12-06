@@ -45,6 +45,7 @@ public class ESUtilsTest {
     Urn abFghTenUrn = Urn.createFromString("urn:li:structuredProperty:ab.fgh.ten");
     Urn underscoresAndDotsUrn =
         Urn.createFromString("urn:li:structuredProperty:under.scores.and.dots_make_a_mess");
+    Urn dateWithDotsUrn = Urn.createFromString("urn:li:structuredProperty:date_here.with_dot");
 
     // legacy
     aspectRetriever = mock(AspectRetriever.class);
@@ -63,6 +64,18 @@ public class ESUtilsTest {
                 Map.of(
                     STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
                     new Aspect(structPropAbFghTenDefinition.data()))));
+
+    StructuredPropertyDefinition dateWithDotsDefinition = new StructuredPropertyDefinition();
+    dateWithDotsDefinition.setVersion(null, SetMode.REMOVE_IF_NULL);
+    dateWithDotsDefinition.setValueType(Urn.createFromString(DATA_TYPE_URN_PREFIX + "date"));
+    dateWithDotsDefinition.setQualifiedName("date_here.with_dot");
+    when(aspectRetriever.getLatestAspectObjects(eq(Set.of(dateWithDotsUrn)), anySet()))
+        .thenReturn(
+            Map.of(
+                dateWithDotsUrn,
+                Map.of(
+                    STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                    new Aspect(dateWithDotsDefinition.data()))));
 
     StructuredPropertyDefinition structPropUnderscoresAndDotsDefinition =
         new StructuredPropertyDefinition();
@@ -890,6 +903,36 @@ public class ESUtilsTest {
             + "    ],\n"
             + "    \"boost\" : 1.0,\n"
             + "    \"_name\" : \"structuredProperties.under.scores.and.dots_make_a_mess\"\n"
+            + "  }\n"
+            + "}";
+    Assert.assertEquals(result.toString(), expected);
+  }
+
+  @Test
+  public void testGetQueryBuilderFromDatesWithDots() {
+
+    final Criterion singleValueCriterion =
+        buildCriterion(
+            "structuredProperties.date_here.with_dot", Condition.GREATER_THAN, "1731974400000");
+
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getAspectRetriever()).thenReturn(aspectRetriever);
+    QueryBuilder result =
+        ESUtils.getQueryBuilderFromCriterion(
+            singleValueCriterion, false, new HashMap<>(), opContext, QueryFilterRewriteChain.EMPTY);
+    // structuredProperties.date_here_with_dot should not have .keyword at the end since this field
+    // type is type long for dates
+    String expected =
+        "{\n"
+            + "  \"range\" : {\n"
+            + "    \"structuredProperties.date_here_with_dot\" : {\n"
+            + "      \"from\" : 1731974400000,\n"
+            + "      \"to\" : null,\n"
+            + "      \"include_lower\" : false,\n"
+            + "      \"include_upper\" : true,\n"
+            + "      \"boost\" : 1.0,\n"
+            + "      \"_name\" : \"structuredProperties.date_here.with_dot\"\n"
+            + "    }\n"
             + "  }\n"
             + "}";
     Assert.assertEquals(result.toString(), expected);

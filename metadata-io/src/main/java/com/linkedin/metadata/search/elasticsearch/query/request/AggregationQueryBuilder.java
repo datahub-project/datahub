@@ -379,7 +379,7 @@ public class AggregationQueryBuilder {
     }
   }
 
-  private void addCriterionFiltersToAggregationMetadata(
+  public void addCriterionFiltersToAggregationMetadata(
       @Nonnull final Criterion criterion,
       @Nonnull final List<AggregationMetadata> aggregationMetadata,
       @Nullable AspectRetriever aspectRetriever) {
@@ -422,6 +422,17 @@ public class AggregationQueryBuilder {
                 value ->
                     addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));
       }
+    } else if (aggregationMetadataMap.containsKey(criterion.getField())) {
+      /*
+       * If we already have aggregations for the facet field (original field name), simply inject any missing values counts into the set.
+       * If there are no results for a particular facet value, it will NOT be in the original aggregation set returned by
+       * Elasticsearch.
+       */
+      AggregationMetadata originalAggMetadata = aggregationMetadataMap.get(criterion.getField());
+      criterion
+          .getValues()
+          .forEach(
+              value -> addMissingAggregationValueToAggregationMetadata(value, originalAggMetadata));
     } else {
       /*
        * If we do not have ANY aggregation for the facet field, then inject a new aggregation metadata object for the
@@ -429,10 +440,14 @@ public class AggregationQueryBuilder {
        * If there are no results for a particular facet, it will NOT be in the original aggregation set returned by
        * Elasticsearch.
        */
+      // Simply replace suffix from original field when there are no aggregations for it. Prevents
+      // bug where ES mappings for field are different from how we map the field back to UI
+      // (ie. Structured Properties with dots in them)
+      String facetField = ESUtils.replaceSuffix(criterion.getField());
       aggregationMetadata.add(
           buildAggregationMetadata(
-              finalFacetField,
-              getFacetToDisplayNames().getOrDefault(finalFacetField, finalFacetField),
+              facetField,
+              getFacetToDisplayNames().getOrDefault(facetField, facetField),
               new LongMap(
                   criterion.getValues().stream().collect(Collectors.toMap(i -> i, i -> 0L))),
               new FilterValueArray(
