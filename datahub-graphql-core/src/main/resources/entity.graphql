@@ -5519,6 +5519,11 @@ type Dashboard implements EntityWithRelationships & Entity & BrowsableEntity {
     glossaryTerms: GlossaryTerms
 
     """
+    The Roles and the properties to access the container
+    """
+    access: Access
+
+    """
     The Domain associated with the Dashboard
     """
     domain: DomainAssociation
