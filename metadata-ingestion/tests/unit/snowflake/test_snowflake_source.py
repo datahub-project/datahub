@@ -5,7 +5,6 @@ import pytest
 from pydantic import ValidationError
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.oauth import OAuthConfiguration
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.ingestion.api.source import SourceCapability
 from datahub.ingestion.source.snowflake.constants import (
@@ -13,6 +12,7 @@ from datahub.ingestion.source.snowflake.constants import (
     CLIENT_SESSION_KEEP_ALIVE,
     SnowflakeCloudProvider,
 )
+from datahub.ingestion.source.snowflake.oauth_config import OAuthConfiguration
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
     SnowflakeV2Config,
@@ -128,6 +128,60 @@ def test_snowflake_oauth_happy_paths():
             "oauth_config": oauth_dict,
         }
     )
+
+
+def test_snowflake_oauth_token_happy_path():
+    assert SnowflakeV2Config.parse_obj(
+        {
+            "account_id": "test",
+            "authentication_type": "OAUTH_AUTHENTICATOR_TOKEN",
+            "token": "valid-token",
+            "username": "test-user",
+            "oauth_config": None,
+        }
+    )
+
+
+def test_snowflake_oauth_token_without_token():
+    with pytest.raises(
+        ValidationError, match="Token required for OAUTH_AUTHENTICATOR_TOKEN."
+    ):
+        SnowflakeV2Config.parse_obj(
+            {
+                "account_id": "test",
+                "authentication_type": "OAUTH_AUTHENTICATOR_TOKEN",
+                "username": "test-user",
+            }
+        )
+
+
+def test_snowflake_oauth_token_with_wrong_auth_type():
+    with pytest.raises(
+        ValueError,
+        match="Token can only be provided when using OAUTH_AUTHENTICATOR_TOKEN.",
+    ):
+        SnowflakeV2Config.parse_obj(
+            {
+                "account_id": "test",
+                "authentication_type": "OAUTH_AUTHENTICATOR",
+                "token": "some-token",
+                "username": "test-user",
+            }
+        )
+
+
+def test_snowflake_oauth_token_with_empty_token():
+    with pytest.raises(
+        ValidationError, match="Token required for OAUTH_AUTHENTICATOR_TOKEN."
+    ):
+        SnowflakeV2Config.parse_obj(
+            {
+                "account_id": "test",
+                "authentication_type": "OAUTH_AUTHENTICATOR_TOKEN",
+                "token": "",
+                "username": "test-user",
+            }
+        )
 
 
 default_config_dict: Dict[str, Any] = {

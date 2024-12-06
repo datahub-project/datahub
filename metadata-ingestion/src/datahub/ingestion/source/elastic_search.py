@@ -227,7 +227,7 @@ def collapse_name(name: str, collapse_urns: CollapseUrns) -> str:
 def collapse_urn(urn: str, collapse_urns: CollapseUrns) -> str:
     if len(collapse_urns.urns_suffix_regex) == 0:
         return urn
-    urn_obj = DatasetUrn.create_from_string(urn)
+    urn_obj = DatasetUrn.from_string(urn)
     name = collapse_name(name=urn_obj.get_dataset_name(), collapse_urns=collapse_urns)
     data_platform_urn = urn_obj.get_data_platform_urn()
     return str(

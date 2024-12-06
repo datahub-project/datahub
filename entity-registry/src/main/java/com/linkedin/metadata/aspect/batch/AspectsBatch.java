@@ -9,6 +9,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -49,7 +50,8 @@ public interface AspectsBatch {
    *     various hooks
    */
   Pair<Map<String, Set<String>>, List<ChangeMCP>> toUpsertBatchItems(
-      Map<String, Map<String, SystemAspect>> latestAspects);
+      Map<String, Map<String, SystemAspect>> latestAspects,
+      Map<String, Map<String, Long>> nextVersions);
 
   /**
    * Apply read mutations to batch
@@ -226,5 +228,40 @@ public interface AspectsBatch {
         + "items="
         + StringUtils.abbreviate(itemsAbbreviated.toString(), maxWidth)
         + '}';
+  }
+
+  /**
+   * Increment aspect within a batch, tracking both the next aspect version and the most recent
+   *
+   * @param changeMCP changeMCP to be incremented
+   * @param latestAspects lastest aspects within the batch
+   * @param nextVersions next version for the aspects in the batch
+   * @return the incremented changeMCP
+   */
+  static ChangeMCP incrementBatchVersion(
+      ChangeMCP changeMCP,
+      Map<String, Map<String, SystemAspect>> latestAspects,
+      Map<String, Map<String, Long>> nextVersions) {
+    long nextVersion =
+        nextVersions
+            .getOrDefault(changeMCP.getUrn().toString(), Collections.emptyMap())
+            .getOrDefault(changeMCP.getAspectName(), 0L);
+
+    changeMCP.setPreviousSystemAspect(
+        latestAspects
+            .getOrDefault(changeMCP.getUrn().toString(), Collections.emptyMap())
+            .getOrDefault(changeMCP.getAspectName(), null));
+
+    changeMCP.setNextAspectVersion(nextVersion);
+
+    // support inner-batch upserts
+    latestAspects
+        .computeIfAbsent(changeMCP.getUrn().toString(), key -> new HashMap<>())
+        .put(changeMCP.getAspectName(), changeMCP.getSystemAspect(nextVersion));
+    nextVersions
+        .computeIfAbsent(changeMCP.getUrn().toString(), key -> new HashMap<>())
+        .put(changeMCP.getAspectName(), nextVersion + 1);
+
+    return changeMCP;
   }
 }

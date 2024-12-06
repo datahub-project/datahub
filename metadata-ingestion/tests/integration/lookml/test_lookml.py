@@ -12,16 +12,14 @@ from looker_sdk.sdk.api40.models import DBConnection
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import read_metadata_file
+from datahub.ingestion.source.looker.looker_dataclasses import LookerModel
 from datahub.ingestion.source.looker.looker_template_language import (
     SpecialVariable,
     load_and_preprocess_file,
     resolve_liquid_variable,
 )
-from datahub.ingestion.source.looker.lookml_source import (
-    LookerModel,
-    LookerRefinementResolver,
-    LookMLSourceConfig,
-)
+from datahub.ingestion.source.looker.lookml_config import LookMLSourceConfig
+from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MetadataChangeEventClass,
@@ -833,7 +831,6 @@ def test_manifest_parser(pytestconfig: pytest.Config) -> None:
 
 @freeze_time(FROZEN_TIME)
 def test_duplicate_field_ingest(pytestconfig, tmp_path, mock_time):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
     mce_out_file = "duplicate_ingest_mces_output.json"
 
@@ -892,7 +889,7 @@ def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_t
 
 @freeze_time(FROZEN_TIME)
 def test_special_liquid_variables():
-    text: str = """
+    text: str = """{% assign source_table_variable = "source_table" | sql_quote | non_existing_filter_where_it_should_not_fail %}
         SELECT
           employee_id,
           employee_name,
@@ -906,7 +903,7 @@ def test_special_liquid_variables():
             'default_table' as source
           {% endif %},
           employee_income
-        FROM source_table
+        FROM {{ source_table_variable }}
     """
     input_liquid_variable: dict = {}
 
@@ -961,7 +958,7 @@ def test_special_liquid_variables():
     expected_text: str = (
         "\n        SELECT\n          employee_id,\n          employee_name,\n          \n            "
         "prod_core.data.r_metric_summary_v2\n          ,\n          employee_income\n        FROM "
-        "source_table\n    "
+        "'source_table'\n    "
     )
     assert actual_text == expected_text
 

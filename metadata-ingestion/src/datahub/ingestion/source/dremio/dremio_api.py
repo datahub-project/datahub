@@ -249,7 +249,7 @@ class DremioAPIOperations:
         )
         return response.json()
 
-    def execute_query(self, query: str, timeout: int = 300) -> List[Dict[str, Any]]:
+    def execute_query(self, query: str, timeout: int = 3600) -> List[Dict[str, Any]]:
         """Execute SQL query with timeout and error handling"""
         try:
             response = self.post(url="/sql", data=json.dumps({"sql": query}))
@@ -566,7 +566,6 @@ class DremioAPIOperations:
         return tables
 
     def validate_schema_format(self, schema):
-
         if "." in schema:
             schema_path = self.get(
                 url=f"/catalog/{self.get_dataset_id(schema=schema, dataset='')}"
@@ -687,7 +686,6 @@ class DremioAPIOperations:
                     response.get("entityType")
                     == DremioEntityContainerType.FOLDER.value.lower()
                 ):
-
                     containers.append(
                         {
                             "id": location_id,
@@ -776,3 +774,14 @@ class DremioAPIOperations:
                 containers.extend(future.result())
 
         return containers
+
+    def get_context_for_vds(self, resource_id: str) -> str:
+        context_array = self.get(
+            url=f"/catalog/{resource_id}",
+        ).get("sqlContext")
+        if context_array:
+            return ".".join(
+                f'"{part}"' if "." in part else f"{part}" for part in context_array
+            )
+        else:
+            return ""

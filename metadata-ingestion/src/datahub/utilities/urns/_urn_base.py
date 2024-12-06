@@ -200,7 +200,7 @@ class Urn:
     @classmethod
     @deprecated(reason="no longer needed")
     def validate(cls, urn_str: str) -> None:
-        Urn.create_from_string(urn_str)
+        Urn.from_string(urn_str)
 
     @staticmethod
     def url_encode(urn: str) -> str:
