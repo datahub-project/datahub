@@ -150,22 +150,19 @@ class SnowflakeConnectionConfig(ConfigModel):
                 )
         elif v == "OAUTH_AUTHENTICATOR":
             cls._check_oauth_config(values.get("oauth_config"))
-        elif v == "OAUTH_AUTHENTICATOR_TOKEN":
-            if values.get("token") is None:
-                raise ValueError(
-                    "token is required when using OAUTH_AUTHENTICATOR_TOKEN authentication"
-                )
         logger.info(f"using authenticator type '{v}'")
         return v
 
-    @pydantic.validator("token")
+    @pydantic.validator("token", always=True)
     def validate_token_oauth_config(cls, v, values):
-        if v is not None:
-            # First check auth type
-            if values.get("authentication_type") != "OAUTH_AUTHENTICATOR_TOKEN":
-                raise ValueError(
-                    "Token can only be provided when using OAUTH_AUTHENTICATOR. Token bypasses authenticating with the OAuth server."
-                )
+        auth_type = values.get("authentication_type")
+        if auth_type == "OAUTH_AUTHENTICATOR_TOKEN":
+            if not v:
+                raise ValueError("Token required for OAUTH_AUTHENTICATOR_TOKEN.")
+        elif v is not None:
+            raise ValueError(
+                "Token can only be provided when using OAUTH_AUTHENTICATOR_TOKEN"
+            )
         return v
 
     @staticmethod
