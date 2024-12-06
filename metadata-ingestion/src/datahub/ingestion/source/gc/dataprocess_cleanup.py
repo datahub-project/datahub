@@ -331,8 +331,8 @@ class DataProcessCleanup:
                 continue
 
             if (
-                "created" not in dpi
-                or "time" not in dpi["created"]
+                not dpi.get("created")
+                or not dpi["created"].get("time")
                 or dpi["created"]["time"] < retention_time * 1000
             ):
                 future = executor.submit(
