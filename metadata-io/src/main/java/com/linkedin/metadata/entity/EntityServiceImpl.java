@@ -1051,7 +1051,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 }
               } else {
                 MetricUtils.counter(EntityServiceImpl.class, "batch_empty_transaction").inc();
-                log.warn("Empty transaction detected. {}", inputBatch);
+                // This includes no-op batches. i.e. patch removing non-existent items
+                log.debug("Empty transaction detected. {}", inputBatch);
               }
 
               return upsertResults;
@@ -2533,9 +2534,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         .setLastRunId(writeItem.getSystemMetadata().getRunId(GetMode.NULL), SetMode.IGNORE_NULL);
 
     // 2. Compare the latest existing and new.
-    final RecordTemplate databaseValue =
-        databaseAspect == null ? null : databaseAspect.getRecordTemplate();
-
     final EntityAspect.EntitySystemAspect previousBatchAspect =
         (EntityAspect.EntitySystemAspect) writeItem.getPreviousSystemAspect();
     final RecordTemplate previousValue =
@@ -2544,43 +2542,49 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // 3. If there is no difference between existing and new, we just update
     // the lastObserved in system metadata. RunId should stay as the original runId
     if (previousValue != null
-        && DataTemplateUtil.areEqual(databaseValue, writeItem.getRecordTemplate())) {
+        && DataTemplateUtil.areEqual(previousValue, writeItem.getRecordTemplate())) {
 
       SystemMetadata latestSystemMetadata = previousBatchAspect.getSystemMetadata();
       latestSystemMetadata.setLastObserved(writeItem.getSystemMetadata().getLastObserved());
       latestSystemMetadata.setLastRunId(
           writeItem.getSystemMetadata().getLastRunId(GetMode.NULL), SetMode.IGNORE_NULL);
 
-      previousBatchAspect
-          .getEntityAspect()
-          .setSystemMetadata(RecordUtils.toJsonString(latestSystemMetadata));
+      if (!latestSystemMetadata.equals(previousBatchAspect.getSystemMetadata())) {
 
-      log.info(
-          "Ingesting aspect with name {}, urn {}",
-          previousBatchAspect.getAspectName(),
-          previousBatchAspect.getUrn());
-      aspectDao.saveAspect(txContext, previousBatchAspect.getEntityAspect(), false);
+        previousBatchAspect
+            .getEntityAspect()
+            .setSystemMetadata(RecordUtils.toJsonString(latestSystemMetadata));
 
-      // metrics
-      aspectDao.incrementWriteMetrics(
-          previousBatchAspect.getAspectName(),
-          1,
-          previousBatchAspect.getMetadataRaw().getBytes(StandardCharsets.UTF_8).length);
+        log.debug(
+            "Update aspect with name {}, urn {}",
+            previousBatchAspect.getAspectName(),
+            previousBatchAspect.getUrn());
+        aspectDao.saveAspect(txContext, previousBatchAspect.getEntityAspect(), false);
 
-      return UpdateAspectResult.builder()
-          .urn(writeItem.getUrn())
-          .oldValue(previousValue)
-          .newValue(previousValue)
-          .oldSystemMetadata(previousBatchAspect.getSystemMetadata())
-          .newSystemMetadata(latestSystemMetadata)
-          .operation(MetadataAuditOperation.UPDATE)
-          .auditStamp(writeItem.getAuditStamp())
-          .maxVersion(0)
-          .build();
+        // metrics
+        aspectDao.incrementWriteMetrics(
+            previousBatchAspect.getAspectName(),
+            1,
+            previousBatchAspect.getMetadataRaw().getBytes(StandardCharsets.UTF_8).length);
+
+        return UpdateAspectResult.builder()
+            .urn(writeItem.getUrn())
+            .oldValue(previousValue)
+            .newValue(previousValue)
+            .oldSystemMetadata(previousBatchAspect.getSystemMetadata())
+            .newSystemMetadata(latestSystemMetadata)
+            .operation(MetadataAuditOperation.UPDATE)
+            .auditStamp(writeItem.getAuditStamp())
+            .maxVersion(0)
+            .build();
+      } else {
+        MetricUtils.counter(EntityServiceImpl.class, "batch_with_noop_sysmetadata").inc();
+        return null;
+      }
     }
 
     // 4. Save the newValue as the latest version
-    if (!DataTemplateUtil.areEqual(databaseValue, writeItem.getRecordTemplate())) {
+    if (!DataTemplateUtil.areEqual(previousValue, writeItem.getRecordTemplate())) {
       log.debug(
           "Ingesting aspect with name {}, urn {}", writeItem.getAspectName(), writeItem.getUrn());
       String newValueStr = EntityApiUtils.toJsonAspect(writeItem.getRecordTemplate());

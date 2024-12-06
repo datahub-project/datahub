@@ -191,7 +191,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         newTime,
         newSystemMetadata,
         ASPECT_LATEST_VERSION,
-        oldAspectMetadata == null);
+        ASPECT_LATEST_VERSION.equals(nextVersion));
 
     return largestVersion;
   }
