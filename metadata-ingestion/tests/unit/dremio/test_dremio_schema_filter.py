@@ -24,7 +24,7 @@ class TestDremioContainerFiltering:
             authentication_method="password",
             username="dummy-user",
             password="dummy-password",
-            schema_pattern=dict(allow=[".*"], deny=[])
+            schema_pattern=dict(allow=[".*"], deny=[]),
         )
         report = DremioSourceReport()
         return DremioAPIOperations(config, report)
