@@ -3635,6 +3635,8 @@ export const mocks = [
                         manageGlobalAnnouncements: true,
                         createBusinessAttributes: true,
                         manageBusinessAttributes: true,
+                        manageStructuredProperties: true,
+                        viewStructuredPropertiesPage: true,
                     },
                 },
             },
