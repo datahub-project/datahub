@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import lru_cache
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Type, Union
 
 import dateutil.parser as dp
 import requests
@@ -16,10 +16,19 @@ from datahub.configuration.source_common import (
 from datahub.emitter.mce_builder import (
     make_chart_urn,
     make_dashboard_urn,
+    make_data_platform_urn,
     make_dataset_urn,
+    make_dataset_urn_with_platform_instance,
     make_domain_urn,
+    make_schema_field_urn,
+    make_term_urn,
+    make_user_urn,
 )
-from datahub.emitter.mcp_builder import add_domain_to_entity_wu
+from datahub.emitter.mcp_builder import (
+    MetadataChangeProposalWrapper,
+    add_domain_to_entity_wu,
+)
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -47,16 +56,56 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
     Status,
+    TimeStamp,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     ChartSnapshot,
     DashboardSnapshot,
+    DatasetSnapshot,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    ArrayType,
+    BooleanType,
+    BytesType,
+    MySqlDDL,
+    NullType,
+    NumberType,
+    RecordType,
+    SchemaField,
+    SchemaFieldDataType,
+    SchemaMetadata,
+    StringType,
+    TimeType,
+)
+
+# Imports for metadata model classes
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
+    DatasetLineageTypeClass,
+    DatasetPropertiesClass,
+    FineGrainedLineageClass,
+    FineGrainedLineageDownstreamTypeClass,
+    FineGrainedLineageUpstreamTypeClass,
+    GlobalTagsClass,
+    GlossaryNodeInfoClass,
+    GlossaryTermAssociationClass,
+    GlossaryTermInfoClass,
+    GlossaryTermsClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
+    TagAssociationClass,
+    UpstreamClass,
+    UpstreamLineageClass,
+)
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    SqlParsingResult,
+    create_lineage_sql_parsed_result,
 )
 from datahub.utilities import config_clean
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -80,6 +129,61 @@ chart_type_from_viz_type = {
     "line_multi": ChartTypeClass.LINE,
     "treemap": ChartTypeClass.AREA,
     "box_plot": ChartTypeClass.BAR,
+}
+
+SUPERSET_FIELD_TYPE_MAPPINGS: Dict[
+    str,
+    Type[
+        Union[
+            ArrayType,
+            BytesType,
+            BooleanType,
+            NumberType,
+            RecordType,
+            StringType,
+            TimeType,
+            NullType,
+        ]
+    ],
+] = {
+    "BYTES": BytesType,
+    "BOOL": BooleanType,
+    "BOOLEAN": BooleanType,
+    "DOUBLE": NumberType,
+    "DOUBLE PRECISION": NumberType,
+    "DECIMAL": NumberType,
+    "NUMERIC": NumberType,
+    "BIGNUMERIC": NumberType,
+    "BIGDECIMAL": NumberType,
+    "FLOAT64": NumberType,
+    "INT": NumberType,
+    "INT64": NumberType,
+    "SMALLINT": NumberType,
+    "INTEGER": NumberType,
+    "BIGINT": NumberType,
+    "TINYINT": NumberType,
+    "BYTEINT": NumberType,
+    "STRING": StringType,
+    "TIME": TimeType,
+    "TIMESTAMP": TimeType,
+    "DATE": TimeType,
+    "DATETIME": TimeType,
+    "GEOGRAPHY": NullType,
+    "JSON": NullType,
+    "INTERVAL": NullType,
+    "ARRAY": ArrayType,
+    "STRUCT": RecordType,
+    "CHARACTER VARYING": StringType,
+    "CHARACTER": StringType,
+    "CHAR": StringType,
+    "TIMESTAMP WITHOUT TIME ZONE": TimeType,
+    "REAL": NumberType,
+    "VARCHAR": StringType,
+    "TIMESTAMPTZ": TimeType,
+    "GEOMETRY": NullType,
+    "HLLSKETCH": NullType,
+    "TIMETZ": TimeType,
+    "VARBYTE": StringType,
 }
 
 platform_without_databases = ["druid"]
@@ -106,7 +210,7 @@ class SupersetConfig(
     api_key: Optional[str] = Field(default=None, description="Preset.io API key.")
     api_secret: Optional[str] = Field(default=None, description="Preset.io API secret.")
     manager_uri: str = Field(
-        default="https://api.app.preset.io", description="Preset.io API URL"
+        default="https://api.app.preset.io/", description="Preset.io API URL"
     )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -135,7 +239,7 @@ class SupersetConfig(
         return values
 
 
-def get_metric_name(metric):
+def get_metric_name(metric: dict) -> str:
     if not metric:
         return ""
     if isinstance(metric, str):
@@ -146,7 +250,7 @@ def get_metric_name(metric):
     return label
 
 
-def get_filter_name(filter_obj):
+def get_filter_name(filter_obj: dict) -> str:
     sql_expression = filter_obj.get("sqlExpression")
     if sql_expression:
         return sql_expression
@@ -158,13 +262,16 @@ def get_filter_name(filter_obj):
     return f"{clause} {column} {operator} {comparator}"
 
 
+def format_to_full_name(change_by_data: dict) -> str:
+    return f"{change_by_data.get('first_name')} {change_by_data.get('last_name')}"
+
+
 @platform_name("Superset")
 @config_class(SupersetConfig)
 @support_status(SupportStatus.CERTIFIED)
 @capability(
     SourceCapability.DELETION_DETECTION, "Optionally enabled via stateful_ingestion"
 )
-@capability(SourceCapability.DOMAINS, "Enabled by `domain` config to assign domain_key")
 @capability(SourceCapability.LINEAGE_COARSE, "Supported by default")
 class SupersetSource(StatefulIngestionSourceBase):
     """
@@ -190,7 +297,19 @@ class SupersetSource(StatefulIngestionSourceBase):
                 cached_domains=[domain_id for domain_id in self.config.domain],
                 graph=self.ctx.graph,
             )
+        self.sink_config = None
+        if (
+            ctx.pipeline_config
+            and ctx.pipeline_config.sink
+            and ctx.pipeline_config.sink.config
+        ):
+            self.sink_config = ctx.pipeline_config.sink.config
+            self.rest_emitter = DatahubRestEmitter(
+                gms_server=self.sink_config.get("server", ""),
+                token=self.sink_config.get("token", ""),
+            )
         self.session = self.login()
+        self.full_owners_dict = self.build_preset_owner_dict()
 
     def login(self) -> requests.Session:
         login_response = requests.post(
@@ -230,7 +349,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         return cls(ctx, config)
 
     @lru_cache(maxsize=None)
-    def get_platform_from_database_id(self, database_id):
+    def get_platform_from_database_id(self, database_id: int) -> str:
         database_response = self.session.get(
             f"{self.config.connect_uri}/api/v1/database/{database_id}"
         ).json()
@@ -250,11 +369,18 @@ class SupersetSource(StatefulIngestionSourceBase):
         return platform_name
 
     @lru_cache(maxsize=None)
-    def get_datasource_urn_from_id(self, datasource_id):
+    def get_dataset_info(self, dataset_id: int) -> dict:
         dataset_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/dataset/{datasource_id}"
-        ).json()
+            f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
+        )
+        if dataset_response.status_code != 200:
+            logger.warning(f"Failed to get dataset info: {dataset_response.text}")
+            dataset_response.raise_for_status()
+        return dataset_response.json()
 
+    def get_datasource_urn_from_id(
+        self, dataset_response: dict, platform_instance: str
+    ) -> str:
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
         database_id = dataset_response.get("result", {}).get("database", {}).get("id")
@@ -277,15 +403,115 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         if database_id and table_name:
             return make_dataset_urn(
-                platform=platform,
+                platform=platform_instance,
                 name=".".join(
                     name for name in [database_name, schema_name, table_name] if name
                 ),
                 env=self.config.env,
             )
-        return None
+        raise ValueError("Could not construct dataset URN")
 
-    def construct_dashboard_from_api_data(self, dashboard_data):
+    def parse_owner_payload(self, payload, owners_dict):
+        for owner_data in payload.get("result", []):
+            email = owner_data.get("extra", {}).get("email")
+            owner_id = owner_data.get("value")
+
+            if owner_id and email:
+                owners_dict[owner_id] = email
+        return owners_dict
+
+    def build_preset_owner_dict(self) -> dict:
+        owners_dict: dict = {}
+        dataset_payload = self.get_all_dataset_owners()
+        chart_payload = self.get_all_chart_owners()
+        dashboard_payload = self.get_all_dashboard_owners()
+
+        owners_dict = self.parse_owner_payload(dataset_payload, owners_dict)
+        owners_dict = self.parse_owner_payload(chart_payload, owners_dict)
+        owners_dict = self.parse_owner_payload(dashboard_payload, owners_dict)
+        return owners_dict
+
+    def build_owners_urn_list(self, data):
+        owners_urn_list = []
+        for owner in data.get("owners", []):
+            owner_id = owner.get("id")
+            owner_email = self.full_owners_dict.get(owner_id)
+            if owner_email:
+                owners_urn = make_user_urn(owner_email)
+                owners_urn_list.append(owners_urn)
+        return owners_urn_list
+
+    def get_all_dataset_owners(self) -> dict:
+        current_dataset_page = 1
+        total_dataset_owners = PAGE_SIZE
+        all_dataset_owners = []
+
+        while (current_dataset_page - 1) * PAGE_SIZE <= total_dataset_owners:
+            full_owners_response = self.session.get(
+                f"{self.config.connect_uri}/api/v1/dataset/related/owners",
+                params=f"q=(page:{current_dataset_page},page_size:{PAGE_SIZE})",
+            )
+            if full_owners_response.status_code != 200:
+                logger.warning(
+                    f"Failed to get dataset data: {full_owners_response.text}"
+                )
+            full_owners_response.raise_for_status()
+
+            payload = full_owners_response.json()
+            total_dataset_owners = payload.get("count", total_dataset_owners)
+            all_dataset_owners.extend(payload.get("result", []))
+            current_dataset_page += 1
+
+        # return combined payload
+        return {"result": all_dataset_owners, "count": total_dataset_owners}
+
+    def get_all_chart_owners(self) -> dict:
+        current_chart_page = 1
+        total_chart_owners = PAGE_SIZE
+        all_chart_owners = []
+
+        while (current_chart_page - 1) * PAGE_SIZE <= total_chart_owners:
+            full_owners_response = self.session.get(
+                f"{self.config.connect_uri}/api/v1/chart/related/owners",
+                params=f"q=(page:{current_chart_page},page_size:{PAGE_SIZE})",
+            )
+            if full_owners_response.status_code != 200:
+                logger.warning(f"Failed to get chart data: {full_owners_response.text}")
+            full_owners_response.raise_for_status()
+
+            payload = full_owners_response.json()
+            total_chart_owners = payload.get("count", total_chart_owners)
+            all_chart_owners.extend(payload.get("result", []))
+            current_chart_page += 1
+
+        return {"result": all_chart_owners, "count": total_chart_owners}
+
+    def get_all_dashboard_owners(self) -> dict:
+        current_dashboard_page = 1
+        total_dashboard_owners = PAGE_SIZE
+        all_dashboard_owners = []
+
+        while (current_dashboard_page - 1) * PAGE_SIZE <= total_dashboard_owners:
+            full_owners_response = self.session.get(
+                f"{self.config.connect_uri}/api/v1/dashboard/related/owners",
+                params=f"q=(page:{current_dashboard_page},page_size:{PAGE_SIZE})",
+            )
+            if full_owners_response.status_code != 200:
+                logger.warning(
+                    f"Failed to get dashboard data: {full_owners_response.text}"
+                )
+            full_owners_response.raise_for_status()
+
+            payload = full_owners_response.json()
+            total_dashboard_owners = payload.get("count", total_dashboard_owners)
+            all_dashboard_owners.extend(payload.get("result", []))
+            current_dashboard_page += 1
+
+        return {"result": all_dashboard_owners, "count": total_dashboard_owners}
+
+    def construct_dashboard_from_api_data(
+        self, dashboard_data: dict
+    ) -> DashboardSnapshot:
         dashboard_urn = make_dashboard_urn(
             platform=self.platform,
             name=dashboard_data["id"],
@@ -340,7 +566,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         }
 
         if dashboard_data.get("certified_by"):
-            custom_properties["CertifiedBy"] = dashboard_data.get("certified_by")
+            custom_properties["CertifiedBy"] = dashboard_data.get(
+                "certified_by", "None"
+            )
             custom_properties["CertificationDetails"] = str(
                 dashboard_data.get("certification_details")
             )
@@ -355,6 +583,20 @@ class SupersetSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
         )
         dashboard_snapshot.aspects.append(dashboard_info)
+
+        dashboard_owners_list = self.build_owners_urn_list(dashboard_data)
+        owners_info = OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=urn,
+                    # default as Technical Owners from Preset
+                    type=OwnershipTypeClass.TECHNICAL_OWNER,
+                )
+                for urn in (dashboard_owners_list or [])
+            ],
+        )
+        dashboard_snapshot.aspects.append(owners_info)
+
         return dashboard_snapshot
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
@@ -389,7 +631,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                     entity_urn=dashboard_snapshot.urn,
                 )
 
-    def construct_chart_from_chart_data(self, chart_data):
+    def construct_chart_from_chart_data(self, chart_data: dict) -> ChartSnapshot:
         chart_urn = make_chart_urn(
             platform=self.platform,
             name=chart_data["id"],
@@ -415,9 +657,13 @@ class SupersetSource(StatefulIngestionSourceBase):
         chart_url = f"{self.config.display_uri}{chart_data.get('url', '')}"
 
         datasource_id = chart_data.get("datasource_id")
-        datasource_urn = self.get_datasource_urn_from_id(datasource_id)
 
-        params = json.loads(chart_data.get("params"))
+        dataset_response = self.get_dataset_info(datasource_id)
+        datasource_urn = self.get_datasource_urn_from_id(
+            dataset_response, self.platform
+        )
+
+        params = json.loads(chart_data.get("params", "{}"))
         metrics = [
             get_metric_name(metric)
             for metric in (params.get("metrics", []) or [params.get("metric")])
@@ -464,6 +710,20 @@ class SupersetSource(StatefulIngestionSourceBase):
             customProperties=custom_properties,
         )
         chart_snapshot.aspects.append(chart_info)
+
+        chart_owners_list = self.build_owners_urn_list(chart_data)
+        owners_info = OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=urn,
+                    # default as Technical Owners from Preset
+                    type=OwnershipTypeClass.TECHNICAL_OWNER,
+                )
+                for urn in (chart_owners_list or [])
+            ],
+        )
+        chart_snapshot.aspects.append(owners_info)
+
         return chart_snapshot
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
@@ -485,18 +745,308 @@ class SupersetSource(StatefulIngestionSourceBase):
             payload = chart_response.json()
             total_charts = payload["count"]
             for chart_data in payload["result"]:
-                chart_snapshot = self.construct_chart_from_chart_data(chart_data)
+                try:
+                    chart_snapshot = self.construct_chart_from_chart_data(chart_data)
 
-                mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-                yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
+                    mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
+                    yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
+                    yield from self._get_domain_wu(
+                        title=chart_data.get("slice_name", ""),
+                        entity_urn=chart_snapshot.urn,
+                    )
+                except Exception as e:
+                    logger.info(f"Error: {e}")
+
+    def gen_schema_fields(self, column_data: List[Dict[str, str]]) -> List[SchemaField]:
+        schema_fields: List[SchemaField] = []
+        for col in column_data:
+            data_type = SUPERSET_FIELD_TYPE_MAPPINGS.get(col.get("type", ""))
+            field = SchemaField(
+                fieldPath=col.get("column_name", ""),
+                type=SchemaFieldDataType(data_type() if data_type else NullType()),
+                nativeDataType="",
+                description=col.get("column_name", ""),
+                nullable=True,
+            )
+            schema_fields.append(field)
+        return schema_fields
+
+    def gen_schema_metadata(
+        self,
+        dataset_response: dict,
+    ) -> SchemaMetadata:
+        dataset_response = dataset_response.get("result", {})
+        column_data = dataset_response.get("columns", [])
+        schema_metadata = SchemaMetadata(
+            schemaName=dataset_response.get("table_name", ""),
+            platform=make_data_platform_urn(self.platform),
+            version=0,
+            hash="",
+            platformSchema=MySqlDDL(tableSchema=""),
+            fields=self.gen_schema_fields(column_data),
+        )
+        return schema_metadata
+
+    def gen_dataset_urn(self, datahub_dataset_name: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=datahub_dataset_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+    def create_glossary_terms(
+        self, dataset_response: dict
+    ) -> List[GlossaryTermAssociationClass]:
+        metrics = dataset_response.get("result", {}).get("metrics", [])
+        glossary_term_urns = []
+        for metric in metrics:
+            if dataset_response.get("result", {}).get(
+                "extra", {}
+            ) and "certification" in dataset_response.get("result", {}).get(
+                "extra", {}
+            ):
+                expression = metric.get("expression", "")
+                certification_details = metric.get("extra", "")
+                metric_name = metric.get("metric_name", "")
+                schema_name = dataset_response.get("result", {}).get(
+                    "schema", "Default"
+                )
+                description = metric.get("description", "")
+
+                term_urn = make_term_urn(metric_name)
+                # Count is the default metric on all datasets
+                if metric_name == "count":
+                    continue
+                # Testing for adding glossary Nodes (Groups)=====
+                node_term_urn = f"urn:li:glossaryNode:{schema_name}"
+                term_node_properties_aspect = GlossaryNodeInfoClass(
+                    name=schema_name,
+                    definition=f"Contains metrics associated with {schema_name}.",
+                )
+
+                update_node_event: MetadataChangeProposalWrapper = (
+                    MetadataChangeProposalWrapper(
+                        entityUrn=node_term_urn,
+                        aspect=term_node_properties_aspect,
+                    )
+                )
+
+                self.rest_emitter.emit(update_node_event)
+                logger.info(f"Created Glossary node created {node_term_urn}")
+                # Testing for adding glossary Nodes (Groups) ===
+
+                term_properties_aspect = GlossaryTermInfoClass(
+                    name=metric_name,
+                    definition=f"Description: {description} \n\nSql Expression: {expression} \n\nCertification details: {certification_details}",
+                    termSource="",
+                    parentNode=node_term_urn,
+                )
+
+                update_term_event: MetadataChangeProposalWrapper = (
+                    MetadataChangeProposalWrapper(
+                        entityUrn=term_urn,
+                        aspect=term_properties_aspect,
+                    )
+                )
+
+                self.rest_emitter.emit(update_term_event)
+                logger.info(f"Created Glossary term {term_urn}")
+                glossary_term_urns.append(GlossaryTermAssociationClass(urn=term_urn))
+        return glossary_term_urns
+
+    def generate_virtual_dataset_lineage(
+        self, parsed_query_object: SqlParsingResult, datasource_urn: str
+    ) -> UpstreamLineageClass:
+        cll: List[ColumnLineageInfo] = (
+            parsed_query_object.column_lineage
+            if parsed_query_object.column_lineage is not None
+            else []
+        )
+
+        fine_grained_lineages: List[FineGrainedLineageClass] = []
+
+        for cll_info in cll:
+
+            downstream = (
+                [make_schema_field_urn(datasource_urn, cll_info.downstream.column)]
+                if cll_info.downstream and cll_info.downstream.column
+                else []
+            )
+            upstreams = [
+                make_schema_field_urn(column_ref.table, column_ref.column)
+                for column_ref in cll_info.upstreams
+            ]
+            fine_grained_lineages.append(
+                FineGrainedLineageClass(
+                    downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                    downstreams=downstream,
+                    upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                    upstreams=upstreams,
+                )
+            )
+
+        upstream_lineage = UpstreamLineageClass(
+            upstreams=[
+                UpstreamClass(
+                    type=DatasetLineageTypeClass.TRANSFORMED,
+                    dataset=input_table_urn,
+                )
+                for input_table_urn in parsed_query_object.in_tables
+            ],
+            fineGrainedLineages=fine_grained_lineages,
+        )
+        return upstream_lineage
+
+    # Ingestion for Preset Dataset
+    def construct_dataset_from_dataset_data(
+        self, dataset_data: dict
+    ) -> DatasetSnapshot:
+        dataset_response = self.get_dataset_info(dataset_data.get("id"))
+        datasource_urn = self.get_datasource_urn_from_id(
+            dataset_response, self.platform
+        )
+        # Check API format for dataset
+        modified_actor = f"urn:li:corpuser:{(dataset_data.get('changed_by') or {}).get('username', 'unknown')}"
+        modified_ts = int(
+            dp.parse(dataset_data.get("changed_on_utc", "now")).timestamp() * 1000
+        )
+        table_name = dataset_data.get("table_name", "")
+        database_id = dataset_response.get("result", {}).get("database", {}).get("id")
+        upstream_warehouse_db_name = (
+            dataset_response.get("result", {}).get("database", {}).get("database_name")
+        )
+        upstream_warehouse_platform = self.get_platform_from_database_id(database_id)
+        # We prefer rendered SQL over SQL if the dataset contains jinja templating
+        sql = dataset_response.get("result", {}).get(
+            "rendered_sql"
+        ) or dataset_response.get("result", {}).get("sql")
+        last_modified = AuditStampClass(time=modified_ts, actor=modified_actor)
+        dataset_url = f"{self.config.display_uri}{dataset_data.get('explore_url', '')}"
+        metrics = [
+            metric.get("metric_name")
+            for metric in (dataset_response.get("result", {}).get("metrics", []))
+        ]
+
+        owners = [
+            owner.get("first_name") + "_" + str(owner.get("id"))
+            for owner in (dataset_response.get("result", {}).get("owners", []))
+        ]
+        custom_properties = {
+            "Metrics": ", ".join(metrics),
+            "Owners": ", ".join(owners),
+        }
+
+        dataset_info = DatasetPropertiesClass(
+            name=table_name,
+            description="",
+            lastModified=TimeStamp(time=modified_ts),
+            externalUrl=dataset_url,
+            customProperties=custom_properties,
+        )
+        aspects_items: List[Any] = []
+
+        # Create Glossary Terms for certified datasets
+        glossary_term_urns = self.create_glossary_terms(dataset_response)
+        if glossary_term_urns:
+            glossary_terms = GlossaryTermsClass(
+                terms=glossary_term_urns, auditStamp=last_modified
+            )
+            aspects_items.append(glossary_terms)
+        # Create Lineage:
+        db_platform_instance = self.get_platform_from_database_id(database_id)
+
+        parsed_query_object = create_lineage_sql_parsed_result(
+            query=sql,
+            default_db=upstream_warehouse_db_name,
+            platform=upstream_warehouse_platform,
+            platform_instance=None,
+            env=self.config.env,
+        )
+        if sql:
+            # To Account for virtual datasets
+            tag_urn = f"urn:li:tag:{self.platform}:virtual"
+            upstream_lineage = self.generate_virtual_dataset_lineage(
+                parsed_query_object, datasource_urn
+            )
+        else:
+            # To Account for physical datasets
+            tag_urn = f"urn:li:tag:{self.platform}:physical"
+            upstream_dataset = self.get_datasource_urn_from_id(
+                dataset_response, db_platform_instance
+            )
+            upstream_lineage = UpstreamLineageClass(
+                upstreams=[
+                    UpstreamClass(
+                        type=DatasetLineageTypeClass.TRANSFORMED,
+                        dataset=upstream_dataset,
+                    )
+                ]
+            )
+
+        global_tags = GlobalTagsClass(tags=[TagAssociationClass(tag=tag_urn)])
+        dataset_owners_list = self.build_owners_urn_list(dataset_data)
+        owners_info = OwnershipClass(
+            owners=[
+                OwnerClass(
+                    owner=urn,
+                    # default as Technical Owners from Preset
+                    type=OwnershipTypeClass.TECHNICAL_OWNER,
+                )
+                for urn in (dataset_owners_list or [])
+            ],
+        )
+
+        aspects_items.extend(
+            [
+                self.gen_schema_metadata(dataset_response),
+                dataset_info,
+                upstream_lineage,
+                global_tags,
+                owners_info,
+            ]
+        )
+
+        dataset_snapshot = DatasetSnapshot(
+            urn=datasource_urn,
+            aspects=aspects_items,
+        )
+        return dataset_snapshot
+
+    def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
+        current_dataset_page = 0
+        total_datasets = PAGE_SIZE
+        while current_dataset_page * PAGE_SIZE <= total_datasets:
+            full_dataset_response = self.session.get(
+                f"{self.config.connect_uri}/api/v1/dataset/",
+                params=f"q=(page:{current_dataset_page},page_size:{PAGE_SIZE})",
+            )
+            if full_dataset_response.status_code != 200:
+                logger.warning(
+                    f"Failed to get dataset data: {full_dataset_response.text}"
+                )
+            full_dataset_response.raise_for_status()
+
+            current_dataset_page += 1
+
+            payload = full_dataset_response.json()
+            total_datasets = payload["count"]
+
+            for dataset_data in payload["result"]:
+                dataset_snapshot = self.construct_dataset_from_dataset_data(
+                    dataset_data
+                )
+                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+                yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
                 yield from self._get_domain_wu(
-                    title=chart_data.get("slice_name", ""),
-                    entity_urn=chart_snapshot.urn,
+                    title=dataset_data.get("table_name", ""),
+                    entity_urn=dataset_snapshot.urn,
                 )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self.emit_dashboard_mces()
         yield from self.emit_chart_mces()
+        yield from self.emit_dataset_mces()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
