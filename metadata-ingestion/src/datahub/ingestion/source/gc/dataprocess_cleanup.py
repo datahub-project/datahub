@@ -358,9 +358,12 @@ class DataProcessCleanup:
                     logger.info(f"Sleeping for {self.config.delay} seconds")
                     time.sleep(self.config.delay)
 
-        logger.info(
-            f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
-        )
+        if deleted_count_retention > 0:
+            logger.info(
+                f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
+            )
+        else:
+            logger.debug(f"No DPIs to delete from {job.urn} due to retention")
 
     def get_data_flows(self) -> Iterable[DataFlowEntity]:
         assert self.ctx.graph
