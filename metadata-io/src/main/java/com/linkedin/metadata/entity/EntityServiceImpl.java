@@ -2544,7 +2544,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     if (previousValue != null
         && DataTemplateUtil.areEqual(previousValue, writeItem.getRecordTemplate())) {
 
-      SystemMetadata latestSystemMetadata = previousBatchAspect.getSystemMetadata();
+      SystemMetadata latestSystemMetadata = null;
+      try {
+        latestSystemMetadata = previousBatchAspect.getSystemMetadata().copy();
+      } catch (CloneNotSupportedException e) {
+        throw new RuntimeException(e);
+      }
       latestSystemMetadata.setLastObserved(writeItem.getSystemMetadata().getLastObserved());
       latestSystemMetadata.setLastRunId(
           writeItem.getSystemMetadata().getLastRunId(GetMode.NULL), SetMode.IGNORE_NULL);
