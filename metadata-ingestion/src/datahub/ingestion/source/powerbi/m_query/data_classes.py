@@ -1,5 +1,4 @@
 import os
-from abc import ABC
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional
@@ -12,18 +11,8 @@ from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 TRACE_POWERBI_MQUERY_PARSER = os.getenv("DATAHUB_TRACE_POWERBI_MQUERY_PARSER", False)
 
 
-class AbstractIdentifierAccessor(ABC):  # To pass lint
-    pass
-
-
-# @dataclass
-# class ItemSelector:
-#     items: Dict[str, Any]
-#     next: Optional[AbstractIdentifierAccessor]
-
-
 @dataclass
-class IdentifierAccessor(AbstractIdentifierAccessor):
+class IdentifierAccessor:
     """
     statement
         public_order_date = Source{[Schema="public",Item="order_date"]}[Data]
@@ -40,7 +29,7 @@ class IdentifierAccessor(AbstractIdentifierAccessor):
 
     identifier: str
     items: Dict[str, Any]
-    next: Optional[AbstractIdentifierAccessor]
+    next: Optional["IdentifierAccessor"]
 
 
 @dataclass
