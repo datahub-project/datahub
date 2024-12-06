@@ -23,6 +23,7 @@ from datahub.emitter.mce_builder import DEFAULT_ENV, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import TestConnectionReport
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
+from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau import (
     TableauConfig,
     TableauSiteSource,
@@ -1265,11 +1266,11 @@ def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_gra
 
             warnings = list(reporter.warnings)
 
-            assert len(warnings) == 1
+            assert len(warnings) == 2
 
-            assert warnings[0].title == "Derived Permission Error"
+            assert warnings[1].title == "Derived Permission Error"
 
-            assert warnings[0].message == (
+            assert warnings[1].message == (
                 "Turn on your derived permissions. See for details "
                 "https://community.tableau.com/s/question/0D54T00000QnjHbSAJ/how-to-fix-the-permissionsmodeswitched-error"
             )
@@ -1331,8 +1332,8 @@ def test_connection_report_test(requests_mock):
 
     assert report
     assert report.capability_report
-    assert report.capability_report.get("metadataRole")
-    assert report.capability_report["metadataRole"].capable
+    assert report.capability_report.get(c.SITE_PERMISSION)
+    assert report.capability_report[c.SITE_PERMISSION].capable
 
     # Role other than SiteAdministratorExplorer
     user_by_id_response = """
@@ -1353,9 +1354,9 @@ def test_connection_report_test(requests_mock):
 
     assert report
     assert report.capability_report
-    assert report.capability_report.get("metadataRole")
-    assert report.capability_report["metadataRole"].capable is False
+    assert report.capability_report.get(c.SITE_PERMISSION)
+    assert report.capability_report[c.SITE_PERMISSION].capable is False
     assert (
-        report.capability_report["metadataRole"].failure_reason
+        report.capability_report[c.SITE_PERMISSION].failure_reason
         == "The user does not possess the `Site Administrator Explorer` role."
     )
