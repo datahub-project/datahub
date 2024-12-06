@@ -8,4 +8,9 @@ on:
         value:
           type: relativeDate
           value: -7d
+      - property: operation.lastUpdatedTimestamp
+        operator: less_than
+        value:
+          type: relativeDate
+          value: +7d
 rules: []

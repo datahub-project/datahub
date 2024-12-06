@@ -18,6 +18,7 @@ import com.linkedin.common.GlossaryTermAssociationArray;
 import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.Siblings;
+import com.linkedin.common.TimeStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayMap;
 import com.linkedin.common.urn.DataPlatformUrn;
@@ -339,6 +340,22 @@ public class QueryEngineTest {
             ImmutableMap.of(
                 testQuery,
                 new TestQueryResponse(ImmutableList.of(GLOSSARY_TERM_WITH_PARENT.toString())))));
+
+    // Case 7: Primitive typeref query
+    testQuery = new TestQuery("datasetProperties.created.time");
+    Mockito.when(
+            entityService.getEntitiesV2(
+                any(OperationContext.class),
+                eq(Constants.DATASET_ENTITY_NAME),
+                eq(ImmutableSet.of(DATASET_URN)),
+                eq(ImmutableSet.of(Constants.DATASET_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(ImmutableMap.of(DATASET_URN, createPropertiesWithTimestamp()));
+    assertEquals(
+        _queryEngine.batchEvaluateQueries(
+            opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
+        ImmutableMap.of(
+            DATASET_URN,
+            ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("123456789")))));
   }
 
   @SneakyThrows
@@ -891,6 +908,16 @@ public class QueryEngineTest {
   private EntityResponse createPropertiesWithDescription() {
     DatasetProperties datasetProperties =
         new DatasetProperties().setDescription("test description");
+    return packageProperties(datasetProperties);
+  }
+
+  private EntityResponse createPropertiesWithTimestamp() {
+    DatasetProperties datasetProperties =
+        new DatasetProperties()
+            .setCreated(
+                new TimeStamp()
+                    .setTime(123456789L)
+                    .setActor(UrnUtils.getUrn("urn:li:corpuser:datahub")));
     return packageProperties(datasetProperties);
   }
 

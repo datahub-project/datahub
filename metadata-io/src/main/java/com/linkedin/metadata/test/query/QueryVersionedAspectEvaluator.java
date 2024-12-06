@@ -127,6 +127,8 @@ public class QueryVersionedAspectEvaluator extends BaseQueryEvaluator {
         // TODO validate further when the field is an urn based on the type of the urn
         if (((TyperefDataSchema) fieldSchema).getName().endsWith("Urn")) {
           return ValidationResult.validResult();
+        } else if (((TyperefDataSchema) fieldSchema).getDereferencedDataSchema().isPrimitive()) {
+          return ValidationResult.validResult();
         } else {
           return invalidResultWithMessage(
               String.format(

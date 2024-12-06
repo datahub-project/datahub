@@ -145,6 +145,15 @@ public class TestDefinitionExecutorTest {
                         .getExpression())
                 .operatorType(),
             OperatorType.GREATER_THAN);
+        assertEquals(
+            ((Predicate)
+                    ((Predicate) predicate.getOperands().get().get(0).getExpression())
+                        .getOperands()
+                        .get()
+                        .get(1)
+                        .getExpression())
+                .operatorType(),
+            OperatorType.LESS_THAN);
         Set<TestQuery> testQueries = Predicate.extractQueriesForPredicate(predicate);
         TestQuery testQuery = new TestQuery("operation.lastUpdatedTimestamp");
         assertTrue(testQueries.contains(testQuery));
