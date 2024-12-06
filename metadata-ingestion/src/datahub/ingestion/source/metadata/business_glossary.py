@@ -161,7 +161,7 @@ def get_owners_multiple_types(owners: OwnersMultipleTypes) -> models.OwnershipCl
     if isinstance(owners, Owners):
         return models.OwnershipClass(owners=list(get_owners(owners)))
 
-    owners_meta = []
+    owners_meta: List[models.OwnerClass]
     for owner in owners:
         owners_meta.extend(get_owners(owner))
 
@@ -169,11 +169,13 @@ def get_owners_multiple_types(owners: OwnersMultipleTypes) -> models.OwnershipCl
 
 
 def get_owners(owners: Owners) -> Iterable[models.OwnerClass]:
-    if owners.type.startswith("urn:li:ownershipType:"):
+    if owners.type and owners.type.startswith("urn:li:ownershipType:"):
         ownership_type = "CUSTOM"
         ownership_type_urn = owners.type
     else:
-        ownership_type, ownership_type_urn = validate_ownership_type(owners.type)
+        ownership_type, ownership_type_urn = validate_ownership_type(
+            owners.type or models.OwnershipTypeClass.DEVELOPER
+        )
 
     if owners.typeUrn is not None:
         ownership_type_urn = owners.typeUrn

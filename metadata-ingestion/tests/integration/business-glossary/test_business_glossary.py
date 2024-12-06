@@ -80,8 +80,6 @@ def test_single_owner_types(
     mock_time,
 ):
     """Test basic single owner cases with different ownership types"""
-    output_mces_path: str = f"{tmp_path}/single_owner_types.json"
-    print(f"\nOutput file location: {output_mces_path}")
     test_resources_dir = pytestconfig.rootpath / "tests/integration/business-glossary"
     output_mces_path: str = f"{tmp_path}/single_owner_types.json"
     golden_mces_path: str = f"{test_resources_dir}/single_owner_types_golden.json"
