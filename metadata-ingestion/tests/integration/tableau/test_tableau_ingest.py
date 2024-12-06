@@ -1229,7 +1229,7 @@ def test_permission_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_graph):
+def test_permission_warning(pytestconfig, tmp_path, mock_datahub_graph):
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
@@ -1267,6 +1267,8 @@ def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_gra
             warnings = list(reporter.warnings)
 
             assert len(warnings) == 2
+
+            assert warnings[0].title == "Insufficient Permissions"
 
             assert warnings[1].title == "Derived Permission Error"
 
