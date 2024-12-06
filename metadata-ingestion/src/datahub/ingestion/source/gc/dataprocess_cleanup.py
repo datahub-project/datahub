@@ -262,7 +262,6 @@ class DataProcessCleanup:
                     self.report.report_failure(
                         f"Exception while deleting DPI: {e}", exc=e
                     )
-
             if deleted_count_last_n % self.config.batch_size == 0:
                 logger.info(f"Deleted {deleted_count_last_n} DPIs from {job.urn}")
                 if self.config.delay:
@@ -296,7 +295,7 @@ class DataProcessCleanup:
         dpis = self.fetch_dpis(job.urn, self.config.batch_size)
         dpis.sort(
             key=lambda x: x["created"]["time"]
-            if "created" in x and "time" in x["created"]
+            if x.get("created") and x["created"].get("time")
             else 0,
             reverse=True,
         )
