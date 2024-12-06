@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, cast
+from typing import Dict, List, Optional, Set
 
 import pydantic
 from pydantic import Field, SecretStr, root_validator, validator
@@ -118,9 +118,10 @@ class SnowflakeFilterConfig(SQLFilterConfig):
             )
 
         # Always exclude reporting metadata for INFORMATION_SCHEMA schema
-        if schema_pattern is not None and schema_pattern:
+        if schema_pattern:
             logger.debug("Adding deny for INFORMATION_SCHEMA to schema_pattern.")
-            cast(AllowDenyPattern, schema_pattern).deny.append(r".*INFORMATION_SCHEMA$")
+            assert isinstance(schema_pattern, AllowDenyPattern)
+            schema_pattern.deny.append(r".*INFORMATION_SCHEMA$")
 
         return values
 
