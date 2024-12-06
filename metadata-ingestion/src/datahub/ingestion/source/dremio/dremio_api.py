@@ -610,32 +610,6 @@ class DremioAPIOperations:
 
         return self.execute_query(query=jobs_query)
 
-    def get_source_by_id(self, source_id: str) -> Optional[Dict]:
-        """
-        Fetch source details by ID.
-        """
-        response = self.get(
-            url=f"/source/{source_id}",
-        )
-        return response if response else None
-
-    def get_source_for_dataset(self, schema: str, dataset: str) -> Optional[Dict]:
-        """
-        Get source information for a dataset given its schema and name.
-        """
-        dataset_id = self.get_dataset_id(schema, dataset)
-        if not dataset_id:
-            return None
-
-        catalog_entry = self.get(
-            url=f"/catalog/{dataset_id}",
-        )
-        if not catalog_entry or "path" not in catalog_entry:
-            return None
-
-        source_id = catalog_entry["path"][0]
-        return self.get_source_by_id(source_id)
-
     def get_tags_for_resource(self, resource_id: str) -> Optional[List[str]]:
         """
         Get Dremio tags for a given resource_id.
@@ -727,44 +701,6 @@ class DremioAPIOperations:
                     if matches:
                         return True
 
-        return False
-
-    def _check_allow_patterns(
-        self,
-        patterns: List[str],
-        sub_paths: List[str],
-    ) -> bool:
-        """
-        Check if path matches any allow patterns.
-        """
-        if not patterns:
-            return True
-
-        for pattern in patterns:
-            if self._check_pattern_match(
-                pattern=pattern,
-                paths=sub_paths,
-            ):
-                return True
-        return False
-
-    def _check_deny_patterns(
-        self,
-        patterns: List[str],
-        sub_paths: List[str],
-    ) -> bool:
-        """
-        Check if path matches any deny patterns.
-        """
-        if not patterns:
-            return False
-
-        for pattern in patterns:
-            if self._check_pattern_match(
-                pattern=pattern,
-                paths=sub_paths,
-            ):
-                return True
         return False
 
     def should_include_container(self, path: List[str], name: str) -> bool:
