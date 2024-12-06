@@ -1,5 +1,7 @@
 apply plugin: 'java'
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 dependencies {
   implementation project(':metadata-events:mxe-avro')
   implementation project(':metadata-events:mxe-registration')

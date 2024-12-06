@@ -56,6 +56,19 @@ def is_http_failure(response: Response, message: str) -> bool:
     return True
 
 
+class SessionWithTimeout(requests.Session):
+    timeout: int
+
+    def __init__(self, timeout, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.timeout = timeout
+
+    def request(self, method, url, **kwargs):
+        # Set the default timeout if none is provided
+        kwargs.setdefault("timeout", self.timeout)
+        return super().request(method, url, **kwargs)
+
+
 class DataResolverBase(ABC):
     SCOPE: str = "https://analysis.windows.net/powerbi/api/.default"
     MY_ORG_URL = "https://api.powerbi.com/v1.0/myorg"
@@ -69,6 +82,7 @@ class DataResolverBase(ABC):
         client_id: str,
         client_secret: str,
         tenant_id: str,
+        metadata_api_timeout: int,
     ):
         self.__access_token: Optional[str] = None
         self.__access_token_expiry_time: Optional[datetime] = None
@@ -84,7 +98,9 @@ class DataResolverBase(ABC):
         self.get_access_token()
 
         logger.info(f"Connected to {self._get_authority_url()}")
-        self._request_session = requests.Session()
+
+        self._request_session = SessionWithTimeout(timeout=metadata_api_timeout)
+
         # set re-try parameter for request_session
         self._request_session.mount(
             "https://",
@@ -423,7 +439,6 @@ class DataResolverBase(ABC):
         self,
         app_id: str,
     ) -> Optional[App]:
-
         raw_app: Optional[Dict] = self._get_app(
             app_id=app_id,
         )
@@ -1046,7 +1061,6 @@ class AdminAPIResolver(DataResolverBase):
         self,
         app_id: str,
     ) -> Optional[Dict]:
-
         app_endpoint = self.API_ENDPOINTS[Constant.GET_WORKSPACE_APP].format(
             POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
             APP_ID=app_id,

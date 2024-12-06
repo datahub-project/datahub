@@ -38,7 +38,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ### Breaking Changes
 
-- #11486 - Deprecated Criterion filters using `value`. Use `values` instead. This also deprecates the ability to use comma delimited string to represent multiple values using `value`.
+- #11486 - Criterion's `value` parameter has been previously deprecated. Use of `value` instead of `values` is no longer supported and will be completely removed on the next major version.
 - #11484 - Metadata service authentication enabled by default
 - #11484 - Rest API authorization enabled by default
 - #10472 - `SANDBOX` added as a FabricType. No rollbacks allowed once metadata with this fabric type is added without manual cleanups in databases.
@@ -46,6 +46,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #11619 - schema field/column paths can no longer be duplicated within the schema
 - #11570 - The `DatahubClientConfig`'s server field no longer defaults to `http://localhost:8080`. Be sure to explicitly set this.
 - #11570 - If a `datahub_api` is explicitly passed to a stateful ingestion config provider, it will be used. We previously ignored it if the pipeline context also had a graph object.
+- #11518 - DataHub Garbage Collection: Various entities that are soft-deleted (after 10d) or are timeseries *entities* (dataprocess, execution requests) will be removed automatically using logic in the `datahub-gc` ingestion source.
 
 ### Potential Downtime
 
@@ -87,6 +88,9 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 ### Other Notable Changes
 
 - Downgrade to previous version is not automatically supported.
+- Data Product Properties Unset side effect introduced
+  - Previously, Data Products could be set as linked to multiple Datasets if modified directly via the REST API rather than linked through the UI or GraphQL. This side effect aligns the REST API behavior with the GraphQL behavior by introducting a side effect that enforces the 1-to-1 constraint between Data Products and Datasets
+  - NOTE: There is a pathological pattern of writes for Data Products that can introduce issues with write processing that can occur with this side effect. If you are constantly changing all of the Datasets associated with a Data Product back and forth between multiple Data Products it will result in a high volume of writes due to the need to unset previous associations.
 
 ## 0.14.0.2
 

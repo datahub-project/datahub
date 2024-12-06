@@ -4,10 +4,10 @@ import subprocess
 
 import pytest
 
-from datahub.testing.docker_utils import (  # noqa: F401
-    docker_compose_runner,
-    is_responsive,
-    wait_for_port,
+from datahub.testing.docker_utils import (  # noqa: F401,I250
+    docker_compose_runner as docker_compose_runner,
+    is_responsive as is_responsive,
+    wait_for_port as wait_for_port,
 )
 
 logger = logging.getLogger(__name__)

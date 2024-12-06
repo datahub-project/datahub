@@ -192,7 +192,6 @@ def create_mysql_source(headers):
 
 
 def upload_dataset(headers):
-
     url = f"{DREMIO_HOST}/apiv2/source/s3/file_format/warehouse/sample.parquet"
     payload = {"ignoreOtherFileFormats": False, "type": "Parquet"}
 

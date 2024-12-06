@@ -12,6 +12,7 @@ import static com.linkedin.metadata.entity.validation.ValidationApiUtils.validat
 import static com.linkedin.metadata.entity.validation.ValidationUtils.*;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
 import static com.linkedin.metadata.search.utils.SearchUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.validateAndConvert;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.generateSystemMetadataIfEmpty;
 
@@ -273,7 +274,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     String actorUrnStr = authentication.getActor().toUrnStr();
     final Urn urn = com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue());
     final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(), getContext(),
+            systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
                     ACTION_INGEST, urn.getEntityType()), authorizer, authentication, true);
 
     if (!isAPIAuthorizedEntityUrns(
@@ -281,7 +282,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             CREATE,
             List.of(urn))) {
       throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to edit entity " + urn);
+          HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to edit entity " + urn);
     }
 
     try {
@@ -319,7 +320,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             .map(Entity::getValue)
             .map(com.datahub.util.ModelUtils::getUrnFromSnapshotUnion).collect(Collectors.toList());
     final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
+            systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr,
                     getContext(), ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList())),
             authorizer, authentication, true);
 
@@ -327,7 +328,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             opContext,
             CREATE, urns)) {
       throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to edit entities.");
+          HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr +  " is unauthorized to edit entities.");
     }
 
     for (Entity entity : entities) {
@@ -401,7 +402,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
           // This API is not used by the frontend for search bars so we default to structured
           result =
               entitySearchService.search(opContext,
-                  List.of(entityName), input, filter, sortCriterionList, start, count);
+                  List.of(entityName), input, validateAndConvert(filter), sortCriterionList, start, count);
 
           if (!isAPIAuthorizedResult(
                   opContext,
@@ -448,7 +449,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     log.info("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
     return RestliUtils.toTask(
         () -> {
-          SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, filter, sortCriterionList, start, count);
+          SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, validateAndConvert(filter), sortCriterionList, start, count);
           if (!isAPIAuthorizedResult(
                   opContext,
                   result)) {
@@ -514,7 +515,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   opContext,
                   entityList,
                   input,
-                  filter,
+                  validateAndConvert(filter),
                   sortCriterionList,
                   scrollId,
                   keepAlive,
@@ -583,7 +584,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                   entityList,
                   input,
                   maxHops,
-                  filter,
+                  validateAndConvert(filter),
                   sortCriterionList,
                   start,
                   count),
@@ -648,7 +649,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                     entityList,
                     input,
                     maxHops,
-                    filter,
+                    validateAndConvert(filter),
                     sortCriterionList,
                     scrollId,
                     keepAlive,
@@ -683,10 +684,11 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
 
-    log.info("GET LIST RESULTS for {} with filter {}", entityName, filter);
+    final Filter finalFilter = validateAndConvert(filter);
+    log.info("GET LIST RESULTS for {} with filter {}", entityName, finalFilter);
     return RestliUtils.toTask(
         () -> {
-            SearchResult result = entitySearchService.filter(opContext, entityName, filter, sortCriterionList, start, count);
+            SearchResult result = entitySearchService.filter(opContext, entityName, finalFilter, sortCriterionList, start, count);
           if (!AuthUtil.isAPIAuthorizedResult(
                   opContext,
                   result)) {
