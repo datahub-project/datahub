@@ -1,7 +1,7 @@
 import logging
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Type, Union, cast
+from typing import Dict, List, Optional, Tuple, Type, cast
 
 from lark import Tree
 
@@ -22,7 +22,6 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
 )
 from datahub.ingestion.source.powerbi.m_query import native_sql_parser, tree_function
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
-    AbstractIdentifierAccessor,
     DataAccessFunctionDetail,
     DataPlatformTable,
     FunctionName,
@@ -412,33 +411,25 @@ class DatabricksLineage(AbstractLineage):
         )
         table_detail: Dict[str, str] = {}
         temp_accessor: Optional[
-            Union[IdentifierAccessor, AbstractIdentifierAccessor]
+            IdentifierAccessor
         ] = data_access_func_detail.identifier_accessor
 
         while temp_accessor:
-            if isinstance(temp_accessor, IdentifierAccessor):
-                # Condition to handle databricks M-query pattern where table, schema and database all are present in
-                # the same invoke statement
-                if all(
-                    element in temp_accessor.items
-                    for element in ["Item", "Schema", "Catalog"]
-                ):
-                    table_detail["Schema"] = temp_accessor.items["Schema"]
-                    table_detail["Table"] = temp_accessor.items["Item"]
-                else:
-                    table_detail[temp_accessor.items["Kind"]] = temp_accessor.items[
-                        "Name"
-                    ]
-
-                if temp_accessor.next is not None:
-                    temp_accessor = temp_accessor.next
-                else:
-                    break
+            # Condition to handle databricks M-query pattern where table, schema and database all are present in
+            # the same invoke statement
+            if all(
+                element in temp_accessor.items
+                for element in ["Item", "Schema", "Catalog"]
+            ):
+                table_detail["Schema"] = temp_accessor.items["Schema"]
+                table_detail["Table"] = temp_accessor.items["Item"]
             else:
-                logger.debug(
-                    "expecting instance to be IdentifierAccessor, please check if parsing is done properly"
-                )
-                return Lineage.empty()
+                table_detail[temp_accessor.items["Kind"]] = temp_accessor.items["Name"]
+
+            if temp_accessor.next is not None:
+                temp_accessor = temp_accessor.next
+            else:
+                break
 
         table_reference = self.create_reference_table(
             arg_list=data_access_func_detail.arg_list,
@@ -786,9 +777,10 @@ class NativeQueryLineage(AbstractLineage):
     def create_lineage(
         self, data_access_func_detail: DataAccessFunctionDetail
     ) -> Lineage:
-        t1: Tree = cast(
-            Tree, tree_function.first_arg_list_func(data_access_func_detail.arg_list)
+        t1: Optional[Tree] = tree_function.first_arg_list_func(
+            data_access_func_detail.arg_list
         )
+        assert t1 is not None
         flat_argument_list: List[Tree] = tree_function.flat_argument_list(t1)
 
         if len(flat_argument_list) != 2:
