@@ -3,9 +3,9 @@ package com.linkedin.metadata.entity.versioning;
 import static com.linkedin.metadata.Constants.INITIAL_VERSION_SORT_ID;
 import static com.linkedin.metadata.Constants.VERSION_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.VERSION_SET_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SORT_ID_FIELD_NAME;
+import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
@@ -18,9 +18,10 @@ import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
-import com.linkedin.entity.Aspect;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.RollbackResult;
@@ -75,48 +76,52 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
     List<MetadataChangeProposal> proposals = new ArrayList<>();
     AspectRetriever aspectRetriever = opContext.getAspectRetriever();
     String sortId;
+    Long versionSetConstraint;
+    Long versionPropertiesConstraint;
+    VersionSetKey versionSetKey =
+        (VersionSetKey)
+            EntityKeyUtils.convertUrnToEntityKey(
+                versionSet, opContext.getEntityRegistryContext().getKeyAspectSpec(versionSet));
+    if (!versionSetKey.getEntityType().equals(newLatestVersion.getEntityType())) {
+      throw new IllegalArgumentException(
+          "Entity type must match Version Set's specified type: "
+              + versionSetKey.getEntityType()
+              + " invalid type: "
+              + newLatestVersion.getEntityType());
+    }
     if (!aspectRetriever.entityExists(ImmutableSet.of(versionSet)).get(versionSet)) {
-      VersionSetKey versionSetKey =
-          (VersionSetKey)
-              EntityKeyUtils.convertUrnToEntityKey(
-                  versionSet, opContext.getEntityRegistryContext().getKeyAspectSpec(versionSet));
-      if (!versionSetKey.getEntityType().equals(newLatestVersion.getEntityType())) {
-        throw new IllegalArgumentException(
-            "Entity type must match Version Set's specified type: "
-                + versionSetKey.getEntityType()
-                + " invalid type: "
-                + newLatestVersion.getEntityType());
-      }
-      MetadataChangeProposal versionSetKeyProposal = new MetadataChangeProposal();
-      versionSetKeyProposal.setEntityUrn(versionSet);
-      versionSetKeyProposal.setEntityType(VERSION_SET_ENTITY_NAME);
-      versionSetKeyProposal.setAspectName(VERSION_SET_KEY_ASPECT_NAME);
-      versionSetKeyProposal.setAspect(GenericRecordUtils.serializeAspect(versionSetKey));
-      versionSetKeyProposal.setChangeType(ChangeType.CREATE_ENTITY);
-      proposals.add(versionSetKeyProposal);
       sortId = INITIAL_VERSION_SORT_ID;
+      versionSetConstraint = -1L;
+      versionPropertiesConstraint = -1L;
     } else {
-      Aspect versionSetPropertiesAspect =
-          aspectRetriever.getLatestAspectObject(versionSet, VERSION_SET_PROPERTIES_ASPECT_NAME);
+      SystemAspect versionSetPropertiesAspect =
+          aspectRetriever.getLatestSystemAspect(versionSet, VERSION_SET_PROPERTIES_ASPECT_NAME);
       VersionSetProperties versionSetProperties =
           RecordUtils.toRecordTemplate(
-              VersionSetProperties.class, versionSetPropertiesAspect.data());
-      Aspect latestVersion =
-          aspectRetriever.getLatestAspectObject(
+              VersionSetProperties.class, versionSetPropertiesAspect.getRecordTemplate().data());
+      versionSetConstraint =
+          versionSetPropertiesAspect
+              .getSystemMetadataVersion()
+              .orElse(versionSetPropertiesAspect.getVersion());
+      SystemAspect latestVersion =
+          aspectRetriever.getLatestSystemAspect(
               versionSetProperties.getLatest(), VERSION_PROPERTIES_ASPECT_NAME);
       VersionProperties latestVersionProperties =
-          RecordUtils.toRecordTemplate(VersionProperties.class, latestVersion.data());
+          RecordUtils.toRecordTemplate(
+              VersionProperties.class, latestVersion.getRecordTemplate().data());
+      versionPropertiesConstraint =
+          latestVersion.getSystemMetadataVersion().orElse(latestVersion.getVersion());
       // When more impls for versioning scheme are set up, this will need to be resolved to the
       // correct scheme generation strategy
       sortId = AlphanumericSortIdGenerator.increment(latestVersionProperties.getSortId());
     }
 
-    Aspect currentVersionPropertiesAspect =
-        aspectRetriever.getLatestAspectObject(newLatestVersion, VERSION_PROPERTIES_ASPECT_NAME);
+    SystemAspect currentVersionPropertiesAspect =
+        aspectRetriever.getLatestSystemAspect(newLatestVersion, VERSION_PROPERTIES_ASPECT_NAME);
     if (currentVersionPropertiesAspect != null) {
       VersionProperties currentVersionProperties =
           RecordUtils.toRecordTemplate(
-              VersionProperties.class, currentVersionPropertiesAspect.data());
+              VersionProperties.class, currentVersionPropertiesAspect.getRecordTemplate().data());
       if (currentVersionProperties.getVersionSet().equals(versionSet)) {
         return new ArrayList<>();
       } else {
@@ -157,7 +162,9 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
     versionPropertiesProposal.setEntityType(newLatestVersion.getEntityType());
     versionPropertiesProposal.setAspectName(VERSION_PROPERTIES_ASPECT_NAME);
     versionPropertiesProposal.setAspect(GenericRecordUtils.serializeAspect(versionProperties));
-    // Error if properties already exist
+    versionPropertiesProposal.setChangeType(ChangeType.UPSERT);
+    StringMap headerMap = new StringMap();
+    headerMap.put(HTTP_HEADER_IF_VERSION_MATCH, versionPropertiesConstraint.toString());
     versionPropertiesProposal.setChangeType(ChangeType.UPSERT);
     proposals.add(versionPropertiesProposal);
 
@@ -178,6 +185,9 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
     versionSetPropertiesProposal.setAspect(
         GenericRecordUtils.serializeAspect(versionSetProperties));
     versionSetPropertiesProposal.setChangeType(ChangeType.UPSERT);
+    StringMap versionSetHeaderMap = new StringMap();
+    versionSetHeaderMap.put(HTTP_HEADER_IF_VERSION_MATCH, versionSetConstraint.toString());
+    versionSetPropertiesProposal.setHeaders(versionSetHeaderMap);
     proposals.add(versionSetPropertiesProposal);
 
     return entityService.ingestProposal(
@@ -201,14 +211,15 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
       OperationContext opContext, Urn versionSet, Urn linkedVersion) {
     List<RollbackResult> deletedAspects = new ArrayList<>();
     AspectRetriever aspectRetriever = opContext.getAspectRetriever();
-    Aspect linkedVersionPropertiesAspect =
-        aspectRetriever.getLatestAspectObject(linkedVersion, VERSION_PROPERTIES_ASPECT_NAME);
+    SystemAspect linkedVersionPropertiesAspect =
+        aspectRetriever.getLatestSystemAspect(linkedVersion, VERSION_PROPERTIES_ASPECT_NAME);
     // Not currently versioned, do nothing
     if (linkedVersionPropertiesAspect == null) {
       return deletedAspects;
     }
     VersionProperties linkedVersionProperties =
-        RecordUtils.toRecordTemplate(VersionProperties.class, linkedVersionPropertiesAspect.data());
+        RecordUtils.toRecordTemplate(
+            VersionProperties.class, linkedVersionPropertiesAspect.getRecordTemplate().data());
     Urn versionSetUrn = linkedVersionProperties.getVersionSet();
     if (!versionSet.equals(versionSetUrn)) {
       throw new IllegalArgumentException(
@@ -250,15 +261,20 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
     String updatedLatestVersionUrn = null;
 
     SearchEntityArray linkedEntities = linkedVersions.getEntities();
-    Aspect versionSetPropertiesAspect =
-        aspectRetriever.getLatestAspectObject(versionSetUrn, VERSION_SET_PROPERTIES_ASPECT_NAME);
+    SystemAspect versionSetPropertiesAspect =
+        aspectRetriever.getLatestSystemAspect(versionSetUrn, VERSION_SET_PROPERTIES_ASPECT_NAME);
     if (versionSetPropertiesAspect == null) {
       throw new IllegalStateException(
           String.format(
               "Version Set Properties must exist if entity version exists: %s", versionSetUrn));
     }
     VersionSetProperties versionSetProperties =
-        RecordUtils.toRecordTemplate(VersionSetProperties.class, versionSetPropertiesAspect.data());
+        RecordUtils.toRecordTemplate(
+            VersionSetProperties.class, versionSetPropertiesAspect.getRecordTemplate().data());
+    long versionConstraint =
+        versionSetPropertiesAspect
+            .getSystemMetadataVersion()
+            .orElse(versionSetPropertiesAspect.getVersion());
     boolean isLatest = linkedVersion.equals(versionSetProperties.getLatest());
 
     if (linkedEntities.size() == 2 && isLatest) {
@@ -284,6 +300,7 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
         updatedLatestVersionUrn = maybePriorLatestVersion.getEntity().toString();
       } else {
         // Delete Version Set if we are removing the last version
+        // TODO: Conditional deletes impl + only do the delete if version match
         RollbackRunResult deleteResult = entityService.deleteUrn(opContext, versionSetUrn);
         deletedAspects.addAll(deleteResult.getRollbackResults());
       }
@@ -309,6 +326,9 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
       versionSetPropertiesProposal.setAspect(
           GenericRecordUtils.serializeAspect(newVersionSetProperties));
       versionSetPropertiesProposal.setChangeType(ChangeType.UPSERT);
+      StringMap headerMap = new StringMap();
+      headerMap.put(HTTP_HEADER_IF_VERSION_MATCH, Long.toString(versionConstraint));
+      versionSetPropertiesProposal.setHeaders(headerMap);
       entityService.ingestProposal(
           opContext,
           AspectsBatchImpl.builder()
