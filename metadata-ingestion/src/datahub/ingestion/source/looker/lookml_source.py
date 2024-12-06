@@ -800,7 +800,7 @@ class LookMLSource(StatefulIngestionSourceBase):
                     and "model" not in self.source_config.view_naming_pattern.pattern
                 ):
                     # This makes sure when 'model' is in view_naming_pattern, views being used by different models but
-                    # with same connection still gets added ingested
+                    # with same connection still gets ingested
                     logger.debug(f"view '{include}' already processed, skipping it")
                     continue
                 logger.debug(f"Attempting to load view file: {include}")
