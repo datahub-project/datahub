@@ -161,7 +161,7 @@ def get_owners_multiple_types(owners: OwnersMultipleTypes) -> models.OwnershipCl
     if isinstance(owners, Owners):
         return models.OwnershipClass(owners=list(get_owners(owners)))
 
-    owners_meta: List[models.OwnerClass]
+    owners_meta: List[models.OwnerClass] = []
     for owner in owners:
         owners_meta.extend(get_owners(owner))
 
