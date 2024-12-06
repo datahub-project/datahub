@@ -207,6 +207,9 @@ class DataProcessCleanup:
         assert self.ctx.graph
         dpis = []
         start = 0
+        # This graphql endpoint doesn't support scrolling and therefore after 10k DPIs it causes performance issues on ES
+        # Therefore, we are limiting the max DPIs to 9000
+        max_item = 9000
         while True:
             try:
                 job_query_result = self.ctx.graph.execute_graphql(
@@ -226,10 +229,12 @@ class DataProcessCleanup:
                 runs = runs_data.get("runs")
                 dpis.extend(runs)
                 start += batch_size
-                if len(runs) < batch_size:
+                if len(runs) < batch_size or start >= max_item:
                     break
             except Exception as e:
-                logger.error(f"Exception while fetching DPIs for job {job_urn}: {e}")
+                self.report.failure(
+                    f"Exception while fetching DPIs for job {job_urn}:", exc=e
+                )
                 break
         return dpis
 
@@ -254,7 +259,9 @@ class DataProcessCleanup:
                     deleted_count_last_n += 1
                     futures[future]["deleted"] = True
                 except Exception as e:
-                    logger.error(f"Exception while deleting DPI: {e}")
+                    self.report.report_failure(
+                        f"Exception while deleting DPI: {e}", exc=e
+                    )
 
             if deleted_count_last_n % self.config.batch_size == 0:
                 logger.info(f"Deleted {deleted_count_last_n} DPIs from {job.urn}")
@@ -340,7 +347,7 @@ class DataProcessCleanup:
                 deleted_count_retention += 1
                 futures[future]["deleted"] = True
             except Exception as e:
-                logger.error(f"Exception while deleting DPI: {e}")
+                self.report.report_failure(f"Exception while deleting DPI: {e}", exc=e)
 
             if deleted_count_retention % self.config.batch_size == 0:
                 logger.info(
