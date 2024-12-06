@@ -114,11 +114,11 @@ class DataProcessCleanupConfig(ConfigModel):
     )
 
     delete_empty_data_jobs: bool = Field(
-        True, description="Whether to delete Data Jobs without runs"
+        False, description="Whether to delete Data Jobs without runs"
     )
 
     delete_empty_data_flows: bool = Field(
-        True, description="Whether to delete Data Flows without runs"
+        False, description="Whether to delete Data Flows without runs"
     )
 
     hard_delete_entities: bool = Field(
@@ -208,22 +208,28 @@ class DataProcessCleanup:
         dpis = []
         start = 0
         while True:
-            job_query_result = self.ctx.graph.execute_graphql(
-                DATA_PROCESS_INSTANCES_QUERY,
-                {"dataJobUrn": job_urn, "start": start, "count": batch_size},
-            )
-            job_data = job_query_result.get("dataJob")
-            if not job_data:
-                raise ValueError(f"Error getting job {job_urn}")
+            try:
+                job_query_result = self.ctx.graph.execute_graphql(
+                    DATA_PROCESS_INSTANCES_QUERY,
+                    {"dataJobUrn": job_urn, "start": start, "count": batch_size},
+                )
+                job_data = job_query_result.get("dataJob")
+                if not job_data:
+                    logger.error(f"Error getting job {job_urn}")
+                    break
 
-            runs_data = job_data.get("runs")
-            if not runs_data:
-                raise ValueError(f"Error getting runs for {job_urn}")
+                runs_data = job_data.get("runs")
+                if not runs_data:
+                    logger.error(f"Error getting runs for {job_urn}")
+                    break
 
-            runs = runs_data.get("runs")
-            dpis.extend(runs)
-            start += batch_size
-            if len(runs) < batch_size:
+                runs = runs_data.get("runs")
+                dpis.extend(runs)
+                start += batch_size
+                if len(runs) < batch_size:
+                    break
+            except Exception as e:
+                logger.error(f"Exception while fetching DPIs for job {job_urn}: {e}")
                 break
         return dpis
 
@@ -243,8 +249,12 @@ class DataProcessCleanup:
                 futures[future] = dpi
 
             for future in as_completed(futures):
-                deleted_count_last_n += 1
-                futures[future]["deleted"] = True
+                try:
+                    future.result()
+                    deleted_count_last_n += 1
+                    futures[future]["deleted"] = True
+                except Exception as e:
+                    logger.error(f"Exception while deleting DPI: {e}")
 
             if deleted_count_last_n % self.config.batch_size == 0:
                 logger.info(f"Deleted {deleted_count_last_n} DPIs from {job.urn}")
@@ -279,7 +289,7 @@ class DataProcessCleanup:
         dpis = self.fetch_dpis(job.urn, self.config.batch_size)
         dpis.sort(
             key=lambda x: x["created"]["time"]
-            if x["created"] and x["created"]["time"]
+            if "created" in x and "time" in x["created"]
             else 0,
             reverse=True,
         )
@@ -314,15 +324,23 @@ class DataProcessCleanup:
             if dpi.get("deleted"):
                 continue
 
-            if dpi["created"]["time"] < retention_time * 1000:
+            if (
+                "created" not in dpi
+                or "time" not in dpi["created"]
+                or dpi["created"]["time"] < retention_time * 1000
+            ):
                 future = executor.submit(
                     self.delete_entity, dpi["urn"], "dataprocessInstance"
                 )
                 futures[future] = dpi
 
         for future in as_completed(futures):
-            deleted_count_retention += 1
-            futures[future]["deleted"] = True
+            try:
+                future.result()
+                deleted_count_retention += 1
+                futures[future]["deleted"] = True
+            except Exception as e:
+                logger.error(f"Exception while deleting DPI: {e}")
 
             if deleted_count_retention % self.config.batch_size == 0:
                 logger.info(
@@ -378,8 +396,11 @@ class DataProcessCleanup:
             dataFlows[flow.urn] = flow
 
         scroll_id: Optional[str] = None
+        previous_scroll_id: Optional[str] = None
+
         dataJobs: Dict[str, List[DataJobEntity]] = defaultdict(list)
         deleted_jobs: int = 0
+
         while True:
             result = self.ctx.graph.execute_graphql(
                 DATAJOB_QUERY,
@@ -426,8 +447,10 @@ class DataProcessCleanup:
                 else:
                     dataJobs[datajob_entity.flow_urn].append(datajob_entity)
 
-            if not scroll_id:
+            if not scroll_id or previous_scroll_id == scroll_id:
                 break
+
+            previous_scroll_id = scroll_id
 
         logger.info(f"Deleted {deleted_jobs} DataJobs")
         # Delete empty dataflows if needed
@@ -443,4 +466,5 @@ class DataProcessCleanup:
                     if deleted_jobs % self.config.batch_size == 0:
                         logger.info(f"Deleted {deleted_data_flows} DataFlows")
             logger.info(f"Deleted {deleted_data_flows} DataFlows")
+
         return []

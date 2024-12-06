@@ -62,7 +62,7 @@ compileJava.dependsOn copyAvroSchemas
 
 
 // Add Python environment validation task
-task validatePythonEnv {
+task validatePythonEnv(dependsOn: [":metadata-ingestion:installDev"]) {
     doFirst {
         def venvPath = System.getProperty('python.venv.path', '../../../metadata-ingestion/venv')
         def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
