@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import Mock
+
+import pytest
 
 from datahub.ingestion.source.dremio.dremio_api import DremioAPIOperations
 from datahub.ingestion.source.dremio.dremio_config import DremioSourceConfig
