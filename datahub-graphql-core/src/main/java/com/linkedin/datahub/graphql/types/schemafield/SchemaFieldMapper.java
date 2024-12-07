@@ -41,7 +41,8 @@ public class SchemaFieldMapper implements ModelMapper<EntityResponse, SchemaFiel
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((schemaField, dataMap) ->
             schemaField.setStructuredProperties(
-                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(
+                    context, new StructuredProperties(dataMap), entityUrn))));
     mappingHelper.mapToResult(
         BUSINESS_ATTRIBUTE_ASPECT,
         (((schemaField, dataMap) ->

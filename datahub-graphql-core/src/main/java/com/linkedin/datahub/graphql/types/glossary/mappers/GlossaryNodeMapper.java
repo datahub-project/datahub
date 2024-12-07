@@ -59,7 +59,8 @@ public class GlossaryNodeMapper implements ModelMapper<EntityResponse, GlossaryN
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setStructuredProperties(
-                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(
+                    context, new StructuredProperties(dataMap), entityUrn))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->

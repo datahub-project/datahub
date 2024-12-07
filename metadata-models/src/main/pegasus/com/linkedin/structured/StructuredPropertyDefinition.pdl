@@ -89,25 +89,25 @@ record StructuredPropertyDefinition {
     version: optional string
 
     /**
-         * Created Audit stamp
-         */
-        @Searchable = {
-          "/time": {
-           "fieldName": "createdTime",
-           "fieldType": "DATETIME"
-          }
-        }
-        created: optional AuditStamp
+      * Created Audit stamp
+      */
+    @Searchable = {
+      "/time": {
+        "fieldName": "createdTime",
+        "fieldType": "DATETIME"
+      }
+    }
+    created: optional AuditStamp
 
-        /**
-         * Created Audit stamp
-         */
-        @Searchable = {
-          "/time": {
-           "fieldName": "lastModified",
-           "fieldType": "DATETIME"
-          }
-        }
-        lastModified: optional AuditStamp
+    /**
+     * Last Modified Audit stamp
+     */
+    @Searchable = {
+      "/time": {
+       "fieldName": "lastModified",
+       "fieldType": "DATETIME"
+      }
+    }
+    lastModified: optional AuditStamp
 }
 

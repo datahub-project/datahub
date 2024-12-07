@@ -10,11 +10,11 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateStructuredPropertyInput;
 import com.linkedin.datahub.graphql.generated.StructuredPropertyEntity;
+import com.linkedin.datahub.graphql.generated.StructuredPropertySettingsInput;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
@@ -36,7 +36,8 @@ public class CreateStructuredPropertyResolverTest {
           null,
           null,
           null,
-          new ArrayList<>());
+          new ArrayList<>(),
+          null);
 
   @Test
   public void testGetSuccess() throws Exception {
@@ -56,7 +57,40 @@ public class CreateStructuredPropertyResolverTest {
 
     // Validate that we called ingest
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
+        .batchIngestProposals(any(), Mockito.anyList(), Mockito.eq(false));
+  }
+
+  @Test
+  public void testGetMismatchIdAndQualifiedName() throws Exception {
+    EntityClient mockEntityClient = initMockEntityClient(true);
+    CreateStructuredPropertyResolver resolver =
+        new CreateStructuredPropertyResolver(mockEntityClient);
+
+    CreateStructuredPropertyInput testInput =
+        new CreateStructuredPropertyInput(
+            "mismatched",
+            "io.acryl.test",
+            "Display Name",
+            "description",
+            true,
+            null,
+            null,
+            null,
+            null,
+            new ArrayList<>(),
+            null);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    // Validate ingest is not called
+    Mockito.verify(mockEntityClient, Mockito.times(0))
+        .batchIngestProposals(any(), Mockito.anyList(), Mockito.eq(false));
   }
 
   @Test
@@ -75,7 +109,7 @@ public class CreateStructuredPropertyResolverTest {
 
     // Validate that we did NOT call ingest
     Mockito.verify(mockEntityClient, Mockito.times(0))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
+        .batchIngestProposals(any(), Mockito.anyList(), Mockito.eq(false));
   }
 
   @Test
@@ -94,7 +128,83 @@ public class CreateStructuredPropertyResolverTest {
 
     // Validate that ingest was called, but that caused a failure
     Mockito.verify(mockEntityClient, Mockito.times(1))
-        .ingestProposal(any(), any(MetadataChangeProposal.class), Mockito.eq(false));
+        .batchIngestProposals(any(), Mockito.anyList(), Mockito.eq(false));
+  }
+
+  @Test
+  public void testGetInvalidSettingsInput() throws Exception {
+    EntityClient mockEntityClient = initMockEntityClient(true);
+    CreateStructuredPropertyResolver resolver =
+        new CreateStructuredPropertyResolver(mockEntityClient);
+
+    // if isHidden is true, other fields should not be true
+    StructuredPropertySettingsInput settingsInput = new StructuredPropertySettingsInput();
+    settingsInput.setIsHidden(true);
+    settingsInput.setShowAsAssetBadge(true);
+
+    CreateStructuredPropertyInput testInput =
+        new CreateStructuredPropertyInput(
+            null,
+            "io.acryl.test",
+            "Display Name",
+            "description",
+            true,
+            null,
+            null,
+            null,
+            null,
+            new ArrayList<>(),
+            settingsInput);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
+
+    // Validate ingest is not called
+    Mockito.verify(mockEntityClient, Mockito.times(0))
+        .batchIngestProposals(any(), Mockito.anyList(), Mockito.eq(false));
+  }
+
+  @Test
+  public void testGetSuccessWithSettings() throws Exception {
+    EntityClient mockEntityClient = initMockEntityClient(true);
+    CreateStructuredPropertyResolver resolver =
+        new CreateStructuredPropertyResolver(mockEntityClient);
+
+    StructuredPropertySettingsInput settingsInput = new StructuredPropertySettingsInput();
+    settingsInput.setShowAsAssetBadge(true);
+
+    CreateStructuredPropertyInput testInput =
+        new CreateStructuredPropertyInput(
+            null,
+            "io.acryl.test",
+            "Display Name",
+            "description",
+            true,
+            null,
+            null,
+            null,
+            null,
+            new ArrayList<>(),
+            settingsInput);
+
+    // Execute resolver
+    QueryContext mockContext = getMockAllowContext();
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(testInput);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    StructuredPropertyEntity prop = resolver.get(mockEnv).get();
+
+    assertEquals(prop.getUrn(), TEST_STRUCTURED_PROPERTY_URN);
+
+    // Validate that we called ingest
+    Mockito.verify(mockEntityClient, Mockito.times(1))
+        .batchIngestProposals(any(), Mockito.anyList(), Mockito.eq(false));
   }
 
   private EntityClient initMockEntityClient(boolean shouldSucceed) throws Exception {
