@@ -538,7 +538,7 @@ public class EbeanEntityServiceTest
             opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
     assertEquals(
         envelopedAspect.getSystemMetadata().getVersion(),
-        "3",
+        "2",
         "Expected version 3. 1 - Initial, + 1 add, 1 remove");
     assertEquals(
         new GlobalTags(envelopedAspect.getValue().data())
@@ -653,7 +653,7 @@ public class EbeanEntityServiceTest
     EnvelopedAspect envelopedAspect =
         _entityServiceImpl.getLatestEnvelopedAspect(
             opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
-    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "4", "Expected version 4");
+    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "3", "Expected version 4");
     assertEquals(
         new GlobalTags(envelopedAspect.getValue().data())
             .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
@@ -741,7 +741,7 @@ public class EbeanEntityServiceTest
     EnvelopedAspect envelopedAspect =
         _entityServiceImpl.getLatestEnvelopedAspect(
             opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
-    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "3", "Expected version 3");
+    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "2", "Expected version 2");
     assertEquals(
         new GlobalTags(envelopedAspect.getValue().data())
             .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
