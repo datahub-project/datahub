@@ -98,7 +98,7 @@ const useBrowsePagination = ({ skip }: Props) => {
         loaded: !!latestData || !!error,
         error,
         groups,
-        path: latestData?.browseV2?.metadata.path,
+        path: latestData?.browseV2?.metadata?.path,
         observable: <div ref={observableRef} style={{ width: '1px', height: '1px' }} />,
         retry,
     } as const;

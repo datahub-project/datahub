@@ -53,7 +53,7 @@ export const EditableCell = ({
                 <Select
                     size="large"
                     className="ermodelrelation-select-selector"
-                    options={tableRecord?.schemaMetadata?.fields.map((result) => ({
+                    options={tableRecord?.schemaMetadata?.fields?.map((result) => ({
                         value: result.fieldPath,
                         label: result.fieldPath,
                     }))}

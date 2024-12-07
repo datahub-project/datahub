@@ -52,7 +52,7 @@ export const ManageIngestionPage = () => {
      */
     const me = useUserContext();
     const { config, loaded } = useAppConfig();
-    const isIngestionEnabled = config?.managedIngestionConfig.enabled;
+    const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
     const showIngestionTab = isIngestionEnabled && me && me.platformPrivileges?.manageIngestion;
     const showSecretsTab = isIngestionEnabled && me && me.platformPrivileges?.manageSecrets;
     const [selectedTab, setSelectedTab] = useState<TabType>(TabType.Sources);

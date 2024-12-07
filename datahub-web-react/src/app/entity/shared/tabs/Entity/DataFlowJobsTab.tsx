@@ -30,7 +30,7 @@ export const DataFlowJobsTab = ({ properties = { urn: '' } }: Props) => {
     };
 
     const dataFlow = data && data?.dataFlow;
-    const dataJobs = dataFlow?.childJobs?.relationships.map((relationship) => relationship.entity);
+    const dataJobs = dataFlow?.childJobs?.relationships?.map((relationship) => relationship.entity);
     const entityRegistry = useEntityRegistry();
     const totalJobs = dataFlow?.childJobs?.total || 0;
     const pageSize = data?.dataFlow?.childJobs?.count || 0;

@@ -37,8 +37,8 @@ export const AdminConsole = (): JSX.Element => {
     const [adminConsoleOpen, setAdminConsoleOpen] = useState(false);
     const { config } = useAppConfig();
 
-    const isAnalyticsEnabled = config?.analyticsConfig.enabled;
-    const isPoliciesEnabled = config?.policiesConfig.enabled;
+    const isAnalyticsEnabled = config?.analyticsConfig?.enabled;
+    const isPoliciesEnabled = config?.policiesConfig?.enabled;
 
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showPolicyBuilder = (isPoliciesEnabled && me && me?.platformPrivileges?.managePolicies) || false;

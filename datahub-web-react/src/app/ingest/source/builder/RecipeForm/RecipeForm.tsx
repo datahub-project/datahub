@@ -118,7 +118,7 @@ function RecipeForm(props: Props) {
         },
     });
     const secrets =
-        data?.listSecrets?.secrets.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
+        data?.listSecrets?.secrets?.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
     const [form] = Form.useForm();
 
     function updateFormValues(changedValues: any, allValues: any) {
