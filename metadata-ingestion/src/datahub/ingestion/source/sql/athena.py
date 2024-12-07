@@ -324,6 +324,7 @@ class Partitionitem:
     "Optionally enabled via configuration. Profiling uses sql queries on whole table which can be expensive operation.",
 )
 @capability(SourceCapability.LINEAGE_COARSE, "Supported for S3 tables")
+@capability(SourceCapability.LINEAGE_FINE, "Supported for S3 tables")
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 class AthenaSource(SQLAlchemySource):
     """
