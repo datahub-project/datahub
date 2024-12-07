@@ -1,16 +1,11 @@
 package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.search.utils.QueryUtils.*;
-import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.FormAssociation;
-import com.linkedin.common.FormAssociationArray;
-import com.linkedin.common.FormVerificationAssociation;
-import com.linkedin.common.FormVerificationAssociationArray;
 import com.linkedin.common.Forms;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -20,6 +15,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.form.FormInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.graph.GraphService;
@@ -28,10 +24,6 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.RelationshipFieldSpec;
 import com.linkedin.metadata.models.extractor.FieldExtractor;
-import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.run.DeleteReferencesResponse;
@@ -568,65 +560,44 @@ public class DeleteEntityService {
     result.assets = new ArrayList<>();
 
     if (deletedUrn.getEntityType().equals("form")) {
-      // first, get all entities with this form assigned on it
-      final CriterionArray incompleteFormsArray = new CriterionArray();
-      incompleteFormsArray.add(
-          buildCriterion("incompleteForms", Condition.EQUAL, deletedUrn.toString()));
-      final CriterionArray completedFormsArray = new CriterionArray();
-      completedFormsArray.add(
-          buildCriterion("completedForms", Condition.EQUAL, deletedUrn.toString()));
-      // next, get all metadata tests created for this form
-      final CriterionArray metadataTestSourceArray = new CriterionArray();
-      metadataTestSourceArray.add(
-          buildCriterion("sourceEntity", Condition.EQUAL, deletedUrn.toString()));
-      metadataTestSourceArray.add(buildCriterion("sourceType", Condition.EQUAL, "FORMS"));
-      Filter filter =
-          new Filter()
-              .setOr(
-                  new ConjunctiveCriterionArray(
-                      new ConjunctiveCriterion().setAnd(incompleteFormsArray),
-                      new ConjunctiveCriterion().setAnd(completedFormsArray),
-                      new ConjunctiveCriterion().setAnd(metadataTestSourceArray)));
-      ScrollResult scrollResult =
-          _searchService.structuredScroll(
-              opContext,
-              ImmutableList.of(
-                  "dataset",
-                  "dataJob",
-                  "dataFlow",
-                  "chart",
-                  "dashboard",
-                  "corpuser",
-                  "corpGroup",
-                  "domain",
-                  "container",
-                  "glossaryTerm",
-                  "glossaryNode",
-                  "mlModel",
-                  "mlModelGroup",
-                  "mlFeatureTable",
-                  "mlFeature",
-                  "mlPrimaryKey",
-                  "schemaField",
-                  "dataProduct",
-                  "test"),
-              "*",
-              filter,
-              null,
-              scrollId,
-              "5m",
-              dryRun ? 1 : BATCH_SIZE); // need to pass in 1 for count otherwise get index error
-      if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
-        return result;
-      }
-      result.scrollId = scrollResult.getScrollId();
-      result.totalAssetCount = scrollResult.getNumEntities();
-      result.assets =
-          scrollResult.getEntities().stream()
-              .map(SearchEntity::getEntity)
-              .collect(Collectors.toList());
+      Filter filter = DeleteEntityUtils.getFilterForFormDeletion(deletedUrn);
+      List<String> entityNames = DeleteEntityUtils.getEntityNamesForFormDeletion();
+      return scrollForAssets(opContext, result, filter, entityNames, scrollId, dryRun);
+    }
+    if (deletedUrn.getEntityType().equals("structuredProperty")) {
+      Filter filter = DeleteEntityUtils.getFilterForStructuredPropertyDeletion(deletedUrn);
+      List<String> entityNames = DeleteEntityUtils.getEntityNamesForStructuredPropertyDeletion();
+      return scrollForAssets(opContext, result, filter, entityNames, scrollId, dryRun);
+    }
+    return result;
+  }
+
+  private AssetScrollResult scrollForAssets(
+      @Nonnull OperationContext opContext,
+      AssetScrollResult result,
+      final @Nullable Filter filter,
+      final @Nonnull List<String> entityNames,
+      @Nullable String scrollId,
+      final boolean dryRun) {
+    ScrollResult scrollResult =
+        _searchService.structuredScroll(
+            opContext,
+            entityNames,
+            "*",
+            filter,
+            null,
+            scrollId,
+            "5m",
+            dryRun ? 1 : BATCH_SIZE); // need to pass in 1 for count otherwise get index error
+    if (scrollResult.getNumEntities() == 0 || scrollResult.getEntities().size() == 0) {
       return result;
     }
+    result.scrollId = scrollResult.getScrollId();
+    result.totalAssetCount = scrollResult.getNumEntities();
+    result.assets =
+        scrollResult.getEntities().stream()
+            .map(SearchEntity::getEntity)
+            .collect(Collectors.toList());
     return result;
   }
 
@@ -641,7 +612,7 @@ public class DeleteEntityService {
     }
 
     List<MetadataChangeProposal> mcps = new ArrayList<>();
-    List<String> aspectsToUpdate = getAspectsToUpdate(deletedUrn);
+    List<String> aspectsToUpdate = getAspectsToUpdate(deletedUrn, assetUrn);
     aspectsToUpdate.forEach(
         aspectName -> {
           try {
@@ -667,9 +638,14 @@ public class DeleteEntityService {
    * <p>TODO: extend this to support other types of deletes and be more dynamic depending on aspects
    * that the asset has
    */
-  private List<String> getAspectsToUpdate(@Nonnull final Urn deletedUrn) {
+  private List<String> getAspectsToUpdate(
+      @Nonnull final Urn deletedUrn, @Nonnull final Urn assetUrn) {
     if (deletedUrn.getEntityType().equals("form")) {
       return ImmutableList.of("forms");
+    }
+    if (deletedUrn.getEntityType().equals("structuredProperty")
+        && assetUrn.getEntityType().equals("form")) {
+      return ImmutableList.of("formInfo");
     }
     return new ArrayList<>();
   }
@@ -697,6 +673,9 @@ public class DeleteEntityService {
     if (aspectName.equals("forms")) {
       return updateFormsAspect(opContext, assetUrn, deletedUrn);
     }
+    if (aspectName.equals("formInfo") && deletedUrn.getEntityType().equals("structuredProperty")) {
+      return updateFormInfoAspect(opContext, assetUrn, deletedUrn);
+    }
     return null;
   }
 
@@ -708,35 +687,20 @@ public class DeleteEntityService {
     RecordTemplate record = _entityService.getLatestAspect(opContext, assetUrn, "forms");
     if (record == null) return null;
 
-    Forms formsAspect = new Forms(record.data());
-    final AtomicReference<Forms> updatedAspect;
-    try {
-      updatedAspect = new AtomicReference<>(formsAspect.copy());
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to copy the forms aspect for updating", e);
-    }
+    return DeleteEntityUtils.removeFormFromFormsAspect(
+        new Forms(record.data()), assetUrn, deletedUrn);
+  }
 
-    List<FormAssociation> incompleteForms =
-        formsAspect.getIncompleteForms().stream()
-            .filter(incompleteForm -> !incompleteForm.getUrn().equals(deletedUrn))
-            .collect(Collectors.toList());
-    List<FormAssociation> completedForms =
-        formsAspect.getCompletedForms().stream()
-            .filter(completedForm -> !completedForm.getUrn().equals(deletedUrn))
-            .collect(Collectors.toList());
-    final List<FormVerificationAssociation> verifications =
-        formsAspect.getVerifications().stream()
-            .filter(verification -> !verification.getForm().equals(deletedUrn))
-            .collect(Collectors.toList());
+  @Nullable
+  private MetadataChangeProposal updateFormInfoAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn assetUrn,
+      @Nonnull final Urn deletedUrn) {
+    RecordTemplate record = _entityService.getLatestAspect(opContext, assetUrn, "formInfo");
+    if (record == null) return null;
 
-    updatedAspect.get().setIncompleteForms(new FormAssociationArray(incompleteForms));
-    updatedAspect.get().setCompletedForms(new FormAssociationArray(completedForms));
-    updatedAspect.get().setVerifications(new FormVerificationAssociationArray(verifications));
-
-    if (!formsAspect.equals(updatedAspect.get())) {
-      return AspectUtils.buildMetadataChangeProposal(assetUrn, "forms", updatedAspect.get());
-    }
-    return null;
+    return DeleteEntityUtils.createFormInfoUpdateProposal(
+        new FormInfo(record.data()), assetUrn, deletedUrn);
   }
 
   private AuditStamp createAuditStamp() {
