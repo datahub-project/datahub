@@ -123,6 +123,13 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
         return urn
 
+    def resolve_urn(self, urn: str) -> Tuple[str, Optional[SchemaInfo]]:
+        schema_info = self._resolve_schema_info(urn)
+        if schema_info:
+            return urn, schema_info
+
+        return urn, None
+
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         urn = self.get_urn_for_table(table)
 
