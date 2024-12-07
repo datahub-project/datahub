@@ -1,0 +1,38 @@
+version: "1"
+source: DataHub
+owners:
+  users:
+    - mjames
+url: "https://github.com/datahub-project/datahub/"
+
+nodes:
+  - name: Custom URN Types
+    description: Testing custom ownership URN types
+    owners:
+      - type: urn:li:ownershipType:custom_type_1
+        users:
+          - user1
+        groups:
+          - group1
+      - type: urn:li:ownershipType:custom_type_2
+        users:
+          - user2
+    terms:
+      - name: Mixed URN Types
+        description: Term with custom URN types
+        owners:
+          - type: urn:li:ownershipType:custom_type_3
+            users:
+              - user3
+          - type: urn:li:ownershipType:custom_type_4
+            groups:
+              - group2
+      - name: Mixed Standard and URN
+        description: Term with both standard and URN types
+        owners:
+          - type: DEVELOPER
+            users:
+              - dev1
+          - type: urn:li:ownershipType:custom_type_5
+            groups:
+              - group3
