@@ -1,5 +1,6 @@
 {
     "compilerOptions": {
+        "baseUrl": ".",
         "target": "es2017",
         "lib": ["dom", "dom.iterable", "esnext"],
         "allowJs": true,
@@ -13,10 +14,33 @@
         "module": "esnext",
         "moduleResolution": "node",
         "resolveJsonModule": true,
-        "isolatedModules": true,
+        "isolatedModules": false,
         "noEmit": true,
         "jsx": "react-jsx",
-        "types": ["vitest/globals"]
+        "types": ["vitest/globals"],
+        "paths": {
+            "@src/*": ["./src/*"],
+            "@app/*": ["./src/app/*"],
+            "@conf/*": ["./src/conf/*"],
+            "@components": ["./src/alchemy-components"],
+            "@components/*": ["./src/alchemy-components/*"],
+            "@graphql/*": ["./src/graphql/*"],
+            "@graphql-mock/*": ["./src/graphql-mock/*"],
+            "@images/*": ["./src/images/*"],
+            "@providers/*": ["./src/providers/*"],
+            "@utils/*": ["./src/utils/*"],
+            "@app/entityV1/*": ["./src/app/entity/*"],
+            "@app/entityV2/*": ["./src/app/entityV2/*"],
+            "@app/searchV2/*": ["./src/app/searchV2/*"],
+            "@app/domainV2/*": ["./src/app/domainV2/*"],
+            "@app/glossaryV2/*": ["./src/app/glossaryV2/*"],
+            "@app/homeV2/*": ["./src/app/homeV2/*"],
+            "@app/lineageV2/*": ["./src/app/lineageV2/*"],
+            "@app/previewV2/*": ["./src/app/previewV2/*"],
+            "@app/sharedV2/*": ["./src/app/sharedV2/*"],
+            "@types": ["./src/types.generated.ts"],
+            "@images": ["./src/images"]
+        }
     },
-    "include": ["src", "src/conf/theme/styled-components.d.ts", "vite.config.ts", ".eslintrc.js"]
+    "include": ["src", "src/conf/theme/styled-components.d.ts", "vite.config.ts", ".eslintrc.js", "functions"]
 }
