@@ -207,6 +207,9 @@ class DataProcessCleanup:
         assert self.ctx.graph
         dpis = []
         start = 0
+        # This graphql endpoint doesn't support scrolling and therefore after 10k DPIs it causes performance issues on ES
+        # Therefore, we are limiting the max DPIs to 9000
+        max_item = 9000
         while True:
             try:
                 job_query_result = self.ctx.graph.execute_graphql(
@@ -226,10 +229,12 @@ class DataProcessCleanup:
                 runs = runs_data.get("runs")
                 dpis.extend(runs)
                 start += batch_size
-                if len(runs) < batch_size:
+                if len(runs) < batch_size or start >= max_item:
                     break
             except Exception as e:
-                logger.error(f"Exception while fetching DPIs for job {job_urn}: {e}")
+                self.report.failure(
+                    f"Exception while fetching DPIs for job {job_urn}:", exc=e
+                )
                 break
         return dpis
 
@@ -254,8 +259,9 @@ class DataProcessCleanup:
                     deleted_count_last_n += 1
                     futures[future]["deleted"] = True
                 except Exception as e:
-                    logger.error(f"Exception while deleting DPI: {e}")
-
+                    self.report.report_failure(
+                        f"Exception while deleting DPI: {e}", exc=e
+                    )
             if deleted_count_last_n % self.config.batch_size == 0:
                 logger.info(f"Deleted {deleted_count_last_n} DPIs from {job.urn}")
                 if self.config.delay:
@@ -289,7 +295,7 @@ class DataProcessCleanup:
         dpis = self.fetch_dpis(job.urn, self.config.batch_size)
         dpis.sort(
             key=lambda x: x["created"]["time"]
-            if "created" in x and "time" in x["created"]
+            if x.get("created") and x["created"].get("time")
             else 0,
             reverse=True,
         )
@@ -325,8 +331,8 @@ class DataProcessCleanup:
                 continue
 
             if (
-                "created" not in dpi
-                or "time" not in dpi["created"]
+                not dpi.get("created")
+                or not dpi["created"].get("time")
                 or dpi["created"]["time"] < retention_time * 1000
             ):
                 future = executor.submit(
@@ -340,7 +346,7 @@ class DataProcessCleanup:
                 deleted_count_retention += 1
                 futures[future]["deleted"] = True
             except Exception as e:
-                logger.error(f"Exception while deleting DPI: {e}")
+                self.report.report_failure(f"Exception while deleting DPI: {e}", exc=e)
 
             if deleted_count_retention % self.config.batch_size == 0:
                 logger.info(
@@ -351,9 +357,12 @@ class DataProcessCleanup:
                     logger.info(f"Sleeping for {self.config.delay} seconds")
                     time.sleep(self.config.delay)
 
-        logger.info(
-            f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
-        )
+        if deleted_count_retention > 0:
+            logger.info(
+                f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
+            )
+        else:
+            logger.debug(f"No DPIs to delete from {job.urn} due to retention")
 
     def get_data_flows(self) -> Iterable[DataFlowEntity]:
         assert self.ctx.graph
