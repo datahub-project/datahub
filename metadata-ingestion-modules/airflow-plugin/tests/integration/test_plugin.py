@@ -38,8 +38,6 @@ GOLDENS_FOLDER = pathlib.Path(__file__).parent / "goldens"
 
 DAG_TO_SKIP_INGESTION = "dag_to_skip"
 
-TEST_V1_PLUGIN = AIRFLOW_VERSION < packaging.version.parse("2.4.0")
-
 
 @dataclasses.dataclass
 class AirflowInstance:
@@ -373,8 +371,8 @@ test_cases = [
                 True,
                 id=f"v1_{test_case.dag_id}",
                 marks=pytest.mark.skipif(
-                    not TEST_V1_PLUGIN,
-                    reason="Not testing plugin v1 on newer Airflow versions",
+                    AIRFLOW_VERSION >= packaging.version.parse("2.4.0"),
+                    reason="We only test the v1 plugin on Airflow 2.3",
                 ),
             )
             for test_case in test_cases
