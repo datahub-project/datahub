@@ -1,0 +1,19 @@
+{
+ "webinars": [
+   {
+     "title": "Why Data Quality Belongs in the Data Catalog",
+     "slug": "why-data-quality-belongs-in-the-data-catalog",
+     "status": "on-demand",
+     "gated": true,
+     "webinarSrc": "https://www.loom.com/embed/28f06dcf3d9d4f05bb0c33efd4ce3b5a?sid=58a129cd-6824-4b72-bfdc-4fec2e8bf0d8",
+     "gateFormId": "da0aee6d-7a0f-4dc1-9aef-ed69037ae9ee",
+     "date": "2024-08-07 10:26",
+     "cardImg": "https://cdn.sanity.io/images/cqo9wkgf/production/0c3d3fccf02a75c19e7b0edf669581db1c633322-611x320.png?w=3840&q=75&fit=clip&auto=format",
+     "excerpt": "Join Jay Patel as he explains why data quality is crucial for the data catalog. Then, take a product walkthrough to see Acryl Observe in action.",
+     "content": "Join us to learn about:\n\nChallenges with democratizing data quality\n\nThe value of having data quality in the data catalog\n\nHow you can unify data quality and discovery with DataHub Observe",
+     "presenterName": "Jay Patel",
+     "presenterTitle": "Product & Engineering",
+     "presenterImg": ""
+   }
+ ]
+}
