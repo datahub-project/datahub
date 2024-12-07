@@ -110,6 +110,11 @@ integration_test_requirements = {
     "apache-airflow-providers-sqlite",
 }
 per_version_test_requirements = {
+    "test-airflow23": {
+        "pendulum<3.0",
+        "Flask-Session<0.6.0",
+        "connexion<3.0",
+    },
     "test-airflow24": {
         "pendulum<3.0",
         "Flask-Session<0.6.0",
