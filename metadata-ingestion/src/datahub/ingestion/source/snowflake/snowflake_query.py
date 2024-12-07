@@ -132,7 +132,7 @@ class SnowflakeQuery:
         auto_clustering_on AS "AUTO_CLUSTERING_ON"
         FROM {db_clause}information_schema.tables t
         WHERE table_schema != 'INFORMATION_SCHEMA'
-        and table_type in ( 'BASE TABLE', 'EXTERNAL TABLE')
+        and table_type in ( 'BASE TABLE', 'EXTERNAL TABLE', 'HYBRID TABLE')
         order by table_schema, table_name"""
 
     @staticmethod
@@ -152,7 +152,7 @@ class SnowflakeQuery:
         auto_clustering_on AS "AUTO_CLUSTERING_ON"
         FROM {db_clause}information_schema.tables t
         where table_schema='{schema_name}'
-        and table_type in ('BASE TABLE', 'EXTERNAL TABLE')
+        and table_type in ('BASE TABLE', 'EXTERNAL TABLE', 'HYBRID TABLE')
         order by table_schema, table_name"""
 
     @staticmethod

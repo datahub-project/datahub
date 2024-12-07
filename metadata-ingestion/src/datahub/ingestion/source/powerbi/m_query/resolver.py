@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from lark import Tree
 
@@ -95,14 +95,12 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
         # remove whitespaces and quotes from token
         tokens: List[str] = tree_function.strip_char_from_list(
             tree_function.remove_whitespaces_from_list(
-                tree_function.token_values(
-                    cast(Tree, item_selector), parameters=self.parameters
-                )
+                tree_function.token_values(item_selector, parameters=self.parameters)
             ),
         )
         identifier: List[str] = tree_function.token_values(
-            cast(Tree, identifier_tree)
-        )  # type :ignore
+            identifier_tree, parameters={}
+        )
 
         # convert tokens to dict
         iterator = iter(tokens)
@@ -238,10 +236,10 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
     def _process_item_selector_expression(
         self, rh_tree: Tree
     ) -> Tuple[Optional[str], Optional[Dict[str, str]]]:
-        new_identifier, key_vs_value = self.get_item_selector_tokens(  # type: ignore
-            cast(Tree, tree_function.first_expression_func(rh_tree))
-        )
+        first_expression: Optional[Tree] = tree_function.first_expression_func(rh_tree)
+        assert first_expression is not None
 
+        new_identifier, key_vs_value = self.get_item_selector_tokens(first_expression)
         return new_identifier, key_vs_value
 
     @staticmethod
@@ -327,7 +325,7 @@ class MQueryResolver(AbstractDataAccessMQueryResolver, ABC):
                 # The first argument can be a single table argument or list of table.
                 # For example Table.Combine({t1,t2},....), here first argument is list of table.
                 # Table.AddColumn(t1,....), here first argument is single table.
-                for token in cast(List[str], result):
+                for token in result:
                     internal(token, identifier_accessor)
 
             else:
