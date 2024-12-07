@@ -1,8 +1,39 @@
 import doctest
+from typing import List
 
+from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.sqlglot_lineage import SqlParsingDebugInfo, sqlglot_lineage
 from datahub.utilities.delayed_iter import delayed_iter
 from datahub.utilities.is_pytest import is_pytest_running
-from datahub.utilities.sql_parser import SqlLineageSQLParser
+from datahub.utilities.urns.dataset_urn import DatasetUrn
+
+
+class SqlglotSQLParser:
+    def __init__(self, sql_query: str, platform: str = "bigquery") -> None:
+        self.result = sqlglot_lineage(sql_query, SchemaResolver(platform=platform))
+
+    def get_tables(self) -> List[str]:
+        ans = []
+        for urn in self.result.in_tables:
+            table_ref = DatasetUrn.from_string(urn)
+            ans.append(str(table_ref.name))
+        return ans
+
+    def get_columns(self) -> List[str]:
+        ans = set()
+        for col_info in self.result.column_lineage or []:
+            for col_ref in col_info.upstreams:
+                ans.add(col_ref.column)
+        return list(ans)
+
+    def get_downstream_columns(self) -> List[str]:
+        ans = set()
+        for col_info in self.result.column_lineage or []:
+            ans.add(col_info.downstream.column)
+        return list(ans)
+
+    def debug_info(self) -> SqlParsingDebugInfo:
+        return self.result.debug_info
 
 
 def test_delayed_iter():
@@ -42,7 +73,7 @@ def test_delayed_iter():
 def test_sqllineage_sql_parser_get_tables_from_simple_query():
     sql_query = "SELECT foo.a, foo.b, bar.c FROM foo JOIN bar ON (foo.a == bar.b);"
 
-    tables_list = SqlLineageSQLParser(sql_query).get_tables()
+    tables_list = SqlglotSQLParser(sql_query).get_tables()
     tables_list.sort()
     assert tables_list == ["bar", "foo"]
 
@@ -95,7 +126,7 @@ date :: date) <= 7
         5)
 """
 
-    tables_list = SqlLineageSQLParser(sql_query).get_tables()
+    tables_list = SqlglotSQLParser(sql_query).get_tables()
     tables_list.sort()
     assert tables_list == ["schema1.foo", "schema2.bar"]
 
@@ -103,7 +134,7 @@ date :: date) <= 7
 def test_sqllineage_sql_parser_get_columns_with_join():
     sql_query = "SELECT foo.a, foo.b, bar.c FROM foo JOIN bar ON (foo.a == bar.b);"
 
-    columns_list = SqlLineageSQLParser(sql_query).get_columns()
+    columns_list = SqlglotSQLParser(sql_query).get_columns()
     columns_list.sort()
     assert columns_list == ["a", "b", "c"]
 
@@ -111,17 +142,15 @@ def test_sqllineage_sql_parser_get_columns_with_join():
 def test_sqllineage_sql_parser_get_columns_from_simple_query():
     sql_query = "SELECT foo.a, foo.b FROM foo;"
 
-    columns_list = SqlLineageSQLParser(sql_query).get_columns()
-    columns_list.sort()
-    assert columns_list == ["a", "b"]
+    parser = SqlglotSQLParser(sql_query)
+    assert sorted(parser.get_columns()) == ["a", "b"]
 
 
 def test_sqllineage_sql_parser_get_columns_with_alias_and_count_star():
     sql_query = "SELECT foo.a, foo.b, bar.c as test, count(*) as count FROM foo JOIN bar ON (foo.a == bar.b);"
-
-    columns_list = SqlLineageSQLParser(sql_query).get_columns()
-    columns_list.sort()
-    assert columns_list == ["a", "b", "count", "test"]
+    parser = SqlglotSQLParser(sql_query)
+    assert sorted(parser.get_columns()) == ["a", "b", "c"]
+    assert sorted(parser.get_downstream_columns()) == ["a", "b", "count", "test"]
 
 
 def test_sqllineage_sql_parser_get_columns_with_more_complex_join():
@@ -142,10 +171,9 @@ JOIN baz fp ON
 WHERE
     fp.dt = '2018-01-01'
     """
-
-    columns_list = SqlLineageSQLParser(sql_query).get_columns()
-    columns_list.sort()
-    assert columns_list == ["bs", "pi", "pt", "pu", "v"]
+    parser = SqlglotSQLParser(sql_query)
+    assert sorted(parser.get_columns()) == ["bs", "pi", "tt", "v"]
+    assert sorted(parser.get_downstream_columns()) == ["bs", "pi", "pt", "pu", "v"]
 
 
 def test_sqllineage_sql_parser_get_columns_complex_query_with_union():
@@ -195,10 +223,17 @@ date :: date) <= 7
         4,
         5)
 """
-
-    columns_list = SqlLineageSQLParser(sql_query).get_columns()
-    columns_list.sort()
-    assert columns_list == ["c", "date", "e", "u", "x"]
+    parser = SqlglotSQLParser(sql_query)
+    columns_list = parser.get_columns()
+    assert sorted(columns_list) == ["c", "e", "u", "x"]
+    assert sorted(parser.get_downstream_columns()) == [
+        "c",
+        "count(*)",
+        "date",
+        "e",
+        "u",
+        "x",
+    ]
 
 
 def test_sqllineage_sql_parser_get_tables_from_templated_query():
@@ -211,9 +246,11 @@ def test_sqllineage_sql_parser_get_tables_from_templated_query():
         FROM
           ${my_view.SQL_TABLE_NAME} AS my_view
 """
-    tables_list = SqlLineageSQLParser(sql_query).get_tables()
+    parser = SqlglotSQLParser(sql_query)
+    tables_list = parser.get_tables()
     tables_list.sort()
-    assert tables_list == ["my_view.SQL_TABLE_NAME"]
+    assert tables_list == []
+    assert parser.debug_info().table_error is None
 
 
 def test_sqllineage_sql_parser_get_columns_from_templated_query():
@@ -226,9 +263,15 @@ def test_sqllineage_sql_parser_get_columns_from_templated_query():
         FROM
           ${my_view.SQL_TABLE_NAME} AS my_view
 """
-    columns_list = SqlLineageSQLParser(sql_query).get_columns()
-    columns_list.sort()
-    assert columns_list == ["city", "country", "measurement", "timestamp"]
+    parser = SqlglotSQLParser(sql_query)
+    assert sorted(parser.get_columns()) == []
+    assert sorted(parser.get_downstream_columns()) == [
+        "city",
+        "country",
+        "measurement",
+        "timestamp",
+    ]
+    assert parser.debug_info().column_error is None
 
 
 def test_sqllineage_sql_parser_with_weird_lookml_query():
@@ -237,9 +280,14 @@ def test_sqllineage_sql_parser_with_weird_lookml_query():
              platform VARCHAR(20) AS aliased_platform,
              country VARCHAR(20) FROM fragment_derived_view'
     """
-    columns_list = SqlLineageSQLParser(sql_query).get_columns()
+    parser = SqlglotSQLParser(sql_query)
+    columns_list = parser.get_columns()
     columns_list.sort()
-    assert columns_list == ["aliased_platform", "country", "date"]
+    assert columns_list == []
+    assert (
+        str(parser.debug_info().table_error)
+        == "Error tokenizing 'untry VARCHAR(20) FROM fragment_derived_view'\n   ': Missing ' from 5:143"
+    )
 
 
 def test_sqllineage_sql_parser_tables_from_redash_query():
@@ -254,7 +302,7 @@ INNER JOIN `staffs` s ON s.staff_id = o.staff_id
 GROUP BY
 name,
 year(order_date)"""
-    table_list = SqlLineageSQLParser(sql_query).get_tables()
+    table_list = SqlglotSQLParser(sql_query).get_tables()
     table_list.sort()
     assert table_list == ["order_items", "orders", "staffs"]
 
@@ -283,8 +331,11 @@ JOIN `admin-table` a on d.`column-date` = a.`column-admin`
         "column-hour",
         "column-timestamp",
     ]
-    assert sorted(SqlLineageSQLParser(sql_query).get_tables()) == expected_tables
-    assert sorted(SqlLineageSQLParser(sql_query).get_columns()) == expected_columns
+    assert sorted(SqlglotSQLParser(sql_query).get_tables()) == expected_tables
+    assert sorted(SqlglotSQLParser(sql_query).get_columns()) == []
+    assert (
+        sorted(SqlglotSQLParser(sql_query).get_downstream_columns()) == expected_columns
+    )
 
 
 def test_logging_name_extraction():
