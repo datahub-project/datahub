@@ -159,12 +159,17 @@ public interface AspectsBatch {
         .flatMap(mclSideEffect -> mclSideEffect.apply(items, retrieverContext));
   }
 
-  default boolean containsDuplicateAspects() {
+  default Map<String, Set<? extends BatchItem>> duplicateAspects() {
     return getItems().stream()
-            .map(i -> String.format("%s_%s", i.getClass().getName(), i.hashCode()))
-            .distinct()
-            .count()
-        != getItems().size();
+        .collect(
+            Collectors.groupingBy(
+                i -> String.format("%s_%s", i.getClass().getName(), i.hashCode()),
+                Collectors.collectingAndThen(
+                    Collectors.toSet(), set -> set.size() > 1 ? set : null)))
+        .entrySet()
+        .stream()
+        .filter(entry -> entry.getValue() != null)
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   default Map<String, Set<String>> getUrnAspectsMap() {

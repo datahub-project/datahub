@@ -853,8 +853,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull final AspectsBatch inputBatch,
       boolean overwrite) {
 
-    if (inputBatch.containsDuplicateAspects()) {
-      log.warn(String.format("Batch contains duplicates: %s", inputBatch));
+    Map<String, Set<? extends BatchItem>> duplicates = inputBatch.duplicateAspects();
+    if (!duplicates.isEmpty()) {
+      log.warn(String.format("Batch contains duplicates: %s", duplicates.values()));
       MetricUtils.counter(EntityServiceImpl.class, "batch_with_duplicate").inc();
     }
 
@@ -2550,7 +2551,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       } catch (CloneNotSupportedException e) {
         throw new RuntimeException(e);
       }
-      latestSystemMetadata.setLastObserved(writeItem.getSystemMetadata().getLastObserved());
+      latestSystemMetadata.setLastObserved(
+          writeItem.getSystemMetadata().getLastObserved(), SetMode.IGNORE_NULL);
       latestSystemMetadata.setLastRunId(
           writeItem.getSystemMetadata().getLastRunId(GetMode.NULL), SetMode.IGNORE_NULL);
 
