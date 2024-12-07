@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
@@ -48,6 +49,8 @@ from datahub.metadata.schema_classes import (
 
 if TYPE_CHECKING:
     from mypy_boto3_sagemaker import SageMakerClient
+
+logger = logging.getLogger(__name__)
 
 JobInfo = TypeVar(
     "JobInfo",
@@ -274,15 +277,18 @@ class JobProcessor:
         )
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
+        logger.info("Getting all SageMaker jobs")
         jobs = self.get_all_jobs()
 
         processed_jobs: Dict[str, SageMakerJob] = {}
 
+        logger.info("Processing SageMaker jobs")
         # first pass: process jobs and collect datasets used
+        logger.info("first pass: process jobs and collect datasets used")
         for job in jobs:
             job_type = job_type_to_info[job["type"]]
             job_name = job[job_type.list_name_key]
-
+            logger.debug(f"Processing job {job_name} with type {job_type}")
             job_details = self.get_job_details(job_name, job["type"])
 
             processed_job = getattr(self, job_type.processor)(job_details)
@@ -293,6 +299,9 @@ class JobProcessor:
         # second pass:
         #   - move output jobs to inputs
         #   - aggregate i/o datasets
+        logger.info(
+            "second pass: move output jobs to inputs and aggregate i/o datasets"
+        )
         for job_urn in sorted(processed_jobs):
             processed_job = processed_jobs[job_urn]
 
@@ -301,6 +310,7 @@ class JobProcessor:
 
             all_datasets.update(processed_job.input_datasets)
             all_datasets.update(processed_job.output_datasets)
+            self.report.report_job_processed()
 
         # yield datasets
         for dataset_urn, dataset in all_datasets.items():
@@ -322,6 +332,7 @@ class JobProcessor:
             self.report.report_dataset_scanned()
 
         # third pass: construct and yield MCEs
+        logger.info("third pass: construct and yield MCEs")
         for job_urn in sorted(processed_jobs):
             processed_job = processed_jobs[job_urn]
             job_snapshot = processed_job.job_snapshot
