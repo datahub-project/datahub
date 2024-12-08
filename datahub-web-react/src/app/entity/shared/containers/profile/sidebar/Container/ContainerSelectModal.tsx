@@ -5,6 +5,8 @@ import { useGetSearchResultsLazyQuery } from '../../../../../../../graphql/searc
 import { Container, Entity, EntityType } from '../../../../../../../types.generated';
 import { useEnterKeyListener } from '../../../../../../shared/useEnterKeyListener';
 import { useEntityRegistry } from '../../../../../../useEntityRegistry';
+import { getParentEntities } from '../../../../../../search/filters/utils';
+import ParentEntities from '../../../../../../search/filters/ParentEntities';
 
 type Props = {
     onCloseModal: () => void;
@@ -26,12 +28,16 @@ const StyleTag = styled(Tag)`
     align-items: center;
 `;
 
-const PreviewImage = styled.img`
+export const PreviewImage = styled.img`
     max-height: 18px;
     width: auto;
     object-fit: contain;
     background-color: transparent;
     margin-right: 4px;
+`;
+
+export const ParentWrapper = styled.div`
+    max-width: 400px;
 `;
 
 export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride, titleOverride }: Props) => {
@@ -65,10 +71,16 @@ export const ContainerSelectModal = ({ onCloseModal, defaultValues, onOkOverride
     // Renders a search result in the select dropdown.
     const renderSearchResult = (entity: Container) => {
         const displayName = entityRegistry.getDisplayName(EntityType.Container, entity);
+        const parentEntities: Entity[] = getParentEntities(entity as Entity) || [];
 
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
+                {parentEntities.length > 0 && (
+                    <ParentWrapper>
+                        <ParentEntities parentEntities={parentEntities} />
+                    </ParentWrapper>
+                )}
                 <PreviewImage src={entity.platform?.properties?.logoUrl || undefined} alt={entity.properties?.name} />
                 <span>{truncatedDisplayName}</span>
             </Tooltip>

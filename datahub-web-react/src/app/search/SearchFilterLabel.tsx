@@ -23,6 +23,9 @@ import CustomAvatar from '../shared/avatar/CustomAvatar';
 import { IconStyleType } from '../entity/Entity';
 import { formatNumber } from '../shared/formatNumber';
 import useGetBrowseV2LabelOverride from './filters/useGetBrowseV2LabelOverride';
+import { getParentEntities } from './filters/utils';
+import { ParentWrapper } from '../entity/shared/containers/profile/sidebar/Container/ContainerSelectModal';
+import ParentEntities from './filters/ParentEntities';
 
 type Props = {
     field: string;
@@ -157,11 +160,17 @@ export const SearchFilterLabel = ({ field, value, entity, count, hideCount }: Pr
     if (entity?.type === EntityType.Container) {
         const container = entity as Container;
         const displayName = entityRegistry.getDisplayName(EntityType.Container, container);
+        const parentEntities: Entity[] = getParentEntities(container as Entity) || [];
         const truncatedDisplayName = displayName.length > 25 ? `${displayName.slice(0, 25)}...` : displayName;
         return (
             <Tooltip title={displayName}>
                 {!!container.platform?.properties?.logoUrl && (
-                    <PreviewImage src={container.platform?.properties?.logoUrl} alt={container.properties?.name} />
+                    <>
+                        <ParentWrapper style={{ width: '200px' }}>
+                            <ParentEntities parentEntities={parentEntities} />
+                        </ParentWrapper>
+                        <PreviewImage src={container.platform?.properties?.logoUrl} alt={container.properties?.name} />
+                    </>
                 )}
                 <span>
                     {truncatedDisplayName}

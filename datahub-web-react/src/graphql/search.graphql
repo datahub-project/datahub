@@ -910,6 +910,9 @@ fragment facetFields on FacetMetadata {
                 properties {
                     name
                 }
+                parentContainers {
+                    ...parentContainersFields
+                }
             }
             ... on CorpUser {
                 username

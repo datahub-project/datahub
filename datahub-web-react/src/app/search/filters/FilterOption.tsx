@@ -8,6 +8,7 @@ import { generateColor } from '../../entity/shared/components/styled/StyledTag';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import {
+    CONTAINER_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
     MAX_COUNT_VAL,
     PLATFORM_FILTER_NAME,
@@ -125,7 +126,7 @@ export default function FilterOption({
     const { field, value, count, entity } = filterOption;
     const entityRegistry = useEntityRegistry();
     const { icon, label } = getFilterIconAndLabel(field, value, entityRegistry, entity || null, 14);
-    const shouldShowIcon = field === PLATFORM_FILTER_NAME && icon !== null;
+    const shouldShowIcon = (field === PLATFORM_FILTER_NAME || field === CONTAINER_FILTER_NAME) && icon !== null;
     const shouldShowTagColor = field === TAGS_FILTER_NAME && entity?.type === EntityType.Tag;
     const isSubTypeFilter = field === TYPE_NAMES_FILTER_NAME;
     const parentEntities: Entity[] = getParentEntities(entity as Entity) || [];
