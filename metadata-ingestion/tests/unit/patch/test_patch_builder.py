@@ -216,14 +216,6 @@ def test_datajob_patch_builder():
                             "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket~1folder1,DEV)",
                             "value": {
                                 "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder1,DEV)",
-                                "created": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
-                                "lastModified": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
                             },
                         },
                         {
@@ -231,14 +223,6 @@ def test_datajob_patch_builder():
                             "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket~1folder3,DEV)",
                             "value": {
                                 "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder3,DEV)",
-                                "created": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
-                                "lastModified": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
                             },
                         },
                         {
@@ -246,14 +230,6 @@ def test_datajob_patch_builder():
                             "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket~1folder2,DEV)",
                             "value": {
                                 "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)",
-                                "created": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
-                                "lastModified": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
                             },
                         },
                     ]
