@@ -1,7 +1,10 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import { Meta, StoryObj } from '@storybook/react';
-import React from 'react';
+import React, { useState } from 'react';
 import { Table, tableDefaults } from '.';
+import { SortingState } from './types';
+import { alignProperty } from '@mui/material/styles/cssUtils';
+import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 
 // Auto Docs
 const meta = {
@@ -160,3 +163,151 @@ export const withoutHeader = () => (
         showHeader={false}
     />
 );
+
+const groupByColumns = [
+    {
+        key: 'id',
+        title: 'ID',
+        width: '10%',
+        render: (record) => <div>{record.id}</div>,
+    },
+    {
+        key: 'name',
+        title: 'Name',
+        width: '30%',
+        render: (record) => <div>{record.name}</div>,
+        sorter: (a: any, b: any) => a - b,
+    },
+    {
+        key: 'status',
+        title: 'Status',
+        width: '20%',
+        sorter: (a: any, b: any) => a - b,
+        render: (record) => <div>{record.status}</div>,
+    },
+    {
+        key: 'createdAt',
+        title: 'Created At',
+        width: '25%',
+        render: (record) => <div>{record.createdAt}</div>,
+    },
+    {
+        title: '',
+        dataIndex: '',
+        key: 'actions',
+        width: '15%',
+        render: (record) => {
+            return !record.children && <div>actions</div>;
+        },
+        alignment: 'right' as AlignmentOptions,
+    },
+];
+
+const groupByData = [
+    {
+        id: '1',
+        name: 'Parent Row 1',
+        status: 'Active',
+        createdAt: '2024-11-20',
+        children: [
+            {
+                id: '1.1',
+                name: 'Child Row 1.1',
+                status: 'Active',
+                createdAt: '2024-11-21',
+            },
+            {
+                id: '1.2',
+                name: 'Child Row 1.2',
+                status: 'Inactive',
+                createdAt: '2024-11-22',
+            },
+        ],
+    },
+    {
+        id: '2',
+        name: 'Parent Row 2',
+        status: 'Inactive',
+        createdAt: '2024-11-19',
+        children: [
+            {
+                id: '2.1',
+                name: 'Child Row 2.1',
+                status: 'Active',
+                createdAt: '2024-11-21',
+            },
+            {
+                id: '2.2',
+                name: 'Child Row 2.2',
+                status: 'Inactive',
+                createdAt: '2024-11-22',
+            },
+        ],
+    },
+];
+
+export const withGroupByFunctionality = () => {
+    const [expandedRowKeys, setExpandedRowKeys] = useState(['Parent Row 1']);
+    const [sortedOptions, setSortedOptions] = useState<{ sortColumn: string; sortOrder: SortingState }>({
+        sortColumn: '',
+        sortOrder: SortingState.ORIGINAL,
+    });
+    const onExapand = (record: any) => {
+        const key = record.name;
+        setExpandedRowKeys((prev: any) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+    };
+    const getSortedRecord = (record) => {
+        const { sortOrder, sortColumn } = sortedOptions;
+        if (sortOrder === SortingState.ORIGINAL) {
+            return record.children;
+        }
+
+        const sortFunctions = {
+            status: {
+                [SortingState.ASCENDING]: (a, b) => a.name.localeCompare(b.name),
+                [SortingState.DESCENDING]: (a, b) => b.name.localeCompare(a.name),
+            },
+            name: {
+                [SortingState.ASCENDING]: (a, b) => a.name.localeCompare(b.name),
+                [SortingState.DESCENDING]: (a, b) => b.name.localeCompare(a.name),
+            },
+        };
+        const sortFunction = sortFunctions[sortColumn]?.[sortOrder];
+
+        const data = sortFunction ? [...record.children].sort(sortFunction) : record.children;
+
+        return data;
+    };
+
+    return (
+        <Table
+            columns={groupByColumns}
+            data={groupByData}
+            handleSortColumnChange={({ sortColumn, sortOrder }: { sortColumn: string; sortOrder: SortingState }) =>
+                setSortedOptions({ sortColumn, sortOrder })
+            }
+            expandable={{
+                expandedRowRender: (record) => {
+                    let sortedRecord = record.children;
+                    if (sortedOptions.sortColumn && sortedOptions.sortOrder) {
+                        sortedRecord = getSortedRecord(record);
+                    }
+
+                    return (
+                        <Table
+                            columns={groupByColumns}
+                            data={sortedRecord}
+                            showHeader={false}
+                            isBorderless
+                            isExpandedInnerTable
+                        />
+                    );
+                },
+                rowExpandable: () => true,
+                expandIconPosition: 'end',
+                expandedRowKeys,
+            }}
+            onExpand={onExapand}
+        />
+    );
+};
