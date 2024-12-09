@@ -37,3 +37,7 @@ export const ASSERTION_SOURCES = [
     AssertionSourceType.Inferred,
     AssertionSourceType.External,
 ];
+
+export const ASSERTION_FILTER_TYPES = {
+    TAG: 'tags',
+};

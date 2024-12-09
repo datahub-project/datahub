@@ -24,8 +24,8 @@ export interface SelectProps {
     disabledValues?: string[];
     showSelectAll?: boolean;
     selectAllLabel?: string;
-    optionListTestId?: string;
     showDescriptions?: boolean;
+    isCustomisedLabel?: boolean;
 }
 
 export interface SelectStyleProps {
@@ -34,6 +34,7 @@ export interface SelectStyleProps {
     isReadOnly?: boolean;
     isRequired?: boolean;
     isOpen?: boolean;
+    width?: number | 'full';
 }
 
 export interface ActionButtonsProps {
@@ -54,6 +55,7 @@ export interface SelectLabelDisplayProps {
     removeOption?: (option: SelectOption) => void;
     disabledValues?: string[];
     showDescriptions?: boolean;
+    isCustomisedLabel?: boolean;
 }
 
 export interface SearchInputProps extends React.InputHTMLAttributes<HTMLInputElement> {

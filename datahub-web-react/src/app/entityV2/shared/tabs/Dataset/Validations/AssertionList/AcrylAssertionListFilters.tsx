@@ -28,6 +28,12 @@ const SearchFilterContainer = styled.div`
     margin-bottom: 8px;
     margin-top: 8px;
     gap: 12px;
+    justify-content: space-between;
+`;
+
+const FiltersContainer = styled.div`
+    display: flex;
+    gap: 6px;
 `;
 
 const StyledFilterContainer = styled.div`
@@ -113,22 +119,24 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                 />
 
                 {/* ************Render Filter Component ************************* */}
-                <StyledFilterContainer>
-                    <AcrylAssertionFilters
-                        filterOptions={originalFilterOptions?.filterGroupOptions || []}
-                        selectedFilters={appliedFilters}
-                        onFilterChange={handleFilterChange}
-                    />
-                </StyledFilterContainer>
-                {/* ************Render Group By Component ************************* */}
-                <div>
-                    <AcryAssertionTypeSelect
-                        options={ASSERTION_GROUP_BY_FILTER_OPTIONS}
-                        selectedValue={selectedGroupBy}
-                        onSelect={handleAssertionTypeChange}
-                        placeholder="Group By"
-                    />
-                </div>
+                <FiltersContainer>
+                    <StyledFilterContainer>
+                        <AcrylAssertionFilters
+                            filterOptions={originalFilterOptions?.filterGroupOptions || []}
+                            selectedFilters={appliedFilters}
+                            onFilterChange={handleFilterChange}
+                        />
+                    </StyledFilterContainer>
+                    {/* ************Render Group By Component ************************* */}
+                    <div>
+                        <AcryAssertionTypeSelect
+                            options={ASSERTION_GROUP_BY_FILTER_OPTIONS}
+                            selectedValue={selectedGroupBy}
+                            onSelect={handleAssertionTypeChange}
+                            placeholder="Group By"
+                        />
+                    </div>
+                </FiltersContainer>
             </SearchFilterContainer>
             <div>
                 {/* ************Render Recommended Filter Component ************************* */}

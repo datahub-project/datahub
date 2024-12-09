@@ -3,12 +3,18 @@ import { getFontSize } from '@components/theme/utils';
 
 import { SelectStyleProps } from './types';
 
-export const getOptionLabelStyle = (isSelected: boolean, isMultiSelect?: boolean, isDisabled?: boolean) => ({
+export const getOptionLabelStyle = (
+    isSelected: boolean,
+    isMultiSelect?: boolean,
+    isDisabled?: boolean,
+    isCustomisedLabel?: boolean,
+) => ({
     cursor: isDisabled ? 'not-allowed' : 'pointer',
     padding: spacing.xsm,
     borderRadius: radius.md,
     lineHeight: typography.lineHeights.normal,
-    backgroundColor: isSelected && !isMultiSelect ? colors.violet[100] : 'transparent',
+    backgroundColor:
+        isSelected && !isMultiSelect ? (isCustomisedLabel ? colors.gray[1000] : colors.violet[100]) : 'transparent',
     color: isSelected ? colors.violet[700] : colors.gray[500],
     fontWeight: typography.fontWeights.medium,
     fontSize: typography.fontSizes.md,

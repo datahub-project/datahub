@@ -11,16 +11,18 @@ const sharedTransition = `${transition.property.colors} ${transition.easing['eas
 /**
  * Base Select component styling
  */
-export const SelectBase = styled.div<SelectStyleProps>(({ isDisabled, isReadOnly, fontSize, isOpen }) => ({
+export const SelectBase = styled.div<SelectStyleProps>(({ isDisabled, isReadOnly, fontSize, isOpen, width }) => ({
     ...getSelectStyle({ isDisabled, isReadOnly, fontSize, isOpen }),
     display: 'flex',
     flexDirection: 'row' as const,
     gap: spacing.xsm,
     transition: sharedTransition,
     justifyContent: 'space-between',
+    alignSelf: 'end',
     alignItems: 'center',
     overflow: 'auto',
     backgroundColor: isDisabled ? colors.gray[100] : 'white',
+    width: width === 'full' ? '100%' : `max-content`,
 }));
 
 /**
@@ -52,7 +54,7 @@ export const Dropdown = styled.div({
     right: 0,
     borderRadius: radius.md,
     background: colors.white,
-    zIndex: 1,
+    zIndex: 900,
     transition: sharedTransition,
     boxShadow: shadows.dropdown,
     padding: spacing.xsm,
@@ -158,12 +160,14 @@ export const LabelsWrapper = styled.div({
     maxWidth: 'calc(100% - 54px)',
 });
 
-export const OptionLabel = styled.label<{ isSelected: boolean; isMultiSelect?: boolean; isDisabled?: boolean }>(
-    ({ isSelected, isMultiSelect, isDisabled }) => ({
-        ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled),
-    }),
-);
-
+export const OptionLabel = styled.label<{
+    isSelected: boolean;
+    isMultiSelect?: boolean;
+    isDisabled?: boolean;
+    isCustomisedLabel?: boolean;
+}>(({ isSelected, isMultiSelect, isDisabled, isCustomisedLabel }) => ({
+    ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled, isCustomisedLabel),
+}));
 export const SelectAllOption = styled.div<{ isSelected: boolean; isDisabled?: boolean }>(
     ({ isSelected, isDisabled }) => ({
         cursor: isDisabled ? 'not-allowed' : 'pointer',
@@ -233,3 +237,25 @@ export const StyledCheckbox = styled(Checkbox)({
         borderColor: `${colors.violet[500]} !important`,
     },
 });
+
+export const StyledBubbleButton = styled(Button)({
+    backgroundColor: colors.gray[200],
+    border: `1px solid ${colors.gray[200]}`,
+    color: colors.black,
+    padding: '1px',
+});
+
+export const CountBadge = styled.div({
+    backgroundColor: colors.gray[200],
+    color: colors.black,
+    padding: '3px 5px',
+    borderRadius: 50,
+    fontSize: typography.fontSizes.sm,
+});
+
+export const HighlightedLabel = styled.span`
+    background-color: ${colors.gray[100]};
+    padding: 2px 4px;
+    border-radius: 8px;
+    font-size: ${typography.fontSizes.sm};
+`;
