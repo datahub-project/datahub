@@ -1,8 +1,10 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.METADATA_TESTS_SOURCE;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
@@ -19,6 +21,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
@@ -61,6 +64,7 @@ import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.commons.lang3.tuple.Triple;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
@@ -534,8 +538,8 @@ public class EbeanEntityServiceTest
             opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
     assertEquals(
         envelopedAspect.getSystemMetadata().getVersion(),
-        "2",
-        "Expected version 2. 1 - Initial, + 1 batch operation (1 add, 1 remove)");
+        "3",
+        "Expected version 3. 1 - Initial, + 1 add, 1 remove");
     assertEquals(
         new GlobalTags(envelopedAspect.getValue().data())
             .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
@@ -649,11 +653,100 @@ public class EbeanEntityServiceTest
     EnvelopedAspect envelopedAspect =
         _entityServiceImpl.getLatestEnvelopedAspect(
             opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
-    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "3", "Expected version 3");
+    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "4", "Expected version 4");
     assertEquals(
         new GlobalTags(envelopedAspect.getValue().data())
             .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
         Set.of(tag1, tag2, tag3),
+        "Expected all tags");
+  }
+
+  @Test
+  public void testBatchPatchAddDuplicate() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,testBatchPatchAdd,PROD)");
+    List<TagAssociation> initialTags =
+        List.of(
+                TagUrn.createFromString("urn:li:tag:__default_large_table"),
+                TagUrn.createFromString("urn:li:tag:__default_low_queries"),
+                TagUrn.createFromString("urn:li:tag:__default_low_changes"),
+                TagUrn.createFromString("urn:li:tag:!10TB+ tables"))
+            .stream()
+            .map(tag -> new TagAssociation().setTag(tag))
+            .collect(Collectors.toList());
+    TagUrn tag2 = TagUrn.createFromString("urn:li:tag:$ 1TB+");
+
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+
+    SystemMetadata patchSystemMetadata = new SystemMetadata();
+    patchSystemMetadata.setLastObserved(systemMetadata.getLastObserved() + 1);
+    patchSystemMetadata.setProperties(new StringMap(Map.of(APP_SOURCE, METADATA_TESTS_SOURCE)));
+
+    ChangeItemImpl initialAspectTag1 =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .recordTemplate(new GlobalTags().setTags(new TagAssociationArray(initialTags)))
+            .systemMetadata(systemMetadata.copy())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyAspectRetriever(null));
+
+    PatchItemImpl patchAdd2 =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag2)))
+                    .build()
+                    .getJsonPatch())
+            .systemMetadata(patchSystemMetadata)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    // establish base entity
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext().get())
+            .items(List.of(initialAspectTag1))
+            .build(),
+        false,
+        true);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext().get())
+            .items(List.of(patchAdd2, patchAdd2)) // duplicate
+            .build(),
+        false,
+        true);
+
+    // List aspects urns
+    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 1);
+
+    assertEquals(batch.getStart().intValue(), 0);
+    assertEquals(batch.getCount().intValue(), 1);
+    assertEquals(batch.getTotal().intValue(), 1);
+    assertEquals(batch.getEntities().size(), 1);
+    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
+    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "3", "Expected version 3");
+    assertEquals(
+        new GlobalTags(envelopedAspect.getValue().data())
+            .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
+        Stream.concat(initialTags.stream().map(TagAssociation::getTag), Stream.of(tag2))
+            .collect(Collectors.toSet()),
         "Expected all tags");
   }
 
