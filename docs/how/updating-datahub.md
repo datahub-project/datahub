@@ -35,6 +35,8 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 - #11701: The Fivetran `sources_to_database` field is deprecated in favor of setting directly within `sources_to_platform_instance.<key>.database`.
 - #11742: For PowerBi ingestion, `use_powerbi_email` is now enabled by default when extracting ownership information.
+- #12056: The DataHub Airflow plugin no longer supports Airflow 2.1 and Airflow 2.2.
+- #12056: The DataHub Airflow plugin now defaults to the v2 plugin implementation.
 
 ### Breaking Changes
 
