@@ -90,7 +90,7 @@ def check_mcpw_correctness(mcp: MetadataChangeProposalWrapper):
     logger.debug(f"Full aspect:\n{mcp.aspect}")
     if isinstance(mcp.aspect, SchemaMetadataClass):
         schema: SchemaMetadataClass = mcp.aspect
-        logger.debug(f"Schema aspect dump:\n{json.dumps(schema, indent=4)}")
+        logger.debug(f"Schema aspect dump:\n{schema.to_obj()}")
 
 
 def check_workunit_correctness(stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
