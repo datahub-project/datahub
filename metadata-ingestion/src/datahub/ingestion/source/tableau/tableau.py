@@ -908,6 +908,30 @@ class TableauSiteSource:
         return is_allowed
 
     def _is_denied_project(self, project: TableauProject) -> bool:
+        """
+        Why use an explicit denial check instead of the `AllowDenyPattern.allowed` method?
+
+        Consider a scenario where a Tableau site contains four projects: A, B, C, and D, with the following hierarchical relationship:
+
+        - **A**
+          - **B** (Child of A)
+          - **C** (Child of A)
+        - **D**
+
+        In this setup:
+
+        - `project_pattern` is configured with `allow: ["A"]` and `deny: ["B"]`.
+        - `extract_project_hierarchy` is set to `True`.
+
+        The goal is to extract assets from project A and its children while explicitly denying the child project B.
+
+        If we rely solely on the `project_pattern.allowed()` method, project C's assets will not be ingested.
+        This happens because project C is not explicitly included in the `allow` list, nor is it part of the `deny` list.
+        However, since `extract_project_hierarchy` is enabled, project C should ideally be included in the ingestion process unless explicitly denied.
+
+        To address this, the function explicitly checks the deny regex to ensure that project C’s assets are ingested if it is not specifically denied in the deny list. This approach ensures that the hierarchy is respected while adhering to the configured allow/deny rules.
+        """
+
         # Either project_pattern or project_path_pattern is set in a recipe
         # TableauConfig.projects_backward_compatibility ensures that at least one of these properties is configured.
 
