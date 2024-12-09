@@ -21,6 +21,7 @@ from datahub.configuration.validate_multiline_string import pydantic_multiline_s
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
@@ -206,6 +207,39 @@ class BigQueryConnectionConfig(ConfigModel):
         return "bigquery://"
 
 
+class GcsLineageProviderConfig(ConfigModel):
+    """
+    Any source that produces gcs lineage from/to Datasets should inherit this class.
+    """
+
+    path_specs: List[PathSpec] = Field(
+        default=[],
+        description="List of PathSpec. See below the details about PathSpec",
+    )
+
+    strip_urls: bool = Field(
+        default=True,
+        description="Strip filename from gcs url. It only applies if path_specs are not specified.",
+    )
+
+    ignore_non_path_spec_path: bool = Field(
+        default=False,
+        description="Ignore paths that are not match in path_specs. It only applies if path_specs are specified.",
+    )
+
+
+class GcsDatasetLineageProviderConfigBase(ConfigModel):
+    """
+    Any source that produces gcs lineage from/to Datasets should inherit this class.
+    This is needeed to group all lineage related configs under `gcs_lineage_config` config property.
+    """
+
+    gcs_lineage_config: GcsLineageProviderConfig = Field(
+        default=GcsLineageProviderConfig(),
+        description="Common config for gcs lineage generation",
+    )
+
+
 class BigQueryFilterConfig(SQLFilterConfig):
     project_ids: List[str] = Field(
         default_factory=list,
@@ -328,6 +362,7 @@ class BigQueryIdentifierConfig(
 
 
 class BigQueryV2Config(
+    GcsDatasetLineageProviderConfigBase,
     BigQueryConnectionConfig,
     BigQueryBaseConfig,
     BigQueryFilterConfig,
@@ -339,7 +374,6 @@ class BigQueryV2Config(
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
 ):
-
     include_schema_metadata: bool = Field(
         default=True,
         description="Whether to ingest the BigQuery schema, i.e. projects, schemas, tables, and views.",
@@ -367,6 +401,11 @@ class BigQueryV2Config(
     capture_dataset_label_as_tag: Union[bool, AllowDenyPattern] = Field(
         default=False,
         description="Capture BigQuery dataset labels as DataHub tag",
+    )
+
+    include_table_constraints: bool = Field(
+        default=True,
+        description="Whether to ingest table constraints. If you know you don't use table constraints, you can disable it to save one extra query per dataset. In general it should be enabled",
     )
 
     include_external_url: bool = Field(
@@ -468,6 +507,11 @@ class BigQueryV2Config(
         description="Option to enable/disable lineage generation. Is enabled by default.",
     )
 
+    include_column_lineage_with_gcs: bool = Field(
+        default=True,
+        description="When enabled, column-level lineage will be extracted from the gcs.",
+    )
+
     max_query_duration: timedelta = Field(
         default=timedelta(minutes=15),
         description="Correction to pad start_time and end_time with. For handling the case where the read happens within our time range but the query completion event is delayed and happens after the configured end time.",
@@ -520,6 +564,12 @@ class BigQueryV2Config(
         default=DEFAULT_BQ_SCHEMA_PARALLELISM,
         description="Number of worker threads to use to parallelize BigQuery Dataset Metadata Extraction."
         " Set to 1 to disable.",
+    )
+
+    region_qualifiers: List[str] = Field(
+        default=["region-us", "region-eu"],
+        description="BigQuery regions to be scanned for bigquery jobs when using `use_queries_v2`. "
+        "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
     )
 
     # include_view_lineage and include_view_column_lineage are inherited from SQLCommonConfig

@@ -63,6 +63,7 @@ import com.linkedin.datahub.graphql.generated.Deprecation;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.ERModelRelationship;
 import com.linkedin.datahub.graphql.generated.ERModelRelationshipProperties;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
@@ -312,6 +313,7 @@ import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PlatformSchemaUnionTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.PropertyValueResolver;
+import com.linkedin.datahub.graphql.resolvers.type.ResolvedActorResolver;
 import com.linkedin.datahub.graphql.resolvers.type.ResultsTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.TimeSeriesAspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.user.CreateNativeUserResetTokenResolver;
@@ -1730,12 +1732,22 @@ public class GmsGraphQLEngine {
         .type(
             "InstitutionalMemoryMetadata",
             typeWiring ->
-                typeWiring.dataFetcher(
-                    "author",
-                    new LoadableTypeResolver<>(
-                        corpUserType,
-                        (env) ->
-                            ((InstitutionalMemoryMetadata) env.getSource()).getAuthor().getUrn())))
+                typeWiring
+                    .dataFetcher(
+                        "author",
+                        new LoadableTypeResolver<>(
+                            corpUserType,
+                            (env) ->
+                                ((InstitutionalMemoryMetadata) env.getSource())
+                                    .getAuthor()
+                                    .getUrn()))
+                    .dataFetcher(
+                        "actor",
+                        new EntityTypeResolver(
+                            this.entityTypes,
+                            (env) ->
+                                (Entity)
+                                    ((InstitutionalMemoryMetadata) env.getSource()).getActor())))
         .type(
             "DatasetStatsSummary",
             typeWiring ->
@@ -2242,6 +2254,7 @@ public class GmsGraphQLEngine {
             "HyperParameterValueType",
             typeWiring -> typeWiring.typeResolver(new HyperParameterValueTypeResolver()))
         .type("PropertyValue", typeWiring -> typeWiring.typeResolver(new PropertyValueResolver()))
+        .type("ResolvedActor", typeWiring -> typeWiring.typeResolver(new ResolvedActorResolver()))
         .type("Aspect", typeWiring -> typeWiring.typeResolver(new AspectInterfaceTypeResolver()))
         .type(
             "TimeSeriesAspect",

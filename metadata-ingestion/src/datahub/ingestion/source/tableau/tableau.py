@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 import time
@@ -26,6 +27,8 @@ from pydantic import root_validator, validator
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter
 from tableauserverclient import (
+    GroupItem,
+    PermissionsRule,
     PersonalAccessTokenAuth,
     Server,
     ServerResponseError,
@@ -65,6 +68,7 @@ from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
     Source,
+    StructuredLogLevel,
     TestableSource,
     TestConnectionReport,
 )
@@ -216,6 +220,11 @@ class TableauConnectionConfig(ConfigModel):
         description="Whether to verify SSL certificates. If using self-signed certificates, set to false or provide the path to the .pem certificate bundle.",
     )
 
+    session_trust_env: bool = Field(
+        False,
+        description="Configures the trust_env property in the requests session. If set to false (default value) it will bypass proxy settings. See https://requests.readthedocs.io/en/latest/api/#requests.Session.trust_env for more information.",
+    )
+
     extract_column_level_lineage: bool = Field(
         True,
         description="When enabled, extracts column-level lineage from Tableau Datasources",
@@ -265,8 +274,7 @@ class TableauConnectionConfig(ConfigModel):
                 },
             )
 
-            # From https://stackoverflow.com/a/50159273/5004662.
-            server._session.trust_env = False
+            server._session.trust_env = self.session_trust_env
 
             # Setup request retries.
             adapter = HTTPAdapter(
@@ -282,20 +290,33 @@ class TableauConnectionConfig(ConfigModel):
             server.auth.sign_in(authentication)
             return server
         except ServerResponseError as e:
+            message = f"Unable to login (invalid/expired credentials or missing permissions): {str(e)}"
             if isinstance(authentication, PersonalAccessTokenAuth):
                 # Docs on token expiry in Tableau:
                 # https://help.tableau.com/current/server/en-us/security_personal_access_tokens.htm#token-expiry
-                logger.info(
-                    "Error authenticating with Tableau. Note that Tableau personal access tokens "
-                    "expire if not used for 15 days or if over 1 year old"
-                )
-            raise ValueError(
-                f"Unable to login (invalid/expired credentials or missing permissions): {str(e)}"
-            ) from e
+                message = f"Error authenticating with Tableau. Note that Tableau personal access tokens expire if not used for 15 days or if over 1 year old: {str(e)}"
+            raise ValueError(message) from e
         except Exception as e:
             raise ValueError(
                 f"Unable to login (check your Tableau connection and credentials): {str(e)}"
             ) from e
+
+
+class PermissionIngestionConfig(ConfigModel):
+    enable_workbooks: bool = Field(
+        default=True,
+        description="Whether or not to enable group permission ingestion for workbooks. "
+        "Default: True",
+    )
+
+    group_name_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Filter for Tableau group names when ingesting group permissions. "
+        "For example, you could filter for groups that include the term 'Consumer' in their name by adding '^.*Consumer$' to the allow list."
+        "By default, all groups will be ingested. "
+        "You can both allow and deny groups based on their name using their name, or a Regex pattern. "
+        "Deny patterns always take precedence over allow patterns. ",
+    )
 
 
 class TableauConfig(
@@ -457,6 +478,11 @@ class TableauConfig(
     add_site_container: bool = Field(
         False,
         description="When enabled, sites are added as containers and therefore visible in the folder structure within Datahub.",
+    )
+
+    permission_ingestion: Optional[PermissionIngestionConfig] = Field(
+        default=None,
+        description="Configuration settings for ingesting Tableau groups and their capabilities as custom properties.",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -671,6 +697,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         config=self.config,
                         ctx=self.ctx,
                         site=site,
+                        site_id=site.id,
                         report=self.report,
                         server=self.server,
                         platform=self.platform,
@@ -678,11 +705,19 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     logger.info(f"Ingesting assets of site '{site.content_url}'.")
                     yield from site_source.ingest_tableau_site()
             else:
-                site = self.server.sites.get_by_id(self.server.site_id)
+                site = None
+                with self.report.report_exc(
+                    title="Unable to fetch site details. Site hierarchy may be incomplete and external urls may be missing.",
+                    message="This usually indicates missing permissions. Ensure that you have all necessary permissions.",
+                    level=StructuredLogLevel.WARN,
+                ):
+                    site = self.server.sites.get_by_id(self.server.site_id)
+
                 site_source = TableauSiteSource(
                     config=self.config,
                     ctx=self.ctx,
                     site=site,
+                    site_id=self.server.site_id,
                     report=self.report,
                     server=self.server,
                     platform=self.platform,
@@ -693,6 +728,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 title="Failed to Retrieve Tableau Metadata",
                 message="Unable to retrieve metadata from tableau.",
                 context=str(md_exception),
+                exc=md_exception,
             )
 
     def close(self) -> None:
@@ -714,7 +750,8 @@ class TableauSiteSource:
         self,
         config: TableauConfig,
         ctx: PipelineContext,
-        site: SiteItem,
+        site: Optional[SiteItem],
+        site_id: Optional[str],
         report: TableauSourceReport,
         server: Server,
         platform: str,
@@ -723,14 +760,23 @@ class TableauSiteSource:
         self.report = report
         self.server: Server = server
         self.ctx: PipelineContext = ctx
-        self.site: SiteItem = site
         self.platform = platform
+
+        self.site: Optional[SiteItem] = site
+        if site_id is not None:
+            self.site_id: str = site_id
+        else:
+            assert self.site is not None, "site or site_id is required"
+            assert self.site.id is not None, "site_id is required when site is provided"
+            self.site_id = self.site.id
 
         self.database_tables: Dict[str, DatabaseTable] = {}
         self.tableau_stat_registry: Dict[str, UsageStat] = {}
         self.tableau_project_registry: Dict[str, TableauProject] = {}
         self.workbook_project_map: Dict[str, str] = {}
         self.datasource_project_map: Dict[str, str] = {}
+
+        self.group_map: Dict[str, GroupItem] = {}
 
         # This map keeps track of the database server connection hostnames.
         self.database_server_hostname_map: Dict[str, str] = {}
@@ -777,7 +823,7 @@ class TableauSiteSource:
     def _re_authenticate(self):
         tableau_auth: Union[
             TableauAuth, PersonalAccessTokenAuth
-        ] = self.config.get_tableau_auth(self.site.content_url)
+        ] = self.config.get_tableau_auth(self.site_id)
         self.server.auth.sign_in(tableau_auth)
 
     @property
@@ -795,6 +841,7 @@ class TableauSiteSource:
             if not view.id:
                 continue
             self.tableau_stat_registry[view.id] = UsageStat(view_count=view.total_views)
+        logger.info(f"Got Tableau stats for {len(self.tableau_stat_registry)} assets")
         logger.debug("Tableau stats %s", self.tableau_stat_registry)
 
     def _populate_database_server_hostname_map(self) -> None:
@@ -845,7 +892,7 @@ class TableauSiteSource:
                 ancestors = [cur_proj.name]
                 while cur_proj.parent_id is not None:
                     if cur_proj.parent_id not in all_project_map:
-                        self.report.report_warning(
+                        self.report.warning(
                             "project-issue",
                             f"Parent project {cur_proj.parent_id} not found. We need Site Administrator Explorer permissions.",
                         )
@@ -943,8 +990,11 @@ class TableauSiteSource:
                 self.datasource_project_map[ds.id] = ds.project_id
         except Exception as e:
             self.report.get_all_datasources_query_failed = True
-            logger.info(f"Get all datasources query failed due to error {e}")
-            logger.debug("Error stack trace", exc_info=True)
+            self.report.warning(
+                title="Unexpected Query Error",
+                message="Get all datasources query failed due to error",
+                exc=e,
+            )
 
     def _init_workbook_registry(self) -> None:
         if self.server is None:
@@ -1110,7 +1160,6 @@ class TableauSiteSource:
                     )
 
                 if node_limit_errors:
-                    logger.debug(f"Node Limit Error. query_data {query_data}")
                     self.report.warning(
                         title="Tableau Data Exceed Predefined Limit",
                         message="The numbers of record in result set exceeds a predefined limit. Increase the tableau "
@@ -1226,9 +1275,10 @@ class TableauSiteSource:
                     wrk_id: Optional[str] = workbook.get(c.ID)
                     prj_name: Optional[str] = workbook.get(c.PROJECT_NAME)
 
-                    logger.debug(
-                        f"Skipping workbook {wrk_name}({wrk_id}) as it is project {prj_name}({project_luid}) not "
-                        f"present in project registry"
+                    self.report.warning(
+                        title="Skipping Missing Workbook",
+                        message="Skipping workbook as its project is not present in project registry",
+                        context=f"workbook={wrk_name}({wrk_id}), project={prj_name}({project_luid})",
                     )
                     continue
 
@@ -1422,7 +1472,7 @@ class TableauSiteSource:
                 c.COLUMNS_CONNECTION
             ].get("totalCount")
             if not is_custom_sql and not num_tbl_cols:
-                logger.debug(
+                logger.warning(
                     f"Skipping upstream table with id {table[c.ID]}, no columns: {table}"
                 )
                 continue
@@ -1438,7 +1488,12 @@ class TableauSiteSource:
                     table, default_schema_map=self.config.default_schema_map
                 )
             except Exception as e:
-                logger.info(f"Failed to generate upstream reference for {table}: {e}")
+                self.report.warning(
+                    title="Potentially Missing Lineage Issue",
+                    message="Failed to generate upstream reference",
+                    exc=e,
+                    context=f"table={table}",
+                )
                 continue
 
             table_urn = ref.make_dataset_urn(
@@ -1886,10 +1941,12 @@ class TableauSiteSource:
                 self.datasource_project_map[ds_result.id] = ds_result.project_id
         except Exception as e:
             self.report.num_get_datasource_query_failures += 1
-            logger.warning(
-                f"Failed to get datasource project_luid for {ds_luid} due to error {e}"
+            self.report.warning(
+                title="Unexpected Query Error",
+                message="Failed to get datasource details",
+                exc=e,
+                context=f"ds_luid={ds_luid}",
             )
-            logger.debug("Error stack trace", exc_info=True)
 
     def _get_workbook_project_luid(self, wb: dict) -> Optional[str]:
         if wb.get(c.LUID) and self.workbook_project_map.get(wb[c.LUID]):
@@ -2086,7 +2143,6 @@ class TableauSiteSource:
     def _enrich_database_tables_with_parsed_schemas(
         self, parsing_result: SqlParsingResult
     ) -> None:
-
         in_tables_schemas: Dict[
             str, Set[str]
         ] = transform_parsing_result_to_in_tables_schemas(parsing_result)
@@ -2803,6 +2859,18 @@ class TableauSiteSource:
                 f"Could not load project hierarchy for workbook {workbook_name}({workbook_id}). Please check permissions."
             )
 
+        custom_props = None
+        if (
+            self.config.permission_ingestion
+            and self.config.permission_ingestion.enable_workbooks
+        ):
+            logger.debug(f"Ingest access roles of workbook-id='{workbook.get(c.LUID)}'")
+            workbook_instance = self.server.workbooks.get_by_id(workbook.get(c.LUID))
+            self.server.workbooks.populate_permissions(workbook_instance)
+            custom_props = self._create_workbook_properties(
+                workbook_instance.permissions
+            )
+
         yield from gen_containers(
             container_key=workbook_container_key,
             name=workbook.get(c.NAME) or "",
@@ -2811,6 +2879,7 @@ class TableauSiteSource:
             sub_types=[BIContainerSubTypes.TABLEAU_WORKBOOK],
             owner_urn=owner_urn,
             external_url=workbook_external_url,
+            extra_properties=custom_props,
             tags=tags,
         )
 
@@ -3138,10 +3207,10 @@ class TableauSiteSource:
             else:
                 # This is a root Tableau project since the parent_project_id is None.
                 # For a root project, either the site is the parent, or the platform is the default parent.
-                if self.config.add_site_container and self.site and self.site.id:
+                if self.config.add_site_container:
                     # The site containers have already been generated by emit_site_container, so we
                     # don't need to emit them again here.
-                    parent_project_key = self.gen_site_key(self.site.id)
+                    parent_project_key = self.gen_site_key(self.site_id)
 
             yield from gen_containers(
                 container_key=project_key,
@@ -3158,20 +3227,62 @@ class TableauSiteSource:
             yield from emit_project_in_topological_order(project)
 
     def emit_site_container(self):
-        if not self.site or not self.site.id:
+        if not self.site:
             logger.warning("Can not ingest site container. No site information found.")
             return
 
         yield from gen_containers(
-            container_key=self.gen_site_key(self.site.id),
+            container_key=self.gen_site_key(self.site_id),
             name=self.site.name or "Default",
             sub_types=[c.SITE],
         )
+
+    def _fetch_groups(self):
+        for group in TSC.Pager(self.server.groups):
+            self.group_map[group.id] = group
+
+    def _get_allowed_capabilities(self, capabilities: Dict[str, str]) -> List[str]:
+        if not self.config.permission_ingestion:
+            return []
+
+        allowed_capabilities = [
+            key for key, value in capabilities.items() if value == "Allow"
+        ]
+        return allowed_capabilities
+
+    def _create_workbook_properties(
+        self, permissions: List[PermissionsRule]
+    ) -> Optional[Dict[str, str]]:
+        if not self.config.permission_ingestion:
+            return None
+
+        groups = []
+        for rule in permissions:
+            if rule.grantee.tag_name == "group":
+                group = self.group_map.get(rule.grantee.id)
+                if not group or not group.name:
+                    logger.debug(f"Group {rule.grantee.id} not found in group map.")
+                    continue
+                if not self.config.permission_ingestion.group_name_pattern.allowed(
+                    group.name
+                ):
+                    logger.info(
+                        f"Skip permission '{group.name}' as it's excluded in group_name_pattern."
+                    )
+                    continue
+
+                capabilities = self._get_allowed_capabilities(rule.capabilities)
+                groups.append({"group": group.name, "capabilities": capabilities})
+
+        return {"permissions": json.dumps(groups)} if len(groups) > 0 else None
 
     def ingest_tableau_site(self):
         # Initialise the dictionary to later look-up for chart and dashboard stat
         if self.config.extract_usage_stats:
             self._populate_usage_stat_registry()
+
+        if self.config.permission_ingestion:
+            self._fetch_groups()
 
         # Populate the map of database names and database hostnames to be used later to map
         # databases to platform instances.

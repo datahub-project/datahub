@@ -80,6 +80,9 @@ def scan_init_response(request, context):
         "C5DA6EA8-625E-4AB1-90B6-CAEA0BF9F492": {
             "id": "81B02907-E2A3-45C3-B505-3781839C8CAA",
         },
+        "8F756DE6-26AD-45FF-A201-44276FF1F561": {
+            "id": "6147FCEB-7531-4449-8FB6-1F7A5431BF2D",
+        },
     }
 
     return w_id_vs_response[workspace_id]
@@ -93,7 +96,6 @@ def read_mock_data(path: Union[Path, str]) -> dict:
 def register_mock_api(
     pytestconfig: pytest.Config, request_mock: Any, override_data: Optional[dict] = None
 ) -> None:
-
     default_mock_data_path = (
         pytestconfig.rootpath
         / "tests/integration/powerbi/mock_data/default_mock_response.json"
@@ -464,7 +466,6 @@ def test_scan_all_workspaces(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
@@ -514,7 +515,6 @@ def test_extract_reports(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     enable_logging()
 
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
@@ -1013,6 +1013,7 @@ def validate_pipeline(pipeline: Pipeline) -> None:
         dashboard_endorsements={},
         scan_result={},
         independent_datasets=[],
+        app=None,
     )
     # Fetch actual reports
     reports: List[Report] = cast(
@@ -1215,7 +1216,6 @@ def test_independent_datasets_extraction(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(
@@ -1319,7 +1319,6 @@ def test_cll_extraction(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(
@@ -1376,7 +1375,6 @@ def test_cll_extraction_flags(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-
     register_mock_api(
         pytestconfig=pytestconfig,
         request_mock=requests_mock,
@@ -1388,7 +1386,6 @@ def test_cll_extraction_flags(
     )
 
     with pytest.raises(Exception, match=pattern):
-
         Pipeline.create(
             {
                 "run_id": "powerbi-test",
@@ -1490,3 +1487,120 @@ def test_powerbi_cross_workspace_reference_info_message(
         output_path=f"{tmp_path}/powerbi_mces.json",
         golden_path=f"{test_resources_dir}/{golden_file}",
     )
+
+
+def common_app_ingest(
+    pytestconfig: pytest.Config,
+    requests_mock: Any,
+    output_mcp_path: str,
+    override_config: dict = {},
+) -> Pipeline:
+    enable_logging()
+
+    register_mock_api(
+        pytestconfig=pytestconfig,
+        request_mock=requests_mock,
+        override_data=read_mock_data(
+            path=pytestconfig.rootpath
+            / "tests/integration/powerbi/mock_data/workspace_with_app_mock_response.json"
+        ),
+    )
+
+    config = default_source_config()
+
+    del config["workspace_id"]
+
+    config["workspace_id_pattern"] = {
+        "allow": [
+            "8F756DE6-26AD-45FF-A201-44276FF1F561",
+        ]
+    }
+
+    config.update(override_config)
+
+    pipeline = Pipeline.create(
+        {
+            "run_id": "powerbi-test",
+            "source": {
+                "type": "powerbi",
+                "config": {
+                    **config,
+                },
+            },
+            "sink": {
+                "type": "file",
+                "config": {
+                    "filename": output_mcp_path,
+                },
+            },
+        }
+    )
+
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    return pipeline
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_powerbi_app_ingest(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    common_app_ingest(
+        pytestconfig=pytestconfig,
+        requests_mock=requests_mock,
+        output_mcp_path=f"{tmp_path}/powerbi_mces.json",
+        override_config={
+            "extract_app": True,
+        },
+    )
+
+    golden_file = "golden_test_app_ingest.json"
+
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=f"{tmp_path}/powerbi_mces.json",
+        golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
+@pytest.mark.integration
+def test_powerbi_app_ingest_info_message(
+    mock_msal: MagicMock,
+    pytestconfig: pytest.Config,
+    tmp_path: str,
+    mock_time: datetime.datetime,
+    requests_mock: Any,
+) -> None:
+    pipeline = common_app_ingest(
+        pytestconfig=pytestconfig,
+        requests_mock=requests_mock,
+        output_mcp_path=f"{tmp_path}/powerbi_mces.json",
+    )
+
+    assert isinstance(pipeline.source, PowerBiDashboardSource)  # to silent the lint
+
+    info_entries: dict = pipeline.source.reporter._structured_logs._entries.get(
+        StructuredLogLevel.INFO, {}
+    )  # type :ignore
+
+    is_entry_present: bool = False
+    # Printing INFO entries
+    for key, entry in info_entries.items():
+        if entry.title == "App Ingestion Is Disabled":
+            is_entry_present = True
+            break
+
+    assert (
+        is_entry_present
+    ), "The extract_app flag should be set to false by default. We need to keep this flag as false until all GMS instances are updated to the latest release."

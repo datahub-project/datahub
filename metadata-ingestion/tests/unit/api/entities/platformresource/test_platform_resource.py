@@ -185,7 +185,6 @@ def test_platform_resource_base_model():
 
 
 def test_platform_resource_filters():
-
     query = (
         ElasticPlatformResourceQuery.create_from()
         .group(LogicalOperator.AND)
