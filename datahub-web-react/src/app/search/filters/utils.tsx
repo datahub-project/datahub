@@ -187,30 +187,28 @@ export function getFilterIconAndLabel(
             entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9])
         );
         label = filterEntity ? entityRegistry.getDisplayName(EntityType.DataPlatform, filterEntity) : filterValue;
+    } else if (filterField === CONTAINER_FILTER_NAME) {
+        // Scenario where the filter entity exists and filterField is container
+        const logoUrl = (filterEntity as Container)?.platform?.properties?.logoUrl;
+        icon = logoUrl ? (
+            <PlatformIcon src={logoUrl} size={size} />
+        ) : (
+            entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9])
+        );
+        label = entityRegistry.getDisplayName(EntityType.Container, filterEntity)
     } else if (filterField === BROWSE_PATH_V2_FILTER_NAME) {
         icon = <FolderFilled size={size} color="black" />;
         label = getLastBrowseEntryFromFilterValue(filterValue);
     } else if (filterEntity) {
-        // Scenario where the filter entity exists and filterField is container
-        if (filterField === CONTAINER_FILTER_NAME) {
-            const logoUrl = (filterEntity as Container)?.platform?.properties?.logoUrl;
-            icon = logoUrl ? (
-                <PlatformIcon src={logoUrl} size={size} />
-            ) : (
-                entityRegistry.getIcon(EntityType.DataPlatform, size || 12, IconStyleType.ACCENT, ANTD_GRAY[9])
-            );
-            label = entityRegistry.getDisplayName(filterEntity.type, filterEntity);
-        } else {
-            const { icon: newIcon, label: newLabel } = getFilterWithEntityIconAndLabel(
-                filterValue,
-                entityRegistry,
-                filterEntity,
-                size,
-            );
+        const { icon: newIcon, label: newLabel } = getFilterWithEntityIconAndLabel(
+            filterValue,
+            entityRegistry,
+            filterEntity,
+            size,
+        );
 
-            icon = newIcon;
-            label = newLabel;
-        }
+        icon = newIcon;
+        label = newLabel;
     } else {
         label = filterValue;
     }
