@@ -29,6 +29,7 @@ import ClickOutside from '../../shared/ClickOutside';
 import { TagTermLabel } from '../../shared/tags/TagTermLabel';
 import { ENTER_KEY_CODE } from '../../shared/constants';
 import { useGetRecommendations } from '../../shared/recommendation';
+import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from './constants';
 
 type Props = {
     policyType: PolicyType;
@@ -104,8 +105,9 @@ export default function PolicyPrivilegeForm({
     } = useAppConfig();
 
     const resources: ResourceFilter = convertLegacyResourceFilter(maybeResources) || EMPTY_POLICY.resources;
-    const resourceTypes = getFieldValues(resources.filter, 'TYPE') || [];
-    const resourceEntities = getFieldValues(resources.filter, 'URN') || [];
+    // RESOURCE_TYPE and RESOURCE_URN are deprecated, but need to get them for backwards compatibility
+    const resourceTypes = getFieldValues(resources.filter, TYPE, RESOURCE_TYPE) || [];
+    const resourceEntities = getFieldValues(resources.filter, URN, RESOURCE_URN) || [];
 
     const getDisplayName = (entity) => {
         if (!entity) {
@@ -180,9 +182,14 @@ export default function PolicyPrivilegeForm({
         const filter = resources.filter || {
             criteria: [],
         };
+        // remove the deprecated RESOURCE_TYPE field and replace with TYPE field
+        const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_TYPE, []);
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'TYPE', [...resourceTypes, createCriterionValue(selectedResourceType)]),
+            filter: setFieldValues(filterWithoutDeprecatedField, TYPE, [
+                ...resourceTypes,
+                createCriterionValue(selectedResourceType),
+            ]),
         });
     };
 
@@ -190,11 +197,13 @@ export default function PolicyPrivilegeForm({
         const filter = resources.filter || {
             criteria: [],
         };
+        // remove the deprecated RESOURCE_TYPE field and replace with TYPE field
+        const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_TYPE, []);
         setResources({
             ...resources,
             filter: setFieldValues(
-                filter,
-                'TYPE',
+                filterWithoutDeprecatedField,
+                TYPE,
                 resourceTypes?.filter((criterionValue) => criterionValue.value !== deselectedResourceType),
             ),
         });
@@ -205,9 +214,11 @@ export default function PolicyPrivilegeForm({
         const filter = resources.filter || {
             criteria: [],
         };
+        // remove the deprecated RESOURCE_URN field and replace with URN field
+        const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_URN, []);
         setResources({
             ...resources,
-            filter: setFieldValues(filter, 'URN', [
+            filter: setFieldValues(filterWithoutDeprecatedField, URN, [
                 ...resourceEntities,
                 createCriterionValueWithEntity(
                     resource,
@@ -222,11 +233,13 @@ export default function PolicyPrivilegeForm({
         const filter = resources.filter || {
             criteria: [],
         };
+        // remove the deprecated RESOURCE_URN field and replace with URN field
+        const filterWithoutDeprecatedField = setFieldValues(filter, RESOURCE_URN, []);
         setResources({
             ...resources,
             filter: setFieldValues(
-                filter,
-                'URN',
+                filterWithoutDeprecatedField,
+                URN,
                 resourceEntities?.filter((criterionValue) => criterionValue.value !== resource),
             ),
         });
