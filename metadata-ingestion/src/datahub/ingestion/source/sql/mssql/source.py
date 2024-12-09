@@ -300,7 +300,6 @@ class SQLServerSource(SQLAlchemySource):
                     self.table_domains[_key] = (
                         ep["table_description"].split(",")[0].strip()
                     )
-                    print("table_domains", self.table_domains)
                 elif (
                     setting
                     and setting.get("type") == ExtendedPropertiesMapping.TYPE_TAG.value
