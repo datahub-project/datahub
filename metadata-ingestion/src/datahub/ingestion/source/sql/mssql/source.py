@@ -5,8 +5,6 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
 import sqlalchemy.dialects.mssql
-
-# This import verifies that the dependencies are available.
 from pydantic.fields import Field
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.engine.base import Connection
@@ -50,6 +48,7 @@ from datahub.ingestion.source.sql.sql_config import (
     BasicSQLAlchemyConfig,
     make_sqlalchemy_uri,
 )
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
     NumberTypeClass,
@@ -77,6 +76,11 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
     )
     include_stored_procedures_code: bool = Field(
         default=True, description="Include information about object code."
+    )
+    procedure_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for stored procedures to filter in ingestion."
+        "Specify regex to match the entire procedure name in database.schema.procedure_name format. e.g. to match all procedures starting with customer in Customer database and public schema, use the regex 'Customer.public.customer.*'",
     )
     include_jobs: bool = Field(
         default=True,
@@ -163,6 +167,8 @@ class SQLServerSource(SQLAlchemySource):
     We have two options for the underlying library used to connect to SQL Server: (1) [python-tds](https://github.com/denisenkom/pytds) and (2) [pyodbc](https://github.com/mkleehammer/pyodbc). The TDS library is pure Python and hence easier to install.
     If you do use pyodbc, make sure to change the source type from `mssql` to `mssql-odbc` so that we pull in the right set of dependencies. This will be needed in most cases where encryption is required, such as managed SQL Server services in Azure.
     """
+
+    report: SQLSourceReport
 
     def __init__(self, config: SQLServerConfig, ctx: PipelineContext):
         super().__init__(config, ctx, "mssql")
@@ -416,10 +422,16 @@ class SQLServerSource(SQLAlchemySource):
         data_flow = MSSQLDataFlow(entity=mssql_default_job)
         with inspector.engine.connect() as conn:
             procedures_data_list = self._get_stored_procedures(conn, db_name, schema)
-            procedures = [
-                StoredProcedure(flow=mssql_default_job, **procedure_data)
-                for procedure_data in procedures_data_list
-            ]
+            procedures: List[StoredProcedure] = []
+            for procedure_data in procedures_data_list:
+                procedure_full_name = f"{db_name}.{schema}.{procedure_data['name']}"
+                if not self.config.procedure_pattern.allowed(procedure_full_name):
+                    self.report.report_dropped(procedure_full_name)
+                    continue
+                procedures.append(
+                    StoredProcedure(flow=mssql_default_job, **procedure_data)
+                )
+
             if procedures:
                 yield from self.construct_flow_workunits(data_flow=data_flow)
             for procedure in procedures:

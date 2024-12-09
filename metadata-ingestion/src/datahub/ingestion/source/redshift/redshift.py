@@ -222,6 +222,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     ```
     """
 
+    # TODO: Replace with standardized types in sql_types.py
     REDSHIFT_FIELD_TYPE_MAPPINGS: Dict[
         str,
         Type[

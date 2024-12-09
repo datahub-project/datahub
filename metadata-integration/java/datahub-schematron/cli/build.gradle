@@ -1,0 +1,110 @@
+plugins {
+    id "application"
+}
+apply plugin: 'java'
+apply plugin: 'jacoco'
+
+ext {
+    javaMainClass = "io.datahubproject.schematron.cli.SchemaTron"
+}
+
+application {
+    mainClassName = javaMainClass
+}
+
+dependencies {
+    // Existing dependencies remain unchanged
+    implementation 'info.picocli:picocli:4.7.5'
+    annotationProcessor 'info.picocli:picocli-codegen:4.7.5'
+    implementation 'ch.qos.logback:logback-classic:1.2.11'
+    implementation 'ch.qos.logback:logback-core:1.2.11'
+    implementation project(':metadata-integration:java:datahub-client')
+    implementation project(':metadata-integration:java:datahub-schematron:lib')
+    implementation externalDependency.avro
+    compileOnly externalDependency.lombok
+    annotationProcessor externalDependency.lombok
+
+    // Test dependencies
+    testImplementation externalDependency.testng
+    testImplementation externalDependency.mockito
+}
+
+test {
+    useTestNG()
+    
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+        showStandardStreams = true
+    }
+    
+    systemProperty 'python.venv.path', System.getProperty('python.venv.path', '../venv')
+}
+
+task validatePythonEnv {
+    doFirst {
+        def venvPath = System.getProperty('python.venv.path', '../../../../metadata-ingestion/venv')
+        def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+        def pythonExe = isWindows ? "${venvPath}/Scripts/python.exe" : "${venvPath}/bin/python"
+        
+        def result = exec {
+            commandLine pythonExe, "-c", "import sys; print(sys.executable)"
+            ignoreExitValue = true
+            standardOutput = new ByteArrayOutputStream()
+            errorOutput = new ByteArrayOutputStream()
+        }
+        
+        if (result.exitValue != 0) {
+            throw new GradleException("Python virtual environment not properly set up at ${venvPath}")
+        }
+    }
+}
+
+test.dependsOn tasks.getByPath(":metadata-ingestion:installDev")
+
+jacocoTestReport {
+    dependsOn test
+}
+
+test.finalizedBy jacocoTestReport
+
+task updateGoldenFiles {
+    dependsOn validatePythonEnv
+    doLast {
+        def venvPath = System.getProperty('python.venv.path', '../../../../metadata-ingestion/venv')
+        def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+        def pythonExe = isWindows ? "${venvPath}/Scripts/python.exe" : "${venvPath}/bin/python"
+        def diffsDir = new File('src/test/resources/diffs')
+        
+        if (!diffsDir.exists()) {
+            throw new GradleException("Diffs directory not found at ${diffsDir.absolutePath}")
+        }
+        
+        // Find all json files in the diffs directory
+        diffsDir.listFiles().findAll { it.name.endsWith('_diff.json') }.each { diffFile ->
+            def baseName = diffFile.name.replace('_diff.json', '')
+            def pythonOutput = "build/test-outputs/${baseName}_python.json"
+            def javaOutput = "build/test-outputs/${baseName}_java.json"
+            
+            println "Updating golden file for ${baseName}..."
+            
+            exec {
+                commandLine pythonExe,
+                        'scripts/mce_diff.py',
+                        '--update-golden-diff',
+                        '--golden-diff-file',
+                        diffFile.absolutePath,
+                        pythonOutput,
+                        javaOutput
+                ignoreExitValue = true
+                standardOutput = new ByteArrayOutputStream()
+                errorOutput = new ByteArrayOutputStream()
+            }
+        }
+    }
+}
+
+configurations {
+    provided
+    implementation.extendsFrom provided
+}
