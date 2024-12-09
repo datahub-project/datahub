@@ -48,7 +48,14 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #11619 - schema field/column paths can no longer be duplicated within the schema
 - #11570 - The `DatahubClientConfig`'s server field no longer defaults to `http://localhost:8080`. Be sure to explicitly set this.
 - #11570 - If a `datahub_api` is explicitly passed to a stateful ingestion config provider, it will be used. We previously ignored it if the pipeline context also had a graph object.
-- #11518 - DataHub Garbage Collection: Various entities that are soft-deleted (after 10d) or are timeseries *entities* (dataprocess, execution requests) will be removed automatically using logic in the `datahub-gc` ingestion source.
+- #11518 - DataHub Garbage Collection: Various entities that are soft-deleted
+  (after 10d) or are timeseries *entities* (dataprocess, execution requests)
+  will be removed automatically using logic in the `datahub-gc` ingestion
+  source.
+- #12067 - Default behavior of DataJobPatchBuilder in Python sdk has been
+  changed to NOT fill out `created` and `lastModified` auditstamps by default
+  for input and output dataset edges. This should not have any user-observable
+  impact (time-based lineage viz will still continue working based on observed time), but could break assumptions previously being made by clients.
 
 ### Potential Downtime
 
