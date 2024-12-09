@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Form, message, Modal } from 'antd';
+import { useTranslation } from 'react-i18next';
 import CreatePostForm from './CreatePostForm';
 import {
     CREATE_POST_BUTTON_ID,
@@ -32,6 +33,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
     const [createPostMutation] = useCreatePostMutation();
     const [updatePostMutation] = useUpdatePostMutation();
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
+    const { t } = useTranslation();
     const [form] = Form.useForm();
 
     useEffect(() => {
@@ -72,7 +74,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Created Post!`,
+                        content: t('crud.success.createWithName', { name: t('common.post') }),
                         duration: 3,
                     });
                     onCreate(
@@ -88,8 +90,8 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: 'Failed to create Post! An unexpected error occurred',
-                    permissionMessage: 'Unauthorized to create Post. Please contact your DataHub administrator.',
+                    defaultMessage: t('crud.error.createWithName', { name: t('common.post') }),
+                    permissionMessage: t('crud.error.unauthorizedToCreateWithName', { name: t('common.post') }),
                 });
             });
         onClose();
@@ -122,7 +124,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Updated Post!`,
+                        content: t('crud.success.updatedWithNameReverse', { name: t('common.post') }),
                         duration: 3,
                     });
                     onEdit();
@@ -131,8 +133,8 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: 'Failed to update Post! An unknown error occured.', duration: 3 });
-                console.error('Failed to update Post:', e.message);
+                message.error({ content: t('crud.error.updateWithName', { name: t('common.post') }), duration: 3 });
+                console.error(`${t('crud.error.updateWithName', { name: t('common.post') })}:`, e.message);
             });
         onClose();
     };
@@ -147,7 +149,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
         onClose();
     };
 
-    const titleText = editData ? 'Edit Post' : 'Create new Post';
+    const titleText = editData ? t('post.editPost') : t('post.createNewPost');
 
     return (
         <Modal
@@ -157,7 +159,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             footer={
                 <>
                     <Button onClick={onCloseModal} type="text">
-                        Cancel
+                        {t('common.cancel')}
                     </Button>
                     <Button
                         id={CREATE_POST_BUTTON_ID}
@@ -165,7 +167,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
                         onClick={!editData ? onCreatePost : onUpdatePost}
                         disabled={!createButtonEnabled}
                     >
-                        {!editData ? 'Create' : 'Update'}
+                        {!editData ? t('common.create') : t('crud.update')}
                     </Button>
                 </>
             }

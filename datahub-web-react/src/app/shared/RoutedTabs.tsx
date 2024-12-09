@@ -4,6 +4,8 @@ import { Redirect, useHistory } from 'react-router';
 import { Tabs } from 'antd';
 import { TabsProps } from 'antd/lib/tabs';
 import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import { translateDisplayNames } from '../../utils/translation/translation';
 
 const { TabPane } = Tabs;
 
@@ -31,6 +33,7 @@ const RoutedTabsStyle = styled.div`
  * This permits direct navigation to a particular tab via URL.
  */
 export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) => {
+    const { t } = useTranslation();
     const { path, url } = useRouteMatch();
     const { pathname } = useLocation();
     const history = useHistory();
@@ -51,7 +54,11 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
             >
                 {tabs.map((tab) => {
                     return (
-                        <TabPane tab={tab.name} key={tab.path.replace('/', '')} disabled={!tab.display?.enabled()} />
+                        <TabPane
+                            tab={translateDisplayNames(t, tab.name)}
+                            key={tab.path.replace('/', '')}
+                            disabled={!tab.display?.enabled()}
+                        />
                     );
                 })}
             </Tabs>
