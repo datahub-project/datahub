@@ -239,7 +239,30 @@ module.exports = {
           type: "doc",
           id: "docs/posts",
         },
-        "docs/features/feature-guides/properties",
+        {
+          label: "Properties",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/properties/overview",
+            },
+        
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/properties/create-a-property",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/properties/use-a-property",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/properties",
+            },
+          ],
+        },
         {
           label: "Schema history",
           type: "doc",
