@@ -15,14 +15,6 @@ def get_long_description():
 
 rest_common = {"requests", "requests_file"}
 
-sqlglot_lib = {
-    # We heavily monkeypatch sqlglot.
-    # Prior to the patching, we originally maintained an acryl-sqlglot fork:
-    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "sqlglot[rs]==25.26.0",
-    "patchy==2.8.0",
-}
-
 _version: str = package_metadata["__version__"]
 _self_pin = (
     f"=={_version}"
@@ -42,8 +34,7 @@ base_requirements = {
     # https://github.com/ipython/traitlets/issues/741
     "traitlets<5.2.2",
     *rest_common,
-    *sqlglot_lib,
-    f"acryl-datahub[datahub-rest]{_self_pin}",
+    f"acryl-datahub[datahub-rest,sql-parser]{_self_pin}",
 }
 
 mypy_stubs = {

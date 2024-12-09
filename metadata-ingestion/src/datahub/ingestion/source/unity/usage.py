@@ -218,19 +218,13 @@ class UnityCatalogUsageExtractor:
             return None
 
     @staticmethod
-    def _parse_sqllineage_table(sqllineage_table: str) -> str:
-        full_table_name = str(sqllineage_table)
+    def _parse_sqlglot_table(table_urn: str) -> str:
+        full_table_name = DatasetUrn.from_string(table_urn).name
         default_schema = "<default>."
         if full_table_name.startswith(default_schema):
             return full_table_name[len(default_schema) :]
         else:
             return full_table_name
-
-    @staticmethod
-    def _parse_sqlglot_table(table_urn: str) -> str:
-        return UnityCatalogUsageExtractor._parse_sqllineage_table(
-            DatasetUrn.from_string(table_urn).name
-        )
 
     def _parse_query_via_spark_sql_plan(self, query: str) -> Optional[StringTableInfo]:
         """Parse query source tables via Spark SQL plan. This is a fallback option."""
