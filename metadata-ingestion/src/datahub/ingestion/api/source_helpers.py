@@ -78,6 +78,25 @@ def create_dataset_props_patch_builder(
     return patch_builder
 
 
+def check_mcp_correctness(mcp: MetadataChangeProposalClass):
+    logger.debug(f"Processing as MCP with urn: {mcp.entityUrn} and aspect: {mcp.aspectName}, change type: {mcp.changeType}")
+    logger.debug(f"{mcp.aspect}")
+
+
+def check_mcpw_correctness(mcp: MetadataChangeProposalWrapper):
+    logger.debug(f"Processing as MCP with urn: {mcp.entityUrn} and aspect: {mcp.aspectName}, change type: {mcp.changeType}")
+    logger.debug(f"{mcp.aspect}")
+
+
+def check_workunit_correctness(stream: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUnit]:
+    for wu in stream:
+        logger.debug(f"Checking correctnes for workunit: {wu.id}")
+        if isinstance(wu.metadata, MetadataChangeProposalClass):
+            check_mcp_correctness(wu.metadata)
+        elif isinstance(wu.metadata, MetadataChangeProposalWrapper):
+            check_mcpw_correctness(wu.metadata)
+
+
 def create_dataset_owners_patch_builder(
     dataset_urn: str,
     ownership: Ownership,

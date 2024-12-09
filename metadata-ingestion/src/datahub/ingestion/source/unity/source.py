@@ -42,7 +42,7 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import (
     create_dataset_owners_patch_builder,
-    create_dataset_props_patch_builder,
+    create_dataset_props_patch_builder, check_workunit_correctness,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
@@ -260,6 +260,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
+            check_workunit_correctness
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
