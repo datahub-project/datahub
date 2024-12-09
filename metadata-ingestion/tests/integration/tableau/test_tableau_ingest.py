@@ -1360,5 +1360,5 @@ def test_connection_report_test(requests_mock):
     assert report.capability_report[c.SITE_PERMISSION].capable is False
     assert (
         report.capability_report[c.SITE_PERMISSION].failure_reason
-        == "The user does not possess the `Site Administrator Explorer` role."
+        == "The user does not possess the `Site Administrator Explorer` role. User current role is Explorer"
     )

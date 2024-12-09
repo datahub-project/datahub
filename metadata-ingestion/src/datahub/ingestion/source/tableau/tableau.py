@@ -276,7 +276,7 @@ class TableauConnectionConfig(ConfigModel):
             if not logged_in_user.is_site_administrator_explorer():
                 capability_dict[c.SITE_PERMISSION] = CapabilityReport(
                     capable=False,
-                    failure_reason=failure_reason,
+                    failure_reason=f"{failure_reason} User current role is {logged_in_user.site_role()}",
                     mitigation_message=mitigation_message.format(
                         logged_in_user.user_name()
                     ),
@@ -646,6 +646,38 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
     user_site_info: List[UserSiteInfo] = []
 
 
+def report_user_role(report: TableauSourceReport, server: Server) -> None:
+    title: str = "Insufficient Permissions"
+    message: str = 'The user must have the "SiteAdministratorExplorer" role to perform metadata ingestion.'
+    try:
+        # TableauSiteSource instance is per site, so each time we need to find-out user detail
+        # the site-role might be different on another site
+        logged_in_user: LoggedInUser = LoggedInUser.from_server(server=server)
+
+        if not logged_in_user.is_site_administrator_explorer():
+            report.warning(
+                title=title,
+                message=message,
+                context=f"user-name={logged_in_user.user_name()}, role={logged_in_user.site_role()}, site_id={logged_in_user.site_id()}",
+            )
+
+        report.user_site_info.append(
+            UserSiteInfo(
+                user_name=logged_in_user.user_name(),
+                role=logged_in_user.user_name(),
+                site_id=logged_in_user.site_id(),
+            )
+        )
+
+    except Exception as e:
+        report.warning(
+            title=title,
+            message=message,
+            context=f"{e}",
+            exc=e,
+        )
+
+
 @platform_name("Tableau")
 @config_class(TableauConfig)
 @support_status(SupportStatus.CERTIFIED)
@@ -688,6 +720,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         try:
             logger.info(f"Authenticated to Tableau site: '{site_content_url}'")
             self.server = self.config.make_tableau_client(site_content_url)
+            report_user_role(report=self.report, server=self.server)
         # Note that we're not catching ConfigurationError, since we want that to throw.
         except ValueError as e:
             self.report.failure(
@@ -707,7 +740,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             test_report.basic_connectivity = CapabilityReport(capable=True)
 
             test_report.capability_report = source_config.check_user_role(
-                logged_in_user=LoggedInUser(server=server)
+                logged_in_user=LoggedInUser.from_server(server=server)
             )
 
         except Exception as e:
@@ -851,38 +884,7 @@ class TableauSiteSource:
         # when emitting custom SQL data sources.
         self.custom_sql_ids_being_used: List[str] = []
 
-        self.report_user_role()
-
-    def report_user_role(self):
-        title: str = "Insufficient Permissions"
-        message: str = 'The user must have the "SiteAdministratorExplorer" role to perform metadata ingestion.'
-        try:
-            # TableauSiteSource instance is per site, so each time we need to find-out user detail
-            # the site-role might be different on another site
-            logged_in_user: LoggedInUser = LoggedInUser(server=self.server)
-
-            if not logged_in_user.is_site_administrator_explorer():
-                self.report.warning(
-                    title=title,
-                    message=message,
-                    context=f"user-name={logged_in_user.user_name()}, role={logged_in_user.site_role()}, site_id={logged_in_user.site_id()}",
-                )
-
-            self.report.user_site_info.append(
-                UserSiteInfo(
-                    user_name=logged_in_user.user_name(),
-                    role=logged_in_user.user_name(),
-                    site_id=logged_in_user.site_id(),
-                )
-            )
-
-        except Exception as e:
-            self.report.warning(
-                title=title,
-                message=message,
-                context=f"{e}",
-                exc=e,
-            )
+        report_user_role(report=report, server=server)
 
     @property
     def no_env_browse_prefix(self) -> str:
