@@ -150,6 +150,9 @@ public class MonitorMapper {
       assertionEvaluationContext.setEmbeddedAssertions(
           mapEmbeddedAssertions(queryContext, context.getEmbeddedAssertions()));
     }
+    if (context.hasStdDev()) {
+      assertionEvaluationContext.setStdDev(context.getStdDev());
+    }
     return assertionEvaluationContext;
   }
 
