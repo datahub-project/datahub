@@ -8,7 +8,7 @@ apply from: "../gradle/coverage/java-coverage.gradle"
 
 dependencies {
   implementation spec.product.pegasus.data
-  implementation spec.product.pegasus.generator
+  compileOnly spec.product.pegasus.generator
   api project(path: ':metadata-models')
   api project(path: ':metadata-models', configuration: "dataTemplate")
   api externalDependency.classGraph

@@ -15,26 +15,21 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.entityclient.RestliEntityClientFactory;
 import com.linkedin.metadata.EventUtils;
-import com.linkedin.metadata.dao.throttle.ThrottleControl;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
+import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
-import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.Topics;
 import io.datahubproject.metadata.context.OperationContext;
-import java.io.IOException;
 import java.util.Optional;
-import javax.annotation.Nonnull;
 import javax.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
 import org.apache.avro.generic.IndexedRecord;
-import org.apache.commons.lang.exception.ExceptionUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.Producer;
-import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -43,7 +38,6 @@ import org.springframework.context.annotation.Import;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
-import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.stereotype.Component;
 
 @Slf4j
@@ -80,38 +74,7 @@ public class MetadataChangeProposalsProcessor {
 
   @PostConstruct
   public void registerConsumerThrottle() {
-    if (kafkaThrottle != null
-        && provider
-            .getMetadataChangeProposal()
-            .getThrottle()
-            .getComponents()
-            .getMceConsumer()
-            .isEnabled()) {
-      log.info("MCE Consumer Throttle Enabled");
-      kafkaThrottle.addCallback(
-          (throttleEvent) -> {
-            Optional<MessageListenerContainer> container =
-                Optional.ofNullable(registry.getListenerContainer(mceConsumerGroupId));
-            if (container.isEmpty()) {
-              log.warn(
-                  "Expected container was missing: {} throttle is not possible.",
-                  mceConsumerGroupId);
-            } else {
-              if (throttleEvent.isThrottled()) {
-                container.ifPresent(MessageListenerContainer::pause);
-                return ThrottleControl.builder()
-                    // resume consumer after sleep
-                    .callback(
-                        (resumeEvent) -> container.ifPresent(MessageListenerContainer::resume))
-                    .build();
-              }
-            }
-
-            return ThrottleControl.NONE;
-          });
-    } else {
-      log.info("MCE Consumer Throttle Disabled");
-    }
+    KafkaListenerUtil.registerThrottle(kafkaThrottle, provider, registry, mceConsumerGroupId);
   }
 
   @KafkaListener(
@@ -132,7 +95,9 @@ public class MetadataChangeProposalsProcessor {
           consumerRecord.serializedValueSize(),
           consumerRecord.timestamp());
 
-      log.debug("Record {}", record);
+      if (log.isDebugEnabled()) {
+        log.debug("Record {}", record);
+      }
 
       MetadataChangeProposal event = new MetadataChangeProposal();
       try {
@@ -148,45 +113,18 @@ public class MetadataChangeProposalsProcessor {
         MDC.put(
             MDC_CHANGE_TYPE, Optional.ofNullable(changeType).map(ChangeType::toString).orElse(""));
 
-        log.debug("MetadataChangeProposal {}", event);
-        // TODO: Get this from the event itself.
+        if (log.isDebugEnabled()) {
+          log.debug("MetadataChangeProposal {}", event);
+        }
         String urn = entityClient.ingestProposal(systemOperationContext, event, false);
         log.info("Successfully processed MCP event urn: {}", urn);
       } catch (Throwable throwable) {
         log.error("MCP Processor Error", throwable);
         log.error("Message: {}", record);
-        sendFailedMCP(event, throwable);
+        KafkaListenerUtil.sendFailedMCP(event, throwable, fmcpTopicName, kafkaProducer);
       }
     } finally {
       MDC.clear();
     }
-  }
-
-  private void sendFailedMCP(@Nonnull MetadataChangeProposal event, @Nonnull Throwable throwable) {
-    final FailedMetadataChangeProposal failedMetadataChangeProposal =
-        createFailedMCPEvent(event, throwable);
-    try {
-      final GenericRecord genericFailedMCERecord =
-          EventUtils.pegasusToAvroFailedMCP(failedMetadataChangeProposal);
-      log.debug("Sending FailedMessages to topic - {}", fmcpTopicName);
-      log.info(
-          "Error while processing FMCP: FailedMetadataChangeProposal - {}",
-          failedMetadataChangeProposal);
-      kafkaProducer.send(new ProducerRecord<>(fmcpTopicName, genericFailedMCERecord));
-    } catch (IOException e) {
-      log.error(
-          "Error while sending FailedMetadataChangeProposal: Exception  - {}, FailedMetadataChangeProposal - {}",
-          e.getStackTrace(),
-          failedMetadataChangeProposal);
-    }
-  }
-
-  @Nonnull
-  private FailedMetadataChangeProposal createFailedMCPEvent(
-      @Nonnull MetadataChangeProposal event, @Nonnull Throwable throwable) {
-    final FailedMetadataChangeProposal fmcp = new FailedMetadataChangeProposal();
-    fmcp.setError(ExceptionUtils.getStackTrace(throwable));
-    fmcp.setMetadataChangeProposal(event);
-    return fmcp;
   }
 }
