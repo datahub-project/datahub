@@ -34,6 +34,8 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EnvelopedAspect;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.entity.versioning.EntityVersioningServiceFactory;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -78,7 +80,11 @@ import org.testng.annotations.Test;
 
 @SpringBootTest(classes = {SpringWebConfig.class})
 @ComponentScan(basePackages = {"io.datahubproject.openapi.v3.controller"})
-@Import({SpringWebConfig.class, EntityControllerTest.EntityControllerTestConfig.class})
+@Import({
+  SpringWebConfig.class,
+  EntityControllerTest.EntityControllerTestConfig.class,
+  EntityVersioningServiceFactory.class
+})
 @AutoConfigureWebMvc
 @AutoConfigureMockMvc
 public class EntityControllerTest extends AbstractTestNGSpringContextTests {
@@ -88,6 +94,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   @Autowired private EntityService<?> mockEntityService;
   @Autowired private EntityRegistry entityRegistry;
   @Autowired private OperationContext opContext;
+  @MockBean private ConfigurationProvider configurationProvider;
 
   @Test
   public void initTest() {

@@ -61,6 +61,7 @@ entities:
       - origin
       - documentation
       - entityInferenceMetadata
+      - versionProperties
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -429,6 +430,7 @@ entities:
       - lineageFeatures
       - documentation
       - incidentsSummary
+      - versionProperties
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -583,6 +585,11 @@ entities:
     keyAspect: globalSettingsKey
     aspects:
       - globalSettingsInfo
+  - name: versionSet
+    category: core
+    keyAspect: versionSetKey
+    aspects:
+      - versionSetProperties
   ## Not in OSS
   - name: constraint
     keyAspect: constraintKey

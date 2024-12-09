@@ -53,4 +53,5 @@ public class FeatureFlags {
   private boolean showFormAnalytics = false;
   private boolean showStatsTabRedesign = false;
   private boolean requestMinimalSlackPermissions = false;
+  private boolean entityVersioning = false;
 }

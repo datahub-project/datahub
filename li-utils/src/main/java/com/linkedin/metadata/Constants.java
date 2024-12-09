@@ -138,6 +138,7 @@ public class Constants {
   public static final String DOCUMENTATION_ASPECT_NAME = "documentation";
   public static final String ASSERTIONS_SUMMARY_ASPECT_NAME = "assertionsSummary";
   public static final String SHARE_ASPECT_NAME = "share";
+  public static final String VERSION_PROPERTIES_ASPECT_NAME = "versionProperties";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -546,6 +547,15 @@ public class Constants {
   public static final String INCIDENT_DESCRIPTION = "description";
   public static final String INCIDENT_STATUS_STAGE = "stage";
   public static final String INCIDENT_STATUS_MESSAGE = "message";
+
+  // Version Set
+  public static final String VERSION_SET_ENTITY_NAME = "versionSet";
+  public static final String VERSION_SET_KEY_ASPECT_NAME = "versionSetKey";
+  public static final String VERSION_SET_PROPERTIES_ASPECT_NAME = "versionSetProperties";
+
+  // Versioning related
+  public static final String INITIAL_VERSION_SORT_ID = "AAAAAAAA";
+  public static final String VERSION_SORT_ID_FIELD_NAME = "versionSortId";
 
   public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
 

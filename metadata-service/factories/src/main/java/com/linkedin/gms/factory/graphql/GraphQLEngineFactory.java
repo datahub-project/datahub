@@ -31,6 +31,7 @@ import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.GraphQLConcurrencyConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.SiblingGraphService;
@@ -263,7 +264,8 @@ public class GraphQLEngineFactory {
   @Nonnull
   protected GraphQLEngine graphQLEngine(
       @Qualifier("entityClient") final EntityClient entityClient,
-      @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient) {
+      @Qualifier("systemEntityClient") final SystemEntityClient systemEntityClient,
+      final EntityVersioningService entityVersioningService) {
     GmsGraphQLEngineArgs args = new GmsGraphQLEngineArgs();
     args.setEntityClient(entityClient);
     args.setSystemEntityClient(systemEntityClient);
@@ -316,6 +318,7 @@ public class GraphQLEngineFactory {
     args.setBusinessAttributeService(businessAttributeService);
     args.setChromeExtensionConfiguration(configProvider.getChromeExtension());
     args.setClassificationConfiguration(configProvider.getClassificationConfig());
+    args.setEntityVersioningService(entityVersioningService);
 
     // Saas Only
     args.setEntitySearchService(_entitySearchService);
