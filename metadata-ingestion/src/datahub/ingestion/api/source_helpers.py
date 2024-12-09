@@ -86,7 +86,7 @@ def check_mcp_correctness(mcp: MetadataChangeProposalClass):
 
 
 def check_mcpw_correctness(mcp: MetadataChangeProposalWrapper):
-    logger.debug(f"Processing as MCP with urn: {mcp.entityUrn} and aspect: {mcp.aspectName}, change type: {mcp.changeType}")
+    logger.debug(f"Processing as MCPW with urn: {mcp.entityUrn} and aspect: {mcp.aspectName}, change type: {mcp.changeType}")
     logger.debug(f"Full aspect:\n{mcp.aspect}")
     if isinstance(mcp.aspect, SchemaMetadataClass):
         schema: SchemaMetadataClass = mcp.aspect
