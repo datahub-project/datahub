@@ -23,6 +23,10 @@ from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     DeprecationClass,
     SubTypesClass,
+    CorpGroupInfoClass,
+)
+from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
+    CorpGroupSnapshot,
 )
 from datahub.utilities.ratelimiter import RateLimiter
 from datahub.utilities.urns.urn import Urn
@@ -181,10 +185,8 @@ class SlackSource(Source):
             if num_members < self.config.channel_min_members:
                 continue
             channel_id = channel["id"]
-            urn_channel = builder.make_dataset_urn(
-                platform=PLATFORM_NAME, name=channel_id
-            )
-            name = channel["name"]
+            name = "slack/"+ channel["name"]
+            urn_channel = builder.make_group_urn(name)
             is_archived = channel.get("is_archived", False)
             if is_archived:
                 if not self.config.should_ingest_archived_channels:
@@ -205,36 +207,38 @@ class SlackSource(Source):
                     )
                 )
 
-            topic = channel.get("topic", {}).get("value")
-            purpose = channel.get("purpose", {}).get("value")
+            group_snapshot = self._map_slack_channel_to_group_snapshot(channel)
+
             if self.workspace_base_url:
                 external_url = f"{self.workspace_base_url}/archives/{channel_id}"
             result_channels.append(
                 MetadataWorkUnit(
-                    id=f"{urn_channel}-datasetproperties",
+                    id=f"{urn_channel}-group-snapshot",
                     mcp=MetadataChangeProposalWrapper(
                         entityUrn=urn_channel,
-                        aspect=DatasetPropertiesClass(
-                            name=name,
-                            externalUrl=external_url,
-                            description=f"Topic: {topic}\nPurpose: {purpose}",
-                        ),
-                    ),
-                )
-            )
-            result_channels.append(
-                MetadataWorkUnit(
-                    id=f"{urn_channel}-subtype",
-                    mcp=MetadataChangeProposalWrapper(
-                        entityUrn=urn_channel,
-                        aspect=SubTypesClass(
-                            typeNames=["Slack Channel"],
-                        ),
+                        aspect=group_snapshot,
                     ),
                 )
             )
         cursor = str(response.data["response_metadata"]["next_cursor"])
         return result_channels, cursor
+    
+    '''
+    build some ingest filter, to filter out the channels that we don't want to ingest 
+    create a list of possible channels
+    '''
+    
+    def _map_slack_channel_to_group_snapshot(self, channel: dict) -> CorpGroupInfoClass:
+        description = f"Topic: {channel.get('topic', {}).get('value', '')}\nPurpose: {channel.get('purpose', {}).get('value', '')}"
+
+        group_snapshot = CorpGroupInfoClass(
+            displayName=channel["name"],
+            description=description,
+            members=[],
+            groups=[],
+            admins=[],
+        )
+        return group_snapshot
 
     def get_public_channels(self) -> Iterable[MetadataWorkUnit]:
         cursor = None

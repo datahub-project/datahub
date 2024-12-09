@@ -1826,16 +1826,26 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             else:
                 owners = [owner]
             for owner in owners:
-                if self.config.strip_user_ids_from_email:
-                    owner = owner.split("@")[0]
-                    logger.debug(f"Owner (after stripping email):{owner}")
-
-                owner_list.append(
-                    OwnerClass(
-                        owner=mce_builder.make_user_urn(owner),
-                        type=OwnershipTypeClass.DATAOWNER,
+                if owner.startswith("slack/"):
+                    # slack_channel_name = owner[len("slack/"):]
+                    # if slack_channel_name:
+                    owner_list.append(
+                        OwnerClass(
+                            owner=mce_builder.make_group_urn(owner),
+                            type=OwnershipTypeClass.DATAOWNER,
+                        )
                     )
-                )
+                else:
+                    if self.config.strip_user_ids_from_email:
+                        owner = owner.split("@")[0]
+                        logger.debug(f"Owner (after stripping email):{owner}")
+
+                    owner_list.append(
+                        OwnerClass(
+                            owner=mce_builder.make_user_urn(owner),
+                            type=OwnershipTypeClass.DATAOWNER,
+                        )
+                    )
 
         owner_list = sorted(owner_list, key=lambda x: x.owner)
         return owner_list
