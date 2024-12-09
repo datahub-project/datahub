@@ -16,14 +16,17 @@ from snowflake.connector.network import (
 
 from datahub.configuration.common import ConfigModel, ConfigurationError, MetaError
 from datahub.configuration.connection_resolver import auto_connection_resolver
-from datahub.configuration.oauth import OAuthConfiguration, OAuthIdentityProvider
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.source.snowflake.constants import (
     CLIENT_PREFETCH_THREADS,
     CLIENT_SESSION_KEEP_ALIVE,
 )
-from datahub.ingestion.source.sql.oauth_generator import OAuthTokenGenerator
+from datahub.ingestion.source.snowflake.oauth_config import (
+    OAuthConfiguration,
+    OAuthIdentityProvider,
+)
+from datahub.ingestion.source.snowflake.oauth_generator import OAuthTokenGenerator
 from datahub.ingestion.source.sql.sql_config import make_sqlalchemy_uri
 from datahub.utilities.config_clean import (
     remove_protocol,
@@ -40,6 +43,7 @@ _VALID_AUTH_TYPES: Dict[str, str] = {
     "EXTERNAL_BROWSER_AUTHENTICATOR": EXTERNAL_BROWSER_AUTHENTICATOR,
     "KEY_PAIR_AUTHENTICATOR": KEY_PAIR_AUTHENTICATOR,
     "OAUTH_AUTHENTICATOR": OAUTH_AUTHENTICATOR,
+    "OAUTH_AUTHENTICATOR_TOKEN": OAUTH_AUTHENTICATOR,
 }
 
 _SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com"
@@ -101,6 +105,10 @@ class SnowflakeConnectionConfig(ConfigModel):
         description="Connect args to pass to Snowflake SqlAlchemy driver",
         exclude=True,
     )
+    token: Optional[str] = pydantic.Field(
+        default=None,
+        description="OAuth token from external identity provider. Not recommended for most use cases because it will not be able to refresh once expired.",
+    )
 
     def get_account(self) -> str:
         assert self.account_id
@@ -143,6 +151,18 @@ class SnowflakeConnectionConfig(ConfigModel):
         elif v == "OAUTH_AUTHENTICATOR":
             cls._check_oauth_config(values.get("oauth_config"))
         logger.info(f"using authenticator type '{v}'")
+        return v
+
+    @pydantic.validator("token", always=True)
+    def validate_token_oauth_config(cls, v, values):
+        auth_type = values.get("authentication_type")
+        if auth_type == "OAUTH_AUTHENTICATOR_TOKEN":
+            if not v:
+                raise ValueError("Token required for OAUTH_AUTHENTICATOR_TOKEN.")
+        elif v is not None:
+            raise ValueError(
+                "Token can only be provided when using OAUTH_AUTHENTICATOR_TOKEN"
+            )
         return v
 
     @staticmethod
@@ -325,6 +345,17 @@ class SnowflakeConnectionConfig(ConfigModel):
                 user=self.username,
                 password=self.password.get_secret_value() if self.password else None,
                 account=self.account_id,
+                warehouse=self.warehouse,
+                role=self.role,
+                application=_APPLICATION_NAME,
+                **connect_args,
+            )
+        elif self.authentication_type == "OAUTH_AUTHENTICATOR_TOKEN":
+            return snowflake.connector.connect(
+                user=self.username,
+                account=self.account_id,
+                authenticator="oauth",
+                token=self.token,  # Token generated externally and provided directly to the recipe
                 warehouse=self.warehouse,
                 role=self.role,
                 application=_APPLICATION_NAME,

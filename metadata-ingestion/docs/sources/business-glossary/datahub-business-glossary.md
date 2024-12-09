@@ -7,7 +7,7 @@ The business glossary source file should be a .yml file with the following top-l
 Example **Glossary**:
 
 ```yaml
-version: 1                                     			# the version of business glossary file config the config conforms to. Currently the only version released is `1`.
+version: "1"                                     			# the version of business glossary file config the config conforms to. Currently the only version released is `1`.
 source: DataHub                                			# the source format of the terms. Currently only supports `DataHub`
 owners:                                        			# owners contains two nested fields
   users:                                       		    # (optional) a list of user IDs
@@ -60,7 +60,7 @@ Example **GlossaryTerm**:
     - Shipping.CountryCode
     - Shipping.StreetAddress
   custom_properties:                                                        # (optional) a map of key/value pairs of arbitrary custom properties
-    - is_used_for_compliance_tracking: true
+    - is_used_for_compliance_tracking: "true"
   knowledge_links:                                                          # (optional) a list of **KnowledgeCard** related to this term. These appear as links on the glossary node's page
     - url: "https://en.wikipedia.org/wiki/Address"
       label: Wiki link
@@ -73,7 +73,7 @@ To see how these all work together, check out this comprehensive example busines
 <summary>Example business glossary file</summary>
 
 ```yaml
-version: 1
+version: "1"
 source: DataHub
 owners:
   users:
@@ -89,15 +89,15 @@ nodes:
       - name: Sensitive
         description: Sensitive Data
         custom_properties:
-          is_confidential: false
+          is_confidential: "false"
       - name: Confidential
         description: Confidential Data
         custom_properties:
-          is_confidential: true
+          is_confidential: "true"
       - name: HighlyConfidential
         description: Highly Confidential Data
         custom_properties:
-          is_confidential: true
+          is_confidential: "true"
         domain: Marketing
   - name: PersonalInformation
     description: All terms related to personal information
@@ -148,7 +148,7 @@ nodes:
         related_terms:
           - Housing.Kitchen.Cutlery
         custom_properties:
-          - is_used_for_compliance_tracking: true
+          - is_used_for_compliance_tracking: "true"
         knowledge_links:
           - url: "https://en.wikipedia.org/wiki/Address"
             label: Wiki link
@@ -237,7 +237,7 @@ Source file linked [here](https://github.com/datahub-project/datahub/blob/master
 
 ## Generating custom IDs for your terms
 
-IDs are normally inferred from the glossary term/node's name, see the `enable_auto_id` config. But, if you need a stable 
+IDs are normally inferred from the glossary term/node's name, see the `enable_auto_id` config. But, if you need a stable
 identifier, you can generate a custom ID for your term. It should be unique across the entire Glossary.
 
 Here's an example ID:
@@ -247,5 +247,5 @@ A note of caution: once you select a custom ID, it cannot be easily changed.
 
 ## Compatibility
 
-Compatible with version 1 of business glossary format. 
+Compatible with version 1 of business glossary format.
 The source will be evolved as we publish newer versions of this format.

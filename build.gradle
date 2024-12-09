@@ -48,6 +48,7 @@ buildscript {
   // see also datahub-frontend/play.gradle
   ext.playVersion = '2.8.22'
   ext.playScalaVersion = '2.13'
+  ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
   ext.log4jVersion = '2.23.1'
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.4.14'
@@ -56,7 +57,7 @@ buildscript {
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
-  ext.openLineageVersion = '1.19.0'
+  ext.openLineageVersion = '1.24.2'
   ext.logbackClassicJava8 = '1.2.12'
 
   ext.docker_registry = 'acryldata'
@@ -105,7 +106,14 @@ project.ext.spec = [
 ]
 
 project.ext.externalDependency = [
-    'akkaHttp': "com.typesafe.akka:akka-http-core_$playScalaVersion:10.2.10",
+    'akkaHttp': "com.typesafe.akka:akka-http-core_$playScalaVersion:10.2.10", // max version due to licensing
+    'akkaActor': "com.typesafe.akka:akka-actor_$playScalaVersion:$akkaVersion",
+    'akkaStream': "com.typesafe.akka:akka-stream_$playScalaVersion:$akkaVersion",
+    'akkaActorTyped': "com.typesafe.akka:akka-actor-typed_$playScalaVersion:$akkaVersion",
+    'akkaSlf4j': "com.typesafe.akka:akka-slf4j_$playScalaVersion:$akkaVersion",
+    'akkaJackson': "com.typesafe.akka:akka-serialization-jackson_$playScalaVersion:$akkaVersion",
+    'akkaParsing': "com.typesafe.akka:akka-parsing_$playScalaVersion:$akkaVersion",
+    'akkaProtobuf': "com.typesafe.akka:akka-protobuf-v3_$playScalaVersion:$akkaVersion",
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
     'antlr4': 'org.antlr:antlr4:4.9.3',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
@@ -350,6 +358,7 @@ allprojects {
       }
     }
   }
+
 }
 
 configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
@@ -393,7 +402,7 @@ subprojects {
       implementation externalDependency.annotationApi
       constraints {
         implementation("com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion")
-        implementation('io.netty:netty-all:4.1.114.Final')
+        implementation('io.netty:netty-all:4.1.115.Final')
         implementation('org.apache.commons:commons-compress:1.27.1')
         implementation('org.apache.velocity:velocity-engine-core:2.4')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')

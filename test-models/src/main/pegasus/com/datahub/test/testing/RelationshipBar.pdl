@@ -5,10 +5,9 @@ import com.linkedin.common.Urn
 /**
  * For unit tests
  */
-@pairings = [ {
-  "destination" : "com.linkedin.common.urn.Urn",
-  "source" : "com.linkedin.common.urn.Urn"
-} ]
+@Aspect = {
+  "name": "relationshipBar"
+}
 record RelationshipBar {
 
   /**
@@ -19,5 +18,8 @@ record RelationshipBar {
   /**
    * For unit tests
    */
+  @Relationship = {
+    "name": "RelationshipBar"
+  }
   destination: Urn
 }

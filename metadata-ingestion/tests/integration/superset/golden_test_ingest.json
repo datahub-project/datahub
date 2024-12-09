@@ -26,6 +26,7 @@
                             "urn:li:chart:(superset,11)"
                         ],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 0,
@@ -73,6 +74,7 @@
                             "urn:li:chart:(superset,13)"
                         ],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 0,

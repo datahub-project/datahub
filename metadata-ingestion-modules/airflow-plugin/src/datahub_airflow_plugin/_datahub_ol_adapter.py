@@ -8,7 +8,6 @@ logger = logging.getLogger(__name__)
 
 OL_SCHEME_TWEAKS = {
     "sqlserver": "mssql",
-    "trino": "presto",
     "awsathena": "athena",
 }
 

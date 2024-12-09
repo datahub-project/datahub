@@ -18,6 +18,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
@@ -97,7 +98,7 @@ public class JavaEntityClient implements EntityClient {
   private final TimeseriesAspectService timeseriesAspectService;
   private final RollbackService rollbackService;
   private final EventProducer eventProducer;
-  private final int batchGetV2Size;
+  private final EntityClientConfig entityClientConfig;
 
   @Override
   @Nullable
@@ -132,7 +133,7 @@ public class JavaEntityClient implements EntityClient {
 
     Map<Urn, EntityResponse> responseMap = new HashMap<>();
 
-    Iterators.partition(urns.iterator(), Math.max(1, batchGetV2Size))
+    Iterators.partition(urns.iterator(), Math.max(1, entityClientConfig.getBatchGetV2Size()))
         .forEachRemaining(
             batch -> {
               try {
@@ -159,7 +160,8 @@ public class JavaEntityClient implements EntityClient {
 
     Map<Urn, EntityResponse> responseMap = new HashMap<>();
 
-    Iterators.partition(versionedUrns.iterator(), Math.max(1, batchGetV2Size))
+    Iterators.partition(
+            versionedUrns.iterator(), Math.max(1, entityClientConfig.getBatchGetV2Size()))
         .forEachRemaining(
             batch -> {
               try {
@@ -760,45 +762,62 @@ public class JavaEntityClient implements EntityClient {
             : Constants.UNKNOWN_ACTOR;
     final AuditStamp auditStamp = AuditStampUtils.createAuditStamp(actorUrnStr);
 
-    AspectsBatch batch =
-        AspectsBatchImpl.builder()
-            .mcps(
-                metadataChangeProposals,
-                auditStamp,
-                opContext.getRetrieverContext().get(),
-                opContext.getValidationContext().isAlternateValidation())
-            .build();
+    List<String> updatedUrns = new ArrayList<>();
+    Iterators.partition(
+            metadataChangeProposals.iterator(), Math.max(1, entityClientConfig.getBatchGetV2Size()))
+        .forEachRemaining(
+            batch -> {
+              AspectsBatch aspectsBatch =
+                  AspectsBatchImpl.builder()
+                      .mcps(
+                          batch,
+                          auditStamp,
+                          opContext.getRetrieverContext().get(),
+                          opContext.getValidationContext().isAlternateValidation())
+                      .build();
 
-    Map<Pair<Urn, String>, List<IngestResult>> resultMap =
-        entityService.ingestProposal(opContext, batch, async).stream()
-            .collect(
-                Collectors.groupingBy(
-                    result ->
-                        Pair.of(
-                            result.getRequest().getUrn(), result.getRequest().getAspectName())));
+              List<IngestResult> results =
+                  entityService.ingestProposal(opContext, aspectsBatch, async);
+              entitySearchService.appendRunId(opContext, results);
 
-    // Preserve ordering
-    return batch.getItems().stream()
-        .map(
-            requestItem -> {
-              // Urns generated
-              List<Urn> urnsForRequest =
-                  resultMap
-                      .getOrDefault(
-                          Pair.of(requestItem.getUrn(), requestItem.getAspectName()), List.of())
-                      .stream()
-                      .map(IngestResult::getUrn)
-                      .filter(Objects::nonNull)
-                      .distinct()
-                      .collect(Collectors.toList());
+              Map<Pair<Urn, String>, List<IngestResult>> resultMap =
+                  results.stream()
+                      .collect(
+                          Collectors.groupingBy(
+                              result ->
+                                  Pair.of(
+                                      result.getRequest().getUrn(),
+                                      result.getRequest().getAspectName())));
 
-              // Update runIds
-              urnsForRequest.forEach(
-                  urn -> tryIndexRunId(opContext, urn, requestItem.getSystemMetadata()));
+              // Preserve ordering
+              updatedUrns.addAll(
+                  aspectsBatch.getItems().stream()
+                      .map(
+                          requestItem -> {
+                            // Urns generated
+                            List<Urn> urnsForRequest =
+                                resultMap
+                                    .getOrDefault(
+                                        Pair.of(requestItem.getUrn(), requestItem.getAspectName()),
+                                        List.of())
+                                    .stream()
+                                    .map(IngestResult::getUrn)
+                                    .filter(Objects::nonNull)
+                                    .distinct()
+                                    .collect(Collectors.toList());
 
-              return urnsForRequest.isEmpty() ? null : urnsForRequest.get(0).toString();
-            })
-        .collect(Collectors.toList());
+                            // Update runIds
+                            urnsForRequest.forEach(
+                                urn ->
+                                    tryIndexRunId(opContext, urn, requestItem.getSystemMetadata()));
+
+                            return urnsForRequest.isEmpty()
+                                ? null
+                                : urnsForRequest.get(0).toString();
+                          })
+                      .collect(Collectors.toList()));
+            });
+    return updatedUrns;
   }
 
   @SneakyThrows
@@ -864,8 +883,7 @@ public class JavaEntityClient implements EntityClient {
   private void tryIndexRunId(
       @Nonnull OperationContext opContext, Urn entityUrn, @Nullable SystemMetadata systemMetadata) {
     if (systemMetadata != null && systemMetadata.hasRunId()) {
-      entitySearchService.appendRunId(
-          opContext, entityUrn.getEntityType(), entityUrn, systemMetadata.getRunId());
+      entitySearchService.appendRunId(opContext, entityUrn, systemMetadata.getRunId());
     }
   }
 
