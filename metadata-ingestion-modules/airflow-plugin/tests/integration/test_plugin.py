@@ -393,10 +393,18 @@ test_cases = [
                     if HAS_AIRFLOW_DAG_LISTENER_API
                     else f"v2_{test_case.dag_id}_no_dag_listener"
                 ),
-                marks=pytest.mark.skipif(
-                    not HAS_AIRFLOW_LISTENER_API,
-                    reason="Cannot test plugin v2 without the Airflow plugin listener API",
-                ),
+                marks=[
+                    pytest.mark.skipif(
+                        not HAS_AIRFLOW_LISTENER_API,
+                        reason="Cannot test plugin v2 without the Airflow plugin listener API",
+                    ),
+                    pytest.mark.skipif(
+                        AIRFLOW_VERSION < packaging.version.parse("2.4.0"),
+                        reason="We skip testing the v2 plugin on Airflow 2.3 because it causes flakiness in the custom properties. "
+                        "Ideally we'd just fix these, but given that Airflow 2.3 is EOL and likely going to be deprecated "
+                        "soon anyways, it's not worth the effort.",
+                    ),
+                ],
             )
             for test_case in test_cases
         ],
