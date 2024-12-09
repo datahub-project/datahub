@@ -935,26 +935,9 @@ class TableauSiteSource:
         # Either project_pattern or project_path_pattern is set in a recipe
         # TableauConfig.projects_backward_compatibility ensures that at least one of these properties is configured.
 
-        # for backward compatibility check deny list of project_pattern
-        for deny_pattern in self.config.project_pattern.deny:
-            if re.match(
-                deny_pattern, project.name, self.config.project_pattern.regex_flags
-            ):
-                return True
-
-        for deny_pattern in self.config.project_path_pattern.deny:
-            if re.match(
-                deny_pattern,
-                self._get_project_path(project),
-                self.config.project_pattern.regex_flags,
-            ):
-                return True
-
-        logger.info(
-            f"project({project.name}) is not denied as per project_pattern(or project_path_pattern)"
-        )
-
-        return False
+        return self.config.project_pattern.denied(
+            project.name
+        ) or self.config.project_path_pattern.denied(self._get_project_path(project))
 
     def _init_tableau_project_registry(self, all_project_map: dict) -> None:
         list_of_skip_projects: List[TableauProject] = []
@@ -982,9 +965,11 @@ class TableauSiteSource:
             for project in list_of_skip_projects:
                 if (
                     project.parent_id in projects_to_ingest
-                    and self._is_denied_project(project) is False
+                    and not self._is_denied_project(project)
                 ):
-                    logger.debug(f"Project {project.name} is added in project registry")
+                    logger.debug(
+                        f"Project {project.name} is added in project registry as it's a child project and not explicitly denied in `deny` list"
+                    )
                     projects_to_ingest[project.id] = project
 
         # We rely on automatic browse paths (v2) when creating containers. That's why we need to sort the projects here.
