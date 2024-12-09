@@ -100,6 +100,7 @@ def check_workunit_correctness(stream: Iterable[MetadataWorkUnit]) -> Iterable[M
             check_mcp_correctness(wu.metadata)
         elif isinstance(wu.metadata, MetadataChangeProposalWrapper):
             check_mcpw_correctness(wu.metadata)
+    return []
 
 
 def create_dataset_owners_patch_builder(
