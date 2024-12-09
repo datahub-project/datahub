@@ -33,7 +33,7 @@ const FilterItemRow = styled.div<{ selected: boolean }>`
     border-radius: 20px;
     min-width: fit-content;
     cursor: pointer;
-    color: ${({ selected }) => (selected ? REDESIGN_COLORS.WHITE : REDESIGN_COLORS.TEXT_HEADING)};
+    color: ${({ selected }) => (selected ? REDESIGN_COLORS.WHITE : REDESIGN_COLORS.BODY_TEXT_GREY)};
     background-color: ${({ selected }) =>
         selected ? REDESIGN_COLORS.BACKGROUND_PRIMARY_1 : REDESIGN_COLORS.COLD_GREY_TEXT_BLUE_1};
 

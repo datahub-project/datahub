@@ -160,6 +160,7 @@ interface ActionsColumnProps {
     canEditMonitor: boolean;
     canEditContract: boolean;
     refetch?: () => void;
+    shouldRightAlign?: boolean;
 }
 
 export function ActionsColumn({
@@ -170,6 +171,7 @@ export function ActionsColumn({
     canEditMonitor,
     canEditContract,
     refetch,
+    shouldRightAlign,
 }: ActionsColumnProps) {
     return (
         <ActionButtonContainer>
@@ -181,6 +183,7 @@ export function ActionsColumn({
                 canEditMonitor={canEditMonitor}
                 canEditContract={canEditContract}
                 refetch={refetch}
+                shouldRightAlign={shouldRightAlign}
             />
         </ActionButtonContainer>
     );

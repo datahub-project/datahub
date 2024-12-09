@@ -17,7 +17,7 @@ import { AcrylAssertionsSummaryTabLoading } from './AcrylAssertionsSummaryLoadin
 const AcrylAssertionSummaryContainer = styled.div`
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
-    padding: 24px;
+    padding: 16px;
     row-gap: 24px;
     column-gap: 24px;
     overflow: auto;

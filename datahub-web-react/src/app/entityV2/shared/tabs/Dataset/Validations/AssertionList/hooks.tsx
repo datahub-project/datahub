@@ -1,5 +1,5 @@
 import React, { Dispatch, SetStateAction, useEffect, useMemo, useRef, useState } from 'react';
-import { Table, TableColumnsType, Typography } from 'antd';
+import { Typography } from 'antd';
 import styled from 'styled-components';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { getTimeFromNow } from '@src/app/shared/time/timeUtils';
@@ -17,6 +17,11 @@ const CategoryType = styled.div`
     color: ${REDESIGN_COLORS.BODY_TEXT};
     display: flex;
     align-items: center;
+    white-space: nowrap;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 14px;
 `;
 
 const LastRun = styled(Typography.Text)`
@@ -40,19 +45,22 @@ export const useAssertionsTableColumns = ({
     refetch,
 }) => {
     return useMemo(() => {
-        const columns: TableColumnsType<any> = [
+        const columns = [
             {
                 title: 'Name',
                 dataIndex: 'name',
                 key: 'name',
-                render: (_, record) => <AssertionName record={record} groupBy={groupBy} contract={contract} />,
+                render: (record) => <AssertionName record={record} groupBy={groupBy} contract={contract} />,
                 width: '42%',
+                sorter: (a, b) => {
+                    return a - b;
+                },
             },
             {
                 title: 'Category',
                 dataIndex: 'type',
                 key: 'type',
-                render: (_, record) =>
+                render: (record) =>
                     !record.groupName && <CategoryType>{getAssertionGroupName(record?.type)}</CategoryType>,
                 width: '10%',
             },
@@ -60,25 +68,27 @@ export const useAssertionsTableColumns = ({
                 title: 'Last Run',
                 dataIndex: 'lastEvaluation',
                 key: 'lastEvaluation',
-                render: (_, record) => {
+                render: (record) => {
                     return !record.groupName && <LastRun>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>;
                 },
                 width: '10%',
+                sorter: (sourceA, sourceB) => {
+                    return sourceA.lastEvaluationTimeMs - sourceB.lastEvaluationTimeMs;
+                },
             },
             {
                 title: 'Tags',
                 dataIndex: 'tags',
                 key: 'tags',
                 width: '20%',
-                render: (_, record) =>
-                    !record.groupName && <AcrylAssertionTagColumn record={record} refetch={refetch} />,
+                render: (record) => !record.groupName && <AcrylAssertionTagColumn record={record} refetch={refetch} />,
             },
             {
                 title: '',
                 dataIndex: '',
                 key: 'actions',
                 width: '15%',
-                render: (_, record) => {
+                render: (record) => {
                     const isSqlAssertion = record.type === AssertionType.Sql;
                     return (
                         !record.groupName && (
@@ -90,16 +100,13 @@ export const useAssertionsTableColumns = ({
                                 canEditMonitor={canEditMonitors}
                                 canEditContract
                                 refetch={refetch}
+                                shouldRightAlign
                             />
                         )
                     );
                 },
             },
         ];
-
-        if (groupBy) {
-            columns.push(Table.EXPAND_COLUMN);
-        }
 
         return columns;
     }, [groupBy, contract, canEditSqlAssertions, canEditAssertions, canEditMonitors, refetch]);
