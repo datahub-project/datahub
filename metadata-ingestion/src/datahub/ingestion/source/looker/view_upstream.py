@@ -239,7 +239,7 @@ class AbstractViewUpstream(ABC):
         return []  # it is for the special case
 
     def create_upstream_column_refs(
-        self, upstream_urn: str, expected_columns: List[str]
+        self, upstream_urn: str, downstream_looker_columns: List[str]
     ) -> List[ColumnRef]:
         """
         - **`upstream_urn`**: The URN of the upstream dataset.
@@ -258,12 +258,14 @@ class AbstractViewUpstream(ABC):
         urn, schema_info = schema_resolver.resolve_urn(urn=upstream_urn)
 
         if schema_info:
-            actual_columns = match_columns_to_schema(schema_info, expected_columns)
+            actual_columns = match_columns_to_schema(
+                schema_info, downstream_looker_columns
+            )
         else:
             logger.info(
                 f"schema_info not found for dataset {urn} in GMS. Using expected_columns to form ColumnRef"
             )
-            actual_columns = [column.lower() for column in expected_columns]
+            actual_columns = [column.lower() for column in downstream_looker_columns]
 
         upstream_column_refs: List[ColumnRef] = []
 
@@ -417,7 +419,7 @@ class SqlBasedDerivedViewUpstream(AbstractViewUpstream, ABC):
                 upstream_urn=self._get_upstream_dataset_urn()[
                     0
                 ],  # 0th index has table of from clause,
-                expected_columns=field_context.column_name_in_sql_attribute(),
+                downstream_looker_columns=field_context.column_name_in_sql_attribute(),
             )
 
         # fix any derived view reference present in urn
@@ -535,7 +537,7 @@ class NativeDerivedViewUpstream(AbstractViewUpstream):
                 )
 
         return self.create_upstream_column_refs(
-            upstream_urn=explore_urn, expected_columns=expected_columns
+            upstream_urn=explore_urn, downstream_looker_columns=expected_columns
         )
 
     def get_upstream_dataset_urn(self) -> List[Urn]:
@@ -588,7 +590,7 @@ class RegularViewUpstream(AbstractViewUpstream):
     ) -> List[ColumnRef]:
         return self.create_upstream_column_refs(
             upstream_urn=self._get_upstream_dataset_urn(),
-            expected_columns=field_context.column_name_in_sql_attribute(),
+            downstream_looker_columns=field_context.column_name_in_sql_attribute(),
         )
 
     def get_upstream_dataset_urn(self) -> List[Urn]:
@@ -649,7 +651,7 @@ class DotSqlTableNameViewUpstream(AbstractViewUpstream):
 
         return self.create_upstream_column_refs(
             upstream_urn=self._get_upstream_dataset_urn()[0],
-            expected_columns=field_context.column_name_in_sql_attribute(),
+            downstream_looker_columns=field_context.column_name_in_sql_attribute(),
         )
 
     def get_upstream_dataset_urn(self) -> List[Urn]:
