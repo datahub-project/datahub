@@ -6,6 +6,7 @@ export * from './components/Avatar';
 export * from './components/Badge';
 export * from './components/BarChart';
 export * from './components/Button';
+export * from './components/CalendarChart';
 export * from './components/Card';
 export * from './components/Checkbox';
 export * from './components/Heading';
