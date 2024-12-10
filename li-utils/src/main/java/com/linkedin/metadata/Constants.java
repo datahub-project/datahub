@@ -10,6 +10,7 @@ public class Constants {
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_HEADER_NAME = "X-DataHub-Delegated-For";
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_TYPE = "X-DataHub-Delegated-For-";
 
+  public static final String URN_LI_PREFIX = "urn:li:";
   public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
   public static final String SYSTEM_ACTOR =
       "urn:li:corpuser:__datahub_system"; // DataHub internal service principal.
@@ -50,6 +51,7 @@ public class Constants {
   // App sources
   public static final String UI_SOURCE = "ui";
   public static final String SYSTEM_UPDATE_SOURCE = "systemUpdate";
+  public static final String METADATA_TESTS_SOURCE = "metadataTests";
 
   /** Entities */
   public static final String CORP_USER_ENTITY_NAME = "corpuser";

@@ -130,8 +130,6 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
     CallContext ctx = ctxResult.getFirst();
     Result result = (Result) ctxResult.getSecond();
 
-    setContextRedirectUrl(ctx);
-
     // Handle OIDC authentication errors.
     if (OidcResponseErrorHandler.isError(ctx)) {
       return OidcResponseErrorHandler.handleError(ctx);
@@ -191,6 +189,9 @@ public class OidcCallbackLogic extends DefaultCallbackLogic {
                 ctx, config, profile, saveProfileInSession, multiProfile, renewSession);
           }
         }
+
+        // Set the redirect url from cookie before creating action
+        setContextRedirectUrl(ctx);
 
         action = this.redirectToOriginallyRequestedUrl(ctx, defaultUrl);
       }

@@ -74,7 +74,7 @@ _RUN_IN_THREAD = os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD", "true").lower
     "1",
 )
 _RUN_IN_THREAD_TIMEOUT = float(
-    os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT", 15)
+    os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT", 10)
 )
 _DATAHUB_CLEANUP_DAG = "Datahub_Cleanup"
 
@@ -102,6 +102,7 @@ def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
                     "capture_tags": plugin_config.capture_tags_info,
                     "capture_ownership": plugin_config.capture_ownership_info,
                     "enable_extractors": plugin_config.enable_extractors,
+                    "render_templates": plugin_config.render_templates,
                     "disable_openlineage_plugin": plugin_config.disable_openlineage_plugin,
                 },
             )
@@ -570,6 +571,9 @@ class DataHubListener:
     def on_dag_start(self, dag_run: "DagRun") -> None:
         dag = dag_run.dag
         if not dag:
+            logger.warning(
+                f"DataHub listener could not find DAG for {dag_run.dag_id} - {dag_run.run_id}. Dag won't be captured"
+            )
             return
 
         dataflow = AirflowGenerator.generate_dataflow(
@@ -577,6 +581,7 @@ class DataHubListener:
             dag=dag,
         )
         dataflow.emit(self.emitter, callback=self._make_emit_callback())
+        logger.debug(f"Emitted DataHub DataFlow: {dataflow}")
 
         event: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
             entityUrn=str(dataflow.urn), aspect=StatusClass(removed=False)

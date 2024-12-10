@@ -178,7 +178,7 @@ public class StructuredPropertyUtils {
   /**
    * Return an elasticsearch type from structured property type
    *
-   * @param fieldName filter or facet field name
+   * @param fieldName filter or facet field name - must match actual FQN of structured prop
    * @param aspectRetriever aspect retriever
    * @return elasticsearch type
    */
