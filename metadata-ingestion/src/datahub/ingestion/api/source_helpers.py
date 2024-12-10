@@ -24,6 +24,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathsV2Class,
     ChangeTypeClass,
     ContainerClass,
+    DatasetProfileClass,
     DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
     MetadataChangeEventClass,
@@ -76,6 +77,54 @@ def create_dataset_props_patch_builder(
     patch_builder.add_custom_properties(dataset_properties.customProperties)
 
     return patch_builder
+
+
+def check_mcp_correctness(mcp: MetadataChangeProposalClass):
+    logger.debug(
+        f"Processing as MCP with urn: {mcp.entityUrn} and aspect: {mcp.aspectName}, change type: {mcp.changeType}"
+    )
+    logger.debug(f"Aspect length: {len(mcp.aspect.value)}")
+    logger.debug(f"Full aspect:\n{mcp.aspect}")
+
+
+def check_mcpw_correctness(mcp: MetadataChangeProposalWrapper):
+    logger.debug(
+        f"Processing as MCPW with urn: {mcp.entityUrn} and aspect: {mcp.aspectName}, change type: {mcp.changeType}"
+    )
+    logger.debug(f"Full aspect:\n{mcp.aspect}")
+    if isinstance(mcp.aspect, SchemaMetadataClass):
+        schema: SchemaMetadataClass = mcp.aspect
+        logger.debug(f"Schema aspect dump:\n{schema.to_obj()}")
+    if isinstance(mcp.aspect, DatasetProfileClass):
+        profile: DatasetProfileClass = mcp.aspect
+        logger.debug(f"Dataset Profile aspect dump:\n{profile.to_obj()}")
+        if profile.fieldProfiles:
+            logger.debug(f"Length of field profiles: {len(profile.fieldProfiles)}")
+            for field in profile.fieldProfiles:
+                if field.sampleValues:
+                    values_len = 0
+                    for value in field.sampleValues:
+                        if value:
+                            values_len += len(value)
+                    logger.debug(
+                        f"Field {field.fieldPath} has {len(field.sampleValues)} sample values, taking total bytes {values_len}"
+                    )
+                else:
+                    logger.debug(
+                        f"Field {field.fieldPath} has no sample values"
+                    )
+
+
+def check_workunit_correctness(
+    stream: Iterable[MetadataWorkUnit],
+) -> Iterable[MetadataWorkUnit]:
+    for wu in stream:
+        logger.debug(f"Checking correctnes for workunit: {wu.id}")
+        if isinstance(wu.metadata, MetadataChangeProposalClass):
+            check_mcp_correctness(wu.metadata)
+        elif isinstance(wu.metadata, MetadataChangeProposalWrapper):
+            check_mcpw_correctness(wu.metadata)
+    return []
 
 
 def create_dataset_owners_patch_builder(
