@@ -251,3 +251,11 @@ Once a Structured Property has been defined, only certain aspects can be modifie
 ### Why can't I add a Structured Property to an Asset?
 - Confirm you have the **Edit Properties** privilege.
 - Ensure the Structured Property has already been created and supports the type of Asset you're trying to modify.
+
+### API Tutorials
+
+- [Structured Properties API Guide](/docs/api/tutorials/structured-properties.md)
+
+### Related Features
+
+- [DataHub Compliance Forms](/docs/features/feature-guides/compliance-forms/overview.md)
