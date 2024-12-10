@@ -17,11 +17,16 @@ import {
     Name,
     TitleRole,
     Team,
+    LocationSection,
+    LocationSectionText,
+    UserDetails
 } from '../shared/SidebarStyledComponents';
 import EntityGroups from '../shared/EntityGroups';
 import { mapRoleIcon } from '../../identity/user/UserUtils';
 import { useUserContext } from '../../context/useUserContext';
 import { useBrowserTitle } from '../../shared/BrowserTabTitleContext';
+import GlobeIcon from '../../../images/Globe.svg';
+import { countries } from 'country-data-list';
 
 const { Paragraph } = Typography;
 
@@ -38,6 +43,7 @@ type SideBarData = {
     groupsDetails: Array<EntityRelationship>;
     urn: string | undefined;
     dataHubRoles: Array<EntityRelationship>;
+    countryCode: string | undefined;
 };
 
 type Props = {
@@ -51,7 +57,7 @@ const AVATAR_STYLE = { marginTop: '14px' };
  * UserInfoSideBar- Sidebar section for users profiles.
  */
 export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
-    const { name, aboutText, avatarName, email, groupsDetails, phone, photoUrl, role, slack, team, dataHubRoles, urn } =
+    const { name, aboutText, avatarName, email, groupsDetails, phone, photoUrl, role, slack, team, dataHubRoles, urn, countryCode } =
         sideBarData;
 
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
@@ -120,6 +126,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                 <SideBarSubSection className={isProfileOwner ? '' : 'fullView'}>
                     <CustomAvatar size={160} photoUrl={photoUrl} name={avatarName} style={AVATAR_STYLE} />
                     <Name>{name || <EmptyValue />}</Name>
+                    <UserDetails>{urn?.replace('urn:li:corpuser:', '') || <EmptyValue />}</UserDetails>
                     {role && <TitleRole>{role}</TitleRole>}
                     {team && <Team>{team}</Team>}
                     {dataHubRoleName && <Tag icon={mapRoleIcon(dataHubRoleName)}>{dataHubRoleName}</Tag>}
@@ -143,6 +150,17 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                         </Space>
                     </SocialDetails>
                     <Divider className="divider-aboutSection" />
+                    { countryCode && (
+                        <LocationSection>
+                            Location 
+                            <br />
+                                <LocationSectionText>
+                                    <img src={GlobeIcon} alt="Manage Users" style={{ display: 'inline' }} /> &nbsp;
+                                    {countries[countryCode].name}
+                                </LocationSectionText>
+                            <Divider className="divider-aboutSection" />
+                        </LocationSection>
+                    )}
                     <AboutSection>
                         About
                         <AboutSectionText>
