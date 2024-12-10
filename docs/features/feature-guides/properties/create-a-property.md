@@ -224,9 +224,30 @@ When selecting a specific column in the UI, the **Business Label** Structured Pr
 
 This setup ensures that column-specific metadata, such as the **Business Label**, is accessible and actionable, helping business users better understand the dataset's structure and its alignment with key business concepts.
 
-## [WIP] FAQ and Troubleshooting
+## FAQ and Troubleshooting
 
-**Why can't I configure a Structured Property to appear as an Asset Badge?**
+### Why can't I change a Structured Property's definition?**
 
-- only type Text & Number with allowed values
-- only one Structured Property can be configured as a Badge
+Once a Structured Property has been defined, only certain aspects can be modified:
+
+**You can change:**
+- Title and description
+- Add new allowed values
+- Add new supported asset types
+- Update display preferences
+
+**You cannot change:**
+- The type of the Structured Property
+- Existing allowed values and their definitions
+
+### Why can't I configure a Structured Property to appear as an Asset Badge?
+- Only **Text** and **Number** types with allowed values can be configured as Asset Badges.
+- Only one Structured Property can be displayed as a Badge for a given Asset.
+
+### Why can't I filter Search Results by a Structured Property?
+- Verify that the Structured Property has been configured to appear in search filters.
+- Ensure the filter is relevant by checking if there are assets associated with the Structured Property's value in your search results. Try different search terms or relax other applied filters.
+
+### Why can't I add a Structured Property to an Asset?
+- Confirm you have the **Edit Properties** privilege.
+- Ensure the Structured Property has already been created and supports the type of Asset you're trying to modify.
