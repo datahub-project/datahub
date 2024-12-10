@@ -14,6 +14,8 @@ dependencies {
         exclude group: 'com.google.guava', module: 'guava'
     }
     implementation externalDependency.guava
+    implementation externalDependency.jacksonCore
+    implementation externalDependency.jacksonDataBind
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok

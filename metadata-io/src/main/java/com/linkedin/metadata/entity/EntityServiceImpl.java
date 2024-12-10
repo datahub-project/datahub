@@ -2533,24 +2533,18 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     if (previousValue != null
         && DataTemplateUtil.areEqual(previousValue, writeItem.getRecordTemplate())) {
 
-      SystemMetadata latestSystemMetadata =
-          GenericRecordUtils.copy(previousBatchAspect.getSystemMetadata(), SystemMetadata.class);
+      Optional<SystemMetadata> latestSystemMetadataDiff =
+          systemMetadataDiff(
+              txContext,
+              previousBatchAspect.getSystemMetadata(),
+              writeItem.getSystemMetadata(),
+              databaseAspect == null ? null : databaseAspect.getSystemMetadata());
 
-      latestSystemMetadata.setLastRunId(
-          previousBatchAspect.getSystemMetadata().getRunId(), SetMode.REMOVE_IF_NULL);
-      latestSystemMetadata.setLastObserved(
-          writeItem.getSystemMetadata().getLastObserved(), SetMode.IGNORE_NULL);
-      latestSystemMetadata.setRunId(
-          writeItem.getSystemMetadata().getRunId(), SetMode.REMOVE_IF_NULL);
-
-      SystemMetadata databaseSystemMetadata =
-          databaseAspect == null ? null : databaseAspect.getSystemMetadata();
-      if (detectSystemMetadataDiff(
-          latestSystemMetadata, previousBatchAspect.getSystemMetadata(), databaseSystemMetadata)) {
+      if (latestSystemMetadataDiff.isPresent()) {
         // Update previous version since that is what is re-written
         previousBatchAspect
             .getEntityAspect()
-            .setSystemMetadata(RecordUtils.toJsonString(latestSystemMetadata));
+            .setSystemMetadata(RecordUtils.toJsonString(latestSystemMetadataDiff.get()));
 
         // Inserts & update order is not guaranteed, flush the insert for potential updates within
         // same tx
@@ -2585,7 +2579,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .oldValue(previousValue)
             .newValue(previousValue)
             .oldSystemMetadata(previousBatchAspect.getSystemMetadata())
-            .newSystemMetadata(latestSystemMetadata)
+            .newSystemMetadata(latestSystemMetadataDiff.get())
             .operation(MetadataAuditOperation.UPDATE)
             .auditStamp(writeItem.getAuditStamp())
             .maxVersion(0)
@@ -2665,15 +2659,33 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return relationshipFieldSpecs.stream().anyMatch(RelationshipFieldSpec::isLineageRelationship);
   }
 
-  private static boolean detectSystemMetadataDiff(
-      @Nonnull SystemMetadata latest,
+  private static Optional<SystemMetadata> systemMetadataDiff(
+      @Nullable TransactionContext txContext,
       @Nullable SystemMetadata previous,
+      @Nonnull SystemMetadata current,
       @Nullable SystemMetadata database) {
-    String latestSystemMetadataStr = RecordUtils.toJsonString(latest);
-    String prevSystemMetadataStr = previous == null ? null : RecordUtils.toJsonString(previous);
-    String databaseSystemMetadataStr = database == null ? null : RecordUtils.toJsonString(database);
-    return !latestSystemMetadataStr.equals(prevSystemMetadataStr)
-        && !latestSystemMetadataStr.equals(databaseSystemMetadataStr);
+
+    SystemMetadata latestSystemMetadata = GenericRecordUtils.copy(previous, SystemMetadata.class);
+
+    latestSystemMetadata.setLastRunId(previous.getRunId(), SetMode.REMOVE_IF_NULL);
+    latestSystemMetadata.setLastObserved(current.getLastObserved(), SetMode.IGNORE_NULL);
+    latestSystemMetadata.setRunId(current.getRunId(), SetMode.REMOVE_IF_NULL);
+
+    if (!DataTemplateUtil.areEqual(latestSystemMetadata, previous)
+        && !DataTemplateUtil.areEqual(latestSystemMetadata, database)) {
+
+      conditionalLogLevel(
+          txContext,
+          String.format(
+              "systemMetdataDiff: %s != %s AND %s",
+              RecordUtils.toJsonString(latestSystemMetadata),
+              previous == null ? null : RecordUtils.toJsonString(previous),
+              database == null ? null : RecordUtils.toJsonString(database)));
+
+      return Optional.of(latestSystemMetadata);
+    }
+
+    return Optional.empty();
   }
 
   private static void conditionalLogLevel(@Nullable TransactionContext txContext, String message) {
