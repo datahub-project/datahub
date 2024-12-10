@@ -1,3 +1,7 @@
+---
+title: (OUTDATED) Properties
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
