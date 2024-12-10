@@ -1,6 +1,4 @@
 import {
-    BellFilled,
-    BellOutlined,
     DeleteOutlined,
     FolderAddOutlined,
     FolderOpenOutlined,
@@ -20,10 +18,8 @@ import styled from 'styled-components';
 import { useUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
 import { EntityType } from '../../../../types.generated';
 import { useUserContext } from '../../../context/useUserContext';
-import Loading from '../../../shared/Loading';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
 import ShareButtonMenu from '../../../shared/share/v2/ShareButtonMenu';
-import SubscribeButtonMenu from '../../../shared/subscribe/v2/SubscribeButtonMenu';
 import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CreateEntityAnnouncementModal from '../announce/CreateEntityAnnouncementModal';
@@ -60,7 +56,7 @@ const MenuItem = styled.div`
     gap: 6px;
 `;
 
-const StyledSubMenu = styled(Menu.SubMenu)`
+export const StyledSubMenu = styled(Menu.SubMenu)`
     .ant-dropdown-menu-submenu-title {
         display: flex;
         align-items: end;
@@ -137,8 +133,6 @@ const EntityDropdown = (props: Props) => {
         options?.skipDeleteWait,
     );
 
-    const [isFetchingSubscriptionSummary, setIsFetchingSubscriptionSummary] = useState(false);
-    const [isUserSubscribed, setIsUserSubscribed] = useState(false);
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
@@ -181,16 +175,6 @@ const EntityDropdown = (props: Props) => {
      * A default path to redirect to if the entity is deleted.
      */
     const deleteRedirectPath = getEntityProfileDeleteRedirectPath(entityType, entityData);
-
-    const renderSubscribeIcon = () => {
-        if (isFetchingSubscriptionSummary) {
-            return <Loading height={13} />;
-        }
-        if (isUserSubscribed) {
-            return <BellFilled />;
-        }
-        return <BellOutlined />;
-    };
 
     return (
         <>
@@ -295,26 +279,6 @@ const EntityDropdown = (props: Props) => {
                                     <WarningOutlined /> &nbsp;Raise Incident
                                 </MenuItem>
                             </StyledMenuItem>
-                        )}
-                        {menuItems.has(EntityMenuItems.SUBSCRIBE) && (
-                            <StyledSubMenu
-                                key="7"
-                                disabled={false}
-                                title={
-                                    <MenuItem>
-                                        <div>{renderSubscribeIcon()}</div>
-                                        &nbsp;Subscribe
-                                    </MenuItem>
-                                }
-                            >
-                                <SubscribeButtonMenu
-                                    setIsFetchingSubscriptionSummary={setIsFetchingSubscriptionSummary}
-                                    setIsSubscribed={setIsUserSubscribed}
-                                    entityUrn={urn}
-                                    entityData={entityData}
-                                    entityType={entityType}
-                                />
-                            </StyledSubMenu>
                         )}
                         {menuItems.has(EntityMenuItems.SHARE) && (
                             <StyledSubMenu

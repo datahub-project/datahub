@@ -27,7 +27,7 @@ const getColor = (enabled?: boolean, active?: boolean) => {
     return color;
 };
 
-const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; isHighlightedTextPresent: boolean }>`
+export const PillContainer = styled.div<{ enabled?: boolean; active?: boolean; isHighlightedTextPresent: boolean }>`
     height: 24px;
     padding-left: 8px;
     padding-right: ${({ isHighlightedTextPresent }) => (isHighlightedTextPresent ? '0px' : '8px')};

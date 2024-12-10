@@ -19,7 +19,7 @@ export const ActionMenuItem = styled(Button)<{ disabled?: boolean; fontSize?: nu
     justify-content: center;
     overflow: hidden;
     border: none;
-    background-color: #f7f7f7;
+    background-color: 'white';
     border: 1px solid #eee;
     color: ${REDESIGN_COLORS.ACTION_ICON_GREY};
     box-shadow: none;

@@ -23,13 +23,19 @@ query getEntitySubscriptionSummary($input: GetEntitySubscriptionSummaryInput!) {
         isUserSubscribed
         userSubscriptionCount
         groupSubscriptionCount
-        exampleGroups {
-            name
-            info {
-                displayName
-            }
+        subscribedGroups {
+            urn
             properties {
                 displayName
+            }
+        }
+        subscribedUsers {
+            urn
+            properties {
+                displayName
+            }
+            editableProperties {
+                pictureLink
             }
         }
     }

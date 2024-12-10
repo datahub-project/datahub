@@ -7,6 +7,7 @@ import static org.testng.Assert.*;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.group.GroupService;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
 import com.linkedin.datahub.graphql.generated.GetEntitySubscriptionSummaryInput;
@@ -14,6 +15,9 @@ import com.linkedin.metadata.service.SubscriptionService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -54,6 +58,8 @@ public class GetEntitySubscriptionSummaryResolverTest {
 
   @Test
   public void testGetEntitySubscriptionSummary() throws Exception {
+    List<Urn> largeList =
+        Stream.generate(() -> ENTITY_URN_1).limit(50).collect(Collectors.toList());
     when(_subscriptionService.isActorSubscribed(
             any(OperationContext.class), eq(ENTITY_URN_1), eq(USER_URN)))
         .thenReturn(true);
@@ -71,6 +77,9 @@ public class GetEntitySubscriptionSummaryResolverTest {
     when(_subscriptionService.getGroupSubscribersForEntity(
             any(OperationContext.class), eq(ENTITY_URN_1), anyInt()))
         .thenReturn(Collections.emptyList());
+    when(_subscriptionService.getSubscribedUsersForEntity(
+            any(OperationContext.class), eq(ENTITY_URN_1), anyInt()))
+        .thenReturn(largeList);
 
     final EntitySubscriptionSummary summary = _resolver.get(_dataFetchingEnvironment).join();
     assertTrue(summary.getIsUserSubscribed());
@@ -78,5 +87,7 @@ public class GetEntitySubscriptionSummaryResolverTest {
     assertEquals(summary.getUserSubscriptionCount(), 50);
     assertEquals(summary.getGroupSubscriptionCount(), 25);
     assertEquals(summary.getExampleGroups().size(), 0);
+    assertEquals(summary.getSubscribedGroups().size(), 0);
+    assertEquals(summary.getSubscribedUsers().size(), 50);
   }
 }
