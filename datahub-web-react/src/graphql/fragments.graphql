@@ -589,6 +589,11 @@ fragment nonRecursiveMLFeature on MLFeature {
             }
         }
     }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
 }
 
 fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
@@ -659,6 +664,11 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
             }
         }
     }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
 }
 
 fragment nonRecursiveMLFeatureTable on MLFeatureTable {
@@ -714,6 +724,11 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     browsePathV2 {
         ...browsePathV2Fields
+    }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
     }
 }
 
@@ -1331,6 +1346,7 @@ fragment structuredPropertiesFields on StructuredPropertiesEntry {
         type
         ...entityDisplayNameFields
     }
+    associatedUrn
 }
 
 fragment autoRenderAspectFields on RawAspect {

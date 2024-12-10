@@ -21,6 +21,7 @@ import {
 } from './useAppConfig';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
 import { BusinessAttributes } from './businessAttribute/BusinessAttributes';
+import StructuredProperties from './govern/structuredProperties/StructuredProperties';
 /**
  * Container for all searchable page routes
  */
@@ -66,7 +67,7 @@ export const SearchRoutes = (): JSX.Element => {
                 <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />
                 <Route path={`${PageRoutes.GLOSSARY}*`} render={() => <GlossaryRoutes />} />
                 {showStructuredProperties && (
-                    <Route path={PageRoutes.STRUCTURED_PROPERTIES} render={() => <div />} />
+                    <Route path={PageRoutes.STRUCTURED_PROPERTIES} render={() => <StructuredProperties />} />
                 )}
                 <Route
                     path={PageRoutes.BUSINESS_ATTRIBUTE}
