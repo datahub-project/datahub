@@ -21,7 +21,7 @@ from tableauserverclient.models.reference_item import ResourceReference
 
 from datahub.emitter.mce_builder import DEFAULT_ENV, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
+from datahub.ingestion.run.pipeline import Pipeline, PipelineContext, PipelineInitError
 from datahub.ingestion.source.tableau.tableau import (
     TableauConfig,
     TableauProject,
@@ -580,7 +580,10 @@ def test_value_error_projects_and_project_pattern(
     new_config["projects"] = ["default"]
     new_config["project_pattern"] = {"allow": ["^Samples$"]}
 
-    try:
+    with pytest.raises(
+        PipelineInitError,
+        match=r".*projects is deprecated. Please use project_path_pattern only.*",
+    ):
         tableau_ingest_common(
             pytestconfig,
             tmp_path,
@@ -590,8 +593,6 @@ def test_value_error_projects_and_project_pattern(
             mock_datahub_graph,
             pipeline_config=new_config,
         )
-    except Exception as e:
-        assert "projects is deprecated. Please use project_path_pattern only" in str(e)
 
 
 def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph):
@@ -604,7 +605,10 @@ def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph)
     new_config["project_pattern"] = {"allow": ["^Samples$"]}
     new_config["project_path_pattern"] = {"allow": ["^Samples$"]}
 
-    try:
+    with pytest.raises(
+        PipelineInitError,
+        match=r".*project_pattern is deprecated. Please use project_path_pattern only*",
+    ):
         tableau_ingest_common(
             pytestconfig,
             tmp_path,
@@ -613,11 +617,6 @@ def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph)
             output_file_name,
             mock_datahub_graph,
             pipeline_config=new_config,
-        )
-    except Exception as e:
-        assert (
-            "project_pattern is deprecated. Please use project_path_pattern only"
-            in str(e)
         )
 
 
@@ -1029,6 +1028,7 @@ def test_tableau_unsupported_csql():
         ctx=context,
         platform="tableau",
         site=SiteItem(name="Site 1", content_url="site1"),
+        site_id="site1",
         report=TableauSourceReport(),
         server=Server("https://test-tableau-server.com"),
     )
@@ -1227,6 +1227,100 @@ def test_permission_ingestion(pytestconfig, tmp_path, mock_datahub_graph):
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
+def test_no_hidden_assets(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_no_hidden_assets_mces.json"
+    golden_file_name: str = "tableau_no_hidden_assets_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["ingest_hidden_assets"] = False
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_tableau_no_hidden_assets_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_ingest_tags_disabled(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_ingest_tags_disabled_mces.json"
+    golden_file_name: str = "tableau_ingest_tags_disabled_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    new_config["ingest_tags"] = False
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_tableau_ingest_tags_disabled",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_hidden_asset_tags(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_hidden_asset_tags_mces.json"
+    golden_file_name: str = "tableau_hidden_asset_tags_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    del new_config["projects"]
+    new_config["tags_for_hidden_assets"] = ["hidden", "private"]
+
+    tableau_ingest_common(
+        pytestconfig,
+        tmp_path,
+        mock_data(),
+        golden_file_name,
+        output_file_name,
+        mock_datahub_graph,
+        pipeline_config=new_config,
+        pipeline_name="test_tableau_hidden_asset_tags_ingest",
+    )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_hidden_assets_without_ingest_tags(pytestconfig, tmp_path, mock_datahub_graph):
+    enable_logging()
+    output_file_name: str = "tableau_hidden_asset_tags_error_mces.json"
+    golden_file_name: str = "tableau_hidden_asset_tags_error_mces_golden.json"
+
+    new_config = config_source_default.copy()
+    new_config["tags_for_hidden_assets"] = ["hidden", "private"]
+    new_config["ingest_tags"] = False
+
+    with pytest.raises(
+        PipelineInitError,
+        match=r".*tags_for_hidden_assets is only allowed with ingest_tags enabled.*",
+    ):
+        tableau_ingest_common(
+            pytestconfig,
+            tmp_path,
+            mock_data(),
+            golden_file_name,
+            output_file_name,
+            mock_datahub_graph,
+            pipeline_config=new_config,
+        )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
 def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_graph):
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
@@ -1249,6 +1343,7 @@ def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_gra
                 config=mock.MagicMock(),
                 ctx=mock.MagicMock(),
                 site=mock.MagicMock(),
+                site_id=None,
                 server=mock_sdk.return_value,
                 report=reporter,
             )

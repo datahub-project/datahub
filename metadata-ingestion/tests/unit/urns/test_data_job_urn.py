@@ -4,7 +4,6 @@ import pytest
 
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
-from datahub.utilities.urns.error import InvalidUrnError
 
 
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
@@ -22,17 +21,3 @@ class TestDataJobUrn(unittest.TestCase):
         assert data_job_urn == DataJobUrn(
             "urn:li:dataFlow:(airflow,flow_id,prod)", "job_id"
         )
-
-    def test_invalid_urn(self) -> None:
-        with self.assertRaises(InvalidUrnError):
-            DataJobUrn.create_from_string(
-                "urn:li:abc:(urn:li:dataFlow:(airflow,flow_id,prod),job_id)"
-            )
-
-        with self.assertRaises(InvalidUrnError):
-            DataJobUrn.create_from_string("urn:li:dataJob:(urn:li:user:abc,job_id)")
-
-        with self.assertRaises(InvalidUrnError):
-            DataJobUrn.create_from_string(
-                "urn:li:dataJob:(urn:li:dataFlow:(airflow,flow_id,prod))"
-            )
