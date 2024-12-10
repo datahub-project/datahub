@@ -65,7 +65,6 @@ from datahub.ingestion.source.sql.sql_types import (
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
-from datahub.metadata._schema_classes import DataPlatformInstanceClass
 from datahub.metadata.com.linkedin.pegasus2avro.common import AuditStamp
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     DatasetLineageTypeClass,
@@ -95,6 +94,7 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     BrowsePathsV2Class,
     ContainerClass,
+    DataPlatformInstanceClass,
     DatasetPropertiesClass,
     EnumTypeClass,
     FineGrainedLineageClass,
@@ -1648,7 +1648,6 @@ class LookerUserRegistry:
     def to_platform_resource(
         self, platform_instance: Optional[str], env: str
     ) -> Iterable[MetadataChangeProposalWrapper]:
-
         dpi = DataPlatformInstanceClass(
             platform=builder.make_data_platform_urn(LOOKER),
             instance=platform_instance,
