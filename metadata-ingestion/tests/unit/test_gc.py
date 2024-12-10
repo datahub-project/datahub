@@ -84,6 +84,54 @@ class TestDataProcessCleanup(unittest.TestCase):
         self.cleanup.delete_dpi_from_datajobs(job)
         self.assertEqual(10, self.report.num_aspects_removed)
 
+    @patch(
+        "datahub.ingestion.source.gc.dataprocess_cleanup.DataProcessCleanup.fetch_dpis"
+    )
+    def test_delete_dpi_from_datajobs_without_dpi_null_created_time(
+        self, mock_fetch_dpis
+    ):
+        job = DataJobEntity(
+            urn="urn:li:dataJob:1",
+            flow_urn="urn:li:dataFlow:1",
+            lastIngested=int(datetime.now(timezone.utc).timestamp()),
+            jobId="job1",
+            dataPlatformInstance="urn:li:dataPlatformInstance:1",
+            total_runs=10,
+        )
+        mock_fetch_dpis.return_value = [
+            {"urn": f"urn:li:dataprocessInstance:{i}"} for i in range(10)
+        ] + [
+            {
+                "urn": "urn:li:dataprocessInstance:11",
+                "created": {"time": None},
+            }
+        ]
+        self.cleanup.delete_dpi_from_datajobs(job)
+        self.assertEqual(11, self.report.num_aspects_removed)
+
+    @patch(
+        "datahub.ingestion.source.gc.dataprocess_cleanup.DataProcessCleanup.fetch_dpis"
+    )
+    def test_delete_dpi_from_datajobs_without_dpi_without_time(self, mock_fetch_dpis):
+        job = DataJobEntity(
+            urn="urn:li:dataJob:1",
+            flow_urn="urn:li:dataFlow:1",
+            lastIngested=int(datetime.now(timezone.utc).timestamp()),
+            jobId="job1",
+            dataPlatformInstance="urn:li:dataPlatformInstance:1",
+            total_runs=10,
+        )
+        mock_fetch_dpis.return_value = [
+            {"urn": f"urn:li:dataprocessInstance:{i}"} for i in range(10)
+        ] + [
+            {
+                "urn": "urn:li:dataprocessInstance:11",
+                "created": None,
+            }
+        ]
+        self.cleanup.delete_dpi_from_datajobs(job)
+        self.assertEqual(11, self.report.num_aspects_removed)
+
     def test_fetch_dpis(self):
         assert self.cleanup.ctx.graph
         self.cleanup.ctx.graph = MagicMock()
