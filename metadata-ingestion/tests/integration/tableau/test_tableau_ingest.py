@@ -7,6 +7,7 @@ from unittest import mock
 
 import pytest
 from freezegun import freeze_time
+from pydantic import ValidationError
 from requests.adapters import ConnectionError
 from tableauserverclient import PermissionsRule, Server
 from tableauserverclient.models import (
@@ -22,7 +23,7 @@ from tableauserverclient.models.reference_item import ResourceReference
 from datahub.emitter.mce_builder import DEFAULT_ENV, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import TestConnectionReport
-from datahub.ingestion.run.pipeline import Pipeline, PipelineContext, PipelineInitError
+from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau import (
     TableauConfig,
@@ -573,52 +574,28 @@ def test_extract_all_project(pytestconfig, tmp_path, mock_datahub_graph):
 def test_value_error_projects_and_project_pattern(
     pytestconfig, tmp_path, mock_datahub_graph
 ):
-    # Ingestion should raise ValueError
-    output_file_name: str = "tableau_project_pattern_precedence_mces.json"
-    golden_file_name: str = "tableau_project_pattern_precedence_mces_golden.json"
-
     new_config = config_source_default.copy()
     new_config["projects"] = ["default"]
     new_config["project_pattern"] = {"allow": ["^Samples$"]}
 
     with pytest.raises(
-        PipelineInitError,
+        ValidationError,
         match=r".*projects is deprecated. Please use project_path_pattern only.*",
     ):
-        tableau_ingest_common(
-            pytestconfig,
-            tmp_path,
-            mock_data(),
-            golden_file_name,
-            output_file_name,
-            mock_datahub_graph,
-            pipeline_config=new_config,
-        )
+        TableauConfig.parse_obj(new_config)
 
 
 def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph):
-    # Ingestion should raise ValueError
-    output_file_name: str = "tableau_project_pattern_deprecation_mces.json"
-    golden_file_name: str = "tableau_project_pattern_deprecation_mces_golden.json"
-
     new_config = config_source_default.copy()
     del new_config["projects"]
     new_config["project_pattern"] = {"allow": ["^Samples$"]}
     new_config["project_path_pattern"] = {"allow": ["^Samples$"]}
 
     with pytest.raises(
-        PipelineInitError,
+        ValidationError,
         match=r".*project_pattern is deprecated. Please use project_path_pattern only*",
     ):
-        tableau_ingest_common(
-            pytestconfig,
-            tmp_path,
-            mock_data(),
-            golden_file_name,
-            output_file_name,
-            mock_datahub_graph,
-            pipeline_config=new_config,
-        )
+        TableauConfig.parse_obj(new_config)
 
 
 def test_project_path_pattern_allow(pytestconfig, tmp_path, mock_datahub_graph):
@@ -1298,26 +1275,16 @@ def test_hidden_asset_tags(pytestconfig, tmp_path, mock_datahub_graph):
 @pytest.mark.integration
 def test_hidden_assets_without_ingest_tags(pytestconfig, tmp_path, mock_datahub_graph):
     enable_logging()
-    output_file_name: str = "tableau_hidden_asset_tags_error_mces.json"
-    golden_file_name: str = "tableau_hidden_asset_tags_error_mces_golden.json"
 
     new_config = config_source_default.copy()
     new_config["tags_for_hidden_assets"] = ["hidden", "private"]
     new_config["ingest_tags"] = False
 
     with pytest.raises(
-        PipelineInitError,
+        ValidationError,
         match=r".*tags_for_hidden_assets is only allowed with ingest_tags enabled.*",
     ):
-        tableau_ingest_common(
-            pytestconfig,
-            tmp_path,
-            mock_data(),
-            golden_file_name,
-            output_file_name,
-            mock_datahub_graph,
-            pipeline_config=new_config,
-        )
+        TableauConfig.parse_obj(new_config)
 
 
 @freeze_time(FROZEN_TIME)
