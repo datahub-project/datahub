@@ -175,11 +175,11 @@ Great question. We are working on Compliance Forms Analytics that will directly 
 
 ### API Tutorials
 
-- [API Guides on Documentation Form](../../../api/tutorials/forms.md)
+- [Compliance Form API Guide](../../../api/tutorials/forms.md)
 
 ### Related Features
 
-- [DataHub Properties](../../feature-guides/properties.md)
+- [DataHub Structured Properties](../../feature-guides/properties/overview.md)
 
 ## Next Steps
 
