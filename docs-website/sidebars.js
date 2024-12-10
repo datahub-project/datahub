@@ -247,15 +247,10 @@ module.exports = {
             {
               type: "doc",
               id: "docs/features/feature-guides/properties/overview",
-            },
-        
+            },        
             {
               type: "doc",
               id: "docs/features/feature-guides/properties/create-a-property",
-            },
-            {
-              type: "doc",
-              id: "docs/features/feature-guides/properties/use-a-property",
             },
             {
               type: "doc",
