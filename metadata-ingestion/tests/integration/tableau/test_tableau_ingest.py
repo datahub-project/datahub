@@ -24,6 +24,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.tableau.tableau import (
     TableauConfig,
+    TableauProject,
     TableauSiteSource,
     TableauSource,
     TableauSourceReport,
@@ -1270,3 +1271,74 @@ def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_gra
                 "Turn on your derived permissions. See for details "
                 "https://community.tableau.com/s/question/0D54T00000QnjHbSAJ/how-to-fix-the-permissionsmodeswitched-error"
             )
+
+
+@freeze_time(FROZEN_TIME)
+def test_extract_project_hierarchy():
+    context = PipelineContext(run_id="0", pipeline_name="test_tableau")
+
+    config_dict = config_source_default.copy()
+
+    del config_dict["stateful_ingestion"]
+    del config_dict["projects"]
+
+    config_dict["project_pattern"] = {
+        "allow": ["project1", "project4"],
+        "deny": ["project2"],
+    }
+
+    config_dict["extract_project_hierarchy"] = True
+
+    config = TableauConfig.parse_obj(config_dict)
+
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        platform="tableau",
+        site=SiteItem(name="Site 1", content_url="site1"),
+        report=TableauSourceReport(),
+        server=Server("https://test-tableau-server.com"),
+    )
+
+    all_project_map: Dict[str, TableauProject] = {
+        "p1": TableauProject(
+            id="1",
+            name="project1",
+            path=["/project1"],
+            parent_id=None,
+            parent_name=None,
+            description=None,
+        ),
+        "p2": TableauProject(
+            id="2",
+            name="project2",
+            path=["/project2"],
+            parent_id="1",
+            parent_name="project1",
+            description=None,
+        ),
+        "p3": TableauProject(
+            id="3",
+            name="project3",
+            path=["/project3"],
+            parent_id="1",
+            parent_name="project1",
+            description=None,
+        ),
+        "p4": TableauProject(
+            id="4",
+            name="project4",
+            path=["/project4"],
+            parent_id=None,
+            parent_name=None,
+            description=None,
+        ),
+    }
+
+    site_source._init_tableau_project_registry(all_project_map)
+
+    # "project1", "project4" are included because of `allow` pattern
+    # "project3" is included because it is not explicitly denied in `deny` and `extract_project_hierarchy` is enabled
+    assert ["project1", "project4", "project3"] == [
+        project.name for project in site_source.tableau_project_registry.values()
+    ]
