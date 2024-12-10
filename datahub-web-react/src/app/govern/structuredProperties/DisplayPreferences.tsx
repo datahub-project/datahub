@@ -1,6 +1,6 @@
 import { Icon, Pill, Switch, Text } from '@src/alchemy-components';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
-import { AllowedValue, StructuredPropertyEntity, StructuredPropertyFilterStatus } from '@src/types.generated';
+import { AllowedValue, StructuredPropertyEntity } from '@src/types.generated';
 import { Collapse } from 'antd';
 import React, { useState } from 'react';
 import { useUpdateStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
@@ -81,10 +81,7 @@ const DisplayPreferences = ({
                             <Switch
                                 label="Show in Search Filters"
                                 size="sm"
-                                checked={
-                                    formValues?.settings?.showInSearchFilters ||
-                                    formValues?.filterStatus === StructuredPropertyFilterStatus.Enabled
-                                }
+                                checked={formValues?.settings?.showInSearchFilters}
                                 onChange={(e) => handleDisplaySettingChange('showInSearchFilters', e.target.checked)}
                                 isDisabled={formValues?.settings?.isHidden}
                                 labelHoverText="If enabled, this property will appear in search filters"

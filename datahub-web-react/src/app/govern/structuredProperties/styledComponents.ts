@@ -453,3 +453,21 @@ export const EmptyContainer = styled.div`
         height: 160px;
     }
 `;
+
+export const CardIcons = styled.div`
+    display: flex;
+    justify-content: end;
+    gap: 12px;
+
+    div {
+        border: 1px solid $E9EAEE;
+        border-radius: 20px;
+        width: 28px;
+        height: 28px;
+        padding: 4px;
+        color: #8088a3;
+        :hover {
+            cursor: pointer;
+        }
+    }
+`;

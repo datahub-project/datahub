@@ -1240,6 +1240,12 @@ fragment entityDisplayNameFields on Entity {
     ... on DataPlatformInstance {
         instanceId
     }
+    ... on StructuredPropertyEntity {
+        definition {
+            displayName
+            qualifiedName
+        }
+    }
 }
 
 fragment ermodelrelationPropertiesFields on ERModelRelationshipProperties {
@@ -1293,12 +1299,16 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
         cardinality
         immutable
         valueType {
+            urn
+            type
             info {
                 type
                 displayName
             }
         }
         entityTypes {
+            urn
+            type
             info {
                 type
             }
@@ -1325,6 +1335,35 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
             }
             description
         }
+        created {
+            time
+            actor {
+                urn
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+                ...entityDisplayNameFields
+            }
+        }
+        lastModified {
+            time
+            actor {
+                urn
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+                ...entityDisplayNameFields
+            }
+        }
+    }
+    settings {
+        isHidden
+        showInSearchFilters
+        showAsAssetBadge
+        showInAssetSummary
+        showInColumnsTable
     }
 }
 

@@ -1,5 +1,4 @@
-import { colors, Icon, Input, Text, TextArea } from '@src/alchemy-components';
-import { StyledButton } from '@src/app/shared/share/v2/styledComponents';
+import { Button, Icon, Input, Text, TextArea } from '@src/alchemy-components';
 import { AllowedValue } from '@src/types.generated';
 import { Form, FormInstance } from 'antd';
 import { Tooltip } from '@components';
@@ -122,15 +121,15 @@ const AllowedValuesDrawer = ({
 
                         <AddButtonContainer>
                             <Tooltip title="Add a new value to the allowed list" showArrow={false}>
-                                <StyledButton
+                                <Button
                                     onClick={() => {
                                         add();
                                         setTimeout(() => scrollToBottom(), 0);
                                     }}
-                                    $color={colors.violet[500]}
+                                    color={'violet'}
                                 >
                                     Add
-                                </StyledButton>
+                                </Button>
                             </Tooltip>
                         </AddButtonContainer>
                     </FormContainer>

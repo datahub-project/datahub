@@ -1,5 +1,5 @@
 import { Text } from '@components';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import React from 'react';
 import {
@@ -31,7 +31,7 @@ const ViewStructuredPropsDrawer = ({
     selectedProperty,
     setSelectedProperty,
 }: Props) => {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const handleClose = () => {
         setIsViewDrawerOpen(false);

@@ -1,5 +1,5 @@
 import { colors, Icon, Switch, Text } from '@src/alchemy-components';
-import { StructuredPropertyEntity, StructuredPropertyFilterStatus } from '@src/types.generated';
+import { StructuredPropertyEntity } from '@src/types.generated';
 import { Collapse } from 'antd';
 import React from 'react';
 import { CollapseHeader, StyledCollapse, StyledFormItem, TogglesContainer } from './styledComponents';
@@ -44,10 +44,7 @@ const ViewDisplayPreferences = ({ propEntity }: Props) => {
                             <Switch
                                 label="Show in Search Filters"
                                 size="sm"
-                                checked={
-                                    propEntity?.settings?.showInSearchFilters ||
-                                    propEntity?.definition.filterStatus === StructuredPropertyFilterStatus.Enabled
-                                }
+                                checked={propEntity?.settings?.showInSearchFilters}
                                 labelStyle={{ fontSize: 12, color: colors.gray[1700], fontWeight: 700 }}
                                 isDisabled
                             />

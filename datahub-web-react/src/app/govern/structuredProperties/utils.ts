@@ -1,12 +1,11 @@
 import EntityRegistry from '@src/app/entity/EntityRegistry';
-import EntityRegistryV2 from '@src/app/entityV2/EntityRegistry';
-import { mapStructuredPropertyToPropertyRow } from '@src/app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import { mapStructuredPropertyToPropertyRow } from '@src/app/entity/shared/tabs/Properties/useStructuredProperties';
 import {
     ENTITY_TYPES_FILTER_NAME,
     IS_HIDDEN_PROPERTY_FILTER_NAME,
     SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
     SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME,
-} from '@src/app/searchV2/utils/constants';
+} from '@src/app/search/utils/constants';
 import {
     AllowedValue,
     EntityType,
@@ -16,7 +15,6 @@ import {
     SearchResult,
     StructuredProperties,
     StructuredPropertyEntity,
-    StructuredPropertyFilterStatus,
     StructuredPropertySettings,
 } from '@src/types.generated';
 
@@ -33,7 +31,6 @@ export type StructuredProp = {
     immutable?: boolean;
     allowedValues?: AllowedValue[];
     settings?: StructuredPropertySettings | null;
-    filterStatus?: StructuredPropertyFilterStatus; // deprecated, need to support for backwards compatibility
 };
 
 export const valueTypes = [
@@ -136,7 +133,7 @@ export const APPLIES_TO_ENTITIES = [
     EntityType.SchemaField,
 ];
 
-export const getEntityTypeUrn = (entityRegistry: EntityRegistry | EntityRegistryV2, entityType: EntityType) => {
+export const getEntityTypeUrn = (entityRegistry: EntityRegistry, entityType: EntityType) => {
     return `urn:li:entityType:datahub.${entityRegistry.getGraphNameFromType(entityType)}`;
 };
 
@@ -238,7 +235,7 @@ export const getShowInAssetSummaryPropertyFilter = () => {
 };
 
 export const getEntityTypesPropertyFilter = (
-    entityRegistry: EntityRegistry | EntityRegistryV2,
+    entityRegistry: EntityRegistry,
     isSchemaField: boolean,
     entityType?: EntityType,
 ) => {

@@ -27,6 +27,7 @@ import { Link } from 'react-router-dom';
 import { removeFromPropertiesList } from './cacheUtils';
 import EmptyStructuredProperties from './EmptyStructuredProperties';
 import {
+    CardIcons,
     CreatedByContainer,
     DataContainer,
     IconContainer,
@@ -234,7 +235,7 @@ const StructuredPropsTable = ({
                 return (
                     <>
                         {createdByUser && (
-                            <HoverEntityTooltip entity={createdByUser as Entity} showArrow={false}>
+                            <HoverEntityTooltip entity={createdByUser as Entity}>
                                 <Link
                                     to={`${entityRegistry.getEntityUrl(
                                         EntityType.CorpUser,

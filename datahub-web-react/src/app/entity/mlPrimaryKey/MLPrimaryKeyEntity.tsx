@@ -51,6 +51,8 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
 
     getAutoCompleteFieldName = () => 'name';
 
+    getGraphName = () => 'mlPrimaryKey';
+
     getPathName = () => 'mlPrimaryKeys';
 
     getEntityName = () => 'ML Primary Key';

@@ -930,6 +930,9 @@ fragment searchResultsWithoutSchemaField on Entity {
     ... on BusinessAttribute {
         ...businessAttributeFields
     }
+    ... on StructuredPropertyEntity {
+        ...structuredPropertyFields
+    }
 }
 
 fragment searchResultFields on Entity {

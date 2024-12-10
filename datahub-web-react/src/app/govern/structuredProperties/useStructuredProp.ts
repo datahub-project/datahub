@@ -1,4 +1,4 @@
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { EntityType, PropertyCardinality, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
 import { FormInstance } from 'antd';
 import { useMemo } from 'react';
@@ -19,7 +19,7 @@ export default function useStructuredProp({
     setCardinality,
     setSelectedValueType,
 }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const getEntitiesListOptions = (entitiesList: EntityType[]) => {
         const listOptions: { label: string; value: string }[] = [];

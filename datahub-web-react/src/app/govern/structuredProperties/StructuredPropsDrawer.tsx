@@ -15,7 +15,6 @@ import {
     SearchResult,
     SearchResults,
     StructuredPropertyEntity,
-    StructuredPropertyFilterStatus,
     UpdateStructuredPropertyInput,
 } from '@src/types.generated';
 import { Form } from 'antd';
@@ -126,11 +125,6 @@ const StructuredPropsDrawer = ({
                     allowedValues,
                 };
 
-                let filterStatus: StructuredPropertyFilterStatus | null = null;
-                if (updateValues.settings?.showInSearchFilters === false) {
-                    filterStatus = StructuredPropertyFilterStatus.Disabled;
-                }
-
                 const editInput: UpdateStructuredPropertyInput = {
                     urn: selectedProperty.entity.urn,
                     displayName: updateValues.displayName,
@@ -150,7 +144,6 @@ const StructuredPropsDrawer = ({
                         updateValues,
                     ),
                     setCardinalityAsMultiple: cardinality === PropertyCardinality.Multiple,
-                    filterStatus: filterStatus ?? undefined,
                     settings: {
                         isHidden: updateValues.settings?.isHidden ?? false,
                         showInSearchFilters: updateValues.settings?.showInSearchFilters ?? false,
@@ -268,7 +261,6 @@ const StructuredPropsDrawer = ({
                 },
                 immutable: entity.definition.immutable,
                 settings: entity.settings,
-                filterStatus: entity.definition.filterStatus,
             };
 
             setFormValues(values);
