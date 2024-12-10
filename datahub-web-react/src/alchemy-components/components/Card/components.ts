@@ -2,7 +2,7 @@ import { colors, radius, spacing, typography } from '@src/alchemy-components/the
 import { IconAlignmentOptions } from '@src/alchemy-components/theme/config';
 import styled from 'styled-components';
 
-export const CardContainer = styled.div<{ hasButton: boolean; width?: string }>(({ hasButton, width }) => ({
+export const CardContainer = styled.div<{ hasButton?: boolean; width?: string }>(({ hasButton, width }) => ({
     border: `1px solid ${colors.gray[100]}`,
     borderRadius: radius.lg,
     padding: spacing.md,

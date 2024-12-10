@@ -5,9 +5,13 @@ import { DAYS_IN_WEEK, MIN_GAP_SIZE, MIN_SQUARE_SIZE } from './constants';
 
 export type CalendarContextState<ValueType = any> = {
     data: MonthData<ValueType>[];
+    parentWidth: number;
+    parentHeight: number;
     squareSize: number;
     squareGap: number;
     margin: Margin;
+    countOfWeeks: number;
+    countOfMonths: number;
     popoverRenderer?: (day: DayData<ValueType>) => React.ReactNode;
     colorAccessor: (value?: ValueType) => string;
 };
@@ -70,8 +74,12 @@ export function CalendarProvider<ValueType>({
         <CalendarContext.Provider
             value={{
                 data,
+                parentWidth: width,
+                parentHeight: height,
                 squareSize,
                 squareGap,
+                countOfWeeks,
+                countOfMonths,
                 colorAccessor,
                 popoverRenderer,
                 margin: calendarMargin,

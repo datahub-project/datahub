@@ -7,6 +7,18 @@ export const ChartWrapper = styled.div`
     position: relative;
 `;
 
+export const CalendarWrapper = styled.div`
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    overflow-x: auto;
+`;
+
+export const CalendarInnerWrapper = styled.div<{ $width: string }>`
+    width: ${(props) => props.$width};
+`;
+
 export const StyledBar = styled(Bar)`
     cursor: pointer;
 

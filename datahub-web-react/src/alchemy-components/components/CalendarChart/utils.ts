@@ -173,7 +173,10 @@ export function generateMockData(
         });
 }
 
-export function getMockedProps(): CalendarChartProps<MockCalendarValue> {
+export function getMockedProps(
+    startDate = '2024-01-01',
+    endDate = '2024-12-31',
+): CalendarChartProps<MockCalendarValue> {
     const data = generateMockData(150, '2024-11-30');
 
     const colorAccessor = getColorAccessor<MockCalendarValue>(
@@ -193,8 +196,8 @@ export function getMockedProps(): CalendarChartProps<MockCalendarValue> {
 
     return {
         data,
-        startDate: '2024-01-01',
-        endDate: '2024-12-31',
+        startDate,
+        endDate,
         colorAccessor,
     };
 }

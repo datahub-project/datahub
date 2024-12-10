@@ -1,4 +1,5 @@
-import { TickFormatter, TickLabelProps } from '@visx/axis';
+import { AxisScaleOutput, TickFormatter, TickLabelProps } from '@visx/axis';
+import { ScaleConfig } from '@visx/scale';
 import { Margin } from '@visx/xychart';
 import { RenderTooltipGlyphProps } from '@visx/xychart/lib/components/Tooltip';
 import React from 'react';
@@ -19,4 +20,7 @@ export type LineChartProps<DatumType extends object> = {
     renderGradients?: () => React.ReactNode;
     toolbarVerticalCrosshairStyle?: React.SVGProps<SVGLineElement>;
     renderTooltipGlyph?: (props: RenderTooltipGlyphProps<object>) => React.ReactNode | undefined;
+    isEmpty?: boolean;
+    xScale?: ScaleConfig<AxisScaleOutput, any, any>;
+    yScale?: ScaleConfig<AxisScaleOutput, any, any>;
 };

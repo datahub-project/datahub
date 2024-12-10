@@ -49,6 +49,18 @@ export const abbreviateNumber = (str) => {
     return `${shortNumber}${suffix}`;
 };
 
+// Byte Abbreviations
+export const abbreviateBytes = (str): string => {
+    const bytes = parseFloat(str);
+    if (Number.isNaN(bytes)) return str;
+    if (bytes < 1024) return `${bytes} B`;
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const index = Math.floor(Math.log(bytes) / Math.log(1024));
+    const shortBytes = bytes / 1024 ** index;
+
+    return `${abbreviateNumber(shortBytes.toFixed())} ${units[index]}`;
+};
+
 type CalculateYScaleExtentForChartOptions = {
     defaultYValue: number;
     // Between 0-1, represents what % of the chart's height should be empty above and below.

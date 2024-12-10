@@ -8,6 +8,7 @@ import { Calendar } from './private/components/Calendar';
 import { CalendarProvider } from './private/context';
 import { CalendarChartProps } from './types';
 import { prepareCalendarData } from './utils';
+import { CalendarContainer } from './private/components/CalendarContainer';
 
 const commonLabelProps = {
     fill: colors.gray[1700],
@@ -25,6 +26,7 @@ export const calendarChartDefault: Omit<CalendarChartProps<any>, 'colorAccessor'
         ...commonLabelProps,
         textAnchor: 'middle',
     },
+    maxHeight: 350,
 };
 
 export function CalendarChart<ValueType = any>({
@@ -36,6 +38,7 @@ export function CalendarChart<ValueType = any>({
     leftAxisLabelProps = calendarChartDefault.leftAxisLabelProps,
     bottomAxisLabelProps = calendarChartDefault.bottomAxisLabelProps,
     margin,
+    maxHeight = calendarChartDefault.maxHeight,
 }: CalendarChartProps<ValueType>) {
     const preparedData = useMemo(
         () => prepareCalendarData<ValueType>(data, startDate, endDate),
@@ -47,21 +50,21 @@ export function CalendarChart<ValueType = any>({
             <ParentSize>
                 {({ width, height }) => {
                     return (
-                        <svg width={width} height={height}>
-                            <CalendarProvider<ValueType>
-                                data={preparedData}
-                                width={width}
-                                height={height}
-                                margin={margin}
-                                colorAccessor={colorAccessor}
-                                popoverRenderer={popoverRenderer}
-                            >
+                        <CalendarProvider<ValueType>
+                            data={preparedData}
+                            width={width}
+                            height={maxHeight ?? height}
+                            margin={margin}
+                            colorAccessor={colorAccessor}
+                            popoverRenderer={popoverRenderer}
+                        >
+                            <CalendarContainer>
                                 <AxisLeftWeekdays<ValueType> labelProps={leftAxisLabelProps} />
                                 <AxisBottomMonths<ValueType> labelProps={bottomAxisLabelProps} />
 
                                 <Calendar<ValueType> data={preparedData} />
-                            </CalendarProvider>
-                        </svg>
+                            </CalendarContainer>
+                        </CalendarProvider>
                     );
                 }}
             </ParentSize>

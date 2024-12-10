@@ -4,12 +4,13 @@ import { TickLabelProps } from '@visx/axis';
 import { curveMonotoneX } from '@visx/curve';
 import { LinearGradient } from '@visx/gradient';
 import { ParentSize } from '@visx/responsive';
-import { AreaSeries, Axis, AxisScale, Grid, LineSeries, Tooltip, XYChart } from '@visx/xychart';
+import { AreaSeries, Axis, AxisScale, Grid, Tooltip, XYChart } from '@visx/xychart';
 import dayjs from 'dayjs';
 import React, { useState } from 'react';
 import { Popover } from '../Popover';
 import { ChartWrapper } from './components';
 import { LineChartProps } from './types';
+import { getMockedProps } from '../BarChart/utils';
 
 const commonTickLabelProps: TickLabelProps<any> = {
     fontSize: 10,
@@ -31,6 +32,7 @@ export const lineChartDefault: LineChartProps<any> = {
     leftAxisTickLabelProps: {
         ...commonTickLabelProps,
         textAnchor: 'end',
+        width: 50,
     },
     bottomAxisTickFormat: (x) => dayjs(x).format('D MMM'),
     bottomAxisTickLabelProps: {
@@ -57,6 +59,8 @@ export const lineChartDefault: LineChartProps<any> = {
             </>
         );
     },
+    xScale: { type: 'time' },
+    yScale: { type: 'log', nice: true, round: true, base: 2 },
 };
 
 export function LineChart<DatumType extends object>({
@@ -75,18 +79,28 @@ export function LineChart<DatumType extends object>({
     renderGradients = lineChartDefault.renderGradients,
     toolbarVerticalCrosshairStyle = lineChartDefault.toolbarVerticalCrosshairStyle,
     renderTooltipGlyph = lineChartDefault.renderTooltipGlyph,
+    isEmpty,
+    xScale = lineChartDefault.xScale,
+    yScale = lineChartDefault.yScale,
 }: LineChartProps<DatumType>) {
     const [showGrid, setShowGrid] = useState<boolean>(false);
 
     // FYI: additional margins to show left and bottom axises
     const internalMargin = {
         top: (margin?.top ?? 0) + 30,
-        right: (margin?.right ?? 0) + 20,
+        right: (margin?.right ?? 0) + 30,
         bottom: (margin?.bottom ?? 0) + 35,
         left: (margin?.left ?? 0) + 40,
     };
 
     const accessors = { xAccessor, yAccessor };
+
+    // In case of no data we should render empty graph with axises
+    // but they don't render at all without any data.
+    // To handle this case we will render the same graph with fake data and hide bars
+    if (!data.length) {
+        return <LineChart {...getMockedProps()} isEmpty />;
+    }
 
     return (
         <ChartWrapper onMouseEnter={() => setShowGrid(true)} onMouseLeave={() => setShowGrid(false)}>
@@ -96,10 +110,10 @@ export function LineChart<DatumType extends object>({
                         <XYChart
                             width={width}
                             height={height}
-                            xScale={{ type: 'time' }}
-                            yScale={{ type: 'linear', nice: true, round: true }}
+                            xScale={xScale}
+                            yScale={yScale}
                             margin={internalMargin}
-                            captureEvents
+                            captureEvents={!isEmpty}
                         >
                             {renderGradients?.()}
 
@@ -135,15 +149,9 @@ export function LineChart<DatumType extends object>({
                             <AreaSeries<AxisScale, AxisScale, DatumType>
                                 dataKey="line-chart-seria-01"
                                 data={data}
-                                fill={areaColor}
+                                fill={!isEmpty ? areaColor : 'transparent'}
                                 curve={curveMonotoneX}
-                                {...accessors}
-                            />
-                            <LineSeries<AxisScale, AxisScale, DatumType>
-                                dataKey="line-chart-seria-01"
-                                data={data}
-                                stroke={lineColor}
-                                curve={curveMonotoneX}
+                                lineProps={{ stroke: !isEmpty ? lineColor : 'transparent' }}
                                 {...accessors}
                             />
 

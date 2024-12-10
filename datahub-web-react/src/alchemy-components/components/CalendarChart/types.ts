@@ -41,6 +41,7 @@ export type CalendarChartProps<ValueType> = {
     leftAxisLabelProps?: LabelProps;
     bottomAxisLabelProps?: LabelProps;
     margin?: Margin;
+    maxHeight?: number;
 };
 
 export type CalendarProps<ValueType> = {
@@ -70,4 +71,8 @@ export type AxisLeftWeekdaysProps = {
 
 export type AxisBottomMonthsProps = {
     labelProps?: LabelProps;
+};
+
+export type CalendarContainerProps = {
+    children: React.ReactNode;
 };
