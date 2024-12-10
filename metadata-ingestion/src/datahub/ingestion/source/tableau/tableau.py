@@ -269,7 +269,7 @@ class TableauConnectionConfig(ConfigModel):
             "The user does not possess the `Site Administrator Explorer` role."
         )
 
-        mitigation_message: str = "Assign `Site Administrator Explorer` role to the user {}. Refer setup guide: https://datahubproject.io/docs/quick-ingestion-guides/tableau/setup"
+        mitigation_message: str = "Assign `Site Administrator Explorer` role to the user {}. Refer to the setup guide: https://datahubproject.io/docs/quick-ingestion-guides/tableau/setup"
 
         try:
             # TODO: Add check for `Enable Derived Permissions`
