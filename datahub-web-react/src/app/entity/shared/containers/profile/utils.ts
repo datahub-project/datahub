@@ -231,7 +231,7 @@ export function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityTy
     const sortedTabs = [...tabs];
 
     if (entityType === EntityType.Domain && appConfig.visualConfig.entityProfiles?.domain?.defaultTab) {
-        const defaultTabId = appConfig.visualConfig.entityProfiles?.domain.defaultTab;
+        const defaultTabId = appConfig.visualConfig.entityProfiles?.domain?.defaultTab;
         sortTabsWithDefaultTabId(sortedTabs, defaultTabId);
     }
 

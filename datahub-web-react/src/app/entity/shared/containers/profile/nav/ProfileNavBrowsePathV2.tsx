@@ -87,7 +87,7 @@ export default function ProfileNavBrowsePathV2({ urn, type }: Props) {
                         {entityRegistry.getDisplayName(EntityType.DataPlatform, entityData.platform)}
                     </BreadcrumbItem>
                 )}
-                {entityData?.browsePathV2?.path.map((pathEntry, index) => (
+                {entityData?.browsePathV2?.path?.map((pathEntry, index) => (
                     <BreadcrumbItem
                         key={pathEntry.name}
                         disabled={!isBrowsable}

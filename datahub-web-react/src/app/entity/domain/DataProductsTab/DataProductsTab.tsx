@@ -70,7 +70,7 @@ export default function DataProductsTab() {
         },
     });
     const totalResults = data?.searchAcrossEntities?.total || 0;
-    const searchResults = data?.searchAcrossEntities?.searchResults.map((r) => r.entity) || [];
+    const searchResults = data?.searchAcrossEntities?.searchResults?.map((r) => r.entity) || [];
     const dataProducts = [...createdDataProducts, ...searchResults];
     const displayedDataProducts = dataProducts
         .map(
