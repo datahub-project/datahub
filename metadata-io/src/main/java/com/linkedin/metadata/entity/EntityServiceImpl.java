@@ -2536,16 +2536,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       Optional<SystemMetadata> latestSystemMetadataDiff =
           systemMetadataDiff(
               txContext,
+              writeItem.getUrn(),
               previousBatchAspect.getSystemMetadata(),
               writeItem.getSystemMetadata(),
               databaseAspect == null ? null : databaseAspect.getSystemMetadata());
 
       if (latestSystemMetadataDiff.isPresent()) {
-        // Update previous version since that is what is re-written
-        previousBatchAspect
-            .getEntityAspect()
-            .setSystemMetadata(RecordUtils.toJsonString(latestSystemMetadataDiff.get()));
-
         // Inserts & update order is not guaranteed, flush the insert for potential updates within
         // same tx
         if (databaseAspect == null && txContext != null) {
@@ -2560,13 +2556,25 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         conditionalLogLevel(
             txContext,
             String.format(
-                "Update aspect with name %s, urn %s, txContext: %s, databaseAspect: %s, newAspect: %s",
+                "Update aspect with name %s, urn %s, txContext: %s, databaseAspect: %s, newMetadata: %s newSystemMetadata: %s",
                 previousBatchAspect.getAspectName(),
                 previousBatchAspect.getUrn(),
                 txContext != null,
                 databaseAspect == null ? null : databaseAspect.getEntityAspect(),
-                previousBatchAspect.getEntityAspect()));
-        aspectDao.saveAspect(txContext, previousBatchAspect.getEntityAspect(), false);
+                previousBatchAspect.getEntityAspect().getMetadata(),
+                latestSystemMetadataDiff.get()));
+
+        aspectDao.saveAspect(
+            txContext,
+            previousBatchAspect.getUrnRaw(),
+            previousBatchAspect.getAspectName(),
+            previousBatchAspect.getMetadataRaw(),
+            previousBatchAspect.getCreatedBy(),
+            null,
+            previousBatchAspect.getCreatedOn(),
+            RecordUtils.toJsonString(latestSystemMetadataDiff.get()),
+            previousBatchAspect.getVersion(),
+            false);
 
         // metrics
         aspectDao.incrementWriteMetrics(
@@ -2661,13 +2669,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private static Optional<SystemMetadata> systemMetadataDiff(
       @Nullable TransactionContext txContext,
+      @Nonnull Urn urn,
       @Nullable SystemMetadata previous,
       @Nonnull SystemMetadata current,
       @Nullable SystemMetadata database) {
 
     SystemMetadata latestSystemMetadata = GenericRecordUtils.copy(previous, SystemMetadata.class);
 
-    latestSystemMetadata.setLastRunId(previous.getRunId(), SetMode.REMOVE_IF_NULL);
+    latestSystemMetadata.setLastRunId(latestSystemMetadata.getRunId(), SetMode.REMOVE_IF_NULL);
     latestSystemMetadata.setLastObserved(current.getLastObserved(), SetMode.IGNORE_NULL);
     latestSystemMetadata.setRunId(current.getRunId(), SetMode.REMOVE_IF_NULL);
 
@@ -2677,7 +2686,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       conditionalLogLevel(
           txContext,
           String.format(
-              "systemMetdataDiff: %s != %s AND %s",
+              "systemMetdataDiff urn %s, %s != %s AND %s",
+              urn,
               RecordUtils.toJsonString(latestSystemMetadata),
               previous == null ? null : RecordUtils.toJsonString(previous),
               database == null ? null : RecordUtils.toJsonString(database)));
