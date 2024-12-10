@@ -384,6 +384,10 @@ argument_list:  WS_INLINE? expression
             |   "\"" identifier "\"" "," argument_list
             |   "[" identifier "]"
             |   "[" identifier "]" "," argument_list
+            |   "{{" identifier "}}"
+            |   "{{" identifier "," argument_list "," "}}"
+            |   "{{" expression "}}"
+            |   "{{" expression "," argument_list "," "}}"
             |   empty_string
             |   empty_string "," argument_list
             |   WS_INLINE
