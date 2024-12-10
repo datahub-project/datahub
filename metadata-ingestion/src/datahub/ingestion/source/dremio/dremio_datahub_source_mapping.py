@@ -31,6 +31,7 @@ class DremioToDataHubSourceTypeMapping:
         "SNOWFLAKE": "snowflake",
         "SYNAPSE": "mssql",
         "TERADATA": "teradata",
+        "VERTICA": "vertica",
     }
 
     DATABASE_SOURCE_TYPES = {
@@ -52,6 +53,7 @@ class DremioToDataHubSourceTypeMapping:
         "SNOWFLAKE",
         "SYNAPSE",
         "TERADATA",
+        "VERTICA",
     }
 
     FILE_OBJECT_STORAGE_TYPES = {
