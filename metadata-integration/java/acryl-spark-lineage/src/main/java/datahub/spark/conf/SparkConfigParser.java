@@ -31,6 +31,7 @@ public class SparkConfigParser {
   public static final String FILE_EMITTER_FILE_NAME = "file.filename";
   public static final String DISABLE_SSL_VERIFICATION_KEY = "rest.disable_ssl_verification";
   public static final String REST_DISABLE_CHUNKED_ENCODING = "rest.disable_chunked_encoding";
+  public static final String CONFIG_LOG_MCPS = "log.mcps";
 
   public static final String MAX_RETRIES = "rest.max_retries";
   public static final String RETRY_INTERVAL_IN_SEC = "rest.retry_interval_in_sec";
@@ -158,6 +159,7 @@ public class SparkConfigParser {
       Config sparkConfig, SparkAppContext sparkAppContext) {
     DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
         DatahubOpenlineageConfig.builder();
+    builder.isSpark(true);
     builder.filePartitionRegexpPattern(
         SparkConfigParser.getFilePartitionRegexpPattern(sparkConfig));
     builder.fabricType(SparkConfigParser.getCommonFabricType(sparkConfig));
@@ -309,6 +311,13 @@ public class SparkConfigParser {
   public static boolean isDatasetMaterialize(Config datahubConfig) {
     return datahubConfig.hasPath(DATASET_MATERIALIZE_KEY)
         && datahubConfig.getBoolean(DATASET_MATERIALIZE_KEY);
+  }
+
+  public static boolean isLogMcps(Config datahubConfig) {
+    if (datahubConfig.hasPath(CONFIG_LOG_MCPS)) {
+      return datahubConfig.getBoolean(CONFIG_LOG_MCPS);
+    }
+    return true;
   }
 
   public static boolean isIncludeSchemaMetadata(Config datahubConfig) {

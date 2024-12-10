@@ -814,4 +814,32 @@ public class OpenLineageEventToDatahubTest extends TestCase {
           dataset.getUrn().toString());
     }
   }
+
+  public void testProcessMappartitionJob() throws URISyntaxException, IOException {
+    DatahubOpenlineageConfig.DatahubOpenlineageConfigBuilder builder =
+        DatahubOpenlineageConfig.builder();
+    builder.fabricType(FabricType.DEV);
+    builder.lowerCaseDatasetUrns(true);
+    builder.materializeDataset(true);
+    builder.includeSchemaMetadata(true);
+    builder.isSpark(true);
+
+    String olEvent =
+        IOUtils.toString(
+            this.getClass().getResourceAsStream("/ol_events/map_partition_job.json"),
+            StandardCharsets.UTF_8);
+
+    OpenLineage.RunEvent runEvent = OpenLineageClientUtils.runEventFromJson(olEvent);
+    DatahubJob datahubJob = OpenLineageToDataHub.convertRunEventToJob(runEvent, builder.build());
+
+    assertNotNull(datahubJob);
+
+    assertEquals(1, datahubJob.getInSet().size());
+    for (DatahubDataset dataset : datahubJob.getInSet()) {
+      assertEquals(
+          "urn:li:dataset:(urn:li:dataPlatform:s3,my-bucket/my_dir/my_file.csv,DEV)",
+          dataset.getUrn().toString());
+    }
+    assertEquals(0, datahubJob.getOutSet().size());
+  }
 }
