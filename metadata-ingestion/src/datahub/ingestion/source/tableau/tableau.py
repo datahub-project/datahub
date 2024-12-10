@@ -276,7 +276,7 @@ class TableauConnectionConfig(ConfigModel):
             if not logged_in_user.is_site_administrator_explorer():
                 capability_dict[c.SITE_PERMISSION] = CapabilityReport(
                     capable=False,
-                    failure_reason=f"{failure_reason} User current role is {logged_in_user.site_role()}",
+                    failure_reason=f"{failure_reason} Their current role is {logged_in_user.site_role()}.",
                     mitigation_message=mitigation_message.format(
                         logged_in_user.user_name()
                     ),
