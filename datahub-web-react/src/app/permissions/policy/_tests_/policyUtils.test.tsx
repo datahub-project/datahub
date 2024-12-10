@@ -1,4 +1,4 @@
-import { PolicyMatchCondition } from '@src/types.generated';
+import { PolicyMatchCondition } from '../../../../types.generated';
 import {
     addOrUpdatePoliciesInList,
     updateListPoliciesCache,
