@@ -17,7 +17,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -34,7 +34,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -51,7 +51,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -70,7 +70,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -87,7 +87,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -108,7 +108,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -125,7 +125,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -142,7 +142,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -161,7 +161,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -178,7 +178,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -199,7 +199,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -216,7 +216,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -233,7 +233,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -252,7 +252,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -269,7 +269,120 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "tableau",
+                "project_id": "79d02655-88e5-45a6-9f9b-eeaf5fe54903"
+            },
+            "name": "DenyProject"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tableau"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Project"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -281,8 +394,7 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9",
-                "permissions": "[{\"group\": \"AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer\", \"capabilities\": [\"Read\", \"ViewComments\"]}]"
+                "workbook_id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15995",
             "name": "Email Performance by Campaign",
@@ -293,7 +405,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -310,7 +422,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -327,7 +439,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -346,7 +458,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -373,7 +485,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -390,7 +502,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -412,7 +524,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -424,8 +536,7 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "661fabd0-bed6-8610-e066-0694a81a6cea",
-                "permissions": "[{\"group\": \"AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer\", \"capabilities\": [\"Read\", \"ViewComments\"]}]"
+                "workbook_id": "661fabd0-bed6-8610-e066-0694a81a6cea"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15619",
             "name": "Dvdrental Workbook",
@@ -436,7 +547,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -453,7 +564,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -470,7 +581,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -489,7 +600,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -516,7 +627,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -537,7 +648,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -554,7 +665,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -576,7 +687,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -588,8 +699,7 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
-                "permissions": "[{\"group\": \"AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer\", \"capabilities\": [\"Read\", \"ViewComments\"]}]"
+                "workbook_id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15605",
             "name": "Executive Dashboard",
@@ -600,7 +710,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -617,7 +727,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -634,7 +744,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -653,7 +763,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -680,7 +790,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -697,7 +807,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -719,7 +829,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -731,8 +841,7 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "bd040833-8f66-22c0-1b51-bd4ccf5eef7c",
-                "permissions": "[{\"group\": \"AB_XY00-Tableau-Access_A_123_PROJECT_XY_Consumer\", \"capabilities\": [\"Read\", \"ViewComments\"]}]"
+                "workbook_id": "bd040833-8f66-22c0-1b51-bd4ccf5eef7c"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/17904",
             "name": "Workbook published ds",
@@ -743,7 +852,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -760,7 +869,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -777,7 +886,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -796,7 +905,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -823,7 +932,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -840,7 +949,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -862,7 +971,153 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "tableau",
+                "workbook_id": "ee012e36-d916-4c21-94ab-f0d66736af4e"
+            },
+            "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/17904",
+            "name": "Deny Pattern WorkBook",
+            "description": ""
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:tableau"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Workbook"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jawadqu@gmail.com",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:595877512935338b94eac9e06cf20607",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b",
+                    "urn": "urn:li:container:5ec314b9630974ec084f5dfd3849f87b"
+                },
+                {
+                    "id": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce",
+                    "urn": "urn:li:container:beaddce9d1e89ab503ae6408fb77d4ce"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -884,7 +1139,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -956,7 +1211,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -973,7 +1228,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -1147,7 +1402,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -1173,7 +1428,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -1233,7 +1488,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -1243,7 +1505,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -1260,7 +1522,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -1720,7 +1982,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -1746,7 +2008,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -1806,7 +2068,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -1816,7 +2085,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -1833,7 +2102,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -2345,7 +2614,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -2371,7 +2640,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -2431,7 +2700,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -2441,7 +2717,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -2458,7 +2734,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -2866,7 +3142,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -2892,7 +3168,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -2952,7 +3228,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -2962,7 +3245,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -2979,7 +3262,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -3023,7 +3306,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -3049,7 +3332,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -3109,7 +3392,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -3119,7 +3409,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -3136,7 +3426,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -3348,7 +3638,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -3374,7 +3664,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -3437,6 +3727,12 @@
                         "tags": [
                             {
                                 "tag": "urn:li:tag:TagSheet3"
+                            },
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
                             }
                         ]
                     }
@@ -3448,7 +3744,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -3465,7 +3761,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -3552,7 +3848,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -3578,7 +3874,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -3641,7 +3937,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -3651,7 +3954,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -3668,7 +3971,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -4065,7 +4368,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -4091,7 +4394,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -4154,7 +4457,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -4164,7 +4474,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -4181,7 +4491,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -4546,7 +4856,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -4572,7 +4882,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -4635,7 +4945,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -4645,7 +4962,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -4662,7 +4979,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -5059,7 +5376,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -5085,7 +5402,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -5145,7 +5462,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -5155,7 +5479,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -5172,7 +5496,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -5453,7 +5777,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -5479,7 +5803,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -5542,7 +5866,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -5552,7 +5883,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -5569,7 +5900,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -5827,7 +6158,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -5853,7 +6184,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -5913,7 +6244,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -5923,7 +6261,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -5940,7 +6278,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -6224,7 +6562,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -6250,7 +6588,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -6313,7 +6651,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -6323,7 +6668,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -6340,7 +6685,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -6676,7 +7021,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -6702,7 +7047,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -6765,7 +7110,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -6775,7 +7127,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -6792,7 +7144,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -7102,7 +7454,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -7128,7 +7480,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -7188,7 +7540,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -7198,7 +7557,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -7215,7 +7574,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -7444,7 +7803,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -7470,7 +7829,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -7533,7 +7892,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -7543,7 +7909,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -7560,7 +7926,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -7818,7 +8184,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -7844,7 +8210,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -7904,7 +8270,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -7914,7 +8287,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -7931,7 +8304,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -8082,7 +8455,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -8108,7 +8481,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -8171,7 +8544,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -8181,7 +8561,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -8198,7 +8578,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -8534,7 +8914,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -8560,7 +8940,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -8623,7 +9003,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -8633,7 +9020,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -8650,7 +9037,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -8882,7 +9269,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -8908,7 +9295,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -8971,7 +9358,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -8981,7 +9375,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -8998,7 +9392,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -9256,7 +9650,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -9282,7 +9676,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -9345,7 +9739,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -9355,7 +9756,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -9372,7 +9773,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -9656,7 +10057,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -9682,7 +10083,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -9742,7 +10143,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -9752,7 +10160,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -9769,7 +10177,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10108,7 +10516,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10134,7 +10542,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10194,7 +10602,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 }
             ]
@@ -10204,7 +10619,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10221,7 +10636,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10308,7 +10723,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10334,7 +10749,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10356,7 +10771,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10383,7 +10798,6 @@
                             "urn:li:chart:(tableau,f4317efd-c3e6-6ace-8fe6-e71b590bbbcc)"
                         ],
                         "datasets": [],
-                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1640200234000,
@@ -10431,7 +10845,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10448,7 +10862,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10474,7 +10888,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10496,7 +10910,6 @@
                             "urn:li:chart:(tableau,8a6a269a-d6de-fae4-5050-513255b40ffc)"
                         ],
                         "datasets": [],
-                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1639773866000,
@@ -10512,7 +10925,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 },
                 {
@@ -10544,7 +10964,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10561,7 +10981,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10587,7 +11007,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10607,7 +11027,6 @@
                         "description": "",
                         "charts": [],
                         "datasets": [],
-                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1639773866000,
@@ -10623,7 +11042,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 },
                 {
@@ -10655,7 +11081,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10672,7 +11098,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10698,7 +11124,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10732,7 +11158,6 @@
                             "urn:li:chart:(tableau,f76d3570-23b8-f74b-d85c-cc5484c2079c)"
                         ],
                         "datasets": [],
-                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1639768450000,
@@ -10748,7 +11173,14 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.common.GlobalTags": {
-                        "tags": []
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:hidden"
+                            },
+                            {
+                                "tag": "urn:li:tag:private"
+                            }
+                        ]
                     }
                 },
                 {
@@ -10780,7 +11212,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10797,7 +11229,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -10823,7 +11255,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -11168,7 +11600,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -12966,7 +13398,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -12985,7 +13417,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -13002,7 +13434,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -13028,7 +13460,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -13044,7 +13476,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
                     "type": "TRANSFORMED"
                 },
                 {
@@ -13052,7 +13484,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
                     "type": "TRANSFORMED"
                 }
             ],
@@ -13130,7 +13562,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -13380,7 +13812,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -13399,7 +13831,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -13416,7 +13848,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -13442,7 +13874,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -13476,7 +13908,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -13898,7 +14330,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -13917,7 +14349,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -13934,7 +14366,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -13960,7 +14392,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -14396,7 +14828,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -15153,7 +15585,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -15172,7 +15604,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -15189,7 +15621,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -15215,7 +15647,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -15362,7 +15794,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -21987,7 +22419,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -22006,7 +22438,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -22023,7 +22455,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -22049,7 +22481,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -22239,7 +22671,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -26150,7 +26582,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -26169,7 +26601,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -26186,7 +26618,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -26212,7 +26644,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -26364,7 +26796,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -31537,7 +31969,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -31556,7 +31988,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -31573,7 +32005,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -31599,7 +32031,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -31723,7 +32155,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -31960,7 +32392,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -31979,7 +32411,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -31996,7 +32428,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -32022,7 +32454,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -32072,7 +32504,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -32199,7 +32631,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -32218,7 +32650,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -32235,7 +32667,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -32261,7 +32693,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -32366,7 +32798,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -32653,7 +33085,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -32672,7 +33104,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -32689,7 +33121,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -32711,7 +33143,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -32846,7 +33278,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -33733,7 +34165,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -33752,7 +34184,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -33769,7 +34201,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -33791,7 +34223,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -33808,7 +34240,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -33842,7 +34274,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -33978,7 +34410,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -33998,7 +34430,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -34024,7 +34456,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -34041,7 +34473,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -34083,7 +34515,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -34231,7 +34663,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -34251,7 +34683,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -34273,7 +34705,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -34361,7 +34793,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -34381,7 +34813,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -34405,7 +34837,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -34570,7 +35002,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -34597,7 +35029,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -34834,7 +35266,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -34861,7 +35293,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -35074,7 +35506,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -35101,7 +35533,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -35266,7 +35698,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -35293,7 +35725,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -35446,7 +35878,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -35473,7 +35905,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -35614,7 +36046,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -35641,7 +36073,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -35734,7 +36166,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -35761,7 +36193,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -35830,7 +36262,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -35854,7 +36286,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -35923,7 +36355,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -35947,7 +36379,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -36244,7 +36676,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -36268,7 +36700,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -37059,7 +37491,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -37086,7 +37518,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -37971,7 +38403,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -37998,7 +38430,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -38955,7 +39387,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -38982,7 +39414,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -39807,7 +40239,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -39834,7 +40266,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -40143,7 +40575,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -40170,7 +40602,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -41019,7 +41451,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -41046,7 +41478,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -42039,7 +42471,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -42066,7 +42498,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -42927,7 +43359,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -42954,7 +43386,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -42977,7 +43409,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43001,7 +43433,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43024,7 +43456,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43048,7 +43480,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43070,7 +43502,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43094,7 +43526,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43111,7 +43543,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43128,7 +43560,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43145,7 +43577,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43162,7 +43594,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43179,7 +43611,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43196,7 +43628,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43213,7 +43645,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43230,7 +43662,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43247,7 +43679,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43264,7 +43696,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43281,7 +43713,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43298,7 +43730,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43315,7 +43747,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43332,7 +43764,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43349,7 +43781,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43366,7 +43798,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43383,7 +43815,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43400,7 +43832,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43417,7 +43849,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43434,7 +43866,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43451,7 +43883,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43468,7 +43900,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43485,7 +43917,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43502,7 +43934,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43519,7 +43951,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43536,7 +43968,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43553,7 +43985,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43570,7 +44002,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43587,7 +44019,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43604,7 +44036,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43621,7 +44053,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43638,7 +44070,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43655,7 +44087,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43672,7 +44104,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43689,7 +44121,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43706,7 +44138,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43723,7 +44155,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43740,7 +44172,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43757,7 +44189,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43774,7 +44206,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43791,7 +44223,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43808,7 +44240,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43825,7 +44257,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43842,7 +44274,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43859,7 +44291,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43876,7 +44308,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43893,7 +44325,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43910,7 +44342,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43927,7 +44359,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43944,7 +44376,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43961,7 +44393,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43978,7 +44410,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -43995,7 +44427,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44012,7 +44444,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44029,7 +44461,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44046,7 +44478,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44063,7 +44495,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44080,7 +44512,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44097,7 +44529,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44114,7 +44546,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44131,7 +44563,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44148,7 +44580,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44165,7 +44597,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44182,7 +44614,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44199,7 +44631,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44216,7 +44648,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44233,7 +44665,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44250,7 +44682,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44267,7 +44699,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44284,7 +44716,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44301,7 +44733,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44318,7 +44750,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44335,7 +44767,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44352,7 +44784,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44369,7 +44801,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44386,7 +44818,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44403,7 +44835,41 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:hidden",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "hidden"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:private",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "private"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1638860400000,
+        "runId": "tableau-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 },
 {
@@ -44420,7 +44886,7 @@
         "lastObserved": 1638860400000,
         "runId": "tableau-test",
         "lastRunId": "no-run-id-provided",
-        "pipelineName": "test_tableau_group_ingest"
+        "pipelineName": "test_tableau_hidden_asset_tags_ingest"
     }
 }
 ]
