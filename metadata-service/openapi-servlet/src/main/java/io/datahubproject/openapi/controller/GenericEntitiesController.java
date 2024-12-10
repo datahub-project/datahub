@@ -199,7 +199,9 @@ public abstract class GenericEntitiesController<
       @RequestParam(value = "skipCache", required = false, defaultValue = "false")
           Boolean skipCache,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
-          Boolean includeSoftDelete)
+          Boolean includeSoftDelete,
+      @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
+          String pitKeepALive)
       throws URISyntaxException {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
@@ -241,7 +243,7 @@ public abstract class GenericEntitiesController<
             null,
             sortCriteria,
             scrollId,
-            null,
+            pitKeepALive,
             count);
 
     if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {
