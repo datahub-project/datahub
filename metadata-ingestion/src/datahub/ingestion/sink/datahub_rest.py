@@ -65,11 +65,11 @@ class DatahubRestSinkConfig(DatahubClientConfig):
     mode: RestSinkMode = _DEFAULT_REST_SINK_MODE
 
     # These only apply in async modes.
-    max_threads: int = _DEFAULT_REST_SINK_MAX_THREADS
-    max_pending_requests: int = 2000
+    max_threads: pydantic.PositiveInt = _DEFAULT_REST_SINK_MAX_THREADS
+    max_pending_requests: pydantic.PositiveInt = 2000
 
     # Only applies in async batch mode.
-    max_per_batch: int = 100
+    max_per_batch: pydantic.PositiveInt = 100
 
 
 @dataclasses.dataclass
