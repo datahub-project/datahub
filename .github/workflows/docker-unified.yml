@@ -82,6 +82,8 @@ jobs:
           echo "python_release_version=$(get_python_docker_release_v)" >> "$GITHUB_OUTPUT"
           echo "branch_name=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> "$GITHUB_OUTPUT"
           echo "repository_name=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+      - name: Print GITHUB_OUTPUT contents
+        run: cat $GITHUB_OUTPUT
       - name: Check whether docker login is possible
         id: docker-login
         env:
