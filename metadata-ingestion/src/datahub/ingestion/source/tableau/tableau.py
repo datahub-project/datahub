@@ -266,7 +266,7 @@ class TableauConnectionConfig(ConfigModel):
         }
 
         failure_reason: str = (
-            "The user does not possess the `Site Administrator Explorer` role."
+            "The user does not have the `Site Administrator Explorer` role."
         )
 
         mitigation_message: str = "Assign `Site Administrator Explorer` role to the user {}. Refer to the setup guide: https://datahubproject.io/docs/quick-ingestion-guides/tableau/setup"
