@@ -27,7 +27,6 @@ import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -729,15 +728,8 @@ public class RecordUtils {
         throws IOException {
       gen.writeStartArray();
 
-      // Sort the list if elements are comparable
-      List<?> sortedList = new ArrayList<>(list);
-      if (!sortedList.isEmpty() && sortedList.get(0) instanceof Comparable) {
-        @SuppressWarnings("unchecked")
-        List<Comparable<Object>> comparableList = (List<Comparable<Object>>) sortedList;
-        comparableList.sort(null);
-      }
-
-      for (Object item : sortedList) {
+      // Preserve original list order, no sorting
+      for (Object item : list) {
         if (item instanceof DataMap) {
           serialize((DataMap) item, gen, serializers);
         } else if (item instanceof List) {
