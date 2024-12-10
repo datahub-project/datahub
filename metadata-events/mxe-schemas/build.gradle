@@ -25,7 +25,7 @@ task copyOriginalAvsc(type: Copy, dependsOn: generateAvroSchema) {
 }
 
 task renameNamespace(type: Exec, dependsOn: copyOriginalAvsc) {
-  commandLine 'sh', './rename-namespace.sh'
+  commandLine 'bash', './rename-namespace.sh'
 }
 
 build.dependsOn renameNamespace
