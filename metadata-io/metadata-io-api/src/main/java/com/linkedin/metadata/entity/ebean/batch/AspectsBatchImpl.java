@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -15,7 +16,9 @@ import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollec
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.util.Pair;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -29,12 +32,23 @@ import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@Getter
 @Builder(toBuilder = true)
 public class AspectsBatchImpl implements AspectsBatch {
 
   @Nonnull private final Collection<? extends BatchItem> items;
-  @Nonnull private final RetrieverContext retrieverContext;
+  @Nonnull private final Collection<? extends BatchItem> nonRepeatedItems;
+  @Getter @Nonnull private final RetrieverContext retrieverContext;
+
+  @Override
+  @Nonnull
+  public Collection<? extends BatchItem> getItems() {
+    return nonRepeatedItems;
+  }
+
+  @Override
+  public Collection<? extends BatchItem> getInitialItems() {
+    return items;
+  }
 
   /**
    * Convert patches to upserts, apply hooks at the aspect and batch level.
@@ -207,14 +221,32 @@ public class AspectsBatchImpl implements AspectsBatch {
       return this;
     }
 
+    private static <T extends BatchItem> List<T> filterRepeats(Collection<T> items) {
+      List<T> result = new ArrayList<>();
+      Map<Pair<Urn, String>, T> last = new HashMap<>();
+
+      for (T item : items) {
+        Pair<Urn, String> urnAspect = Pair.of(item.getUrn(), item.getAspectName());
+        // Check if this item is a duplicate of the previous
+        if (!last.containsKey(urnAspect) || !item.isDatabaseDuplicateOf(last.get(urnAspect))) {
+          result.add(item);
+        }
+        last.put(urnAspect, item);
+      }
+
+      return result;
+    }
+
     public AspectsBatchImpl build() {
+      this.nonRepeatedItems = filterRepeats(this.items);
+
       ValidationExceptionCollection exceptions =
-          AspectsBatch.validateProposed(this.items, this.retrieverContext);
+          AspectsBatch.validateProposed(this.nonRepeatedItems, this.retrieverContext);
       if (!exceptions.isEmpty()) {
         throw new IllegalArgumentException("Failed to validate MCP due to: " + exceptions);
       }
 
-      return new AspectsBatchImpl(this.items, this.retrieverContext);
+      return new AspectsBatchImpl(this.items, this.nonRepeatedItems, this.retrieverContext);
     }
   }
 
