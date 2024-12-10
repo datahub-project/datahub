@@ -18,7 +18,6 @@ from pydantic import Field, validator
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import ConnectionError
 from requests.models import HTTPBasicAuth, HTTPError
-from sqllineage.runner import LineageRunner
 from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
 
 import datahub.emitter.mce_builder as builder
@@ -819,28 +818,6 @@ class ModeSource(StatefulIngestionSourceBase):
                 context=f"Definition Name: {definition_name}, Error: {str(http_error)}",
             )
         return None
-
-    @lru_cache(maxsize=None)
-    def _get_source_from_query(self, raw_query: str) -> set:
-        query = self._replace_definitions(raw_query)
-        parser = LineageRunner(query)
-        source_paths = set()
-        try:
-            for table in parser.source_tables:
-                sources = str(table).split(".")
-                source_schema, source_table = sources[-2], sources[-1]
-                if source_schema == "<default>":
-                    source_schema = str(self.config.default_schema)
-
-                source_paths.add(f"{source_schema}.{source_table}")
-        except Exception as e:
-            self.report.report_failure(
-                title="Failed to Extract Lineage From Query",
-                message="Unable to retrieve lineage from Mode query.",
-                context=f"Query: {raw_query}, Error: {str(e)}",
-            )
-
-        return source_paths
 
     def _get_datasource_urn(
         self,
