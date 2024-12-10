@@ -627,7 +627,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     restateChangeLog.setSystemMetadata(futureSystemMetadata);
     restateChangeLog.setPreviousAspectValue(aspect);
     restateChangeLog.setPreviousSystemMetadata(
-        simulatePullFromDB(futureSystemMetadata, SystemMetadata.class));
+        simulatePullFromDB(initialSystemMetadata, SystemMetadata.class));
     restateChangeLog.setEntityKeyAspect(
         GenericRecordUtils.serializeAspect(
             EntityKeyUtils.convertUrnToEntityKey(
@@ -705,8 +705,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     restateChangeLog.setAspect(genericAspect);
     restateChangeLog.setSystemMetadata(futureSystemMetadata);
     restateChangeLog.setPreviousAspectValue(genericAspect);
-    restateChangeLog.setPreviousSystemMetadata(
-        simulatePullFromDB(futureSystemMetadata, SystemMetadata.class));
+    restateChangeLog.setPreviousSystemMetadata(simulatePullFromDB(metadata1, SystemMetadata.class));
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
