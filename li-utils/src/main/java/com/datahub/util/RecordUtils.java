@@ -1,16 +1,7 @@
 package com.datahub.util;
 
-import static com.linkedin.metadata.Constants.INGESTION_MAX_SERIALIZED_STRING_LENGTH;
-import static com.linkedin.metadata.Constants.MAX_JACKSON_STRING_SIZE;
-
 import com.datahub.util.exception.InvalidSchemaException;
 import com.datahub.util.exception.ModelConversionException;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.StreamReadConstraints;
-import com.fasterxml.jackson.databind.JsonSerializer;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.data.schema.PathSpec;
@@ -34,7 +25,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -44,13 +34,13 @@ import javax.annotation.Nullable;
 import org.apache.commons.lang.StringUtils;
 
 public class RecordUtils {
-  private static final DeterministicDataTemplateCodec DATA_TEMPLATE_CODEC =
-      new DeterministicDataTemplateCodec();
 
+  private static final JacksonDataTemplateCodec DATA_TEMPLATE_CODEC =
+      new JacksonDataTemplateCodec();
   private static final String ARRAY_WILDCARD = "*";
   private static final Pattern LEADING_SPACESLASH_PATTERN = Pattern.compile("^[/ ]+");
   private static final Pattern TRAILING_SPACESLASH_PATTERN = Pattern.compile("[/ ]+$");
-  private static final Pattern SLASH_PATTERN = Pattern.compile("/");
+  private static final Pattern SLASH_PATERN = Pattern.compile("/");
 
   /**
    * Using in-memory hash map to store the get/is methods of the schema fields of RecordTemplate.
@@ -568,7 +558,7 @@ public class RecordUtils {
     pathSpecAsString = TRAILING_SPACESLASH_PATTERN.matcher(pathSpecAsString).replaceAll("");
 
     if (!pathSpecAsString.isEmpty()) {
-      return getFieldValue(record, new PathSpec(SLASH_PATTERN.split(pathSpecAsString)));
+      return getFieldValue(record, new PathSpec(SLASH_PATERN.split(pathSpecAsString)));
     }
     return Optional.empty();
   }
@@ -671,75 +661,5 @@ public class RecordUtils {
       }
     }
     return reference;
-  }
-
-  /** Custom codec that uses deterministic serialization */
-  private static class DeterministicDataTemplateCodec extends JacksonDataTemplateCodec {
-    private final ObjectMapper deterministicMapper;
-
-    public DeterministicDataTemplateCodec() {
-      deterministicMapper = new ObjectMapper();
-      int maxSize =
-          Integer.parseInt(
-              System.getenv()
-                  .getOrDefault(INGESTION_MAX_SERIALIZED_STRING_LENGTH, MAX_JACKSON_STRING_SIZE));
-      deterministicMapper
-          .getFactory()
-          .setStreamReadConstraints(
-              StreamReadConstraints.builder().maxStringLength(maxSize).build());
-      SimpleModule module = new SimpleModule();
-      module.addSerializer(DataMap.class, new DeterministicDataMapSerializer());
-      deterministicMapper.registerModule(module);
-    }
-
-    @Override
-    public String mapToString(DataMap map) throws IOException {
-      return deterministicMapper.writeValueAsString(map);
-    }
-  }
-
-  /** Custom serializer for DataMap that ensures deterministic ordering */
-  private static class DeterministicDataMapSerializer extends JsonSerializer<DataMap> {
-    @Override
-    public void serialize(DataMap value, JsonGenerator gen, SerializerProvider serializers)
-        throws IOException {
-      gen.writeStartObject();
-
-      // Use TreeMap for deterministic key ordering
-      TreeMap<String, Object> sortedMap = new TreeMap<>(value);
-
-      for (String key : sortedMap.keySet()) {
-        gen.writeFieldName(key);
-        Object fieldValue = sortedMap.get(key);
-
-        if (fieldValue instanceof DataMap) {
-          serialize((DataMap) fieldValue, gen, serializers);
-        } else if (fieldValue instanceof List) {
-          serializeList((List<?>) fieldValue, gen, serializers);
-        } else {
-          gen.writeObject(fieldValue);
-        }
-      }
-
-      gen.writeEndObject();
-    }
-
-    private void serializeList(List<?> list, JsonGenerator gen, SerializerProvider serializers)
-        throws IOException {
-      gen.writeStartArray();
-
-      // Preserve original list order, no sorting
-      for (Object item : list) {
-        if (item instanceof DataMap) {
-          serialize((DataMap) item, gen, serializers);
-        } else if (item instanceof List) {
-          serializeList((List<?>) item, gen, serializers);
-        } else {
-          gen.writeObject(item);
-        }
-      }
-
-      gen.writeEndArray();
-    }
   }
 }
