@@ -1,0 +1,46 @@
+namespace com.linkedin.dataquality
+
+import com.linkedin.common.Urn
+
+/**
+ * Record to capture Dimension Score information
+ */
+record DimensionScore {
+  /**
+  * dimensionName attribute to capture predefined dimension names.
+  * Required field if this record is initialized
+  */
+  @Relationship = {
+    "name": "dimensionNameType",
+    "entityTypes": [ "dimensionNameType" ]
+  }
+  dimensionUrn: Urn
+
+  /**
+  * currentScore attribute to capture current score for a specific dimension
+  * Required field if this record is initialized
+  */
+  currentScore: string
+
+  /**
+  * historicalWeightedScore attribute to capture historical weighted score for a specific dimension
+  * Optional field. Value will be populated, if available
+  */
+  historicalWeightedScore: optional string
+
+  /**
+  * scoreType attribute to capture score type for a specific score
+  * Required field if this record is initialized
+  */
+  scoreType: enum ScoreType {
+    PERCENTAGE
+    NUMERICAL_VALUE
+  }
+
+  /**
+  * note attribute to capture note for a specific dimension
+  * Optional field
+  */
+  note: optional string
+
+}
