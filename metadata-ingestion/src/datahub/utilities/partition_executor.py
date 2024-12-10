@@ -268,7 +268,7 @@ class BatchPartitionExecutor(Closeable):
         self.process_batch = process_batch
         self.min_process_interval = min_process_interval
         self.read_from_pending_interval = read_from_pending_interval
-        assert self.max_workers > 1
+        assert self.max_workers >= 1
 
         self._state_lock = threading.Lock()
         self._executor = ThreadPoolExecutor(
