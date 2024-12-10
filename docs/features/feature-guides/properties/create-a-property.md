@@ -45,7 +45,7 @@ First, provide the following details:
 4. **Applies To:** Specify which DataHub asset types (e.g., Datasets, Dashboards, Pipelines) the Structured Property can be associated with, ensuring relevance and precision.
 
 :::caution
-Once you have saved a Structured Property, you **cannot** edit or remove Allowed Values. However, you can add additional Allowed Values.
+Once you you save a Structured Property, you **cannot** edit or remove Allowed Values. However, you can add additional Allowed Values.
 :::
 
 For example, imagine your organization wants to standardize how data assets (e.g., Datasets, Tasks, Pipelines) are categorized during their development cycle. By creating a **Lifecycle Stage** Structured Property, you can set a pre-defined list of allowed statuses, such as **Draft**, **Review**, and **Prod**, ensuring consistency and transparency.
@@ -226,7 +226,7 @@ This setup ensures that column-specific metadata, such as the **Business Label**
 
 ## FAQ and Troubleshooting
 
-### Why can't I change a Structured Property's definition?**
+### Why can’t I change a Structured Property’s definition?
 
 Once a Structured Property has been defined, only certain aspects can be modified:
 
