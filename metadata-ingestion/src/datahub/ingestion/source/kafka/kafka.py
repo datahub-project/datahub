@@ -143,7 +143,7 @@ class KafkaSourceConfig(
     )
     ingest_schemas_as_entities: bool = pydantic.Field(
         default=False,
-        description="Enables ingesting schemas, additionally to the topics, as separate entities"
+        description="Enables ingesting schemas, additionally to the topics, as separate entities",
     )
 
 
@@ -355,7 +355,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         subject, True, topic_detail=None, extra_topic_config=None
                     )
                 except Exception as e:
-                    logger.warning(f"Failed to extract subject {subject}", exc_info=True)
+                    logger.warning(
+                        f"Failed to extract subject {subject}", exc_info=True
+                    )
                     self.report.report_warning(
                         "subject", f"Exception while extracting topic {subject}: {e}"
                     )

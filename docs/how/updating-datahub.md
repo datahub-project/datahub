@@ -37,6 +37,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 - #11742: For PowerBi ingestion, `use_powerbi_email` is now enabled by default when extracting ownership information.
 - #12056: The DataHub Airflow plugin no longer supports Airflow 2.1 and Airflow 2.2.
 - #12056: The DataHub Airflow plugin now defaults to the v2 plugin implementation.
+- #12077: `Kafka` source no longer ingests schemas as separate entities by default, set `ingest_schemas_as_entities` to `true` to ingest them
 
 ### Breaking Changes
 
