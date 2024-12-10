@@ -7,7 +7,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 # About DataHub Structured Properties
 <FeatureAvailability/>
 
-**DataHub Structured Properties** provide a structured and validated approach to attaching metadata to your Data Assets, enabling organizations to enforce consistency and quality in metadata collection.
+DataHub **Structured Properties** allow you to add custom, validated properties to any Entity type in DataHub. Using Structured Properties, you can enable data discovery and governance based on attributes unique to your organization.
 
 <p align="center">
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/properties/custom_and_structured_properties.png"/>
@@ -15,34 +15,33 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 ## What are Structured Properties?
 
-**Structured Properties** are a configurable feature in DataHub that allow metadata to be associated with Assets in a structured format. Each Structured Property has a specific type (e.g., Date, Integer, DataHub Asset, Text) and can include validation rules, such as restricting to specific allowed values or adhering to a pre-defined format.
+**Structured Properties** are a powerful way to customize your DataHub environment, enabling you to align metadata with your organization’s unique needs. By defining specific property types—such as Date, Integer, DataHub Asset, or Text—you can apply meaningful, context-aware attributes to your Assets. Validation rules, like restricting allowed values or enforcing specific formats, ensure consistency while giving you the flexibility to reflect your business’s terminology, workflows, and priorities.
 
-Structured Properties can be added to all DataHub Asset types, including Datasets, Dashboards, Pipelines, and more. This ensures flexibility in managing metadata across your entire data ecosystem.
+Structured Properties can be added to the following Asset Types:
 
-Structured Properties can also be used within [**DataHub Compliance Forms**](../compliance-forms/overview.md) to crowdsource documentation, annotation, and classification tasks. By incorporating Structured Properties into Compliance Forms, organizations can define specific metadata collection requirements and assign them to relevant stakeholders, such as data owners, stewards, and subject matter experts. This enables large-scale governance initiatives to be efficiently managed while maintaining accuracy and accountability.
+- Data Assets, such as Datasets, Columns, Tasks, Pipelines, Charts, Dashboards, and more.
+- DataHub Entities, such as Domains, Glossary Terms & Groups, and Data Products.
 
 ### Key Features of Structured Properties:
 
 1. **Typed Fields:** Properties are explicitly typed, including options like Date, Integer, URN, or Text.
-2. **Validation Rules:** Enforce standards by restricting values to a specific format or a pre-defined list of acceptable inputs.
-3. **Custom Configuration:** Structured Properties can be tailored to meet your organization’s needs, whether for governance, compliance, or operational metadata collection.
+2. **Allowed Values:** Enforce standards by restricting values to a specific format or a pre-defined list of acceptable inputs.
+3. **Targeted Application:** Structured Properties can be tailored to specific asset types—such as Datasets, Columns, or Dashboards—ensuring they align with your organization’s data management needs and usage context.
 
-### Configuration Options
+### Display Settings
 
 Structured Properties offer several configuration options to enhance metadata management:
 
-- **Hide Property:** For use cases where property values should not be viewable by DataHub users.  
-- **Show in Search Filters:** Enables users to filter for Assets based on specific property values, improving discoverability.  
-- **Customize Visibility:** Allows you to control where the Structured Property appears, such as in the Asset Sidebar, Asset Badge, and/or a Dataset Schema view’s Columns Table.
+- **Hide Property:** For use cases where property values should not be viewable by DataHub users.
+- **Show in Search Filters:** Enables users to filter for Assets based on specific property values, improving discoverability.
+- **Customize Visibility:** Allows you to control where the Structured Property appears, such as in the Asset Badge, Asset Sidebar, and/or a Dataset Schema view’s Columns Table.
 
 ## Why Use Structured Properties?
 
 Structured Properties are especially useful for organizations that require:
 
-- **Consistency and Accuracy:** Enforce metadata standards and ensure high-quality data collection.
+- **Customization:** Customize how your end-users find assets within DataHub.
 - **Governance and Compliance:** Collect metadata in a way that supports compliance with internal or external standards.
-- **Scalability:** Simplify the process of collecting, managing, and enforcing metadata rules across a large number of Data Assets.
-- **Collaboration through Compliance Forms:** Structured Properties integrate seamlessly with Compliance Forms, enabling teams to crowdsource critical metadata collection tasks and monitor compliance progress effectively.
 
 <p align="center">
   <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/structured_properties/1-list-structured-properties.png"/>

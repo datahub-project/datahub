@@ -123,6 +123,17 @@ After clicking **Save**, the **Lifecycle Stage** for `pet_profiles` will appear 
 [**DataHub Compliance Forms**](../compliance-forms/overview.md) make it easy to update values for multiple Assets at once!
 :::
 
+### Edit or Remove a Structured Property from an Asset
+
+After a Structured Property has been added to an Asset, users can modify its value or remove the property entirely using the **More** menu:
+
+<p align="center">
+  <img 
+       width="90%"  
+       src="https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/structured_properties/3.4-edit-remove-structured-property-entity-level.png"
+       alt="Editing or Removing a Structured Property on an Asset"/>
+</p>
+
 ### Search for Assets by a Structured Property Value
 
 For Structured Properties that have **Show in Search Filters** enabled, users can filter search results based on allowed values.
