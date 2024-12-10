@@ -1,7 +1,7 @@
 import { cloneDeep } from 'lodash';
 import { EntityType } from '../../../../../../types.generated';
 import { useEntityData } from '../../../EntityContext';
-import { useGetDatasetSchemaQuery } from '../../../../../../graphql/dataset.generated';
+import { GetDatasetSchemaQuery, useGetDatasetSchemaQuery } from '../../../../../../graphql/dataset.generated';
 import { combineEntityDataWithSiblings, useIsSeparateSiblingsMode } from '../../../siblingUtils';
 
 // Whether to dynamically load the schema from the backend.
@@ -9,7 +9,10 @@ const shouldLoadSchema = (entityType, entityData) => {
     return entityType === EntityType.Dataset && !entityData?.schemaMetadata;
 };
 
-export const useGetEntityWithSchema = (skip?: boolean) => {
+export const useGetEntityWithSchema = (
+    skip?: boolean,
+    onCompleted?: ((data: GetDatasetSchemaQuery) => void) | undefined,
+) => {
     const { urn, entityData, entityType } = useEntityData();
     // Load the dataset schema lazily.
     const {
@@ -22,6 +25,7 @@ export const useGetEntityWithSchema = (skip?: boolean) => {
         },
         skip: skip || !shouldLoadSchema(entityType, entityData),
         fetchPolicy: 'cache-first',
+        onCompleted,
     });
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     // Merge with sibling information as required.
