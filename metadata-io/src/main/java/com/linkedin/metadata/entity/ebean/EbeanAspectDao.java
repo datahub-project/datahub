@@ -165,7 +165,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     }
     // Save oldValue as the largest version + 1
     long largestVersion = ASPECT_LATEST_VERSION;
-    if (oldAspectMetadata != null && oldTime != null) {
+    if (!ASPECT_LATEST_VERSION.equals(nextVersion) && oldTime != null) {
       largestVersion = nextVersion;
       saveAspect(
           txContext,
@@ -191,7 +191,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
         newTime,
         newSystemMetadata,
         ASPECT_LATEST_VERSION,
-        oldAspectMetadata == null);
+        ASPECT_LATEST_VERSION.equals(nextVersion));
 
     return largestVersion;
   }
