@@ -25,6 +25,7 @@ from datahub.ingestion.source.looker.lookml_config import (
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.urn_functions import get_qualified_table_name
+from datahub.sql_parsing.schema_resolver import match_columns_to_schema
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,
     ColumnRef,
@@ -32,7 +33,6 @@ from datahub.sql_parsing.sqlglot_lineage import (
     Urn,
     create_and_cache_schema_resolver,
     create_lineage_sql_parsed_result,
-    match_columns_to_schema,
 )
 
 logger = logging.getLogger(__name__)

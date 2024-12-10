@@ -1275,20 +1275,6 @@ def infer_output_schema(result: SqlParsingResult) -> Optional[List[SchemaFieldCl
     return output_schema
 
 
-def match_columns_to_schema(
-    schema_info: SchemaInfo, input_columns: List[str]
-) -> List[str]:
-    column_from_gms: List[str] = list(schema_info.keys())  # list() to silent lint
-
-    output_columns: List[str] = [
-        column
-        for column in column_from_gms
-        if column.lower() in map(str.lower, input_columns)
-    ]
-
-    return output_columns
-
-
 def view_definition_lineage_helper(
     result: SqlParsingResult, view_urn: str
 ) -> SqlParsingResult:
