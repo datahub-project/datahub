@@ -118,11 +118,13 @@ class StructuredProperties(ConfigModel):
     @property
     def fqn(self) -> str:
         assert self.urn is not None
-        return (
-            self.qualified_name
-            or self.id
-            or Urn.from_string(self.urn).get_entity_id()[0]
-        )
+        id = Urn.create_from_string(self.urn).get_entity_id()[0]
+        if self.qualified_name is not None:
+            # ensure that qualified name and ID match
+            assert (
+                self.qualified_name == id
+            ), "ID in the urn and the qualified_name must match"
+        return id
 
     @validator("urn", pre=True, always=True)
     def urn_must_be_present(cls, v, values):
