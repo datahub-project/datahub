@@ -44,6 +44,7 @@ type SideBarData = {
     urn: string | undefined;
     dataHubRoles: Array<EntityRelationship>;
     countryCode: string | undefined;
+    username: string | undefined;
 };
 
 type Props = {
@@ -57,7 +58,7 @@ const AVATAR_STYLE = { marginTop: '14px' };
  * UserInfoSideBar- Sidebar section for users profiles.
  */
 export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
-    const { name, aboutText, avatarName, email, groupsDetails, phone, photoUrl, role, slack, team, dataHubRoles, urn, countryCode } =
+    const { name, aboutText, avatarName, email, groupsDetails, phone, photoUrl, role, slack, team, dataHubRoles, urn, countryCode, username } =
         sideBarData;
 
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
@@ -120,13 +121,23 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
     };
     const dataHubRoleName = dataHubRoles && dataHubRoles.length > 0 && (dataHubRoles[0]?.entity as DataHubRole).name;
 
+    let countryName;
+    const findCountryName = (countryCode) => {
+        try {
+            countryName = countries[countryCode].name;
+        } catch (error) {
+            countryName = '';
+        }
+        return countryName;
+    }
+
     return (
         <>
             <SideBar>
                 <SideBarSubSection className={isProfileOwner ? '' : 'fullView'}>
                     <CustomAvatar size={160} photoUrl={photoUrl} name={avatarName} style={AVATAR_STYLE} />
                     <Name>{name || <EmptyValue />}</Name>
-                    <UserDetails>{urn?.replace('urn:li:corpuser:', '') || <EmptyValue />}</UserDetails>
+                    <UserDetails>{username || <EmptyValue />}</UserDetails>
                     {role && <TitleRole>{role}</TitleRole>}
                     {team && <Team>{team}</Team>}
                     {dataHubRoleName && <Tag icon={mapRoleIcon(dataHubRoleName)}>{dataHubRoleName}</Tag>}
@@ -150,16 +161,18 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                         </Space>
                     </SocialDetails>
                     <Divider className="divider-aboutSection" />
-                    { countryCode && (
+                    { countryCode ? (
                         <LocationSection>
                             Location 
                             <br />
                                 <LocationSectionText>
                                     <img src={GlobeIcon} alt="Manage Users" style={{ display: 'inline' }} /> &nbsp;
-                                    {countries[countryCode].name}
+                                    {findCountryName(countryCode)}
                                 </LocationSectionText>
                             <Divider className="divider-aboutSection" />
                         </LocationSection>
+                    ): (
+                        null
                     )}
                     <AboutSection>
                         About

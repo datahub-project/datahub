@@ -115,6 +115,7 @@ export default function UserProfile() {
         groupsDetails: userGroups,
         dataHubRoles: userRoles,
         urn,
+        username: data?.corpUser?.username
     };
 
     if (data?.corpUser?.exists === false) {
