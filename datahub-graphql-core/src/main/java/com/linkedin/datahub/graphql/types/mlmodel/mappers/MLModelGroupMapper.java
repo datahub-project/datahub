@@ -112,7 +112,8 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((mlModelGroup, dataMap) ->
             mlModelGroup.setStructuredProperties(
-                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(
+                    context, new StructuredProperties(dataMap), entityUrn))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->

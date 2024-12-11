@@ -363,6 +363,8 @@ public class Constants {
   // Structured Property
   public static final String STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME = "propertyDefinition";
   public static final String STRUCTURED_PROPERTY_KEY_ASPECT_NAME = "structuredPropertyKey";
+  public static final String STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME =
+      "structuredPropertySettings";
 
   // Form
   public static final String FORM_INFO_ASPECT_NAME = "formInfo";
