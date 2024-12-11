@@ -45,6 +45,7 @@ public class OpenAPIV3Generator {
   private static final String NAME_VERSION = "version";
   private static final String NAME_SCROLL_ID = "scrollId";
   private static final String NAME_INCLUDE_SOFT_DELETE = "includeSoftDelete";
+  private static final String NAME_PIT_KEEP_ALIVE = "pitKeepAlive";
   private static final String PROPERTY_VALUE = "value";
   private static final String PROPERTY_URN = "urn";
   private static final String PROPERTY_PATCH = "patch";
@@ -501,6 +502,12 @@ public class OpenAPIV3Generator {
                 .name(NAME_SKIP_CACHE)
                 .description("Skip cache when listing entities.")
                 .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_PIT_KEEP_ALIVE)
+                .description(
+                    "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
+                .schema(new Schema().type(TYPE_STRING)._default("5m")),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
@@ -562,7 +569,7 @@ public class OpenAPIV3Generator {
         "SortBy" + MODEL_VERSION,
         new Parameter()
             .in(NAME_QUERY)
-            .name("sort")
+            .name("sortCriteria")
             .explode(true)
             .description("Sort fields for pagination.")
             .example(PROPERTY_URN)
@@ -570,11 +577,7 @@ public class OpenAPIV3Generator {
                 new Schema()
                     .type(TYPE_ARRAY)
                     ._default(List.of(PROPERTY_URN))
-                    .items(
-                        new Schema<>()
-                            .type(TYPE_STRING)
-                            ._enum(List.of(PROPERTY_URN))
-                            ._default(PROPERTY_URN))));
+                    .items(new Schema<>().type(TYPE_STRING)._default(PROPERTY_URN))));
     components.addParameters(
         "SortOrder" + MODEL_VERSION,
         new Parameter()

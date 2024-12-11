@@ -146,6 +146,8 @@ public class EntityController
           Boolean skipCache,
       @RequestParam(value = "includeSoftDelete", required = false, defaultValue = "false")
           Boolean includeSoftDelete,
+      @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
+          String pitKeepALive,
       @RequestBody @Nonnull GenericEntityAspectsBodyV3 entityAspectsBody)
       throws URISyntaxException {
 
@@ -202,7 +204,7 @@ public class EntityController
             null,
             sortCriteria,
             scrollId,
-            null,
+            pitKeepALive,
             count);
 
     if (!AuthUtil.isAPIAuthorizedResult(opContext, result)) {

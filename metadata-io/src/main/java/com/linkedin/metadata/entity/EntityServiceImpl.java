@@ -1277,9 +1277,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     }
                   });
 
-              MCPItem request = result.getFirst();
               return IngestResult.builder()
-                  .urn(request.getUrn())
+                  .urn(item.getUrn())
                   .request(item)
                   .result(
                       UpdateAspectResult.builder()
