@@ -12,6 +12,7 @@ from kombu.transport.SQS import Channel
 from datahub_executor.common.assertion.executor import AssertionExecutor
 from datahub_executor.common.assertion.helpers import handle_assertions_signal_requests
 from datahub_executor.common.constants import RUN_ASSERTION_TASK_NAME
+from datahub_executor.common.discovery.discovery import DatahubExecutorDiscovery
 from datahub_executor.common.helpers import create_datahub_graph
 from datahub_executor.common.ingestion.helpers import (
     extract_execution_request,
@@ -50,6 +51,7 @@ update_celery_credentials(app, True, "")
 
 tp = None
 monitor = None
+discovery = None
 ingestion_executor = None
 assertion_executor = None
 graph = None
@@ -146,8 +148,11 @@ def monitor_thread() -> None:
 @typing.no_type_check
 @celeryd_init.connect
 def worker_startup(*args, **kwargs):
-    global graph, monitor
+    global graph, monitor, discovery
     graph = create_datahub_graph()
+
+    discovery = DatahubExecutorDiscovery(graph)
+    discovery.start()
 
     global ingestion_executor
     ingestion_executor = setup_ingestion_executor()
@@ -220,11 +225,13 @@ def heartbeat(**kwargs):
 @worker_shutting_down.connect
 def shutdown(**kwargs):
     global celery_shutdown, celery_readiness
-    global tp, monitor, assertion_executor
+    global discovery, tp, monitor, assertion_executor
 
     celery_shutdown = True
     celery_readiness = False
 
+    if discovery is not None:
+        discovery.stop()
     if monitor is not None:
         monitor.join()
     if tp is not None:

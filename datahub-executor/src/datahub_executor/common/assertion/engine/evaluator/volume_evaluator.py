@@ -151,12 +151,12 @@ class VolumeAssertionEvaluator(AssertionEvaluator):
         assert isinstance(
             self.connection_provider, DataHubIngestionSourceConnectionProvider
         )
-        dataset_profile: Optional[
-            DatasetProfileClass
-        ] = self.connection_provider.graph.get_latest_timeseries_value(
-            entity_urn=entity_urn,
-            aspect_type=DatasetProfileClass,
-            filter_criteria_map={},
+        dataset_profile: Optional[DatasetProfileClass] = (
+            self.connection_provider.graph.get_latest_timeseries_value(
+                entity_urn=entity_urn,
+                aspect_type=DatasetProfileClass,
+                filter_criteria_map={},
+            )
         )
 
         if dataset_profile is None or dataset_profile.rowCount is None:

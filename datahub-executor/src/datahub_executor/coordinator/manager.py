@@ -124,9 +124,9 @@ class ExecutionRequestManager:
             )
             execution_requests = fetcher.fetch_execution_requests()
 
-            self.prev_scheduled_execution_requests[
-                fetcher_id
-            ] = self.scheduled_execution_requests[fetcher_id].copy()
+            self.prev_scheduled_execution_requests[fetcher_id] = (
+                self.scheduled_execution_requests[fetcher_id].copy()
+            )
             self.scheduled_execution_requests[fetcher_id] = {}
 
             for execution_request in execution_requests:

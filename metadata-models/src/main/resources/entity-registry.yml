@@ -364,6 +364,11 @@ entities:
       - dataHubExecutionRequestInput
       - dataHubExecutionRequestSignal
       - dataHubExecutionRequestResult
+  - name: dataHubRemoteExecutor
+    category: internal
+    keyAspect: dataHubRemoteExecutorKey
+    aspects:
+      - dataHubRemoteExecutorStatus
   - name: assertion
     doc: Assertion represents a data quality rule applied on one or more dataset.
     category: core

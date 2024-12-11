@@ -19,6 +19,7 @@ from datahub_actions.plugin.source.kafka.kafka_event_source import (
 
 from datahub_executor.common.client.fetcher.ingestion.fetcher import IngestionFetcher
 from datahub_executor.common.client.fetcher.monitors.fetcher import MonitorFetcher
+from datahub_executor.common.discovery.discovery import DatahubExecutorDiscovery
 from datahub_executor.common.helpers import create_datahub_graph
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
@@ -95,6 +96,10 @@ def start_scheduler(sighandler: List[Callable]) -> None:
         # Create DataHub Client
         graph = create_datahub_graph()
 
+        if DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED:
+            discovery = DatahubExecutorDiscovery(graph)
+            discovery.start()
+
         # Create a fetcher
         monitor_fetcher = MonitorFetcher(graph, get_monitor_config())
         ingestion_fetcher = IngestionFetcher(graph, get_ingestion_config())
@@ -106,6 +111,9 @@ def start_scheduler(sighandler: List[Callable]) -> None:
         manager = ExecutionRequestManager(
             [monitor_fetcher, ingestion_fetcher], scheduler
         )
+
+        if DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED:
+            sighandler.append(discovery.stop)
 
         sighandler.append(scheduler.shutdown)
         sighandler.append(manager.shutdown)
