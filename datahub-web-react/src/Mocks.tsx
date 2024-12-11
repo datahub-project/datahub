@@ -3035,7 +3035,7 @@ export const mocks = [
                             ],
                         },
                     ],
-                    searchFlags: { getSuggestions: true },
+                    searchFlags: { getSuggestions: true, includeStructuredPropertyFacets: true },
                 },
             },
         },

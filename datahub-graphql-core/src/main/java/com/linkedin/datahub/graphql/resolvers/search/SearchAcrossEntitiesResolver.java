@@ -22,7 +22,6 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.view.DataHubViewInfo;

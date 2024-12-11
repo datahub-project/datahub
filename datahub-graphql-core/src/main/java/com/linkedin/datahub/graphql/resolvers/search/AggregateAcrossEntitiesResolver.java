@@ -74,7 +74,7 @@ public class AggregateAcrossEntitiesResolver
           final List<String> facets =
               input.getFacets() != null && input.getFacets().size() > 0 ? input.getFacets() : null;
 
-            // do not include default facets if we're requesting any facets specifically
+          // do not include default facets if we're requesting any facets specifically
           searchFlags.setIncludeDefaultFacets(facets == null || facets.size() <= 0);
 
           List<String> finalEntities =
