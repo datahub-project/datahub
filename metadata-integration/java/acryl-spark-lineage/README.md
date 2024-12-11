@@ -197,6 +197,7 @@ information like tokens.
 | spark.datahub.s3.filename                              |          |                       | The name of the file where metadata will be written if it is not set random filename will be used on s3 if s3 emitter is set                                                              |
 | spark.datahub.s3.filename                              |          |                       | The name of the file where metadata will be written if it is not set random filename will be used on s3 if s3 emitter is set                                                              |
 |spark.datahub.log.mcps                                  |          | true                  | Set this to true to log MCPS to the log. By default, it is enabled.                                                                                                                       |
+|spark.datahub.legacyLineageCleanup.enabled|    | false                 | Set this to true to remove legacy lineages from older Spark Plugin runs. This will remove those lineages from the Datasets which it adds to DataJob. By default, it is disabled.             |
 
 ## What to Expect: The Metadata Model
 
@@ -361,12 +362,15 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
 ### Version 0.2.17
 - *Major changes*: 
   - Finegrained lineage is emitted on the DataJob and not on the emitted Datasets. This is the correct behaviour which was not correct earlier. This causes earlier emitted finegrained lineages won't be overwritten by the new ones.
+    You can remove the old lineages by setting `spark.datahub.legacyLineageCleanup.enabled=true`. Make sure you have the latest server if you enable with patch support.
 
 - *Changes*:
-  - OpenLineage 1.24.2 upgrade
+  - OpenLineage 1.25.0 upgrade
   - Add option to disable chunked encoding in the datahub rest sink -> `spark.datahub.rest.disable_chunked_encoding`
   - Add option to specify the mcp kafka topic for the datahub kafka sink -> `spark.datahub.kafka.mcp_topic`
-- 
+  - Add option to remove legacy lineages from older Spark Plugin runs. This will remove those lineages from the Datasets which it adds to DataJob -> `spark.datahub.legacyLineageCleanup.enabled`
+
+
 ### Version 0.2.16
 - Remove logging DataHub config into logs
 

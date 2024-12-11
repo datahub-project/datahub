@@ -84,11 +84,11 @@ public class TemplateUtil {
 
       // Skip first as it will always be blank due to path starting with /
       for (int i = 1; i < endIdx; i++) {
-        if (parent.get(keys[i]) == null) {
-          String decodedKey = decodeValue(keys[i]);
+        String decodedKey = decodeValue(keys[i]);
+        if (parent.get(decodedKey) == null) {
           ((ObjectNode) parent).set(decodedKey, instance.objectNode());
         }
-        parent = parent.get(keys[i]);
+        parent = parent.get(decodedKey);
       }
     }
 

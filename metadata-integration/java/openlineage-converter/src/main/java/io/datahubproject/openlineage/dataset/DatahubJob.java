@@ -27,10 +27,15 @@ import com.linkedin.dataprocess.DataProcessInstanceOutput;
 import com.linkedin.dataprocess.DataProcessInstanceProperties;
 import com.linkedin.dataprocess.DataProcessInstanceRelationships;
 import com.linkedin.dataprocess.DataProcessInstanceRunEvent;
+import com.linkedin.dataset.FineGrainedLineage;
 import com.linkedin.dataset.FineGrainedLineageArray;
+import com.linkedin.dataset.Upstream;
+import com.linkedin.dataset.UpstreamArray;
+import com.linkedin.dataset.UpstreamLineage;
 import com.linkedin.domain.Domains;
 import com.linkedin.metadata.aspect.patch.builder.DataJobInputOutputPatchBuilder;
 import com.linkedin.metadata.aspect.patch.builder.GlobalTagsPatchBuilder;
+import com.linkedin.metadata.aspect.patch.builder.UpstreamLineagePatchBuilder;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.mxe.MetadataChangeProposal;
 import datahub.event.EventFormatter;
@@ -279,6 +284,49 @@ public class DatahubJob {
     generateDataProcessInstanceRelationship(mcps);
   }
 
+  private void deleteOldDatasetLineage(
+      DatahubDataset dataset, DatahubOpenlineageConfig config, List<MetadataChangeProposal> mcps) {
+    if (dataset.getLineage() != null) {
+      if (config.isUsePatch()) {
+        if (!dataset.getLineage().getUpstreams().isEmpty()) {
+          UpstreamLineagePatchBuilder upstreamLineagePatchBuilder =
+              new UpstreamLineagePatchBuilder().urn(dataset.getUrn());
+          for (Upstream upstream : dataset.getLineage().getUpstreams()) {
+            upstreamLineagePatchBuilder.removeUpstream(upstream.getDataset());
+          }
+
+          log.info("Removing FineGrainedLineage to {}", dataset.getUrn());
+          for (FineGrainedLineage fineGrainedLineage :
+              Objects.requireNonNull(dataset.getLineage().getFineGrainedLineages())) {
+            for (Urn upstream : Objects.requireNonNull(fineGrainedLineage.getUpstreams())) {
+              for (Urn downstream : Objects.requireNonNull(fineGrainedLineage.getDownstreams())) {
+                upstreamLineagePatchBuilder.removeFineGrainedUpstreamField(
+                    upstream,
+                    StringUtils.defaultIfEmpty(
+                        fineGrainedLineage.getTransformOperation(), "TRANSFORM"),
+                    downstream,
+                    null);
+              }
+            }
+          }
+          MetadataChangeProposal mcp = upstreamLineagePatchBuilder.build();
+          log.info(
+              "upstreamLineagePatch: {}",
+              mcp.getAspect().getValue().asString(Charset.defaultCharset()));
+          mcps.add(mcp);
+        }
+      } else {
+        if (!dataset.getLineage().getUpstreams().isEmpty()) {
+          // Remove earlier created UpstreamLineage which most probably was created by the plugin.
+          UpstreamLineage upstreamLineage = new UpstreamLineage();
+          upstreamLineage.setUpstreams(new UpstreamArray());
+          upstreamLineage.setFineGrainedLineages(new FineGrainedLineageArray());
+          addAspectToMcps(dataset.getUrn(), DATASET_ENTITY_TYPE, upstreamLineage, mcps);
+        }
+      }
+    }
+  }
+
   private Pair<UrnArray, EdgeArray> processDownstreams(
       DatahubOpenlineageConfig config, List<MetadataChangeProposal> mcps) {
     UrnArray outputUrnArray = new UrnArray();
@@ -306,7 +354,14 @@ public class DatahubJob {
             addAspectToMcps(
                 dataset.getUrn(), DATASET_ENTITY_TYPE, dataset.getSchemaMetadata(), mcps);
           }
+
+          // Remove lineage which was added by older plugin that set lineage on Datasets and not on
+          // DataJobs
+          if (config.isRemoveLegacyLineage()) {
+            deleteOldDatasetLineage(dataset, config, mcps);
+          }
         });
+
     return Pair.of(outputUrnArray, outputEdges);
   }
 

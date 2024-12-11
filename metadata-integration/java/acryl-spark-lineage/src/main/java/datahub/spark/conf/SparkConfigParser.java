@@ -52,6 +52,7 @@ public class SparkConfigParser {
 
   public static final String COALESCE_KEY = "coalesce_jobs";
   public static final String PATCH_ENABLED = "patch.enabled";
+  public static final String LEGACY_LINEAGE_CLEANUP = "legacyLineageCleanup.enabled";
   public static final String DISABLE_SYMLINK_RESOLUTION = "disableSymlinkResolution";
 
   public static final String STAGE_METADATA_COALESCING = "stage_metadata_coalescing";
@@ -174,6 +175,7 @@ public class SparkConfigParser {
     builder.commonDatasetPlatformInstance(SparkConfigParser.getCommonPlatformInstance(sparkConfig));
     builder.hivePlatformAlias(SparkConfigParser.getHivePlatformAlias(sparkConfig));
     builder.usePatch(SparkConfigParser.isPatchEnabled(sparkConfig));
+    builder.removeLegacyLineage(SparkConfigParser.isLegacyLineageCleanupEnabled(sparkConfig));
     builder.disableSymlinkResolution(SparkConfigParser.isDisableSymlinkResolution(sparkConfig));
     builder.lowerCaseDatasetUrns(SparkConfigParser.isLowerCaseDatasetUrns(sparkConfig));
     try {
@@ -359,6 +361,14 @@ public class SparkConfigParser {
       return false;
     }
     return datahubConfig.hasPath(PATCH_ENABLED) && datahubConfig.getBoolean(PATCH_ENABLED);
+  }
+
+  public static boolean isLegacyLineageCleanupEnabled(Config datahubConfig) {
+    if (!datahubConfig.hasPath(LEGACY_LINEAGE_CLEANUP)) {
+      return false;
+    }
+    return datahubConfig.hasPath(LEGACY_LINEAGE_CLEANUP)
+        && datahubConfig.getBoolean(LEGACY_LINEAGE_CLEANUP);
   }
 
   public static boolean isDisableSymlinkResolution(Config datahubConfig) {
