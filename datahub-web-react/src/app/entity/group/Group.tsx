@@ -40,6 +40,8 @@ export class GroupEntity implements Entity<CorpGroup> {
 
     getAutoCompleteFieldName = () => 'name';
 
+    getGraphName: () => string = () => 'corpGroup';
+
     getPathName: () => string = () => 'group';
 
     getEntityName = () => 'Group';

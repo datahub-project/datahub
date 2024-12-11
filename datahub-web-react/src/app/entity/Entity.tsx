@@ -173,6 +173,11 @@ export interface Entity<T> {
     getGenericEntityProperties: (data: T) => GenericEntityProperties | null;
 
     /**
+     * Returns the graph name of the entity, as it appears in the GMS entity registry
+     */
+    getGraphName: () => string;
+
+    /**
      * Returns the supported features for the entity
      */
     supportedCapabilities: () => Set<EntityCapabilityType>;

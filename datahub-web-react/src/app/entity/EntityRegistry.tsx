@@ -241,4 +241,8 @@ export default class EntityRegistry {
         const entity = validatedGet(type, this.entityTypeToEntity);
         return entity.getCustomCardUrlPath?.();
     }
+
+    getGraphNameFromType(type: EntityType): string {
+        return validatedGet(type, this.entityTypeToEntity).getGraphName();
+    }
 }

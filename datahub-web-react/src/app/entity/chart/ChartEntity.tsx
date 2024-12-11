@@ -69,6 +69,8 @@ export class ChartEntity implements Entity<Chart> {
 
     getAutoCompleteFieldName = () => 'title';
 
+    getGraphName = () => 'chart';
+
     getPathName = () => 'chart';
 
     getEntityName = () => 'Chart';

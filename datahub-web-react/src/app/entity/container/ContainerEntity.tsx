@@ -59,6 +59,8 @@ export class ContainerEntity implements Entity<Container> {
 
     getAutoCompleteFieldName = () => 'name';
 
+    getGraphName = () => 'container';
+
     getPathName = () => 'container';
 
     getEntityName = () => 'Container';

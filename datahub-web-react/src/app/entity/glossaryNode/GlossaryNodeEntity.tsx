@@ -147,6 +147,8 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             EntityCapabilityType.SOFT_DELETE,
         ]);
     };
+
+    getGraphName = () => this.getPathName();
 }
 
 export default GlossaryNodeEntity;

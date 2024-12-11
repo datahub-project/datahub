@@ -23,6 +23,25 @@ export function mapStructuredPropertyValues(structuredPropertiesEntry: Structure
         }));
 }
 
+export function mapStructuredPropertyToPropertyRow(structuredPropertiesEntry: StructuredPropertiesEntry) {
+    const { displayName, qualifiedName } = structuredPropertiesEntry.structuredProperty.definition;
+    return {
+        displayName: displayName || qualifiedName,
+        qualifiedName,
+        values: mapStructuredPropertyValues(structuredPropertiesEntry),
+        dataType: structuredPropertiesEntry.structuredProperty.definition.valueType,
+        structuredProperty: structuredPropertiesEntry.structuredProperty,
+        type:
+            structuredPropertiesEntry.values[0] && structuredPropertiesEntry.values[0].__typename
+                ? {
+                      type: typeNameToType[structuredPropertiesEntry.values[0].__typename].type,
+                      nativeDataType: typeNameToType[structuredPropertiesEntry.values[0].__typename].nativeDataType,
+                  }
+                : undefined,
+        associatedUrn: structuredPropertiesEntry.associatedUrn,
+    };
+}
+
 // map the properties map into a list of PropertyRow objects to render in a table
 function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) {
     const structuredPropertyRows: PropertyRow[] = [];
