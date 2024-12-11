@@ -66,6 +66,10 @@ def test_fixup_gms_url():
     assert cli_utils.fixup_gms_url("http://localhost:8080") == "http://localhost:8080"
     assert cli_utils.fixup_gms_url("http://localhost:8080/") == "http://localhost:8080"
     assert cli_utils.fixup_gms_url("http://abc.acryl.io") == "https://abc.acryl.io/gms"
+    assert (
+        cli_utils.fixup_gms_url("http://abc.acryl.io/api/gms")
+        == "https://abc.acryl.io/gms"
+    )
 
 
 def test_guess_frontend_url_from_gms_url():
