@@ -103,22 +103,6 @@ def test_get_urn_for_table_not_lower_should_keep_capital_letters():
 
 
 def test_match_columns_to_schema():
-    input_urn = (
-        "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.public.test_table,PROD)"
-    )
-
-    schema_resolver = create_default_schema_resolver(urn=input_urn)
-
-    schema_resolver.add_raw_schema_info(
-        urn=input_urn,
-        schema_info={"address": "STRING"},
-    )
-
-    schema_resolver.add_raw_schema_info(
-        urn=input_urn,
-        schema_info={"Id": "STRING"},
-    )
-
     schema_info: SchemaInfo = {"id": "string", "Name": "string", "Address": "string"}
 
     output_columns = match_columns_to_schema(
