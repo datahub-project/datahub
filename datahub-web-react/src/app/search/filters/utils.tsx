@@ -437,3 +437,10 @@ export function useFilterDisplayName(filter: FacetMetadata, predicateDisplayName
 
     return predicateDisplayName || filter.displayName || filter.field;
 }
+
+export function getIsDateRangeFilter(field: FacetMetadata) {
+    if (field.entity && field.entity.type === EntityType.StructuredProperty) {
+        return (field.entity as StructuredPropertyEntity).definition?.valueType?.urn === DATE_TYPE_URN;
+    }
+    return false;
+}

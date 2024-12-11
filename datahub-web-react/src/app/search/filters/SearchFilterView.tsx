@@ -2,8 +2,8 @@ import { CaretDownFilled } from '@ant-design/icons';
 import { Dropdown } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { FacetFilterInput, FacetMetadata } from '@src/types.generated';
 import OptionsDropdownMenu from './OptionsDropdownMenu';
-import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import { DisplayedFilterOption } from './mapFilterOption';
 import { SearchFilterLabel } from './styledComponents';
 
@@ -27,6 +27,8 @@ interface Props {
     updateIsMenuOpen: (isOpen: boolean) => void;
     setSearchQuery: (query: string) => void;
     updateFilters: () => void;
+    filter?: FacetMetadata;
+    manuallyUpdateFilters?: (newValues: FacetFilterInput[]) => void;
 }
 
 export default function SearchFilterView({
@@ -40,6 +42,8 @@ export default function SearchFilterView({
     updateIsMenuOpen,
     setSearchQuery,
     updateFilters,
+    filter,
+    manuallyUpdateFilters,
 }: Props) {
     return (
         <Dropdown
@@ -55,6 +59,8 @@ export default function SearchFilterView({
                     updateSearchQuery={setSearchQuery}
                     isLoading={loading}
                     searchPlaceholder={displayName}
+                    filter={filter}
+                    manuallyUpdateFilters={manuallyUpdateFilters}
                 />
             )}
         >

@@ -22,6 +22,7 @@ export default function SearchFilter({ filter, activeFilters, onChangeFilters }:
         areFiltersLoading,
         searchQuery,
         updateSearchQuery,
+        manuallyUpdateFilters,
     } = useSearchFilterDropdown({
         filter,
         activeFilters,
@@ -46,6 +47,8 @@ export default function SearchFilter({ filter, activeFilters, onChangeFilters }:
             updateIsMenuOpen={updateIsMenuOpen}
             setSearchQuery={updateSearchQuery}
             updateFilters={updateFilters}
+            filter={filter}
+            manuallyUpdateFilters={manuallyUpdateFilters}
         />
     );
 }

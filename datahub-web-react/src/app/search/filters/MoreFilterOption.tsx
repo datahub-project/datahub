@@ -33,6 +33,7 @@ export default function MoreFilterOption({ filter, activeFilters, onChangeFilter
         areFiltersLoading,
         searchQuery,
         updateSearchQuery,
+        manuallyUpdateFilters,
     } = useSearchFilterDropdown({
         filter,
         activeFilters,
@@ -56,6 +57,8 @@ export default function MoreFilterOption({ filter, activeFilters, onChangeFilter
                     updateSearchQuery={updateSearchQuery}
                     isLoading={areFiltersLoading}
                     searchPlaceholder={displayName || ''}
+                    filter={filter}
+                    manuallyUpdateFilters={manuallyUpdateFilters}
                 />
             )}
         >
