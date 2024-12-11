@@ -737,8 +737,8 @@ class DremioAPIOperations:
                         pattern_parts = pattern_parts[:-1]
 
                     for i in range(len(path_parts)):
-                        current_path = ".".join(path_parts[:i + 1])
-                        pattern_prefix = ".".join(pattern_parts[:i + 1])
+                        current_path = ".".join(path_parts[: i + 1])
+                        pattern_prefix = ".".join(pattern_parts[: i + 1])
 
                         if pattern_prefix.startswith(current_path):
                             self.report.report_container_scanned(full_path)
