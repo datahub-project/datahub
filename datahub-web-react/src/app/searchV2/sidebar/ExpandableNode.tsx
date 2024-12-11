@@ -51,6 +51,7 @@ ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ $isSelected: b
         border: 1px solid ${(props) => (props.$isSelected ? SEARCH_COLORS.BACKGROUND_PURPLE : 'transparent')};
         background-color: ${(props) => (props.$isSelected ? SEARCH_COLORS.BACKGROUND_PURPLE : 'transparent')};
         border-radius: 8px;
+        overflow: hidden;
     }
 
     &:hover {
@@ -61,6 +62,15 @@ ExpandableNode.SelectableHeader = styled(ExpandableNode.Header)<{ $isSelected: b
 ExpandableNode.HeaderLeft = styled.div`
     display: flex;
     align-items: center;
+    flex-grow: 1;
+    overflow: hidden;
+
+    > span > a {
+        display: none;
+    }
+    &:hover > span > a {
+        display: block;
+    }
 `;
 
 const ChevronRightIconStyle = styled(ChevronRightIcon)<{ isVisible?: boolean }>`
@@ -124,8 +134,18 @@ ExpandableNode.CircleButton = ({ isOpen, color }: { isOpen: boolean; color: stri
 };
 
 // Reduce the ellipsis tolerance the deeper we get into the browse path
-const BaseTitleContainer = styled.div<{ depth: number; maxWidth: number; padLeft: boolean }>`
-    max-width: ${(props) => props.maxWidth - props.depth * 8}px;
+const BaseTitleContainer = styled.div<{ depth: number; maxWidth: number; padLeft: boolean; dynamicWidth?: boolean }>`
+    ${(props) =>
+        props.dynamicWidth
+            ? `
+    flex-shrink: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    `
+            : `
+    max-width: ${props.maxWidth - props.depth * 8}px;
+    `}
     padding-left: ${(props) => (props.padLeft ? 8 : 0)}px;
 `;
 
@@ -141,6 +161,7 @@ ExpandableNode.Title = ({
     children,
     maxWidth = 200,
     padLeft = false,
+    dynamicWidth,
 }: {
     color: string;
     size: number;
@@ -148,9 +169,10 @@ ExpandableNode.Title = ({
     children: ReactNode;
     maxWidth?: number;
     padLeft?: boolean;
+    dynamicWidth?: boolean;
 }) => {
     return (
-        <BaseTitleContainer depth={depth} maxWidth={maxWidth} padLeft={padLeft}>
+        <BaseTitleContainer depth={depth} maxWidth={maxWidth} padLeft={padLeft} dynamicWidth={dynamicWidth}>
             <BaseTitle ellipsis={{ tooltip: { mouseEnterDelay: 1 } }} color={color} size={size}>
                 {children}
             </BaseTitle>
@@ -158,6 +180,8 @@ ExpandableNode.Title = ({
     );
 };
 
-ExpandableNode.Body = styled.div``;
+ExpandableNode.Body = styled.div`
+    width: 100%;
+`;
 
 export default ExpandableNode;

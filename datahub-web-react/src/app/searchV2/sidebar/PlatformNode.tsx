@@ -112,7 +112,7 @@ const PlatformNode = ({ iconSize = 20, hasOnlyOnePlatform = false, toggleCollaps
                     onClick={onClick}
                     style={{ justifyContent: collapsed ? 'center' : 'start' }}
                 >
-                    <ExpandableNode.HeaderLeft>
+                    <ExpandableNode.HeaderLeft style={{ justifyContent: collapsed ? 'center' : 'start' }}>
                         <ExpandableNode.TriangleButton
                             isOpen={isOpen && !isClosing}
                             isVisible={!!platformAggregation.count}
