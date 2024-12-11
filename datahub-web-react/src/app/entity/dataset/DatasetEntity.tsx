@@ -85,6 +85,8 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getPathName = () => 'dataset';
 
+    getGraphName = () => 'dataset';
+
     getEntityName = () => 'Dataset';
 
     getCollectionName = () => 'Datasets';

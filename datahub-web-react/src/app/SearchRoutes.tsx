@@ -11,22 +11,35 @@ import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
 import { ManageIngestionPage } from './ingest/ManageIngestionPage';
 import GlossaryRoutes from './glossary/GlossaryRoutes';
 import { SettingsPage } from './settings/SettingsPage';
+import { useUserContext } from './context/useUserContext';
 import DomainRoutes from './domain/DomainRoutes';
-import { useBusinessAttributesFlag, useIsAppConfigContextLoaded, useIsNestedDomainsEnabled } from './useAppConfig';
+import {
+    useAppConfig,
+    useBusinessAttributesFlag,
+    useIsAppConfigContextLoaded,
+    useIsNestedDomainsEnabled,
+} from './useAppConfig';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
 import { BusinessAttributes } from './businessAttribute/BusinessAttributes';
+import StructuredProperties from './govern/structuredProperties/StructuredProperties';
 /**
  * Container for all searchable page routes
  */
 export const SearchRoutes = (): JSX.Element => {
     const entityRegistry = useEntityRegistry();
+    const me = useUserContext();
     const isNestedDomainsEnabled = useIsNestedDomainsEnabled();
     const entities = isNestedDomainsEnabled
         ? entityRegistry.getEntitiesForSearchRoutes()
         : entityRegistry.getNonGlossaryEntities();
+    const { config } = useAppConfig();
 
     const businessAttributesFlag = useBusinessAttributesFlag();
     const appConfigContextLoaded = useIsAppConfigContextLoaded();
+
+    const showStructuredProperties =
+        config?.featureFlags?.showManageStructuredProperties &&
+        (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
 
     return (
         <SearchablePage>
@@ -53,6 +66,9 @@ export const SearchRoutes = (): JSX.Element => {
                 <Route path={PageRoutes.INGESTION} render={() => <ManageIngestionPage />} />
                 <Route path={PageRoutes.SETTINGS} render={() => <SettingsPage />} />
                 <Route path={`${PageRoutes.GLOSSARY}*`} render={() => <GlossaryRoutes />} />
+                {showStructuredProperties && (
+                    <Route path={PageRoutes.STRUCTURED_PROPERTIES} render={() => <StructuredProperties />} />
+                )}
                 <Route
                     path={PageRoutes.BUSINESS_ATTRIBUTE}
                     render={() => {

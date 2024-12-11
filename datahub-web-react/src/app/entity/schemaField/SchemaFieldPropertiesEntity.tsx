@@ -44,6 +44,8 @@ export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
     // Currently unused.
     renderProfile = (_: string) => <></>;
 
+    getGraphName = () => 'schemaField';
+
     renderPreview = (previewType: PreviewType, data: SchemaFieldEntity) => {
         const parent = data.parent as Dataset;
         return (

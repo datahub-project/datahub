@@ -179,4 +179,6 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             EntityCapabilityType.SOFT_DELETE,
         ]);
     };
+
+    getGraphName = () => this.getPathName();
 }

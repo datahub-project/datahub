@@ -59,6 +59,8 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
 
     getCollectionName = () => 'Business Attributes';
 
+    getGraphName = () => 'businessAttribute';
+
     getCustomCardUrlPath = () => PageRoutes.BUSINESS_ATTRIBUTE;
 
     isBrowseEnabled = () => false;

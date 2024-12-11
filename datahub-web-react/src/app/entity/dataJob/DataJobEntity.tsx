@@ -64,6 +64,8 @@ export class DataJobEntity implements Entity<DataJob> {
 
     getAutoCompleteFieldName = () => 'name';
 
+    getGraphName = () => 'dataJob';
+
     getPathName = () => 'tasks';
 
     getEntityName = () => 'Task';

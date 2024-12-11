@@ -52,6 +52,8 @@ export class MLModelEntity implements Entity<MlModel> {
 
     getAutoCompleteFieldName = () => 'name';
 
+    getGraphName = () => 'mlModel';
+
     getPathName = () => 'mlModels';
 
     getEntityName = () => 'ML Model';

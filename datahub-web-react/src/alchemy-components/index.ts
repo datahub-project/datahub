@@ -15,6 +15,7 @@ export * from './components/LineChart';
 export * from './components/PageTitle';
 export * from './components/Pills';
 export * from './components/Popover';
+export * from './components/SearchBar';
 export * from './components/Select';
 export * from './components/Switch';
 export * from './components/Table';

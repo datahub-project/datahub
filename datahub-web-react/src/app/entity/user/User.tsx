@@ -39,6 +39,8 @@ export class UserEntity implements Entity<CorpUser> {
 
     getAutoCompleteFieldName = () => 'username';
 
+    getGraphName: () => string = () => 'corpuser';
+
     getPathName: () => string = () => 'user';
 
     getEntityName = () => 'Person';
