@@ -743,6 +743,162 @@ class AvroSchemaConverterTest {
         "{\"logicalType\":\"uuid\"}");
   }
 
+  @Test(groups = "basic")
+  void testUsersRecord() throws IOException {
+    // this is a test case got during the Hudi integration
+    SchemaMetadata schema =
+        avroSchemaConverter.toDataHubSchema(
+            readAvroSchema("users_record.avsc"), false, false, dataPlatformUrn, null);
+
+    schema.getFields().forEach(System.out::println);
+
+    assertEquals(schema.getFields().size(), 20);
+
+    assertSchemaField(
+        schema.getFields().get(0),
+        "[version=2.0].[type=users_record].[type=string]._hoodie_commit_time",
+        "string",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
+    assertSchemaField(
+        schema.getFields().get(1),
+        "[version=2.0].[type=users_record].[type=string]._hoodie_commit_seqno",
+        "string",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
+    assertSchemaField(
+        schema.getFields().get(2),
+        "[version=2.0].[type=users_record].[type=string]._hoodie_record_key",
+        "string",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
+    assertSchemaField(
+        schema.getFields().get(3),
+        "[version=2.0].[type=users_record].[type=string]._hoodie_partition_path",
+        "string",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
+    assertSchemaField(
+        schema.getFields().get(4),
+        "[version=2.0].[type=users_record].[type=string]._hoodie_file_name",
+        "string",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
+    assertSchemaField(
+        schema.getFields().get(5),
+        "[version=2.0].[type=users_record].[type=string].user_id",
+        "string",
+        false,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
+    assertSchemaField(
+        schema.getFields().get(6),
+        "[version=2.0].[type=users_record].[type=string].name",
+        "string",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
+    assertSchemaField(
+        schema.getFields().get(7),
+        "[version=2.0].[type=users_record].[type=address].address",
+        "address",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new RecordType())));
+    assertSchemaField(
+        schema.getFields().get(8),
+        "[version=2.0].[type=users_record].[type=address].address.[type=string].street",
+        "string",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
+    assertSchemaField(
+        schema.getFields().get(9),
+        "[version=2.0].[type=users_record].[type=address].address.[type=string].city",
+        "string",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
+    assertSchemaField(
+        schema.getFields().get(10),
+        "[version=2.0].[type=users_record].[type=address].address.[type=string].country",
+        "string",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
+    assertSchemaField(
+        schema.getFields().get(11),
+        "[version=2.0].[type=users_record].[type=address].address.[type=string].postal_code",
+        "string",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
+    assertSchemaField(
+        schema.getFields().get(12),
+        "[version=2.0].[type=users_record].[type=address].address.[type=long].created_at",
+        "long(timestamp-micros)",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new TimeType())),
+        "{\"logicalType\":\"timestamp-micros\"}");
+    assertSchemaField(
+        schema.getFields().get(13),
+        "[version=2.0].[type=users_record].[type=contact].contact",
+        "contact",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new RecordType())));
+    assertSchemaField(
+        schema.getFields().get(14),
+        "[version=2.0].[type=users_record].[type=contact].contact.[type=string].email",
+        "string",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
+    assertSchemaField(
+        schema.getFields().get(15),
+        "[version=2.0].[type=users_record].[type=contact].contact.[type=string].phone",
+        "string",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
+    assertSchemaField(
+        schema.getFields().get(16),
+        "[version=2.0].[type=users_record].[type=long].created_at",
+        "long(timestamp-micros)",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new TimeType())),
+        "{\"logicalType\":\"timestamp-micros\"}");
+    assertSchemaField(
+        schema.getFields().get(17),
+        "[version=2.0].[type=users_record].[type=long].updated_at",
+        "long(timestamp-micros)",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new TimeType())),
+        "{\"logicalType\":\"timestamp-micros\"}");
+    assertSchemaField(
+        schema.getFields().get(18),
+        "[version=2.0].[type=users_record].[type=map].[type=int].props",
+        "int",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new NumberType())));
+    assertSchemaField(
+        schema.getFields().get(19),
+        "[version=2.0].[type=users_record].[type=string].country",
+        "string",
+        true,
+        false,
+        new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
+  }
+
   private void assertSchemaField(
       SchemaField field,
       String expectedPath,
