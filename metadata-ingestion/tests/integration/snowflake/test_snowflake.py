@@ -187,7 +187,9 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
 
 
 @freeze_time(FROZEN_TIME)
-def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+def test_snowflake_private_link_and_incremental_mcps(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
     # Run the metadata ingestion pipeline.
@@ -218,6 +220,7 @@ def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_
                         include_usage_stats=False,
                         format_sql_queries=True,
                         incremental_lineage=False,
+                        incremental_properties=True,
                         include_operational_stats=False,
                         platform_instance="instance1",
                         start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
