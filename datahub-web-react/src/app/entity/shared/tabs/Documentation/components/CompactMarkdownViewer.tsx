@@ -1,7 +1,6 @@
 import { Button } from 'antd';
 import React, { useCallback, useEffect, useState } from 'react';
 import styled from 'styled-components';
-import { REDESIGN_COLORS } from '../../../constants';
 import { Editor } from './editor/Editor';
 
 const LINE_HEIGHT = 1.5;
