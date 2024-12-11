@@ -81,7 +81,6 @@ public class TemplateUtil {
           PatchOperationType.REMOVE.equals(operationPath.getFirst())
               ? keys.length
               : keys.length - 1;
-
       // Skip first as it will always be blank due to path starting with /
       for (int i = 1; i < endIdx; i++) {
         String decodedKey = decodeValue(keys[i]);

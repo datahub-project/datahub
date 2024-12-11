@@ -4,6 +4,7 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -84,6 +85,32 @@ public class ProposedItem implements MCPItem {
   @Override
   public ChangeType getChangeType() {
     return metadataChangeProposal.getChangeType();
+  }
+
+  @Override
+  public boolean isDatabaseDuplicateOf(BatchItem other) {
+    return equals(other);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    ProposedItem that = (ProposedItem) o;
+    return metadataChangeProposal.equals(that.metadataChangeProposal)
+        && auditStamp.equals(that.auditStamp);
+  }
+
+  @Override
+  public int hashCode() {
+    int result = metadataChangeProposal.hashCode();
+    result = 31 * result + auditStamp.hashCode();
+    return result;
   }
 
   public static class ProposedItemBuilder {

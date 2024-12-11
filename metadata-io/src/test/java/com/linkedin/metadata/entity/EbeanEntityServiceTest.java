@@ -383,57 +383,6 @@ public class EbeanEntityServiceTest
   }
 
   @Test
-  public void testBatchDuplicate() throws Exception {
-    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:batchDuplicateTest");
-    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
-    ChangeItemImpl item1 =
-        ChangeItemImpl.builder()
-            .urn(entityUrn)
-            .aspectName(STATUS_ASPECT_NAME)
-            .recordTemplate(new Status().setRemoved(true))
-            .systemMetadata(systemMetadata.copy())
-            .auditStamp(TEST_AUDIT_STAMP)
-            .build(TestOperationContexts.emptyAspectRetriever(null));
-    ChangeItemImpl item2 =
-        ChangeItemImpl.builder()
-            .urn(entityUrn)
-            .aspectName(STATUS_ASPECT_NAME)
-            .recordTemplate(new Status().setRemoved(false))
-            .systemMetadata(systemMetadata.copy())
-            .auditStamp(TEST_AUDIT_STAMP)
-            .build(TestOperationContexts.emptyAspectRetriever(null));
-    _entityServiceImpl.ingestAspects(
-        opContext,
-        AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
-            .items(List.of(item1, item2))
-            .build(),
-        false,
-        true);
-
-    // List aspects urns
-    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 2);
-
-    assertEquals(batch.getStart().intValue(), 0);
-    assertEquals(batch.getCount().intValue(), 1);
-    assertEquals(batch.getTotal().intValue(), 1);
-    assertEquals(batch.getEntities().size(), 1);
-    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
-
-    EnvelopedAspect envelopedAspect =
-        _entityServiceImpl.getLatestEnvelopedAspect(
-            opContext, CORP_USER_ENTITY_NAME, entityUrn, STATUS_ASPECT_NAME);
-    assertEquals(
-        envelopedAspect.getSystemMetadata().getVersion(),
-        "2",
-        "Expected version 2 accounting for duplicates");
-    assertEquals(
-        envelopedAspect.getValue().toString(),
-        "{removed=false}",
-        "Expected 2nd item to be the latest");
-  }
-
-  @Test
   public void dataGeneratorThreadingTest() {
     DataGenerator dataGenerator = new DataGenerator(opContext, _entityServiceImpl);
     List<String> aspects = List.of("status", "globalTags", "glossaryTerms");

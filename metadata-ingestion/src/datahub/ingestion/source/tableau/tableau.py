@@ -68,6 +68,7 @@ from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
     Source,
+    StructuredLogLevel,
     TestableSource,
     TestConnectionReport,
 )
@@ -289,16 +290,12 @@ class TableauConnectionConfig(ConfigModel):
             server.auth.sign_in(authentication)
             return server
         except ServerResponseError as e:
+            message = f"Unable to login (invalid/expired credentials or missing permissions): {str(e)}"
             if isinstance(authentication, PersonalAccessTokenAuth):
                 # Docs on token expiry in Tableau:
                 # https://help.tableau.com/current/server/en-us/security_personal_access_tokens.htm#token-expiry
-                logger.info(
-                    "Error authenticating with Tableau. Note that Tableau personal access tokens "
-                    "expire if not used for 15 days or if over 1 year old"
-                )
-            raise ValueError(
-                f"Unable to login (invalid/expired credentials or missing permissions): {str(e)}"
-            ) from e
+                message = f"Error authenticating with Tableau. Note that Tableau personal access tokens expire if not used for 15 days or if over 1 year old: {str(e)}"
+            raise ValueError(message) from e
         except Exception as e:
             raise ValueError(
                 f"Unable to login (check your Tableau connection and credentials): {str(e)}"
@@ -488,6 +485,18 @@ class TableauConfig(
         description="Configuration settings for ingesting Tableau groups and their capabilities as custom properties.",
     )
 
+    ingest_hidden_assets: bool = Field(
+        True,
+        description="When enabled, hidden views and dashboards are ingested into Datahub. "
+        "If a dashboard or view is hidden in Tableau the luid is blank. Default of this config field is True.",
+    )
+
+    tags_for_hidden_assets: List[str] = Field(
+        default=[],
+        description="Tags to be added to hidden dashboards and views. If a dashboard or view is hidden in Tableau the luid is blank. "
+        "This can only be used with ingest_tags enabled as it will overwrite tags entered from the UI.",
+    )
+
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
@@ -511,6 +520,20 @@ class TableauConfig(
                 "project_pattern is deprecated. Please use project_path_pattern only."
             )
 
+        return values
+
+    @root_validator()
+    def validate_config_values(cls, values: Dict) -> Dict:
+        tags_for_hidden_assets = values.get("tags_for_hidden_assets")
+        ingest_tags = values.get("ingest_tags")
+        if (
+            not ingest_tags
+            and tags_for_hidden_assets
+            and len(tags_for_hidden_assets) > 0
+        ):
+            raise ValueError(
+                "tags_for_hidden_assets is only allowed with ingest_tags enabled. Be aware that this will overwrite tags entered from the UI."
+            )
         return values
 
 
@@ -599,7 +622,16 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
     num_datasource_field_skipped_no_name: int = 0
     num_csql_field_skipped_no_name: int = 0
     num_table_field_skipped_no_name: int = 0
+    # lineage
+    num_tables_with_upstream_lineage: int = 0
+    num_upstream_table_lineage: int = 0
+    num_upstream_fine_grained_lineage: int = 0
     num_upstream_table_skipped_no_name: int = 0
+    num_upstream_table_skipped_no_columns: int = 0
+    num_upstream_table_failed_generate_reference: int = 0
+    num_upstream_table_lineage_failed_parse_sql: int = 0
+    num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
+    num_hidden_assets_skipped: int = 0
 
 
 @platform_name("Tableau")
@@ -700,6 +732,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         config=self.config,
                         ctx=self.ctx,
                         site=site,
+                        site_id=site.id,
                         report=self.report,
                         server=self.server,
                         platform=self.platform,
@@ -707,11 +740,19 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     logger.info(f"Ingesting assets of site '{site.content_url}'.")
                     yield from site_source.ingest_tableau_site()
             else:
-                site = self.server.sites.get_by_id(self.server.site_id)
+                site = None
+                with self.report.report_exc(
+                    title="Unable to fetch site details. Site hierarchy may be incomplete and external urls may be missing.",
+                    message="This usually indicates missing permissions. Ensure that you have all necessary permissions.",
+                    level=StructuredLogLevel.WARN,
+                ):
+                    site = self.server.sites.get_by_id(self.server.site_id)
+
                 site_source = TableauSiteSource(
                     config=self.config,
                     ctx=self.ctx,
                     site=site,
+                    site_id=self.server.site_id,
                     report=self.report,
                     server=self.server,
                     platform=self.platform,
@@ -722,6 +763,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 title="Failed to Retrieve Tableau Metadata",
                 message="Unable to retrieve metadata from tableau.",
                 context=str(md_exception),
+                exc=md_exception,
             )
 
     def close(self) -> None:
@@ -743,7 +785,8 @@ class TableauSiteSource:
         self,
         config: TableauConfig,
         ctx: PipelineContext,
-        site: SiteItem,
+        site: Optional[SiteItem],
+        site_id: Optional[str],
         report: TableauSourceReport,
         server: Server,
         platform: str,
@@ -752,8 +795,15 @@ class TableauSiteSource:
         self.report = report
         self.server: Server = server
         self.ctx: PipelineContext = ctx
-        self.site: SiteItem = site
         self.platform = platform
+
+        self.site: Optional[SiteItem] = site
+        if site_id is not None:
+            self.site_id: str = site_id
+        else:
+            assert self.site is not None, "site or site_id is required"
+            assert self.site.id is not None, "site_id is required when site is provided"
+            self.site_id = self.site.id
 
         self.database_tables: Dict[str, DatabaseTable] = {}
         self.tableau_stat_registry: Dict[str, UsageStat] = {}
@@ -808,7 +858,7 @@ class TableauSiteSource:
     def _re_authenticate(self):
         tableau_auth: Union[
             TableauAuth, PersonalAccessTokenAuth
-        ] = self.config.get_tableau_auth(self.site.content_url)
+        ] = self.config.get_tableau_auth(self.site_id)
         self.server.auth.sign_in(tableau_auth)
 
     @property
@@ -826,6 +876,7 @@ class TableauSiteSource:
             if not view.id:
                 continue
             self.tableau_stat_registry[view.id] = UsageStat(view_count=view.total_views)
+        logger.info(f"Got Tableau stats for {len(self.tableau_stat_registry)} assets")
         logger.debug("Tableau stats %s", self.tableau_stat_registry)
 
     def _populate_database_server_hostname_map(self) -> None:
@@ -876,7 +927,7 @@ class TableauSiteSource:
                 ancestors = [cur_proj.name]
                 while cur_proj.parent_id is not None:
                     if cur_proj.parent_id not in all_project_map:
-                        self.report.report_warning(
+                        self.report.warning(
                             "project-issue",
                             f"Parent project {cur_proj.parent_id} not found. We need Site Administrator Explorer permissions.",
                         )
@@ -974,8 +1025,11 @@ class TableauSiteSource:
                 self.datasource_project_map[ds.id] = ds.project_id
         except Exception as e:
             self.report.get_all_datasources_query_failed = True
-            logger.info(f"Get all datasources query failed due to error {e}")
-            logger.debug("Error stack trace", exc_info=True)
+            self.report.warning(
+                title="Unexpected Query Error",
+                message="Get all datasources query failed due to error",
+                exc=e,
+            )
 
     def _init_workbook_registry(self) -> None:
         if self.server is None:
@@ -1023,6 +1077,11 @@ class TableauSiteSource:
                 else None
             ),
         )
+
+    def _is_hidden_view(self, dashboard_or_view: Dict) -> bool:
+        # LUID is blank if the view is hidden in the workbook.
+        # More info here: https://help.tableau.com/current/api/metadata_api/en-us/reference/view.doc.html
+        return not dashboard_or_view.get(c.LUID)
 
     def get_connection_object_page(
         self,
@@ -1141,7 +1200,6 @@ class TableauSiteSource:
                     )
 
                 if node_limit_errors:
-                    logger.debug(f"Node Limit Error. query_data {query_data}")
                     self.report.warning(
                         title="Tableau Data Exceed Predefined Limit",
                         message="The numbers of record in result set exceeds a predefined limit. Increase the tableau "
@@ -1257,9 +1315,10 @@ class TableauSiteSource:
                     wrk_id: Optional[str] = workbook.get(c.ID)
                     prj_name: Optional[str] = workbook.get(c.PROJECT_NAME)
 
-                    logger.debug(
-                        f"Skipping workbook {wrk_name}({wrk_id}) as it is project {prj_name}({project_luid}) not "
-                        f"present in project registry"
+                    self.report.warning(
+                        title="Skipping Missing Workbook",
+                        message="Skipping workbook as its project is not present in project registry",
+                        context=f"workbook={wrk_name}({wrk_id}), project={prj_name}({project_luid})",
                     )
                     continue
 
@@ -1292,7 +1351,7 @@ class TableauSiteSource:
         datasource: dict,
         browse_path: Optional[str],
         is_embedded_ds: bool = False,
-    ) -> Tuple:
+    ) -> Tuple[List[Upstream], List[FineGrainedLineage]]:
         upstream_tables: List[Upstream] = []
         fine_grained_lineages: List[FineGrainedLineage] = []
         table_id_to_urn = {}
@@ -1453,7 +1512,8 @@ class TableauSiteSource:
                 c.COLUMNS_CONNECTION
             ].get("totalCount")
             if not is_custom_sql and not num_tbl_cols:
-                logger.debug(
+                self.report.num_upstream_table_skipped_no_columns += 1
+                logger.warning(
                     f"Skipping upstream table with id {table[c.ID]}, no columns: {table}"
                 )
                 continue
@@ -1469,7 +1529,13 @@ class TableauSiteSource:
                     table, default_schema_map=self.config.default_schema_map
                 )
             except Exception as e:
-                logger.info(f"Failed to generate upstream reference for {table}: {e}")
+                self.report.num_upstream_table_failed_generate_reference += 1
+                self.report.warning(
+                    title="Potentially Missing Lineage Issue",
+                    message="Failed to generate upstream reference",
+                    exc=e,
+                    context=f"table={table}",
+                )
                 continue
 
             table_urn = ref.make_dataset_urn(
@@ -1635,15 +1701,7 @@ class TableauSiteSource:
             func_overridden_info=None,  # Here we don't want to override any information from configuration
         )
 
-        if parsed_result is None:
-            logger.info(
-                f"Failed to extract column level lineage from datasource {datasource_urn}"
-            )
-            return []
-        if parsed_result.debug_info.error:
-            logger.info(
-                f"Failed to extract column level lineage from datasource {datasource_urn}: {parsed_result.debug_info.error}"
-            )
+        if parsed_result is None or parsed_result.debug_info.error:
             return []
 
         cll: List[ColumnLineageInfo] = (
@@ -1917,10 +1975,12 @@ class TableauSiteSource:
                 self.datasource_project_map[ds_result.id] = ds_result.project_id
         except Exception as e:
             self.report.num_get_datasource_query_failures += 1
-            logger.warning(
-                f"Failed to get datasource project_luid for {ds_luid} due to error {e}"
+            self.report.warning(
+                title="Unexpected Query Error",
+                message="Failed to get datasource details",
+                exc=e,
+                context=f"ds_luid={ds_luid}",
             )
-            logger.debug("Error stack trace", exc_info=True)
 
     def _get_workbook_project_luid(self, wb: dict) -> Optional[str]:
         if wb.get(c.LUID) and self.workbook_project_map.get(wb[c.LUID]):
@@ -2005,6 +2065,8 @@ class TableauSiteSource:
                 aspect_name=c.UPSTREAM_LINEAGE,
                 aspect=upstream_lineage,
             )
+            self.report.num_tables_with_upstream_lineage += 1
+            self.report.num_upstream_table_lineage += len(upstream_tables)
 
     @staticmethod
     def _clean_tableau_query_parameters(query: str) -> str:
@@ -2104,7 +2166,7 @@ class TableauSiteSource:
             f"Overridden info upstream_db={upstream_db}, platform_instance={platform_instance}, platform={platform}"
         )
 
-        return create_lineage_sql_parsed_result(
+        parsed_result = create_lineage_sql_parsed_result(
             query=query,
             default_db=upstream_db,
             platform=platform,
@@ -2113,6 +2175,21 @@ class TableauSiteSource:
             graph=self.ctx.graph,
             schema_aware=not self.config.sql_parsing_disable_schema_awareness,
         )
+
+        assert parsed_result is not None
+
+        if parsed_result.debug_info.table_error:
+            logger.warning(
+                f"Failed to extract table lineage from datasource {datasource_urn}: {parsed_result.debug_info.table_error}"
+            )
+            self.report.num_upstream_table_lineage_failed_parse_sql += 1
+        elif parsed_result.debug_info.column_error:
+            logger.warning(
+                f"Failed to extract column level lineage from datasource {datasource_urn}: {parsed_result.debug_info.column_error}"
+            )
+            self.report.num_upstream_fine_grained_lineage_failed_parse_sql += 1
+
+        return parsed_result
 
     def _enrich_database_tables_with_parsed_schemas(
         self, parsing_result: SqlParsingResult
@@ -2148,9 +2225,6 @@ class TableauSiteSource:
         )
 
         if parsed_result is None:
-            logger.info(
-                f"Failed to extract table level lineage for datasource {csql_urn}"
-            )
             return
 
         self._enrich_database_tables_with_parsed_schemas(parsed_result)
@@ -2170,12 +2244,14 @@ class TableauSiteSource:
             upstreams=upstream_tables,
             fineGrainedLineages=fine_grained_lineages,
         )
-
         yield self.get_metadata_change_proposal(
             csql_urn,
             aspect_name=c.UPSTREAM_LINEAGE,
             aspect=upstream_lineage,
         )
+        self.report.num_tables_with_upstream_lineage += 1
+        self.report.num_upstream_table_lineage += len(upstream_tables)
+        self.report.num_upstream_fine_grained_lineage += len(fine_grained_lineages)
 
     def _get_schema_metadata_for_datasource(
         self, datasource_fields: List[dict]
@@ -2252,12 +2328,11 @@ class TableauSiteSource:
         )
 
         # Tags
-        if datasource_info:
+        if datasource_info and self.config.ingest_tags:
             tags = self.get_tags(datasource_info)
-            if tags:
-                dataset_snapshot.aspects.append(
-                    builder.make_global_tag_aspect_with_tag_list(tags)
-                )
+            dataset_snapshot.aspects.append(
+                builder.make_global_tag_aspect_with_tag_list(tags)
+            )
 
         # Browse path
         if browse_path and is_embedded_ds and workbook and workbook.get(c.NAME):
@@ -2325,6 +2400,11 @@ class TableauSiteSource:
                     datasource_urn,
                     aspect_name=c.UPSTREAM_LINEAGE,
                     aspect=upstream_lineage,
+                )
+                self.report.num_tables_with_upstream_lineage += 1
+                self.report.num_upstream_table_lineage += len(upstream_tables)
+                self.report.num_upstream_fine_grained_lineage += len(
+                    fine_grained_lineages
                 )
 
         # Datasource Fields
@@ -2643,7 +2723,13 @@ class TableauSiteSource:
             c.SHEETS_CONNECTION,
             sheets_filter,
         ):
-            yield from self.emit_sheets_as_charts(sheet, sheet.get(c.WORKBOOK))
+            if self.config.ingest_hidden_assets or not self._is_hidden_view(sheet):
+                yield from self.emit_sheets_as_charts(sheet, sheet.get(c.WORKBOOK))
+            else:
+                self.report.num_hidden_assets_skipped += 1
+                logger.debug(
+                    f"Skip view {sheet.get(c.ID)} because it's hidden (luid is blank)."
+                )
 
     def emit_sheets_as_charts(
         self, sheet: dict, workbook: Optional[Dict]
@@ -2734,11 +2820,17 @@ class TableauSiteSource:
             chart_snapshot.aspects.append(owner)
 
         #  Tags
-        tags = self.get_tags(sheet)
-        if tags:
+        if self.config.ingest_tags:
+            tags = self.get_tags(sheet)
+            if len(self.config.tags_for_hidden_assets) > 0 and self._is_hidden_view(
+                sheet
+            ):
+                tags.extend(self.config.tags_for_hidden_assets)
+
             chart_snapshot.aspects.append(
                 builder.make_global_tag_aspect_with_tag_list(tags)
             )
+
         yield self.get_metadata_change_event(chart_snapshot)
         if sheet_external_url is not None and self.config.ingest_embed_url is True:
             yield self.new_work_unit(
@@ -2820,7 +2912,7 @@ class TableauSiteSource:
             else None
         )
 
-        tags = self.get_tags(workbook)
+        tags = self.get_tags(workbook) if self.config.ingest_tags else None
 
         parent_key = None
         project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
@@ -2951,17 +3043,23 @@ class TableauSiteSource:
             c.DASHBOARDS_CONNECTION,
             dashboards_filter,
         ):
-            yield from self.emit_dashboard(dashboard, dashboard.get(c.WORKBOOK))
+            if self.config.ingest_hidden_assets or not self._is_hidden_view(dashboard):
+                yield from self.emit_dashboard(dashboard, dashboard.get(c.WORKBOOK))
+            else:
+                self.report.num_hidden_assets_skipped += 1
+                logger.debug(
+                    f"Skip dashboard {dashboard.get(c.ID)} because it's hidden (luid is blank)."
+                )
 
-    def get_tags(self, obj: dict) -> Optional[List[str]]:
+    def get_tags(self, obj: dict) -> List[str]:
         tag_list = obj.get(c.TAGS, [])
-        if tag_list and self.config.ingest_tags:
+        if tag_list:
             tag_list_str = [
                 t[c.NAME] for t in tag_list if t is not None and t.get(c.NAME)
             ]
 
             return tag_list_str
-        return None
+        return []
 
     def emit_dashboard(
         self, dashboard: dict, workbook: Optional[Dict]
@@ -3012,8 +3110,13 @@ class TableauSiteSource:
         )
         dashboard_snapshot.aspects.append(dashboard_info_class)
 
-        tags = self.get_tags(dashboard)
-        if tags:
+        if self.config.ingest_tags:
+            tags = self.get_tags(dashboard)
+            if len(self.config.tags_for_hidden_assets) > 0 and self._is_hidden_view(
+                dashboard
+            ):
+                tags.extend(self.config.tags_for_hidden_assets)
+
             dashboard_snapshot.aspects.append(
                 builder.make_global_tag_aspect_with_tag_list(tags)
             )
@@ -3181,10 +3284,10 @@ class TableauSiteSource:
             else:
                 # This is a root Tableau project since the parent_project_id is None.
                 # For a root project, either the site is the parent, or the platform is the default parent.
-                if self.config.add_site_container and self.site and self.site.id:
+                if self.config.add_site_container:
                     # The site containers have already been generated by emit_site_container, so we
                     # don't need to emit them again here.
-                    parent_project_key = self.gen_site_key(self.site.id)
+                    parent_project_key = self.gen_site_key(self.site_id)
 
             yield from gen_containers(
                 container_key=project_key,
@@ -3201,12 +3304,12 @@ class TableauSiteSource:
             yield from emit_project_in_topological_order(project)
 
     def emit_site_container(self):
-        if not self.site or not self.site.id:
+        if not self.site:
             logger.warning("Can not ingest site container. No site information found.")
             return
 
         yield from gen_containers(
-            container_key=self.gen_site_key(self.site.id),
+            container_key=self.gen_site_key(self.site_id),
             name=self.site.name or "Default",
             sub_types=[c.SITE],
         )
