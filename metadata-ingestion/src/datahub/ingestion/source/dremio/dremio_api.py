@@ -715,7 +715,36 @@ class DremioAPIOperations:
 
         # Check allow patterns
         for pattern in self.allow_schema_pattern:
-            # Check if the current full path matches
+            # For patterns with wildcards, check if this path is a parent of the pattern
+            if "*" in pattern:
+                pattern_parts = pattern.split(".")
+                path_parts = path_components
+
+                # If pattern has exact same number of parts, check each component
+                if len(pattern_parts) == len(path_parts):
+                    matches = True
+                    for p_part, c_part in zip(pattern_parts, path_parts):
+                        if p_part != "*" and p_part.lower() != c_part.lower():
+                            matches = False
+                            break
+                    if matches:
+                        self.report.report_container_scanned(full_path)
+                        return True
+                # Otherwise check if current path is prefix match
+                else:
+                    # Remove the trailing wildcard if present
+                    if pattern_parts[-1] == "*":
+                        pattern_parts = pattern_parts[:-1]
+
+                    for i in range(len(path_parts)):
+                        current_path = ".".join(path_parts[:i + 1])
+                        pattern_prefix = ".".join(pattern_parts[:i + 1])
+
+                        if pattern_prefix.startswith(current_path):
+                            self.report.report_container_scanned(full_path)
+                            return True
+
+            # Direct pattern matching
             if self._check_pattern_match(
                 pattern=pattern,
                 paths=[full_path],
@@ -723,17 +752,6 @@ class DremioAPIOperations:
             ):
                 self.report.report_container_scanned(full_path)
                 return True
-
-            # For hierarchical patterns ending with .*, also check parent paths
-            if pattern.endswith(".*") and path:
-                current_path = ".".join(path)
-                if self._check_pattern_match(
-                    pattern=pattern[:-2],
-                    paths=[current_path],
-                    allow_prefix=True,
-                ):
-                    self.report.report_container_scanned(full_path)
-                    return True
 
         self.report.report_container_filtered(full_path)
         return False
