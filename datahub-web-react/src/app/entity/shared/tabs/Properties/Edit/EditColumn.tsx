@@ -13,7 +13,7 @@ interface Props {
 export function EditColumn({ structuredProperty, associatedUrn, values, refetch }: Props) {
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
-    if (!structuredProperty || structuredProperty?.definition.immutable) {
+    if (!structuredProperty || structuredProperty?.definition?.immutable) {
         return null;
     }
 

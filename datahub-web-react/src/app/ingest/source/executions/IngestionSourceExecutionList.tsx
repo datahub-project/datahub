@@ -49,7 +49,7 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
     };
 
     function hasActiveExecution() {
-        return !!data?.ingestionSource?.executions?.executionRequests.find((request) =>
+        return !!data?.ingestionSource?.executions?.executionRequests?.find((request) =>
             isExecutionRequestActive(request as ExecutionRequest),
         );
     }

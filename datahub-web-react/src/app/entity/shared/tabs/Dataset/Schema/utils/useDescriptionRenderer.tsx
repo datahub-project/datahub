@@ -22,7 +22,7 @@ export default function useDescriptionRenderer(editableSchemaMetadata: EditableS
     };
 
     return (description: string, record: SchemaField, index: number): JSX.Element => {
-        const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find((candidateEditableFieldInfo) =>
+        const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
             pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
         const { schemaFieldEntity } = record;

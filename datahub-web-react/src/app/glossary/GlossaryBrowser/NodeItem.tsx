@@ -80,7 +80,7 @@ function NodeItem(props: Props) {
     });
 
     useEffect(() => {
-        if (openToEntity && entityData && entityData.parentNodes?.nodes.some((parent) => parent.urn === node.urn)) {
+        if (openToEntity && entityData && entityData.parentNodes?.nodes?.some((parent) => parent.urn === node.urn)) {
             setAreChildrenVisible(true);
         }
     }, [entityData, node.urn, openToEntity]);

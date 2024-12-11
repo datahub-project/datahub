@@ -102,7 +102,7 @@ function SecretField({ field, secrets, removeMargin, updateFormValue, refetchSec
         >
             <AutoComplete
                 placeholder={field.placeholder}
-                filterOption={(input, option) => !!option?.value.toLowerCase().includes(input.toLowerCase())}
+                filterOption={(input, option) => !!option?.value?.toLowerCase().includes(input.toLowerCase())}
                 notFoundContent={<>No secrets found</>}
                 options={options}
                 dropdownRender={(menu) => {

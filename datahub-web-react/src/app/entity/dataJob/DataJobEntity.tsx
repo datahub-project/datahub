@@ -109,7 +109,7 @@ export class DataJobEntity implements Entity<DataJob> {
                     name: 'Incidents',
                     component: IncidentTab,
                     getDynamicName: (_, dataJob) => {
-                        const activeIncidentCount = dataJob?.dataJob?.activeIncidents.total;
+                        const activeIncidentCount = dataJob?.dataJob?.activeIncidents?.total;
                         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
