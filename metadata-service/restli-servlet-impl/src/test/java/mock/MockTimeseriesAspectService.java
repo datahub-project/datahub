@@ -15,6 +15,8 @@ import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -65,6 +67,16 @@ public class MockTimeseriesAspectService implements TimeseriesAspectService {
       @Nullable Filter filter,
       @Nullable SortCriterion sort) {
     return List.of();
+  }
+
+  @Nonnull
+  @Override
+  public Map<Urn, Map<String, EnvelopedAspect>> getLatestTimeseriesAspectValues(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<String> aspectNames,
+      @Nullable Map<String, Long> beforeTimeMillis) {
+    return Map.of();
   }
 
   @Nonnull
