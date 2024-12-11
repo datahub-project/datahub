@@ -53,6 +53,8 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     getAutoCompleteFieldName = () => 'name';
 
+    getGraphName = () => 'dataFlow';
+
     getPathName = () => 'pipelines';
 
     getEntityName = () => 'Pipeline';

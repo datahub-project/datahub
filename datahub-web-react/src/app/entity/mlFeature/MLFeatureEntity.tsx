@@ -52,6 +52,8 @@ export class MLFeatureEntity implements Entity<MlFeature> {
 
     getAutoCompleteFieldName = () => 'name';
 
+    getGraphName = () => 'mlFeature';
+
     getPathName = () => 'features';
 
     getEntityName = () => 'Feature';
