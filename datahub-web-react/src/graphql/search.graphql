@@ -945,6 +945,18 @@ fragment searchResultFields on Entity {
 fragment facetFields on FacetMetadata {
     field
     displayName
+    entity {
+        urn
+        type
+        ...entityDisplayNameFields
+        ... on StructuredPropertyEntity {
+            definition {
+                valueType {
+                    urn
+                }
+            }
+        }
+    }
     aggregations {
         value
         count

@@ -107,7 +107,13 @@ export default function useSearchFilterDropdown({ filter, activeFilters, onChang
     );
     // filter out any aggregations with a count of 0 unless it's already selected and in activeFilters
     const finalAggregations = filterEmptyAggregations(combinedAggregations, activeFilters);
-    const filterOptions = getFilterOptions(filter.field, finalAggregations, selectedFilterOptions, autoCompleteResults)
+    const filterOptions = getFilterOptions(
+        filter.field,
+        finalAggregations,
+        selectedFilterOptions,
+        autoCompleteResults,
+        filter.entity,
+    )
         .map((filterOption) =>
             mapFilterOption({ filterOption, entityRegistry, selectedFilterOptions, setSelectedFilterOptions }),
         )

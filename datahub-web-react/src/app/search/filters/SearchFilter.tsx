@@ -1,7 +1,7 @@
 import React from 'react';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import useSearchFilterDropdown from './useSearchFilterDropdown';
-import { getFilterDropdownIcon } from './utils';
+import { getFilterDropdownIcon, useFilterDisplayName } from './utils';
 import SearchFilterView from './SearchFilterView';
 import { ENTITY_FILTER_NAME } from '../utils/constants';
 import EntityTypeFilter from './EntityTypeFilter/EntityTypeFilter';
@@ -28,6 +28,7 @@ export default function SearchFilter({ filter, activeFilters, onChangeFilters }:
         onChangeFilters,
     });
     const filterIcon = getFilterDropdownIcon(filter.field);
+    const displayName = useFilterDisplayName(filter);
 
     if (filter.field === ENTITY_FILTER_NAME) {
         return <EntityTypeFilter filter={filter} activeFilters={activeFilters} onChangeFilters={onChangeFilters} />;
@@ -39,7 +40,7 @@ export default function SearchFilter({ filter, activeFilters, onChangeFilters }:
             isMenuOpen={isMenuOpen}
             numActiveFilters={numActiveFilters}
             filterIcon={filterIcon}
-            displayName={filter.displayName || ''}
+            displayName={displayName || ''}
             searchQuery={searchQuery}
             loading={areFiltersLoading}
             updateIsMenuOpen={updateIsMenuOpen}

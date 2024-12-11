@@ -61,10 +61,10 @@ export default function SearchFilterView({
             <SearchFilterLabel
                 onClick={() => updateIsMenuOpen(!isMenuOpen)}
                 isActive={!!numActiveFilters}
-                data-testid={`filter-dropdown-${capitalizeFirstLetterOnly(displayName)}`}
+                data-testid={`filter-dropdown-${displayName?.replace(/\s/g, '-')}`}
             >
                 {filterIcon && <IconWrapper>{filterIcon}</IconWrapper>}
-                {capitalizeFirstLetterOnly(displayName)} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
+                {displayName} {numActiveFilters ? `(${numActiveFilters}) ` : ''}
                 <CaretDownFilled style={{ fontSize: '12px', height: '12px' }} />
             </SearchFilterLabel>
         </Dropdown>

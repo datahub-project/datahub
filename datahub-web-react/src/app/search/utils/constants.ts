@@ -25,6 +25,7 @@ export const REMOVED_FILTER_NAME = 'removed';
 export const ORIGIN_FILTER_NAME = 'origin';
 export const DEGREE_FILTER_NAME = 'degree';
 export const BROWSE_PATH_V2_FILTER_NAME = 'browsePathV2';
+export const STRUCTURED_PROPERTIES_FILTER_NAME = 'structuredProperties.';
 export const ENTITY_TYPES_FILTER_NAME = 'entityTypes';
 export const IS_HIDDEN_PROPERTY_FILTER_NAME = 'isHidden';
 export const SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME = 'showInColumnsTable';
