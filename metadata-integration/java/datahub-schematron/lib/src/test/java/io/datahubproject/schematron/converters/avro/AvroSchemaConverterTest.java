@@ -25,11 +25,7 @@ class AvroSchemaConverterTest {
   void testPrimitiveTypes() throws IOException {
     SchemaMetadata schema =
         avroSchemaConverter.toDataHubSchema(
-            readAvroSchema("avroschemaconverter_primitives.asc"),
-            false,
-            false,
-            dataPlatformUrn,
-            null);
+            readAvroSchema("primitive_types.avsc"), false, false, dataPlatformUrn, null);
 
     schema.getFields().forEach(System.out::println);
 
@@ -147,11 +143,7 @@ class AvroSchemaConverterTest {
   void testComplexMaps() throws IOException {
     SchemaMetadata schema =
         avroSchemaConverter.toDataHubSchema(
-            readAvroSchema("avroschemaconverter_complex_maps.asc"),
-            false,
-            false,
-            dataPlatformUrn,
-            null);
+            readAvroSchema("complex_maps.avsc"), false, false, dataPlatformUrn, null);
 
     schema.getFields().forEach(System.out::println);
 
@@ -289,11 +281,7 @@ class AvroSchemaConverterTest {
   void testComplexArrays() throws IOException {
     SchemaMetadata schema =
         avroSchemaConverter.toDataHubSchema(
-            readAvroSchema("avroschemaconverter_complex_arrays.asc"),
-            false,
-            false,
-            dataPlatformUrn,
-            null);
+            readAvroSchema("complex_arrays.avsc"), false, false, dataPlatformUrn, null);
 
     schema.getFields().forEach(System.out::println);
 
@@ -438,11 +426,7 @@ class AvroSchemaConverterTest {
   void testComplexStructs() throws IOException {
     SchemaMetadata schema =
         avroSchemaConverter.toDataHubSchema(
-            readAvroSchema("avroschemaconverter_complex_structs.asc"),
-            false,
-            false,
-            dataPlatformUrn,
-            null);
+            readAvroSchema("complex_structs.avsc"), false, false, dataPlatformUrn, null);
 
     schema.getFields().forEach(System.out::println);
 
@@ -557,11 +541,7 @@ class AvroSchemaConverterTest {
   void testComplexUnions() throws IOException {
     SchemaMetadata schema =
         avroSchemaConverter.toDataHubSchema(
-            readAvroSchema("avroschemaconverter_complex_unions.asc"),
-            false,
-            false,
-            dataPlatformUrn,
-            null);
+            readAvroSchema("complex_unions.avsc"), false, false, dataPlatformUrn, null);
 
     schema.getFields().forEach(System.out::println);
 
@@ -683,11 +663,7 @@ class AvroSchemaConverterTest {
   void testLogicalTypes() throws IOException {
     SchemaMetadata schema =
         avroSchemaConverter.toDataHubSchema(
-            readAvroSchema("avroschemaconverter_logical_types.asc"),
-            false,
-            false,
-            dataPlatformUrn,
-            null);
+            readAvroSchema("logical_types.avsc"), false, false, dataPlatformUrn, null);
 
     schema.getFields().forEach(System.out::println);
 
