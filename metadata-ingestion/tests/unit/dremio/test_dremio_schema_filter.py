@@ -66,6 +66,7 @@ class TestDremioContainerFiltering:
 
         assert dremio_api.should_include_container([], "prod")
         assert dremio_api.should_include_container(["prod"], "public")
+        assert dremio_api.should_include_container(["prod", "public"], "next")
         assert not dremio_api.should_include_container(["prod"], "internal")
         assert not dremio_api.should_include_container(["prod", "internal"], "secrets")
 
