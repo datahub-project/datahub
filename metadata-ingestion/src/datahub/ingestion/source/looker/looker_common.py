@@ -1648,15 +1648,19 @@ class LookerUserRegistry:
     def to_platform_resource(
         self, platform_instance: Optional[str], env: str
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        dpi = DataPlatformInstanceClass(
-            platform=builder.make_data_platform_urn(LOOKER),
-            instance=platform_instance,
-        )
         resource_urn = generate_user_id_mapping_resource_urn(
             LOOKER, platform_instance, env
         )
-        # TODO: Make sure all users from looker platform
-        # would be present in this cacne for every run
+
+        dpi = DataPlatformInstanceClass(
+            platform=builder.make_data_platform_urn(LOOKER),
+            instance=(
+                builder.make_dataplatform_instance_urn(LOOKER, platform_instance)
+                if platform_instance
+                else None
+            ),
+        )
+
         resource_info = PlatformResourceInfoClass(
             resourceType=ResourceType.USER_ID_MAPPING,
             value=to_serialized_value(self._user_email_cache),
