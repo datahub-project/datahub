@@ -41,6 +41,7 @@ from datahub.ingestion.api.source import (
     TestConnectionReport,
 )
 from datahub.ingestion.api.source_helpers import (
+    check_workunit_correctness,
     create_dataset_owners_patch_builder,
     create_dataset_props_patch_builder,
 )
@@ -260,6 +261,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
+            check_workunit_correctness,
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
