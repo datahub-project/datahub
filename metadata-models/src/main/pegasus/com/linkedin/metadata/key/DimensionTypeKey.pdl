@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Dimension Type
+ */
+@Aspect = {
+  "name": "dimensionTypeKey"
+}
+record DimensionTypeKey {
+  /**
+   * Unique ID for the data quality dimension type name i.e. ACCURACY, COMPLETENESS, CONSISTENCY etc..
+   * Should be separate from the dimension name used for displaying an Dimension.
+   */
+  id: string
+}

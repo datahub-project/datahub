@@ -21,6 +21,7 @@ import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.common.RestHighLevelClientFactory;
 import com.linkedin.gms.factory.common.SiblingGraphServiceFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.dimensions.DimensionTypeServiceFactory;
 import com.linkedin.gms.factory.entityregistry.EntityRegistryFactory;
 import com.linkedin.gms.factory.recommendation.RecommendationServiceFactory;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
@@ -35,6 +36,7 @@ import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataProductService;
+import com.linkedin.metadata.service.DimensionTypeService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
@@ -72,6 +74,7 @@ import org.springframework.context.annotation.Import;
   GitVersionFactory.class,
   SiblingGraphServiceFactory.class,
   AssertionServiceFactory.class,
+  DimensionTypeServiceFactory.class,
 })
 public class GraphQLEngineFactory {
   @Autowired
@@ -201,6 +204,10 @@ public class GraphQLEngineFactory {
   @Qualifier("assertionService")
   private AssertionService assertionService;
 
+  @Autowired
+  @Qualifier("dimensionTypeService")
+  private DimensionTypeService _dimensionTypeService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -257,6 +264,7 @@ public class GraphQLEngineFactory {
     args.setBusinessAttributeService(businessAttributeService);
     args.setConnectionService(_connectionService);
     args.setAssertionService(assertionService);
+    args.setDimensionTypeService(_dimensionTypeService);
     return new GmsGraphQLEngine(args).builder().build();
   }
 

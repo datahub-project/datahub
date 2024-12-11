@@ -1,0 +1,31 @@
+type DataQuality {
+  datasetDimensionInfo: DataQualityDimensionInfo
+  schemaFieldDimensionInfos: [SchemaFieldQualityDimensionInfo]
+  changeAuditStamps: ChangeAuditStamps
+}
+
+type DataQualityDimensionInfo {
+  dimensions: [DimensionScore!]!
+  toolName: String
+  recordCount: Long
+  note: String
+}
+
+type DimensionScore {
+  currentScore: String!
+  historicalWeightedScore: String
+  note: String
+  scoreType: ScoreType!
+  dimensionUrn: String!
+}
+
+type SchemaFieldQualityDimensionInfo {
+  schemaFieldUrn: String!
+  schemaFieldDimensionInfo: DataQualityDimensionInfo!
+  changeAuditStamps: ChangeAuditStamps
+}
+
+enum ScoreType {
+  PERCENTAGE
+  NUMERICAL_VALUE
+}

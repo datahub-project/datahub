@@ -1,0 +1,46 @@
+query listDimensionNames($input: ListDimensionNameInput!) {
+    listDimensionNames(input: $input) {
+        start
+        count
+        total
+        dimensionNames {
+            ...dimensionNamesFields
+        }
+    }
+}
+
+mutation createDimensionName($input: CreateDimensionNameInput!) {
+    createDimensionName(input: $input) {
+        ...dimensionNamesFields
+    }
+}
+
+mutation updateDimensionName($urn: String!, $input: UpdateDimensionNameInput!) {
+    updateDimensionName(urn: $urn, input: $input) {
+        ...dimensionNamesFields
+    }
+}
+
+mutation deleteDimensionName($urn: String!, $deleteReferences: Boolean) {
+    deleteDimensionName(urn: $urn, deleteReferences: $deleteReferences)
+}
+
+fragment dimensionNamesFields on DimensionNameEntity {
+    urn
+    type
+    info {
+        name
+        description
+        created {
+            time
+            actor
+        }
+        lastModified {
+            time
+            actor
+        }
+    }
+    status {
+        removed
+    }
+}

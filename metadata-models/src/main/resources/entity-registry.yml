@@ -46,6 +46,7 @@ entities:
       - structuredProperties
       - forms
       - partitionsSummary
+      - dataQuality
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -628,6 +629,13 @@ entities:
     aspects:
       - dataPlatformInstance
       - platformResourceInfo
+      - status
+  - name: dimensionNameType
+    doc: DimensionName Type represents the user-created Dimension for a dataset or schemafield.
+    category: core
+    keyAspect: dimensionTypeKey
+    aspects:
+      - dimensionTypeInfo
       - status
 events:
 plugins:
