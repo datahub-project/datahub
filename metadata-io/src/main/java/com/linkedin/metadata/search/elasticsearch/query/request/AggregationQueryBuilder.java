@@ -6,14 +6,11 @@ import static com.linkedin.metadata.search.utils.ESUtils.toParentField;
 import static com.linkedin.metadata.utils.SearchUtil.*;
 
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.schema.PathSpec;
 import com.linkedin.data.template.LongMap;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
-import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
