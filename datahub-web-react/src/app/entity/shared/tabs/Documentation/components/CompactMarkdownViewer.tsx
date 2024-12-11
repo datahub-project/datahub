@@ -32,7 +32,7 @@ const MarkdownContainer = styled.div<{ lineLimit?: number | null }>`
 
 const CustomButton = styled(Button)`
     padding: 0;
-    color: ${REDESIGN_COLORS.ACTION_ICON_GREY};
+    color: #676b75;
 `;
 
 const MarkdownViewContainer = styled.div<{ scrollableY: boolean }>`

@@ -16,7 +16,7 @@ import EditStructuredPropertyModal from './Edit/EditStructuredPropertyModal';
 
 const AddButton = styled.div<{ isV1Drawer?: boolean }>`
     border-radius: 200px;
-    background-color: #5280E2;
+    background-color: #5280e2;
     width: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     height: ${(props) => (props.isV1Drawer ? '24px' : '32px')};
     display: flex;

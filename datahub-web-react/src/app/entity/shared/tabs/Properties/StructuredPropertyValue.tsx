@@ -8,7 +8,7 @@ import { ANTD_GRAY } from '../../constants';
 import { useEntityRegistry } from '../../../../useEntityRegistry';
 import ExternalLink from '../../../../../images/link-out.svg?react';
 import CompactMarkdownViewer from '../Documentation/components/CompactMarkdownViewer';
-import EntityIcon from '../../../../entity/shared/components/styled/EntityIcon';
+import EntityIcon from '../../components/styled/EntityIcon';
 
 const ValueText = styled(Typography.Text)`
     font-family: 'Manrope';
