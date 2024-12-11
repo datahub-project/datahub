@@ -186,7 +186,11 @@ function getChildrenToFilter(
     for (let node = queue.pop(); node; node = queue.pop()) {
         const children = adjacencyList[direction].get(node.urn);
         // Include non-query transformational nodes if they have no children
-        if (!children?.size && !isQuery(node) && !(isDbt(node) && node.entity?.subtype === SubType.DbtSource)) {
+        if (
+            !children?.size &&
+            !isQuery(node) &&
+            !(direction === LineageDirection.Downstream && isDbt(node) && node.entity?.subtype === SubType.DbtSource)
+        ) {
             childrenToFilter.add(node.urn);
         }
         children?.forEach((childUrn) => {
