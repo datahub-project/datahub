@@ -143,7 +143,7 @@ class KafkaSourceConfig(
     )
     ingest_schemas_as_entities: bool = pydantic.Field(
         default=False,
-        description="Enables ingesting schemas, additionally to the topics, as separate entities",
+        description="Enables ingesting schemas from schema registry as separate entities, in addition to the topics",
     )
 
 
