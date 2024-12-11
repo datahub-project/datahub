@@ -1391,6 +1391,7 @@ def test_extract_project_hierarchy():
         ctx=context,
         platform="tableau",
         site=SiteItem(name="Site 1", content_url="site1"),
+        site_id="site1",
         report=TableauSourceReport(),
         server=Server("https://test-tableau-server.com"),
     )
@@ -1399,7 +1400,7 @@ def test_extract_project_hierarchy():
         "p1": TableauProject(
             id="1",
             name="project1",
-            path=["/project1"],
+            path=[],
             parent_id=None,
             parent_name=None,
             description=None,
@@ -1407,7 +1408,7 @@ def test_extract_project_hierarchy():
         "p2": TableauProject(
             id="2",
             name="project2",
-            path=["/project2"],
+            path=[],
             parent_id="1",
             parent_name="project1",
             description=None,
@@ -1415,7 +1416,7 @@ def test_extract_project_hierarchy():
         "p3": TableauProject(
             id="3",
             name="project3",
-            path=["/project3"],
+            path=[],
             parent_id="1",
             parent_name="project1",
             description=None,
@@ -1423,7 +1424,7 @@ def test_extract_project_hierarchy():
         "p4": TableauProject(
             id="4",
             name="project4",
-            path=["/project4"],
+            path=[],
             parent_id=None,
             parent_name=None,
             description=None,
@@ -1435,5 +1436,17 @@ def test_extract_project_hierarchy():
     # "project1", "project4" are included because of `allow` pattern
     # "project3" is included because it is not explicitly denied in `deny` and `extract_project_hierarchy` is enabled
     assert ["project1", "project4", "project3"] == [
+        project.name for project in site_source.tableau_project_registry.values()
+    ]
+
+    # reset the registry to test extract_project_hierarchy=false
+    site_source.tableau_project_registry = {}
+
+    config.extract_project_hierarchy = False
+
+    site_source._init_tableau_project_registry(all_project_map)
+
+    # "project1", "project4" are included because of `allow` pattern
+    assert ["project1", "project4"] == [
         project.name for project in site_source.tableau_project_registry.values()
     ]
