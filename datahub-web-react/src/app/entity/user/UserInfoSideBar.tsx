@@ -129,7 +129,7 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
             countryName = '';
         }
         return countryName;
-    }
+    };
 
     return (
         <>
