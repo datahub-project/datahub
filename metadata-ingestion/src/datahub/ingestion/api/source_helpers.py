@@ -32,6 +32,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaMetadataClass,
     StatusClass,
+    SystemMetadataClass,
     TimeWindowSizeClass,
 )
 from datahub.metadata.urns import DatasetUrn, GlossaryTermUrn, TagUrn, Urn
@@ -65,9 +66,10 @@ def auto_workunit(
 def create_dataset_props_patch_builder(
     dataset_urn: str,
     dataset_properties: DatasetPropertiesClass,
+    system_metadata: Optional[SystemMetadataClass] = None,
 ) -> DatasetPatchBuilder:
     """Creates a patch builder with a table's or view's attributes and dataset properties"""
-    patch_builder = DatasetPatchBuilder(dataset_urn)
+    patch_builder = DatasetPatchBuilder(dataset_urn, system_metadata)
     patch_builder.set_display_name(dataset_properties.name)
     patch_builder.set_description(dataset_properties.description)
     patch_builder.set_created(dataset_properties.created)

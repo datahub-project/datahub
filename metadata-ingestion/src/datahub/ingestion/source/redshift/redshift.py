@@ -831,6 +831,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             customProperties=custom_properties,
         )
         if self.config.patch_custom_properties:
+            # TODO: use auto_incremental_properties workunit processor instead
+            # Deprecate use of patch_custom_properties
             patch_builder = create_dataset_props_patch_builder(
                 dataset_urn, dataset_properties
             )

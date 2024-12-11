@@ -16,6 +16,9 @@ from datahub.configuration.source_common import (
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+)
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
@@ -188,6 +191,7 @@ class SnowflakeV2Config(
     StatefulUsageConfigMixin,
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
+    IncrementalPropertiesConfigMixin,
 ):
     include_usage_stats: bool = Field(
         default=True,
