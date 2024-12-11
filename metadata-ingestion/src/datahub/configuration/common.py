@@ -258,7 +258,7 @@ class AllowDenyPattern(ConfigModel):
         return AllowDenyPattern()
 
     def allowed(self, string: str) -> bool:
-        if self._denied(string):
+        if self.denied(string):
             return False
 
         return any(
@@ -266,7 +266,7 @@ class AllowDenyPattern(ConfigModel):
             for allow_pattern in self.allow
         )
 
-    def _denied(self, string: str) -> bool:
+    def denied(self, string: str) -> bool:
         for deny_pattern in self.deny:
             if re.match(deny_pattern, string, self.regex_flags):
                 return True
@@ -290,7 +290,7 @@ class AllowDenyPattern(ConfigModel):
             raise ValueError(
                 "allow list must be fully specified to get list of allowed strings"
             )
-        return [a for a in self.allow if not self._denied(a)]
+        return [a for a in self.allow if not self.denied(a)]
 
     def __eq__(self, other):  # type: ignore
         return isinstance(other, self.__class__) and self.__dict__ == other.__dict__
