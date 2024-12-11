@@ -3956,4 +3956,6 @@ export const platformPrivileges: PlatformPrivileges = {
     manageGlobalAnnouncements: true,
     createBusinessAttributes: true,
     manageBusinessAttributes: true,
+    manageStructuredProperties: true,
+    viewStructuredPropertiesPage: true,
 };

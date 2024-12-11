@@ -2,10 +2,10 @@ import { LoadingOutlined } from '@ant-design/icons';
 import { Button } from 'antd';
 import React, { CSSProperties } from 'react';
 import styled from 'styled-components/macro';
+import { FacetFilterInput, FacetMetadata } from '@src/types.generated';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { SearchBar } from '../SearchBar';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
-import { FacetFilterInput, FacetMetadata } from '@src/types.generated';
 import { getIsDateRangeFilter } from './utils';
 import DateRangeMenu from './DateRangeMenu/DateRangeMenu';
 

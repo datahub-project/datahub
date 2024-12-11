@@ -1238,7 +1238,7 @@ fragment entityDisplayNameFields on Entity {
         }
     }
     ... on DataPlatformInstance {
-    instanceId
+        instanceId
     }
     ... on StructuredPropertyEntity {
         definition {

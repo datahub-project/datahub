@@ -11,6 +11,8 @@ import {
     TagOutlined,
     UserOutlined,
 } from '@ant-design/icons';
+import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
+import { DATE_TYPE_URN } from '@src/app/shared/constants';
 import React, { useLayoutEffect, useState } from 'react';
 import styled from 'styled-components';
 import {
@@ -50,8 +52,6 @@ import { GetAutoCompleteMultipleResultsQuery } from '../../../graphql/search.gen
 import { FACETS_TO_ENTITY_TYPES } from './constants';
 import { FilterOptionType } from './types';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
-import { DATE_TYPE_URN } from '@src/app/shared/constants';
 
 // either adds or removes selectedFilterValues to/from activeFilters for a given filterField
 export function getNewFilters(filterField: string, activeFilters: FacetFilterInput[], selectedFilterValues: string[]) {
