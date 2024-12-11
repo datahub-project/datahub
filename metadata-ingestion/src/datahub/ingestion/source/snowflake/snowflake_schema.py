@@ -46,13 +46,10 @@ class SnowflakeTag:
     value: str
 
     def display_name(self) -> str:
-        return f"{self.name}: {self.value}"
+        return f"{self.name}:{self.value}" if self.value else self.name
 
     def identifier(self) -> str:
-        return f"{self._id_prefix_as_str()}:{self.value}"
-
-    def _id_prefix_as_str(self) -> str:
-        return f"{self.database}.{self.schema}.{self.name}"
+        return self.display_name()
 
 
 @dataclass
