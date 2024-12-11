@@ -153,11 +153,6 @@ class DataHubGcSource(Source):
                 self.truncate_indices()
             except Exception as e:
                 self.report.failure("While trying to truncate indices ", exc=e)
-        if self.dataprocess_cleanup:
-            try:
-                yield from self.dataprocess_cleanup.get_workunits_internal()
-            except Exception as e:
-                self.report.failure("While trying to cleanup data process ", exc=e)
         if self.soft_deleted_entities_cleanup:
             try:
                 self.soft_deleted_entities_cleanup.cleanup_soft_deleted_entities()
@@ -170,6 +165,11 @@ class DataHubGcSource(Source):
                 self.execution_request_cleanup.run()
             except Exception as e:
                 self.report.failure("While trying to cleanup execution request ", exc=e)
+        if self.dataprocess_cleanup:
+            try:
+                yield from self.dataprocess_cleanup.get_workunits_internal()
+            except Exception as e:
+                self.report.failure("While trying to cleanup data process ", exc=e)
         yield from []
 
     def truncate_indices(self) -> None:

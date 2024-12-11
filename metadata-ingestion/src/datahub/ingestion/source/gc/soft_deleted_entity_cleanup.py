@@ -60,7 +60,7 @@ class SoftDeletedEntitiesCleanupConfig(ConfigModel):
         description="Query to filter entities",
     )
     limit_entities_delete: Optional[int] = Field(
-        10000, description="Max number of entities to delete."
+        25000, description="Max number of entities to delete."
     )
 
     runtime_limit_seconds: Optional[int] = Field(
