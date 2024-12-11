@@ -1,6 +1,6 @@
 buildscript {
   ext.jdkVersionDefault = 17
-  ext.javaClassVersionDefault = 11
+  ext.javaClassVersionDefault = 8
 
   def springModules = ['mae-consumer', 'mce-consumer', 'pe-consumer']
 
