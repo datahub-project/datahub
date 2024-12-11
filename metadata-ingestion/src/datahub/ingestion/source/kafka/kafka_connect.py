@@ -1155,7 +1155,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             )
             self.session.auth = (self.config.username, self.config.password)
 
-        test_response = self.session.get(f"{self.config.connect_uri}")
+        test_response = self.session.get(f"{self.config.connect_uri}/connectors")
         test_response.raise_for_status()
         logger.info(f"Connection to {self.config.connect_uri} is ok")
         if not jpype.isJVMStarted():
