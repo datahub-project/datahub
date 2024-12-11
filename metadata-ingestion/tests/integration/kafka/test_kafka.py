@@ -43,13 +43,7 @@ def mock_kafka_service(docker_compose_runner, test_resources_dir):
         yield docker_compose_runner
 
 
-@pytest.mark.parametrize(
-    "approach",
-    [
-        "kafka_without_schemas",
-        "kafka"
-    ]
-)
+@pytest.mark.parametrize("approach", ["kafka_without_schemas", "kafka"])
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
 def test_kafka_ingest(
