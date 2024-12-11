@@ -56,6 +56,7 @@ class TestDremioContainerFiltering:
         assert dremio_api.should_include_container([], "prod")
         assert dremio_api.should_include_container(["prod"], "data")
         assert dremio_api.should_include_container(["prod", "data"], "sales")
+        assert not dremio_api.should_include_container([], "dev")
         assert not dremio_api.should_include_container(["dev"], "data")
 
     def test_allow_and_deny_patterns(self, dremio_api):
