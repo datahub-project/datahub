@@ -110,6 +110,8 @@ class TestDremioContainerFiltering:
         assert dremio_api.should_include_container(["prod"], "data")
         # Should match the partial path even though pattern doesn't have wildcards
         assert dremio_api.should_include_container(["prod", "data"], "sales")
+        assert not dremio_api.should_include_container([], "dev")
+        assert not dremio_api.should_include_container(["dev", "data"], "sales")
 
     def test_partial_start_end_chars(self, dremio_api):
         """Test matching behavior with partial paths"""
