@@ -330,7 +330,7 @@ def test_kafka_source_workunits_schema_registry_subject_name_strategies(
             "topic2-key": "test.acryl.Topic2Key",
             "topic2-value": "test.acryl.Topic2Value",
         },
-        "ingest_schemas_as_entities": True
+        "ingest_schemas_as_entities": True,
     }
     ctx = PipelineContext(run_id="test")
     kafka_source = KafkaSource.create(source_config, ctx)
