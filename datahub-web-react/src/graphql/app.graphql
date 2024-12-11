@@ -37,6 +37,7 @@ query appConfig {
         visualConfig {
             logoUrl
             faviconUrl
+            showFullTitleInLineage
             queriesTab {
                 queriesTabResultSize
             }
