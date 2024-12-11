@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
 import airflow
 import datahub.emitter.mce_builder as builder
+from airflow.models import Variable
 from airflow.models.serialized_dag import SerializedDagModel
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
@@ -49,6 +50,8 @@ from datahub_airflow_plugin.entities import (
     entities_to_datajob_urn_list,
     entities_to_dataset_urn_list,
 )
+
+KILL_SWITCH_VARIABLE_NAME = "datahub_airflow_plugin_disable_listener"
 
 _F = TypeVar("_F", bound=Callable[..., None])
 if TYPE_CHECKING:
@@ -371,6 +374,9 @@ class DataHubListener:
         task_instance: "TaskInstance",
         session: "Session",  # This will always be QUEUED
     ) -> None:
+        if Variable.get(KILL_SWITCH_VARIABLE_NAME, "false").lower() == "true":
+            return
+
         self._set_log_level()
 
         # This if statement mirrors the logic in https://github.com/OpenLineage/OpenLineage/pull/508.
@@ -481,6 +487,8 @@ class DataHubListener:
     def on_task_instance_finish(
         self, task_instance: "TaskInstance", status: InstanceRunResult
     ) -> None:
+        if Variable.get(KILL_SWITCH_VARIABLE_NAME, "false").lower() == "true":
+            return
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
 
         if self.config.render_templates:
@@ -540,6 +548,9 @@ class DataHubListener:
     def on_task_instance_success(
         self, previous_state: None, task_instance: "TaskInstance", session: "Session"
     ) -> None:
+        if Variable.get(KILL_SWITCH_VARIABLE_NAME, "false").lower() == "true":
+            return
+
         self._set_log_level()
 
         logger.debug(
@@ -555,6 +566,9 @@ class DataHubListener:
     def on_task_instance_failed(
         self, previous_state: None, task_instance: "TaskInstance", session: "Session"
     ) -> None:
+        if Variable.get(KILL_SWITCH_VARIABLE_NAME, "false").lower() == "true":
+            return
+
         self._set_log_level()
 
         logger.debug(
@@ -568,6 +582,9 @@ class DataHubListener:
         )
 
     def on_dag_start(self, dag_run: "DagRun") -> None:
+        if Variable.get(KILL_SWITCH_VARIABLE_NAME, "false").lower() == "true":
+            return
+
         dag = dag_run.dag
         if not dag:
             logger.warning(
@@ -695,6 +712,9 @@ class DataHubListener:
         @hookimpl
         @run_in_thread
         def on_dag_run_running(self, dag_run: "DagRun", msg: str) -> None:
+            if Variable.get(KILL_SWITCH_VARIABLE_NAME, "false").lower() == "true":
+                return
+
             self._set_log_level()
 
             logger.debug(
@@ -716,6 +736,9 @@ class DataHubListener:
         @hookimpl
         @run_in_thread
         def on_dataset_created(self, dataset: "Dataset") -> None:
+            if Variable.get(KILL_SWITCH_VARIABLE_NAME, "false").lower() == "true":
+                return
+
             self._set_log_level()
 
             logger.debug(
@@ -725,6 +748,9 @@ class DataHubListener:
         @hookimpl
         @run_in_thread
         def on_dataset_changed(self, dataset: "Dataset") -> None:
+            if Variable.get(KILL_SWITCH_VARIABLE_NAME, "false").lower() == "true":
+                return
+
             self._set_log_level()
 
             logger.debug(

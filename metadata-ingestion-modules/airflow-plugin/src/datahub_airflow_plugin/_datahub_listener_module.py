@@ -1,5 +1,3 @@
-from airflow.models import Variable
-
 from datahub_airflow_plugin.datahub_listener import (
     get_airflow_plugin_listener,
     hookimpl,
@@ -17,22 +15,16 @@ if _listener:
     def on_task_instance_running(previous_state, task_instance, session):
         assert _listener
         # This is a bit hacky way to provide a way to disable the listener
-        if Variable.get("datahub_airflow_plugin_disable_listener", "false").lower() == "true":
-            return
         _listener.on_task_instance_running(previous_state, task_instance, session)
 
     @hookimpl
     def on_task_instance_success(previous_state, task_instance, session):
         assert _listener
-        if Variable.get("datahub_airflow_plugin_disable_listener", "false").lower() == "true":
-            return
         _listener.on_task_instance_success(previous_state, task_instance, session)
 
     @hookimpl
     def on_task_instance_failed(previous_state, task_instance, session):
         assert _listener
-        if Variable.get("datahub_airflow_plugin_disable_listener", "false").lower() == "true":
-            return
         _listener.on_task_instance_failed(previous_state, task_instance, session)
 
     if hasattr(_listener, "on_dag_run_running"):
@@ -40,6 +32,4 @@ if _listener:
         @hookimpl
         def on_dag_run_running(dag_run, msg):
             assert _listener
-            if Variable.get("datahub_airflow_plugin_disable_listener", "false").lower() == "true":
-                return
             _listener.on_dag_run_running(dag_run, msg)
