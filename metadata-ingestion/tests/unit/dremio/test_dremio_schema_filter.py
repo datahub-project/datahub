@@ -53,6 +53,7 @@ class TestDremioContainerFiltering:
         dremio_api.allow_schema_pattern = ["prod.data.*"]
         dremio_api.deny_schema_pattern = []
 
+        assert dremio_api.should_include_container([], "prod")
         assert dremio_api.should_include_container(["prod"], "data")
         assert dremio_api.should_include_container(["prod", "data"], "sales")
         assert not dremio_api.should_include_container(["dev"], "data")
