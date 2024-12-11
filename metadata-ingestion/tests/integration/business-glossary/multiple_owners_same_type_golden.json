@@ -1,0 +1,142 @@
+[
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
+            "urn": "urn:li:glossaryNode:Multiple Owners",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+                        "customProperties": {},
+                        "definition": "Testing multiple owners with same type",
+                        "name": "Multiple Owners"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:dev1",
+                                "type": "DEVELOPER"
+                            },
+                            {
+                                "owner": "urn:li:corpuser:dev2",
+                                "type": "DEVELOPER"
+                            },
+                            {
+                                "owner": "urn:li:corpGroup:engineering",
+                                "type": "DEVELOPER"
+                            },
+                            {
+                                "owner": "urn:li:corpuser:dev3",
+                                "type": "DEVELOPER"
+                            },
+                            {
+                                "owner": "urn:li:corpGroup:qa",
+                                "type": "DEVELOPER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-0l66l7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+            "urn": "urn:li:glossaryTerm:Multiple Owners.Multiple Dev Owners",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+                        "customProperties": {},
+                        "name": "Multiple Dev Owners",
+                        "definition": "Term owned by multiple developers",
+                        "parentNode": "urn:li:glossaryNode:Multiple Owners",
+                        "termSource": "INTERNAL",
+                        "sourceRef": "DataHub",
+                        "sourceUrl": "https://github.com/datahub-project/datahub/"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:dev4",
+                                "type": "DEVELOPER"
+                            },
+                            {
+                                "owner": "urn:li:corpuser:dev5",
+                                "type": "DEVELOPER"
+                            },
+                            {
+                                "owner": "urn:li:corpGroup:platform",
+                                "type": "DEVELOPER"
+                            },
+                            {
+                                "owner": "urn:li:corpuser:dev6",
+                                "type": "DEVELOPER"
+                            },
+                            {
+                                "owner": "urn:li:corpGroup:infra",
+                                "type": "DEVELOPER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-0l66l7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Multiple Owners",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-0l66l7",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Multiple Owners.Multiple Dev Owners",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-0l66l7",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]
