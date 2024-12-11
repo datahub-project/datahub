@@ -14,7 +14,6 @@ if _listener:
     @hookimpl
     def on_task_instance_running(previous_state, task_instance, session):
         assert _listener
-        # This is a bit hacky way to provide a way to disable the listener
         _listener.on_task_instance_running(previous_state, task_instance, session)
 
     @hookimpl
