@@ -1,3 +1,4 @@
+import copy
 import logging
 from typing import Dict, Iterable, List, Optional
 from urllib.parse import unquote
@@ -88,7 +89,10 @@ class GCSSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = GCSSourceReport()
-        self.s3_source = self.create_equivalent_s3_source(ctx)
+        self.platform: str = "gcs"
+        s3_ctx = copy.deepcopy(ctx)
+        s3_ctx.pipeline_name = None
+        self.s3_source = self.create_equivalent_s3_source(s3_ctx)
 
     @classmethod
     def create(cls, config_dict, ctx):
