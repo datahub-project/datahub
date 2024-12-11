@@ -570,7 +570,7 @@ public class OpenAPIV3Generator {
         "SortBy" + MODEL_VERSION,
         new Parameter()
             .in(NAME_QUERY)
-            .name("sort")
+            .name("sortCriteria")
             .explode(true)
             .description("Sort fields for pagination.")
             .example(PROPERTY_URN)
@@ -578,11 +578,7 @@ public class OpenAPIV3Generator {
                 new Schema()
                     .type(TYPE_ARRAY)
                     ._default(List.of(PROPERTY_URN))
-                    .items(
-                        new Schema<>()
-                            .type(TYPE_STRING)
-                            ._enum(List.of(PROPERTY_URN))
-                            ._default(PROPERTY_URN))));
+                    .items(new Schema<>().type(TYPE_STRING)._default(PROPERTY_URN))));
     components.addParameters(
         "SortOrder" + MODEL_VERSION,
         new Parameter()

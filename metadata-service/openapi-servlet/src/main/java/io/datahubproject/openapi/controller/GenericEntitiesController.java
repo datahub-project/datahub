@@ -57,6 +57,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.apache.commons.lang.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.MediaType;
@@ -190,7 +191,8 @@ public abstract class GenericEntitiesController<
       @RequestParam(value = "count", defaultValue = "10") Integer count,
       @RequestParam(value = "query", defaultValue = "*") String query,
       @RequestParam(value = "scrollId", required = false) String scrollId,
-      @RequestParam(value = "sort", required = false, defaultValue = "urn") String sortField,
+      @RequestParam(value = "sort", required = false, defaultValue = "urn") @Deprecated
+          String sortField,
       @RequestParam(value = "sortCriteria", required = false) List<String> sortFields,
       @RequestParam(value = "sortOrder", required = false, defaultValue = "ASCENDING")
           String sortOrder,
@@ -222,14 +224,20 @@ public abstract class GenericEntitiesController<
           authentication.getActor().toUrnStr() + " is unauthorized to " + READ + "  entities.");
     }
 
+    SortOrder finalSortOrder =
+        SortOrder.valueOf(Optional.ofNullable(sortOrder).orElse("ASCENDING"));
+
     List<SortCriterion> sortCriteria;
-    if (!CollectionUtils.isEmpty(sortFields)) {
+    if (!CollectionUtils.isEmpty(sortFields)
+        && sortFields.stream().anyMatch(StringUtils::isNotBlank)) {
       sortCriteria = new ArrayList<>();
-      sortFields.forEach(
-          field -> sortCriteria.add(SearchUtil.sortBy(field, SortOrder.valueOf(sortOrder))));
+      sortFields.stream()
+          .filter(StringUtils::isNotBlank)
+          .forEach(field -> sortCriteria.add(SearchUtil.sortBy(field, finalSortOrder)));
+    } else if (StringUtils.isNotBlank(sortField)) {
+      sortCriteria = Collections.singletonList(SearchUtil.sortBy(sortField, finalSortOrder));
     } else {
-      sortCriteria =
-          Collections.singletonList(SearchUtil.sortBy(sortField, SortOrder.valueOf(sortOrder)));
+      sortCriteria = Collections.singletonList(SearchUtil.sortBy("urn", finalSortOrder));
     }
 
     ScrollResult result =
