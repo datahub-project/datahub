@@ -69,7 +69,6 @@ class DatahubExecutionRequestCleanup:
         report: DatahubExecutionRequestCleanupReport,
         config: Optional[DatahubExecutionRequestCleanupConfig] = None,
     ) -> None:
-
         self.graph = graph
         self.report = report
         self.instance_id = int(time.time())

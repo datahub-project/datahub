@@ -1,0 +1,48 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "d18c43ed4d7f0e303b88c40ac078c5505be473edf0136e42a77dccc090d1eb8b",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.persons,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.age_dist,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.age_dist,PROD)",
+                "column": "AGE",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INTEGER"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.persons,PROD)",
+                    "column": "Age"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.age_dist,PROD)",
+                "column": "Count",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INTEGER"
+            },
+            "upstreams": []
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT age AS AGE, COUNT(*) AS Count INTO Foo.age_dist FROM Foo.Persons GROUP BY Age"
+    }
+}

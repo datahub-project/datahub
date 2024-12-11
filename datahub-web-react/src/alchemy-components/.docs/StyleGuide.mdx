@@ -1,0 +1,209 @@
+import { Meta, Source } from '@storybook/blocks';
+
+import { Heading } from '@components';
+import { colors } from '@components/theme';
+
+import { Grid, FlexGrid, ColorCard, CopyButton, Seperator } from './mdx-components';
+
+import borderSource from '@components/theme/foundations/borders?raw';
+import colorsSource from '@components/theme/foundations/colors?raw';
+import typographySource from '@components/theme/foundations/typography?raw';
+import radiusSource from '@components/theme/foundations/radius?raw';
+import shadowsSource from '@components/theme/foundations/shadows?raw';
+import sizesSource from '@components/theme/foundations/sizes?raw';
+import spacingSource from '@components/theme/foundations/spacing?raw';
+import transitionSource from '@components/theme/foundations/transition?raw';
+import zIndexSource from '@components/theme/foundations/zIndex?raw';
+
+<Meta title="Style Guide" />
+
+<div className="custom-docs">
+	## Style Guide
+
+    The purpose of this Style Guide is to establish a unified and cohesive design language that ensures a consistent user experience across all Acryl products. By adhering to these guidelines, we can maintain a high standard of design quality and improve the usability of our applications.
+
+    ### Theme
+
+    You can import the theme object into any component or file in your application and use it to style your components. The theme object is a single source of truth for your application's design system.
+
+    ```tsx
+    import { typography, colors, spacing } from '@components/theme';
+    ```
+
+    ### Colors
+
+    Colors are managed via the `colors.ts` file in the `theme/foundations` directory. The colors are defined as a nested object with the following structure:
+
+    <Source code={colorsSource} />
+
+    By default, all `500` values are considered the "default" value of that color range. For example, `gray.500` is the default gray color. The other values are used for shading and highlighting. Color values are defined in hex format and their values range between 25 and 1000. With 25 being the lighest and 1000 being the darkest.
+
+    #### Black & White
+    <FlexGrid>
+    	<ColorCard color={colors['black']}>
+    		<span className="colorChip" />
+    		<div>
+    			<span className="colorValue">Black</span>
+    			<span className="hex">{colors['black']}</span>
+    		</div>
+    	</ColorCard>
+    	<ColorCard color={colors['white']}>
+    		<span className="colorChip" />
+    		<div>
+    			<span className="colorValue">White</span>
+    			<span className="hex">{colors['white']}</span>
+    		</div>
+    	</ColorCard>
+    </FlexGrid>
+
+    <Seperator />
+
+    #### Gray
+    <Grid>
+    	{Object.keys(colors.gray).map((color) => (
+    		<ColorCard key={color} color={colors['gray'][color]}>
+    			<span className="colorChip" />
+    			<div>
+    				<span className="colorValue">
+    					Gray {color} <CopyButton text={`gray.${color}`} />
+    				</span>
+    				<span className="hex">{colors['gray'][color]}</span>
+    			</div>
+    		</ColorCard>
+    	))}
+    </Grid>
+
+    <Seperator />
+
+    #### Violet (Primary)
+    <Grid>
+    	{Object.keys(colors.violet).map((color) => (
+    		<ColorCard key={color} color={colors['violet'][color]}>
+    			<span className="colorChip" />
+    			<div>
+    				<span className="colorValue">
+    					Violet {color} <CopyButton text={`violet.${color}`} />
+    				</span>
+    				<span className="hex">{colors['violet'][color]}</span>
+    			</div>
+    		</ColorCard>
+    	))}
+    </Grid>
+
+    <Seperator />
+
+    #### Blue
+    <Grid>
+    	{Object.keys(colors.blue).map((color) => (
+    		<ColorCard key={color} color={colors['blue'][color]}>
+    			<span className="colorChip" />
+    			<div>
+    				<span className="colorValue">
+    					Blue {color} <CopyButton text={`blue.${color}`} />
+    				</span>
+    				<span className="hex">{colors['blue'][color]}</span>
+    			</div>
+    		</ColorCard>
+    	))}
+    </Grid>
+
+    <Seperator />
+
+    #### Green
+    <Grid>
+    	{Object.keys(colors.green).map((color) => (
+    		<ColorCard key={color} color={colors['green'][color]}>
+    			<span className="colorChip" />
+    			<div>
+    				<span className="colorValue">
+    					Green {color} <CopyButton text={`green.${color}`} />
+    				</span>
+    				<span className="hex">{colors['green'][color]}</span>
+    			</div>
+    		</ColorCard>
+    	))}
+    </Grid>
+
+    <Seperator />
+
+    #### Yellow
+    <Grid>
+    	{Object.keys(colors.yellow).map((color) => (
+    		<ColorCard key={color} color={colors['yellow'][color]}>
+    			<span className="colorChip" />
+    			<div>
+    				<span className="colorValue">
+    					Yellow {color} <CopyButton text={`yellow.${color}`} />
+    				</span>
+    				<span className="hex">{colors['yellow'][color]}</span>
+    			</div>
+    		</ColorCard>
+    	))}
+    </Grid>
+
+    <Seperator />
+
+    #### Red
+    <Grid>
+    	{Object.keys(colors.red).map((color) => (
+    		<ColorCard key={color} color={colors['red'][color]}>
+    			<span className="colorChip" />
+    			<div>
+    				<span className="colorValue">
+    					Red {color} <CopyButton text={`red.${color}`} />
+    				</span>
+    				<span className="hex">{colors['red'][color]}</span>
+    			</div>
+    		</ColorCard>
+    	))}
+    </Grid>
+
+    ### Typography
+
+    Font styles are managed via the `typography.ts` file in the `theme/foundations` directory. The primary font family in use is `Mulish`. The font styles are defined as a nested object with the following structure:
+
+    <Source code={typographySource} />
+
+    ### Borders
+
+    A set of border values defined by the border key.
+
+    <Source code={borderSource} />
+
+    ### Border Radius
+
+    A set smooth corner radius values defined by the radii key.
+
+    <Source code={radiusSource} />
+
+    ### Shadows
+
+    A set of shadow values defined by the shadows key.
+
+    <Source code={shadowsSource} />
+
+    ## Sizes
+
+    A set of size values defined by the sizes key.
+
+    <Source code={sizesSource} />
+
+    ### Spacing
+
+    A set of spacing values defined by the spacing key.
+
+    <Source code={spacingSource} />
+
+    ### Transitions
+
+    A set of transition values defined by the transition key.
+
+    <Source code={transitionSource} />
+
+    ### Z-Index
+
+    A set of z-index values defined by the zindex key.
+
+    <Source code={zIndexSource} />
+
+</div>
