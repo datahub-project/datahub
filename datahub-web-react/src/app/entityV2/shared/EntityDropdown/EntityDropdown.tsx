@@ -1,5 +1,6 @@
 import {
     DeleteOutlined,
+    EditOutlined,
     FolderAddOutlined,
     FolderOpenOutlined,
     LinkOutlined,
@@ -100,6 +101,7 @@ interface Props {
     refetchForTerms?: () => void;
     refetchForNodes?: () => void;
     onDeleteEntity?: () => void;
+    onEditEntity?: () => void;
     triggerType?: ('click' | 'contextMenu' | 'hover')[] | undefined;
 }
 
@@ -115,6 +117,7 @@ const EntityDropdown = (props: Props) => {
         refetchForTerms,
         refetchForNodes,
         onDeleteEntity: onDelete,
+        onEditEntity: onEdit,
         options,
         triggerType = ['click'],
     } = props;
@@ -271,6 +274,13 @@ const EntityDropdown = (props: Props) => {
                                         <DeleteOutlined /> &nbsp;Delete
                                     </MenuItem>
                                 </Tooltip>
+                            </StyledMenuItem>
+                        )}
+                        {menuItems.has(EntityMenuItems.EDIT) && onEdit && (
+                            <StyledMenuItem key="9" onClick={onEdit}>
+                                <MenuItem data-testid="entity-menu-edit-button">
+                                    <EditOutlined /> &nbsp;Edit
+                                </MenuItem>
                             </StyledMenuItem>
                         )}
                         {menuItems.has(EntityMenuItems.RAISE_INCIDENT) && (

@@ -33,7 +33,12 @@ import { DataProductEntitiesTab } from './DataProductEntitiesTab';
 import { DataProductSummaryTab } from './DataProductSummaryTab';
 import { Preview } from './preview/Preview';
 
-const headerDropdownItems = new Set([EntityMenuItems.SUBSCRIBE, EntityMenuItems.SHARE, EntityMenuItems.DELETE]);
+const headerDropdownItems = new Set([
+    EntityMenuItems.SUBSCRIBE,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.DELETE,
+    EntityMenuItems.EDIT,
+]);
 
 /**
  * Definition of the DataHub Data Product entity.

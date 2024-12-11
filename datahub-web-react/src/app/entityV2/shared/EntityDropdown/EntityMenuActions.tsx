@@ -23,6 +23,7 @@ export enum EntityMenuItems {
     ADD_TERM_GROUP, // Make primary
     MOVE,
     DELETE, // acryl-main only
+    EDIT, // acryl-main only
     ANNOUNCE, // acryl-main only
     RAISE_INCIDENT,
 }
