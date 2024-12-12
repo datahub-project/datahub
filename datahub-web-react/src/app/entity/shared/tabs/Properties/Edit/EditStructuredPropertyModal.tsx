@@ -120,7 +120,7 @@ export default function EditStructuredPropertyModal({
             }
             destroyOnClose
         >
-            {structuredProperty?.definition.description && (
+            {structuredProperty?.definition?.description && (
                 <Description>{structuredProperty.definition.description}</Description>
             )}
             <StructuredPropertyInput

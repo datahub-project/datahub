@@ -92,7 +92,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     name: 'Incidents',
                     component: IncidentTab,
                     getDynamicName: (_, dataFlow) => {
-                        const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents.total;
+                        const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents?.total;
                         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },

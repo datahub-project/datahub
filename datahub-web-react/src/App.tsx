@@ -79,7 +79,7 @@ export const InnerApp: React.VFC = () => {
         <HelmetProvider>
             <CustomThemeProvider>
                 <Helmet>
-                    <title>{useCustomTheme().theme?.content.title}</title>
+                    <title>{useCustomTheme().theme?.content?.title}</title>
                 </Helmet>
                 <Router>
                     <Routes />
