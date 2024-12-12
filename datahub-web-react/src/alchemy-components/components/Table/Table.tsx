@@ -35,7 +35,6 @@ export const Table = <T,>({
     maxHeight = tableDefaults.maxHeight,
     expandable,
     isBorderless,
-    isExpandedInnerTable,
     onRowClick,
     onExpand,
     rowClassName,
