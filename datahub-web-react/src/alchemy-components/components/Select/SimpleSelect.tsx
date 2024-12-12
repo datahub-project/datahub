@@ -1,4 +1,4 @@
-import { Icon, Pill, Text } from '@components';
+import { Pill, Text } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -18,9 +18,11 @@ import {
     SelectAllOption,
     SelectBase,
     SelectLabel,
+    SelectLabelContainer,
     SelectValue,
     StyledCheckbox,
     StyledClearButton,
+    StyledIcon,
 } from './components';
 import { ActionButtonsProps, SelectLabelDisplayProps, SelectOption, SelectProps } from './types';
 
@@ -74,14 +76,13 @@ const SelectActionButtons = ({
     isReadOnly,
     showClear,
     handleClearSelection,
-    fontSize = 'md',
 }: ActionButtonsProps) => {
     return (
         <ActionButtonsContainer>
             {showClear && selectedValues.length > 0 && !isDisabled && !isReadOnly && (
-                <StyledClearButton icon="Close" isCircle onClick={handleClearSelection} size={fontSize} />
+                <StyledClearButton icon="Close" isCircle onClick={handleClearSelection} iconSize="lg" />
             )}
-            <Icon icon="ChevronLeft" rotate={isOpen ? '90' : '270'} size="xl" color="gray" />
+            <StyledIcon icon="ChevronLeft" rotate={isOpen ? '90' : '270'} size="lg" />
         </ActionButtonsContainer>
     );
 };
@@ -114,6 +115,7 @@ export const SimpleSelect = ({
     isRequired = selectDefaults.isRequired,
     showClear = selectDefaults.showClear,
     size = selectDefaults.size,
+    icon,
     isMultiSelect = selectDefaults.isMultiSelect,
     placeholder = selectDefaults.placeholder,
     disabledValues = [],
@@ -211,22 +213,24 @@ export const SimpleSelect = ({
                 fontSize={size}
                 {...props}
             >
-                <SelectLabelDisplay
-                    selectedValues={selectedValues}
-                    options={options}
-                    placeholder={placeholder || 'Select an option'}
-                    isMultiSelect={isMultiSelect}
-                    removeOption={handleOptionChange}
-                    disabledValues={disabledValues}
-                    showDescriptions={showDescriptions}
-                />
+                <SelectLabelContainer>
+                    {icon && <StyledIcon icon={icon} size="lg" />}
+                    <SelectLabelDisplay
+                        selectedValues={selectedValues}
+                        options={options}
+                        placeholder={placeholder || 'Select an option'}
+                        isMultiSelect={isMultiSelect}
+                        removeOption={handleOptionChange}
+                        disabledValues={disabledValues}
+                        showDescriptions={showDescriptions}
+                    />
+                </SelectLabelContainer>
                 <SelectActionButtons
                     selectedValues={selectedValues}
                     isOpen={isOpen}
                     isDisabled={!!isDisabled}
                     isReadOnly={!!isReadOnly}
                     handleClearSelection={handleClearSelection}
-                    fontSize={size}
                     showClear={!!showClear}
                 />
             </SelectBase>

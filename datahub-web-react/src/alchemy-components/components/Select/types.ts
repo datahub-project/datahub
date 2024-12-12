@@ -1,3 +1,5 @@
+import { IconNames } from '../Icon';
+
 export type SelectSizeOptions = 'sm' | 'md' | 'lg';
 
 export interface SelectOption {
@@ -13,6 +15,7 @@ export interface SelectProps {
     onCancel?: () => void;
     onUpdate?: (selectedValues: string[]) => void;
     size?: SelectSizeOptions;
+    icon?: IconNames;
     showSearch?: boolean;
     isDisabled?: boolean;
     isReadOnly?: boolean;
@@ -37,7 +40,6 @@ export interface SelectStyleProps {
 }
 
 export interface ActionButtonsProps {
-    fontSize?: SelectSizeOptions;
     selectedValues: string[];
     isOpen: boolean;
     isDisabled: boolean;
