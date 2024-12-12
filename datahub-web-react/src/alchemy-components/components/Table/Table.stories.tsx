@@ -95,6 +95,7 @@ export const sandbox: Story = {
     render: (props) => <Table {...props} />,
 };
 
+// Scrollable Table with a maximum height
 export const withScroll = () => (
     <Table
         columns={[
@@ -114,6 +115,7 @@ export const withScroll = () => (
     />
 );
 
+// Table with custom column widths
 export const withCustomColumnWidths = () => (
     <Table
         columns={[
@@ -129,6 +131,7 @@ export const withCustomColumnWidths = () => (
     />
 );
 
+// Table with column sorting functionality
 export const withColumnSorting = () => (
     <Table
         columns={[
@@ -149,6 +152,7 @@ export const withColumnSorting = () => (
     />
 );
 
+// Table without a header
 export const withoutHeader = () => (
     <Table
         columns={[
@@ -163,6 +167,7 @@ export const withoutHeader = () => (
     />
 );
 
+// Define columns for the grouped table. Each column specifies its title, data key, and optional functionalities like sorting or custom rendering.
 const groupByColumns = [
     {
         key: 'id',
@@ -202,6 +207,7 @@ const groupByColumns = [
     },
 ];
 
+// Hierarchical data with parent rows and nested child rows for group-by table functionality.
 const groupByData = [
     {
         id: '1',
@@ -245,6 +251,7 @@ const groupByData = [
     },
 ];
 
+// Table with group-by functionality and expandable rows
 export const WithGroupByFunctionality = () => {
     const [expandedRowKeys, setExpandedRowKeys] = useState(['Parent Row 1']);
     const [sortedOptions, setSortedOptions] = useState<{ sortColumn: string; sortOrder: SortingState }>({
