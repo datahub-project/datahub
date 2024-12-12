@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from pydantic import ValidationError
 
+import datahub.ingestion.source.snowflake.snowflake_utils
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.pattern_utils import UUID_REGEX
 from datahub.ingestion.api.source import SourceCapability
@@ -26,6 +27,7 @@ from datahub.ingestion.source.snowflake.snowflake_usage_v2 import (
 )
 from datahub.ingestion.source.snowflake.snowflake_utils import SnowsightUrlBuilder
 from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
+from datahub.testing.doctest import assert_doctest
 from tests.test_helpers import test_connection_helpers
 
 default_oauth_dict: Dict[str, Any] = {
@@ -128,6 +130,60 @@ def test_snowflake_oauth_happy_paths():
             "oauth_config": oauth_dict,
         }
     )
+
+
+def test_snowflake_oauth_token_happy_path():
+    assert SnowflakeV2Config.parse_obj(
+        {
+            "account_id": "test",
+            "authentication_type": "OAUTH_AUTHENTICATOR_TOKEN",
+            "token": "valid-token",
+            "username": "test-user",
+            "oauth_config": None,
+        }
+    )
+
+
+def test_snowflake_oauth_token_without_token():
+    with pytest.raises(
+        ValidationError, match="Token required for OAUTH_AUTHENTICATOR_TOKEN."
+    ):
+        SnowflakeV2Config.parse_obj(
+            {
+                "account_id": "test",
+                "authentication_type": "OAUTH_AUTHENTICATOR_TOKEN",
+                "username": "test-user",
+            }
+        )
+
+
+def test_snowflake_oauth_token_with_wrong_auth_type():
+    with pytest.raises(
+        ValueError,
+        match="Token can only be provided when using OAUTH_AUTHENTICATOR_TOKEN.",
+    ):
+        SnowflakeV2Config.parse_obj(
+            {
+                "account_id": "test",
+                "authentication_type": "OAUTH_AUTHENTICATOR",
+                "token": "some-token",
+                "username": "test-user",
+            }
+        )
+
+
+def test_snowflake_oauth_token_with_empty_token():
+    with pytest.raises(
+        ValidationError, match="Token required for OAUTH_AUTHENTICATOR_TOKEN."
+    ):
+        SnowflakeV2Config.parse_obj(
+            {
+                "account_id": "test",
+                "authentication_type": "OAUTH_AUTHENTICATOR_TOKEN",
+                "token": "",
+                "username": "test-user",
+            }
+        )
 
 
 default_config_dict: Dict[str, Any] = {
@@ -604,3 +660,7 @@ def test_create_snowsight_base_url_ap_northeast_1():
     ).snowsight_base_url
 
     assert result == "https://app.snowflake.com/ap-northeast-1.aws/account_locator/"
+
+
+def test_snowflake_utils() -> None:
+    assert_doctest(datahub.ingestion.source.snowflake.snowflake_utils)

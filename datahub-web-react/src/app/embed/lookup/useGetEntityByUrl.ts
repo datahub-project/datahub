@@ -31,7 +31,7 @@ const useGetEntityByUrl = (externalUrl: string) => {
     const getLookupData = () => {
         if (!data) return {} as const;
 
-        const entities = data.searchAcrossEntities?.searchResults.map((result) => result.entity) ?? [];
+        const entities = data.searchAcrossEntities?.searchResults?.map((result) => result.entity) ?? [];
         const notFound = entities.length === 0;
         const foundMultiple = entities.length > 1;
         const entity = entities.length === 1 ? entities[0] : null;

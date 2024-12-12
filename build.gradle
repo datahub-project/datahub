@@ -57,7 +57,7 @@ buildscript {
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
-  ext.openLineageVersion = '1.24.2'
+  ext.openLineageVersion = '1.25.0'
   ext.logbackClassicJava8 = '1.2.12'
 
   ext.docker_registry = 'acryldata'

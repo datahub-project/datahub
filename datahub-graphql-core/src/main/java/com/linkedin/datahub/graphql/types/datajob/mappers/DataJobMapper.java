@@ -135,7 +135,8 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
                 result.setSubTypes(SubTypesMapper.map(context, new SubTypes(data)));
               } else if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(name)) {
                 result.setStructuredProperties(
-                    StructuredPropertiesMapper.map(context, new StructuredProperties(data)));
+                    StructuredPropertiesMapper.map(
+                        context, new StructuredProperties(data), entityUrn));
               } else if (FORMS_ASPECT_NAME.equals(name)) {
                 result.setForms(FormsMapper.map(new Forms(data), entityUrn.toString()));
               }

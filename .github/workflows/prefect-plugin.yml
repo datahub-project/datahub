@@ -67,10 +67,10 @@ jobs:
             !**/binary/**
       - name: Upload coverage to Codecov
         if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: .
+          directory: ./build/coverage-reports/
           fail_ci_if_error: false
           flags: prefect,prefect-${{ matrix.extra_pip_extras }}
           name: pytest-prefect-${{ matrix.python-version }}
