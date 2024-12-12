@@ -69,7 +69,7 @@ class RedundantRunSkipHandler(
         platform: Optional[str] = None
         source_class = type(self.source)
         if hasattr(source_class, "get_platform_name"):
-            platform = source_class.get_platform_name()  # type: ignore
+            platform = source_class.get_platform_name()
 
         # Default name for everything else
         job_name_suffix = self.get_job_name_suffix()

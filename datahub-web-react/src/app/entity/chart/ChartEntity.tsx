@@ -29,6 +29,7 @@ import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { ChartQueryTab } from './ChartQueryTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 /**
  * Definition of the DataHub Chart entity.
@@ -69,6 +70,8 @@ export class ChartEntity implements Entity<Chart> {
 
     getAutoCompleteFieldName = () => 'title';
 
+    getGraphName = () => 'chart';
+
     getPathName = () => 'chart';
 
     getEntityName = () => 'Chart';
@@ -96,6 +99,9 @@ export class ChartEntity implements Entity<Chart> {
         },
         {
             component: DataProductSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 
