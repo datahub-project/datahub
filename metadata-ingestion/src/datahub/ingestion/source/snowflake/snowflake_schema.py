@@ -90,6 +90,12 @@ class SnowflakeTable(BaseTable):
     foreign_keys: List[SnowflakeFK] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
+    is_dynamic: bool = False
+    is_iceberg: bool = False
+
+    @property
+    def is_hybrid(self) -> bool:
+        return self.type is not None and self.type == "HYBRID TABLE"
 
 
 @dataclass
@@ -98,6 +104,7 @@ class SnowflakeView(BaseView):
     columns: List[SnowflakeColumn] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
+    is_secure: bool = False
 
 
 @dataclass
@@ -289,6 +296,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     rows_count=table["ROW_COUNT"],
                     comment=table["COMMENT"],
                     clustering_key=table["CLUSTERING_KEY"],
+                    is_dynamic=table.get("IS_DYNAMIC", "NO").upper() == "YES",
+                    is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
                 )
             )
         return tables
@@ -313,6 +322,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     rows_count=table["ROW_COUNT"],
                     comment=table["COMMENT"],
                     clustering_key=table["CLUSTERING_KEY"],
+                    is_dynamic=table.get("IS_DYNAMIC", "NO").upper() == "YES",
+                    is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
                 )
             )
         return tables
@@ -356,6 +367,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         materialized=(
                             view.get("is_materialized", "false").lower() == "true"
                         ),
+                        is_secure=(view.get("is_secure", "false").lower() == "true"),
                     )
                 )
 

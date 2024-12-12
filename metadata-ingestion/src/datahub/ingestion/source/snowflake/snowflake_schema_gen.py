@@ -431,6 +431,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             default_db=db_name,
                             default_schema=schema_name,
                         )
+                    elif view.is_secure:
+                        self.report.num_secure_views_missing_definition += 1
 
             if self.config.include_technical_schema:
                 for view in views:
@@ -749,8 +751,21 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> DatasetProperties:
         custom_properties = {}
 
-        if isinstance(table, SnowflakeTable) and table.clustering_key:
-            custom_properties["CLUSTERING_KEY"] = table.clustering_key
+        if isinstance(table, SnowflakeTable):
+            if table.clustering_key:
+                custom_properties["CLUSTERING_KEY"] = table.clustering_key
+
+            if table.is_hybrid:
+                custom_properties["IS_HYBRID"] = "true"
+
+            if table.is_dynamic:
+                custom_properties["IS_DYNAMIC"] = "true"
+
+            if table.is_iceberg:
+                custom_properties["IS_ICEBERG"] = "true"
+
+        if isinstance(table, SnowflakeView) and table.is_secure:
+            custom_properties["IS_SECURE"] = "true"
 
         return DatasetProperties(
             name=table.name,
