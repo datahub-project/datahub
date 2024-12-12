@@ -1,3 +1,4 @@
+import { CaretUp, CaretDown } from 'phosphor-react';
 import { LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
 import React, { useEffect, useState } from 'react';
@@ -15,7 +16,6 @@ import {
 } from './components';
 import { SortingState, TableProps } from './types';
 import { getSortedData, handleActiveSort, renderCell } from './utils';
-import { CaretUp, CaretDown } from 'phosphor-react';
 
 export const tableDefaults: TableProps<any> = {
     columns: [],
@@ -35,7 +35,6 @@ export const Table = <T,>({
     maxHeight = tableDefaults.maxHeight,
     expandable,
     isBorderless,
-    isExpandedInnerTable,
     onRowClick,
     onExpand,
     rowClassName,
