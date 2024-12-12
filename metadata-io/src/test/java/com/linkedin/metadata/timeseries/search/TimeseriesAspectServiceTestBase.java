@@ -26,6 +26,7 @@ import com.linkedin.data.template.StringArrayArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.data.template.StringMapArray;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
 import com.linkedin.metadata.models.EntitySpec;
@@ -151,7 +152,8 @@ public abstract class TimeseriesAspectServiceTestBase extends AbstractTestNGSpri
             opContext.getSearchContext().getIndexConvention()),
         getBulkProcessor(),
         1,
-        QueryFilterRewriteChain.EMPTY);
+        QueryFilterRewriteChain.EMPTY,
+        TimeseriesAspectServiceConfig.builder().build());
   }
 
   /*
