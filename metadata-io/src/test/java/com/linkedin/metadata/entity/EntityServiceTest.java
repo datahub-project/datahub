@@ -11,14 +11,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Owner;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipType;
 import com.linkedin.common.Status;
+import com.linkedin.common.TagAssociation;
+import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.CorpuserUrn;
+import com.linkedin.common.urn.TagUrn;
 import com.linkedin.common.urn.TupleKey;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -42,8 +46,11 @@ import com.linkedin.metadata.aspect.Aspect;
 import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.aspect.patch.PatchOperationType;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.entity.validation.ValidationException;
@@ -52,10 +59,12 @@ import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
+import com.linkedin.metadata.query.ListUrnsResult;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.snapshot.CorpUserSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
+import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.GenericAspect;
@@ -605,6 +614,9 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 entityUrn,
                 _testEntityRegistry.getEntitySpec(entityUrn.getEntityType()).getKeyAspectSpec())));
 
+    SystemMetadata futureSystemMetadata = AspectGenerationUtils.createSystemMetadata(1);
+    futureSystemMetadata.setLastObserved(futureSystemMetadata.getLastObserved() + 1);
+
     final MetadataChangeLog restateChangeLog = new MetadataChangeLog();
     restateChangeLog.setEntityType(entityUrn.getEntityType());
     restateChangeLog.setEntityUrn(entityUrn);
@@ -612,7 +624,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     restateChangeLog.setAspectName(aspectName1);
     restateChangeLog.setCreated(TEST_AUDIT_STAMP);
     restateChangeLog.setAspect(aspect);
-    restateChangeLog.setSystemMetadata(AspectGenerationUtils.createSystemMetadata(1));
+    restateChangeLog.setSystemMetadata(futureSystemMetadata);
     restateChangeLog.setPreviousAspectValue(aspect);
     restateChangeLog.setPreviousSystemMetadata(
         simulatePullFromDB(initialSystemMetadata, SystemMetadata.class));
@@ -636,11 +648,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     clearInvocations(_mockProducer);
 
     _entityServiceImpl.ingestAspects(
-        opContext,
-        entityUrn,
-        pairToIngest,
-        TEST_AUDIT_STAMP,
-        AspectGenerationUtils.createSystemMetadata());
+        opContext, entityUrn, pairToIngest, TEST_AUDIT_STAMP, futureSystemMetadata);
 
     verify(_mockProducer, times(1))
         .produceMetadataChangeLog(
@@ -682,6 +690,12 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     initialChangeLog.setAspect(genericAspect);
     initialChangeLog.setSystemMetadata(metadata1);
 
+    SystemMetadata futureSystemMetadata = AspectGenerationUtils.createSystemMetadata(1);
+    futureSystemMetadata.setLastObserved(futureSystemMetadata.getLastObserved() + 1);
+
+    MetadataChangeProposal mcp2 = new MetadataChangeProposal(mcp1.data().copy());
+    mcp2.getSystemMetadata().setLastObserved(futureSystemMetadata.getLastObserved());
+
     final MetadataChangeLog restateChangeLog = new MetadataChangeLog();
     restateChangeLog.setEntityType(entityUrn.getEntityType());
     restateChangeLog.setEntityUrn(entityUrn);
@@ -689,7 +703,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     restateChangeLog.setAspectName(aspectName1);
     restateChangeLog.setCreated(TEST_AUDIT_STAMP);
     restateChangeLog.setAspect(genericAspect);
-    restateChangeLog.setSystemMetadata(AspectGenerationUtils.createSystemMetadata(1));
+    restateChangeLog.setSystemMetadata(futureSystemMetadata);
     restateChangeLog.setPreviousAspectValue(genericAspect);
     restateChangeLog.setPreviousSystemMetadata(simulatePullFromDB(metadata1, SystemMetadata.class));
 
@@ -706,7 +720,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     // unless invocations are cleared
     clearInvocations(_mockProducer);
 
-    _entityServiceImpl.ingestProposal(opContext, mcp1, TEST_AUDIT_STAMP, false);
+    _entityServiceImpl.ingestProposal(opContext, mcp2, TEST_AUDIT_STAMP, false);
 
     verify(_mockProducer, times(1))
         .produceMetadataChangeLog(
@@ -1390,7 +1404,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata(1625792689, "run-123");
     SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata(1635792689, "run-456");
     SystemMetadata metadata3 =
-        AspectGenerationUtils.createSystemMetadata(1635792689, "run-123", "run-456", "1");
+        AspectGenerationUtils.createSystemMetadata(1635792689, "run-456", "run-123", "1");
 
     List<ChangeItemImpl> items =
         List.of(
@@ -1482,6 +1496,9 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     assertTrue(
         DataTemplateUtil.areEqual(
+            EntityApiUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata3),
+        String.format(
+            "Expected %s == %s",
             EntityApiUtils.parseSystemMetadata(readAspectDao2.getSystemMetadata()), metadata3));
 
     verify(_mockProducer, times(0))
@@ -2179,6 +2196,474 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         Set.of(existentUrn, noStatusUrn, softDeletedUrn));
   }
 
+  @Test
+  public void testBatchDuplicate() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:batchDuplicateTest");
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+    ChangeItemImpl item1 =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(STATUS_ASPECT_NAME)
+            .recordTemplate(new Status().setRemoved(true))
+            .systemMetadata(systemMetadata.copy())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyAspectRetriever(null));
+    ChangeItemImpl item2 =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(STATUS_ASPECT_NAME)
+            .recordTemplate(new Status().setRemoved(false))
+            .systemMetadata(systemMetadata.copy())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyAspectRetriever(null));
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext().get())
+            .items(List.of(item1, item2))
+            .build(),
+        false,
+        true);
+
+    // List aspects urns
+    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 2);
+
+    assertEquals(batch.getStart().intValue(), 0);
+    assertEquals(batch.getCount().intValue(), 1);
+    assertEquals(batch.getTotal().intValue(), 1);
+    assertEquals(batch.getEntities().size(), 1);
+    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, CORP_USER_ENTITY_NAME, entityUrn, STATUS_ASPECT_NAME);
+    assertEquals(
+        envelopedAspect.getSystemMetadata().getVersion(),
+        "2",
+        "Expected version 2 after accounting for sequential duplicates");
+    assertEquals(
+        envelopedAspect.getValue().toString(),
+        "{removed=false}",
+        "Expected 2nd item to be the latest");
+  }
+
+  @Test
+  public void testBatchPatchWithTrailingNoOp() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,testBatchPatchWithTrailingNoOp,PROD)");
+    TagUrn tag1 = TagUrn.createFromString("urn:li:tag:tag1");
+    Urn tag2 = UrnUtils.getUrn("urn:li:tag:tag2");
+    Urn tagOther = UrnUtils.getUrn("urn:li:tag:other");
+
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+
+    ChangeItemImpl initialAspectTag1 =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .recordTemplate(
+                new GlobalTags()
+                    .setTags(new TagAssociationArray(new TagAssociation().setTag(tag1))))
+            .systemMetadata(systemMetadata.copy())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyAspectRetriever(null));
+
+    PatchItemImpl patchAdd2 =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag2)))
+                    .build()
+                    .getJsonPatch())
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    PatchItemImpl patchRemoveNonExistent =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.REMOVE, tagOther)))
+                    .build()
+                    .getJsonPatch())
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    // establish base entity
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext().get())
+            .items(List.of(initialAspectTag1))
+            .build(),
+        false,
+        true);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext().get())
+            .items(List.of(patchAdd2, patchRemoveNonExistent))
+            .build(),
+        false,
+        true);
+
+    // List aspects urns
+    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 1);
+
+    assertEquals(batch.getStart().intValue(), 0);
+    assertEquals(batch.getCount().intValue(), 1);
+    assertEquals(batch.getTotal().intValue(), 1);
+    assertEquals(batch.getEntities().size(), 1);
+    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
+    assertEquals(
+        envelopedAspect.getSystemMetadata().getVersion(),
+        "2",
+        "Expected version 3. 1 - Initial, + 1 add, 1 remove");
+    assertEquals(
+        new GlobalTags(envelopedAspect.getValue().data())
+            .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
+        Set.of(tag1, tag2),
+        "Expected both tags");
+  }
+
+  @Test
+  public void testBatchPatchAdd() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,testBatchPatchAdd,PROD)");
+    TagUrn tag1 = TagUrn.createFromString("urn:li:tag:tag1");
+    TagUrn tag2 = TagUrn.createFromString("urn:li:tag:tag2");
+    TagUrn tag3 = TagUrn.createFromString("urn:li:tag:tag3");
+
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+
+    ChangeItemImpl initialAspectTag1 =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .recordTemplate(
+                new GlobalTags()
+                    .setTags(new TagAssociationArray(new TagAssociation().setTag(tag1))))
+            .systemMetadata(systemMetadata.copy())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyAspectRetriever(null));
+
+    PatchItemImpl patchAdd3 =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag3)))
+                    .build()
+                    .getJsonPatch())
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    PatchItemImpl patchAdd2 =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag2)))
+                    .build()
+                    .getJsonPatch())
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    PatchItemImpl patchAdd1 =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag1)))
+                    .build()
+                    .getJsonPatch())
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    // establish base entity
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext().get())
+            .items(List.of(initialAspectTag1))
+            .build(),
+        false,
+        true);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext().get())
+            .items(List.of(patchAdd3, patchAdd2, patchAdd1))
+            .build(),
+        false,
+        true);
+
+    // List aspects urns
+    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 1);
+
+    assertEquals(batch.getStart().intValue(), 0);
+    assertEquals(batch.getCount().intValue(), 1);
+    assertEquals(batch.getTotal().intValue(), 1);
+    assertEquals(batch.getEntities().size(), 1);
+    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
+    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "3", "Expected version 4");
+    assertEquals(
+        new GlobalTags(envelopedAspect.getValue().data())
+            .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
+        Set.of(tag1, tag2, tag3),
+        "Expected all tags");
+  }
+
+  @Test
+  public void testBatchPatchAddDuplicate() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,testBatchPatchAdd,PROD)");
+    List<TagAssociation> initialTags =
+        List.of(
+                TagUrn.createFromString("urn:li:tag:__default_large_table"),
+                TagUrn.createFromString("urn:li:tag:__default_low_queries"),
+                TagUrn.createFromString("urn:li:tag:__default_low_changes"),
+                TagUrn.createFromString("urn:li:tag:!10TB+ tables"))
+            .stream()
+            .map(tag -> new TagAssociation().setTag(tag))
+            .collect(Collectors.toList());
+    TagUrn tag2 = TagUrn.createFromString("urn:li:tag:$ 1TB+");
+
+    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
+
+    SystemMetadata patchSystemMetadata = new SystemMetadata();
+    patchSystemMetadata.setLastObserved(systemMetadata.getLastObserved() + 1);
+    patchSystemMetadata.setProperties(new StringMap(Map.of(APP_SOURCE, METADATA_TESTS_SOURCE)));
+
+    ChangeItemImpl initialAspectTag1 =
+        ChangeItemImpl.builder()
+            .urn(entityUrn)
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .recordTemplate(new GlobalTags().setTags(new TagAssociationArray(initialTags)))
+            .systemMetadata(systemMetadata.copy())
+            .auditStamp(TEST_AUDIT_STAMP)
+            .build(TestOperationContexts.emptyAspectRetriever(null));
+
+    PatchItemImpl patchAdd2 =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag2)))
+                    .build()
+                    .getJsonPatch())
+            .systemMetadata(patchSystemMetadata)
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    // establish base entity
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext().get())
+            .items(List.of(initialAspectTag1))
+            .build(),
+        false,
+        true);
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext().get())
+            .items(List.of(patchAdd2, patchAdd2)) // duplicate
+            .build(),
+        false,
+        true);
+
+    // List aspects urns
+    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 1);
+
+    assertEquals(batch.getStart().intValue(), 0);
+    assertEquals(batch.getCount().intValue(), 1);
+    assertEquals(batch.getTotal().intValue(), 1);
+    assertEquals(batch.getEntities().size(), 1);
+    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
+    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "2", "Expected version 2");
+    assertEquals(
+        new GlobalTags(envelopedAspect.getValue().data())
+            .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
+        Stream.concat(initialTags.stream().map(TagAssociation::getTag), Stream.of(tag2))
+            .collect(Collectors.toSet()),
+        "Expected all tags");
+  }
+
+  @Test
+  public void testPatchRemoveNonExistent() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,testPatchRemoveNonExistent,PROD)");
+    TagUrn tag1 = TagUrn.createFromString("urn:li:tag:tag1");
+
+    PatchItemImpl patchRemove =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.REMOVE, tag1)))
+                    .build()
+                    .getJsonPatch())
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    List<UpdateAspectResult> results =
+        _entityServiceImpl.ingestAspects(
+            opContext,
+            AspectsBatchImpl.builder()
+                .retrieverContext(opContext.getRetrieverContext().get())
+                .items(List.of(patchRemove))
+                .build(),
+            false,
+            true);
+
+    assertEquals(results.size(), 4, "Expected default aspects + empty globalTags");
+
+    // List aspects urns
+    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 1);
+
+    assertEquals(batch.getStart().intValue(), 0);
+    assertEquals(batch.getCount().intValue(), 1);
+    assertEquals(batch.getTotal().intValue(), 1);
+    assertEquals(batch.getEntities().size(), 1);
+    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
+    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "1", "Expected version 4");
+    assertEquals(
+        new GlobalTags(envelopedAspect.getValue().data())
+            .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
+        Set.of(),
+        "Expected empty tags");
+  }
+
+  @Test
+  public void testPatchAddNonExistent() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,testPatchAddNonExistent,PROD)");
+    TagUrn tag1 = TagUrn.createFromString("urn:li:tag:tag1");
+
+    PatchItemImpl patchAdd =
+        PatchItemImpl.builder()
+            .urn(entityUrn)
+            .entitySpec(_testEntityRegistry.getEntitySpec(DATASET_ENTITY_NAME))
+            .aspectName(GLOBAL_TAGS_ASPECT_NAME)
+            .aspectSpec(
+                _testEntityRegistry
+                    .getEntitySpec(DATASET_ENTITY_NAME)
+                    .getAspectSpec(GLOBAL_TAGS_ASPECT_NAME))
+            .patch(
+                GenericJsonPatch.builder()
+                    .arrayPrimaryKeys(Map.of("properties", List.of("tag")))
+                    .patch(List.of(tagPatchOp(PatchOperationType.ADD, tag1)))
+                    .build()
+                    .getJsonPatch())
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(_testEntityRegistry);
+
+    List<UpdateAspectResult> results =
+        _entityServiceImpl.ingestAspects(
+            opContext,
+            AspectsBatchImpl.builder()
+                .retrieverContext(opContext.getRetrieverContext().get())
+                .items(List.of(patchAdd))
+                .build(),
+            false,
+            true);
+
+    assertEquals(results.size(), 4, "Expected default aspects + globalTags");
+
+    // List aspects urns
+    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 1);
+
+    assertEquals(batch.getStart().intValue(), 0);
+    assertEquals(batch.getCount().intValue(), 1);
+    assertEquals(batch.getTotal().intValue(), 1);
+    assertEquals(batch.getEntities().size(), 1);
+    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
+
+    EnvelopedAspect envelopedAspect =
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME);
+    assertEquals(envelopedAspect.getSystemMetadata().getVersion(), "1", "Expected version 4");
+    assertEquals(
+        new GlobalTags(envelopedAspect.getValue().data())
+            .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
+        Set.of(tag1),
+        "Expected all tags");
+  }
+
   @Nonnull
   protected com.linkedin.entity.Entity createCorpUserEntity(Urn entityUrn, String email)
       throws Exception {
@@ -2209,5 +2694,15 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     RecordTemplate recordTemplate =
         RecordUtils.toRecordTemplate(clazz, objectMapper.writeValueAsString(aspect));
     return new Pair<>(AspectGenerationUtils.getAspectName(aspect), recordTemplate);
+  }
+
+  private static GenericJsonPatch.PatchOp tagPatchOp(PatchOperationType op, Urn tagUrn) {
+    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+    patchOp.setOp(op.getValue());
+    patchOp.setPath(String.format("/tags/%s", tagUrn));
+    if (PatchOperationType.ADD.equals(op)) {
+      patchOp.setValue(Map.of("tag", tagUrn.toString()));
+    }
+    return patchOp;
   }
 }

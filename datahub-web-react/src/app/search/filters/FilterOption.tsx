@@ -8,6 +8,7 @@ import { generateColor } from '../../entity/shared/components/styled/StyledTag';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import {
+    CONTAINER_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
     MAX_COUNT_VAL,
     PLATFORM_FILTER_NAME,
@@ -122,10 +123,11 @@ export default function FilterOption({
     addPadding,
 }: Props) {
     const [areChildrenVisible, setAreChildrenVisible] = useState(true);
-    const { field, value, count, entity } = filterOption;
+    const { field, value, count, entity, displayName } = filterOption;
     const entityRegistry = useEntityRegistry();
     const { icon, label } = getFilterIconAndLabel(field, value, entityRegistry, entity || null, 14);
-    const shouldShowIcon = field === PLATFORM_FILTER_NAME && icon !== null;
+    const finalLabel = displayName || label;
+    const shouldShowIcon = (field === PLATFORM_FILTER_NAME || field === CONTAINER_FILTER_NAME) && icon !== null;
     const shouldShowTagColor = field === TAGS_FILTER_NAME && entity?.type === EntityType.Tag;
     const isSubTypeFilter = field === TYPE_NAMES_FILTER_NAME;
     const parentEntities: Entity[] = getParentEntities(entity as Entity) || [];
@@ -155,7 +157,7 @@ export default function FilterOption({
                         nestedOptions?.map((o) => o.value),
                     )}
                     onClick={updateFilterValues}
-                    data-testid={`filter-option-${label}`}
+                    data-testid={`filter-option-${finalLabel}`}
                 >
                     {parentEntities.length > 0 && (
                         <ParentWrapper>
@@ -169,8 +171,8 @@ export default function FilterOption({
                         )}
                         {(shouldShowIcon || shouldShowTagColor) && <IconSpacer />}
                         <LabelCountWrapper>
-                            <Label ellipsis={{ tooltip: label }} style={{ maxWidth: 150 }}>
-                                {isSubTypeFilter ? capitalizeFirstLetterOnly(label as string) : label}
+                            <Label ellipsis={{ tooltip: finalLabel }} style={{ maxWidth: 150 }}>
+                                {isSubTypeFilter ? capitalizeFirstLetterOnly(finalLabel as string) : finalLabel}
                             </Label>
                             <CountText>{countText}</CountText>
                             {nestedOptions && nestedOptions.length > 0 && (

@@ -88,4 +88,8 @@ export class RoleEntity implements Entity<Role> {
     supportedCapabilities = () => {
         return new Set([EntityCapabilityType.OWNERS]);
     };
+
+    getGraphName = () => {
+        return 'roleEntity';
+    };
 }
