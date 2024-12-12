@@ -281,6 +281,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         mcps: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
         async_flag: Optional[bool] = None,
     ) -> int:
+        logger.debug("Attempting to emit batch mcps")
         url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
         for mcp in mcps:
             ensure_has_system_metadata(mcp)
@@ -299,6 +300,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                 current_chunk_size = 0
             mcp_obj_chunks[-1].append(mcp_obj)
             current_chunk_size += mcp_obj_size
+        logger.debug(f"Decided to send {len(mcps)} mcps in {len(mcp_obj_chunks)}")
 
         for mcp_obj_chunk in mcp_obj_chunks:
             # TODO: We're calling json.dumps on each MCP object twice, once to estimate
@@ -324,6 +326,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._emit_generic(url, payload)
 
     def _emit_generic(self, url: str, payload: str) -> None:
+        logger.debug(f"Attempting to emit payload with length: {len(payload)}")
         curl_command = make_curl_command(self._session, "POST", url, payload)
         logger.debug(
             "Attempting to emit to DataHub GMS; using curl equivalent to:\n%s",
