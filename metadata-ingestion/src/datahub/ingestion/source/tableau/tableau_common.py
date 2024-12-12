@@ -979,7 +979,6 @@ def get_filter_pages(query_filter: dict, page_size: int) -> List[dict]:
         len(query_filter.keys()) == 1
         and query_filter.get(c.ID_WITH_IN)
         and isinstance(query_filter[c.ID_WITH_IN], list)
-        and len(query_filter[c.ID_WITH_IN]) > 100 * page_size
     ):
         ids = query_filter[c.ID_WITH_IN]
         filter_pages = [
