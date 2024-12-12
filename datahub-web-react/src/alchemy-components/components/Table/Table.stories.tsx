@@ -1,10 +1,9 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import { Meta, StoryObj } from '@storybook/react';
 import React, { useState } from 'react';
 import { Table, tableDefaults } from '.';
 import { SortingState } from './types';
-import { alignProperty } from '@mui/material/styles/cssUtils';
-import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 
 // Auto Docs
 const meta = {
@@ -246,7 +245,7 @@ const groupByData = [
     },
 ];
 
-export const withGroupByFunctionality = () => {
+export const WithGroupByFunctionality = () => {
     const [expandedRowKeys, setExpandedRowKeys] = useState(['Parent Row 1']);
     const [sortedOptions, setSortedOptions] = useState<{ sortColumn: string; sortOrder: SortingState }>({
         sortColumn: '',
