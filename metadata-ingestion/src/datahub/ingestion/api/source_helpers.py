@@ -111,9 +111,7 @@ def check_mcpw_correctness(mcp: MetadataChangeProposalWrapper):
                         f"Field {field.fieldPath} has {len(field.sampleValues)} sample values, taking total bytes {values_len}"
                     )
                 else:
-                    logger.debug(
-                        f"Field {field.fieldPath} has no sample values"
-                    )
+                    logger.debug(f"Field {field.fieldPath} has no sample values")
 
 
 def check_workunit_correctness(

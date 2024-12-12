@@ -146,7 +146,11 @@ class GenericCheckpointState(CheckpointStateBase):
 def compute_percent_entities_changed(
     new_entities: List[str], old_entities: List[str]
 ) -> float:
-    (overlap_count, old_count, _,) = _get_entity_overlap_and_cardinalities(
+    (
+        overlap_count,
+        old_count,
+        _,
+    ) = _get_entity_overlap_and_cardinalities(
         new_entities=new_entities, old_entities=old_entities
     )
 

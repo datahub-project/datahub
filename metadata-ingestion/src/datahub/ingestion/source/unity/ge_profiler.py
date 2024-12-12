@@ -64,7 +64,9 @@ class UnityCatalogGEProfiler(GenericProfiler):
         conn = engine.connect()
 
         for table in tables:
-            logger.debug(f"Before creating UnityCatalogSQLGenericTable we have ({len(table.columns)} columns): {table.columns}")
+            logger.debug(
+                f"Before creating UnityCatalogSQLGenericTable we have ({len(table.columns)} columns): {table.columns}"
+            )
             logger.debug(f"And ref: {table.ref}")
 
         profile_requests = []
