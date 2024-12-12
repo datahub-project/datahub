@@ -148,10 +148,10 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
 
     def _get_recipe_to_report(self, ctx: PipelineContext) -> str:
         assert ctx.pipeline_config
-        if not self.report_recipe or not ctx.pipeline_config._raw_dict:
+        if not self.report_recipe or not ctx.pipeline_config.get_raw_dict():
             return ""
         else:
-            return json.dumps(redact_raw_config(ctx.pipeline_config._raw_dict))
+            return json.dumps(redact_raw_config(ctx.pipeline_config.get_raw_dict()))
 
     def _emit_aspect(self, entity_urn: Urn, aspect_value: _Aspect) -> None:
         self.sink.write_record_async(

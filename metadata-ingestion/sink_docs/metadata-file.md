@@ -25,7 +25,7 @@ source:
 sink:
   type: file
   config:
-    filename: ./path/to/mce/file.json
+    path: ./path/to/mce/file.json
 ```
 
 ## Config details
@@ -34,4 +34,4 @@ Note that a `.` is used to denote nested fields in the YAML recipe.
 
 | Field    | Required | Default | Description               |
 | -------- | -------- | ------- | ------------------------- |
-| filename | ✅       |         | Path to file to write to. |
+| path     | ✅       |         | Path to file to write to. |
