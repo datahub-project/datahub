@@ -1181,6 +1181,45 @@ def sqlglot_lineage(
         )
 
 
+@functools.lru_cache(maxsize=128)
+def create_and_cache_schema_resolver(
+    platform: str,
+    env: str,
+    graph: Optional[DataHubGraph] = None,
+    platform_instance: Optional[str] = None,
+    schema_aware: bool = True,
+) -> SchemaResolver:
+    return create_schema_resolver(
+        platform=platform,
+        env=env,
+        graph=graph,
+        platform_instance=platform_instance,
+        schema_aware=schema_aware,
+    )
+
+
+def create_schema_resolver(
+    platform: str,
+    env: str,
+    graph: Optional[DataHubGraph] = None,
+    platform_instance: Optional[str] = None,
+    schema_aware: bool = True,
+) -> SchemaResolver:
+    if graph and schema_aware:
+        return graph._make_schema_resolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+        )
+
+    return SchemaResolver(
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+        graph=None,
+    )
+
+
 def create_lineage_sql_parsed_result(
     query: str,
     default_db: Optional[str],
@@ -1191,21 +1230,17 @@ def create_lineage_sql_parsed_result(
     graph: Optional[DataHubGraph] = None,
     schema_aware: bool = True,
 ) -> SqlParsingResult:
+    schema_resolver = create_schema_resolver(
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+        schema_aware=schema_aware,
+        graph=graph,
+    )
+
+    needs_close: bool = True
     if graph and schema_aware:
         needs_close = False
-        schema_resolver = graph._make_schema_resolver(
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
-        )
-    else:
-        needs_close = True
-        schema_resolver = SchemaResolver(
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
-            graph=None,
-        )
 
     try:
         return sqlglot_lineage(
@@ -1243,13 +1278,19 @@ def infer_output_schema(result: SqlParsingResult) -> Optional[List[SchemaFieldCl
 def view_definition_lineage_helper(
     result: SqlParsingResult, view_urn: str
 ) -> SqlParsingResult:
-    if result.query_type is QueryType.SELECT:
+    if result.query_type is QueryType.SELECT or (
+        result.out_tables and result.out_tables != [view_urn]
+    ):
         # Some platforms (e.g. postgres) store only <select statement> from view definition
         # `create view V as <select statement>` . For such view definitions, `result.out_tables` and
         # `result.column_lineage[].downstream` are empty in `sqlglot_lineage` response, whereas upstream
         # details and downstream column details are extracted correctly.
         # Here, we inject view V's urn in `result.out_tables` and `result.column_lineage[].downstream`
         # to get complete lineage result.
+
+        # Some platforms(e.g. mssql) may have slightly different view name in view definition than
+        # actual view name used elsewhere. Therefore we overwrite downstream table for such cases as well.
+
         result.out_tables = [view_urn]
         if result.column_lineage:
             for col_result in result.column_lineage:
