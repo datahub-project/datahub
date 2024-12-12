@@ -37,17 +37,26 @@ interface ContainerProps {
     isSelected?: boolean;
 }
 
-export const Container = styled.div<ContainerProps>(({ size, width, isCustomisedLabel, isSelected }) => ({
-    position: 'relative',
-    display: 'flex',
-    flexDirection: 'column',
-    width: width === 'full' ? '100%' : `${width}px`,
-    gap: '4px',
-    transition: sharedTransition,
-    minWidth: isCustomisedLabel ? (isSelected ? '145px' : '103px') : '175px',
-    ...getSelectFontStyles(size),
-    ...inputValueTextStyles(size),
-}));
+export const Container = styled.div<ContainerProps>(({ size, width, isCustomisedLabel, isSelected }) => {
+    const getMinWidth = (isCustomisedLabel?: boolean, isSelected?: boolean) => {
+        if (isCustomisedLabel) {
+            return isSelected ? '145px' : '103px';
+        }
+        return '175px';
+    };
+
+    return {
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        width: width === 'full' ? '100%' : `${width}px`,
+        gap: '4px',
+        transition: sharedTransition,
+        minWidth: getMinWidth(isCustomisedLabel, isSelected),
+        ...getSelectFontStyles(size),
+        ...inputValueTextStyles(size),
+    };
+});
 
 export const Dropdown = styled.div({
     position: 'absolute',
