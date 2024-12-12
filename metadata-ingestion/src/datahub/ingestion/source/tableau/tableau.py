@@ -770,7 +770,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
             )
 
         except Exception as e:
-            logger.warning(msg=e, exc_info=e)
+            logger.warning(f"{e}", exc_info=e)
             test_report.basic_connectivity = CapabilityReport(
                 capable=False, failure_reason=str(e)
             )
