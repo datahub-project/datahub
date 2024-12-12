@@ -298,7 +298,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         String.format("_entityType%stextFieldOverride", AGGREGATION_SEPARATOR_CHAR);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
-            operationContext.withSearchFlags(flags -> flags.setFulltext(true)),
+            operationContext.withSearchFlags(
+                flags -> flags.setFulltext(true).setIncludeDefaultFacets(false)),
             "*",
             null,
             null,

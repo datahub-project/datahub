@@ -932,15 +932,18 @@
             "Searchable" : {
               "/actor" : {
                 "fieldName" : "tagAttributionActors",
-                "fieldType" : "URN"
+                "fieldType" : "URN",
+                "queryByDefault" : false
               },
               "/source" : {
                 "fieldName" : "tagAttributionSources",
-                "fieldType" : "URN"
+                "fieldType" : "URN",
+                "queryByDefault" : false
               },
               "/time" : {
                 "fieldName" : "tagAttributionDates",
-                "fieldType" : "DATETIME"
+                "fieldType" : "DATETIME",
+                "queryByDefault" : false
               }
             }
           } ]
@@ -1059,15 +1062,18 @@
       "Searchable" : {
         "/actor" : {
           "fieldName" : "termAttributionActors",
-          "fieldType" : "URN"
+          "fieldType" : "URN",
+          "queryByDefault" : false
         },
         "/source" : {
           "fieldName" : "termAttributionSources",
-          "fieldType" : "URN"
+          "fieldType" : "URN",
+          "queryByDefault" : false
         },
         "/time" : {
           "fieldName" : "termAttributionDates",
-          "fieldType" : "DATETIME"
+          "fieldType" : "DATETIME",
+          "queryByDefault" : false
         }
       }
     } ]
@@ -2777,7 +2783,7 @@
                     "Searchable" : {
                       "fieldName" : "managerLdap",
                       "fieldType" : "URN",
-                      "queryByDefault" : true
+                      "queryByDefault" : false
                     }
                   }, {
                     "name" : "departmentId",
@@ -3359,7 +3365,7 @@
                           "type" : "com.linkedin.dataset.SchemaFieldPath",
                           "doc" : "Flattened name of the field. Field is computed from jsonPath field.",
                           "Searchable" : {
-                            "boostScore" : 5.0,
+                            "boostScore" : 1.0,
                             "fieldName" : "fieldPaths",
                             "fieldType" : "TEXT",
                             "queryByDefault" : "true"
@@ -3533,15 +3539,18 @@
                           "Searchable" : {
                             "/tags/*/attribution/actor" : {
                               "fieldName" : "fieldTagAttributionActors",
-                              "fieldType" : "URN"
+                              "fieldType" : "URN",
+                              "queryByDefault" : false
                             },
                             "/tags/*/attribution/source" : {
                               "fieldName" : "fieldTagAttributionSources",
-                              "fieldType" : "URN"
+                              "fieldType" : "URN",
+                              "queryByDefault" : false
                             },
                             "/tags/*/attribution/time" : {
                               "fieldName" : "fieldTagAttributionDates",
-                              "fieldType" : "DATETIME"
+                              "fieldType" : "DATETIME",
+                              "queryByDefault" : false
                             },
                             "/tags/*/tag" : {
                               "boostScore" : 0.5,
@@ -3563,15 +3572,18 @@
                           "Searchable" : {
                             "/terms/*/attribution/actor" : {
                               "fieldName" : "fieldTermAttributionActors",
-                              "fieldType" : "URN"
+                              "fieldType" : "URN",
+                              "queryByDefault" : false
                             },
                             "/terms/*/attribution/source" : {
                               "fieldName" : "fieldTermAttributionSources",
-                              "fieldType" : "URN"
+                              "fieldType" : "URN",
+                              "queryByDefault" : false
                             },
                             "/terms/*/attribution/time" : {
                               "fieldName" : "fieldTermAttributionDates",
-                              "fieldType" : "DATETIME"
+                              "fieldType" : "DATETIME",
+                              "queryByDefault" : false
                             },
                             "/terms/*/urn" : {
                               "boostScore" : 0.5,
@@ -3744,11 +3756,13 @@
                           "Searchable" : {
                             "/tags/*/attribution/actor" : {
                               "fieldName" : "editedFieldTagAttributionActors",
-                              "fieldType" : "URN"
+                              "fieldType" : "URN",
+                              "queryByDefault" : false
                             },
                             "/tags/*/attribution/source" : {
                               "fieldName" : "editedFieldTagAttributionSources",
-                              "fieldType" : "URN"
+                              "fieldType" : "URN",
+                              "queryByDefault" : false
                             },
                             "/tags/*/attribution/time" : {
                               "fieldName" : "editedFieldTagAttributionDates",
@@ -3774,11 +3788,13 @@
                           "Searchable" : {
                             "/terms/*/attribution/actor" : {
                               "fieldName" : "editedFieldTermAttributionActors",
-                              "fieldType" : "URN"
+                              "fieldType" : "URN",
+                              "queryByDefault" : false
                             },
                             "/terms/*/attribution/source" : {
                               "fieldName" : "editedFieldTermAttributionSources",
-                              "fieldType" : "URN"
+                              "fieldType" : "URN",
+                              "queryByDefault" : false
                             },
                             "/terms/*/attribution/time" : {
                               "fieldName" : "editedFieldTermAttributionDates",
@@ -5198,9 +5214,9 @@
                     },
                     "Searchable" : {
                       "/*" : {
-                        "boostScore" : 2.0,
                         "fieldName" : "isRelatedTerms",
-                        "fieldType" : "URN"
+                        "fieldType" : "URN",
+                        "queryByDefault" : false
                       }
                     }
                   }, {
@@ -5219,9 +5235,9 @@
                     },
                     "Searchable" : {
                       "/*" : {
-                        "boostScore" : 2.0,
                         "fieldName" : "hasRelatedTerms",
-                        "fieldType" : "URN"
+                        "fieldType" : "URN",
+                        "queryByDefault" : false
                       }
                     }
                   }, {
