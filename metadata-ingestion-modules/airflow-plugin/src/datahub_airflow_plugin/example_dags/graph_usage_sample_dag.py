@@ -1,5 +1,7 @@
 """This example DAG demonstrates how to create and use a DataHubGraph client."""
 
+from datetime import timedelta
+
 import pendulum
 from airflow.decorators import dag, task
 from datahub.ingestion.graph.client import DataHubGraph, RemovedStatusFilter
@@ -8,7 +10,7 @@ from datahub_airflow_plugin.hooks.datahub import DatahubRestHook
 
 
 @dag(
-    schedule=None,
+    schedule_interval=timedelta(days=1),
     start_date=pendulum.datetime(2021, 1, 1, tz="UTC"),
     catchup=False,
 )
