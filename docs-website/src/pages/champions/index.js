@@ -29,7 +29,7 @@ const championSections = [
       {
         name: "Mike Burke",
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/mb.jpg",
-        position: ,
+        position: "",
         bio: (
           <>
             <p>
