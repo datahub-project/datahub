@@ -337,6 +337,18 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
     // Set parent type for proper array handling
     DataHubType arrayDataHubType = new DataHubType(ArrayType.class, elementType);
 
+    SchemaField arrayField =
+        new SchemaField()
+            .setFieldPath(fieldPath.asString())
+            .setType(arrayDataHubType.asSchemaFieldType())
+            .setNativeDataType("array(" + elementType + ")")
+            .setNullable(isNullable || defaultNullable)
+            .setIsPartOfKey(fieldPath.isKeySchema());
+
+    populateCommonProperties(field, arrayField);
+    log.debug("Array field path: {} with doc: {}", fieldPath.asString(), field.doc());
+    fields.add(arrayField);
+
     // Process element type if it's complex
     if (elementSchema.getType() == Schema.Type.RECORD
         || elementSchema.getType() == Schema.Type.ARRAY
@@ -355,19 +367,6 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
               null // TODO: What is the default value for an array element?
               );
       processField(elementField, fieldPath, defaultNullable, fields, isNullable, arrayDataHubType);
-    } else {
-
-      SchemaField arrayField =
-          new SchemaField()
-              .setFieldPath(fieldPath.asString())
-              .setType(arrayDataHubType.asSchemaFieldType())
-              .setNativeDataType("array(" + elementType + ")")
-              .setNullable(isNullable || defaultNullable)
-              .setIsPartOfKey(fieldPath.isKeySchema());
-
-      populateCommonProperties(field, arrayField);
-      log.debug("Array field path: {} with doc: {}", fieldPath.asString(), field.doc());
-      fields.add(arrayField);
     }
   }
 
