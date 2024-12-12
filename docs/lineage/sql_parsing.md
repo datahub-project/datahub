@@ -30,7 +30,7 @@ Note that these utilities are not officially part of the DataHub SDK and hence d
 
 ## Capabilities
 
-#### Supported
+### Supported
 
 - Table-level lineage for `SELECT`, `CREATE`, `INSERT`, `UPDATE`, `DELETE`, and `MERGE` statements
 - Column-level lineage for `SELECT` (including `SELECT INTO`), `CREATE VIEW`, `CREATE TABLE AS SELECT` (CTAS), `INSERT`, and `UPDATE` statements
@@ -42,7 +42,7 @@ Note that these utilities are not officially part of the DataHub SDK and hence d
   - Specifically, we'll do fuzzy matching against the table names and schemas to resolve the correct URNs. We do not support having multiple tables/columns that only differ in casing.
 - For BigQuery, sharded table suffixes will automatically be normalized. For example, `proj.dataset.table_20230616` will be normalized to `proj.dataset.table_yyyymmdd`. This matches the behavior of our BigQuery ingestion connector, and hence will result in lineage linking up correctly.
 
-#### Not supported
+### Not supported
 
 - Scalar `UDFs` - We will generate lineage pointing at the columns that are inputs to the UDF, but will not be able to understand the UDF itself.
 - Tabular `UDFs`
@@ -52,7 +52,7 @@ Note that these utilities are not officially part of the DataHub SDK and hence d
 - Snowflake's multi-table inserts
 - Multi-statement SQL / SQL scripting
 
-#### Limitations
+### Limitations
 
 - We only support the 20+ SQL dialects supported by the underlying [sqlglot](https://github.com/tobymao/sqlglot) library.
 - There's a few SQL syntaxes that we don't support yet, but intend to support in the future.
