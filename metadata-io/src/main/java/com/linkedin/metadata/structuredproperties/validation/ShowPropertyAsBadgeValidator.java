@@ -37,7 +37,6 @@ import lombok.Setter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.collections.CollectionUtils;
-import org.jetbrains.annotations.NotNull;
 
 @Setter
 @Getter
@@ -51,8 +50,8 @@ public class ShowPropertyAsBadgeValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
-      @NotNull Collection<? extends BatchItem> mcpItems,
-      @NotNull RetrieverContext retrieverContext) {
+      @Nonnull Collection<? extends BatchItem> mcpItems,
+      @Nonnull RetrieverContext retrieverContext) {
     return validateSettingsUpserts(
         mcpItems.stream()
             .filter(i -> STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME.equals(i.getAspectName()))
@@ -62,14 +61,14 @@ public class ShowPropertyAsBadgeValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @NotNull Collection<ChangeMCP> changeMCPs, @NotNull RetrieverContext retrieverContext) {
+      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
   }
 
   @VisibleForTesting
   public static Stream<AspectValidationException> validateSettingsUpserts(
-      @NotNull Collection<? extends BatchItem> mcpItems,
-      @NotNull RetrieverContext retrieverContext) {
+      @Nonnull Collection<? extends BatchItem> mcpItems,
+      @Nonnull RetrieverContext retrieverContext) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     for (BatchItem mcpItem : mcpItems) {
       StructuredPropertySettings structuredPropertySettings =
