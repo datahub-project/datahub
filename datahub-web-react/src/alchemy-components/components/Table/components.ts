@@ -4,7 +4,7 @@ import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import styled from 'styled-components';
 
 export const TableContainer = styled.div<{ isScrollable?: boolean; maxHeight?: string; isBorderless?: boolean }>(
-    ({ isScrollable, maxHeight, isBorderless }) => ({
+    ({ maxHeight, isBorderless }) => ({
         borderRadius: isBorderless ? radius.none : radius.lg,
         border: isBorderless ? borders.none : `1px solid ${colors.gray[1400]}`,
         overflow: 'hidden',
