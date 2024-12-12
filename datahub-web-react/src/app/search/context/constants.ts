@@ -28,8 +28,8 @@ export const SORT_OPTIONS = {
 // Extensions
 export const ROW_COUNT_FIELD = 'rowCountFeature';
 export const SIZE_IN_BYTES_FIELD = 'sizeInBytesFeature';
-export const QUERY_COUNT = 'queryCountLast30Days';
-export const UPDATE_COUNT = 'writeCountLast30Days';
+export const QUERY_COUNT = 'queryCountLast30DaysFeature';
+export const UPDATE_COUNT = 'writeCountLast30DaysFeature';
 
 export const DATASET_FEATURES_SORT_OPTIONS = {
     [`${ROW_COUNT_FIELD}_${SortOrder.Descending}`]: {
