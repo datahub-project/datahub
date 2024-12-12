@@ -119,7 +119,6 @@ class SnowflakeFilter:
     ) -> bool:
         if not dataset_type or not dataset_name:
             return True
-        dataset_params = dataset_name.split(".")
         if dataset_type.lower() not in (
             SnowflakeObjectDomain.TABLE,
             SnowflakeObjectDomain.EXTERNAL_TABLE,
@@ -131,6 +130,7 @@ class SnowflakeFilter:
         if _is_sys_table(dataset_name):
             return False
 
+        dataset_params = _split_qualified_name(dataset_name)
         if len(dataset_params) != 3:
             self.structured_reporter.info(
                 title="Unexpected dataset pattern",
