@@ -1,6 +1,6 @@
 import abc
 from functools import cached_property
-from typing import ClassVar, Literal, Optional, Tuple
+from typing import ClassVar, List, Literal, Optional, Tuple
 
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
@@ -184,6 +184,46 @@ def _is_sys_table(table_name: str) -> bool:
     return table_name.lower().startswith("sys$")
 
 
+def _split_qualified_name(qualified_name: str) -> List[str]:
+    """
+    Split a qualified name into its constituent parts.
+
+    >>> _split_qualified_name("db.my_schema.my_table")
+    ['db', 'my_schema', 'my_table']
+    >>> _split_qualified_name('"db"."my_schema"."my_table"')
+    ['db', 'my_schema', 'my_table']
+    >>> _split_qualified_name('TEST_DB.TEST_SCHEMA."TABLE.WITH.DOTS"')
+    ['TEST_DB', 'TEST_SCHEMA', 'TABLE.WITH.DOTS']
+    >>> _split_qualified_name('TEST_DB."SCHEMA.WITH.DOTS".MY_TABLE')
+    ['TEST_DB', 'SCHEMA.WITH.DOTS', 'MY_TABLE']
+    """
+
+    # Fast path - no quotes.
+    if '"' not in qualified_name:
+        return qualified_name.split(".")
+
+    # First pass - split on dots that are not inside quotes.
+    in_quote = False
+    parts: List[List[str]] = [[]]
+    for char in qualified_name:
+        if char == '"':
+            in_quote = not in_quote
+        elif char == "." and not in_quote:
+            parts.append([])
+        else:
+            parts[-1].append(char)
+
+    # Second pass - remove outer pairs of quotes.
+    result = []
+    for part in parts:
+        if len(part) > 2 and part[0] == '"' and part[-1] == '"':
+            part = part[1:-1]
+
+        result.append("".join(part))
+
+    return result
+
+
 # Qualified Object names from snowflake audit logs have quotes for for snowflake quoted identifiers,
 # For example "test-database"."test-schema".test_table
 # whereas we generate urns without quotes even for quoted identifiers for backward compatibility
@@ -192,7 +232,7 @@ def _is_sys_table(table_name: str) -> bool:
 def _cleanup_qualified_name(
     qualified_name: str, structured_reporter: SourceReport
 ) -> str:
-    name_parts = qualified_name.split(".")
+    name_parts = _split_qualified_name(qualified_name)
     if len(name_parts) != 3:
         if not _is_sys_table(qualified_name):
             structured_reporter.info(
@@ -203,9 +243,9 @@ def _cleanup_qualified_name(
             )
         return qualified_name.replace('"', "")
     return _combine_identifier_parts(
-        db_name=name_parts[0].strip('"'),
-        schema_name=name_parts[1].strip('"'),
-        table_name=name_parts[2].strip('"'),
+        db_name=name_parts[0],
+        schema_name=name_parts[1],
+        table_name=name_parts[2],
     )
 
 
