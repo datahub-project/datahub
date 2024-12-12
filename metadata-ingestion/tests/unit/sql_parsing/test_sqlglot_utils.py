@@ -106,6 +106,19 @@ class QueryGeneralizationTestMode(Enum):
             QueryGeneralizationTestMode.BOTH,
         ),
         (
+            # Test with uneven spacing within the IN clause.
+            "SELECT * FROM books WHERE zip_code IN (123,345, 423 )",
+            "redshift",
+            "SELECT * FROM books WHERE zip_code IN (?)",
+            QueryGeneralizationTestMode.BOTH,
+        ),
+        (
+            "SELECT a\n  ,b FROM books",
+            "redshift",
+            "SELECT a, b FROM books",
+            QueryGeneralizationTestMode.BOTH,
+        ),
+        (
             textwrap.dedent(
                 """\
                 /* Copied from https://stackoverflow.com/a/452934/5004662 */
