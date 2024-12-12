@@ -146,7 +146,7 @@ export default function SetDataProductModal({
                 tagRender={tagRender}
                 onBlur={() => setQuery('')}
             >
-                {data?.searchAcrossEntities?.searchResults.map((result) => (
+                {data?.searchAcrossEntities?.searchResults?.map((result) => (
                     <Select.Option value={result.entity.urn} key={result.entity.urn}>
                         <OptionWrapper>
                             {entityRegistry.getIcon(EntityType.DataProduct, 12, IconStyleType.ACCENT, 'black')}
