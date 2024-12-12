@@ -492,11 +492,15 @@ class Source(Closeable, metaclass=ABCMeta):
 
     def _infer_platform(self) -> Optional[str]:
         config = self.get_config()
-        return (
+        platform = (
             getattr(config, "platform_name", None)
             or getattr(self, "platform", None)
             or getattr(config, "platform", None)
         )
+        if platform is None and hasattr(self, "get_platform_id"):
+            platform = type(self).get_platform_id()
+
+        return platform
 
     def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
         config = self.get_config()

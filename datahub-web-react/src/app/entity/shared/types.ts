@@ -122,6 +122,7 @@ export type GenericEntityProperties = {
     browsePathV2?: Maybe<BrowsePathV2>;
     inputOutput?: Maybe<DataJobInputOutput>;
     forms?: Maybe<Forms>;
+    parent?: Maybe<GenericEntityProperties>;
 };
 
 export type GenericEntityUpdate = {

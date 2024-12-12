@@ -58,6 +58,8 @@ export class ERModelRelationshipEntity implements Entity<ErModelRelationship> {
 
     getEntityName = () => 'ER-Model-Relationship';
 
+    getGraphName = () => 'erModelRelationship';
+
     renderProfile = (urn: string) => (
         <EntityProfile
             urn={urn}
