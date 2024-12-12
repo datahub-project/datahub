@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import airflow.version
 import packaging.version
@@ -40,7 +40,7 @@ NEEDS_AIRFLOW_LISTENER_MODULE = AIRFLOW_VERSION < packaging.version.parse(
 ) or PLUGGY_VERSION <= packaging.version.parse("1.0.0")
 
 
-def get_task_inlets(operator: "Operator") -> List:
+def get_task_inlets(operator: "Operator") -> Optional[List]:
     # From Airflow 2.4 _inlets is dropped and inlets used consistently. Earlier it was not the case, so we have to stick there to _inlets
     if hasattr(operator, "_inlets"):
         return operator._inlets  # type: ignore[attr-defined, union-attr]
@@ -49,7 +49,7 @@ def get_task_inlets(operator: "Operator") -> List:
     return operator.inlets
 
 
-def get_task_outlets(operator: "Operator") -> List:
+def get_task_outlets(operator: "Operator") -> Optional[List]:
     # From Airflow 2.4 _outlets is dropped and inlets used consistently. Earlier it was not the case, so we have to stick there to _outlets
     # We have to use _outlets because outlets is empty in Airflow < 2.4.0
     if hasattr(operator, "_outlets"):
