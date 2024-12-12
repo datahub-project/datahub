@@ -1,7 +1,6 @@
 import { CaretUp, CaretDown } from 'phosphor-react';
 import { LoadingOutlined } from '@ant-design/icons';
 import { Text } from '@components';
-import { CaretUp, CaretDown } from 'phosphor-react';
 import React, { useEffect, useState } from 'react';
 import {
     BaseTable,
