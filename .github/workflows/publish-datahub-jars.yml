@@ -30,13 +30,16 @@ jobs:
           echo "Enable publish: ${{ env.SIGNING_KEY != '' }}"
           echo "publish=${{ env.SIGNING_KEY != '' }}" >> $GITHUB_OUTPUT
   setup:
-    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout
         uses: acryldata/sane-checkout-action@v3
+      - name: Validate ref format
+        run: |
+          source .github/scripts/docker_helpers.sh
+          validate_github_ref_for_python_tag
       - name: Compute Tag
         id: tag
         run: |

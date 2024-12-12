@@ -6,13 +6,16 @@ on:
 
 jobs:
   setup:
-    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Validate ref format
+        run: |
+          source .github/scripts/docker_helpers.sh
+          validate_github_ref_for_python_tag
       - name: Compute Tag
         id: tag
         run: |
