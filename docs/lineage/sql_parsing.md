@@ -28,9 +28,9 @@ The resulting object contains a `sql_parsing_result.debug_info.confidence_score`
 There are also a number of utilities in the `datahub.sql_parsing` module. The `SqlParsingAggregator` is particularly useful, as it can also resolve lineage across temp tables and table renames/swaps.
 Note that these utilities are not officially part of the DataHub SDK and hence do not have the same level of stability and support as the rest of the SDK.
 
-## Capabilities and Limitations
+## Capabilities
 
-Supported:
+#### Supported
 
 - Table-level lineage for `SELECT`, `CREATE`, `INSERT`, `UPDATE`, `DELETE`, and `MERGE` statements
 - Column-level lineage for `SELECT` (including `SELECT INTO`), `CREATE VIEW`, `CREATE TABLE AS SELECT` (CTAS), `INSERT`, and `UPDATE` statements
@@ -39,12 +39,10 @@ Supported:
 - `UNION ALL` constructs - will merge lineage across the clauses of the `UNION`
 - `SELECT *` and similar expressions will automatically be expanded with the table schemas registered in DataHub. This includes support for platform instances.
 - Automatic handling for systems where table and column names are case insensitive. Generally requires that `convert_urns_to_lowercase` is enabled when the corresponding table schemas were ingested into DataHub.
-
   - Specifically, we'll do fuzzy matching against the table names and schemas to resolve the correct URNs. We do not support having multiple tables/columns that only differ in casing.
-
 - For BigQuery, sharded table suffixes will automatically be normalized. For example, `proj.dataset.table_20230616` will be normalized to `proj.dataset.table_yyyymmdd`. This matches the behavior of our BigQuery ingestion connector, and hence will result in lineage linking up correctly.
 
-Not supported:
+#### Not supported
 
 - Scalar `UDFs` - We will generate lineage pointing at the columns that are inputs to the UDF, but will not be able to understand the UDF itself.
 - Tabular `UDFs`
@@ -54,7 +52,7 @@ Not supported:
 - Snowflake's multi-table inserts
 - Multi-statement SQL / SQL scripting
 
-Limitations:
+#### Limitations
 
 - We only support the 20+ SQL dialects supported by the underlying [sqlglot](https://github.com/tobymao/sqlglot) library.
 - There's a few SQL syntaxes that we don't support yet, but intend to support in the future.
