@@ -13,6 +13,9 @@ import org.apache.tools.ant.filters.ReplaceTokens
 
 
 jar {
+  if (project.hasProperty('archiveAppendix')) {
+    archiveAppendix.set(project.archiveAppendix)
+  }
   archiveClassifier = "lib"
 }
 
@@ -98,6 +101,9 @@ task checkShadowJar(type: Exec) {
 
 shadowJar {
   zip64 = true
+  if (project.hasProperty('archiveAppendix')) {
+    archiveAppendix.set(project.archiveAppendix)
+  }
   archiveClassifier = ''
   // preventing java multi-release JAR leakage
   // https://github.com/johnrengelman/shadow/issues/729
