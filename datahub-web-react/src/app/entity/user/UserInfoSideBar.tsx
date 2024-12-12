@@ -1,8 +1,8 @@
-import GlobeIcon from '../../../images/Globe.svg';
 import { countries } from 'country-data-list';
 import { Divider, message, Space, Button, Typography, Tag } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { EditOutlined, MailOutlined, PhoneOutlined, SlackOutlined } from '@ant-design/icons';
+import GlobeIcon from '../../../images/Globe.svg';
 import { useUpdateCorpUserPropertiesMutation } from '../../../graphql/user.generated';
 import { EntityRelationship, DataHubRole } from '../../../types.generated';
 import UserEditProfileModal from './UserEditProfileModal';
@@ -122,9 +122,9 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
     const dataHubRoleName = dataHubRoles && dataHubRoles.length > 0 && (dataHubRoles[0]?.entity as DataHubRole).name;
 
     let countryName;
-    const findCountryName = (countryCode) => {
+    const findCountryName = (code) => {
         try {
-            countryName = countries[countryCode].name;
+            countryName = countries[code].name;
         } catch (error) {
             countryName = '';
         }
