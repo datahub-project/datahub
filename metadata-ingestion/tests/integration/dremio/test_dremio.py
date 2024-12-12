@@ -562,14 +562,6 @@ def test_dremio_platform_instance_urns(
                     instance == expected_instance
                 ), f"Invalid platform instance format: {instance}"
 
-            # Check browse paths
-            elif mce["aspectName"] == "browsePathsV2":
-                paths = mce["aspect"]["json"]["path"]
-                assert len(paths) > 0, "Browse paths should not be empty"
-                assert (
-                    paths[0]["id"] == "test-platform"
-                ), f"First browse path element should be test-platform, got: {paths[0]}"
-
     # Verify against golden file
     mce_helpers.check_golden_file(
         pytestconfig,
