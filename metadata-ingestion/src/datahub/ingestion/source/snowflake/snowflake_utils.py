@@ -216,7 +216,7 @@ def _split_qualified_name(qualified_name: str) -> List[str]:
     # Second pass - remove outer pairs of quotes.
     result = []
     for part in parts:
-        if len(part) > 1 and part[0] == '"' and part[-1] == '"':
+        if len(part) > 2 and part[0] == '"' and part[-1] == '"':
             part = part[1:-1]
 
         result.append("".join(part))
