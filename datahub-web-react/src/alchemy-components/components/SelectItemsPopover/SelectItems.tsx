@@ -1,19 +1,29 @@
-import React from 'react';
+import React, { ReactNode } from 'react';
 import { Button, Checkbox, Empty, Typography } from 'antd';
 import styled from 'styled-components';
 import { LoadingOutlined } from '@ant-design/icons';
-import { GlobalTags, TagAssociation } from '@src/types.generated';
+import { Entity, EntityType } from '@src/types.generated';
+import { CheckboxValueType } from 'antd/lib/checkbox/Group';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { AcrylListSearch } from '@src/app/entityV2/shared/components/ListSearch/AcrylListSearch';
-import { useTagOperations } from './hooks'; // Import your custom hook
-import { AcrylTagCheckboxGroup } from './AcrylTagCheckboxGroup';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { useEntityOperations } from './hooks'; // Import your custom hook
+import { SelectItemCheckboxGroup } from './SelectItemCheckboxGroup';
 
-interface AcrylAssertionSelectTagsProps {
-    tags: GlobalTags[];
-    selectedTags: TagAssociation[];
-    resourceUrn: string;
+export interface SelectItemsProps {
+    entities: Entity[];
+    selectedItems: any[];
     refetch?: () => void;
     onClose?: () => void;
+    entityType: EntityType;
+    handleSelectionChange: ({
+        selectedItems,
+        removedItems,
+    }: {
+        selectedItems: CheckboxValueType[];
+        removedItems: CheckboxValueType[];
+    }) => void;
+    renderOption?: (option: { value: string; label: ReactNode | string; item?: any }) => React.ReactNode;
 }
 
 const StyledSubSection = styled(Typography.Text)`
@@ -33,7 +43,7 @@ const StyledFooter = styled.div`
     border-top: 1px solid ${REDESIGN_COLORS.SILVER_GREY};
 `;
 
-const StyledSelectTagContainer = styled.div`
+const StyledSelectContainer = styled.div`
     display: flex;
     flex-direction: column;
     padding-bottom: 4px;
@@ -84,53 +94,67 @@ const StyledEmpty = styled(Empty)`
     margin-bottom 12px;
 `;
 
-export const AcrylAssertionSelectTags: React.FC<AcrylAssertionSelectTagsProps> = ({
-    tags,
-    selectedTags,
-    resourceUrn,
+export const SelectItems: React.FC<SelectItemsProps> = ({
+    entities,
+    selectedItems,
     refetch,
     onClose,
+    entityType,
+    handleSelectionChange,
+    renderOption,
 }) => {
     const {
         filteredAddableOptions,
         filteredPreviouslyAddedOptions,
-        selectedTagOptions,
-        setSelectedTagOptions,
-        handleUpdateTags,
+        selectedOptions,
+        setSelectedOptions,
+        handleUpdate,
         previouslyAddedOptions,
         searchText,
-        handleSearchTags,
-        tagsSearchResultsLoading,
-        tagsSearchData,
-    } = useTagOperations({ resourceUrn, selectedTags, refetch, tags, onClose });
+        handleSearchEntities,
+        entitySearchResultsLoading,
+        searchData,
+    } = useEntityOperations({
+        selectedItems,
+        refetch,
+        entities,
+        onClose,
+        entityType,
+        handleSelectionChange,
+    });
+
+    const entityRegistry = useEntityRegistry();
 
     const handleCheckboxToggle = (urn: string) => {
-        const options = selectedTagOptions ? [...selectedTagOptions] : [];
+        const options = selectedOptions ? [...selectedOptions] : [];
         if (options?.includes(urn)) {
             const index = options.indexOf(urn);
             options?.splice(index, 1);
         } else {
             options.push(urn);
         }
-        setSelectedTagOptions(options);
+        setSelectedOptions(options);
     };
 
-    const handleTagContainerClick = (e: React.MouseEvent) => {
+    const handleContainerClick = (e: React.MouseEvent) => {
         e.stopPropagation(); // Prevent the row click event from triggering
     };
-    const isLoading = !tagsSearchData && tagsSearchResultsLoading;
-    const hasAddableTagsMatchingFilters = filteredAddableOptions?.length > 0;
-    const hasExistingTagsMatchingFilters = filteredPreviouslyAddedOptions?.length > 0;
-    const hasExistingTags = previouslyAddedOptions?.length > 0;
+
+    const isLoading = !searchData && entitySearchResultsLoading;
+    const hasAddableEntitiesMatchingFilters = filteredAddableOptions?.length > 0;
+    const hasExistingEntitiesMatchingFilters = filteredPreviouslyAddedOptions?.length > 0;
+    const hasExistingEntities = previouslyAddedOptions?.length > 0;
+    const entityName = entityRegistry.getCollectionName(entityType)?.toLowerCase();
+    const emptyMessage = `No ${entityName} found`;
     return (
-        <StyledSelectTagContainer onClick={handleTagContainerClick}>
+        <StyledSelectContainer onClick={handleContainerClick}>
             <AcrylListSearch
                 searchText={searchText}
-                debouncedSetFilterText={handleSearchTags}
+                debouncedSetFilterText={handleSearchEntities}
                 matchResultCount={filteredPreviouslyAddedOptions?.length + filteredAddableOptions?.length}
-                numRows={tagsSearchData?.autoComplete?.entities?.length || 0}
-                entityTypeName="tag"
-                options={{ hidePrefix: true, hideMatchCountText: true }}
+                numRows={searchData?.autoComplete?.entities?.length || 0}
+                entityTypeName={entityType}
+                options={{ hidePrefix: true, hideMatchCountText: true, placeholder: 'Search for tags...' }}
             />
             {isLoading ? (
                 <StyledLoader>
@@ -138,54 +162,56 @@ export const AcrylAssertionSelectTags: React.FC<AcrylAssertionSelectTagsProps> =
                 </StyledLoader>
             ) : (
                 <StyledCheckBoxContainer>
-                    <Checkbox.Group value={selectedTagOptions} style={{ width: '100%' }}>
-                        {hasExistingTags ? (
+                    <Checkbox.Group value={selectedOptions} style={{ width: '100%' }}>
+                        {hasExistingEntities ? (
                             <StyledGroupSection>
                                 <StyledSubSection>Selected</StyledSubSection>
-                                {hasExistingTagsMatchingFilters ? (
-                                    <AcrylTagCheckboxGroup
+                                {hasExistingEntitiesMatchingFilters && (
+                                    <SelectItemCheckboxGroup
+                                        selectedOptions={selectedOptions}
                                         handleCheckboxToggle={handleCheckboxToggle}
                                         options={filteredPreviouslyAddedOptions}
+                                        renderOption={renderOption}
                                     />
-                                ) : null}
+                                )}
 
-                                {!hasExistingTagsMatchingFilters && searchText ? (
-                                    <StyledEmpty description="No tags found" />
-                                ) : null}
+                                {!hasExistingEntitiesMatchingFilters && searchText && (
+                                    <StyledEmpty description={emptyMessage} />
+                                )}
                             </StyledGroupSection>
                         ) : null}
                         <StyledGroupSection>
-                            {hasExistingTags ? (
+                            {(hasExistingEntitiesMatchingFilters || searchText) && (
                                 <StyledSubSection>Add more</StyledSubSection>
-                            ) : (
-                                <div style={{ height: 8 }} />
                             )}
-                            {hasAddableTagsMatchingFilters ? (
-                                <AcrylTagCheckboxGroup
+                            {hasAddableEntitiesMatchingFilters && (
+                                <SelectItemCheckboxGroup
+                                    selectedOptions={selectedOptions}
                                     handleCheckboxToggle={handleCheckboxToggle}
                                     options={filteredAddableOptions}
+                                    renderOption={renderOption}
                                 />
-                            ) : null}
-                            {!hasAddableTagsMatchingFilters && searchText ? (
-                                <StyledEmpty description="No tags found" />
-                            ) : null}
+                            )}
+                            {!hasAddableEntitiesMatchingFilters && searchText && (
+                                <StyledEmpty description={emptyMessage} />
+                            )}
                         </StyledGroupSection>
                     </Checkbox.Group>
                 </StyledCheckBoxContainer>
             )}
             <StyledFooter>
-                {hasExistingTags ? (
-                    <StyledResetButton onClick={() => handleUpdateTags({ isRemoveAll: true })}>
+                {hasExistingEntities && (
+                    <StyledResetButton onClick={() => handleUpdate({ isRemoveAll: true })}>
                         Remove All
                     </StyledResetButton>
-                ) : null}
+                )}
                 <StyledUpdateButton
-                    style={{ width: !hasExistingTags ? '100%' : '' }}
-                    onClick={() => handleUpdateTags({})}
+                    style={{ width: !hasExistingEntities ? '100%' : '' }}
+                    onClick={() => handleUpdate({})}
                 >
                     Update
                 </StyledUpdateButton>
             </StyledFooter>
-        </StyledSelectTagContainer>
+        </StyledSelectContainer>
     );
 };
