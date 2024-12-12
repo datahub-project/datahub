@@ -15,8 +15,6 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptArray;
-import com.linkedin.form.OwnershipParams;
-import com.linkedin.form.PromptCardinality;
 import com.linkedin.form.StructuredPropertyParams;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -394,16 +392,12 @@ public class DeleteEntityUtilsTest extends TestCase {
             .setId("2")
             .setStructuredPropertyParams(
                 new StructuredPropertyParams().setUrn(existingPropertyUrn)));
-    prompts.add(
-        new FormPrompt()
-            .setId("3")
-            .setOwnershipParams(new OwnershipParams().setCardinality(PromptCardinality.MULTIPLE)));
     FormInfo formInfo = new FormInfo().setPrompts(new FormPromptArray(prompts));
 
     FormInfo updatedFormInfo =
         DeleteEntityUtils.removePromptsFromFormInfoAspect(formInfo, deletedPropertyUrn);
 
-    assertEquals(updatedFormInfo.getPrompts().size(), 2);
+    assertEquals(updatedFormInfo.getPrompts().size(), 1);
     assertEquals(
         updatedFormInfo.getPrompts(),
         formInfo.getPrompts().stream()
