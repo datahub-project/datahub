@@ -38,7 +38,7 @@ interface ContainerProps {
 }
 
 export const Container = styled.div<ContainerProps>(({ size, width, isCustomisedLabel, isSelected }) => {
-    const getMinWidth = (isCustomisedLabel?: boolean, isSelected?: boolean) => {
+    const getMinWidth = () => {
         if (isCustomisedLabel) {
             return isSelected ? '145px' : '103px';
         }
@@ -52,7 +52,7 @@ export const Container = styled.div<ContainerProps>(({ size, width, isCustomised
         width: width === 'full' ? '100%' : `${width}px`,
         gap: '4px',
         transition: sharedTransition,
-        minWidth: getMinWidth(isCustomisedLabel, isSelected),
+        minWidth: getMinWidth(),
         ...getSelectFontStyles(size),
         ...inputValueTextStyles(size),
     };
