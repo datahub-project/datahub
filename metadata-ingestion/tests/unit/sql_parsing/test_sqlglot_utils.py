@@ -73,6 +73,12 @@ class QueryGeneralizationTestMode(Enum):
             "SELECT * FROM foo",
             QueryGeneralizationTestMode.BOTH,
         ),
+        (
+            "SELECT a\n -- comment--\n,b --another comment\n FROM books",
+            "redshift",
+            "SELECT a, b FROM books",
+            QueryGeneralizationTestMode.BOTH,
+        ),
         # Parameter normalization.
         (
             "UPDATE  \"books\" SET page_count = page_count + 1, author_count = author_count + 1 WHERE book_title = 'My New Book'",
@@ -106,12 +112,14 @@ class QueryGeneralizationTestMode(Enum):
             QueryGeneralizationTestMode.BOTH,
         ),
         (
-            # Test with uneven spacing within the IN clause.
+            # Uneven spacing within the IN clause.
             "SELECT * FROM books WHERE zip_code IN (123,345, 423 )",
             "redshift",
             "SELECT * FROM books WHERE zip_code IN (?)",
             QueryGeneralizationTestMode.BOTH,
         ),
+        # Uneven spacing in the column list.
+        # This isn't perfect e.g. we still have issues with function calls inside selects.
         (
             "SELECT a\n  ,b FROM books",
             "redshift",
