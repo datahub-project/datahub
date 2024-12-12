@@ -111,10 +111,8 @@ from datahub.ingestion.source.tableau.tableau_common import (
     tableau_field_to_schema_field,
     workbook_graphql_query,
 )
-from datahub.ingestion.source.tableau.tableau_server_wrapper import (
-    LoggedInUser,
-    UserSiteInfo,
-)
+from datahub.ingestion.source.tableau.tableau_server_wrapper import UserInfo
+from datahub.ingestion.source.tableau.tableau_validation import check_user_role
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -258,45 +256,6 @@ class TableauConnectionConfig(ConfigModel):
                 "Tableau Source: Either username/password or token_name/token_value must be set"
             )
         return authentication
-
-    def check_user_role(
-        self, logged_in_user: LoggedInUser
-    ) -> Dict[Union[SourceCapability, str], CapabilityReport]:
-        capability_dict: Dict[Union[SourceCapability, str], CapabilityReport] = {
-            c.SITE_PERMISSION: CapabilityReport(
-                capable=True,
-            )
-        }
-
-        failure_reason: str = (
-            "The user does not have the `Site Administrator Explorer` role."
-        )
-
-        mitigation_message_prefix: str = (
-            "Assign `Site Administrator Explorer` role to the user"
-        )
-        mitigation_message_suffix: str = "Refer to the setup guide: https://datahubproject.io/docs/quick-ingestion-guides/tableau/setup"
-
-        try:
-            # TODO: Add check for `Enable Derived Permissions`
-            if not logged_in_user.is_site_administrator_explorer():
-                capability_dict[c.SITE_PERMISSION] = CapabilityReport(
-                    capable=False,
-                    failure_reason=f"{failure_reason} Their current role is {logged_in_user.site_role}.",
-                    mitigation_message=f"{mitigation_message_prefix} `{logged_in_user.user_name}`. {mitigation_message_suffix}",
-                )
-
-            return capability_dict
-
-        except Exception as e:
-            logger.warning(msg=e, exc_info=e)
-            capability_dict[c.SITE_PERMISSION] = CapabilityReport(
-                capable=False,
-                failure_reason="Failed to verify user role.",
-                mitigation_message=f"{mitigation_message_prefix}. {mitigation_message_suffix}",  # user is unknown
-            )
-
-            return capability_dict
 
     def make_tableau_client(self, site: str) -> Server:
         authentication: Union[
@@ -675,7 +634,7 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
     num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
     num_hidden_assets_skipped: int = 0
-    logged_in_user: List[LoggedInUser] = []
+    logged_in_user: List[UserInfo] = []
 
 
 def report_user_role(report: TableauSourceReport, server: Server) -> None:
@@ -684,7 +643,7 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
     try:
         # TableauSiteSource instance is per site, so each time we need to find-out user detail
         # the site-role might be different on another site
-        logged_in_user: LoggedInUser = UserSiteInfo.from_server(server=server)
+        logged_in_user: UserInfo = UserInfo.from_server(server=server)
 
         if not logged_in_user.is_site_administrator_explorer():
             report.warning(
@@ -765,8 +724,8 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
             test_report.basic_connectivity = CapabilityReport(capable=True)
 
-            test_report.capability_report = source_config.check_user_role(
-                logged_in_user=UserSiteInfo.from_server(server=server)
+            test_report.capability_report = check_user_role(
+                logged_in_user=UserInfo.from_server(server=server)
             )
 
         except Exception as e:

@@ -6,7 +6,7 @@ from datahub.ingestion.source.tableau import tableau_constant as c
 
 
 @dataclass
-class LoggedInUser:
+class UserInfo:
     user_name: str
     site_role: str
     site_id: str
@@ -14,10 +14,8 @@ class LoggedInUser:
     def is_site_administrator_explorer(self):
         return self.site_role == c.SITE_ROLE
 
-
-class UserSiteInfo:
     @staticmethod
-    def from_server(server: Server) -> "LoggedInUser":
+    def from_server(server: Server) -> "UserInfo":
         assert server.user_id, "make the connection with tableau"
 
         user: UserItem = server.users.get_by_id(server.user_id)
@@ -28,7 +26,7 @@ class UserSiteInfo:
 
         assert server.site_id, "site identifier is not available"  # to silent the lint
 
-        return LoggedInUser(
+        return UserInfo(
             user_name=user.name,
             site_role=user.site_role,
             site_id=server.site_id,
