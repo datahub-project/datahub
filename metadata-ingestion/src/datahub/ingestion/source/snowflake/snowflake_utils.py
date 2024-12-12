@@ -194,6 +194,8 @@ def _split_qualified_name(qualified_name: str) -> List[str]:
     ['db', 'my_schema', 'my_table']
     >>> _split_qualified_name('TEST_DB.TEST_SCHEMA."TABLE.WITH.DOTS"')
     ['TEST_DB', 'TEST_SCHEMA', 'TABLE.WITH.DOTS']
+    >>> _split_qualified_name('TEST_DB."SCHEMA.WITH.DOTS".MY_TABLE')
+    ['TEST_DB', 'SCHEMA.WITH.DOTS', 'MY_TABLE']
     """
 
     # Fast path - no quotes.
@@ -202,7 +204,7 @@ def _split_qualified_name(qualified_name: str) -> List[str]:
 
     # First pass - split on dots that are not inside quotes.
     in_quote = False
-    parts = [[]]
+    parts: List[List[str]] = [[]]
     for char in qualified_name:
         if char == '"':
             in_quote = not in_quote
@@ -214,7 +216,7 @@ def _split_qualified_name(qualified_name: str) -> List[str]:
     # Second pass - remove outer pairs of quotes.
     result = []
     for part in parts:
-        while len(part) > 1 and part[0] == '"' and part[-1] == '"':
+        if len(part) > 1 and part[0] == '"' and part[-1] == '"':
             part = part[1:-1]
 
         result.append("".join(part))
