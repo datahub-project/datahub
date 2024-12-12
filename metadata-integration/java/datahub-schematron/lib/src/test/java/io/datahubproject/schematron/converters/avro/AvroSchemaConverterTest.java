@@ -147,7 +147,7 @@ class AvroSchemaConverterTest {
 
     schema.getFields().forEach(System.out::println);
 
-    assertEquals(schema.getFields().size(), 15);
+    assertEquals(schema.getFields().size(), 21);
 
     assertSchemaField(
         schema.getFields().get(0),
@@ -161,6 +161,16 @@ class AvroSchemaConverterTest {
                     new MapType().setKeyType("string").setValueType("string"))));
     assertSchemaField(
         schema.getFields().get(1),
+        "[version=2.0].[type=MapType].[type=map].mapOfComplexType",
+        "map<string,ComplexType>",
+        false,
+        false,
+        new SchemaFieldDataType()
+            .setType(
+                SchemaFieldDataType.Type.create(
+                    new MapType().setKeyType("string").setValueType("ComplexType"))));
+    assertSchemaField(
+        schema.getFields().get(2),
         "[version=2.0].[type=MapType].[type=map].[type=ComplexType].mapOfComplexType",
         "ComplexType",
         false,
@@ -170,21 +180,31 @@ class AvroSchemaConverterTest {
                 SchemaFieldDataType.Type.create(
                     new MapType().setKeyType("string").setValueType("ComplexType"))));
     assertSchemaField(
-        schema.getFields().get(2),
+        schema.getFields().get(3),
         "[version=2.0].[type=MapType].[type=map].[type=ComplexType].mapOfComplexType.[type=string].field1",
         "string",
         false,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
-        schema.getFields().get(3),
+        schema.getFields().get(4),
         "[version=2.0].[type=MapType].[type=map].[type=ComplexType].mapOfComplexType.[type=int].field2",
         "int",
         false,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new NumberType())));
     assertSchemaField(
-        schema.getFields().get(4),
+        schema.getFields().get(5),
+        "[version=2.0].[type=MapType].[type=map].mapOfNullableString",
+        "map<string,union>",
+        false,
+        false,
+        new SchemaFieldDataType()
+            .setType(
+                SchemaFieldDataType.Type.create(
+                    new MapType().setKeyType("string").setValueType("union"))));
+    assertSchemaField(
+        schema.getFields().get(6),
         "[version=2.0].[type=MapType].[type=map].[type=union].mapOfNullableString",
         "union",
         false,
@@ -194,14 +214,24 @@ class AvroSchemaConverterTest {
                 SchemaFieldDataType.Type.create(
                     new MapType().setKeyType("string").setValueType("union"))));
     assertSchemaField(
-        schema.getFields().get(5),
+        schema.getFields().get(7),
         "[version=2.0].[type=MapType].[type=map].[type=union].[type=string].mapOfNullableString",
         "string",
         false,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
-        schema.getFields().get(6),
+        schema.getFields().get(8),
+        "[version=2.0].[type=MapType].[type=map].mapOfNullableComplexType",
+        "map<string,union>",
+        false,
+        false,
+        new SchemaFieldDataType()
+            .setType(
+                SchemaFieldDataType.Type.create(
+                    new MapType().setKeyType("string").setValueType("union"))));
+    assertSchemaField(
+        schema.getFields().get(9),
         "[version=2.0].[type=MapType].[type=map].[type=union].mapOfNullableComplexType",
         "union",
         false,
@@ -211,28 +241,38 @@ class AvroSchemaConverterTest {
                 SchemaFieldDataType.Type.create(
                     new MapType().setKeyType("string").setValueType("union"))));
     assertSchemaField(
-        schema.getFields().get(7),
+        schema.getFields().get(10),
         "[version=2.0].[type=MapType].[type=map].[type=union].[type=ComplexTypeNullable].mapOfNullableComplexType",
         "ComplexTypeNullable",
         false,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new RecordType())));
     assertSchemaField(
-        schema.getFields().get(8),
+        schema.getFields().get(11),
         "[version=2.0].[type=MapType].[type=map].[type=union].[type=ComplexTypeNullable].mapOfNullableComplexType.[type=string].field1",
         "string",
         false,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
-        schema.getFields().get(9),
+        schema.getFields().get(12),
         "[version=2.0].[type=MapType].[type=map].[type=union].[type=ComplexTypeNullable].mapOfNullableComplexType.[type=int].field2",
         "int",
         false,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new NumberType())));
     assertSchemaField(
-        schema.getFields().get(10),
+        schema.getFields().get(13),
+        "[version=2.0].[type=MapType].[type=map].mapOfArray",
+        "map<string,array>",
+        false,
+        false,
+        new SchemaFieldDataType()
+            .setType(
+                SchemaFieldDataType.Type.create(
+                    new MapType().setKeyType("string").setValueType("array"))));
+    assertSchemaField(
+        schema.getFields().get(14),
         "[version=2.0].[type=MapType].[type=map].[type=array].mapOfArray",
         "array(string)",
         false,
@@ -242,7 +282,17 @@ class AvroSchemaConverterTest {
                 SchemaFieldDataType.Type.create(
                     new ArrayType().setNestedType(new StringArray("string")))));
     assertSchemaField(
-        schema.getFields().get(11),
+        schema.getFields().get(15),
+        "[version=2.0].[type=MapType].[type=map].mapOfMap",
+        "map<string,map>",
+        false,
+        false,
+        new SchemaFieldDataType()
+            .setType(
+                SchemaFieldDataType.Type.create(
+                    new MapType().setKeyType("string").setValueType("map"))));
+    assertSchemaField(
+        schema.getFields().get(16),
         "[version=2.0].[type=MapType].[type=map].[type=map].mapOfMap",
         "map<string,int>",
         false,
@@ -252,7 +302,17 @@ class AvroSchemaConverterTest {
                 SchemaFieldDataType.Type.create(
                     new MapType().setKeyType("string").setValueType("int"))));
     assertSchemaField(
-        schema.getFields().get(12),
+        schema.getFields().get(17),
+        "[version=2.0].[type=MapType].[type=map].mapOfUnion",
+        "map<string,union>",
+        false,
+        false,
+        new SchemaFieldDataType()
+            .setType(
+                SchemaFieldDataType.Type.create(
+                    new MapType().setKeyType("string").setValueType("union"))));
+    assertSchemaField(
+        schema.getFields().get(18),
         "[version=2.0].[type=MapType].[type=map].[type=union].mapOfUnion",
         "union",
         false,
@@ -262,14 +322,14 @@ class AvroSchemaConverterTest {
                 SchemaFieldDataType.Type.create(
                     new MapType().setKeyType("string").setValueType("union"))));
     assertSchemaField(
-        schema.getFields().get(13),
+        schema.getFields().get(19),
         "[version=2.0].[type=MapType].[type=map].[type=union].[type=string].mapOfUnion",
         "string",
         false,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
-        schema.getFields().get(14),
+        schema.getFields().get(20),
         "[version=2.0].[type=MapType].[type=map].[type=union].[type=int].mapOfUnion",
         "int",
         false,
@@ -752,7 +812,7 @@ class AvroSchemaConverterTest {
 
     schema.getFields().forEach(System.out::println);
 
-    assertEquals(schema.getFields().size(), 20);
+    assertEquals(schema.getFields().size(), 21);
 
     assertSchemaField(
         schema.getFields().get(0),
@@ -885,13 +945,23 @@ class AvroSchemaConverterTest {
         "{\"logicalType\":\"timestamp-micros\"}");
     assertSchemaField(
         schema.getFields().get(18),
+        "[version=2.0].[type=users_record].[type=map].props",
+        "map<string,union>",
+        true,
+        false,
+        new SchemaFieldDataType()
+            .setType(
+                SchemaFieldDataType.Type.create(
+                    new MapType().setKeyType("string").setValueType("union"))));
+    assertSchemaField(
+        schema.getFields().get(19),
         "[version=2.0].[type=users_record].[type=map].[type=int].props",
         "int",
         true,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new NumberType())));
     assertSchemaField(
-        schema.getFields().get(19),
+        schema.getFields().get(20),
         "[version=2.0].[type=users_record].[type=string].country",
         "string",
         true,

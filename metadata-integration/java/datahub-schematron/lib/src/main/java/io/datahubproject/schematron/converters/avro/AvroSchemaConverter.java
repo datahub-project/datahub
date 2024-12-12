@@ -386,6 +386,17 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
     DataHubType mapDataHubType = new DataHubType(MapType.class, valueType);
     fieldPath = fieldPath.expandType("map", mapSchema);
 
+    SchemaField mapField =
+        new SchemaField()
+            .setFieldPath(fieldPath.asString())
+            .setType(mapDataHubType.asSchemaFieldType())
+            .setNativeDataType("map<string," + valueType + ">")
+            .setNullable(isNullable || defaultNullable)
+            .setIsPartOfKey(fieldPath.isKeySchema());
+
+    populateCommonProperties(field, mapField);
+    fields.add(mapField);
+
     // Process value type if it's complex
     if (valueSchema.getType() == Schema.Type.RECORD
         || valueSchema.getType() == Schema.Type.ARRAY
@@ -405,17 +416,6 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
                   new FieldElement(
                       Collections.singletonList("map"), new ArrayList<>(), null, null));
       processField(valueField, valueFieldPath, defaultNullable, fields, isNullable, mapDataHubType);
-    } else {
-      SchemaField mapField =
-          new SchemaField()
-              .setFieldPath(fieldPath.asString())
-              .setType(mapDataHubType.asSchemaFieldType())
-              .setNativeDataType("map<string," + valueType + ">")
-              .setNullable(isNullable || defaultNullable)
-              .setIsPartOfKey(fieldPath.isKeySchema());
-
-      populateCommonProperties(field, mapField);
-      fields.add(mapField);
     }
   }
 
