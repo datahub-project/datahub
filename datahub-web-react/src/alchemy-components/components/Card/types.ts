@@ -10,4 +10,5 @@ export interface CardProps {
     iconAlignment?: IconAlignmentOptions;
     children?: React.ReactNode;
     width?: string;
+    isEmpty?: boolean;
 }

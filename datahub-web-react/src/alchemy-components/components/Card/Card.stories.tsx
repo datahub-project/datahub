@@ -73,6 +73,15 @@ const meta = {
         onClick: {
             description: 'The on click function for the card',
         },
+        isEmpty: {
+            description: 'Whether the card is in empty state with No data',
+            table: {
+                defaultValue: { summary: `${cardDefaults.isEmpty}` },
+            },
+            control: {
+                type: 'boolean',
+            },
+        },
     },
 
     // Define default args
@@ -81,6 +90,7 @@ const meta = {
         subTitle: 'Subtitle',
         iconAlignment: 'horizontal',
         width: '150px',
+        isEmpty: false,
     },
 } satisfies Meta<typeof Card>;
 

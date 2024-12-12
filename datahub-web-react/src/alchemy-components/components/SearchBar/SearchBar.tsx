@@ -4,7 +4,7 @@ import { StyledSearchBar } from './components';
 import { SearchBarProps } from './types';
 
 export const searchBarDefaults: SearchBarProps = {
-    placeholder: 'Search..',
+    placeholder: 'Search...',
     value: '',
     width: '272px',
     allowClear: true,

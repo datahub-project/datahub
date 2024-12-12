@@ -29,6 +29,7 @@ export const useGetColumnStatsColumns = ({ tableData, searchQuery, setExpandedDr
             title: 'Null Percentage',
             key: 'nullPercentage',
             render: (record) => record.nullPercentage,
+            alignment: 'right' as AlignmentOptions,
             sorter: (sourceA, sourceB) => {
                 return percentStrToDecimal(sourceA.nullPercentage) - percentStrToDecimal(sourceB.nullPercentage);
             },
@@ -37,6 +38,7 @@ export const useGetColumnStatsColumns = ({ tableData, searchQuery, setExpandedDr
             title: 'Unique Values',
             key: 'uniqueValues',
             render: (record) => record.uniqueValues,
+            alignment: 'right' as AlignmentOptions,
             sorter: (sourceA, sourceB) => {
                 return sourceA.uniqueValues - sourceB.uniqueValues;
             },
@@ -45,6 +47,7 @@ export const useGetColumnStatsColumns = ({ tableData, searchQuery, setExpandedDr
             title: 'Min',
             key: 'min',
             render: (record) => record.min,
+            alignment: 'right' as AlignmentOptions,
             sorter: (sourceA, sourceB) => {
                 return sourceA.min - sourceB.min;
             },
@@ -53,6 +56,7 @@ export const useGetColumnStatsColumns = ({ tableData, searchQuery, setExpandedDr
             title: 'Max',
             key: 'max',
             render: (record) => record.max,
+            alignment: 'right' as AlignmentOptions,
             sorter: (sourceA, sourceB) => {
                 return sourceA.max - sourceB.max;
             },
@@ -69,7 +73,7 @@ export const useGetColumnStatsColumns = ({ tableData, searchQuery, setExpandedDr
                     <Highlight search={searchQuery}>{record.column}</Highlight>
                 </ColumnName>
             ),
-            width: '450px',
+            width: '30%',
             ellipsis: true,
             sorter: (sourceA, sourceB) => {
                 return sourceA.column.localeCompare(sourceB.column);

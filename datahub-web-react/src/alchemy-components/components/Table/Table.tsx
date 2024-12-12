@@ -56,7 +56,7 @@ export const Table = <T,>({
                         <tr>
                             {columns.map((column) => (
                                 <TableHeaderCell key={column.key} width={column.width}>
-                                    <HeaderContainer>
+                                    <HeaderContainer alignment={column.alignment}>
                                         {column.title}
                                         {column.sorter && (
                                             <SortIconsContainer

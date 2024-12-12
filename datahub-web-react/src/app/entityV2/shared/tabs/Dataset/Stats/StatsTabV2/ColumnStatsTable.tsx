@@ -79,7 +79,7 @@ const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
                     editableSchemaMetadata={editableSchemaMetadata}
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                     displayedRows={rows}
-                    navigateToTab="Statistics"
+                    defaultSelectedTabName="Statistics"
                 />
             )}
         </>

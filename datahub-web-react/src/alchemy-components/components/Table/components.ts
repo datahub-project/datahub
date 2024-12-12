@@ -35,11 +35,12 @@ export const TableHeaderCell = styled.th<{ width?: string }>(({ width }) => ({
     width: width || 'auto',
 }));
 
-export const HeaderContainer = styled.div({
+export const HeaderContainer = styled.div<{ alignment?: AlignmentOptions }>(({ alignment }) => ({
     display: 'flex',
     alignItems: 'center',
     gap: spacing.sm,
-});
+    justifyContent: alignment,
+}));
 
 export const TableRow = styled.tr({
     '&:last-child': {
