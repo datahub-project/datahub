@@ -92,6 +92,7 @@ def check_mcpw_correctness(mcp: MetadataChangeProposalWrapper):
         f"Processing as MCPW with urn: {mcp.entityUrn} and aspect: {mcp.aspectName}, change type: {mcp.changeType}"
     )
     logger.debug(f"Full aspect:\n{mcp.aspect}")
+    logger.debug(f"Full aspect length:\n{len(mcp.aspect.value)}")
     if isinstance(mcp.aspect, SchemaMetadataClass):
         schema: SchemaMetadataClass = mcp.aspect
         logger.debug(f"Schema aspect dump:\n{schema.to_obj()}")
@@ -124,7 +125,7 @@ def check_workunit_correctness(
             check_mcp_correctness(wu.metadata)
         elif isinstance(wu.metadata, MetadataChangeProposalWrapper):
             check_mcpw_correctness(wu.metadata)
-    return []
+        yield wu
 
 
 def create_dataset_owners_patch_builder(
