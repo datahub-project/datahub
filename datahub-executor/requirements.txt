@@ -33,7 +33,7 @@ anyio==4.7.0
     #   watchfiles
 appnope==0.1.4
     # via ipykernel
-apscheduler==3.10.1
+apscheduler @ git+https://github.com/acryldata/apscheduler-fork.git@8444cf421c0a78043428e85a76665deeca9d63ea
     # via acryl-datahub-executor
 argon2-cffi==23.1.0
     # via

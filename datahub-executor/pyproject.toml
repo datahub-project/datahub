@@ -16,7 +16,7 @@ dependencies = [
   "fastapi==0.95.2",
   "uvicorn[standard]>=0.23.2",
   "loguru==0.7.2",
-  "apscheduler==3.10.1",
+  "apscheduler @ git+https://github.com/acryldata/apscheduler-fork.git@ak--crontab-fix",
   "pydantic==1.10.19",
   "snowflake-connector-python>2.8.2",
   "pytz==2024.1",
