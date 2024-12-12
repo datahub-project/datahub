@@ -1,8 +1,3 @@
-import React from 'react';
-import styled from 'styled-components/macro';
-import { typography } from '@components/theme';
-import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
-import { Select, selectDefaults } from '@src/alchemy-components/components/Select/Select';
 import { SimpleSelect } from '@src/alchemy-components';
 
 type Option = {
@@ -14,7 +9,6 @@ type Props = {
     options: Option[];
     selectedValue: string | undefined;
     onSelect: (value: string) => void;
-    placeholder: string;
 };
 
 export function AcryAssertionTypeSelect({ options, selectedValue, onSelect }: Props) {
