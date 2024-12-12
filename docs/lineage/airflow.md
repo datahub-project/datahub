@@ -80,6 +80,37 @@ enabled = True  # default
 | log_level                  | _no change_          | [debug] Set the log level for the plugin.                                                |
 | debug_emitter              | false                | [debug] If true, the plugin will log the emitted events.                                 |
 
+#### Disabling the DataHub Plugin v2
+
+There are two ways to disable the DataHub Plugin v2:
+
+##### 1. Disable via Configuration
+
+Set the `datahub.enabled` configuration property to `False` in the `airflow.cfg` file and restart the Airflow environment to reload the configuration and disable the plugin.
+
+```ini title="airflow.cfg"
+[datahub]
+enabled = False
+```
+
+##### 2. Disable via Airflow Variable (Kill-Switch)
+
+If a restart is not possible and you need a faster way to disable the plugin, you can use the kill-switch. Create and set the `datahub_airflow_plugin_disable_listener` Airflow variable to `true`. This ensures that the listener won't process anything.
+
+##### Command Line
+
+```shell
+airflow variables set datahub_airflow_plugin_disable_listener true
+```
+
+##### Airflow UI
+
+1. Go to Admin -> Variables.
+2. Click the "+" symbol to create a new variable.
+3. Set the key to `datahub_airflow_plugin_disable_listener` and the value to `true`.
+
+This will immediately disable the plugin without requiring a restart.
+
 ## DataHub Plugin v1
 
 ### Installation
