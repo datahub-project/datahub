@@ -389,8 +389,8 @@ def by_filter(
     if not force and not soft and not dry_run:
         message = (
             "Hard deletion will permanently delete data from DataHub and can be slow. "
-                "We generally recommend using soft deletes instead. "
-                "Do you want to continue?"
+            "We generally recommend using soft deletes instead. "
+            "Do you want to continue?"
         )
         if only_soft_deleted:
             click.confirm(
