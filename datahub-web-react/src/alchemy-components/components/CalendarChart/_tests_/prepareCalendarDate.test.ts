@@ -12,8 +12,7 @@ const sampleData: CalendarData<number>[] = [
 ];
 
 describe('prepareCalendarData', () => {
-    // TODO: unskip this once we figure out problem with function and test
-    it.skip('should prepare data for a full month', () => {
+    it('should prepare data for a full month', () => {
         const result = prepareCalendarData(sampleData, '2024-12-01', '2024-12-31');
 
         // 3 months (Nov / Dec / Jan) because edge weeks aren't belong to Dec
@@ -42,8 +41,7 @@ describe('prepareCalendarData', () => {
         expect(result[2].weeks[0].days.some((day) => day.value !== undefined)).toBeFalsy(); // no values
     });
 
-    // TODO: unskip this once we figure out problem with function and test
-    it.skip('should prepare data for a full week', () => {
+    it('should prepare data for a full week', () => {
         const result = prepareCalendarData(sampleData, '2024-12-02', '2024-12-08');
 
         expect(result).toHaveLength(1);

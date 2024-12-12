@@ -46,7 +46,7 @@ export function prepareCalendarData<ValueType>(
     // Iterate through each day from startDate to endDate
     for (let day = dayjs(startDate); !day.isAfter(endDate); day = day.add(1, 'day')) {
         // Find a value corresponding to the current day
-        const value = data.filter((datum) => dayjs(datum.day).isSame(day, 'date'))?.[0]?.value;
+        const value = data.filter((datum) => dayjs(datum.day).utc(true).isSame(day, 'date'))?.[0]?.value;
 
         const dayItem: DayData<ValueType> = createDay(day, value);
 
