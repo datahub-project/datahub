@@ -19,7 +19,7 @@ const championSections = [
               Submitted 16 pull requests and 3 issues and regularly provides guidance to Community Members in Slack channels.
               </p>
             </>
-          ),
+        ),
         social: {
             linkedin: "https://www.linkedin.com/in/patrick-franco-braz/",
             github: "https://github.com/PatrickfBraz",
@@ -29,7 +29,7 @@ const championSections = [
       {
         name: "Mike Burke",
         image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/mb.jpg",
-        position: ,
+        position: "",
         bio: (
           <>
             <p>
@@ -90,8 +90,8 @@ const championSections = [
       },
       {
         name: "David Schmidt",
-        image: "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-champions/initials/ds.jpg",
-        position: "Inovex",
+        image: "https://raw.githubusercontent.com/datahub-project/static-assets/refs/heads/main/imgs/datahub-champions/david_schmidt.jpeg",
+        position: "Data Engineer, inovex GmbH",
         bio: (
           <>
             <p>
@@ -100,6 +100,8 @@ const championSections = [
           </>
         ),
         social: {
+          linkedin: "https://www.linkedin.com/in/david-schmidt-de/",
+          github: "https://github.com/DSchmidtDev",
           },
       },
       {
