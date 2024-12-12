@@ -1349,6 +1349,5 @@ class ExecutionRequestStatus(PermissiveBaseModel):
 class SweeperAction(PermissiveBaseModel):
     action: str
     description: str
-    report: str
-    ingestion: ExecutionRequestStatus
+    args: Dict[str, Any]
     errors_fatal: bool = False

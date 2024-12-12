@@ -1,0 +1,77 @@
+namespace com.linkedin.executor
+
+import com.linkedin.common.Urn
+
+
+@Aspect = {
+  "name": "dataHubRemoteExecutorStatus"
+}
+record RemoteExecutorStatus {
+
+  /**
+  * TODO: rename to pipeline id
+  */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  executorId: string
+
+  /**
+   *  Release Version (Tag) embedded into remote executor image
+   */
+  executorReleaseVersion: string
+
+  /**
+   *  IP address of the host where remote executor is running
+   */
+  executorAddress: string
+
+  /**
+   * Hostname of the host where remote executor is running
+   */
+  executorHostname: string
+
+  /**
+   * Uptime of the remote executor master process
+   */
+  executorUptime: float
+
+  /**
+   * Flag indicating whether remote executor status record is stale.
+   */
+  @Searchable = {
+    "fieldType": "BOOLEAN"
+  }
+  executorExpired: boolean = false
+
+  /**
+   * Flag indicating whether remote executor is stopped.
+   */
+  executorStopped: boolean = false
+
+  /**
+   * Flag indicating whether remote executor is embedded executor
+   */
+  executorEmbedded: boolean = false
+
+  /**
+   * Flag indicating whether remote executor is Acryl managed executor
+   */
+  executorInternal: boolean = false
+
+  /**
+   * Flag indicating whether log delivery is enabled by the customer in the given
+   * remote executor instance.
+   */
+  logDeliveryEnabled: boolean = false
+
+  /**
+   * UTC-based timestamp of the last reported status
+   */
+  @Searchable = {
+    "fieldType": "COUNT",
+    "queryByDefault": false
+  }
+  reportedAt: int
+
+}

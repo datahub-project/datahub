@@ -17,10 +17,10 @@ const Row = styled.div`
     padding: 16px;
 `;
 
-const Cell = styled.div<{ width?: string; minWidth?: string | null }>`
+const Cell = styled.div<{ width?: string; minWidth?: string | null; paddingRight?: string | number }>`
     width: ${(props) => props.width || 'auto'};
     min-width: ${(props) => props.minWidth || null};
-    padding-right: 20px;
+    padding-right: ${(props) => props.paddingRight || '20px'};
     text-overflow: ellipsis;
     overflow-wrap: break-word;
 `;
@@ -58,6 +58,7 @@ export const GroupByTable = ({
                 >
                     {columns.map((column) => {
                         const isNameColumn = column?.key === 'name';
+                        const isActionColumn = column?.key === 'actions';
                         const minWidth = isNameColumn ? 'min-content' : null;
                         return (
                             column?.width &&
@@ -67,6 +68,7 @@ export const GroupByTable = ({
                                     width={column.width}
                                     style={{ display: !isNameColumn ? 'flex' : 'block', alignItems: 'center' }}
                                     minWidth={minWidth}
+                                    paddingRight={isActionColumn ? '0px' : undefined}
                                 >
                                     {column.render
                                         ? column.render(item[column.dataIndex], item)

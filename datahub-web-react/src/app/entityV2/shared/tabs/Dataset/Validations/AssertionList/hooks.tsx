@@ -90,6 +90,7 @@ export const useAssertionsTableColumns = ({
                                 canEditMonitor={canEditMonitors}
                                 canEditContract
                                 refetch={refetch}
+                                options={{ removeRightPadding: true }}
                             />
                         )
                     );

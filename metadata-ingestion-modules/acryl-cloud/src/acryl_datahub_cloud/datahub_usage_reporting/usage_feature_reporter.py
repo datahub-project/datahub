@@ -20,6 +20,7 @@ from opensearchpy import OpenSearch
 from pydantic import Field
 from scipy.stats import expon
 
+from acryl_datahub_cloud.datahub_usage_reporting.query_builder import QueryBuilder
 from acryl_datahub_cloud.datahub_usage_reporting.usage_feature_patch_builder import (
     UsageFeaturePatchBuilder,
 )
@@ -58,119 +59,6 @@ platform_regexp = re.compile(r"urn:li:dataset:\(urn:li:dataPlatform:(.+?),.*")
 dashboard_chart_platform_regexp = re.compile(r"urn:li:(?:dashboard|chart):\((.+?),.*")
 dbt_platform_regexp = re.compile(r"urn:li:dataset:\(urn:li:dataPlatform:dbt,.*\)")
 
-GET_SOFT_DELETED_ENTITIES = {
-    "sort": [{"urn": {"order": "asc"}}],
-}
-
-GET_QUERY_ENTITIES = {
-    "sort": [{"urn": {"order": "asc"}}],
-    "query": {
-        "bool": {
-            "filter": {
-                "bool": {
-                    "must_not": [
-                        {"term": {"source": "MANUAL"}},
-                    ]
-                }
-            }
-        }
-    },
-}
-
-GET_UPSTREAMS = {
-    "sort": [{"destination.urn": {"order": "asc"}}],
-    "query": {
-        "bool": {
-            "must": [
-                {"terms": {"destination.entityType": ["dataset"]}},
-                {"terms": {"source.entityType": ["dataset"]}},
-            ]
-        }
-    },
-}
-
-GET_DASHBOARD_USAGE_QUERY = {
-    "sort": [{"urn": {"order": "asc"}}],
-    "query": {
-        "bool": {
-            "filter": {
-                "bool": {
-                    "must": [
-                        {"range": {"@timestamp": {"gte": "now-30d", "lt": "now/d"}}},
-                        {"term": {"isExploded": False}},
-                    ]
-                }
-            }
-        }
-    },
-}
-
-GET_DATASET_USAGE_QUERY = {
-    "sort": [{"urn": {"order": "asc"}}],
-    "query": {
-        "bool": {
-            "filter": {
-                "bool": {
-                    "must": [
-                        {"range": {"@timestamp": {"gte": "now-30d/d", "lt": "now/d"}}},
-                        {"term": {"isExploded": False}},
-                        {"range": {"totalSqlQueries": {"gt": 0}}},
-                    ]
-                }
-            }
-        }
-    },
-}
-
-DATASET_WRITE_USAGE_RAW_QUERY = {
-    "sort": [{"urn": {"order": "asc"}}, {"@timestamp": {"order": "asc"}}],
-    "query": {
-        "bool": {
-            "must": [
-                {"range": {"@timestamp": {"gte": "now-30d/d", "lte": "now/d"}}},
-                {"terms": {"operationType": ["INSERT", "UPDATE", "CREATE"]}},
-            ]
-        }
-    },
-    "_source": {
-        "includes": ["urn", "@timestamp"],
-    },
-}
-
-DATASET_WRITE_USAGE_COMPOSITE_QUERY = {
-    "query": {
-        "bool": {
-            "must": [
-                {"range": {"@timestamp": {"gte": "now-30d/d", "lte": "now/d"}}},
-                {"terms": {"operationType": ["INSERT", "UPDATE", "CREATE"]}},
-            ]
-        }
-    },
-    "aggs": {
-        "urn_count": {
-            "composite": {
-                "sources": [{"dataset_operationaspect_v1": {"terms": {"field": "urn"}}}]
-            }
-        }
-    },
-}
-
-GET_QUERY_USAGE_QUERY = {
-    "sort": [{"urn": {"order": "asc"}}],
-    "query": {
-        "bool": {
-            "filter": {
-                "bool": {
-                    "must": [
-                        {"range": {"@timestamp": {"gte": "now-30d/d", "lt": "now/d"}}},
-                        {"term": {"isExploded": False}},
-                    ]
-                }
-            }
-        }
-    },
-}
-
 
 class S3ClientConfig(ConfigModel):
     bucket: str = os.getenv("DATA_BUCKET", "")
@@ -206,7 +94,13 @@ class RankingPolicy(ConfigModel):
     regexp_based_factors: List[RegexpFactor] = []
 
 
-class DataHubUsageFeatureReportingSourceConfig(StatefulIngestionConfigBase):
+class DataHubUsageFeatureReportingSourceConfig(
+    ConfigModel, StatefulIngestionConfigBase
+):
+    lookback_days: int = Field(
+        30, description="Number of days to look back for usage data."
+    )
+
     server: Optional[DatahubClientConfig] = Field(
         None, description="Optional configuration for the DataHub server connection."
     )
@@ -882,7 +776,9 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         if self.config.streaming_mode:
             wdf = self.load_es_data_to_lf(
                 index="dataset_operationaspect_v1",
-                query=DATASET_WRITE_USAGE_RAW_QUERY,
+                query=QueryBuilder.get_dataset_write_usage_raw_query(
+                    self.config.lookback_days
+                ),
                 read_function=self.write_stat_raw_batch,
                 schema={"urn": polars.Categorical, "platform": polars.Categorical},
             )
@@ -891,7 +787,9 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
             wdf = polars.LazyFrame(
                 self.load_data_from_es(
                     "dataset_operationaspect_v1",
-                    DATASET_WRITE_USAGE_RAW_QUERY,
+                    QueryBuilder.get_dataset_write_usage_raw_query(
+                        self.config.lookback_days
+                    ),
                     self.write_stat_raw_batch,
                 ),
                 schema={"urn": polars.Categorical, "platform": polars.Categorical},
@@ -918,12 +816,12 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     def load_write_usage_server_side_aggregation(
         self, soft_deleted_entities_df: polars.LazyFrame
     ) -> polars.LazyFrame:
-        query: Dict = DATASET_WRITE_USAGE_COMPOSITE_QUERY
-        query["aggs"]["urn_count"]["composite"]["size"] = self.config.extract_batch_size
         wdf = polars.LazyFrame(
             self.load_data_from_es(
                 "dataset_operationaspect_v1",
-                DATASET_WRITE_USAGE_COMPOSITE_QUERY,
+                QueryBuilder.get_dataset_write_usage_composite_query(
+                    self.config.lookback_days
+                ),
                 self.write_stat_batch,
                 aggregation_key="urn_count",
             ),
@@ -954,7 +852,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         upstreams_lf = polars.LazyFrame(
             self.load_data_from_es(
                 "graph_service_v1",
-                GET_UPSTREAMS,
+                QueryBuilder.get_upstreams_query(),
                 self.upstream_lineage_batch,
             ),
             schema={
@@ -1289,7 +1187,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         soft_deleted_df = polars.LazyFrame(
             self.load_data_from_es(
                 index=entity_index,
-                query=GET_SOFT_DELETED_ENTITIES,
+                query=QueryBuilder.get_soft_deleted_entities_query(),
                 process_function=self.soft_deleted_batch,
             ),
             schema={
@@ -1305,7 +1203,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         lf: polars.LazyFrame = polars.LazyFrame(
             self.load_data_from_es(
                 index=usage_index,
-                query=GET_DASHBOARD_USAGE_QUERY,
+                query=QueryBuilder.get_dashboard_usage_query(self.config.lookback_days),
                 process_function=self.process_dashboard_usage,
             ),
             schema={
@@ -1405,7 +1303,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         query_entities = polars.LazyFrame(
             self.load_data_from_es(
                 index=entity_index,
-                query=GET_QUERY_ENTITIES,
+                query=QueryBuilder.get_query_entities_query(),
                 process_function=self.queries_entities_batch,
             ),
             schema={
@@ -1420,7 +1318,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         lf: polars.LazyFrame = polars.LazyFrame(
             self.load_data_from_es(
                 index=usage_index,
-                query=GET_QUERY_USAGE_QUERY,
+                query=QueryBuilder.get_query_usage_query(self.config.lookback_days),
                 process_function=self.process_query_usage,
             ),
             schema={
@@ -1484,7 +1382,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         lf: polars.LazyFrame = polars.LazyFrame(
             self.load_data_from_es(
                 index=index,
-                query=GET_DATASET_USAGE_QUERY,
+                query=QueryBuilder.get_dataset_usage_query(self.config.lookback_days),
                 process_function=self.process_batch,
             ),
             schema={
@@ -1576,7 +1474,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         datasets_df = polars.LazyFrame(
             self.load_data_from_es(
                 index="datasetindex_v2",
-                query=GET_SOFT_DELETED_ENTITIES,
+                query=QueryBuilder.get_soft_deleted_entities_query(),
                 process_function=self.soft_deleted_batch,
             ),
             schema={

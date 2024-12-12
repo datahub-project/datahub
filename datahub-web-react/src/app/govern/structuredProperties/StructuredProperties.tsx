@@ -1,21 +1,13 @@
-import React, { useState } from 'react';
-import { SearchOutlined } from '@ant-design/icons';
-import { Button, PageTitle, Tooltip } from '@src/alchemy-components';
+import { Button, PageTitle, SearchBar, Tooltip } from '@components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
+import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType, SearchResult, StructuredPropertyEntity } from '@src/types.generated';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import React, { useState } from 'react';
 import StructuredPropsDrawer from './StructuredPropsDrawer';
 import StructuredPropsTable from './StructuredPropsTable';
-import {
-    ButtonContainer,
-    HeaderContainer,
-    HeaderContent,
-    PageContainer,
-    StyledSearch,
-    TableContainer,
-} from './styledComponents';
+import { ButtonContainer, HeaderContainer, HeaderContent, PageContainer, TableContainer } from './styledComponents';
 import ViewStructuredPropsDrawer from './ViewStructuredPropsDrawer';
 
 const StructuredProperties = () => {
@@ -86,13 +78,7 @@ const StructuredProperties = () => {
                     </ButtonContainer>
                 </Tooltip>
             </HeaderContainer>
-            <StyledSearch
-                placeholder="Search"
-                onChange={(e) => handleSearch(e.target.value)}
-                allowClear
-                prefix={<SearchOutlined />}
-            />
-
+            <SearchBar placeholder="Search" value={searchQuery} onChange={(value) => handleSearch(value)} />
             <TableContainer>
                 <StructuredPropsTable
                     searchQuery={searchQuery}

@@ -9,6 +9,7 @@ import dayjs from 'dayjs';
 import { Popover } from '../Popover';
 import { ChartWrapper, StyledBarSeries } from './components';
 import { BarChartProps } from './types';
+import { getMockedProps } from './utils';
 
 const commonTickLabelProps: TickLabelProps<any> = {
     fontSize: 10,
@@ -36,6 +37,8 @@ export const barChartDefault: BarChartProps<any> = {
     barSelectedColor: colors.violet[500],
     gridColor: '#e0e0e0',
     renderGradients: () => <LinearGradient id="bar-gradient" from={colors.violet[500]} to="#917FFF" toOpacity={0.6} />,
+    xScale: { type: 'band', paddingInner: 0.4, paddingOuter: 0.1 },
+    yScale: { type: 'linear', nice: true, round: true },
 };
 
 export function BarChart<DatumType extends object = any>({
@@ -52,6 +55,9 @@ export function BarChart<DatumType extends object = any>({
     barSelectedColor = barChartDefault.barSelectedColor,
     gridColor = barChartDefault.gridColor,
     renderGradients = barChartDefault.renderGradients,
+    isEmpty,
+    xScale = barChartDefault.xScale,
+    yScale = barChartDefault.yScale,
 }: BarChartProps<DatumType>) {
     const [hasSelectedBar, setHasSelectedBar] = useState<boolean>(false);
 
@@ -65,6 +71,13 @@ export function BarChart<DatumType extends object = any>({
 
     const accessors = { xAccessor, yAccessor };
 
+    // In case of no data we should render empty graph with axises
+    // but they don't render at all without any data.
+    // To handle this case we will render the same graph with fake data and hide bars
+    if (!data.length) {
+        return <BarChart {...getMockedProps()} isEmpty />;
+    }
+
     return (
         <ChartWrapper>
             <ParentSize>
@@ -73,8 +86,8 @@ export function BarChart<DatumType extends object = any>({
                         <XYChart
                             width={width}
                             height={height}
-                            xScale={{ type: 'band', paddingInner: 0.4, paddingOuter: 0.1 }}
-                            yScale={{ type: 'linear', nice: true, round: true }}
+                            xScale={xScale}
+                            yScale={yScale}
                             margin={internalMargin}
                             captureEvents={false}
                         >
@@ -112,6 +125,7 @@ export function BarChart<DatumType extends object = any>({
                                 $hasSelectedItem={hasSelectedBar}
                                 $color={barColor}
                                 $selectedColor={barSelectedColor}
+                                $isEmpty={isEmpty}
                                 dataKey="bar-seria-0"
                                 data={data}
                                 radius={4}

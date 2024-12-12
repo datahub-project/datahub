@@ -1,4 +1,5 @@
-import { TickFormatter, TickLabelProps } from '@visx/axis';
+import { AxisScaleOutput, TickFormatter, TickLabelProps } from '@visx/axis';
+import { ScaleConfig } from '@visx/scale';
 import { Margin } from '@visx/xychart';
 
 export type BarChartProps<DatumType extends object> = {
@@ -15,4 +16,7 @@ export type BarChartProps<DatumType extends object> = {
     barSelectedColor?: string;
     gridColor?: string;
     renderGradients?: () => React.ReactNode;
+    isEmpty?: boolean;
+    xScale?: ScaleConfig<AxisScaleOutput, any, any>;
+    yScale?: ScaleConfig<AxisScaleOutput, any, any>;
 };

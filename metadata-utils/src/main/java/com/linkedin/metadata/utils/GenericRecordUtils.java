@@ -4,6 +4,7 @@ import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
@@ -13,6 +14,8 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.GenericPayload;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -22,6 +25,22 @@ public class GenericRecordUtils {
   public static final String JSON = "application/json";
 
   private GenericRecordUtils() {}
+
+  public static <T extends RecordTemplate> T copy(T input, Class<T> clazz) {
+    try {
+      if (input == null) {
+        return null;
+      }
+      Constructor<T> constructor = clazz.getConstructor(DataMap.class);
+      return constructor.newInstance(input.data().copy());
+    } catch (CloneNotSupportedException
+        | InvocationTargetException
+        | NoSuchMethodException
+        | InstantiationException
+        | IllegalAccessException e) {
+      throw new RuntimeException(e);
+    }
+  }
 
   /** Deserialize the given value into the aspect based on the input aspectSpec */
   @Nonnull

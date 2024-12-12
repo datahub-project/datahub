@@ -67,7 +67,7 @@ task lint(type: Exec, dependsOn: installDev) {
         "set -x &&" +
         "${venv_name}/bin/black --check --diff src/ tests/ && " +
         "${venv_name}/bin/isort --check --diff src/ tests/ && " +
-        "${venv_name}/bin/ruff --statistics src/ tests/ && " +
+        "${venv_name}/bin/ruff check src/ tests/ && " +
         "${venv_name}/bin/mypy src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
@@ -75,7 +75,7 @@ task lintFix(type: Exec, dependsOn: installDev) {
         "set -x &&" +
         "${venv_name}/bin/black src/ tests/ && " +
         "${venv_name}/bin/isort src/ tests/ && " +
-        "${venv_name}/bin/ruff --fix src/ tests/ && " +
+        "${venv_name}/bin/ruff check --fix src/ tests/ && " +
         "${venv_name}/bin/mypy src/ tests/"
 }
 
@@ -110,9 +110,9 @@ docker {
         include "docker/${docker_repo}/*"
         include "datahub-executor/src/**"
         include "datahub-executor/pyproject.toml"
+        include "datahub-executor/requirements*"
         include "metadata-ingestion/**"
         include "metadata-ingestion-modules/acryl-cloud/**"
-        include "datahub-executor/requirements*"
     }.exclude {
         i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
     }

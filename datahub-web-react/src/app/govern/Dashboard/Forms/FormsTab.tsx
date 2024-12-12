@@ -1,5 +1,4 @@
-import { SearchOutlined } from '@ant-design/icons';
-import { Button, Tooltip } from '@components';
+import { Button, SearchBar, Tooltip } from '@components';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
@@ -9,7 +8,6 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { PageRoutes } from '../../../../conf/Global';
 import { REDESIGN_COLORS } from '../../../entityV2/shared/constants';
-import { StyledSearch } from '../../structuredProperties/styledComponents';
 import FormsTable from './FormsTable';
 
 const Container = styled.div`
@@ -108,12 +106,7 @@ const FormsTab = () => {
                         </>
                     </Tooltip>
                 </SectionHeader>
-                <StyledSearch
-                    placeholder="Search"
-                    onChange={(e) => handleSearch(e.target.value)}
-                    allowClear
-                    prefix={<SearchOutlined />}
-                />
+                <SearchBar placeholder="Search" value={searchQuery} onChange={(value) => handleSearch(value)} />
                 <FormsContainer>
                     <FormsTable
                         searchQuery={searchQuery}

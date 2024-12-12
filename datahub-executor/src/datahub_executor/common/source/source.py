@@ -181,9 +181,11 @@ class Source:
         return DatabaseParams(
             dataset_part_0=dataset_name_parts[0],
             dataset_part_1=dataset_name_parts[1],
-            dataset_part_2=database_parameters.table_name
-            if database_parameters.table_name
-            else dataset_name_parts[2],
+            dataset_part_2=(
+                database_parameters.table_name
+                if database_parameters.table_name
+                else dataset_name_parts[2]
+            ),
         )
 
     def _get_operation_params(

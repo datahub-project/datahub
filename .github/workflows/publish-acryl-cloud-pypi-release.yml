@@ -5,8 +5,13 @@ on:
     types: [published]
 
 jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print ref for debugging
+        run: echo "Current ref is ${{ github.ref }}"
   setup:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') && endsWith(github.ref, '-acryl')
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag.outputs.tag }}

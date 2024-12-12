@@ -1,14 +1,16 @@
 import React, { useState } from 'react';
 import styled from 'styled-components';
-import { Popover } from 'antd';
+import { message } from 'antd';
 import Tag from '@src/app/sharedV2/tags/tag/Tag';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { Plus } from 'phosphor-react';
 import { useGetRecommendations } from '@src/app/shared/recommendation';
-import { EntityType, GlobalTags, TagAssociation } from '@src/types.generated';
+import { handleBatchError } from '@src/app/entityV2/shared/utils';
+import { useBatchAddTagsMutation, useBatchRemoveTagsMutation } from '@src/graphql/mutations.generated';
+import { EntityType, Entity, TagAssociation, Tag as TagType } from '@src/types.generated';
 import { getColor } from '@src/alchemy-components/theme/utils';
+import { SelectItemPopover } from '@src/alchemy-components/components/SelectItemsPopover';
 import DataHubTooltip from '@src/alchemy-components/components/Tooltip/Tooltip';
-import { AcrylAssertionSelectTags } from './AcrylAssertionSelectTags';
 
 const StyledTagContainer = styled.div`
     display: flex;
@@ -57,14 +59,6 @@ const TooltipMoreText = styled.div`
     margin-bottom: 4px;
 `;
 
-const StyledPopover = styled(Popover)`
-    .ant-popover-inner-content {
-        padding-right: 0 !important; /* Remove right padding */
-    }
-    display: flex;
-    justify-content: flex-start;
-`;
-
 const MAX_TAGS_FOR_HOVER = 5;
 
 interface AcrylAssertionTagColumnProps {
@@ -76,10 +70,16 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
     const [popoverVisible, setPopoverVisible] = useState(false);
 
     const { recommendedData: allGlobalTags } = useGetRecommendations([EntityType.Tag]);
+    // GraphQL mutations for adding/removing entities
+    const [batchAddTagsMutation] = useBatchAddTagsMutation();
+    const [batchRemoveTagsMutation] = useBatchRemoveTagsMutation();
+
     const totalTagsLength = record?.tags?.length || 0;
     // just take first tag if there are more than 1 tag
     const displayTags = totalTagsLength >= 2 ? [record.tags[0]] : record.tags;
     const remainingTagsCount = totalTagsLength - displayTags?.length || 0;
+
+    const selectedTags = record?.tags?.map((global) => global.tag) || [];
 
     const tagsPreview = (
         <>
@@ -132,6 +132,7 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
             <Plus />
         </StyledPill>
     );
+
     const handleTagContainerClick = (e: React.MouseEvent) => {
         e.stopPropagation();
     };
@@ -139,26 +140,84 @@ export const AcrylAssertionTagColumn: React.FC<AcrylAssertionTagColumnProps> = (
         setPopoverVisible(false);
     };
 
-    return (
-        <StyledPopover
-            trigger="click"
-            open={popoverVisible}
-            onOpenChange={setPopoverVisible}
-            content={
-                <AcrylAssertionSelectTags
-                    key={`${popoverVisible}`}
-                    tags={allGlobalTags as GlobalTags[]}
-                    selectedTags={record.tags}
-                    resourceUrn={record.urn}
-                    refetch={refetch}
-                    onClose={handleClosePopover}
-                />
+    // Adds multiple entities to the resource
+    const batchAddTags = async (newTags: string[]) => {
+        try {
+            await batchAddTagsMutation({
+                variables: {
+                    input: {
+                        tagUrns: newTags,
+                        resources: [{ resourceUrn: record.urn }],
+                    },
+                },
+            });
+        } catch (e) {
+            message.error(handleBatchError(newTags, e, 'Failed to add entities.'));
+        }
+    };
+
+    // Removes multiple entities from the resource
+    const batchRemoveTags = async (removedTags: string[]) => {
+        try {
+            await batchRemoveTagsMutation({
+                variables: {
+                    input: {
+                        tagUrns: removedTags,
+                        resources: [{ resourceUrn: record.urn }],
+                    },
+                },
+            });
+        } catch (e) {
+            message.error(handleBatchError(removedTags, e, 'Failed to remove entities.'));
+        }
+    };
+
+    const handleSelectionChange = async ({ selectedItems, removedItems }) => {
+        if (selectedItems?.length || removedItems?.length) {
+            try {
+                // Add new entities
+                if (selectedItems?.length) {
+                    await batchAddTags(selectedItems as string[]);
+                }
+                // Remove unselected entities
+                if (removedItems?.length) {
+                    await batchRemoveTags(removedItems as string[]);
+                }
+
+                // Notify success and refresh UI
+                message.success('Tags Updated!', 2);
+                setPopoverVisible(false);
+                refetch?.();
+            } catch (e) {
+                console.log(e);
             }
-            showArrow={false}
+        }
+    };
+
+    return (
+        <SelectItemPopover
+            key={`${popoverVisible}`}
+            entities={(allGlobalTags as Entity[]) || []}
+            selectedItems={selectedTags}
+            refetch={refetch}
+            onClose={handleClosePopover}
+            entityType={EntityType.Tag}
+            handleSelectionChange={handleSelectionChange}
+            visible={popoverVisible}
+            onVisibleChange={setPopoverVisible}
+            renderOption={(option) => {
+                return (
+                    <Tag
+                        tag={{ tag: option.item as TagType, associatedUrn: option.item?.urn }}
+                        options={{ shouldNotOpenDrawerOnClick: true }}
+                        maxWidth={120}
+                    />
+                );
+            }}
         >
             <StyledTagContainer onClick={handleTagContainerClick}>
                 {totalTagsLength > 0 ? tagsPreview : addTag}
             </StyledTagContainer>
-        </StyledPopover>
+        </SelectItemPopover>
     );
 };

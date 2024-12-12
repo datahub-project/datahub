@@ -14,6 +14,7 @@ import com.linkedin.data.ByteString;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.batch.PatchMCP;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
@@ -217,6 +218,11 @@ public class PatchItemImpl implements PatchMCP {
   }
 
   @Override
+  public boolean isDatabaseDuplicateOf(BatchItem other) {
+    return equals(other);
+  }
+
+  @Override
   public boolean equals(Object o) {
     if (this == o) {
       return true;
@@ -228,12 +234,13 @@ public class PatchItemImpl implements PatchMCP {
     return urn.equals(that.urn)
         && aspectName.equals(that.aspectName)
         && Objects.equals(systemMetadata, that.systemMetadata)
+        && auditStamp.equals(that.auditStamp)
         && patch.equals(that.patch);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(urn, aspectName, systemMetadata, patch);
+    return Objects.hash(urn, aspectName, systemMetadata, auditStamp, patch);
   }
 
   @Override

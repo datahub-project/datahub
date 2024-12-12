@@ -34,19 +34,19 @@ public class AspectGenerationUtils {
   }
 
   @Nonnull
-  public static SystemMetadata createSystemMetadata(long nextAspectVersion) {
+  public static SystemMetadata createSystemMetadata(int nextAspectVersion) {
     return createSystemMetadata(
         1625792689, "run-123", "run-123", String.valueOf(nextAspectVersion));
   }
 
   @Nonnull
-  public static SystemMetadata createSystemMetadata(long lastObserved, @Nonnull String runId) {
+  public static SystemMetadata createSystemMetadata(int lastObserved, @Nonnull String runId) {
     return createSystemMetadata(lastObserved, runId, runId, null);
   }
 
   @Nonnull
   public static SystemMetadata createSystemMetadata(
-      long lastObserved,
+      int lastObserved, // for test comparison must be int
       @Nonnull String runId,
       @Nonnull String lastRunId,
       @Nullable String version) {
