@@ -33,16 +33,18 @@ export const SelectBase = styled.div<SelectStyleProps>(({ isDisabled, isReadOnly
 interface ContainerProps {
     size: SelectSizeOptions;
     width?: number | 'full';
+    isCustomisedLabel?: boolean;
+    isSelected?: boolean;
 }
 
-export const Container = styled.div<ContainerProps>(({ size, width }) => ({
+export const Container = styled.div<ContainerProps>(({ size, width, isCustomisedLabel, isSelected }) => ({
     position: 'relative',
     display: 'flex',
     flexDirection: 'column',
     width: width === 'full' ? '100%' : `${width}px`,
     gap: '4px',
     transition: sharedTransition,
-    minWidth: '175px',
+    minWidth: isCustomisedLabel ? (isSelected ? '145px' : '103px') : '175px',
     ...getSelectFontStyles(size),
     ...inputValueTextStyles(size),
 }));

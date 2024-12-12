@@ -33,10 +33,10 @@ const SearchFilterContainer = styled.div`
 
 const FiltersContainer = styled.div`
     display: flex;
-    gap: 6px;
 `;
 
 const StyledFilterContainer = styled.div`
+    margin-right: 12px;
     button {
         box-shadow: none !important;
         height: 36px !important;

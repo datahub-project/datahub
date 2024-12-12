@@ -210,7 +210,13 @@ export const SimpleSelect = ({
     };
 
     return (
-        <Container ref={selectRef} size={size || 'md'} width={props.width || 255}>
+        <Container
+            ref={selectRef}
+            size={size || 'md'}
+            width={props.width || 255}
+            isCustomisedLabel={isCustomisedLabel}
+            isSelected={selectedValues.length > 0}
+        >
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
             <SelectBase
                 isDisabled={isDisabled}
