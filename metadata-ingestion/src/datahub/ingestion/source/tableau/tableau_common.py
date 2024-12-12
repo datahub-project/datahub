@@ -975,13 +975,23 @@ def get_filter_pages(query_filter: dict, page_size: int) -> List[dict]:
     # a few ten thousand, then tableau server responds with empty response
     # causing below error:
     # tableauserverclient.server.endpoint.exceptions.NonXMLResponseError: b''
+
+    # Keys on which pagination can be applied
+    valid_keys: List[str] = [c.ID_WITH_IN, c.PROJECT_NAME_WITH_IN]
+
+    current_key: Optional[str] = None
+
+    for key in valid_keys:
+        if key in query_filter:
+            current_key = key
+            break
+
     if (
         len(query_filter.keys()) == 1
-        and query_filter.get(c.ID_WITH_IN)
-        and isinstance(query_filter[c.ID_WITH_IN], list)
-        and len(query_filter[c.ID_WITH_IN]) > 100 * page_size
+        and query_filter.get(current_key)
+        and isinstance(query_filter[current_key], list)
     ):
-        ids = query_filter[c.ID_WITH_IN]
+        ids = query_filter[current_key]
         filter_pages = [
             {
                 c.ID_WITH_IN: ids[
