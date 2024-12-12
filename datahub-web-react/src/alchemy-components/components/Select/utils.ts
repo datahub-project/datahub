@@ -2,19 +2,20 @@ import { borders, colors, radius, spacing, typography } from '@components/theme'
 import { getFontSize } from '@components/theme/utils';
 
 import { SelectStyleProps } from './types';
+
 export const getOptionLabelStyle = (
     isSelected: boolean,
     isMultiSelect?: boolean,
     isDisabled?: boolean,
     isCustomisedLabel?: boolean,
 ) => {
-    const backgroundColor = isDisabled
-        ? 'transparent'
-        : isSelected && !isMultiSelect
-        ? isCustomisedLabel
-            ? colors.gray[1000]
-            : colors.violet[100]
-        : 'transparent';
+    let backgroundColor = 'transparent';
+
+    if (!isDisabled) {
+        if (isSelected && !isMultiSelect) {
+            backgroundColor = isCustomisedLabel ? colors.gray[1000] : colors.violet[100];
+        }
+    }
 
     const color = isSelected ? colors.violet[700] : colors.gray[500];
 
