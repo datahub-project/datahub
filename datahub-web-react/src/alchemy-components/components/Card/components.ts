@@ -12,7 +12,7 @@ export const CardContainer = styled.div<{ hasButton?: boolean; width?: string }>
     display: 'flex',
     flexDirection: 'column',
     gap: spacing.md,
-    width,
+    width: width || '100%',
 
     '&:hover': hasButton
         ? {
