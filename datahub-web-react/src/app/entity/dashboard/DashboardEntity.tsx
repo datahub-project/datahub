@@ -32,6 +32,7 @@ import { LOOKER_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -102,6 +103,9 @@ export class DashboardEntity implements Entity<Dashboard> {
         },
         {
             component: DataProductSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 
@@ -290,6 +294,8 @@ export class DashboardEntity implements Entity<Dashboard> {
             EntityCapabilityType.DATA_PRODUCTS,
         ]);
     };
+
+    getGraphName = () => this.getPathName();
 
     renderEmbeddedProfile = (urn: string) => (
         <EmbeddedProfile
