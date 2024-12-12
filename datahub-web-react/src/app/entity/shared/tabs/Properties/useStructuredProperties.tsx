@@ -64,6 +64,7 @@ function getStructuredPropertyRows(entityData?: GenericEntityProperties | null) 
                                   typeNameToType[structuredPropertiesEntry.values[0].__typename].nativeDataType,
                           }
                         : undefined,
+                associatedUrn: structuredPropertiesEntry.associatedUrn,
             });
         });
 
