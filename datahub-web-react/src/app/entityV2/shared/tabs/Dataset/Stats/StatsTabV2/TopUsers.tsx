@@ -12,7 +12,9 @@ import { getMockTopUsersData } from './utils';
 const CardWrapper = styled.div`
     display: flex;
     justify-self: end;
-    width: 30%;
+    width: 40%;
+    max-width: 500px;
+    min-width: 300px;
 `;
 
 interface Props {
