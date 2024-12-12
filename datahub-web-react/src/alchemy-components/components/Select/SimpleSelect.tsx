@@ -273,7 +273,15 @@ export const SimpleSelect = ({
                         {filteredOptions.map((option) => (
                             <OptionLabel
                                 key={option.value}
-                                onClick={() => !isMultiSelect && handleOptionChange(option)}
+                                onClick={() => {
+                                    if (!isMultiSelect) {
+                                        if (isCustomisedLabel && selectedValues.includes(option.value)) {
+                                            handleClearSelection();
+                                        } else {
+                                            handleOptionChange(option);
+                                        }
+                                    }
+                                }}
                                 isSelected={selectedValues.includes(option.value)}
                                 isMultiSelect={isMultiSelect}
                                 isDisabled={disabledValues?.includes(option.value)}

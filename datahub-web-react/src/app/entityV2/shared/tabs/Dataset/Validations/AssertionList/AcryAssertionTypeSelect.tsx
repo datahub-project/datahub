@@ -35,7 +35,7 @@ export function AcryAssertionTypeSelect({ options, selectedValue, onSelect }: Pr
             }}
             placeholder={displayValue}
             size="md"
-            showClear={true}
+            showClear={false}
             isCustomisedLabel
             width={50}
         />

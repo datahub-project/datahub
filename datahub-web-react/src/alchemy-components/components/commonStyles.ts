@@ -12,7 +12,7 @@ export const inputValueTextStyles = (size = 'md') => ({
     fontFamily: typography.fonts.body,
     fontWeight: typography.fontWeights.normal,
     fontSize: typography.fontSizes[size],
-    color: colors.gray[700],
+    color: colors.gray[400],
 });
 
 export const inputPlaceholderTextStyles = {
