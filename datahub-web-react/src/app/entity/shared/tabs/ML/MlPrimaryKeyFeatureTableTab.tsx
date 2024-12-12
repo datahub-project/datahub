@@ -10,7 +10,7 @@ export const FeatureTableTab = () => {
     const entityRegistry = useEntityRegistry();
 
     const feature = entity && entity.mlPrimaryKey;
-    const featureTables = feature?.featureTables?.relationships.map((relationship) => relationship.entity);
+    const featureTables = feature?.featureTables?.relationships?.map((relationship) => relationship.entity);
 
     const title = `Part of ${entityRegistry.getEntityName(EntityType.MlfeatureTable)}`;
     return <EntityList title={title} type={EntityType.MlfeatureTable} entities={featureTables || []} />;

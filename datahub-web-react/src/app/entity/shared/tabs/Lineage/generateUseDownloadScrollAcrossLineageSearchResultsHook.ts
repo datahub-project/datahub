@@ -30,11 +30,11 @@ export default function generateUseDownloadSearchAcrossLineageSearchResultsHook(
                 input: {
                     urn,
                     direction,
-                    types: params.variables?.input.types,
-                    query: params.variables?.input.query,
-                    scrollId: params.variables?.input.scrollId,
-                    count: params.variables?.input.count,
-                    orFilters: params.variables?.input.orFilters,
+                    types: params.variables?.input?.types,
+                    query: params.variables?.input?.query,
+                    scrollId: params.variables?.input?.scrollId,
+                    count: params.variables?.input?.count,
+                    orFilters: params.variables?.input?.orFilters,
                     startTimeMillis: startTimeMillis || undefined,
                     endTimeMillis: endTimeMillis || undefined,
                 },
@@ -44,8 +44,8 @@ export default function generateUseDownloadSearchAcrossLineageSearchResultsHook(
         return {
             searchResults: (data?.scrollAcrossLineage && {
                 ...data?.scrollAcrossLineage,
-                nextScrollId: data?.scrollAcrossLineage.nextScrollId,
-                searchResults: data?.scrollAcrossLineage.searchResults,
+                nextScrollId: data?.scrollAcrossLineage?.nextScrollId,
+                searchResults: data?.scrollAcrossLineage?.searchResults,
             }) as DownloadSearchResults,
             loading,
             error,
