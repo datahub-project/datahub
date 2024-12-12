@@ -51,6 +51,7 @@ public class Constants {
   // App sources
   public static final String UI_SOURCE = "ui";
   public static final String SYSTEM_UPDATE_SOURCE = "systemUpdate";
+  public static final String METADATA_TESTS_SOURCE = "metadataTests";
 
   /** Entities */
   public static final String CORP_USER_ENTITY_NAME = "corpuser";
@@ -362,6 +363,8 @@ public class Constants {
   // Structured Property
   public static final String STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME = "propertyDefinition";
   public static final String STRUCTURED_PROPERTY_KEY_ASPECT_NAME = "structuredPropertyKey";
+  public static final String STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME =
+      "structuredPropertySettings";
 
   // Form
   public static final String FORM_INFO_ASPECT_NAME = "formInfo";

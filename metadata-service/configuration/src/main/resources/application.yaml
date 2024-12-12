@@ -159,7 +159,7 @@ ebean:
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
   postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
   locking:
-    enabled: ${EBEAN_LOCKING_ENABLED:true}
+    enabled: ${EBEAN_LOCKING_ENABLED:false}
     durationSeconds: ${EBEAN_LOCKING_DURATION_SECONDS:60}
     maximumLocks: ${EBEAN_LOCKING_MAXIMUM_LOCKS:20000}
 
@@ -455,6 +455,7 @@ featureFlags:
   alternateMCPValidation: ${ALTERNATE_MCP_VALIDATION:false} # Enables alternate MCP validation flow
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
+  showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}

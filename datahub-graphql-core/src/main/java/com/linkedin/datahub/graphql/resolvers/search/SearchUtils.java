@@ -22,6 +22,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
 import com.linkedin.datahub.graphql.generated.SearchResults;
+import com.linkedin.datahub.graphql.generated.SearchSortInput;
 import com.linkedin.datahub.graphql.types.common.mappers.SearchFlagsInputMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.metadata.query.SearchFlags;
@@ -325,5 +326,26 @@ public class SearchUtils {
     result.setSuggestions(new ArrayList<>());
     result.setFacets(new ArrayList<>());
     return result;
+  }
+
+  public static List<SortCriterion> getSortCriteria(@Nullable final SearchSortInput sortInput) {
+    List<SortCriterion> sortCriteria;
+    if (sortInput != null) {
+      if (sortInput.getSortCriteria() != null) {
+        sortCriteria =
+            sortInput.getSortCriteria().stream()
+                .map(SearchUtils::mapSortCriterion)
+                .collect(Collectors.toList());
+      } else {
+        sortCriteria =
+            sortInput.getSortCriterion() != null
+                ? Collections.singletonList(mapSortCriterion(sortInput.getSortCriterion()))
+                : new ArrayList<>();
+      }
+    } else {
+      sortCriteria = new ArrayList<>();
+    }
+
+    return sortCriteria;
   }
 }
