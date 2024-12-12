@@ -121,7 +121,7 @@ _BASIC_NORMALIZATION_RULES = {
     # Remove /* */ comments.
     re.compile(r"/\*.*?\*/", re.DOTALL): "",
     # Remove -- comments.
-    re.compile(r"--.*$"): "",
+    re.compile(r"--.*$", re.MULTILINE): "",
     # Replace all runs of whitespace with a single space.
     re.compile(r"\s+"): " ",
     # Remove leading and trailing whitespace and trailing semicolons.
@@ -131,10 +131,16 @@ _BASIC_NORMALIZATION_RULES = {
     # Replace anything that looks like a string with a placeholder.
     re.compile(r"'[^']*'"): "?",
     # Replace sequences of IN/VALUES with a single placeholder.
-    re.compile(r"\b(IN|VALUES)\s*\(\?(?:, \?)*\)", re.IGNORECASE): r"\1 (?)",
+    # The r" ?" makes it more robust to uneven spacing.
+    re.compile(r"\b(IN|VALUES)\s*\( ?\?(?:, ?\?)* ?\)", re.IGNORECASE): r"\1 (?)",
     # Normalize parenthesis spacing.
     re.compile(r"\( "): "(",
     re.compile(r" \)"): ")",
+    # Fix up spaces before commas in column lists.
+    # e.g. "col1 , col2" -> "col1, col2"
+    # e.g. "col1,col2" -> "col1, col2"
+    re.compile(r"\b ,"): ",",
+    re.compile(r"\b,\b"): ", ",
 }
 _TABLE_NAME_NORMALIZATION_RULES = {
     # Replace UUID-like strings with a placeholder (both - and _ variants).
