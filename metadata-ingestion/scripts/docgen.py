@@ -918,7 +918,7 @@ You can view lineage under **Lineage** tab or **Lineage Visualization** screen.
 <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-tab.png" />
 </p>
 
-By default, The UI shows the latest version of the lineage. The time picker can be used to filter out edges within the latest version to exclude those that were last updated outside of the time window. Selecting time windows in the patch will not show you historical lineages. It will only filter the view of the latest version of the lineage.
+By default, the UI shows the latest version of the lineage. The time picker can be used to filter out edges within the latest version to exclude those that were last updated outside of the time window. Selecting time windows in the patch will not show you historical lineages. It will only filter the view of the latest version of the lineage.
 
 <p align="center">
 <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/lineage/lineage-view.png" />
@@ -969,7 +969,7 @@ Please refer to [API Guides on Lineage](../../api/tutorials/lineage.md) for more
 ## Lineage Support
 
 DataHub supports **[automatic table- and column-level lineage detection](#automatic-lineage-extraction-support)** from BigQuery, Snowflake, dbt, Looker, PowerBI, and 20+ modern data tools. 
-For data tools with limited native lineage tracking, **DataHub's SQL Parser** detects lineage with 97–99% accuracy, ensuring teams will have high quality lineage graphs across all corners of their data stack.
+For data tools with limited native lineage tracking, [**DataHub's SQL Parser**](../../lineage/sql_parsing.md) detects lineage with 97-99% accuracy, ensuring teams will have high quality lineage graphs across all corners of their data stack.
 
 ### Types of Lineage Connections
 

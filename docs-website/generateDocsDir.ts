@@ -284,6 +284,10 @@ function markdown_add_slug(
 //   );
 // }
 
+function trim_anchor_link(url: string): string {
+  return url.replace(/#.+$/, "");
+}
+
 function new_url(original: string, filepath: string): string {
   if (original.toLowerCase().startsWith(HOSTED_SITE_URL)) {
     // For absolute links to the hosted docs site, we transform them into local ones.
@@ -313,7 +317,7 @@ function new_url(original: string, filepath: string): string {
   }
 
   // Now we assume this is a local reference.
-  const suffix = path.extname(original);
+  const suffix = path.extname(trim_anchor_link(original));
   if (
     suffix == "" ||
     [
@@ -335,7 +339,7 @@ function new_url(original: string, filepath: string): string {
     // A reference to a file or directory in the Github repo.
     const relation = path.dirname(filepath);
     const updated_path = path.normalize(`${relation}/${original}`);
-    const check_path = updated_path.replace(/#.+$/, "");
+    const check_path = trim_anchor_link(updated_path);
     if (
       !fs.existsSync(`../${check_path}`) &&
       actually_in_sidebar(filepath) &&
