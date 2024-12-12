@@ -26,6 +26,7 @@ export interface SelectProps {
     selectAllLabel?: string;
     showDescriptions?: boolean;
     isCustomisedLabel?: boolean;
+    optionListTestId?: string;
 }
 
 export interface SelectStyleProps {

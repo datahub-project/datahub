@@ -133,7 +133,6 @@ export const AcrylAssertionListFilters: React.FC<AcrylAssertionListFiltersProps>
                             options={ASSERTION_GROUP_BY_FILTER_OPTIONS}
                             selectedValue={selectedGroupBy}
                             onSelect={handleAssertionTypeChange}
-                            placeholder="Group By"
                         />
                     </div>
                 </FiltersContainer>

@@ -130,6 +130,7 @@ export const SimpleSelect = ({
     selectAllLabel = selectDefaults.selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
     isCustomisedLabel = false,
+    optionListTestId,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -254,7 +255,7 @@ export const SimpleSelect = ({
                             <SearchIcon icon="Search" size={size} color="gray" />
                         </SearchInputContainer>
                     )}
-                    <OptionList>
+                    <OptionList data-testid={optionListTestId}>
                         {showSelectAll && isMultiSelect && (
                             <SelectAllOption
                                 isSelected={areAllSelected}
