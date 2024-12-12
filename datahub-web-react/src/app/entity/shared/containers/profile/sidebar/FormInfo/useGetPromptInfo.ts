@@ -18,10 +18,10 @@ export default function useGetPromptInfo(formUrn?: string) {
         requiredEntityPrompts,
     } = getEntityPromptsInfo(prompts, entityData);
     const { fieldPrompts, numRequiredFieldPromptsRemaining, numOptionalFieldPromptsRemaining, requiredFieldPrompts } =
-        getFieldPromptsInfo(prompts, entityData, entityWithSchema?.schemaMetadata?.fields.length || 0, formUrn);
+        getFieldPromptsInfo(prompts, entityData, entityWithSchema?.schemaMetadata?.fields?.length || 0, formUrn);
     // Multiply number of field prompts by number of schema fields for total number of schema field prompts
     const totalRequiredSchemaFieldPrompts =
-        (entityWithSchema?.schemaMetadata?.fields.length || 0) * requiredFieldPrompts.length;
+        (entityWithSchema?.schemaMetadata?.fields?.length || 0) * requiredFieldPrompts.length;
 
     const numRequiredPromptsRemaining = numRequiredEntityPromptsRemaining + numRequiredFieldPromptsRemaining;
     const numOptionalPromptsRemaining = numOptionalEntityPromptsRemaining + numOptionalFieldPromptsRemaining;
