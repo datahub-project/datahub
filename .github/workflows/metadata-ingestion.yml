@@ -28,13 +28,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
-      SPARK_VERSION: 3.3.2
+      SPARK_VERSION: 3.5.3
       DATAHUB_TELEMETRY_ENABLED: false
       # TODO: Enable this once the test is fixed.
       # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
     strategy:
       matrix:
-        python-version: ["3.8", "3.10"]
+        python-version: ["3.8", "3.11"]
         command:
           [
             "testQuick",
@@ -44,7 +44,7 @@ jobs:
           ]
         include:
           - python-version: "3.8"
-          - python-version: "3.10"
+          - python-version: "3.11"
       fail-fast: false
     steps:
       - name: Free up disk space
