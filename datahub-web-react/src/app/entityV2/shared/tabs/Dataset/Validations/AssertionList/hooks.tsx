@@ -71,7 +71,7 @@ export const useAssertionsTableColumns = ({
                 render: (record) => {
                     return !record.groupName && <LastRun>{getTimeFromNow(record.lastEvaluationTimeMs)}</LastRun>;
                 },
-                width: '20%',
+                width: '10%',
                 sorter: (sourceA, sourceB) => {
                     return sourceA.lastEvaluationTimeMs - sourceB.lastEvaluationTimeMs;
                 },
