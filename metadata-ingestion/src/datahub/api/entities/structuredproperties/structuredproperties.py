@@ -124,6 +124,8 @@ class StructuredProperties(ConfigModel):
     @staticmethod
     def create(file: str, graph: Optional[DataHubGraph] = None) -> None:
         with set_graph_context(graph):
+            graph = StructuredPropertiesConfig.get_graph_required()
+
             with open(file) as fp:
                 structuredproperties: List[dict] = yaml.safe_load(fp)
             for structuredproperty_raw in structuredproperties:
@@ -172,13 +174,13 @@ class StructuredProperties(ConfigModel):
                         ),
                     ),
                 )
-                emitter.emit_mcp(mcp)
+                graph.emit_mcp(mcp)
 
                 logger.info(f"Created structured property {structuredproperty.urn}")
 
     @classmethod
     def from_datahub(cls, graph: DataHubGraph, urn: str) -> "StructuredProperties":
-        with StructuredPropertiesConfig.use_graph(graph):
+        with set_graph_context(graph):
             structured_property: Optional[
                 StructuredPropertyDefinitionClass
             ] = graph.get_aspect(urn, StructuredPropertyDefinitionClass)
