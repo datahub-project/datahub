@@ -18,6 +18,7 @@ import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab'
 import MlModelFeaturesTab from './profile/MlModelFeaturesTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 /**
  * Definition of the DataHub MlModel entity.
@@ -90,6 +91,9 @@ export class MLModelEntity implements Entity<MlModel> {
         },
         {
             component: DataProductSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 

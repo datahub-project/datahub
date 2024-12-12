@@ -18,6 +18,7 @@ import { useUserContext } from '../../../../../context/useUserContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import EntityHeaderLoadingSection from './EntityHeaderLoadingSection';
 import { useIsEditableDatasetNameEnabled } from '../../../../../useAppConfig';
+import StructuredPropertyBadge from './StructuredPropertyBadge';
 
 const TitleWrapper = styled.div`
     display: flex;
@@ -132,6 +133,7 @@ export const EntityHeader = ({ headerDropdownItems, headerActionItems, isNameEdi
                                         baseUrl={entityRegistry.getEntityUrl(entityType, urn)}
                                     />
                                 )}
+                                <StructuredPropertyBadge structuredProperties={entityData?.structuredProperties} />
                             </TitleWrapper>
                             <EntityCount
                                 entityCount={entityCount}

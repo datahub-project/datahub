@@ -15,14 +15,15 @@ const HeaderContainer = styled.div`
 
 type Props = {
     title: string;
+    titleComponent?: React.ReactNode;
     actions?: React.ReactNode;
     children?: React.ReactNode;
 };
 
-export const SidebarHeader = ({ title, actions, children }: Props) => {
+export const SidebarHeader = ({ title, titleComponent, actions, children }: Props) => {
     return (
         <HeaderContainer>
-            <Typography.Title level={5}>{title}</Typography.Title>
+            {titleComponent || <Typography.Title level={5}>{title}</Typography.Title>}
             {actions && <div>{actions}</div>}
             {children}
         </HeaderContainer>

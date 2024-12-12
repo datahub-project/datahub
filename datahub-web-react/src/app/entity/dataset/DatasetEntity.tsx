@@ -37,6 +37,7 @@ import { matchedFieldPathsRenderer } from '../../search/matches/matchedFieldPath
 import { getLastUpdatedMs } from './shared/utils';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { GovernanceTab } from '../shared/tabs/Dataset/Governance/GovernanceTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 const SUBTYPES = {
     VIEW: 'view',
@@ -260,7 +261,11 @@ export class DatasetEntity implements Entity<Dataset> {
         },
         {
             component: DataProductSection,
-        }, // TODO: Add back once entity-level recommendations are complete.
+        },
+        {
+            component: SidebarStructuredPropsSection,
+        },
+        // TODO: Add back once entity-level recommendations are complete.
         // {
         //    component: SidebarRecommendationsSection,
         // },

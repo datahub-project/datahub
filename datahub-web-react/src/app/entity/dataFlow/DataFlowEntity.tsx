@@ -19,6 +19,7 @@ import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 /**
  * Definition of the DataHub DataFlow entity.
@@ -122,6 +123,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
         },
         {
             component: DataProductSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 

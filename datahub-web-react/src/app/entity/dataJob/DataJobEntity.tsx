@@ -22,6 +22,7 @@ import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
     return (
@@ -142,6 +143,9 @@ export class DataJobEntity implements Entity<DataJob> {
         },
         {
             component: DataProductSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 

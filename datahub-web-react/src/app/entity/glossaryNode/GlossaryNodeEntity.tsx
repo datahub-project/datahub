@@ -12,6 +12,7 @@ import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab'
 import ChildrenTab from './ChildrenTab';
 import { Preview } from './preview/Preview';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
     type: EntityType = EntityType.GlossaryNode;
@@ -99,6 +100,9 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
         },
         {
             component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 

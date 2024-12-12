@@ -17,6 +17,7 @@ import { DataProductEntitiesTab } from './DataProductEntitiesTab';
 import { EntityActionItem } from '../shared/entity/EntityActions';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 /**
  * Definition of the DataHub Data Product entity.
@@ -122,6 +123,9 @@ export class DataProductEntity implements Entity<DataProduct> {
             properties: {
                 updateOnly: true,
             },
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 
