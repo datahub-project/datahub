@@ -19,21 +19,30 @@ logger = logging.getLogger(__name__)
 MAX_DESCRIPTION_CHAR_COUNT = 100
 
 
-def render_entity_preview(raw_entity: dict) -> dict:
+def render_entity_preview(raw_entity: dict, include_link: bool = False) -> dict:
     return {
-        "blocks": list(render_entity_preview_blocks(raw_entity)),
+        "blocks": list(render_entity_preview_blocks(raw_entity, include_link)),
     }
 
 
-def render_entity_preview_blocks(raw_entity: dict) -> Iterable[dict]:
+def render_entity_preview_blocks(
+    raw_entity: dict, include_link: bool
+) -> Iterable[dict]:
     entity = ExtractedEntity(raw_entity)
 
     yield {
-        "type": "header",
-        "text": {
-            "type": "plain_text",
-            "text": f"{entity.name}",
-        },
+        "type": "section" if include_link else "header",
+        "text": (
+            {
+                "type": "mrkdwn",
+                "text": f"<{entity.profile_url}|*{entity.name}*>",
+            }
+            if include_link
+            else {
+                "type": "plain_text",
+                "text": entity.name,
+            }
+        ),
     }
 
     if entity.platform:
