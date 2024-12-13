@@ -368,12 +368,9 @@ class DataHubListener:
                 )
 
     def check_kill_switch(self):
-        try:
-            if Variable.get(KILL_SWITCH_VARIABLE_NAME, "false").lower() == "true":
-                logger.info("DataHub listener disabled by kill switch")
-                return True
-        except Exception as e:
-            raise e
+        if Variable.get(KILL_SWITCH_VARIABLE_NAME, "false").lower() == "true":
+            logger.debug("DataHub listener disabled by kill switch")
+            return True
         return False
 
     @hookimpl
@@ -468,6 +465,9 @@ class DataHubListener:
             f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
         )
 
+        self.materialize_iolets(datajob)
+
+    def materialize_iolets(self, datajob: DataJob):
         if self.config.materialize_iolets:
             for outlet in datajob.outlets:
                 reported_time: int = int(time.time() * 1000)
@@ -496,10 +496,6 @@ class DataHubListener:
     def on_task_instance_finish(
         self, task_instance: "TaskInstance", status: InstanceRunResult
     ) -> None:
-        if self.check_kill_switch():
-            return
-        self._set_log_level()
-
         dagrun: "DagRun" = task_instance.dag_run  # type: ignore[attr-defined]
 
         if self.config.render_templates:
@@ -720,6 +716,9 @@ class DataHubListener:
         @hookimpl
         @run_in_thread
         def on_dag_run_running(self, dag_run: "DagRun", msg: str) -> None:
+            if self.check_kill_switch():
+                return
+
             self._set_log_level()
 
             logger.debug(
