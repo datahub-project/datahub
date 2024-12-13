@@ -4,6 +4,10 @@ on:
     - cron: "30 1 * * *"
   workflow_dispatch:
 
+permissions:
+  contents: write
+  pull-requests: read
+
 jobs:
   remove-stale-branches:
     name: Remove Stale Branches
