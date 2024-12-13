@@ -467,7 +467,7 @@ class DataHubListener:
 
         self.materialize_iolets(datajob)
 
-    def materialize_iolets(self, datajob: DataJob):
+    def materialize_iolets(self, datajob: DataJob) -> None:
         if self.config.materialize_iolets:
             for outlet in datajob.outlets:
                 reported_time: int = int(time.time() * 1000)
