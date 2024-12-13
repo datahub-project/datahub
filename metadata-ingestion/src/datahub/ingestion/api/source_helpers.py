@@ -17,6 +17,7 @@ from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.emitter.mce_builder import make_dataplatform_instance_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import entity_supports_aspect
+from datahub.emitter.rest_emitter import _MAX_BATCH_INGEST_PAYLOAD_SIZE
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
@@ -79,7 +80,9 @@ def create_dataset_props_patch_builder(
     return patch_builder
 
 
-def check_mcp_correctness(mcp: MetadataChangeProposalClass):
+def check_mcp_correctness(
+    mcp: MetadataChangeProposalClass,
+) -> MetadataChangeProposalClass:
     logger.debug(
         f"Processing as MCP with urn: {mcp.entityUrn} and aspect: {mcp.aspectName}, change type: {mcp.changeType}"
     )
@@ -87,14 +90,14 @@ def check_mcp_correctness(mcp: MetadataChangeProposalClass):
     logger.debug(f"Full aspect:\n{mcp.aspect}")
 
 
-def check_mcpw_correctness(mcp: MetadataChangeProposalWrapper):
+def check_mcpw_correctness(
+    mcp: MetadataChangeProposalWrapper,
+) -> MetadataChangeProposalWrapper:
     logger.debug(
         f"Processing as MCPW with urn: {mcp.entityUrn} and aspect: {mcp.aspectName}, change type: {mcp.changeType}"
     )
     logger.debug(f"Full aspect:\n{mcp.aspect}")
-    if isinstance(mcp.aspect, SchemaMetadataClass):
-        schema: SchemaMetadataClass = mcp.aspect
-        logger.debug(f"Schema aspect dump:\n{schema.to_obj()}")
+    sample_fields_size = 0
     if isinstance(mcp.aspect, DatasetProfileClass):
         profile: DatasetProfileClass = mcp.aspect
         logger.debug(f"Dataset Profile aspect dump:\n{profile.to_obj()}")
@@ -109,6 +112,13 @@ def check_mcpw_correctness(mcp: MetadataChangeProposalWrapper):
                     logger.debug(
                         f"Field {field.fieldPath} has {len(field.sampleValues)} sample values, taking total bytes {values_len}"
                     )
+                    if sample_fields_size + values_len > _MAX_BATCH_INGEST_PAYLOAD_SIZE:
+                        logger.warning(
+                            f"Adding sample values for field {field.fieldPath} would exceed total allowed size of an aspect, therefor skipping them"
+                        )
+                        profile.fieldProfiles = []
+                    else:
+                        sample_fields_size += values_len
                 else:
                     logger.debug(f"Field {field.fieldPath} has no sample values")
 
@@ -117,11 +127,11 @@ def check_workunit_correctness(
     stream: Iterable[MetadataWorkUnit],
 ) -> Iterable[MetadataWorkUnit]:
     for wu in stream:
-        logger.debug(f"Checking correctnes for workunit: {wu.id}")
+        logger.debug(f"Checking correctness for workunit: {wu.id}")
         if isinstance(wu.metadata, MetadataChangeProposalClass):
-            check_mcp_correctness(wu.metadata)
+            wu.metadata = check_mcp_correctness(wu.metadata)
         elif isinstance(wu.metadata, MetadataChangeProposalWrapper):
-            check_mcpw_correctness(wu.metadata)
+            wu.metadata = check_mcpw_correctness(wu.metadata)
         yield wu
 
 

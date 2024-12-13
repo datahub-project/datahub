@@ -294,15 +294,17 @@ class DataHubRestEmitter(Closeable, Emitter):
         current_chunk_size = _MAX_BATCH_INGEST_PAYLOAD_SIZE
         for mcp_obj in mcp_objs:
             mcp_obj_size = len(json.dumps(mcp_obj))
-            logger.debug(f"Iterating through object with size {mcp_obj_size} (type: {mcp_obj.get('aspectName')}")
+            logger.debug(
+                f"Iterating through object with size {mcp_obj_size} (type: {mcp_obj.get('aspectName')}"
+            )
 
             if mcp_obj_size + current_chunk_size > _MAX_BATCH_INGEST_PAYLOAD_SIZE:
-                logger.debug(f"Decided to create new chunk")
+                logger.debug("Decided to create new chunk")
                 mcp_obj_chunks.append([])
                 current_chunk_size = 0
             mcp_obj_chunks[-1].append(mcp_obj)
             current_chunk_size += mcp_obj_size
-        logger.debug(f"Decided to send {len(mcps)} mcps in {len(mcp_obj_chunks)}")
+        logger.debug(f"Decided to send {len(mcps)} mcps in {len(mcp_obj_chunks)} chunks")
 
         for mcp_obj_chunk in mcp_obj_chunks:
             # TODO: We're calling json.dumps on each MCP object twice, once to estimate
