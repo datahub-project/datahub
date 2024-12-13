@@ -10,6 +10,9 @@ export const TableContainer = styled.div<{ isScrollable?: boolean; maxHeight?: s
         overflow: 'hidden',
         width: '100%',
         maxHeight: maxHeight || '100%',
+        '&:hover': {
+            overflow: 'auto',
+        },
     }),
 );
 
