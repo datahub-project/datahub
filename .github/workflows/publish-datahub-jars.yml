@@ -201,7 +201,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
-    needs: ["check-secret", "setup"]
+    needs: ["check-secret", "setup", "publish"]
     if: ${{ needs.check-secret.outputs.publish-enabled == 'true' }}
     steps:
       - uses: acryldata/sane-checkout-action@v3
