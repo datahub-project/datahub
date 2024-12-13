@@ -30,7 +30,7 @@ from dagster._core.definitions.multi_asset_sensor_definition import (
 )
 from dagster._core.definitions.sensor_definition import (
     DefaultSensorStatus,
-    RawSensorEvaluationFunctionReturn,
+    SensorReturnTypesUnion,
 )
 from dagster._core.definitions.target import ExecutableDefinition
 from dagster._core.definitions.unresolved_asset_job_definition import (
@@ -691,7 +691,7 @@ class DatahubSensors:
 
     def _emit_metadata(
         self, context: RunStatusSensorContext
-    ) -> RawSensorEvaluationFunctionReturn:
+    ) -> SensorReturnTypesUnion:
         """
         Function to emit metadata for datahub rest.
         """
