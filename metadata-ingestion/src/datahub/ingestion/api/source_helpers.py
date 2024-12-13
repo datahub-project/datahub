@@ -88,18 +88,19 @@ def check_mcp_correctness(
     )
     logger.debug(f"Aspect length: {len(mcp.aspect.value)}")
     logger.debug(f"Full aspect:\n{mcp.aspect}")
+    return mcp
 
 
 def check_mcpw_correctness(
-    mcp: MetadataChangeProposalWrapper,
+    mcpw: MetadataChangeProposalWrapper,
 ) -> MetadataChangeProposalWrapper:
     logger.debug(
-        f"Processing as MCPW with urn: {mcp.entityUrn} and aspect: {mcp.aspectName}, change type: {mcp.changeType}"
+        f"Processing as MCPW with urn: {mcpw.entityUrn} and aspect: {mcpw.aspectName}, change type: {mcpw.changeType}"
     )
-    logger.debug(f"Full aspect:\n{mcp.aspect}")
+    logger.debug(f"Full aspect:\n{mcpw.aspect}")
     sample_fields_size = 0
-    if isinstance(mcp.aspect, DatasetProfileClass):
-        profile: DatasetProfileClass = mcp.aspect
+    if isinstance(mcpw.aspect, DatasetProfileClass):
+        profile: DatasetProfileClass = mcpw.aspect
         logger.debug(f"Dataset Profile aspect dump:\n{profile.to_obj()}")
         if profile.fieldProfiles:
             logger.debug(f"Length of field profiles: {len(profile.fieldProfiles)}")
@@ -121,6 +122,7 @@ def check_mcpw_correctness(
                         sample_fields_size += values_len
                 else:
                     logger.debug(f"Field {field.fieldPath} has no sample values")
+    return mcpw
 
 
 def check_workunit_correctness(
