@@ -117,7 +117,7 @@ def check_mcpw_correctness(
                         logger.warning(
                             f"Adding sample values for field {field.fieldPath} would exceed total allowed size of an aspect, therefor skipping them"
                         )
-                        profile.fieldProfiles = []
+                        field.sampleValues = []
                     else:
                         sample_fields_size += values_len
                 else:
