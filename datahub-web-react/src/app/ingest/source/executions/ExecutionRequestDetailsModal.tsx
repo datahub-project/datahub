@@ -156,7 +156,7 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
         (status && <Typography.Text type="secondary">{getExecutionRequestSummaryText(status)}</Typography.Text>) ||
         undefined;
 
-    const recipeJson = data?.executionRequest?.input.arguments?.find((arg) => arg.key === 'recipe')?.value;
+    const recipeJson = data?.executionRequest?.input?.arguments?.find((arg) => arg.key === 'recipe')?.value;
     let recipeYaml: string;
     try {
         recipeYaml = recipeJson && YAML.stringify(JSON.parse(recipeJson), 8, 2).trim();

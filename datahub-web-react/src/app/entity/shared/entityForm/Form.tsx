@@ -57,7 +57,7 @@ function Form({ formUrn }: Props) {
     const title = formAssociation?.form?.info?.name;
     const associatedUrn = formAssociation?.associatedUrn;
     const description = formAssociation?.form?.info?.description;
-    const owners = formAssociation?.form.ownership?.owners;
+    const owners = formAssociation?.form?.ownership?.owners;
 
     return (
         <TabWrapper>
