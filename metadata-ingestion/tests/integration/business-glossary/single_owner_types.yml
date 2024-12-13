@@ -1,0 +1,39 @@
+version: "1"
+source: DataHub
+url: "https://github.com/datahub-project/datahub/"
+owners:
+  users:
+    - mjames
+
+nodes:
+  - name: Single Owner Types
+    description: Testing different single owner types
+    owners:
+      type: DEVELOPER
+      users:
+        - dev1
+    terms:
+      - name: Developer Owned
+        description: Term owned by developer
+        owners:
+          type: DEVELOPER
+          users:
+            - dev2
+      - name: Data Owner Owned
+        description: Term owned by data owner
+        owners:
+          type: DATAOWNER
+          users:
+            - dataowner1           
+      - name: Producer Owned
+        description: Term owned by producer
+        owners:
+          type: PRODUCER
+          users:
+            - producer1         
+      - name: Stakeholder Owned
+        description: Term owned by stakeholder
+        owners:
+          type: STAKEHOLDER
+          groups:
+            - stakeholders
