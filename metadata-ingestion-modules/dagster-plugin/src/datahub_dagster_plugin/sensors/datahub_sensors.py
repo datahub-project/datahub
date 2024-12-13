@@ -28,10 +28,15 @@ from dagster._core.definitions.asset_selection import CoercibleToAssetSelection
 from dagster._core.definitions.multi_asset_sensor_definition import (
     AssetMaterializationFunctionReturn,
 )
-from dagster._core.definitions.sensor_definition import (
-    DefaultSensorStatus,
-    SensorReturnTypesUnion,
-)
+from dagster._core.definitions.sensor_definition import DefaultSensorStatus
+
+# This SensorReturnTypesUnion is from Dagster 1.9.1+ and is not available in older versions
+# of Dagster. We need to import it conditionally to avoid breaking compatibility with older
+try:
+    from dagster._core.definitions.sensor_definition import SensorReturnTypesUnion
+except ImportError:
+    from dagster._core.definitions.sensor_definition import RawSensorEvaluationFunctionReturn as SensorReturnTypesUnion  # type: ignore
+
 from dagster._core.definitions.target import ExecutableDefinition
 from dagster._core.definitions.unresolved_asset_job_definition import (
     UnresolvedAssetJobDefinition,
