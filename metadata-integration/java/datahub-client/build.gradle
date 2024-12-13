@@ -196,7 +196,7 @@ publishing {
       pom {
         name = 'Datahub Client'
         group = 'io.acryl'
-        artifactId = 'datahub-client'
+        artifactId = 'datahub-client' + (project.hasProperty('archiveAppendix') ? "-${archiveAppendix}" : '')
         description = 'DataHub Java client for metadata integration'
         url = 'https://datahubproject.io'
         artifacts = [shadowJar, javadocJar, sourcesJar]

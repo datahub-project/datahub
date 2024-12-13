@@ -219,13 +219,14 @@ public class EntityController
   protected List<GenericEntityV2> buildEntityVersionedAspectList(
       @Nonnull OperationContext opContext,
       Collection<Urn> requestedUrns,
-      LinkedHashMap<Urn, Map<String, Long>> urnAspectVersions,
+      LinkedHashMap<Urn, Map<AspectSpec, Long>> urnAspectVersions,
       boolean withSystemMetadata,
       boolean expandEmpty)
       throws URISyntaxException {
+
     Map<Urn, List<EnvelopedAspect>> aspects =
         entityService.getEnvelopedVersionedAspects(
-            opContext, resolveAspectNames(urnAspectVersions, 0L, true), true);
+            opContext, aspectSpecsToAspectNames(urnAspectVersions, false), true);
 
     return urnAspectVersions.keySet().stream()
         .map(

@@ -39,7 +39,7 @@ const StructuredProperties = () => {
 
     const searchAcrossEntities = data?.searchAcrossEntities;
     const noOfProperties = searchAcrossEntities?.searchResults?.length;
-    const badgeProperty = searchAcrossEntities?.searchResults.find(
+    const badgeProperty = searchAcrossEntities?.searchResults?.find(
         (prop) => (prop.entity as StructuredPropertyEntity).settings?.showAsAssetBadge,
     )?.entity;
 
