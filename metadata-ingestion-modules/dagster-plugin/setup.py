@@ -22,7 +22,7 @@ _self_pin = (
 
 base_requirements = {
     # Actual dependencies.
-    "dagster >= 1.8.10, <1.9.0",
+    "dagster >= 1.3.3",
     "dagit >= 1.3.3",
     f"acryl-datahub[datahub-rest,sql-parser]{_self_pin}",
 }
