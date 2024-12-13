@@ -380,7 +380,8 @@ class TableauConfig(
 
     fetch_size: int = Field(
         default=250,
-        description="Specifies the number of records to retrieve in each batch during a query execution.",
+        description="[deprecated] Use page_size instead. Specifies the number of records to retrieve in each batch during a query execution.",
+        exclude=True,
     )
 
     # We've found that even with a small workbook page size (e.g. 10), the Tableau API often
@@ -495,6 +496,11 @@ class TableauConfig(
         default=[],
         description="Tags to be added to hidden dashboards and views. If a dashboard or view is hidden in Tableau the luid is blank. "
         "This can only be used with ingest_tags enabled as it will overwrite tags entered from the UI.",
+    )
+
+    _fetch_size = pydantic_field_deprecated(
+        "fetch_size",
+        message="fetch_size is deprecated, use page_size instead",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -1108,7 +1114,7 @@ class TableauSiteSource:
         connection_type: str,
         query_filter: str,
         current_cursor: Optional[str],
-        fetch_size: int = 250,
+        fetch_size: int,
         retry_on_auth_error: bool = True,
         retries_remaining: Optional[int] = None,
     ) -> Tuple[dict, Optional[str], int]:
@@ -1306,7 +1312,11 @@ class TableauSiteSource:
                     connection_type=connection_type,
                     query_filter=filter_,
                     current_cursor=current_cursor,
-                    fetch_size=self.config.fetch_size,
+                    # `filter_page` contains metadata object IDs (e.g., Project IDs, Field IDs, Sheet IDs, etc.).
+                    # The number of IDs is always less than or equal to page_size.
+                    # If the IDs are primary keys, the number of metadata objects to load matches the number of records to return.
+                    # In our case, mostly, the IDs are primary key, therefore, fetch_size is set equal to page_size.
+                    fetch_size=page_size,
                 )
 
                 yield from connection_objects.get(c.NODES) or []
