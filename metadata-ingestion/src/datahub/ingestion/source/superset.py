@@ -360,14 +360,16 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
         raise ValueError("Could not construct dataset URN")
     
-    def parse_owner_payload(self, payload: dict, owners_dict: dict) -> None:
+    def parse_owner_payload(self, payload: dict) -> dict:
+        owners_dict = {}
         for owner_data in payload.get("result", []):
             email = owner_data.get("extra", {}).get("email")
             value = owner_data.get("value")
 
-            if value and email and value not in owners_dict:
+            if value and email:
                 owners_dict[value] = email
-
+        return owners_dict
+    
     def build_preset_owner_dict(self) -> Dict[str, str]: 
         owners_dict = {}
         dataset_payload = self.get_all_entity_owners("dataset")
