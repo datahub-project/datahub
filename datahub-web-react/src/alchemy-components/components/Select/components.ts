@@ -266,7 +266,7 @@ export const CountBadge = styled.div({
 
 export const HighlightedLabel = styled.span`
     background-color: ${colors.gray[100]};
-    padding: 2px 6px;
+    padding: 4px 6px;
     border-radius: 8px;
     font-size: ${typography.fontSizes.sm};
     color: ${colors.gray[500]};
