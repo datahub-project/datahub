@@ -2,9 +2,7 @@ import json
 from typing import Any
 
 from datahub.api.entities.common.serialized_value import SerializedResourceValue
-from datahub.metadata.schema_classes import (
-    SerializedValueContentTypeClass,
-)
+from datahub.metadata.schema_classes import SerializedValueContentTypeClass
 from datahub.utilities.str_enum import StrEnum
 
 
