@@ -471,7 +471,8 @@ public class SearchAcrossEntitiesResolverTest {
                 Mockito.eq(filter),
                 Mockito.eq(start),
                 Mockito.eq(limit),
-                Mockito.eq(Collections.emptyList())))
+                Mockito.eq(Collections.emptyList()),
+                Mockito.eq(null)))
         .thenReturn(result);
     return client;
   }
@@ -496,7 +497,8 @@ public class SearchAcrossEntitiesResolverTest {
             Mockito.eq(filter),
             Mockito.eq(start),
             Mockito.eq(limit),
-            Mockito.eq(Collections.emptyList()));
+            Mockito.eq(Collections.emptyList()),
+            Mockito.eq(null));
   }
 
   private static void verifyMockViewService(ViewService mockService, Urn viewUrn) {
