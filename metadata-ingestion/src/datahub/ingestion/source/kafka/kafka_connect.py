@@ -1171,19 +1171,15 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         payload = connector_response.json()
 
         for connector_name in payload:
-            try:
-                connector_url = f"{self.config.connect_uri}/connectors/{connector_name}"
-                connector_response = self.session.get(connector_url)
-                connector_response.raise_for_status()
-            except Exception as e:
-                self.report.warning(
-                    "Failed to get connector details", connector_name, exc=e
-                )
-                continue
-            manifest = connector_response.json()
-            connector_manifest = ConnectorManifest(**manifest)
-            if not self.config.connector_patterns.allowed(connector_manifest.name):
-                self.report.report_dropped(connector_manifest.name)
+            connector_url = f"{self.config.connect_uri}/connectors/{connector_name}"
+            connector_manifest = self._get_connector_manifest(
+                connector_name, connector_url
+            )
+            if (
+                connector_manifest is None
+                or not self.config.connector_patterns.allowed(connector_manifest.name)
+            ):
+                self.report.report_dropped(connector_name)
                 continue
 
             if self.config.provided_configs:
@@ -1276,6 +1272,21 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             connectors_manifest.append(connector_manifest)
 
         return connectors_manifest
+
+    def _get_connector_manifest(
+        self, connector_name: str, connector_url: str
+    ) -> Optional[ConnectorManifest]:
+        try:
+            connector_response = self.session.get(connector_url)
+            connector_response.raise_for_status()
+        except Exception as e:
+            self.report.warning(
+                "Failed to get connector details", connector_name, exc=e
+            )
+            return None
+        manifest = connector_response.json()
+        connector_manifest = ConnectorManifest(**manifest)
+        return connector_manifest
 
     def _get_connector_tasks(self, connector_name: str) -> dict:
         try:
