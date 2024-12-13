@@ -107,7 +107,9 @@ def test_github_url_with_empty_url_path_prefix():
 
 
 def test_github_url_with_nested_url_path_prefix():
-    git_ref = GitReference(repo="https://github.com/org/repo", url_path_prefix="dbt/models")
+    git_ref = GitReference(
+        repo="https://github.com/org/repo", url_path_prefix="dbt/models"
+    )
     assert (
         git_ref.get_url_for_file_path("model.sql")
         == "https://github.com/org/repo/blob/main/dbt/models/model.sql"
