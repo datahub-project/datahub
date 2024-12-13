@@ -82,6 +82,38 @@ def test_github_branch():
     assert config.branch_for_clone == "main"
 
 
+def test_github_url_with_root_directory():
+    git_ref = GitReference(
+        repo="https://github.com/org/repo", branch="main", subdir="dbt"
+    )
+    # Test with file path that includes subdir
+    assert (
+        git_ref.get_url_for_file_path("dbt/models/staging/customers.sql")
+        == "https://github.com/org/repo/blob/main/dbt/models/staging/customers.sql"
+    )
+    # Test with file path that doesn't include subdir
+    assert (
+        git_ref.get_url_for_file_path("model.sql")
+        == "https://github.com/org/repo/blob/main/dbt/model.sql"
+    )
+
+
+def test_gitlab_url_with_root_directory():
+    git_ref = GitReference(
+        repo="https://gitlab.com/org/repo", branch="main", subdir="dbt_models"
+    )
+    # Test with file path that includes subdir
+    assert (
+        git_ref.get_url_for_file_path("dbt_models/staging/orders.sql")
+        == "https://gitlab.com/org/repo/-/blob/main/dbt_models/staging/orders.sql"
+    )
+    # Test with file path that doesn't include subdir
+    assert (
+        git_ref.get_url_for_file_path("staging/orders.sql")
+        == "https://gitlab.com/org/repo/-/blob/main/dbt_models/staging/orders.sql"
+    )
+
+
 def test_sanitize_repo_url():
     import datahub.ingestion.source.git.git_import
 
