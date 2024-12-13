@@ -147,12 +147,9 @@ class DataHubDatabaseReader:
             version
         """
 
-    def _get_rows(
-        self, from_createdon: datetime, stop_time: datetime
+    def execute_server_cursor(
+        self, query: str, params: Dict[str, Any]
     ) -> Iterable[Dict[str, Any]]:
-        # Cursor for MySql and PostgreSQL are by default client side cursor and we need to create server side cursor -> https://docs.sqlalchemy.org/en/20/core/connections.html#using-server-side-cursors-a-k-a-stream-results
-        # For MySQL, we need to use SSCursor to create server side cursor
-        # For PostgreSQL, we need to use stream_results=True to create server side cursor and need to be run in transaction
         with self.engine.connect() as conn:
             if self.engine.dialect.name == "postgresql":
                 with conn.begin():  # Transaction required for PostgreSQL server-side cursor
@@ -160,13 +157,7 @@ class DataHubDatabaseReader:
                         stream_results=True,
                         yield_per=self.config.database_query_batch_size,
                     )
-                    result = conn.execute(
-                        self.query,
-                        {
-                            "exclude_aspects": list(self.config.exclude_aspects),
-                            "since_createdon": from_createdon.strftime(DATETIME_FORMAT),
-                        },
-                    )
+                    result = conn.execute(query, params)
                     for row in result:
                         yield dict(row)
             elif self.engine.dialect.name == "mysql":  # MySQL
@@ -176,13 +167,7 @@ class DataHubDatabaseReader:
                     conn.connection.cursor(MySQLdb.cursors.SSCursor)
                 ) as cursor:
                     logger.debug(f"Using Cursor type: {cursor.__class__.__name__}")
-                    cursor.execute(
-                        self.query,
-                        {
-                            "exclude_aspects": list(self.config.exclude_aspects),
-                            "since_createdon": from_createdon.strftime(DATETIME_FORMAT),
-                        },
-                    )
+                    cursor.execute(query, params)
 
                     columns = [desc[0] for desc in cursor.description]
                     while True:
@@ -193,6 +178,15 @@ class DataHubDatabaseReader:
                             yield dict(zip(columns, row))
             else:
                 raise ValueError(f"Unsupported dialect: {self.engine.dialect.name}")
+
+    def _get_rows(
+        self, from_createdon: datetime, stop_time: datetime
+    ) -> Iterable[Dict[str, Any]]:
+        params = {
+            "exclude_aspects": list(self.config.exclude_aspects),
+            "since_createdon": from_createdon.strftime(DATETIME_FORMAT),
+        }
+        yield from self.execute_server_cursor(self.query, params)
 
     def get_aspects(
         self, from_createdon: datetime, stop_time: datetime
