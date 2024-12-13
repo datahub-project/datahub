@@ -415,8 +415,8 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             self.report.num_upstream_lineage_edge_parsing_failed += 1
             upstream_tables = db_row.get("UPSTREAM_TABLES")
             self.structured_reporter.warning(
-                f"Failed to parse lineage edge for upstream tables {upstream_tables}",
-                context=db_row.get("DOWNSTREAM_TABLE_NAME") or None,
+                "Failed to parse lineage edge",
+                context=f"Upstreams: {upstream_tables} Downstreams: {db_row.get('DOWNSTREAM_TABLE_NAME')}",
                 exc=e,
             )
             return None
