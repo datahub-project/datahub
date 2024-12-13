@@ -87,7 +87,7 @@ const SidebarStructuredPropsSection = ({ properties }: Props) => {
                     property,
                     currentProperties,
                 );
-                const isRichText = propertyRow?.dataType?.info.type === StdDataType.RichText;
+                const isRichText = propertyRow?.dataType?.info?.type === StdDataType.RichText;
                 const values = propertyRow?.values;
                 const hasMultipleValues = values && values.length > 1;
                 const propertyName = getDisplayName(property.entity as StructuredPropertyEntity);

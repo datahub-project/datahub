@@ -40,9 +40,9 @@ const ViewStructuredPropsDrawer = ({
 
     const selectedPropEntity = selectedProperty && (selectedProperty?.entity as StructuredPropertyEntity);
 
-    const allowedValues = selectedPropEntity?.definition.allowedValues;
+    const allowedValues = selectedPropEntity?.definition?.allowedValues;
 
-    const allowedTypes = selectedPropEntity?.definition.typeQualifier?.allowedTypes;
+    const allowedTypes = selectedPropEntity?.definition?.typeQualifier?.allowedTypes;
 
     const propType = getValueTypeLabel(
         selectedPropEntity.definition.valueType.urn,
