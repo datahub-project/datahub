@@ -70,7 +70,7 @@ export const UserDetails = styled.div`
     font-weight: 400;
     line-height: 28px;
     text-align: center;
-`
+`;
 
 export const TitleRole = styled.div`
     font-size: 14px;

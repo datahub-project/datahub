@@ -21,7 +21,7 @@ import {
     Team,
     LocationSection,
     LocationSectionText,
-    UserDetails
+    UserDetails,
 } from '../shared/SidebarStyledComponents';
 import EntityGroups from '../shared/EntityGroups';
 import { mapRoleIcon } from '../../identity/user/UserUtils';
@@ -58,8 +58,22 @@ const AVATAR_STYLE = { marginTop: '14px' };
  * UserInfoSideBar- Sidebar section for users profiles.
  */
 export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
-    const { name, aboutText, avatarName, email, groupsDetails, phone, photoUrl, role, slack, team, dataHubRoles, urn, countryCode, username } =
-        sideBarData;
+    const {
+        name,
+        aboutText,
+        avatarName,
+        email,
+        groupsDetails,
+        phone,
+        photoUrl,
+        role,
+        slack,
+        team,
+        dataHubRoles,
+        urn,
+        countryCode,
+        username,
+    } = sideBarData;
 
     const [updateCorpUserPropertiesMutation] = useUpdateCorpUserPropertiesMutation();
 
@@ -161,19 +175,17 @@ export default function UserInfoSideBar({ sideBarData, refetch }: Props) {
                         </Space>
                     </SocialDetails>
                     <Divider className="divider-aboutSection" />
-                    { countryCode ? (
+                    {countryCode ? (
                         <LocationSection>
-                            Location 
+                            Location
                             <br />
-                                <LocationSectionText>
-                                    <img src={GlobeIcon} alt="Manage Users" style={{ display: 'inline' }} /> &nbsp;
-                                    {findCountryName(countryCode)}
-                                </LocationSectionText>
+                            <LocationSectionText>
+                                <img src={GlobeIcon} alt="Manage Users" style={{ display: 'inline' }} /> &nbsp;
+                                {findCountryName(countryCode)}
+                            </LocationSectionText>
                             <Divider className="divider-aboutSection" />
                         </LocationSection>
-                    ): (
-                        null
-                    )}
+                    ) : null}
                     <AboutSection>
                         About
                         <AboutSectionText>
