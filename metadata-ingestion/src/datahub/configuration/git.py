@@ -24,9 +24,10 @@ class GitReference(ConfigModel):
         "main",
         description="Branch on which your files live by default. Typically main or master. This can also be a commit hash.",
     )
-    url_path_prefix: Optional[str] = Field(
+    url_subdir: Optional[str] = Field(
         default=None,
-        description="Path prefix to prepend when generating URLs for files. Only affects URL generation, not git operations. Useful when files are in a subdirectory.",
+        description="Prefix to prepend when generating URLs for files - useful when files are in a subdirectory. "
+        "Only affects URL generation, not git operations.",
     )
     url_template: Optional[str] = Field(
         None,
@@ -71,8 +72,8 @@ class GitReference(ConfigModel):
 
     def get_url_for_file_path(self, file_path: str) -> str:
         assert self.url_template
-        if self.url_path_prefix:
-            file_path = f"{self.url_path_prefix}/{file_path}"
+        if self.url_subdir:
+            file_path = f"{self.url_subdir}/{file_path}"
         return self.url_template.format(
             repo_url=self.repo, branch=self.branch, file_path=file_path
         )
