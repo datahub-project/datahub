@@ -37,7 +37,7 @@ export function convertEditableSchemaMetadataForUpdate(
 ): EditableSchemaMetadataUpdate {
     return {
         editableSchemaFieldInfo:
-            editableSchemaMetadata?.editableSchemaFieldInfo.map((editableSchemaFieldInfo) => ({
+            editableSchemaMetadata?.editableSchemaFieldInfo?.map((editableSchemaFieldInfo) => ({
                 fieldPath: editableSchemaFieldInfo?.fieldPath,
                 description: editableSchemaFieldInfo?.description,
                 globalTags: { tags: convertTagsForUpdate(editableSchemaFieldInfo?.globalTags?.tags || []) },

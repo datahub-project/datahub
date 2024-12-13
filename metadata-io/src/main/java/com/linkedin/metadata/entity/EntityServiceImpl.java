@@ -1265,6 +1265,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return timeseriesResults.stream()
         .map(
             result -> {
+              MCPItem item = result.getFirst();
               Optional<Pair<Future<?>, Boolean>> emissionStatus = result.getSecond();
 
               emissionStatus.ifPresent(
@@ -1276,10 +1277,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     }
                   });
 
-              MCPItem request = result.getFirst();
               return IngestResult.builder()
-                  .urn(request.getUrn())
-                  .request(request)
+                  .urn(item.getUrn())
+                  .request(item)
+                  .result(
+                      UpdateAspectResult.builder()
+                          .urn(item.getUrn())
+                          .newValue(item.getRecordTemplate())
+                          .auditStamp(item.getAuditStamp())
+                          .newSystemMetadata(item.getSystemMetadata())
+                          .build())
                   .publishedMCL(
                       emissionStatus.map(status -> status.getFirst() != null).orElse(false))
                   .processedMCL(emissionStatus.map(Pair::getSecond).orElse(false))

@@ -180,7 +180,7 @@ export default function EditBusinessAttributeModal({
                 component: (
                     <div>
                         <GlobalOutlined />
-                        <AttributeName>{selectedSearchOption?.props.name}</AttributeName>
+                        <AttributeName>{selectedSearchOption?.props?.name}</AttributeName>
                     </div>
                 ),
             });

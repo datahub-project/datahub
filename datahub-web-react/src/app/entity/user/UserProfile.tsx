@@ -65,9 +65,9 @@ export default function UserProfile() {
     const castedCorpUser = data?.corpUser as any;
 
     const userGroups: Array<EntityRelationship> =
-        castedCorpUser?.groups?.relationships.map((relationship) => relationship as EntityRelationship) || [];
+        castedCorpUser?.groups?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
     const userRoles: Array<EntityRelationship> =
-        castedCorpUser?.roles?.relationships.map((relationship) => relationship as EntityRelationship) || [];
+        castedCorpUser?.roles?.relationships?.map((relationship) => relationship as EntityRelationship) || [];
 
     // Routed Tabs Constants
     const getTabs = () => {
