@@ -1416,6 +1416,7 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
 
     resolved_user_ids: int = 0
     email_ids_missing: int = 0  # resolved users with missing email addresses
+    looker_user_count: int = 0
 
     _looker_api: Optional[LookerAPI] = None
     query_latency: Dict[str, datetime.timedelta] = dataclasses_field(
@@ -1643,7 +1644,7 @@ class LookerUserRegistry:
     fields: str = ",".join(["id", "email", "display_name", "first_name", "last_name"])
     _user_email_cache: Dict[str, str] = {}
 
-    def __init__(self, looker_api: LookerAPI, report: SourceReport):
+    def __init__(self, looker_api: LookerAPI, report: LookerDashboardSourceReport):
         self.looker_api_wrapper = looker_api
         self.report = report
         self._user_email_cache = {}
@@ -1669,29 +1670,23 @@ class LookerUserRegistry:
         self, platform_instance: Optional[str]
     ) -> Iterable[MetadataChangeProposalWrapper]:
         try:
-            new_platform_resource = LookerPlatformResource(
-                value=self._user_email_cache,
+            platform_resource_key = PlatformResourceKey(
+                platform=LOOKER,
                 resource_type=ResourceType.USER_ID_MAPPING,
                 platform_instance=platform_instance,
+                primary_key=platform_instance if platform_instance else "",
             )
 
-            platform_resource = new_platform_resource.platform_resource()
-
-            logger.info(
-                f"Looker Users added to the platform resource: {', '.join([ f'{user_id}:{email}' for user_id, email in self._user_email_cache.items()])}"
+            platform_resource = PlatformResource.create(
+                key=platform_resource_key,
+                value=self._user_email_cache,
             )
 
-            for mcp in platform_resource.to_mcps():
-                yield mcp
+            self.report.looker_user_count = len(self._user_email_cache)
+            yield from platform_resource.to_mcps()
 
         except Exception as exc:
             self.report.report_failure(
                 message="Failed to generate platform resource for looker",
-                context=", ".join(
-                    [
-                        f"{user_id}:{email}"
-                        for user_id, email in self._user_email_cache.items()
-                    ]
-                ),
                 exc=exc,
             )

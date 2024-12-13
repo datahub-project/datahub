@@ -6,12 +6,7 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from typing_extensions import Protocol
 
-from datahub.api.entities.platformresource.platform_resource import (
-    PlatformResource,
-    PlatformResourceKey,
-)
-from datahub.configuration.common import ConfigModel
-from datahub.configuration.source_common import PlatformDetail
+from datahub.api.entities.platformresource.platform_resource import PlatformResource
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.common.resource import ResourceType, from_serialized_value
@@ -35,10 +30,6 @@ class QueryLog(Protocol):
 
 def _get_last_line(query: str) -> str:
     return query.rstrip().rsplit("\n", maxsplit=1)[-1]
-
-
-class ToolMetaExtractorConfig(ConfigModel):
-    looker_platform_details: Optional[PlatformDetail] = None
 
 
 @dataclass
@@ -73,34 +64,25 @@ class ToolMetaExtractor:
     @classmethod
     def create(
         cls,
-        config: ToolMetaExtractorConfig,
         graph: Optional[DataHubGraph] = None,
     ) -> "ToolMetaExtractor":
         looker_user_mapping: Dict[str, str] = {}
-        if graph and config.looker_platform_details:
-            key = PlatformResourceKey(
-                platform="looker",
-                resource_type=ResourceType.USER_ID_MAPPING,
-                platform_instance=config.looker_platform_details.platform_instance,
-                primary_key=config.looker_platform_details.platform_instance
-                if config.looker_platform_details.platform_instance
-                else "",
-            )
 
-            platform_resource = PlatformResource.from_datahub(
-                key=key, graph_client=graph
+        if graph:
+            platform_resources = PlatformResource.search_by_key(
+                key="", resource_type=ResourceType.USER_ID_MAPPING, graph_client=graph
             )
-
-            if (
-                platform_resource
-                and platform_resource.resource_info
-                and platform_resource.resource_info.value
-            ):
-                with contextlib.suppress(ValueError, AssertionError):
-                    looker_user_mapping = from_serialized_value(
-                        platform_resource.resource_info.value
-                    )
-                    assert isinstance(looker_user_mapping, dict)
+            for platform_resource in platform_resources:
+                if (
+                    platform_resource
+                    and platform_resource.resource_info
+                    and platform_resource.resource_info.value
+                ):
+                    with contextlib.suppress(ValueError, AssertionError):
+                        looker_user_mapping.update(
+                            from_serialized_value(platform_resource.resource_info.value)
+                        )
+                        assert isinstance(looker_user_mapping, dict)
 
         return cls(looker_user_mapping=looker_user_mapping)
 
