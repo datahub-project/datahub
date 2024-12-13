@@ -689,9 +689,7 @@ class DatahubSensors:
 
         return SkipReason("Asset metadata processed")
 
-    def _emit_metadata(
-        self, context: RunStatusSensorContext
-    ) -> SensorReturnTypesUnion:
+    def _emit_metadata(self, context: RunStatusSensorContext) -> SensorReturnTypesUnion:
         """
         Function to emit metadata for datahub rest.
         """
