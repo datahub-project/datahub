@@ -1369,7 +1369,14 @@ def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_gra
 
 
 @freeze_time(FROZEN_TIME)
-def test_extract_project_hierarchy():
+@pytest.mark.parametrize(
+    "extract_project_hierarchy, allowed_projects",
+    [
+        (True, ["project1", "project4", "project3"]),
+        (False, ["project1", "project4"]),
+    ],
+)
+def test_extract_project_hierarchy(extract_project_hierarchy, allowed_projects):
     context = PipelineContext(run_id="0", pipeline_name="test_tableau")
 
     config_dict = config_source_default.copy()
@@ -1382,7 +1389,7 @@ def test_extract_project_hierarchy():
         "deny": ["project2"],
     }
 
-    config_dict["extract_project_hierarchy"] = True
+    config_dict["extract_project_hierarchy"] = extract_project_hierarchy
 
     config = TableauConfig.parse_obj(config_dict)
 
@@ -1433,20 +1440,6 @@ def test_extract_project_hierarchy():
 
     site_source._init_tableau_project_registry(all_project_map)
 
-    # "project1", "project4" are included because of `allow` pattern
-    # "project3" is included because it is not explicitly denied in `deny` and `extract_project_hierarchy` is enabled
-    assert ["project1", "project4", "project3"] == [
-        project.name for project in site_source.tableau_project_registry.values()
-    ]
-
-    # reset the registry to test extract_project_hierarchy=false
-    site_source.tableau_project_registry = {}
-
-    config.extract_project_hierarchy = False
-
-    site_source._init_tableau_project_registry(all_project_map)
-
-    # "project1", "project4" are included because of `allow` pattern
-    assert ["project1", "project4"] == [
+    assert allowed_projects == [
         project.name for project in site_source.tableau_project_registry.values()
     ]
