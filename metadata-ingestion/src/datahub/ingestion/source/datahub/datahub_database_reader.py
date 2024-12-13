@@ -4,7 +4,6 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, Generic, Iterable, List, Optional, Tuple, TypeVar
 
-import MySQLdb
 from sqlalchemy import create_engine
 
 from datahub.emitter.aspect import ASPECT_MAP
@@ -171,6 +170,7 @@ class DataHubDatabaseReader:
                     for row in result:
                         yield dict(row)
             elif self.engine.dialect.name == "mysql":  # MySQL
+                import MySQLdb
                 with contextlib.closing(
                     conn.connection.cursor(MySQLdb.cursors.SSCursor)
                 ) as cursor:
