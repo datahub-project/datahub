@@ -3,7 +3,17 @@ import traceback
 import warnings
 from collections import defaultdict
 from types import ModuleType
-from typing import Dict, List, NamedTuple, Optional, Sequence, Set, Tuple, Union
+from typing import (
+    TYPE_CHECKING,
+    Dict,
+    List,
+    NamedTuple,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Union,
+)
 
 from dagster import (
     AssetSelection,
@@ -24,15 +34,7 @@ from dagster import (
     run_status_sensor,
     sensor,
 )
-from dagster._core.definitions.asset_selection import CoercibleToAssetSelection
-from dagster._core.definitions.multi_asset_sensor_definition import (
-    AssetMaterializationFunctionReturn,
-)
-from dagster._core.definitions.sensor_definition import (
-    DefaultSensorStatus,
-    RawSensorEvaluationFunctionReturn,
-)
-from dagster._core.definitions.target import ExecutableDefinition
+from dagster._core.definitions.sensor_definition import DefaultSensorStatus
 from dagster._core.definitions.unresolved_asset_job_definition import (
     UnresolvedAssetJobDefinition,
 )
@@ -56,6 +58,23 @@ from datahub_dagster_plugin.client.dagster_generator import (
     DatahubDagsterSourceConfig,
 )
 
+if TYPE_CHECKING:
+    from dagster._core.definitions.asset_selection import CoercibleToAssetSelection
+    from dagster._core.definitions.multi_asset_sensor_definition import (
+        AssetMaterializationFunctionReturn,
+    )
+    from dagster._core.definitions.target import ExecutableDefinition
+
+    try:
+        from dagster._core.definitions.sensor_definition import (
+            SensorReturnTypesUnion,  # type: ignore
+        )
+    except ImportError:
+        # This was renamed in Dagster 1.9.5.
+        from dagster._core.definitions.sensor_definition import (
+            RawSensorEvaluationFunctionReturn as SensorReturnTypesUnion,  # type: ignore
+        )
+
 
 class Lineage(NamedTuple):
     upstreams: List[str]
@@ -67,10 +86,10 @@ def make_datahub_sensor(
     name: Optional[str] = None,
     minimum_interval_seconds: Optional[int] = None,
     description: Optional[str] = None,
-    job: Optional[ExecutableDefinition] = None,
-    jobs: Optional[Sequence[ExecutableDefinition]] = None,
+    job: Optional["ExecutableDefinition"] = None,
+    jobs: Optional[Sequence["ExecutableDefinition"]] = None,
     default_status: DefaultSensorStatus = DefaultSensorStatus.STOPPED,
-    asset_selection: Optional[CoercibleToAssetSelection] = None,
+    asset_selection: Optional["CoercibleToAssetSelection"] = None,
     required_resource_keys: Optional[Set[str]] = None,
     monitored_jobs: Optional[
         Sequence[
@@ -473,9 +492,11 @@ class DatahubSensors:
             dataset_urn = dagster_generator.emit_asset(
                 self.graph,
                 asset_key,
-                log.asset_materialization.description
-                if log.asset_materialization
-                else None,
+                (
+                    log.asset_materialization.description
+                    if log.asset_materialization
+                    else None
+                ),
                 properties,
                 downstreams=downstreams,
                 upstreams=upstreams,
@@ -670,7 +691,7 @@ class DatahubSensors:
 
     def _emit_asset_metadata(
         self, context: MultiAssetSensorEvaluationContext
-    ) -> AssetMaterializationFunctionReturn:
+    ) -> "AssetMaterializationFunctionReturn":
         dagster_environment = self.get_dagster_environment()
         context.log.debug(f"dagster enivronment: {dagster_environment}")
         if not dagster_environment:
@@ -691,7 +712,7 @@ class DatahubSensors:
 
     def _emit_metadata(
         self, context: RunStatusSensorContext
-    ) -> RawSensorEvaluationFunctionReturn:
+    ) -> "SensorReturnTypesUnion":
         """
         Function to emit metadata for datahub rest.
         """
