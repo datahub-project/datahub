@@ -171,6 +171,7 @@ class DataHubDatabaseReader:
                         yield dict(row)
             elif self.engine.dialect.name == "mysql":  # MySQL
                 import MySQLdb
+
                 with contextlib.closing(
                     conn.connection.cursor(MySQLdb.cursors.SSCursor)
                 ) as cursor:
