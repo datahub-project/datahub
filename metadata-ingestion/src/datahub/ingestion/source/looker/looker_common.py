@@ -31,15 +31,15 @@ from looker_sdk.sdk.api40.models import (
 from pydantic.class_validators import validator
 
 import datahub.emitter.mce_builder as builder
+from datahub.api.entities.platformresource.platform_resource import (
+    PlatformResource,
+    PlatformResourceKey,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, create_embed_mcp
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.source.common.resource import (
-    ResourceType,
-    generate_user_id_mapping_resource_urn,
-    to_serialized_value,
-)
+from datahub.ingestion.source.common.resource import ResourceType
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.looker.looker_config import (
     LookerCommonConfig,
@@ -94,12 +94,10 @@ from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     BrowsePathsV2Class,
     ContainerClass,
-    DataPlatformInstanceClass,
     DatasetPropertiesClass,
     EnumTypeClass,
     FineGrainedLineageClass,
     GlobalTagsClass,
-    PlatformResourceInfoClass,
     SchemaMetadataClass,
     StatusClass,
     SubTypesClass,
@@ -1619,13 +1617,35 @@ class LookerDashboard:
         return get_urn_looker_dashboard_id(self.id)
 
 
+@dataclass()
+class LookerPlatformResource:
+    resource_type: str
+    value: Dict[str, str]
+    platform_instance: Optional[str] = None
+
+    def platform_resource_key(self) -> PlatformResourceKey:
+        return PlatformResourceKey(
+            platform=LOOKER,
+            resource_type=self.resource_type,
+            platform_instance=self.platform_instance,
+            primary_key=self.platform_instance if self.platform_instance else "",
+        )
+
+    def platform_resource(self) -> PlatformResource:
+        return PlatformResource.create(
+            key=self.platform_resource_key(),
+            value=self.value,
+        )
+
+
 class LookerUserRegistry:
     looker_api_wrapper: LookerAPI
     fields: str = ",".join(["id", "email", "display_name", "first_name", "last_name"])
     _user_email_cache: Dict[str, str] = {}
 
-    def __init__(self, looker_api: LookerAPI):
+    def __init__(self, looker_api: LookerAPI, report: SourceReport):
         self.looker_api_wrapper = looker_api
+        self.report = report
         self._user_email_cache = {}
 
     def get_by_id(self, id_: str) -> Optional[LookerUser]:
@@ -1646,27 +1666,32 @@ class LookerUserRegistry:
         return looker_user
 
     def to_platform_resource(
-        self, platform_instance: Optional[str], env: str
+        self, platform_instance: Optional[str]
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        resource_urn = generate_user_id_mapping_resource_urn(
-            LOOKER, platform_instance, env
-        )
+        try:
+            new_platform_resource = LookerPlatformResource(
+                value=self._user_email_cache,
+                resource_type=ResourceType.USER_ID_MAPPING,
+                platform_instance=platform_instance,
+            )
 
-        dpi = DataPlatformInstanceClass(
-            platform=builder.make_data_platform_urn(LOOKER),
-            instance=(
-                builder.make_dataplatform_instance_urn(LOOKER, platform_instance)
-                if platform_instance
-                else None
-            ),
-        )
+            platform_resource = new_platform_resource.platform_resource()
 
-        resource_info = PlatformResourceInfoClass(
-            resourceType=ResourceType.USER_ID_MAPPING,
-            value=to_serialized_value(self._user_email_cache),
-            primaryKey=platform_instance or "",
-        )
+            logger.info(
+                f"Looker Users added to the platform resource: {', '.join([ f'{user_id}:{email}' for user_id, email in self._user_email_cache.items()])}"
+            )
 
-        yield from MetadataChangeProposalWrapper.construct_many(
-            resource_urn, aspects=[dpi, resource_info]
-        )
+            for mcp in platform_resource.to_mcps():
+                yield mcp
+
+        except Exception as exc:
+            self.report.report_failure(
+                message="Failed to generate platform resource for looker",
+                context=", ".join(
+                    [
+                        f"{user_id}:{email}"
+                        for user_id, email in self._user_email_cache.items()
+                    ]
+                ),
+                exc=exc,
+            )
