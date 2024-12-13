@@ -381,7 +381,7 @@ class TableauConfig(
     fetch_size: int = Field(
         default=250,
         description="[deprecated] Use page_size instead. Specifies the number of records to retrieve in each batch during a query execution.",
-        exclude=True,
+        hidden_from_docs=True,
     )
 
     # We've found that even with a small workbook page size (e.g. 10), the Tableau API often
