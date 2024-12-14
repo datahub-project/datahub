@@ -48,6 +48,7 @@ class SQLSourceReport(
     query_combiner: Optional[SQLAlchemyQueryCombinerReport] = None
 
     num_view_definitions_parsed: int = 0
+    num_view_definitions_view_urn_mismatch: int = 0
     num_view_definitions_failed_parsing: int = 0
     num_view_definitions_failed_column_parsing: int = 0
     view_definitions_parsing_failures: LossyList[str] = field(default_factory=LossyList)

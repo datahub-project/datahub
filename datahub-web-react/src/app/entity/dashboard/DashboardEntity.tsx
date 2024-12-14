@@ -32,6 +32,7 @@ import { LOOKER_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -103,6 +104,9 @@ export class DashboardEntity implements Entity<Dashboard> {
         {
             component: DataProductSection,
         },
+        {
+            component: SidebarStructuredPropsSection,
+        },
     ];
 
     renderProfile = (urn: string) => (
@@ -145,10 +149,10 @@ export class DashboardEntity implements Entity<Dashboard> {
                     display: {
                         visible: (_, dashboard: GetDashboardQuery) =>
                             !!dashboard?.dashboard?.embed?.renderUrl &&
-                            dashboard?.dashboard?.platform.urn === LOOKER_URN,
+                            dashboard?.dashboard?.platform?.urn === LOOKER_URN,
                         enabled: (_, dashboard: GetDashboardQuery) =>
                             !!dashboard?.dashboard?.embed?.renderUrl &&
-                            dashboard?.dashboard?.platform.urn === LOOKER_URN,
+                            dashboard?.dashboard?.platform?.urn === LOOKER_URN,
                     },
                 },
                 {
@@ -166,7 +170,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                     name: 'Incidents',
                     component: IncidentTab,
                     getDynamicName: (_, dashboard) => {
-                        const activeIncidentCount = dashboard?.dashboard?.activeIncidents.total;
+                        const activeIncidentCount = dashboard?.dashboard?.activeIncidents?.total;
                         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
@@ -290,6 +294,8 @@ export class DashboardEntity implements Entity<Dashboard> {
             EntityCapabilityType.DATA_PRODUCTS,
         ]);
     };
+
+    getGraphName = () => this.getPathName();
 
     renderEmbeddedProfile = (urn: string) => (
         <EmbeddedProfile

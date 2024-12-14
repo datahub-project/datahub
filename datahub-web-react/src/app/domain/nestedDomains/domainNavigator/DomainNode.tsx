@@ -83,7 +83,7 @@ export default function DomainNode({ domain, numDomainChildren, domainUrnToHide,
     const hasDomainChildren = useHasDomainChildren({ domainUrn: domain.urn, numDomainChildren });
 
     const shouldAutoOpen = useMemo(
-        () => !isInSelectMode && entityData?.parentDomains?.domains.some((parent) => parent.urn === domain.urn),
+        () => !isInSelectMode && entityData?.parentDomains?.domains?.some((parent) => parent.urn === domain.urn),
         [isInSelectMode, entityData, domain.urn],
     );
 

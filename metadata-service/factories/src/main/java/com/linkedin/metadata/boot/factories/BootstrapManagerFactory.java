@@ -18,6 +18,7 @@ import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
 import com.linkedin.metadata.boot.steps.RemoveClientIdAspectStep;
 import com.linkedin.metadata.boot.steps.RestoreColumnLineageIndices;
 import com.linkedin.metadata.boot.steps.RestoreDbtSiblingsIndices;
+import com.linkedin.metadata.boot.steps.RestoreFormInfoIndicesStep;
 import com.linkedin.metadata.boot.steps.RestoreGlossaryIndices;
 import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
 import com.linkedin.metadata.entity.AspectMigrationsDao;
@@ -110,6 +111,8 @@ public class BootstrapManagerFactory {
     final WaitForSystemUpdateStep waitForSystemUpdateStep =
         new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
     final IngestEntityTypesStep ingestEntityTypesStep = new IngestEntityTypesStep(_entityService);
+    final RestoreFormInfoIndicesStep restoreFormInfoIndicesStep =
+        new RestoreFormInfoIndicesStep(_entityService);
 
     final List<BootstrapStep> finalSteps =
         new ArrayList<>(
@@ -124,7 +127,8 @@ public class BootstrapManagerFactory {
                 restoreDbtSiblingsIndices,
                 indexDataPlatformsStep,
                 restoreColumnLineageIndices,
-                ingestEntityTypesStep));
+                ingestEntityTypesStep,
+                restoreFormInfoIndicesStep));
 
     return new BootstrapManager(finalSteps);
   }

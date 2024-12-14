@@ -28,10 +28,12 @@ import org.apache.commons.lang3.StringUtils;
 public interface AspectsBatch {
   Collection<? extends BatchItem> getItems();
 
+  Collection<? extends BatchItem> getInitialItems();
+
   RetrieverContext getRetrieverContext();
 
   /**
-   * Returns MCP items. Could be patch, upsert, etc.
+   * Returns MCP items. Could be one of patch, upsert, etc.
    *
    * @return batch items
    */
@@ -160,11 +162,22 @@ public interface AspectsBatch {
   }
 
   default boolean containsDuplicateAspects() {
-    return getItems().stream()
-            .map(i -> String.format("%s_%s", i.getClass().getName(), i.hashCode()))
+    return getInitialItems().stream()
+            .map(i -> String.format("%s_%s", i.getClass().getSimpleName(), i.hashCode()))
             .distinct()
             .count()
         != getItems().size();
+  }
+
+  default Map<String, List<? extends BatchItem>> duplicateAspects() {
+    return getInitialItems().stream()
+        .collect(
+            Collectors.groupingBy(
+                i -> String.format("%s_%s", i.getClass().getSimpleName(), i.hashCode())))
+        .entrySet()
+        .stream()
+        .filter(entry -> entry.getValue() != null && entry.getValue().size() > 1)
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
 
   default Map<String, Set<String>> getUrnAspectsMap() {

@@ -4,6 +4,8 @@ import static com.linkedin.metadata.Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NA
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.EXECUTION_REQUEST_RESULT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SCHEMA_METADATA_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME;
 
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.hooks.IgnoreUnknownMutator;
@@ -15,6 +17,8 @@ import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
 import com.linkedin.metadata.aspect.validation.FieldPathValidator;
 import com.linkedin.metadata.dataproducts.sideeffects.DataProductUnsetSideEffect;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
+import com.linkedin.metadata.structuredproperties.validation.HidePropertyValidator;
+import com.linkedin.metadata.structuredproperties.validation.ShowPropertyAsBadgeValidator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
 import com.linkedin.metadata.timeline.eventgenerator.SchemaMetadataChangeEventGenerator;
 import java.util.List;
@@ -146,6 +150,42 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(EXECUTION_REQUEST_ENTITY_NAME)
                             .aspectName(EXECUTION_REQUEST_RESULT_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator hidePropertyValidator() {
+    return new HidePropertyValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(HidePropertyValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+                            .aspectName(STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator showPropertyAsAssetBadgeValidator() {
+    return new ShowPropertyAsBadgeValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(ShowPropertyAsBadgeValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(STRUCTURED_PROPERTY_ENTITY_NAME)
+                            .aspectName(STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME)
                             .build()))
                 .build());
   }

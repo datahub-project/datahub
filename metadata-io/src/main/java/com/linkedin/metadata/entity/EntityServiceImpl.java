@@ -854,7 +854,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       boolean overwrite) {
 
     if (inputBatch.containsDuplicateAspects()) {
-      log.warn(String.format("Batch contains duplicates: %s", inputBatch));
+      log.warn("Batch contains duplicates: {}", inputBatch.duplicateAspects());
       MetricUtils.counter(EntityServiceImpl.class, "batch_with_duplicate").inc();
     }
 
@@ -968,39 +968,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                             writeItem.getAspectSpec(),
                                             databaseAspect);
 
-                            final UpdateAspectResult result;
                             /*
                               This condition is specifically for an older conditional write ingestAspectIfNotPresent()
                               overwrite is always true otherwise
                             */
                             if (overwrite || databaseAspect == null) {
-                              result =
-                                  Optional.ofNullable(
-                                          ingestAspectToLocalDB(
-                                              txContext, writeItem, databaseSystemAspect))
-                                      .map(
-                                          optResult ->
-                                              optResult.toBuilder().request(writeItem).build())
-                                      .orElse(null);
-
-                            } else {
-                              RecordTemplate oldValue = databaseSystemAspect.getRecordTemplate();
-                              SystemMetadata oldMetadata = databaseSystemAspect.getSystemMetadata();
-                              result =
-                                  UpdateAspectResult.<ChangeItemImpl>builder()
-                                      .urn(writeItem.getUrn())
-                                      .request(writeItem)
-                                      .oldValue(oldValue)
-                                      .newValue(oldValue)
-                                      .oldSystemMetadata(oldMetadata)
-                                      .newSystemMetadata(oldMetadata)
-                                      .operation(MetadataAuditOperation.UPDATE)
-                                      .auditStamp(writeItem.getAuditStamp())
-                                      .maxVersion(databaseAspect.getVersion())
-                                      .build();
+                              return Optional.ofNullable(
+                                      ingestAspectToLocalDB(
+                                          txContext, writeItem, databaseSystemAspect))
+                                  .map(
+                                      optResult -> optResult.toBuilder().request(writeItem).build())
+                                  .orElse(null);
                             }
 
-                            return result;
+                            return null;
                           })
                       .filter(Objects::nonNull)
                       .collect(Collectors.toList());
@@ -1051,7 +1032,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 }
               } else {
                 MetricUtils.counter(EntityServiceImpl.class, "batch_empty_transaction").inc();
-                log.warn("Empty transaction detected. {}", inputBatch);
+                // This includes no-op batches. i.e. patch removing non-existent items
+                log.debug("Empty transaction detected");
               }
 
               return upsertResults;
@@ -1150,7 +1132,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .build();
     List<UpdateAspectResult> ingested = ingestAspects(opContext, aspectsBatch, true, false);
 
-    return ingested.stream().findFirst().get().getNewValue();
+    return ingested.stream().findFirst().map(UpdateAspectResult::getNewValue).orElse(null);
   }
 
   /**
@@ -1283,6 +1265,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return timeseriesResults.stream()
         .map(
             result -> {
+              MCPItem item = result.getFirst();
               Optional<Pair<Future<?>, Boolean>> emissionStatus = result.getSecond();
 
               emissionStatus.ifPresent(
@@ -1294,10 +1277,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     }
                   });
 
-              MCPItem request = result.getFirst();
               return IngestResult.builder()
-                  .urn(request.getUrn())
-                  .request(request)
+                  .urn(item.getUrn())
+                  .request(item)
+                  .result(
+                      UpdateAspectResult.builder()
+                          .urn(item.getUrn())
+                          .newValue(item.getRecordTemplate())
+                          .auditStamp(item.getAuditStamp())
+                          .newSystemMetadata(item.getSystemMetadata())
+                          .build())
                   .publishedMCL(
                       emissionStatus.map(status -> status.getFirst() != null).orElse(false))
                   .processedMCL(emissionStatus.map(Pair::getSecond).orElse(false))
@@ -2525,6 +2514,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull final ChangeMCP writeItem,
       @Nullable final EntityAspect.EntitySystemAspect databaseAspect) {
 
+    if (writeItem.getRecordTemplate() == null) {
+      log.error(
+          "Unexpected write of null aspect with name {}, urn {}",
+          writeItem.getAspectName(),
+          writeItem.getUrn());
+      return null;
+    }
+
     // Set the "last run id" to be the run id provided with the new system metadata. This will be
     // stored in index
     // for all aspects that have a run id, regardless of whether they change.
@@ -2533,9 +2530,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         .setLastRunId(writeItem.getSystemMetadata().getRunId(GetMode.NULL), SetMode.IGNORE_NULL);
 
     // 2. Compare the latest existing and new.
-    final RecordTemplate databaseValue =
-        databaseAspect == null ? null : databaseAspect.getRecordTemplate();
-
     final EntityAspect.EntitySystemAspect previousBatchAspect =
         (EntityAspect.EntitySystemAspect) writeItem.getPreviousSystemAspect();
     final RecordTemplate previousValue =
@@ -2544,45 +2538,94 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     // 3. If there is no difference between existing and new, we just update
     // the lastObserved in system metadata. RunId should stay as the original runId
     if (previousValue != null
-        && DataTemplateUtil.areEqual(databaseValue, writeItem.getRecordTemplate())) {
+        && DataTemplateUtil.areEqual(previousValue, writeItem.getRecordTemplate())) {
 
-      SystemMetadata latestSystemMetadata = previousBatchAspect.getSystemMetadata();
-      latestSystemMetadata.setLastObserved(writeItem.getSystemMetadata().getLastObserved());
-      latestSystemMetadata.setLastRunId(
-          writeItem.getSystemMetadata().getLastRunId(GetMode.NULL), SetMode.IGNORE_NULL);
+      Optional<SystemMetadata> latestSystemMetadataDiff =
+          systemMetadataDiff(
+              txContext,
+              writeItem.getUrn(),
+              previousBatchAspect.getSystemMetadata(),
+              writeItem.getSystemMetadata(),
+              databaseAspect == null ? null : databaseAspect.getSystemMetadata());
 
-      previousBatchAspect
-          .getEntityAspect()
-          .setSystemMetadata(RecordUtils.toJsonString(latestSystemMetadata));
+      if (latestSystemMetadataDiff.isPresent()) {
+        // Inserts & update order is not guaranteed, flush the insert for potential updates within
+        // same tx
+        if (databaseAspect == null && txContext != null) {
+          conditionalLogLevel(
+              txContext,
+              String.format(
+                  "Flushing for systemMetadata update aspect with name %s, urn %s",
+                  writeItem.getAspectName(), writeItem.getUrn()));
+          txContext.flush();
+        }
 
-      log.info(
-          "Ingesting aspect with name {}, urn {}",
-          previousBatchAspect.getAspectName(),
-          previousBatchAspect.getUrn());
-      aspectDao.saveAspect(txContext, previousBatchAspect.getEntityAspect(), false);
+        conditionalLogLevel(
+            txContext,
+            String.format(
+                "Update aspect with name %s, urn %s, txContext: %s, databaseAspect: %s, newMetadata: %s newSystemMetadata: %s",
+                previousBatchAspect.getAspectName(),
+                previousBatchAspect.getUrn(),
+                txContext != null,
+                databaseAspect == null ? null : databaseAspect.getEntityAspect(),
+                previousBatchAspect.getEntityAspect().getMetadata(),
+                latestSystemMetadataDiff.get()));
 
-      // metrics
-      aspectDao.incrementWriteMetrics(
-          previousBatchAspect.getAspectName(),
-          1,
-          previousBatchAspect.getMetadataRaw().getBytes(StandardCharsets.UTF_8).length);
+        aspectDao.saveAspect(
+            txContext,
+            previousBatchAspect.getUrnRaw(),
+            previousBatchAspect.getAspectName(),
+            previousBatchAspect.getMetadataRaw(),
+            previousBatchAspect.getCreatedBy(),
+            null,
+            previousBatchAspect.getCreatedOn(),
+            RecordUtils.toJsonString(latestSystemMetadataDiff.get()),
+            previousBatchAspect.getVersion(),
+            false);
 
-      return UpdateAspectResult.builder()
-          .urn(writeItem.getUrn())
-          .oldValue(previousValue)
-          .newValue(previousValue)
-          .oldSystemMetadata(previousBatchAspect.getSystemMetadata())
-          .newSystemMetadata(latestSystemMetadata)
-          .operation(MetadataAuditOperation.UPDATE)
-          .auditStamp(writeItem.getAuditStamp())
-          .maxVersion(0)
-          .build();
+        // metrics
+        aspectDao.incrementWriteMetrics(
+            previousBatchAspect.getAspectName(),
+            1,
+            previousBatchAspect.getMetadataRaw().getBytes(StandardCharsets.UTF_8).length);
+
+        return UpdateAspectResult.builder()
+            .urn(writeItem.getUrn())
+            .oldValue(previousValue)
+            .newValue(previousValue)
+            .oldSystemMetadata(previousBatchAspect.getSystemMetadata())
+            .newSystemMetadata(latestSystemMetadataDiff.get())
+            .operation(MetadataAuditOperation.UPDATE)
+            .auditStamp(writeItem.getAuditStamp())
+            .maxVersion(0)
+            .build();
+      } else {
+        MetricUtils.counter(EntityServiceImpl.class, "batch_with_noop_sysmetadata").inc();
+        return null;
+      }
     }
 
     // 4. Save the newValue as the latest version
-    if (!DataTemplateUtil.areEqual(databaseValue, writeItem.getRecordTemplate())) {
-      log.debug(
-          "Ingesting aspect with name {}, urn {}", writeItem.getAspectName(), writeItem.getUrn());
+    if (writeItem.getRecordTemplate() != null
+        && !DataTemplateUtil.areEqual(previousValue, writeItem.getRecordTemplate())) {
+      conditionalLogLevel(
+          txContext,
+          String.format(
+              "Insert aspect with name %s, urn %s", writeItem.getAspectName(), writeItem.getUrn()));
+
+      // Inserts & update order is not guaranteed, flush the insert for potential updates within
+      // same tx
+      if (databaseAspect == null
+          && !ASPECT_LATEST_VERSION.equals(writeItem.getNextAspectVersion())
+          && txContext != null) {
+        conditionalLogLevel(
+            txContext,
+            String.format(
+                "Flushing for update aspect with name %s, urn %s",
+                writeItem.getAspectName(), writeItem.getUrn()));
+        txContext.flush();
+      }
+
       String newValueStr = EntityApiUtils.toJsonAspect(writeItem.getRecordTemplate());
       long versionOfOld =
           aspectDao.saveLatestAspect(
@@ -2629,5 +2672,44 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final List<RelationshipFieldSpec> relationshipFieldSpecs =
         aspectSpec.getRelationshipFieldSpecs();
     return relationshipFieldSpecs.stream().anyMatch(RelationshipFieldSpec::isLineageRelationship);
+  }
+
+  private static Optional<SystemMetadata> systemMetadataDiff(
+      @Nullable TransactionContext txContext,
+      @Nonnull Urn urn,
+      @Nullable SystemMetadata previous,
+      @Nonnull SystemMetadata current,
+      @Nullable SystemMetadata database) {
+
+    SystemMetadata latestSystemMetadata = GenericRecordUtils.copy(previous, SystemMetadata.class);
+
+    latestSystemMetadata.setLastRunId(latestSystemMetadata.getRunId(), SetMode.REMOVE_IF_NULL);
+    latestSystemMetadata.setLastObserved(current.getLastObserved(), SetMode.IGNORE_NULL);
+    latestSystemMetadata.setRunId(current.getRunId(), SetMode.REMOVE_IF_NULL);
+
+    if (!DataTemplateUtil.areEqual(latestSystemMetadata, previous)
+        && !DataTemplateUtil.areEqual(latestSystemMetadata, database)) {
+
+      conditionalLogLevel(
+          txContext,
+          String.format(
+              "systemMetdataDiff urn %s, %s != %s AND %s",
+              urn,
+              RecordUtils.toJsonString(latestSystemMetadata),
+              previous == null ? null : RecordUtils.toJsonString(previous),
+              database == null ? null : RecordUtils.toJsonString(database)));
+
+      return Optional.of(latestSystemMetadata);
+    }
+
+    return Optional.empty();
+  }
+
+  private static void conditionalLogLevel(@Nullable TransactionContext txContext, String message) {
+    if (txContext != null && txContext.getFailedAttempts() > 1) {
+      log.warn(message);
+    } else {
+      log.debug(message);
+    }
   }
 }

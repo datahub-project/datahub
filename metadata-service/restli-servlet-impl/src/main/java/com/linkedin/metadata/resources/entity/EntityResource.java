@@ -274,7 +274,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     String actorUrnStr = authentication.getActor().toUrnStr();
     final Urn urn = com.datahub.util.ModelUtils.getUrnFromSnapshotUnion(entity.getValue());
     final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(), getContext(),
+            systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
                     ACTION_INGEST, urn.getEntityType()), authorizer, authentication, true);
 
     if (!isAPIAuthorizedEntityUrns(
@@ -282,7 +282,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             CREATE,
             List.of(urn))) {
       throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to edit entity " + urn);
+          HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to edit entity " + urn);
     }
 
     try {
@@ -320,7 +320,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             .map(Entity::getValue)
             .map(com.datahub.util.ModelUtils::getUrnFromSnapshotUnion).collect(Collectors.toList());
     final OperationContext opContext = OperationContext.asSession(
-            systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(),
+            systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr,
                     getContext(), ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList())),
             authorizer, authentication, true);
 
@@ -328,7 +328,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
             opContext,
             CREATE, urns)) {
       throw new RestLiServiceException(
-          HttpStatus.S_403_FORBIDDEN, "User is unauthorized to edit entities.");
+          HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr +  " is unauthorized to edit entities.");
     }
 
     for (Entity entity : entities) {

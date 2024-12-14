@@ -13,7 +13,7 @@ export function useHandleMoveDomainComplete() {
         if (!entityData) return;
 
         const domain = entityData as Domain;
-        const oldParentUrn = domain.parentDomains?.domains.length ? domain.parentDomains.domains[0].urn : undefined;
+        const oldParentUrn = domain.parentDomains?.domains?.length ? domain.parentDomains.domains[0].urn : undefined;
 
         analytics.event({
             type: EventType.MoveDomainEvent,
