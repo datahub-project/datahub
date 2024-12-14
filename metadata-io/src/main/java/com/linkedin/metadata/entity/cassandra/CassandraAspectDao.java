@@ -198,7 +198,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public Map<EntityAspectIdentifier, EntityAspect> batchGet(
-      @Nonnull final Set<EntityAspectIdentifier> keys) {
+      @Nonnull final Set<EntityAspectIdentifier> keys, boolean forUpdate) {
     validateConnection();
     return keys.stream()
         .map(this::getAspect)
