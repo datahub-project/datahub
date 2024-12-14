@@ -262,7 +262,7 @@ abstract class AbstractScimRepository<
     Set<String> aspectNames = ImmutableSet.of(systemOperationContext.getKeyAspectName(urn));
     return (K)
         _entityService
-            .getLatestAspectsForUrn(systemOperationContext, urn, aspectNames)
+            .getLatestAspectsForUrn(systemOperationContext, urn, aspectNames, false)
             .get(keyAspectName);
   }
 

@@ -21,6 +21,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import java.net.URISyntaxException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -140,7 +141,7 @@ public class TestMCP implements ChangeMCP {
             mcp ->
                 mcp.getHeaders().entrySet().stream()
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
-        .orElse(headers);
+        .orElse(headers != null ? headers : Collections.emptyMap());
   }
 
   @Override
