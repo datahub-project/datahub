@@ -2,6 +2,7 @@ import concurrent.futures
 import glob
 import json
 import logging
+import time
 
 from deepdiff import DeepDiff
 
@@ -51,6 +52,9 @@ def evaluate_test(auth_session, test_name, test_data):
                 description = req_resp["request"].pop("description")
             else:
                 description = None
+            if "wait" in req_resp["request"]:
+                time.sleep(req_resp["request"]["wait"])
+                continue
             url = req_resp["request"]["url"]
             actual_resp = execute_request(auth_session, req_resp["request"])
             try:
