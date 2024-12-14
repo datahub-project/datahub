@@ -25,6 +25,8 @@ import lombok.experimental.Accessors;
 @Getter
 @Accessors(chain = true)
 public class CreateIfNotExistsValidator extends AspectPayloadValidator {
+  public static final String FILTER_EXCEPTION_HEADER = "If-None-Match";
+  public static final String FILTER_EXCEPTION_VALUE = "*";
 
   @Nonnull private AspectPluginConfig config;
 
@@ -49,11 +51,17 @@ public class CreateIfNotExistsValidator extends AspectPayloadValidator {
             .filter(item -> ChangeType.CREATE_ENTITY.equals(item.getChangeType()))
             .collect(Collectors.toSet())) {
       // if the key aspect is missing in the batch, the entity exists and CREATE_ENTITY should be
-      // denied
+      // denied or dropped
       if (!entityKeyMap.containsKey(createEntityItem.getUrn())) {
-        exceptions.addException(
-            createEntityItem,
-            "Cannot perform CREATE_ENTITY if not exists since the entity key already exists.");
+        if (isPrecondition(createEntityItem)) {
+          exceptions.addException(
+              AspectValidationException.forFilter(
+                  createEntityItem, "Dropping write per precondition header If-None-Match: *"));
+        } else {
+          exceptions.addException(
+              createEntityItem,
+              "Cannot perform CREATE_ENTITY if not exists since the entity key already exists.");
+        }
       }
     }
 
@@ -61,10 +69,16 @@ public class CreateIfNotExistsValidator extends AspectPayloadValidator {
         changeMCPs.stream()
             .filter(item -> ChangeType.CREATE.equals(item.getChangeType()))
             .collect(Collectors.toSet())) {
-      // if a CREATE item has a previous value, should be denied
+      // if a CREATE item has a previous value, should be denied or dropped
       if (createItem.getPreviousRecordTemplate() != null) {
-        exceptions.addException(
-            createItem, "Cannot perform CREATE since the aspect already exists.");
+        if (isPrecondition(createItem)) {
+          exceptions.addException(
+              AspectValidationException.forFilter(
+                  createItem, "Dropping write per precondition header If-None-Match: *"));
+        } else {
+          exceptions.addException(
+              createItem, "Cannot perform CREATE since the aspect already exists.");
+        }
       }
     }
 
@@ -76,5 +90,11 @@ public class CreateIfNotExistsValidator extends AspectPayloadValidator {
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();
+  }
+
+  private static boolean isPrecondition(ChangeMCP item) {
+    return item.getHeader(FILTER_EXCEPTION_HEADER)
+        .map(FILTER_EXCEPTION_VALUE::equals)
+        .orElse(false);
   }
 }

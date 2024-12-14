@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.entity.ebean.EbeanAspectDao.TX_ISOLATION;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -39,7 +40,6 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
-import io.ebean.annotation.TxIsolation;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -281,12 +281,11 @@ public class EbeanEntityServiceTest
     Database server = _aspectDao.getServer();
 
     try (Transaction transaction =
-        server.beginTransaction(TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
+        server.beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
       transaction.setBatchMode(true);
       // Work 1
       try (Transaction transaction2 =
-          server.beginTransaction(
-              TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
+          server.beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
         transaction2.setBatchMode(true);
         // Work 2
         transaction2.commit();
@@ -337,7 +336,7 @@ public class EbeanEntityServiceTest
     try (Transaction transaction =
         ((EbeanAspectDao) _entityServiceImpl.aspectDao)
             .getServer()
-            .beginTransaction(TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
+            .beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
       TransactionContext transactionContext = TransactionContext.empty(transaction, 3);
       _entityServiceImpl.aspectDao.saveAspect(
           transactionContext,
@@ -417,7 +416,7 @@ public class EbeanEntityServiceTest
     List<List<MetadataChangeProposal>> testData =
         dataGenerator.generateMCPs("dataset", 25, aspects).collect(Collectors.toList());
 
-    executeThreadingTest(opContext, _entityServiceImpl, testData, 15);
+    executeThreadingTest(userContext, _entityServiceImpl, testData, 15);
 
     // Expected aspects
     Set<Triple<String, String, Long>> generatedAspectIds =
@@ -456,7 +455,9 @@ public class EbeanEntityServiceTest
     assertEquals(
         missing.size(),
         0,
-        String.format("Expected all generated aspects to be inserted. Missing: %s", missing));
+        String.format(
+            "Expected all generated aspects to be inserted. Missing Examples: %s",
+            missing.stream().limit(10).collect(Collectors.toSet())));
   }
 
   /**
@@ -473,7 +474,7 @@ public class EbeanEntityServiceTest
     List<List<MetadataChangeProposal>> testData =
         dataGenerator.generateMCPs("dataset", 25, aspects).collect(Collectors.toList());
 
-    executeThreadingTest(opContext, _entityServiceImpl, testData, 1);
+    executeThreadingTest(userContext, _entityServiceImpl, testData, 1);
 
     // Expected aspects
     Set<Triple<String, String, Long>> generatedAspectIds =

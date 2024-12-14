@@ -123,6 +123,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   protected static final AuditStamp TEST_AUDIT_STAMP = AspectGenerationUtils.createAuditStamp();
   protected OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
   protected final EntityRegistry _testEntityRegistry = opContext.getEntityRegistry();
+  protected OperationContext userContext =
+      TestOperationContexts.userContextNoSearchAuthorization(_testEntityRegistry);
   protected EventProducer _mockProducer;
   protected UpdateIndicesService _mockUpdateIndicesService;
 
@@ -501,7 +503,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
-            opContext, entityUrn, new HashSet<>(Arrays.asList(aspectName1, aspectName2)));
+            opContext, entityUrn, new HashSet<>(Arrays.asList(aspectName1, aspectName2)), false);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, latestAspects.get(aspectName1)));
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, latestAspects.get(aspectName2)));
 
@@ -557,7 +559,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
-            opContext, entityUrn, new HashSet<>(List.of(aspectName1)));
+            opContext, entityUrn, new HashSet<>(List.of(aspectName1)), false);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, latestAspects.get(aspectName1)));
 
     verify(_mockProducer, times(1))
@@ -636,7 +638,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
-            opContext, entityUrn, new HashSet<>(List.of(aspectName1)));
+            opContext, entityUrn, new HashSet<>(List.of(aspectName1)), false);
     assertTrue(DataTemplateUtil.areEqual(upstreamLineage, latestAspects.get(aspectName1)));
 
     verify(_mockProducer, times(1))
@@ -709,7 +711,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
-            opContext, entityUrn, new HashSet<>(List.of(aspectName1)));
+            opContext, entityUrn, new HashSet<>(List.of(aspectName1)), false);
     assertTrue(DataTemplateUtil.areEqual(upstreamLineage, latestAspects.get(aspectName1)));
 
     verify(_mockProducer, times(1))
@@ -2156,7 +2158,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         ValidationException.class,
         () ->
             _entityServiceImpl.ingestProposal(
-                opContext, secondCreateProposal, TEST_AUDIT_STAMP, false));
+                userContext, secondCreateProposal, TEST_AUDIT_STAMP, false));
   }
 
   @Test
