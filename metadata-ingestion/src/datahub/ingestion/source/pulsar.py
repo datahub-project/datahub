@@ -89,16 +89,13 @@ class PulsarSchema:
             logger.error(f"Invalid JSON schema: {schema_data}. Error: {str(e)}")
             avro_schema = {}
 
-        namespace = avro_schema.get("namespace")
-        name = avro_schema.get("name")
-        if not namespace:
-            logger.warning("namespace is missing in schema, using 'default_namespace'")
-            namespace = "default_namespace"
-        if not name:
-            logger.warning("name is missing in schema, using 'default_name'")
-            name = "default_name"
-        self.schema_name = namespace + "." + name
-
+        self.schema_name = "null"
+        if avro_schema.get("namespace") and avro_schema.get("name"):
+            self.schema_name = avro_schema.get("namespace") + "." + avro_schema.get("name")
+        elif avro_schema.get("namespace"):
+            self.schema_name = avro_schema.get("namespace")
+        elif avro_schema.get("name"):
+            self.schema_name = avro_schema.get("name")
         self.schema_description = avro_schema.get("doc")
         self.schema_type = schema.get("type")
         self.schema_str = schema.get("data")
