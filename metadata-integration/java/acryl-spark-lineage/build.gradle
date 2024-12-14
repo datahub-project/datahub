@@ -2,7 +2,7 @@ plugins {
   id("com.palantir.git-version") apply false
 }
 apply plugin: 'java-library'
-apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'com.gradleup.shadow'
 apply plugin: 'signing'
 apply plugin: 'io.codearte.nexus-staging'
 apply plugin: 'maven-publish'
