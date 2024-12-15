@@ -87,6 +87,9 @@ def test_snowflake_tag_pattern_deny():
                 sink=DynamicTypedConfig(type="blackhole", config={}),
             )
         )
+        pipeline.graph = mock.MagicMock()
+        pipeline.source.platform_resource_repository = mock.MagicMock()  # type: ignore
+
         pipeline.run()
         pipeline.pretty_print_summary()
         pipeline.raise_from_status()

@@ -8,6 +8,7 @@ import platform
 from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Union
 
+from datahub.api.entities.external.external_entities import PlatformResourceRepository
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -38,7 +39,10 @@ from datahub.ingestion.source.snowflake.constants import (
 from datahub.ingestion.source.snowflake.snowflake_assertion import (
     SnowflakeAssertionsHandler,
 )
-from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
+from datahub.ingestion.source.snowflake.snowflake_config import (
+    SnowflakeV2Config,
+    TagOption,
+)
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnection,
     SnowflakeConnectionConfig,
@@ -162,6 +166,12 @@ class SnowflakeV2Source(
         self.data_dictionary = SnowflakeDataDictionary(connection=self.connection)
         self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
         self.aggregator: Optional[SqlParsingAggregator] = None
+        self.platform_resource_repository = None
+
+        if self.ctx.graph and self.config.extract_tags != TagOption.skip:
+            self.platform_resource_repository = PlatformResourceRepository(
+                self.ctx.graph
+            )
 
         if self.config.use_queries_v2 or self.config.include_table_lineage:
             self.aggregator = self._exit_stack.enter_context(
@@ -480,6 +490,7 @@ class SnowflakeV2Source(
             snowsight_url_builder=snowsight_url_builder,
             filters=self.filters,
             identifiers=self.identifiers,
+            platform_resource_repository=self.platform_resource_repository,
         )
 
         self.report.set_ingestion_stage("*", METADATA_EXTRACTION)
