@@ -12,7 +12,7 @@ acryl-datahub-actions==0.1.4
     # via acryl-datahub-executor
 acryl-datahub-classify==0.0.11
     # via acryl-datahub
-acryl-executor==0.1.4
+acryl-executor==0.1.5
     # via acryl-datahub-executor
 aiohappyeyeballs==2.4.4
     # via aiohttp

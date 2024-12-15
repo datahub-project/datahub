@@ -155,7 +155,10 @@ def worker_startup(*args, **kwargs):
     discovery.start()
 
     global ingestion_executor
-    ingestion_executor = setup_ingestion_executor()
+    ingestion_executor = setup_ingestion_executor(
+        executor_instance_id=discovery.get_instance_id(),
+        executor_version=discovery.get_build_info().get_version(),
+    )
 
     global assertion_executor
     assertion_executor = AssertionExecutor()
