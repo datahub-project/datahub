@@ -31,9 +31,9 @@ jobs:
       DATAHUB_TELEMETRY_ENABLED: false
     strategy:
       matrix:
-        python-version: ["3.8", "3.10"]
+        python-version: ["3.9", "3.10"]
         include:
-          - python-version: "3.8"
+          - python-version: "3.9"
             extraPythonRequirement: "dagster>=1.3.3"
           - python-version: "3.10"
             extraPythonRequirement: "dagster>=1.3.3"
@@ -66,10 +66,10 @@ jobs:
             **/junit.*.xml
       - name: Upload coverage to Codecov
         if: always()
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: .
+          directory: ./build/coverage-reports/
           fail_ci_if_error: false
           flags: dagster-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}
           name: pytest-dagster
