@@ -12,6 +12,7 @@ import {
     mapResourceTypeToDisplayName,
 } from './policyUtils';
 import AvatarsGroup from '../AvatarsGroup';
+import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from './constants';
 
 type PrivilegeOptionType = {
     type?: string;
@@ -72,10 +73,11 @@ export default function PolicyDetailsModal({ policy, open, onClose, privileges }
     const isMetadataPolicy = policy?.type === PolicyType.Metadata;
 
     const resources = convertLegacyResourceFilter(policy?.resources);
-    const resourceTypes = getFieldValues(resources?.filter, 'TYPE') || [];
+    const resourceTypes = getFieldValues(resources?.filter, TYPE, RESOURCE_TYPE) || [];
     const dataPlatformInstances = getFieldValues(resources?.filter, 'DATA_PLATFORM_INSTANCE') || [];
-    const resourceEntities = getFieldValues(resources?.filter, 'URN') || [];
-    const resourceFilterCondition = getFieldCondition(resources?.filter, 'URN') || PolicyMatchCondition.Equals;
+    const resourceEntities = getFieldValues(resources?.filter, URN, RESOURCE_URN) || [];
+    const resourceFilterCondition =
+        getFieldCondition(resources?.filter, URN, RESOURCE_URN) || PolicyMatchCondition.Equals;
     const domains = getFieldValues(resources?.filter, 'DOMAIN') || [];
 
     const {

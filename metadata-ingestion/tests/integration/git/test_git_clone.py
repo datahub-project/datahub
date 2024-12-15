@@ -1,13 +1,14 @@
-import doctest
 import os
 import pathlib
 
 import pytest
 from pydantic import SecretStr
 
+import datahub.ingestion.source.git.git_import
 from datahub.configuration.common import ConfigurationWarning
 from datahub.configuration.git import GitInfo, GitReference
 from datahub.ingestion.source.git.git_import import GitClone
+from datahub.testing.doctest import assert_doctest
 
 LOOKML_TEST_SSH_KEY = os.environ.get("DATAHUB_LOOKML_GIT_TEST_SSH_KEY")
 
@@ -110,14 +111,7 @@ def test_url_subdir() -> None:
 
 
 def test_sanitize_repo_url() -> None:
-    import datahub.ingestion.source.git.git_import
-
-    assert (
-        doctest.testmod(
-            datahub.ingestion.source.git.git_import, raise_on_error=True
-        ).attempted
-        == 3
-    )
+    assert_doctest(datahub.ingestion.source.git.git_import)
 
 
 def test_git_clone_public(tmp_path: pathlib.Path) -> None:
