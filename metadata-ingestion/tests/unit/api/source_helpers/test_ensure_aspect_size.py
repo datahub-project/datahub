@@ -105,6 +105,7 @@ def test_ensure_size_of_too_big_dataset_profile():
         fieldPath="big",
         sampleValues=20 * [(int(_MAX_BATCH_INGEST_PAYLOAD_SIZE / 20) - 10) * "a"],
     )
+    assert profile.fieldProfiles
     profile.fieldProfiles.insert(4, big_field)
     ensure_dataset_profile_size(profile)
 
@@ -113,6 +114,7 @@ def test_ensure_size_of_too_big_dataset_profile():
         fieldPath="big",
         sampleValues=[],
     )
+    assert expected_profile.fieldProfiles
     expected_profile.fieldProfiles.insert(4, reduced_field)
     assert json.dumps(profile.to_obj()) == json.dumps(
         expected_profile.to_obj()
