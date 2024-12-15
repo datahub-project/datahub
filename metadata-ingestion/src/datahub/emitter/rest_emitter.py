@@ -347,10 +347,10 @@ class DataHubRestEmitter(Closeable, Emitter):
     def _emit_generic(self, url: str, payload: str) -> None:
         curl_command = make_curl_command(self._session, "POST", url, payload)
         payload_size = len(payload)
-        if payload_size > _MAX_BATCH_INGEST_PAYLOAD_SIZE:
+        if payload_size > INGEST_MAX_PAYLOAD_BYTES:
             # since we know total payload size here, we could simply avoid sending such payload at all and report a warning, with current approach we are going to cause whole ingestion to fail
             logger.warning(
-                f"Apparent payload size exceeded {_MAX_BATCH_INGEST_PAYLOAD_SIZE}, might fail with an exception due to the size"
+                f"Apparent payload size exceeded {INGEST_MAX_PAYLOAD_BYTES}, might fail with an exception due to the size"
             )
         logger.debug(
             "Attempting to emit aspect (size: %s) to DataHub GMS; using curl equivalent to:\n%s",

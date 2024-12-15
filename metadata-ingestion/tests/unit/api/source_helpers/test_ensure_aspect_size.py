@@ -6,7 +6,7 @@ from freezegun.api import freeze_time
 
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import _MAX_BATCH_INGEST_PAYLOAD_SIZE
+from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
     ensure_aspect_size,
     ensure_dataset_profile_size,
@@ -103,7 +103,7 @@ def test_ensure_size_of_too_big_dataset_profile():
     profile = proper_dataset_profile()
     big_field = DatasetFieldProfileClass(
         fieldPath="big",
-        sampleValues=20 * [(int(_MAX_BATCH_INGEST_PAYLOAD_SIZE / 20) - 10) * "a"],
+        sampleValues=20 * [(int(INGEST_MAX_PAYLOAD_BYTES / 20) - 10) * "a"],
     )
     assert profile.fieldProfiles
     profile.fieldProfiles.insert(4, big_field)

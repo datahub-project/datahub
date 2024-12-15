@@ -2,7 +2,7 @@ import json
 import logging
 from typing import Iterable, List
 
-from datahub.emitter.rest_emitter import _MAX_BATCH_INGEST_PAYLOAD_SIZE
+from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata._schema_classes import SchemaFieldClass
@@ -28,7 +28,7 @@ def ensure_dataset_profile_size(profile: DatasetProfileClass) -> None:
                 logger.debug(
                     f"Field {field.fieldPath} has {len(field.sampleValues)} sample values, taking total bytes {values_len}"
                 )
-                if sample_fields_size + values_len > _MAX_BATCH_INGEST_PAYLOAD_SIZE:
+                if sample_fields_size + values_len > INGEST_MAX_PAYLOAD_BYTES:
                     logger.warning(
                         f"Adding sample values for field {field.fieldPath} would exceed total allowed size of an aspect, therefor skipping them"
                     )
@@ -50,7 +50,7 @@ def ensure_schema_metadata_size(schema: SchemaMetadataClass) -> None:
     for field in schema.fields:
         field_size = len(json.dumps(pre_json_transform(field.to_obj())))
         logger.debug(f"Field {field.fieldPath} takes total {field_size}")
-        if total_fields_size + field_size < _MAX_BATCH_INGEST_PAYLOAD_SIZE:
+        if total_fields_size + field_size < INGEST_MAX_PAYLOAD_BYTES:
             accepted_fields.append(field)
             total_fields_size += field_size
         else:
