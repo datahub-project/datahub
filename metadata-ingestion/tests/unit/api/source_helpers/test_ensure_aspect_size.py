@@ -10,8 +10,10 @@ from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
     ensure_aspect_size,
     ensure_dataset_profile_size,
+    ensure_schema_metadata_size,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.metadata._schema_classes import StringTypeClass
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
@@ -30,13 +32,70 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def proper_schema_metadata() -> SchemaMetadataClass:
+def too_big_schema_metadata() -> SchemaMetadataClass:
     fields = [
         SchemaFieldClass(
-            "a",
+            "aaaa",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        ),
+        SchemaFieldClass(
+            "bbbb",
+            nativeDataType="string",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        ),
+        SchemaFieldClass(
+            "cccc",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        ),
+    ]
+    # simple int type field takes ~160 bytes in JSON representation, below is to assure we exceed the threshold
+    for f_no in range(1000):
+        fields.append(
+            SchemaFieldClass(
+                fieldPath=f"t{f_no}",
+                nativeDataType="int",
+                type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+                description=20000 * "a",
+            )
+        )
+
+    # adding small field to check whether it will still be present in the output
+    fields.append(
+        SchemaFieldClass(
+            "dddd",
             nativeDataType="int",
             type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
         )
+    )
+    return SchemaMetadataClass(
+        schemaName="abcdef",
+        version=1,
+        platform="s3",
+        hash="ABCDE1234567890",
+        platformSchema=OtherSchemaClass(rawSchema="aaa"),
+        fields=fields,
+    )
+
+
+def proper_schema_metadata() -> SchemaMetadataClass:
+    fields = [
+        SchemaFieldClass(
+            "aaaa",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        ),
+        SchemaFieldClass(
+            "bbbb",
+            nativeDataType="string",
+            type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+        ),
+        SchemaFieldClass(
+            "cccc",
+            nativeDataType="int",
+            type=SchemaFieldDataTypeClass(type=NumberTypeClass()),
+        ),
     ]
     return SchemaMetadataClass(
         schemaName="abcdef",
@@ -93,9 +152,35 @@ def test_ensure_size_of_proper_dataset_profile():
     profile = proper_dataset_profile()
     orig_repr = json.dumps(profile.to_obj())
     ensure_dataset_profile_size(profile)
-    assert orig_repr == json.dumps(profile.to_obj()), (
-        "Aspect was modified in case where workunit processor should " "have been no-op"
-    )
+    assert orig_repr == json.dumps(
+        profile.to_obj()
+    ), "Aspect was modified in case where workunit processor should have been no-op"
+
+
+@freeze_time("2023-01-02 00:00:00")
+def test_ensure_size_of_too_big_schema_metadata():
+    schema = too_big_schema_metadata()
+    assert len(schema.fields) == 1004
+
+    ensure_schema_metadata_size(schema)
+    assert len(schema.fields) < 1004, "Schema has not been properly truncated"
+    assert schema.fields[-1].fieldPath == "dddd", "Small field was not added at the end"
+    # +100kb is completely arbitrary, but we are truncating the aspect based on schema fields size only, not total taken
+    # by other parameters of the aspect - it is reasonable approach though - schema fields is the only field in schema
+    # metadata which can be expected to grow out of control
+    assert (
+        len(json.dumps(schema.to_obj())) < INGEST_MAX_PAYLOAD_BYTES + 100000
+    ), "Aspect exceeded acceptable size"
+
+
+@freeze_time("2023-01-02 00:00:00")
+def test_ensure_size_of_proper_schema_metadata():
+    schema = proper_schema_metadata()
+    orig_repr = json.dumps(schema.to_obj())
+    ensure_schema_metadata_size(schema)
+    assert orig_repr == json.dumps(
+        schema.to_obj()
+    ), "Aspect was modified in case where workunit processor should have been no-op"
 
 
 @freeze_time("2023-01-02 00:00:00")
