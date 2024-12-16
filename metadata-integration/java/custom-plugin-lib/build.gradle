@@ -1,6 +1,6 @@
 plugins {
   id 'java-library'
-  id 'com.gradleup.shadow'
+  id 'com.github.johnrengelman.shadow'
   id 'signing'
   id 'io.codearte.nexus-staging'
   id 'maven-publish'
