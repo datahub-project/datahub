@@ -1,4 +1,6 @@
+import logging
 from datetime import datetime, timedelta, timezone
+import requests
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
 
 import boto3
@@ -13,6 +15,8 @@ from datahub.configuration.common import (
     PermissiveConfigModel,
 )
 from datahub.configuration.source_common import EnvConfigMixin
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from mypy_boto3_dynamodb import DynamoDBClient
@@ -33,6 +37,46 @@ class AwsAssumeRoleConfig(PermissiveConfigModel):
         description="External ID to use when assuming the role.",
     )
 
+
+def is_running_on_ec2() -> bool:
+    """
+    Check if the code is running on an EC2 instance by attempting to access the EC2 metadata service
+    """
+    metadata_url = "http://169.254.169.254/latest/meta-data/instance-id"
+    try:
+        response = requests.get(metadata_url, timeout=1)
+        return response.status_code == 200
+    except requests.exceptions.RequestException:
+        return False
+
+
+def get_instance_role_arn() -> Optional[str]:
+    """
+    Get the ARN of the role associated with the current EC2 instance.
+    Returns None if not running on EC2 or if role info cannot be retrieved.
+    """
+    if not is_running_on_ec2():
+        return None
+
+    try:
+        # Get role name from instance metadata
+        metadata_url = "http://169.254.169.254/latest/meta-data/iam/security-credentials/"
+        response = requests.get(metadata_url, timeout=1)
+        if response.status_code != 200:
+            return None
+
+        role_name = response.text.strip()
+        if not role_name:
+            return None
+
+        # Use STS to get the full role ARN
+        sts_client = boto3.client('sts')
+        identity = sts_client.get_caller_identity()
+        return identity['Arn']
+
+    except Exception as e:
+        logger.debug(f"Failed to get instance role ARN: {e}")
+        return None
 
 def assume_role(
     role: AwsAssumeRoleConfig,
@@ -153,37 +197,55 @@ class AwsConnectionConfig(ConfigModel):
             )
         elif self.aws_profile:
             session = Session(
-                region_name=self.aws_region, profile_name=self.aws_profile
+                region_name=self.aws_region,
+                profile_name=self.aws_profile
             )
         else:
-            # Use boto3's credential autodetection.
+            # Use boto3's credential autodetection
             session = Session(region_name=self.aws_region)
 
-        if self._normalized_aws_roles():
-            # Use existing session credentials to start the chain of role assumption.
-            current_credentials = session.get_credentials()
-            credentials = {
-                "AccessKeyId": current_credentials.access_key,
-                "SecretAccessKey": current_credentials.secret_key,
-                "SessionToken": current_credentials.token,
-            }
+            target_roles = self._normalized_aws_roles()
+            if target_roles:  # Check if we have any roles to assume
+                current_role_arn = get_instance_role_arn()
 
-            for role in self._normalized_aws_roles():
-                if self._should_refresh_credentials():
-                    credentials = assume_role(
-                        role,
-                        self.aws_region,
-                        credentials=credentials,
+                # Only assume role if:
+                # 1. We're not on EC2, or
+                # 2. We're on EC2 but need to assume a different role than our instance profile
+                should_assume_role = (
+                        not current_role_arn or
+                        any(role.RoleArn != current_role_arn for role in target_roles)
+                )
+
+                if should_assume_role:
+                    logger.debug("Assuming role(s) as current credentials differ from target")
+                    current_credentials = session.get_credentials()
+                    if current_credentials is None:
+                        raise ValueError("No credentials available for role assumption")
+
+                    credentials = {
+                        "AccessKeyId": current_credentials.access_key,
+                        "SecretAccessKey": current_credentials.secret_key,
+                        "SessionToken": current_credentials.token,
+                    }
+
+                    for role in target_roles:
+                        if self._should_refresh_credentials():
+                            credentials = assume_role(
+                                role,
+                                self.aws_region,
+                                credentials=credentials,
+                            )
+                            if isinstance(credentials["Expiration"], datetime):
+                                self._credentials_expiration = credentials["Expiration"]
+
+                    session = Session(
+                        aws_access_key_id=credentials["AccessKeyId"],
+                        aws_secret_access_key=credentials["SecretAccessKey"],
+                        aws_session_token=credentials["SessionToken"],
+                        region_name=self.aws_region,
                     )
-                    if isinstance(credentials["Expiration"], datetime):
-                        self._credentials_expiration = credentials["Expiration"]
-
-            session = Session(
-                aws_access_key_id=credentials["AccessKeyId"],
-                aws_secret_access_key=credentials["SecretAccessKey"],
-                aws_session_token=credentials["SessionToken"],
-                region_name=self.aws_region,
-            )
+                else:
+                    logger.debug("Using instance profile credentials as they match target role")
 
         return session
 
