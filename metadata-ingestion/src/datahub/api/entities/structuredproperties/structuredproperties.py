@@ -10,13 +10,12 @@ from ruamel.yaml import YAML
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata._urns.urn_defs import StructuredPropertyUrn
 from datahub.metadata.schema_classes import (
     PropertyValueClass,
     StructuredPropertyDefinitionClass,
 )
+from datahub.metadata.urns import StructuredPropertyUrn, Urn
 from datahub.utilities.urns._urn_base import URN_TYPES
-from datahub.utilities.urns.urn import Urn
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
