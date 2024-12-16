@@ -3,22 +3,39 @@ import { getFontSize } from '@components/theme/utils';
 
 import { SelectStyleProps } from './types';
 
-export const getOptionLabelStyle = (isSelected: boolean, isMultiSelect?: boolean, isDisabled?: boolean) => ({
-    cursor: isDisabled ? 'not-allowed' : 'pointer',
-    padding: spacing.xsm,
-    borderRadius: radius.md,
-    lineHeight: typography.lineHeights.normal,
-    backgroundColor: isSelected && !isMultiSelect ? colors.violet[100] : 'transparent',
-    color: isSelected ? colors.gray[600] : colors.gray[500],
-    fontWeight: typography.fontWeights.medium,
-    fontSize: typography.fontSizes.md,
-    display: 'flex',
-    alignItems: 'center',
+export const getOptionLabelStyle = (
+    isSelected: boolean,
+    isMultiSelect?: boolean,
+    isDisabled?: boolean,
+    isCustomisedLabel?: boolean,
+) => {
+    let backgroundColor = 'transparent';
 
-    '&:hover': {
-        backgroundColor: isSelected ? colors.violet[100] : colors.gray[100],
-    },
-});
+    if (!isDisabled) {
+        if (isSelected && !isMultiSelect) {
+            backgroundColor = isCustomisedLabel ? colors.gray[1000] : colors.violet[100];
+        }
+    }
+
+    const color = isSelected ? colors.gray[600] : colors.gray[500];
+
+    return {
+        cursor: isDisabled ? 'not-allowed' : 'pointer',
+        padding: spacing.xsm,
+        borderRadius: radius.md,
+        lineHeight: typography.lineHeights.normal,
+        backgroundColor,
+        color,
+        fontWeight: typography.fontWeights.medium,
+        fontSize: typography.fontSizes.md,
+        display: 'flex',
+        alignItems: 'center',
+
+        '&:hover': {
+            backgroundColor: isSelected ? colors.violet[100] : colors.gray[100],
+        },
+    };
+};
 
 export const getFooterButtonSize = (size) => {
     return size === 'sm' ? 'sm' : 'md';

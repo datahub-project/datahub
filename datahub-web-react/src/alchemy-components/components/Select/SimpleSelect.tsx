@@ -1,4 +1,4 @@
-import { Pill, Text } from '@components';
+import { Icon, Pill, Text, colors } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -6,6 +6,7 @@ import {
     Container,
     DescriptionContainer,
     Dropdown,
+    HighlightedLabel,
     LabelContainer,
     LabelsWrapper,
     OptionContainer,
@@ -34,6 +35,7 @@ const SelectLabelDisplay = ({
     removeOption,
     disabledValues,
     showDescriptions,
+    isCustomisedLabel,
 }: SelectLabelDisplayProps) => {
     const selectedOptions = options.filter((opt) => selectedValues.includes(opt.value));
     return (
@@ -59,7 +61,14 @@ const SelectLabelDisplay = ({
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
             {!isMultiSelect && (
                 <>
-                    <SelectValue>{selectedOptions[0]?.label}</SelectValue>
+                    {isCustomisedLabel && selectedValues.length > 0 ? (
+                        <ActionButtonsContainer>
+                            <SelectValue>Group</SelectValue>
+                            <HighlightedLabel>{selectedOptions[0]?.label}</HighlightedLabel>
+                        </ActionButtonsContainer>
+                    ) : (
+                        <SelectValue>{selectedOptions[0]?.label}</SelectValue>
+                    )}
                     {showDescriptions && !!selectedValues.length && (
                         <DescriptionContainer>{selectedOptions[0]?.description}</DescriptionContainer>
                     )}
@@ -121,8 +130,9 @@ export const SimpleSelect = ({
     disabledValues = [],
     showSelectAll = selectDefaults.showSelectAll,
     selectAllLabel = selectDefaults.selectAllLabel,
-    optionListTestId,
     showDescriptions = selectDefaults.showDescriptions,
+    isCustomisedLabel = false,
+    optionListTestId,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -202,7 +212,13 @@ export const SimpleSelect = ({
     };
 
     return (
-        <Container ref={selectRef} size={size || 'md'} width={props.width || 255}>
+        <Container
+            ref={selectRef}
+            size={size || 'md'}
+            width={props.width || 255}
+            isCustomisedLabel={isCustomisedLabel}
+            isSelected={selectedValues.length > 0}
+        >
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
             <SelectBase
                 isDisabled={isDisabled}
@@ -223,6 +239,8 @@ export const SimpleSelect = ({
                         removeOption={handleOptionChange}
                         disabledValues={disabledValues}
                         showDescriptions={showDescriptions}
+                    isCustomisedLabel={isCustomisedLabel}
+
                     />
                 </SelectLabelContainer>
                 <SelectActionButtons
@@ -267,10 +285,19 @@ export const SimpleSelect = ({
                         {filteredOptions.map((option) => (
                             <OptionLabel
                                 key={option.value}
-                                onClick={() => !isMultiSelect && handleOptionChange(option)}
+                                onClick={() => {
+                                    if (!isMultiSelect) {
+                                        if (isCustomisedLabel && selectedValues.includes(option.value)) {
+                                            handleClearSelection();
+                                        } else {
+                                            handleOptionChange(option);
+                                        }
+                                    }
+                                }}
                                 isSelected={selectedValues.includes(option.value)}
                                 isMultiSelect={isMultiSelect}
                                 isDisabled={disabledValues?.includes(option.value)}
+                                isCustomisedLabel={isCustomisedLabel}
                             >
                                 {isMultiSelect ? (
                                     <LabelContainer>
@@ -283,7 +310,16 @@ export const SimpleSelect = ({
                                     </LabelContainer>
                                 ) : (
                                     <OptionContainer>
-                                        <Text color="gray" weight="semiBold" size="md">
+                                        <Text
+                                            weight="semiBold"
+                                            size="md"
+                                            style={{
+                                                color:
+                                                    isCustomisedLabel && selectedValues.includes(option.value)
+                                                        ? colors.violet[500]
+                                                        : 'gray',
+                                            }}
+                                        >
                                             {option.label}
                                         </Text>
                                         {!!option.description && (
