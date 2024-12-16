@@ -621,12 +621,17 @@
                 "op": "add",
                 "path": "/qualifiedName",
                 "value": "TEST_DB.TEST_SCHEMA.VIEW_1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/IS_SECURE",
+                "value": "true"
             }
         ]
     },
     "systemMetadata": {
         "lastObserved": 1654621200000,
-        "runId": "snowflake-2022_06_07-17_00_00-ad3hnf",
+        "runId": "snowflake-2022_06_07-17_00_00-ivthci",
         "lastRunId": "no-run-id-provided"
     }
 },

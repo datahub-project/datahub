@@ -1,7 +1,7 @@
 plugins {
   id("com.palantir.git-version") apply false
   id 'java-library'
-  id 'com.github.johnrengelman.shadow'
+  id 'com.gradleup.shadow'
   id 'signing'
   id 'io.codearte.nexus-staging'
   id 'maven-publish'
@@ -23,7 +23,7 @@ dependencies {
   api project(':entity-registry')
   api project(':metadata-integration:java:datahub-event')
   implementation project(':metadata-integration:java:datahub-schematron:lib')
-  
+
   implementation(externalDependency.kafkaAvroSerializer) {
     exclude group: "org.apache.avro"
   }
@@ -70,14 +70,14 @@ task validatePythonEnv(dependsOn: [":metadata-ingestion:installDev"]) {
         def venvPath = System.getProperty('python.venv.path', '../../../metadata-ingestion/venv')
         def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
         def pythonExe = isWindows ? "${venvPath}/Scripts/python.exe" : "${venvPath}/bin/python"
-        
+
         def result = exec {
             commandLine pythonExe, "-c", "import sys; print(sys.executable)"
             ignoreExitValue = true
             standardOutput = new ByteArrayOutputStream()
             errorOutput = new ByteArrayOutputStream()
         }
-        
+
         if (result.exitValue != 0) {
             throw new GradleException("Python virtual environment not properly set up at ${venvPath}")
         }
@@ -94,6 +94,11 @@ test {
   systemProperty 'python.venv.path', System.getProperty('python.venv.path', '../../../metadata-ingestion/venv')
   finalizedBy jacocoTestReport
 }
+
+// no submodule depends on datahub-schematron:cli
+// and tests there are the ones checking python-java compatibility
+test.dependsOn tasks.getByPath(":metadata-integration:java:datahub-schematron:cli:test")
+test.dependsOn tasks.getByPath(":metadata-integration:java:datahub-schematron:lib:test")
 
 task checkShadowJar(type: Exec) {
   commandLine 'sh', '-c', 'scripts/check_jar.sh'
