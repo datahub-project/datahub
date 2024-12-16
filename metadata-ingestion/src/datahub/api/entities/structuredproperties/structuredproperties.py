@@ -165,7 +165,7 @@ class StructuredProperties(ConfigModel):
         # TODO: Deprecate this method.
         structuredproperties = StructuredProperties.from_yaml(file)
         for structuredproperty in structuredproperties:
-            for mcp in structuredproperty.to_mcps():
+            for mcp in structuredproperty.generate_mcps():
                 graph.emit_mcp(mcp)
 
             logger.info(f"Created structured property {structuredproperty.urn}")
