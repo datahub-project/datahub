@@ -2,10 +2,11 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 from enum import Enum
-import requests
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union
 
 import boto3
+import requests
+
 from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
 from botocore.utils import fix_s3_host
