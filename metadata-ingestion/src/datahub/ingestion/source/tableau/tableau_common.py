@@ -990,7 +990,7 @@ def get_filter_pages(query_filter: dict, page_size: int) -> List[dict]:
         ids = query_filter[current_key]
         filter_pages = [
             {
-                c.ID_WITH_IN: ids[
+                current_key: ids[
                     start : (
                         start + page_size if start + page_size < len(ids) else len(ids)
                     )
