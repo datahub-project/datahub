@@ -8,7 +8,6 @@ import useToggle from '../../shared/useToggle';
 import {
     BrowseProvider,
     useBrowseDisplayName,
-    useBrowsePathLength,
     useBrowseResultGroup,
     useEntityAggregation,
     useIsBrowsePathPrefix,
@@ -37,6 +36,8 @@ const Count = styled(Typography.Text)`
     margin-left: 8px;
     border-radius: 12px;
     background-color: ${ANTD_GRAY[1]};
+    display: block;
+    flex-grow: 0;
 `;
 
 const BrowseNode = () => {
@@ -72,8 +73,6 @@ const BrowseNode = () => {
         skip: !isOpen || !browseResultGroup.hasSubGroups,
     });
 
-    const browsePathLength = useBrowsePathLength();
-
     const color = '#374066';
 
     return (
@@ -92,15 +91,10 @@ const BrowseNode = () => {
                             isVisible={browseResultGroup.hasSubGroups}
                             onClick={onClickTriangle}
                             dataTestId={`browse-node-expand-${displayName}`}
+                            style={{ display: 'block', width: 18 }}
                         />
                         <FolderStyled />
-                        <ExpandableNode.Title
-                            color={color}
-                            size={12}
-                            depth={browsePathLength}
-                            maxWidth={hasEntityLink ? 110 : 166}
-                            padLeft
-                        >
+                        <ExpandableNode.Title color={color} size={12} dynamicWidth padLeft>
                             {displayName}
                         </ExpandableNode.Title>
                         {hasEntityLink && <EntityLink entity={entity} targetNode="browse" />}

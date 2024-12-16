@@ -176,9 +176,11 @@ class FieldAssertionEvaluator(AssertionEvaluator):
             )
 
         return AssertionEvaluationResult(
-            AssertionResultType.FAILURE
-            if values_count > fail_threshold_value
-            else AssertionResultType.SUCCESS,
+            (
+                AssertionResultType.FAILURE
+                if values_count > fail_threshold_value
+                else AssertionResultType.SUCCESS
+            ),
             parameters={
                 "threshold_value": str(fail_threshold_value),
                 "values_count": str(values_count),
@@ -260,12 +262,12 @@ class FieldAssertionEvaluator(AssertionEvaluator):
 
         assertion_params = field_assertion.field_metric_assertion.parameters
 
-        dataset_profile: Optional[
-            DatasetProfileClass
-        ] = self.connection_provider.graph.get_latest_timeseries_value(
-            entity_urn=entity_urn,
-            aspect_type=DatasetProfileClass,
-            filter_criteria_map={},
+        dataset_profile: Optional[DatasetProfileClass] = (
+            self.connection_provider.graph.get_latest_timeseries_value(
+                entity_urn=entity_urn,
+                aspect_type=DatasetProfileClass,
+                filter_criteria_map={},
+            )
         )
 
         if dataset_profile is None or dataset_profile.fieldProfiles is None:
@@ -273,11 +275,11 @@ class FieldAssertionEvaluator(AssertionEvaluator):
                 message=f"Unable to find latest dataset profile for {entity_urn}"
             )
 
-        dataset_field_profile: Optional[
-            DatasetFieldProfileClass
-        ] = self._get_dataset_field_profile(
-            dataset_profile.fieldProfiles,
-            field_assertion.field_metric_assertion.field.path,
+        dataset_field_profile: Optional[DatasetFieldProfileClass] = (
+            self._get_dataset_field_profile(
+                dataset_profile.fieldProfiles,
+                field_assertion.field_metric_assertion.field.path,
+            )
         )
         if dataset_field_profile is None:
             raise InsufficientDataException(
@@ -300,20 +302,28 @@ class FieldAssertionEvaluator(AssertionEvaluator):
         )
 
         return AssertionEvaluationResult(
-            AssertionResultType.SUCCESS
-            if metric_evaluation is True
-            else AssertionResultType.FAILURE,
+            (
+                AssertionResultType.SUCCESS
+                if metric_evaluation is True
+                else AssertionResultType.FAILURE
+            ),
             parameters={
                 "metric_value": str(round(metric_value, 2)),
-                "value": str(assertion_params.value.value)
-                if assertion_params.value
-                else None,
-                "min_value": str(assertion_params.min_value.value)
-                if assertion_params.min_value
-                else None,
-                "max_value": str(assertion_params.max_value.value)
-                if assertion_params.max_value
-                else None,
+                "value": (
+                    str(assertion_params.value.value)
+                    if assertion_params.value
+                    else None
+                ),
+                "min_value": (
+                    str(assertion_params.min_value.value)
+                    if assertion_params.min_value
+                    else None
+                ),
+                "max_value": (
+                    str(assertion_params.max_value.value)
+                    if assertion_params.max_value
+                    else None
+                ),
             },
         )
 
@@ -357,20 +367,28 @@ class FieldAssertionEvaluator(AssertionEvaluator):
         )
 
         return AssertionEvaluationResult(
-            AssertionResultType.SUCCESS
-            if metric_evaluation is True
-            else AssertionResultType.FAILURE,
+            (
+                AssertionResultType.SUCCESS
+                if metric_evaluation is True
+                else AssertionResultType.FAILURE
+            ),
             parameters={
                 "metric_value": str(round(metric_value, 2)),
-                "value": str(assertion_params.value.value)
-                if assertion_params.value
-                else None,
-                "min_value": str(assertion_params.min_value.value)
-                if assertion_params.min_value
-                else None,
-                "max_value": str(assertion_params.max_value.value)
-                if assertion_params.max_value
-                else None,
+                "value": (
+                    str(assertion_params.value.value)
+                    if assertion_params.value
+                    else None
+                ),
+                "min_value": (
+                    str(assertion_params.min_value.value)
+                    if assertion_params.min_value
+                    else None
+                ),
+                "max_value": (
+                    str(assertion_params.max_value.value)
+                    if assertion_params.max_value
+                    else None
+                ),
             },
         )
 

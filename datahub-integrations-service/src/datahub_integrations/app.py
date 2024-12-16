@@ -3,6 +3,7 @@ import pathlib
 
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 
+import datahub_integrations as di
 from datahub_integrations._logging_setup import LOGGING_SETUP_COMPLETE
 
 assert LOGGING_SETUP_COMPLETE
@@ -22,6 +23,9 @@ graph = DataHubGraph(
         # DATAHUB_SYSTEM_CLIENT_ID and DATAHUB_SYSTEM_CLIENT_SECRET to
         # authenticate, which is what we want in production.
         token=os.environ.get("DATAHUB_GMS_API_TOKEN"),
+        extra_headers={
+            "User-Agent": f"{di.__package_name__}/{di.__version__}",
+        },
     )
 )
 

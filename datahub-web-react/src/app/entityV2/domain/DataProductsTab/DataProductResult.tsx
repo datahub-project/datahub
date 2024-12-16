@@ -1,4 +1,3 @@
-import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useEntityContext } from '@src/app/entity/shared/EntityContext';
 import { Button } from 'antd';
 import React, { useState } from 'react';
@@ -29,21 +28,10 @@ const TransparentButton = styled(Button)`
     }
 `;
 
-const ActionItemWrapper = styled.div`
-    position: absolute;
-    top: 0px;
-    right: 40px;
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-right: 8px;
-`;
-
 const ResultWrapper = styled.div`
     padding: 20px;
     display: flex;
     align-items: center;
-    overflow: hidden;
     border: 1px solid #ebecf0;
     background: ${REDESIGN_COLORS.WHITE};
     border-radius: 10px;
@@ -53,24 +41,10 @@ const ResultWrapper = styled.div`
     }
 `;
 
-const ButtonsWrapper = styled(Button)`
-    font-size: 14px;
-    box-shadow: none;
-    border: none;
-    display: flex;
-    align-items: center;
-    padding: unset;
-    &&& span {
-        font-size: 14px;
-    }
-    &:hover {
-        color: unset;
-    }
-`;
-
 const PreviewWrapper = styled.div`
     position: relative;
     flex: 1;
+    max-width: 100%;
 `;
 
 interface Props {
@@ -99,15 +73,10 @@ export default function DataProductResult({ dataProduct, onUpdateDataProduct, se
         <>
             <ResultWrapper>
                 <PreviewWrapper>
-                    {entityRegistry.renderPreview(EntityType.DataProduct, PreviewType.PREVIEW, dataProduct)}
-                    <ActionItemWrapper>
-                        <TransparentButton onClick={onDeleteDataProduct}>
-                            <DeleteOutlined size={5} /> Delete Data Product
-                        </TransparentButton>
-                        <ButtonsWrapper onClick={() => setIsEditModalVisible(true)}>
-                            <EditOutlined size={5} />
-                        </ButtonsWrapper>
-                    </ActionItemWrapper>
+                    {entityRegistry.renderPreview(EntityType.DataProduct, PreviewType.PREVIEW, dataProduct, {
+                        onDelete: onDeleteDataProduct,
+                        onEdit: () => setIsEditModalVisible(true),
+                    })}
                 </PreviewWrapper>
             </ResultWrapper>
             {isEditModalVisible && (

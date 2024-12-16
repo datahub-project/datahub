@@ -35,6 +35,7 @@ export default function MoreOptionsMenuAction({
                 menuItems={menuItems}
                 refetchForEntity={refetch}
                 triggerType={triggerType}
+                onEditEntity={actions?.onEdit}
                 onDeleteEntity={actions?.onDelete}
             />
         </ActionMenuItem>

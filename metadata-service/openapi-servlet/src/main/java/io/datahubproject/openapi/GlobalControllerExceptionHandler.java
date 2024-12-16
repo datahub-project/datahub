@@ -3,6 +3,9 @@ package io.datahubproject.openapi;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.directory.scim.protocol.data.ErrorResponse;
@@ -64,5 +67,26 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   @ExceptionHandler({ResourceException.class})
   public ResponseEntity<ErrorResponse> handleResourceException(ResourceException e) {
     return new ErrorResponse(HttpStatus.valueOf(e.getStatus()), e.getMessage()).toResponseEntity();
+  }
+
+  @Override
+  protected void logException(Exception ex, HttpServletRequest request) {
+    log.error("Error while resolving request: " + request.getRequestURI(), ex);
+  }
+
+  @Override
+  protected void sendServerError(
+      Exception ex, HttpServletRequest request, HttpServletResponse response) throws IOException {
+    log.error("Error while resolving request: " + request.getRequestURI(), ex);
+    request.setAttribute("jakarta.servlet.error.exception", ex);
+    response.sendError(500);
+  }
+
+  @ExceptionHandler(Exception.class)
+  public ResponseEntity<Map<String, String>> handleGenericException(
+      Exception e, HttpServletRequest request) {
+    log.error("Unhandled exception occurred for request: " + request.getRequestURI(), e);
+    return new ResponseEntity<>(
+        Map.of("error", "Internal server error occurred"), HttpStatus.INTERNAL_SERVER_ERROR);
   }
 }

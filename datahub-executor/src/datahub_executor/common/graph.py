@@ -1,11 +1,12 @@
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, List
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import (
     ExecutionRequestKeyClass,
     ExecutionRequestResultClass,
+    RemoteExecutorStatusClass,
 )
 
 from datahub_executor.common.constants import (
@@ -16,6 +17,8 @@ from datahub_executor.common.constants import (
     DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME,
     DATAHUB_EXECUTION_REQUEST_STATUS_DUPLICATE,
     DATAHUB_EXECUTION_REQUEST_STATUS_RUNNING,
+    DATAHUB_REMOTE_EXECUTOR_ENTITY_NAME,
+    DATAHUB_REMOTE_EXECUTOR_STATUS_ASPECT_NAME,
 )
 from datahub_executor.common.types import ExecutionRequestStatus
 from datahub_executor.config import DATAHUB_GMS_TOKEN, DATAHUB_GMS_URL
@@ -124,13 +127,38 @@ class DataHubExecutorGraph(DataHubGraph):
         )
         return ers
 
-    def _get_execution_requests_by_query(
-        self, overrides: Dict[str, Any]
-    ) -> List[ExecutionRequestStatus]:
+    def scroll_entities(self, entity: str, params: Dict) -> Iterable[Any]:
         headers: Dict[str, Any] = {
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
+
+        iteration = 0
+        while True:
+            url = f"{self.config.server}/openapi/v2/entity/{entity}"
+            response = self._session.get(url, headers=headers, params=params)
+            response.raise_for_status()
+
+            json_resp = response.json()
+
+            results = json_resp.get("results", [])
+            for entry in results:
+                yield entry
+
+            scroll_id = json_resp.get("scrollId", None)
+            if scroll_id is None:
+                break
+            params["scrollId"] = scroll_id
+
+            iteration = iteration + 1
+            if (iteration % self.PAGINATION_ITERATIONS_WARNING_THRESHOLD) == 0:
+                logger.warning(
+                    f"_scroll_entities: possible infinite loop; iterations: {iteration}"
+                )
+
+    def _get_execution_requests(
+        self, overrides: Dict[str, Any]
+    ) -> List[ExecutionRequestStatus]:
         params = {
             "aspectNames": [
                 DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME,
@@ -145,29 +173,11 @@ class DataHubExecutorGraph(DataHubGraph):
         params.update(overrides)
         retval: List[ExecutionRequestStatus] = []
 
-        iteration = 0
-        while True:
-            url = f"{self.config.server}/openapi/v2/entity/{DATAHUB_EXECUTION_REQUEST_ENTITY_NAME}"
-            response = self._session.get(url, headers=headers, params=params)
-            response.raise_for_status()
-
-            json_resp = response.json()
-
-            results = json_resp.get("results", [])
-            for entry in results:
-                ers = self._entity_to_execution_request_status(entry)
-                retval.append(ers)
-
-            scroll_id = json_resp.get("scrollId", None)
-            if scroll_id is None:
-                break
-            params["scrollId"] = scroll_id
-
-            iteration = iteration + 1
-            if (iteration % self.PAGINATION_ITERATIONS_WARNING_THRESHOLD) == 0:
-                logger.warning(
-                    f"get_running_and_pending_ingestions: possible infinite loop; iterations: {iteration}"
-                )
+        for entry in self.scroll_entities(
+            entity=DATAHUB_EXECUTION_REQUEST_ENTITY_NAME, params=params
+        ):
+            ers = self._entity_to_execution_request_status(entry)
+            retval.append(ers)
 
         return retval
 
@@ -201,7 +211,7 @@ class DataHubExecutorGraph(DataHubGraph):
                     conditions_string,
                 ),
             }
-            entries = self._get_execution_requests_by_query(params)
+            entries = self._get_execution_requests(params)
             for entry in entries:
                 retval[entry.ingestion_source_urn] = retval.get(
                     entry.ingestion_source_urn, []
@@ -219,4 +229,30 @@ class DataHubExecutorGraph(DataHubGraph):
                 DATAHUB_EXECUTION_REQUEST_STATUS_RUNNING,
             ),
         }
-        return self._get_execution_requests_by_query(params)
+        return self._get_execution_requests(params)
+
+    def get_remote_executors(
+        self, query: str = "*"
+    ) -> Dict[str, RemoteExecutorStatusClass]:
+        retval: Dict[str, RemoteExecutorStatusClass] = {}
+        params = {
+            "aspectNames": [
+                DATAHUB_REMOTE_EXECUTOR_STATUS_ASPECT_NAME,
+            ],
+            "count": "10",
+            "query": query,
+            "systemMetadata": "false",
+            "skipCache": "true",
+            "includeSoftDelete": "true",
+        }
+        for entity in self.scroll_entities(
+            entity=DATAHUB_REMOTE_EXECUTOR_ENTITY_NAME, params=params
+        ):
+            urn = entity.get("urn")
+            status_dict = (
+                entity.get("aspects", {})
+                .get(DATAHUB_REMOTE_EXECUTOR_STATUS_ASPECT_NAME, {})
+                .get("value", {})
+            )
+            retval[urn] = RemoteExecutorStatusClass.from_obj(status_dict)
+        return retval

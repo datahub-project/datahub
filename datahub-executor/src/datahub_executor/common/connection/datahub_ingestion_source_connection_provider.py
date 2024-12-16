@@ -128,7 +128,7 @@ class DataHubIngestionSourceConnectionProvider(ConnectionProvider):
             supplier = PLATFORM_TO_CONNECTION_SUPPLIER.get(source_type)
             return supplier(f"urn:li:dataPlatform:{source_type}", final_recipe_dict, self.graph)  # type: ignore
         raise NotImplementedError(
-            "Unable to extract connection from ingestion source. No extractor found."
+            f"Platform {source_type} is not yet supported. Please use profiling as source."
         )
 
     def get_connection_from_data_platform(self, urn: str) -> Optional[Connection]:

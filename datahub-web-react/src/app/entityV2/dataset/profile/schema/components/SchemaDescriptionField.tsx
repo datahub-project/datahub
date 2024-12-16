@@ -308,25 +308,32 @@ export default function DescriptionField({
                 </AddNewDescription>
             )}
             {showInferenceButton && !showAddButton && (
-                <InferDescriptionButton
-                    type="text"
-                    onClick={(e) => {
-                        if (onInferDescription) {
-                            setIsInlineInferring(true);
-                            onInferDescription().finally(() => setIsInlineInferring(false));
-                        } else {
-                            setInferWhenAddModalMounts(true);
-                            setShowAddModal(true);
-                        }
-                        e.stopPropagation();
-                    }}
-                >
+                <>
                     {isInlineInferring ? (
-                        <Skeleton active title={false} paragraph={{ rows: 1 }} style={{ width: 200 }} />
+                        <Skeleton
+                            active
+                            title={false}
+                            paragraph={{ rows: 1, style: { margin: 0, padding: 0 } }}
+                            style={{ width: 240 }}
+                        />
                     ) : (
-                        [<AiSparkle />, 'Generate with AI']
+                        <InferDescriptionButton
+                            type="text"
+                            onClick={(e) => {
+                                if (onInferDescription) {
+                                    setIsInlineInferring(true);
+                                    onInferDescription().finally(() => setIsInlineInferring(false));
+                                } else {
+                                    setInferWhenAddModalMounts(true);
+                                    setShowAddModal(true);
+                                }
+                                e.stopPropagation();
+                            }}
+                        >
+                            <AiSparkle /> Generate with AI
+                        </InferDescriptionButton>
                     )}
-                </InferDescriptionButton>
+                </>
             )}
         </DescriptionContainer>
     );

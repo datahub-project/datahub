@@ -11,11 +11,8 @@ interface Props {
     columnCount?: number;
     queryCount?: number;
     users?: Array<Maybe<UserUsageCounts>>;
+    scrollToColumnStats: () => void;
 }
-
-const HighlightsSection = styled.div`
-    padding: 16px 24px;
-`;
 
 const StatsContainer = styled.div`
     display: flex;
@@ -41,7 +38,7 @@ const VerticalDivider = styled(Divider)`
 
 const CARD_WIDTH = '225px';
 
-const StatsHighlights = ({ rowCount, columnCount, queryCount, users }: Props) => {
+const StatsHighlights = ({ rowCount, columnCount, queryCount, users, scrollToColumnStats }: Props) => {
     const ViewButton = () => {
         return (
             <Button variant="text" icon="ArrowDownward">
@@ -50,7 +47,7 @@ const StatsHighlights = ({ rowCount, columnCount, queryCount, users }: Props) =>
         );
     };
     return (
-        <HighlightsSection>
+        <>
             <PageTitle
                 title="Highlights"
                 subTitle="View the latest statistics for this table"
@@ -62,15 +59,20 @@ const StatsHighlights = ({ rowCount, columnCount, queryCount, users }: Props) =>
                         Latest
                     </Text>
                     <StatCards>
-                        {rowCount && <Card title={countFormatter(rowCount)} subTitle="Rows" width={CARD_WIDTH} />}
-                        {columnCount && (
-                            <Card
-                                title={columnCount.toString()}
-                                subTitle={pluralize(columnCount, 'Column')}
-                                button={<ViewButton />}
-                                width={CARD_WIDTH}
-                            />
-                        )}
+                        <Card
+                            title={countFormatter(rowCount || 0)}
+                            subTitle={pluralize(rowCount || 0, 'Row')}
+                            width={CARD_WIDTH}
+                            isEmpty={rowCount === undefined}
+                        />
+                        <Card
+                            title={columnCount?.toString() || ''}
+                            subTitle={pluralize(columnCount || 0, 'Column')}
+                            button={<ViewButton />}
+                            width={CARD_WIDTH}
+                            onClick={scrollToColumnStats}
+                            isEmpty={columnCount === undefined}
+                        />
                     </StatCards>
                 </Section>
                 <VerticalDivider type="vertical" />
@@ -79,25 +81,23 @@ const StatsHighlights = ({ rowCount, columnCount, queryCount, users }: Props) =>
                         Last 30 days
                     </Text>
                     <StatCards>
-                        {users && users.length > 0 && (
-                            <Card
-                                title={users.length.toString()}
-                                subTitle={pluralize(users.length, 'User')}
-                                width={CARD_WIDTH}
-                            />
-                        )}
-                        {queryCount && (
-                            <Card
-                                title={queryCount?.toString()}
-                                subTitle={capitalizeFirstLetter(pluralize(queryCount, 'Query'))}
-                                button={<ViewButton />}
-                                width={CARD_WIDTH}
-                            />
-                        )}
+                        <Card
+                            title={users?.length?.toString() || ''}
+                            subTitle={pluralize(users?.length || 0, 'User')}
+                            width={CARD_WIDTH}
+                            isEmpty={users === undefined}
+                        />
+                        <Card
+                            title={queryCount?.toString() || ''}
+                            subTitle={capitalizeFirstLetter(pluralize(queryCount || 0, 'Query'))}
+                            button={<ViewButton />}
+                            width={CARD_WIDTH}
+                            isEmpty={queryCount === undefined}
+                        />
                     </StatCards>
                 </Section>
             </StatsContainer>
-        </HighlightsSection>
+        </>
     );
 };
 

@@ -102,6 +102,7 @@ export enum EntityCapabilityType {
 
 export interface EntityMenuActions {
     onDelete?: () => void;
+    onEdit?: () => void;
 }
 
 /**

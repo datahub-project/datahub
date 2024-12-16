@@ -25,6 +25,13 @@ public interface BatchItem extends ReadItem {
   @Nonnull
   ChangeType getChangeType();
 
+  /**
+   * Determines if this item is a duplicate of another item in terms of the operation it represents
+   * to the database.Each implementation can define what constitutes a duplicate based on its
+   * specific fields which are persisted.
+   */
+  boolean isDatabaseDuplicateOf(BatchItem other);
+
   default boolean entityAspectMatch(BatchItem o) {
     if (this == o) return true;
     if (o == null) return false;

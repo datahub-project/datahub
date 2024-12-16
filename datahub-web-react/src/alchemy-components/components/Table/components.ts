@@ -38,13 +38,14 @@ export const TableHeaderCell = styled.th<{ width?: string; shouldAddRightBorder?
     }),
 );
 
-export const HeaderContainer = styled.div({
+export const HeaderContainer = styled.div<{ alignment?: AlignmentOptions }>(({ alignment }) => ({
     display: 'flex',
     alignItems: 'center',
     gap: spacing.sm,
     fontSize: '12px',
     fontWeight: 700,
-});
+    justifyContent: alignment,
+}));
 
 export const TableRow = styled.tr<{ canExpand?: boolean }>(({ canExpand }) => ({
     background: canExpand ? '#EBECF0' : 'transparent',

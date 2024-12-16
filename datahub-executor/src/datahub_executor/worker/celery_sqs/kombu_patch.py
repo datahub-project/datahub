@@ -27,9 +27,11 @@ def refresh_external_credentials(queue_id: str) -> Dict[str, str]:
                 "access_key": executor_config.access_key,
                 "secret_key": executor_config.secret_key,
                 "token": executor_config.session_token,
-                "expiry_time": executor_config.expiration.isoformat()
-                if executor_config.expiration
-                else "",
+                "expiry_time": (
+                    executor_config.expiration.isoformat()
+                    if executor_config.expiration
+                    else ""
+                ),
             }
 
     STATS_CREDENTIALS_REFRESH_ERRORS.labels("NoQueue", queue_id).inc()

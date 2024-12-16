@@ -1,15 +1,19 @@
 name: Delete stale branches
 on:
   schedule:
-    - cron: "30 1,7,13,19 * * *"
+    - cron: "30 1 * * *"
   workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
 
 jobs:
   remove-stale-branches:
     name: Remove Stale Branches
     runs-on: ubuntu-latest
     steps:
-      - uses: fpicalausa/remove-stale-branches@v1.6.0
+      - uses: fpicalausa/remove-stale-branches@v2.1.2
         with:
           exempt-protected-branches: true
           operations-per-run: 25

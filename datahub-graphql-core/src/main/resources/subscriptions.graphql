@@ -81,7 +81,17 @@ input GetEntitySubscriptionSummaryInput {
     """
     The number of example groups to display in the summary. Defaults to 5.
     """
-    numExampleGroups: Int
+    numExampleGroups: Int @deprecated(reason: "Use `numSubscribedGroups`")
+
+    """
+    The number of subscribed users to display in the summary. Defaults to 50.
+    """
+    numSubscribedUsers: Int
+
+    """
+    The number of subscribed groups to display in the summary. Defaults to 5.
+    """
+    numSubscribedGroups: Int
 }
 
 type GetSubscriptionResult {
@@ -374,5 +384,15 @@ type EntitySubscriptionSummary {
     """
     Some of the groups that have subscriptions for the entity. Default count is 5.
     """
-    exampleGroups: [CorpGroup!]!
+    exampleGroups: [CorpGroup!]! @deprecated(reason: "Use `subscribedGroups`")
+
+    """
+    Some of the groups that have subscriptions for the entity. Default count is 5.
+    """
+    subscribedGroups: [CorpGroup!]!
+
+    """
+    Some of the users that have subscriptions for the entity. Default count is 150.
+    """
+    subscribedUsers: [CorpUser!]!
 }

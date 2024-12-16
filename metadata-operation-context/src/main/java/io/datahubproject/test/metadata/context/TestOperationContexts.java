@@ -310,6 +310,11 @@ public class TestOperationContexts {
     }
 
     @Nonnull
+    public Map<Urn, Boolean> entityExists(Set<Urn> urns) {
+      return Map.of();
+    }
+
+    @Nonnull
     @Override
     public Map<Urn, Map<String, SystemAspect>> getLatestSystemAspects(
         Map<Urn, Set<String>> urnAspectNames) {
@@ -350,7 +355,8 @@ public class TestOperationContexts {
         @Nonnull List<String> entities,
         @Nullable Filter filters,
         @Nullable String scrollId,
-        int count) {
+        int count,
+        List<SortCriterion> sortCriteria) {
       ScrollResult empty = new ScrollResult();
       empty.setEntities(new SearchEntityArray());
       empty.setNumEntities(0);

@@ -45,7 +45,7 @@ export class UserEntity implements Entity<CorpUser> {
 
     getPathName: () => string = () => 'user';
 
-    getEntityName = () => 'Person';
+    getEntityName = () => 'Person 3';
 
     getCollectionName: () => string = () => 'People';
 

@@ -99,7 +99,7 @@ public abstract class TimelineServiceTest<T_AD extends AspectDao> {
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
-            opContext, entityUrn, new HashSet<>(Arrays.asList(aspectName)));
+            opContext, entityUrn, new HashSet<>(Arrays.asList(aspectName)), false);
 
     Set<ChangeCategory> elements = new HashSet<>();
     elements.add(ChangeCategory.TECHNICAL_SCHEMA);

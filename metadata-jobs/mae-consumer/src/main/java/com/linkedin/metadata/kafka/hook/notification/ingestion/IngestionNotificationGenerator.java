@@ -14,6 +14,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.execution.ExecutionRequestInput;
 import com.linkedin.execution.ExecutionRequestResult;
 import com.linkedin.ingestion.DataHubIngestionSourceInfo;
+import com.linkedin.ingestion.DataHubIngestionSourceSourceType;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.graph.GraphClient;
@@ -111,6 +112,16 @@ public class IngestionNotificationGenerator extends BaseMclNotificationGenerator
       log.warn(
           "Failed to resolve ingestion source info for ingestion source with urn {}. Skipping notification..",
           ingestionSourceUrn);
+      return;
+    }
+
+    if (ingestionSourceInfo.hasSource()
+        && ingestionSourceInfo
+            .getSource()
+            .getType()
+            .equals(DataHubIngestionSourceSourceType.SYSTEM)) {
+      log.debug(
+          "Skipping notifications for system ingestion source with urn {}", ingestionSourceUrn);
       return;
     }
 

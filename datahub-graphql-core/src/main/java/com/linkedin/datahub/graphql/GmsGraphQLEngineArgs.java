@@ -25,6 +25,7 @@ import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.integration.IntegrationsService;
@@ -104,6 +105,7 @@ public class GmsGraphQLEngineArgs {
   ClassificationConfiguration classificationConfiguration;
   AssertionService assertionService;
   ConnectionService connectionService;
+  EntityVersioningService entityVersioningService;
 
   // any fork specific args should go below this line
   EntitySearchService entitySearchService;

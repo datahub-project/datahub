@@ -1,5 +1,5 @@
 import { colors, Icon, typography } from '@src/alchemy-components';
-import { Checkbox, Collapse, Divider, Drawer, Form, Input, Modal, Select, Spin, Typography } from 'antd';
+import { Checkbox, Collapse, Divider, Drawer, Form, Modal, Select, Spin, Typography } from 'antd';
 import styled from 'styled-components';
 
 export const PageContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
@@ -102,36 +102,6 @@ export const MenuItem = styled.div`
     font-weight: 400;
     color: ${colors.gray[600]};
     font-family: ${typography.fonts.body};
-`;
-
-export const StyledSearch = styled(Input)`
-    height: 40px;
-    width: 272px;
-    display: flex;
-    align-items: center;
-    border-radius: 8px;
-
-    input {
-        color: ${colors.gray[600]};
-        font-size: 14px !important;
-    }
-
-    .ant-input-prefix {
-        width: 20px;
-        color: ${colors.gray[1800]};
-
-        svg {
-            height: 16px;
-            width: 16px;
-        }
-    }
-
-    &:hover,
-    &:focus,
-    &:focus-within {
-        border-color: ${colors.violet[300]} !important;
-        box-shadow: none !important;
-    }
 `;
 
 export const DrawerHeader = styled.div`
