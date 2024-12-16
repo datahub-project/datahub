@@ -7,6 +7,7 @@ from unittest import mock
 
 import pytest
 from freezegun import freeze_time
+from pydantic import ValidationError
 from requests.adapters import ConnectionError
 from tableauserverclient import PermissionsRule, Server
 from tableauserverclient.models import (
@@ -21,7 +22,9 @@ from tableauserverclient.models.reference_item import ResourceReference
 
 from datahub.emitter.mce_builder import DEFAULT_ENV, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.run.pipeline import Pipeline, PipelineContext, PipelineInitError
+from datahub.ingestion.api.source import TestConnectionReport
+from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
+from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau import (
     TableauConfig,
     TableauSiteSource,
@@ -572,52 +575,28 @@ def test_extract_all_project(pytestconfig, tmp_path, mock_datahub_graph):
 def test_value_error_projects_and_project_pattern(
     pytestconfig, tmp_path, mock_datahub_graph
 ):
-    # Ingestion should raise ValueError
-    output_file_name: str = "tableau_project_pattern_precedence_mces.json"
-    golden_file_name: str = "tableau_project_pattern_precedence_mces_golden.json"
-
     new_config = config_source_default.copy()
     new_config["projects"] = ["default"]
     new_config["project_pattern"] = {"allow": ["^Samples$"]}
 
     with pytest.raises(
-        PipelineInitError,
+        ValidationError,
         match=r".*projects is deprecated. Please use project_path_pattern only.*",
     ):
-        tableau_ingest_common(
-            pytestconfig,
-            tmp_path,
-            mock_data(),
-            golden_file_name,
-            output_file_name,
-            mock_datahub_graph,
-            pipeline_config=new_config,
-        )
+        TableauConfig.parse_obj(new_config)
 
 
 def test_project_pattern_deprecation(pytestconfig, tmp_path, mock_datahub_graph):
-    # Ingestion should raise ValueError
-    output_file_name: str = "tableau_project_pattern_deprecation_mces.json"
-    golden_file_name: str = "tableau_project_pattern_deprecation_mces_golden.json"
-
     new_config = config_source_default.copy()
     del new_config["projects"]
     new_config["project_pattern"] = {"allow": ["^Samples$"]}
     new_config["project_path_pattern"] = {"allow": ["^Samples$"]}
 
     with pytest.raises(
-        PipelineInitError,
+        ValidationError,
         match=r".*project_pattern is deprecated. Please use project_path_pattern only*",
     ):
-        tableau_ingest_common(
-            pytestconfig,
-            tmp_path,
-            mock_data(),
-            golden_file_name,
-            output_file_name,
-            mock_datahub_graph,
-            pipeline_config=new_config,
-        )
+        TableauConfig.parse_obj(new_config)
 
 
 def test_project_path_pattern_allow(pytestconfig, tmp_path, mock_datahub_graph):
@@ -1298,31 +1277,21 @@ def test_hidden_asset_tags(pytestconfig, tmp_path, mock_datahub_graph):
 @pytest.mark.integration
 def test_hidden_assets_without_ingest_tags(pytestconfig, tmp_path, mock_datahub_graph):
     enable_logging()
-    output_file_name: str = "tableau_hidden_asset_tags_error_mces.json"
-    golden_file_name: str = "tableau_hidden_asset_tags_error_mces_golden.json"
 
     new_config = config_source_default.copy()
     new_config["tags_for_hidden_assets"] = ["hidden", "private"]
     new_config["ingest_tags"] = False
 
     with pytest.raises(
-        PipelineInitError,
+        ValidationError,
         match=r".*tags_for_hidden_assets is only allowed with ingest_tags enabled.*",
     ):
-        tableau_ingest_common(
-            pytestconfig,
-            tmp_path,
-            mock_data(),
-            golden_file_name,
-            output_file_name,
-            mock_datahub_graph,
-            pipeline_config=new_config,
-        )
+        TableauConfig.parse_obj(new_config)
 
 
 @freeze_time(FROZEN_TIME)
 @pytest.mark.integration
-def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_graph):
+def test_permission_warning(pytestconfig, tmp_path, mock_datahub_graph):
     with mock.patch(
         "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
         mock_datahub_graph,
@@ -1359,11 +1328,99 @@ def test_permission_mode_switched_error(pytestconfig, tmp_path, mock_datahub_gra
 
             warnings = list(reporter.warnings)
 
-            assert len(warnings) == 1
+            assert len(warnings) == 2
 
-            assert warnings[0].title == "Derived Permission Error"
+            assert warnings[0].title == "Insufficient Permissions"
 
-            assert warnings[0].message == (
+            assert warnings[1].title == "Derived Permission Error"
+
+            assert warnings[1].message == (
                 "Turn on your derived permissions. See for details "
                 "https://community.tableau.com/s/question/0D54T00000QnjHbSAJ/how-to-fix-the-permissionsmodeswitched-error"
             )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_connection_report_test(requests_mock):
+    server_info_response = """
+        <tsResponse xmlns:t="http://tableau.com/api">
+            <t:serverInfo>
+                <t:productVersion build="build-number">foo</t:productVersion>
+                <t:restApiVersion>2.4</t:restApiVersion>
+            </t:serverInfo>
+        </tsResponse>
+
+    """
+
+    requests_mock.register_uri(
+        "GET",
+        "https://do-not-connect/api/2.4/serverInfo",
+        text=server_info_response,
+        status_code=200,
+        headers={"Content-Type": "application/xml"},
+    )
+
+    signin_response = """
+        <tsResponse xmlns:t="http://tableau.com/api">
+            <t:credentials token="fake_token">
+                <t:site id="fake_site_luid" contentUrl="fake_site_content_url"/>
+                <t:user id="fake_user_id"/>
+            </t:credentials>
+        </tsResponse>
+    """
+
+    requests_mock.register_uri(
+        "POST",
+        "https://do-not-connect/api/2.4/auth/signin",
+        text=signin_response,
+        status_code=200,
+        headers={"Content-Type": "application/xml"},
+    )
+
+    user_by_id_response = """
+        <tsResponse xmlns:t="http://tableau.com/api">
+          <t:user id="user-id" name="foo@abc.com" siteRole="SiteAdministratorExplorer" />
+        </tsResponse>
+    """
+
+    requests_mock.register_uri(
+        "GET",
+        "https://do-not-connect/api/2.4/sites/fake_site_luid/users/fake_user_id",
+        text=user_by_id_response,
+        status_code=200,
+        headers={"Content-Type": "application/xml"},
+    )
+
+    report: TestConnectionReport = TableauSource.test_connection(config_source_default)
+
+    assert report
+    assert report.capability_report
+    assert report.capability_report.get(c.SITE_PERMISSION)
+    assert report.capability_report[c.SITE_PERMISSION].capable
+
+    # Role other than SiteAdministratorExplorer
+    user_by_id_response = """
+        <tsResponse xmlns:t="http://tableau.com/api">
+          <t:user id="user-id" name="foo@abc.com" siteRole="Explorer" />
+        </tsResponse>
+    """
+
+    requests_mock.register_uri(
+        "GET",
+        "https://do-not-connect/api/2.4/sites/fake_site_luid/users/fake_user_id",
+        text=user_by_id_response,
+        status_code=200,
+        headers={"Content-Type": "application/xml"},
+    )
+
+    report = TableauSource.test_connection(config_source_default)
+
+    assert report
+    assert report.capability_report
+    assert report.capability_report.get(c.SITE_PERMISSION)
+    assert report.capability_report[c.SITE_PERMISSION].capable is False
+    assert (
+        report.capability_report[c.SITE_PERMISSION].failure_reason
+        == "The user does not have the `Site Administrator Explorer` role. Their current role is Explorer."
+    )
