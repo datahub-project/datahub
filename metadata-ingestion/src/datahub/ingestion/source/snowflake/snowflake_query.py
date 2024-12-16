@@ -238,6 +238,19 @@ LIMIT {limit} {from_clause};
 """
 
     @staticmethod
+    def get_secure_view_definitions() -> str:
+        # https://docs.snowflake.com/en/sql-reference/account-usage/views
+        return """
+            SELECT
+                TABLE_CATALOG as "TABLE_CATALOG",
+                TABLE_SCHEMA as "TABLE_SCHEMA",
+                TABLE_NAME as "TABLE_NAME",
+                VIEW_DEFINITION as "VIEW_DEFINITION"
+            FROM SNOWFLAKE.ACCOUNT_USAGE.VIEWS
+            WHERE IS_SECURE = 'YES' AND VIEW_DEFINITION !='' AND DELETED IS NULL
+        """
+
+    @staticmethod
     def columns_for_schema(
         schema_name: str,
         db_name: str,

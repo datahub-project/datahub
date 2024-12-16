@@ -424,6 +424,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     view_identifier = self.identifiers.get_dataset_identifier(
                         view.name, schema_name, db_name
                     )
+                    if view.is_secure and not view.view_definition:
+                        view.view_definition = self.fetch_secure_view_definition(
+                            view.name, schema_name, db_name
+                        )
                     if view.view_definition:
                         self.aggregator.add_view_definition(
                             view_urn=self.identifiers.gen_dataset_urn(view_identifier),
@@ -448,6 +452,25 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 message="If tables exist, please grant REFERENCES or SELECT permissions on them.",
                 context=f"{db_name}.{schema_name}",
             )
+
+    def fetch_secure_view_definition(
+        self, table_name: str, schema_name: str, db_name: str
+    ) -> Optional[str]:
+        try:
+            view_definitions = self.data_dictionary.get_secure_view_definitions()
+            return view_definitions[db_name][schema_name][table_name]
+        except Exception as e:
+            if isinstance(e, SnowflakePermissionError):
+                error_msg = (
+                    "Failed to get secure views definitions. Please check permissions."
+                )
+            else:
+                error_msg = "Failed to get secure views definitions"
+            self.structured_reporter.warning(
+                error_msg,
+                exc=e,
+            )
+            return None
 
     def fetch_views_for_schema(
         self, snowflake_schema: SnowflakeSchema, db_name: str, schema_name: str
