@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from mypy_boto3_sagemaker import SageMakerClient
     from mypy_boto3_sts import STSClient
 
+
 class AwsEnvironment(Enum):
     EC2 = "EC2"
     ECS = "ECS"
@@ -36,6 +37,7 @@ class AwsEnvironment(Enum):
     BEANSTALK = "ELASTIC_BEANSTALK"
     CLOUD_FORMATION = "CLOUD_FORMATION"
     UNKNOWN = "UNKNOWN"
+
 
 class AwsAssumeRoleConfig(PermissiveConfigModel):
     # Using the PermissiveConfigModel to allow the user to pass additional arguments.
@@ -55,7 +57,7 @@ def get_instance_metadata_token() -> Optional[str]:
         response = requests.put(
             "http://169.254.169.254/latest/api/token",
             headers={"X-aws-ec2-metadata-token-ttl-seconds": "21600"},
-            timeout=1
+            timeout=1,
         )
         if response.status_code == 200:
             return response.text
@@ -74,7 +76,7 @@ def is_running_on_ec2() -> bool:
         response = requests.get(
             "http://169.254.169.254/latest/meta-data/instance-id",
             headers={"X-aws-ec2-metadata-token": token},
-            timeout=1
+            timeout=1,
         )
         return response.status_code == 200
     except requests.exceptions.RequestException:
@@ -87,25 +89,27 @@ def detect_aws_environment() -> AwsEnvironment:
     Order matters as some environments may have multiple indicators.
     """
     # Check Lambda first as it's most specific
-    if os.getenv('AWS_LAMBDA_FUNCTION_NAME'):
-        if os.getenv('AWS_EXECUTION_ENV', '').startswith('CloudFormation'):
+    if os.getenv("AWS_LAMBDA_FUNCTION_NAME"):
+        if os.getenv("AWS_EXECUTION_ENV", "").startswith("CloudFormation"):
             return AwsEnvironment.CLOUD_FORMATION
         return AwsEnvironment.LAMBDA
 
     # Check EKS (IRSA)
-    if os.getenv('AWS_WEB_IDENTITY_TOKEN_FILE') and os.getenv('AWS_ROLE_ARN'):
+    if os.getenv("AWS_WEB_IDENTITY_TOKEN_FILE") and os.getenv("AWS_ROLE_ARN"):
         return AwsEnvironment.EKS
 
     # Check App Runner
-    if os.getenv('AWS_APP_RUNNER_SERVICE_ID'):
+    if os.getenv("AWS_APP_RUNNER_SERVICE_ID"):
         return AwsEnvironment.APP_RUNNER
 
     # Check ECS
-    if os.getenv('ECS_CONTAINER_METADATA_URI_V4') or os.getenv('ECS_CONTAINER_METADATA_URI'):
+    if os.getenv("ECS_CONTAINER_METADATA_URI_V4") or os.getenv(
+        "ECS_CONTAINER_METADATA_URI"
+    ):
         return AwsEnvironment.ECS
 
     # Check Elastic Beanstalk
-    if os.getenv('ELASTIC_BEANSTALK_ENVIRONMENT_NAME'):
+    if os.getenv("ELASTIC_BEANSTALK_ENVIRONMENT_NAME"):
         return AwsEnvironment.BEANSTALK
 
     if is_running_on_ec2():
@@ -124,14 +128,14 @@ def get_instance_role_arn() -> Optional[str]:
         response = requests.get(
             "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
             headers={"X-aws-ec2-metadata-token": token},
-            timeout=1
+            timeout=1,
         )
         if response.status_code == 200:
             role_name = response.text.strip()
             if role_name:
-                sts = boto3.client('sts')
+                sts = boto3.client("sts")
                 identity = sts.get_caller_identity()
-                return identity['Arn']
+                return identity.get("Arn")
     except Exception as e:
         logger.debug(f"Failed to get instance role ARN: {e}")
     return None
@@ -140,15 +144,15 @@ def get_instance_role_arn() -> Optional[str]:
 def get_lambda_role_arn() -> Optional[str]:
     """Get the Lambda function's role ARN"""
     try:
-        function_name = os.getenv('AWS_LAMBDA_FUNCTION_NAME')
+        function_name = os.getenv("AWS_LAMBDA_FUNCTION_NAME")
         if not function_name:
             return None
 
-        lambda_client = boto3.client('lambda')
+        lambda_client = boto3.client("lambda")
         function_config = lambda_client.get_function_configuration(
             FunctionName=function_name
         )
-        return function_config.get('Role')
+        return function_config.get("Role")
     except Exception as e:
         logger.debug(f"Failed to get Lambda role ARN: {e}")
         return None
@@ -166,26 +170,28 @@ def get_current_identity() -> Tuple[Optional[str], Optional[str]]:
         return role_arn, "lambda.amazonaws.com"
 
     elif env == AwsEnvironment.EKS:
-        role_arn = os.getenv('AWS_ROLE_ARN')
+        role_arn = os.getenv("AWS_ROLE_ARN")
         return role_arn, "eks.amazonaws.com"
 
     elif env == AwsEnvironment.APP_RUNNER:
         try:
-            sts = boto3.client('sts')
+            sts = boto3.client("sts")
             identity = sts.get_caller_identity()
-            return identity['Arn'], "apprunner.amazonaws.com"
+            return identity.get("Arn"), "apprunner.amazonaws.com"
         except Exception as e:
             logger.debug(f"Failed to get App Runner role: {e}")
 
     elif env == AwsEnvironment.ECS:
         try:
-            metadata_uri = os.getenv('ECS_CONTAINER_METADATA_URI_V4') or os.getenv('ECS_CONTAINER_METADATA_URI')
+            metadata_uri = os.getenv("ECS_CONTAINER_METADATA_URI_V4") or os.getenv(
+                "ECS_CONTAINER_METADATA_URI"
+            )
             if metadata_uri:
                 response = requests.get(f"{metadata_uri}/task", timeout=1)
                 if response.status_code == 200:
                     task_metadata = response.json()
-                    if 'TaskARN' in task_metadata:
-                        return task_metadata.get('TaskARN'), "ecs.amazonaws.com"
+                    if "TaskARN" in task_metadata:
+                        return task_metadata.get("TaskARN"), "ecs.amazonaws.com"
         except Exception as e:
             logger.debug(f"Failed to get ECS task role: {e}")
 
@@ -320,8 +326,7 @@ class AwsConnectionConfig(ConfigModel):
         elif self.aws_profile:
             # Named profile is second priority
             session = Session(
-                region_name=self.aws_region,
-                profile_name=self.aws_profile
+                region_name=self.aws_region, profile_name=self.aws_profile
             )
         else:
             # Use boto3's credential autodetection
@@ -334,9 +339,8 @@ class AwsConnectionConfig(ConfigModel):
                 # Only assume role if:
                 # 1. We're not in a known AWS environment with a role, or
                 # 2. We need to assume a different role than our current one
-                should_assume_role = (
-                    current_role_arn is None or
-                    any(role.RoleArn != current_role_arn for role in target_roles)
+                should_assume_role = current_role_arn is None or any(
+                    role.RoleArn != current_role_arn for role in target_roles
                 )
 
                 if should_assume_role:
