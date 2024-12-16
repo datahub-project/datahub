@@ -795,13 +795,13 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:d15526054bd0ecefaa53c8d193ffff20",
+    "entityUrn": "urn:li:platformResource:8436a2a37c4a7e81fb08c9c8415d2e4b",
     "changeType": "UPSERT",
     "aspectName": "platformResourceInfo",
     "aspect": {
         "json": {
             "resourceType": "USER_ID_MAPPING",
-            "primaryKey": "ap-south-1",
+            "primaryKey": "",
             "value": {
                 "blob": "{}",
                 "contentType": "JSON"
@@ -816,7 +816,7 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:d15526054bd0ecefaa53c8d193ffff20",
+    "entityUrn": "urn:li:platformResource:8436a2a37c4a7e81fb08c9c8415d2e4b",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -833,7 +833,7 @@
 },
 {
     "entityType": "platformResource",
-    "entityUrn": "urn:li:platformResource:d15526054bd0ecefaa53c8d193ffff20",
+    "entityUrn": "urn:li:platformResource:8436a2a37c4a7e81fb08c9c8415d2e4b",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
