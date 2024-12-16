@@ -13,7 +13,6 @@ from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
     ensure_schema_metadata_size,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata._schema_classes import StringTypeClass
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
@@ -28,6 +27,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StatusClass,
+    StringTypeClass,
     SubTypesClass,
 )
 
