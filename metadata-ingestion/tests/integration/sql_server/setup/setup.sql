@@ -113,38 +113,6 @@ GO
 
 GO
 EXEC sys.sp_addextendedproperty
-@name = N'DESCRIPTION',
-@value = N'Description extended property.',
-@level0type = N'SCHEMA', @level0name = 'Foo',
-@level1type = N'TABLE',  @level1name = 'Items';
-GO
-
-GO
-EXEC sys.sp_addextendedproperty
-@name = N'TAGS',
-@value = N'Deprecated',
-@level0type = N'SCHEMA', @level0name = 'Foo',
-@level1type = N'TABLE',  @level1name = 'Items';
-GO
-
-GO
-EXEC sys.sp_addextendedproperty
-@name = N'OWNER',
-@value = N'john_doe@datahub.com',
-@level0type = N'SCHEMA', @level0name = 'Foo',
-@level1type = N'TABLE',  @level1name = 'Items';
-GO
-
-GO
-EXEC sys.sp_addextendedproperty
-@name = N'DOMAINS',
-@value = N'Logistics',
-@level0type = N'SCHEMA', @level0name = 'Foo',
-@level1type = N'TABLE',  @level1name = 'Items';
-GO
-
-GO
-EXEC sys.sp_addextendedproperty
 @name = N'MS_Description',
 @value = N'Description for column LastName of table Persons of schema Foo.',
 @level0type = N'SCHEMA', @level0name = 'Foo',
@@ -180,14 +148,6 @@ GO
 EXEC sys.sp_addextendedproperty
 @name = N'WRITER',
 @value = N'baby_doe@datahub.com',
-@level0type = N'SCHEMA', @level0name = 'Foo',
-@level1type = N'TABLE',  @level1name = 'Items';
-GO
-
-GO
-EXEC sys.sp_addextendedproperty
-@name = N'DEVELOPER',
-@value = N'jane_doe@datahub.com',
 @level0type = N'SCHEMA', @level0name = 'Foo',
 @level1type = N'TABLE',  @level1name = 'Items';
 GO

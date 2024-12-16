@@ -1115,7 +1115,9 @@ class SQLServerSource(SQLAlchemySource):
                     owners.setdefault(owner.type, {}).update({owner.owner: owner})
             for k, v in owners_prop.items():
                 setting = self.config.map_extended_properties[k]
-                ownership_type = validate_ownership_type(setting["ownership_type"])
+                ownership_type, ownership_type_urn = validate_ownership_type(
+                    setting["ownership_type"]
+                )
                 owner_urns = []
                 absent = []
                 for o in v:
@@ -1130,12 +1132,13 @@ class SQLServerSource(SQLAlchemySource):
                         absent.append(o)
 
                 if absent:
-                    raise ValueError(f"Ingestion error: Absent: {absent}")
+                    logger.warning(
+                        f"Extracted owners do not exist in DataHub. Can not emit metadata: {absent}"
+                    )
 
                 owners_add = [
                     OwnerClass(
-                        owner=owner,
-                        type=ownership_type[0],
+                        owner=owner, type=ownership_type, typeUrn=ownership_type_urn
                     )
                     for owner in owner_urns
                 ]
