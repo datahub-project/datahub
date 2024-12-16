@@ -5,8 +5,11 @@ from typing import Iterable, List
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.metadata._schema_classes import SchemaFieldClass
-from datahub.metadata.schema_classes import DatasetProfileClass, SchemaMetadataClass
+from datahub.metadata.schema_classes import (
+    DatasetProfileClass,
+    SchemaFieldClass,
+    SchemaMetadataClass,
+)
 
 logger = logging.getLogger(__name__)
 
