@@ -228,7 +228,7 @@ class TestAwsCommon:
         )
 
         with patch(
-                "datahub.ingestion.source.aws.aws_common.get_current_identity"
+            "datahub.ingestion.source.aws.aws_common.get_current_identity"
         ) as mock_identity:
             mock_identity.return_value = (None, None)
             session = config.get_session()
@@ -244,7 +244,7 @@ class TestAwsCommon:
         )
 
         with patch(
-                "datahub.ingestion.source.aws.aws_common.get_current_identity"
+            "datahub.ingestion.source.aws.aws_common.get_current_identity"
         ) as mock_identity:
             mock_identity.return_value = (
                 "arn:aws:iam::123456789012:role/current-role",
