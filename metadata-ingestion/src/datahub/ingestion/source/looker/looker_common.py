@@ -39,7 +39,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, create_embed_mcp
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import SourceReport
-from datahub.ingestion.source.common.resource import ResourceType
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.looker.looker_config import (
     LookerCommonConfig,
@@ -1651,7 +1650,7 @@ class LookerUserRegistry:
         try:
             platform_resource_key = PlatformResourceKey(
                 platform=LOOKER,
-                resource_type=ResourceType.USER_ID_MAPPING,
+                resource_type="USER_ID_MAPPING",
                 platform_instance=platform_instance,
                 primary_key="",
             )

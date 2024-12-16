@@ -13,7 +13,6 @@ from datahub.api.entities.platformresource.platform_resource import (
 )
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.ingestion.source.common.resource import ResourceType, from_serialized_value
 from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
 from datahub.utilities.search_utils import LogicalOperator
 from datahub.utilities.stats_collections import int_top_k_dict
@@ -72,8 +71,6 @@ class ToolMetaExtractor:
         graph: Optional[DataHubGraph] = None,
         report: ToolMetaExtractorReport = ToolMetaExtractorReport(),
     ) -> "ToolMetaExtractor":
-        looker_user_mapping: Dict[str, str] = {}
-
         if graph:
             query = (
                 ElasticPlatformResourceQuery.create_from()
@@ -81,7 +78,7 @@ class ToolMetaExtractor:
                 .add_field_match(PlatformResourceSearchFields.PLATFORM, "looker")
                 .add_field_match(
                     PlatformResourceSearchFields.RESOURCE_TYPE,
-                    ResourceType.USER_ID_MAPPING,
+                    "USER_ID_MAPPING",
                 )
                 .end()
             )
@@ -93,12 +90,9 @@ class ToolMetaExtractor:
                 )
             ]
 
-            if platform_resources and sum(1 for _ in platform_resources) > 1:
+            if platform_resources and len(platform_resources) > 1:
                 report.warning(
-                    "Tool metadata extraction failed due to multiple platform resources found for Looker."
-                )
-                raise ValueError(
-                    "Exactly one looker platform resource should be present"
+                    "Looker user metadata extraction failed. Found more than one looker user id mappings."
                 )
 
             platform_resource = platform_resources[0]
@@ -109,13 +103,14 @@ class ToolMetaExtractor:
                 and platform_resource.resource_info.value
             ):
                 with contextlib.suppress(ValueError, AssertionError):
-                    looker_user_mapping = from_serialized_value(
-                        platform_resource.resource_info.value
-                    )
-
-                    assert isinstance(looker_user_mapping, dict)
-
-        return cls(looker_user_mapping=looker_user_mapping)
+                    if platform_resource.resource_info.value.as_raw_json():
+                        assert isinstance(
+                            platform_resource.resource_info.value.as_raw_json(), dict
+                        )
+                        return cls(
+                            looker_user_mapping=platform_resource.resource_info.value.as_raw_json()
+                        )
+        return cls()
 
     def _extract_mode_query(self, entry: QueryLog) -> bool:
         """
