@@ -548,12 +548,13 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         datasource_id = chart_data.get("datasource_id")
         if not datasource_id:
-            logger.warning(f'chart {chart_data["id"]} has no datasource_id, skipping fetching dataset info')
+            logger.debug(f'chart {chart_data["id"]} has no datasource_id, skipping fetching dataset info')
+            datasource_urn = None
         else:
             dataset_response = self.get_dataset_info(datasource_id)
-            datasource_urn = self.get_datasource_urn_from_id(
+            datasource_urn = list(self.get_datasource_urn_from_id(
                 dataset_response, self.platform
-            )
+            ))
 
         params = json.loads(chart_data.get("params", "{}"))
         metrics = [
@@ -598,7 +599,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             title=title,
             lastModified=last_modified,
             chartUrl=chart_url,
-            inputs=[datasource_urn] if datasource_urn else None,
+            inputs=datasource_urn,
             customProperties=custom_properties,
         )
         chart_snapshot.aspects.append(chart_info)
