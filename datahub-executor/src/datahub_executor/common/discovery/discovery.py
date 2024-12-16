@@ -1,5 +1,4 @@
 import logging
-import socket
 import time
 from threading import Event, Thread
 
@@ -21,6 +20,8 @@ from datahub_executor.config import (
 
 from .build_info import BuildInfo
 from .utils import (
+    get_host_address,
+    get_hostname,
     get_hostname_from_url,
     get_random_string,
     get_string_hash,
@@ -40,8 +41,8 @@ class DatahubExecutorDiscovery:
         self.stop_flag = False
         self.loop = Thread(target=self._loop_handler)
 
-        self.my_hostname = socket.gethostname()
-        self.my_address = socket.gethostbyname(self.my_hostname)
+        self.my_hostname = get_hostname()
+        self.my_address = get_host_address(self.my_hostname)
         self.my_address_hash = get_string_hash(self.my_address)
 
         self.build_info = BuildInfo()
@@ -79,28 +80,34 @@ class DatahubExecutorDiscovery:
         return instance_id
 
     def _ping(self) -> None:
-        status = RemoteExecutorStatusClass(
-            executorId=DATAHUB_EXECUTOR_WORKER_ID,
-            executorReleaseVersion=self.build_info.get_version(),
-            executorAddress=self.my_address,
-            executorHostname=self.my_hostname,
-            executorUptime=self.get_uptime(),
-            executorStopped=self.stop_flag,
-            executorEmbedded=DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
-            executorInternal=DATAHUB_EXECUTOR_INTERNAL_WORKER,
-            logDeliveryEnabled=False,
-            reportedAt=get_utc_timestamp(),
-        )
-        logger.info("Discovery: sending status update.")
-        send_remote_executor_status(self.graph, self.instance_id, status)
+        try:
+            status = RemoteExecutorStatusClass(
+                executorId=DATAHUB_EXECUTOR_WORKER_ID,
+                executorReleaseVersion=self.build_info.get_version(),
+                executorAddress=self.my_address,
+                executorHostname=self.my_hostname,
+                executorUptime=self.get_uptime(),
+                executorStopped=self.stop_flag,
+                executorEmbedded=DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
+                executorInternal=DATAHUB_EXECUTOR_INTERNAL_WORKER,
+                logDeliveryEnabled=False,
+                reportedAt=get_utc_timestamp(),
+            )
+            logger.info("Discovery: sending status update.")
+            send_remote_executor_status(self.graph, self.instance_id, status)
+        except Exception as e:
+            logger.error(f"Discovery: failed to sending status to GMS: {e}")
         return
 
     def _loop_handler(self) -> None:
         while not self.stop_flag:
-            self.stop_event.clear()
-            self.stop_event.wait(timeout=DATAHUB_EXECUTOR_DISCOVERY_INTERVAL)
-            if not self.stop_flag:
-                self._ping()
+            try:
+                self.stop_event.clear()
+                self.stop_event.wait(timeout=DATAHUB_EXECUTOR_DISCOVERY_INTERVAL)
+                if not self.stop_flag:
+                    self._ping()
+            except Exception as e:
+                logger.error(f"Discovery: error in discovery loop: {e}")
 
     def get_instance_id(self) -> str:
         return self.instance_id

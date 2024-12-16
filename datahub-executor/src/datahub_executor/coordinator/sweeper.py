@@ -32,6 +32,7 @@ from datahub_executor.config import (
     DATAHUB_EXECUTOR_SWEEPER_ABORT_THRESHOLD,
     DATAHUB_EXECUTOR_SWEEPER_DISABLED,
     DATAHUB_EXECUTOR_SWEEPER_PENDING_THRESHOLD,
+    DATAHUB_EXECUTOR_SWEEPER_RESTART_MAX_ATTEMPTS,
     DATAHUB_EXECUTOR_SWEEPER_RESTARTS_DISABLED,
 )
 
@@ -234,6 +235,8 @@ class SweeperJob:
             recent_requests_params
         )
         for source, ingestion in affected_sources.items():
+            attempts = ingestion.raw_input_aspect.get("attempts", 0)
+            attempts = attempts + 1 if attempts is not None else 1
             if (
                 source in recent_requests
                 and (len(recent_requests[source]) == 1)
@@ -242,6 +245,11 @@ class SweeperJob:
                     == recent_requests[source][0].execution_request_urn
                 )
             ):
+                if attempts > DATAHUB_EXECUTOR_SWEEPER_RESTART_MAX_ATTEMPTS:
+                    logger.warning(
+                        f"Sweeper: task {ingestion.execution_request_urn} reached maximum restart attempts, will not restart."
+                    )
+                    continue
                 actions.append(self._build_restart_action(ingestion))
 
         return actions
@@ -436,8 +444,12 @@ class SweeperJob:
         source = old_input.get("source", None)
         args = old_input.get("args", None)
 
+        attempts = old_input.get("attempts", 0)
+        attempts = attempts + 1 if attempts is not None else 1
+
         if isinstance(source, dict) and isinstance(args, dict):
             new_input = ExecutionRequestInputClass(
+                attempts=attempts,
                 task=str(old_input.get("task")),
                 args=args,
                 executorId=str(old_input.get("executorId")),

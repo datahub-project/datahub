@@ -47,4 +47,9 @@ record ExecutionRequestInput {
     "fieldType": "URN"
   }
   actorUrn: optional Urn
+
+  /**
+  * Field tracking number of previously unsuccessful attempts for the given execution request
+  */
+  attempts: optional long
 }

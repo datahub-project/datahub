@@ -1,6 +1,8 @@
 import datetime
 import hashlib
+import logging
 import random
+import socket
 import string
 from urllib.parse import urlparse
 
@@ -12,6 +14,8 @@ from datahub.metadata.schema_classes import (
 )
 
 from datahub_executor.common.constants import DATAHUB_REMOTE_EXECUTOR_ENTITY_NAME
+
+logger = logging.getLogger(__name__)
 
 
 def get_hostname_from_url(url: str) -> str:
@@ -36,6 +40,22 @@ def get_random_string(length: int) -> str:
 
 def get_remote_executor_id_from_urn(urn: str) -> str:
     return urn.replace(f"urn:li:{DATAHUB_REMOTE_EXECUTOR_ENTITY_NAME}:", "")
+
+
+def get_hostname() -> str:
+    try:
+        return socket.gethostname()
+    except Exception as e:
+        logger.exception("gethostname(): %s", e)
+        return "error"
+
+
+def get_host_address(host: str) -> str:
+    try:
+        return socket.gethostbyname(host)
+    except Exception as e:
+        logger.exception("gethostbyname(): %s", e)
+        return "error"
 
 
 def send_remote_executor_status(
