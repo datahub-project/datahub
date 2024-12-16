@@ -1,4 +1,4 @@
-import { Icon, Pill, Text, colors } from '@components';
+import { Pill, Text, colors } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -239,8 +239,7 @@ export const SimpleSelect = ({
                         removeOption={handleOptionChange}
                         disabledValues={disabledValues}
                         showDescriptions={showDescriptions}
-                    isCustomisedLabel={isCustomisedLabel}
-
+                        isCustomisedLabel={isCustomisedLabel}
                     />
                 </SelectLabelContainer>
                 <SelectActionButtons
