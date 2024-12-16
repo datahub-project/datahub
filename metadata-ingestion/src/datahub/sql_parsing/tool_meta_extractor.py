@@ -11,7 +11,7 @@ from datahub.api.entities.platformresource.platform_resource import (
     PlatformResource,
     PlatformResourceSearchFields,
 )
-from datahub.ingestion.api.source import SourceReport
+from datahub.ingestion.api.report import Report
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
 from datahub.utilities.search_utils import LogicalOperator
@@ -37,8 +37,9 @@ def _get_last_line(query: str) -> str:
 
 
 @dataclass
-class ToolMetaExtractorReport(SourceReport):
+class ToolMetaExtractorReport(Report):
     num_queries_meta_extracted: Dict[str, int] = field(default_factory=int_top_k_dict)
+    failures: List[str] = field(default_factory=list)
 
 
 class ToolMetaExtractor:
@@ -50,8 +51,12 @@ class ToolMetaExtractor:
     by warehouse query logs.
     """
 
-    def __init__(self, looker_user_mapping: Optional[Dict[str, str]] = None) -> None:
-        self.report = ToolMetaExtractorReport()
+    def __init__(
+        self,
+        report: ToolMetaExtractorReport,
+        looker_user_mapping: Optional[Dict[str, str]] = None,
+    ) -> None:
+        self.report = report
         self.known_tool_extractors: List[Tuple[str, Callable[[QueryLog], bool]]] = [
             (
                 "mode",
@@ -69,8 +74,11 @@ class ToolMetaExtractor:
     def create(
         cls,
         graph: Optional[DataHubGraph] = None,
-        report: ToolMetaExtractorReport = ToolMetaExtractorReport(),
+        report: Optional[ToolMetaExtractorReport] = None,
     ) -> "ToolMetaExtractor":
+        if report is None:
+            report = ToolMetaExtractorReport()
+
         if graph:
             query = (
                 ElasticPlatformResourceQuery.create_from()
@@ -91,16 +99,16 @@ class ToolMetaExtractor:
             ]
 
             if platform_resources is None:
-                report.warning(
+                report.failures.append(
                     "Looker user metadata extraction failed. No Looker user id mappings found."
                 )
-                return cls()
+                return cls(report=report)
 
             if len(platform_resources) > 1:
-                report.warning(
+                report.failures.append(
                     "Looker user metadata extraction failed. Found more than one looker user id mappings."
                 )
-                return cls()
+                return cls(report)
 
             platform_resource = platform_resources[0]
 
@@ -113,8 +121,8 @@ class ToolMetaExtractor:
                     value = platform_resource.resource_info.value.as_raw_json()
                     if value:
                         assert isinstance(value, dict)
-                        return cls(looker_user_mapping=value)
-        return cls()
+                        return cls(report, looker_user_mapping=value)
+        return cls(report)
 
     def _extract_mode_query(self, entry: QueryLog) -> bool:
         """
