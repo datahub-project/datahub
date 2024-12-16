@@ -1,7 +1,9 @@
 import logging
+import os
 from datetime import datetime, timedelta, timezone
+from enum import Enum
 import requests
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union
 
 import boto3
 from boto3.session import Session
@@ -25,6 +27,15 @@ if TYPE_CHECKING:
     from mypy_boto3_sagemaker import SageMakerClient
     from mypy_boto3_sts import STSClient
 
+class AwsEnvironment(Enum):
+    EC2 = "EC2"
+    ECS = "ECS"
+    EKS = "EKS"
+    LAMBDA = "LAMBDA"
+    APP_RUNNER = "APP_RUNNER"
+    BEANSTALK = "ELASTIC_BEANSTALK"
+    CLOUD_FORMATION = "CLOUD_FORMATION"
+    UNKNOWN = "UNKNOWN"
 
 class AwsAssumeRoleConfig(PermissiveConfigModel):
     # Using the PermissiveConfigModel to allow the user to pass additional arguments.
@@ -38,45 +49,155 @@ class AwsAssumeRoleConfig(PermissiveConfigModel):
     )
 
 
-def is_running_on_ec2() -> bool:
-    """
-    Check if the code is running on an EC2 instance by attempting to access the EC2 metadata service
-    """
-    metadata_url = "http://169.254.169.254/latest/meta-data/instance-id"
+def get_instance_metadata_token() -> Optional[str]:
+    """Get IMDSv2 token"""
     try:
-        response = requests.get(metadata_url, timeout=1)
+        response = requests.put(
+            "http://169.254.169.254/latest/api/token",
+            headers={"X-aws-ec2-metadata-token-ttl-seconds": "21600"},
+            timeout=1
+        )
+        if response.status_code == 200:
+            return response.text
+    except requests.exceptions.RequestException:
+        logger.debug("Failed to get IMDSv2 token")
+    return None
+
+
+def is_running_on_ec2() -> bool:
+    """Check if code is running on EC2 using IMDSv2"""
+    token = get_instance_metadata_token()
+    if not token:
+        return False
+
+    try:
+        response = requests.get(
+            "http://169.254.169.254/latest/meta-data/instance-id",
+            headers={"X-aws-ec2-metadata-token": token},
+            timeout=1
+        )
         return response.status_code == 200
     except requests.exceptions.RequestException:
         return False
 
 
+def detect_aws_environment() -> AwsEnvironment:
+    """
+    Detect the AWS environment we're running in.
+    Order matters as some environments may have multiple indicators.
+    """
+    # Check Lambda first as it's most specific
+    if os.getenv('AWS_LAMBDA_FUNCTION_NAME'):
+        if os.getenv('AWS_EXECUTION_ENV', '').startswith('CloudFormation'):
+            return AwsEnvironment.CLOUD_FORMATION
+        return AwsEnvironment.LAMBDA
+
+    # Check EKS (IRSA)
+    if os.getenv('AWS_WEB_IDENTITY_TOKEN_FILE') and os.getenv('AWS_ROLE_ARN'):
+        return AwsEnvironment.EKS
+
+    # Check App Runner
+    if os.getenv('AWS_APP_RUNNER_SERVICE_ID'):
+        return AwsEnvironment.APP_RUNNER
+
+    # Check ECS
+    if os.getenv('ECS_CONTAINER_METADATA_URI_V4') or os.getenv('ECS_CONTAINER_METADATA_URI'):
+        return AwsEnvironment.ECS
+
+    # Check Elastic Beanstalk
+    if os.getenv('ELASTIC_BEANSTALK_ENVIRONMENT_NAME'):
+        return AwsEnvironment.BEANSTALK
+
+    if is_running_on_ec2():
+        return AwsEnvironment.EC2
+
+    return AwsEnvironment.UNKNOWN
+
+
 def get_instance_role_arn() -> Optional[str]:
-    """
-    Get the ARN of the role associated with the current EC2 instance.
-    Returns None if not running on EC2 or if role info cannot be retrieved.
-    """
-    if not is_running_on_ec2():
+    """Get role ARN from EC2 instance metadata using IMDSv2"""
+    token = get_instance_metadata_token()
+    if not token:
         return None
 
     try:
-        # Get role name from instance metadata
-        metadata_url = "http://169.254.169.254/latest/meta-data/iam/security-credentials/"
-        response = requests.get(metadata_url, timeout=1)
-        if response.status_code != 200:
-            return None
-
-        role_name = response.text.strip()
-        if not role_name:
-            return None
-
-        # Use STS to get the full role ARN
-        sts_client = boto3.client('sts')
-        identity = sts_client.get_caller_identity()
-        return identity['Arn']
-
+        response = requests.get(
+            "http://169.254.169.254/latest/meta-data/iam/security-credentials/",
+            headers={"X-aws-ec2-metadata-token": token},
+            timeout=1
+        )
+        if response.status_code == 200:
+            role_name = response.text.strip()
+            if role_name:
+                sts = boto3.client('sts')
+                identity = sts.get_caller_identity()
+                return identity['Arn']
     except Exception as e:
         logger.debug(f"Failed to get instance role ARN: {e}")
+    return None
+
+
+def get_lambda_role_arn() -> Optional[str]:
+    """Get the Lambda function's role ARN"""
+    try:
+        function_name = os.getenv('AWS_LAMBDA_FUNCTION_NAME')
+        if not function_name:
+            return None
+
+        lambda_client = boto3.client('lambda')
+        function_config = lambda_client.get_function_configuration(
+            FunctionName=function_name
+        )
+        return function_config.get('Role')
+    except Exception as e:
+        logger.debug(f"Failed to get Lambda role ARN: {e}")
         return None
+
+
+def get_current_identity() -> Tuple[Optional[str], Optional[str]]:
+    """
+    Get the current role ARN and source type based on the runtime environment.
+    Returns (role_arn, credential_source)
+    """
+    env = detect_aws_environment()
+
+    if env == AwsEnvironment.LAMBDA:
+        role_arn = get_lambda_role_arn()
+        return role_arn, "lambda.amazonaws.com"
+
+    elif env == AwsEnvironment.EKS:
+        role_arn = os.getenv('AWS_ROLE_ARN')
+        return role_arn, "eks.amazonaws.com"
+
+    elif env == AwsEnvironment.APP_RUNNER:
+        try:
+            sts = boto3.client('sts')
+            identity = sts.get_caller_identity()
+            return identity['Arn'], "apprunner.amazonaws.com"
+        except Exception as e:
+            logger.debug(f"Failed to get App Runner role: {e}")
+
+    elif env == AwsEnvironment.ECS:
+        try:
+            metadata_uri = os.getenv('ECS_CONTAINER_METADATA_URI_V4') or os.getenv('ECS_CONTAINER_METADATA_URI')
+            if metadata_uri:
+                response = requests.get(f"{metadata_uri}/task", timeout=1)
+                if response.status_code == 200:
+                    task_metadata = response.json()
+                    if 'TaskARN' in task_metadata:
+                        return task_metadata.get('TaskARN'), "ecs.amazonaws.com"
+        except Exception as e:
+            logger.debug(f"Failed to get ECS task role: {e}")
+
+    elif env == AwsEnvironment.BEANSTALK:
+        # Beanstalk uses EC2 instance metadata
+        return get_instance_role_arn(), "elasticbeanstalk.amazonaws.com"
+
+    elif env == AwsEnvironment.EC2:
+        return get_instance_role_arn(), "ec2.amazonaws.com"
+
+    return None, None
+
 
 def assume_role(
     role: AwsAssumeRoleConfig,
@@ -189,6 +310,7 @@ class AwsConnectionConfig(ConfigModel):
 
     def get_session(self) -> Session:
         if self.aws_access_key_id and self.aws_secret_access_key:
+            # Explicit credentials take precedence
             session = Session(
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
@@ -196,6 +318,7 @@ class AwsConnectionConfig(ConfigModel):
                 region_name=self.aws_region,
             )
         elif self.aws_profile:
+            # Named profile is second priority
             session = Session(
                 region_name=self.aws_region,
                 profile_name=self.aws_profile
@@ -205,19 +328,21 @@ class AwsConnectionConfig(ConfigModel):
             session = Session(region_name=self.aws_region)
 
             target_roles = self._normalized_aws_roles()
-            if target_roles:  # Check if we have any roles to assume
-                current_role_arn = get_instance_role_arn()
+            if target_roles:
+                current_role_arn, credential_source = get_current_identity()
 
                 # Only assume role if:
-                # 1. We're not on EC2, or
-                # 2. We're on EC2 but need to assume a different role than our instance profile
+                # 1. We're not in a known AWS environment with a role, or
+                # 2. We need to assume a different role than our current one
                 should_assume_role = (
-                        not current_role_arn or
-                        any(role.RoleArn != current_role_arn for role in target_roles)
+                    current_role_arn is None or
+                    any(role.RoleArn != current_role_arn for role in target_roles)
                 )
 
                 if should_assume_role:
-                    logger.debug("Assuming role(s) as current credentials differ from target")
+                    env = detect_aws_environment()
+                    logger.debug(f"Assuming role(s) from {env.value} environment")
+
                     current_credentials = session.get_credentials()
                     if current_credentials is None:
                         raise ValueError("No credentials available for role assumption")
@@ -231,8 +356,8 @@ class AwsConnectionConfig(ConfigModel):
                     for role in target_roles:
                         if self._should_refresh_credentials():
                             credentials = assume_role(
-                                role,
-                                self.aws_region,
+                                role=role,
+                                aws_region=self.aws_region,
                                 credentials=credentials,
                             )
                             if isinstance(credentials["Expiration"], datetime):
@@ -245,7 +370,7 @@ class AwsConnectionConfig(ConfigModel):
                         region_name=self.aws_region,
                     )
                 else:
-                    logger.debug("Using instance profile credentials as they match target role")
+                    logger.debug(f"Using existing role from {credential_source}")
 
         return session
 
