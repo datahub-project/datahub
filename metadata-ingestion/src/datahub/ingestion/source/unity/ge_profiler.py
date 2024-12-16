@@ -63,11 +63,6 @@ class UnityCatalogGEProfiler(GenericProfiler):
         engine = create_engine(url, **self.config.options)
         conn = engine.connect()
 
-        for table in tables:
-            logger.debug(
-                f"Before creating UnityCatalogSQLGenericTable we have ({len(table.columns)} columns): {table.columns}"
-            )
-
         profile_requests = []
         with ThreadPoolExecutor(
             max_workers=self.profiling_config.max_workers
@@ -149,7 +144,6 @@ class UnityCatalogGEProfiler(GenericProfiler):
             return None
 
         self.report.report_entity_profiled(dataset_name)
-        logger.debug(f"Preparing profiling request for {dataset_name}")
         return TableProfilerRequest(
             table=table,
             pretty_name=dataset_name,
