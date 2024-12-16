@@ -88,7 +88,10 @@ class GenericProfiler:
 
         # Otherwise, if column level profiling is enabled, use  GE profiler.
         ge_profiler = self.get_profiler_instance(db_name)
-
+        for request in requests:
+            logger.debug(
+                f"Going to profile request {request.pretty_name}: {request.batch_kwargs}"
+            )
         for ge_profiler_request, profile in ge_profiler.generate_profiles(
             ge_profile_requests, max_workers, platform, profiler_args
         ):
