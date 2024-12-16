@@ -15,12 +15,30 @@ import java.util.stream.Stream;
 public class ValidationExceptionCollection
     extends HashMap<Pair<Urn, String>, Set<AspectValidationException>> {
 
+  private final Set<Integer> failedHashCodes;
+  private final Set<Integer> filteredHashCodes;
+
+  public ValidationExceptionCollection() {
+    super();
+    this.failedHashCodes = new HashSet<>();
+    this.filteredHashCodes = new HashSet<>();
+  }
+
+  public boolean hasFatalExceptions() {
+    return !failedHashCodes.isEmpty();
+  }
+
   public static ValidationExceptionCollection newCollection() {
     return new ValidationExceptionCollection();
   }
 
   public void addException(AspectValidationException exception) {
     super.computeIfAbsent(exception.getAspectGroup(), key -> new HashSet<>()).add(exception);
+    if (!AspectValidationException.SubType.FILTER.equals(exception.getSubType())) {
+      failedHashCodes.add(exception.getItem().hashCode());
+    } else {
+      filteredHashCodes.add(exception.getItem().hashCode());
+    }
   }
 
   public void addException(BatchItem item, String message) {
@@ -28,8 +46,7 @@ public class ValidationExceptionCollection
   }
 
   public void addException(BatchItem item, String message, Exception ex) {
-    super.computeIfAbsent(Pair.of(item.getUrn(), item.getAspectName()), key -> new HashSet<>())
-        .add(AspectValidationException.forItem(item, message, ex));
+    addException(AspectValidationException.forItem(item, message, ex));
   }
 
   public Stream<AspectValidationException> streamAllExceptions() {
@@ -41,7 +58,8 @@ public class ValidationExceptionCollection
   }
 
   public <T extends BatchItem> Stream<T> streamSuccessful(Stream<T> items) {
-    return items.filter(i -> !this.containsKey(Pair.of(i.getUrn(), i.getAspectName())));
+    return items.filter(
+        i -> !failedHashCodes.contains(i.hashCode()) && !filteredHashCodes.contains(i.hashCode()));
   }
 
   public <T extends BatchItem> Collection<T> exceptions(Collection<T> items) {
@@ -49,7 +67,7 @@ public class ValidationExceptionCollection
   }
 
   public <T extends BatchItem> Stream<T> streamExceptions(Stream<T> items) {
-    return items.filter(i -> this.containsKey(Pair.of(i.getUrn(), i.getAspectName())));
+    return items.filter(i -> failedHashCodes.contains(i.hashCode()));
   }
 
   @Override

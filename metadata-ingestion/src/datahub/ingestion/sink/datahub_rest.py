@@ -18,7 +18,10 @@ from datahub.configuration.common import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
-from datahub.emitter.rest_emitter import DataHubRestEmitter
+from datahub.emitter.rest_emitter import (
+    BATCH_INGEST_MAX_PAYLOAD_LENGTH,
+    DataHubRestEmitter,
+)
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import (
     NoopWriteCallback,
@@ -70,6 +73,14 @@ class DatahubRestSinkConfig(DatahubClientConfig):
 
     # Only applies in async batch mode.
     max_per_batch: pydantic.PositiveInt = 100
+
+    @pydantic.validator("max_per_batch", always=True)
+    def validate_max_per_batch(cls, v):
+        if v > BATCH_INGEST_MAX_PAYLOAD_LENGTH:
+            raise ValueError(
+                f"max_per_batch must be less than or equal to {BATCH_INGEST_MAX_PAYLOAD_LENGTH}"
+            )
+        return v
 
 
 @dataclasses.dataclass

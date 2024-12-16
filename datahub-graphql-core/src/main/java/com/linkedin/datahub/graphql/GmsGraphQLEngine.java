@@ -1318,7 +1318,8 @@ public class GmsGraphQLEngine {
               .dataFetcher("updateQuery", new UpdateQueryResolver(this.queryService))
               .dataFetcher("deleteQuery", new DeleteQueryResolver(this.queryService))
               .dataFetcher(
-                  "createDataProduct", new CreateDataProductResolver(this.dataProductService))
+                  "createDataProduct",
+                  new CreateDataProductResolver(this.dataProductService, this.entityService))
               .dataFetcher(
                   "updateDataProduct", new UpdateDataProductResolver(this.dataProductService))
               .dataFetcher(
