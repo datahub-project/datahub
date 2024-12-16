@@ -111,6 +111,8 @@ from datahub.ingestion.source.tableau.tableau_common import (
     tableau_field_to_schema_field,
     workbook_graphql_query,
 )
+from datahub.ingestion.source.tableau.tableau_server_wrapper import UserInfo
+from datahub.ingestion.source.tableau.tableau_validation import check_user_role
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -167,7 +169,7 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 try:
     # On earlier versions of the tableauserverclient, the NonXMLResponseError
-    # was thrown when reauthentication was needed. We'll keep both exceptions
+    # was thrown when reauthentication was necessary. We'll keep both exceptions
     # around for now, but can remove this in the future.
     from tableauserverclient.server.endpoint.exceptions import (  # type: ignore
         NotSignedInError,
@@ -632,6 +634,33 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
     num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
     num_hidden_assets_skipped: int = 0
+    logged_in_user: List[UserInfo] = []
+
+
+def report_user_role(report: TableauSourceReport, server: Server) -> None:
+    title: str = "Insufficient Permissions"
+    message: str = "The user must have the `Site Administrator Explorer` role to perform metadata ingestion."
+    try:
+        # TableauSiteSource instance is per site, so each time we need to find-out user detail
+        # the site-role might be different on another site
+        logged_in_user: UserInfo = UserInfo.from_server(server=server)
+
+        if not logged_in_user.is_site_administrator_explorer():
+            report.warning(
+                title=title,
+                message=message,
+                context=f"user-name={logged_in_user.user_name}, role={logged_in_user.site_role}, site_id={logged_in_user.site_id}",
+            )
+
+        report.logged_in_user.append(logged_in_user)
+
+    except Exception as e:
+        report.warning(
+            title=title,
+            message="Failed to verify the user's role. The user must have `Site Administrator Explorer` role.",
+            context=f"{e}",
+            exc=e,
+        )
 
 
 @platform_name("Tableau")
@@ -676,6 +705,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         try:
             logger.info(f"Authenticated to Tableau site: '{site_content_url}'")
             self.server = self.config.make_tableau_client(site_content_url)
+            report_user_role(report=self.report, server=self.server)
         # Note that we're not catching ConfigurationError, since we want that to throw.
         except ValueError as e:
             self.report.failure(
@@ -689,9 +719,17 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         test_report = TestConnectionReport()
         try:
             source_config = TableauConfig.parse_obj_allow_extras(config_dict)
-            source_config.make_tableau_client(source_config.site)
+
+            server = source_config.make_tableau_client(source_config.site)
+
             test_report.basic_connectivity = CapabilityReport(capable=True)
+
+            test_report.capability_report = check_user_role(
+                logged_in_user=UserInfo.from_server(server=server)
+            )
+
         except Exception as e:
+            logger.warning(f"{e}", exc_info=e)
             test_report.basic_connectivity = CapabilityReport(
                 capable=False, failure_reason=str(e)
             )
@@ -830,6 +868,8 @@ class TableauSiteSource:
         # This list keeps track of datasource being actively used by workbooks so that we only retrieve those
         # when emitting custom SQL data sources.
         self.custom_sql_ids_being_used: List[str] = []
+
+        report_user_role(report=report, server=server)
 
     @property
     def no_env_browse_prefix(self) -> str:
