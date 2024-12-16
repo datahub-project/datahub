@@ -273,7 +273,7 @@ s3_base = {
     "ujson>=5.2.0",
     "smart-open[s3]>=5.2.1",
     # moto 5.0.0 drops support for Python 3.7
-    "moto[s3,sts,lambda,iam]<5.0.0",
+    "moto[s3]<5.0.0",
     *path_spec_common,
 }
 
