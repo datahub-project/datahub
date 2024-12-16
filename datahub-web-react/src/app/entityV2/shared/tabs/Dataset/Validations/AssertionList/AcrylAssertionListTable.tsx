@@ -1,17 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { Empty } from 'antd';
 import { AssertionType, DataContract, Entity } from '@src/types.generated';
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { DownOutlined } from '@ant-design/icons';
-import styled from 'styled-components';
+import { Table } from '@src/alchemy-components';
+import { SortingState } from '@src/alchemy-components/components/Table/types';
 
 import { AssertionProfileDrawer } from '../assertion/profile/AssertionProfileDrawer';
 import { getEntityUrnForAssertion, getSiblingWithUrn } from '../acrylUtils';
 import { useExpandedRowKeys, useOpenAssertionDetailModal } from '../assertion/builder/hooks';
 import { AssertionTable, AssertionListFilter } from './types';
-import { useAssertionsTableColumns, usePinnedAssertionTableHeaderProps } from './hooks';
-import { AssertionListStyledTable } from './StyledComponents';
-import { GroupByTable } from './GroupByTable';
+import { useAssertionsTableColumns } from './hooks';
+import { StyledTableContainer } from './StyledComponents';
 
 type Props = {
     assertionData: AssertionTable;
@@ -22,11 +20,6 @@ type Props = {
     canEditMonitors: boolean;
     canEditSqlAssertions: boolean;
 };
-
-const ExpandIcon = styled(DownOutlined)<{ expanded: boolean }>`
-    transition: transform 0.3s ease-in-out;
-    transform: rotate(${(props) => (props.expanded ? 180 : 0)}deg);
-`;
 
 export const AcrylAssertionListTable = ({
     assertionData,
@@ -39,6 +32,11 @@ export const AcrylAssertionListTable = ({
 }: Props) => {
     const { entityData } = useEntityData();
     const { groupBy } = filter;
+
+    const [sortedOptions, setSortedOptions] = useState<{ sortColumn: string; sortOrder: SortingState }>({
+        sortColumn: '',
+        sortOrder: SortingState.ORIGINAL,
+    });
 
     const { expandedRowKeys, setExpandedRowKeys } = useExpandedRowKeys(
         assertionData?.groupBy ? assertionData?.groupBy[groupBy] : [],
@@ -75,7 +73,7 @@ export const AcrylAssertionListTable = ({
 
     useOpenAssertionDetailModal(setFocusAssertionUrn);
 
-    const onAssertionExpand = (_, record) => {
+    const onAssertionExpand = (record) => {
         const key = record.name;
         setExpandedRowKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
     };
@@ -89,67 +87,77 @@ export const AcrylAssertionListTable = ({
             return 'group-header';
         }
         if (record.urn === focusAssertionUrn) {
-            return 'acryl-selected-assertions-table-row' || 'acryl-assertions-table-row';
+            return 'acryl-selected-table-row' || 'acryl-assertions-table-row';
         }
         return 'acryl-assertions-table-row';
     };
 
     const onRowClick = (record) => {
-        return {
-            onClick: !record.groupName
-                ? (_) => {
-                      setFocusAssertionUrn(record.urn);
-                  }
-                : () => null,
-        };
+        setFocusAssertionUrn(record.urn);
     };
 
-    // get dynamic height for table row data to scroll which help to stick the table header
-    const { tableContainerRef, scrollY } = usePinnedAssertionTableHeaderProps();
+    const getSortedAssertions = (record) => {
+        const { sortOrder, sortColumn } = sortedOptions;
+        if (sortOrder === SortingState.ORIGINAL) {
+            return record.assertions;
+        }
+
+        const sortFunctions = {
+            lastEvaluation: {
+                [SortingState.DESCENDING]: (a, b) => a.lastEvaluationTimeMs - b.lastEvaluationTimeMs,
+                [SortingState.ASCENDING]: (a, b) => b.lastEvaluationTimeMs - a.lastEvaluationTimeMs,
+            },
+            name: {
+                [SortingState.ASCENDING]: (a, b) => a.description.localeCompare(b.description),
+                [SortingState.DESCENDING]: (a, b) => b.description.localeCompare(a.description),
+            },
+        };
+
+        const sortFunction = sortFunctions[sortColumn]?.[sortOrder];
+        return sortFunction ? [...record.assertions].sort(sortFunction) : record.assertions;
+    };
 
     return (
         <>
-            <div ref={tableContainerRef} style={{ height: '100vh', overflow: 'hidden' }}>
-                <AssertionListStyledTable
+            <StyledTableContainer style={{ height: '100vh', overflow: 'hidden' }}>
+                <Table
                     columns={assertionsTableCols}
-                    dataSource={groupBy ? getGroupData() : assertionData.assertions || []}
-                    locale={{
-                        emptyText: <Empty description="No Assertions Found :(" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-                    }}
+                    data={groupBy ? getGroupData() : assertionData.assertions || []}
                     showHeader
-                    pagination={false}
+                    isScrollable
                     rowClassName={rowClassName}
-                    rowKey="name"
-                    expandable={
-                        groupBy
-                            ? {
-                                  expandedRowRender: (record: any) => (
-                                      <GroupByTable
-                                          groupData={record.assertions}
-                                          columns={assertionsTableCols}
-                                          onRow={onRowClick}
-                                          focusUrn={focusAssertionUrn || ''}
-                                          entityType="assertion"
-                                      />
-                                  ),
-                                  onExpand: onAssertionExpand,
-                                  expandedRowKeys,
-                                  expandRowByClick: true,
-                                  expandIcon: (props: any) => {
-                                      const handleClick = (e) => {
-                                          e.stopPropagation();
-                                          props.onExpand(props.record, e);
-                                      };
-
-                                      return <ExpandIcon expanded={props.expanded} onClick={handleClick} />;
-                                  },
-                              }
-                            : undefined
-                    }
-                    onRow={onRowClick}
-                    scroll={{ y: scrollY }} // Dynamic scroll height
+                    handleSortColumnChange={({
+                        sortColumn,
+                        sortOrder,
+                    }: {
+                        sortColumn: string;
+                        sortOrder: SortingState;
+                    }) => setSortedOptions({ sortColumn, sortOrder })}
+                    expandable={{
+                        expandedRowRender: (record) => {
+                            let sortedAssertions = record.assertions;
+                            if (sortedOptions.sortColumn && sortedOptions.sortOrder) {
+                                sortedAssertions = getSortedAssertions(record);
+                            }
+                            return (
+                                <Table
+                                    columns={assertionsTableCols}
+                                    data={sortedAssertions}
+                                    showHeader={false}
+                                    isBorderless
+                                    isExpandedInnerTable
+                                    onRowClick={onRowClick}
+                                    rowClassName={rowClassName}
+                                />
+                            );
+                        },
+                        rowExpandable: () => !!groupBy,
+                        expandIconPosition: 'end',
+                        expandedRowKeys,
+                    }}
+                    onExpand={onAssertionExpand}
                 />
-            </div>
+            </StyledTableContainer>
             {focusAssertionUrn && focusedAssertionEntity && (
                 <AssertionProfileDrawer
                     urn={focusAssertionUrn}

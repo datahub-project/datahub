@@ -4,12 +4,15 @@ import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import styled from 'styled-components';
 
 export const TableContainer = styled.div<{ isScrollable?: boolean; maxHeight?: string; isBorderless?: boolean }>(
-    ({ isScrollable, maxHeight, isBorderless }) => ({
+    ({ maxHeight, isBorderless }) => ({
         borderRadius: isBorderless ? radius.none : radius.lg,
         border: isBorderless ? borders.none : `1px solid ${colors.gray[1400]}`,
-        overflow: isScrollable ? 'auto' : 'hidden',
+        overflow: 'hidden',
         width: '100%',
         maxHeight: maxHeight || '100%',
+        '&:hover': {
+            overflow: 'auto',
+        },
     }),
 );
 
@@ -28,7 +31,7 @@ export const TableHeader = styled.thead({
 
 export const TableHeaderCell = styled.th<{ width?: string; shouldAddRightBorder?: boolean }>(
     ({ width, shouldAddRightBorder }) => ({
-        padding: `${spacing.sm} ${spacing.md}`,
+        padding: `${spacing.sm} ${spacing.xsm}`,
         color: colors.gray[600],
         fontSize: typography.fontSizes.sm,
         fontWeight: typography.fontWeights.medium,
@@ -62,21 +65,24 @@ export const TableRow = styled.tr<{ canExpand?: boolean }>(({ canExpand }) => ({
     },
 }));
 
-export const TableCell = styled.td<{ width?: string; alignment?: AlignmentOptions; shouldUseMinimumPadding?: boolean }>(
-    ({ width, alignment, shouldUseMinimumPadding }) => ({
-        padding: shouldUseMinimumPadding ? spacing.xsm : `${spacing.md} ${spacing.xsm}`,
-        borderBottom: `1px solid ${colors.gray[1400]}`,
-        color: colors.gray[1700],
-        fontSize: typography.fontSizes.md,
-        fontWeight: typography.fontWeights.normal,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'normal',
-        wordBreak: 'break-word',
-        maxWidth: width || 'unset',
-        textAlign: alignment || 'left',
-    }),
-);
+export const TableCell = styled.td<{
+    width?: string;
+    alignment?: AlignmentOptions;
+    shouldUseMinimumPadding?: boolean;
+    isExpanded?: boolean;
+}>(({ width, alignment, shouldUseMinimumPadding, isExpanded }) => ({
+    padding: shouldUseMinimumPadding ? spacing.xsm : `${spacing.md} ${spacing.xsm}`,
+    borderBottom: isExpanded ? `1px solid ${colors.gray[200]}` : `1px solid ${colors.gray[100]}`,
+    color: colors.gray[1700],
+    fontSize: typography.fontSizes.md,
+    fontWeight: typography.fontWeights.normal,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'normal',
+    wordBreak: 'break-word',
+    maxWidth: width || 'unset',
+    textAlign: alignment || 'left',
+}));
 
 export const SortIconsContainer = styled.div({
     display: 'flex',
