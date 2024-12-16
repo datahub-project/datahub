@@ -8,7 +8,7 @@ import TabItem from '@theme/TabItem';
  Structured properties are a structured, named set of properties that can be attached to logical entities like Datasets, DataJobs, etc.
 Structured properties have values that are types. Conceptually, they are like “field definitions”.
 
-Learn more about structured properties in the [Structured Properties Feature Guide](../../../docs/features/feature-guides/properties.md).
+Learn more about structured properties in the [Structured Properties Feature Guide](../../../docs/features/feature-guides/properties/overview.md).
 
 
 ### Goal Of This Guide

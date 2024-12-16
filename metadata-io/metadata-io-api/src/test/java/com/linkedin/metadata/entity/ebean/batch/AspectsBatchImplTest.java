@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.FabricType;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.DataPlatformUrn;
@@ -220,6 +221,7 @@ public class AspectsBatchImplTest {
 
   @Test
   public void toUpsertBatchItemsProposedItemTest() {
+    AuditStamp auditStamp = AuditStampUtils.createDefaultAuditStamp();
     List<ProposedItem> testItems =
         List.of(
             ProposedItem.builder()
@@ -239,7 +241,7 @@ public class AspectsBatchImplTest {
                                     ByteString.copyString(
                                         "{\"foo\":\"bar\"}", StandardCharsets.UTF_8)))
                         .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                .auditStamp(auditStamp)
                 .build(),
             ProposedItem.builder()
                 .entitySpec(testRegistry.getEntitySpec(DATASET_ENTITY_NAME))
@@ -258,7 +260,7 @@ public class AspectsBatchImplTest {
                                     ByteString.copyString(
                                         "{\"foo\":\"bar\"}", StandardCharsets.UTF_8)))
                         .setSystemMetadata(new SystemMetadata()))
-                .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                .auditStamp(auditStamp)
                 .build());
 
     AspectsBatchImpl testBatch =
@@ -280,7 +282,7 @@ public class AspectsBatchImplTest {
                         testRegistry
                             .getEntitySpec(DATASET_ENTITY_NAME)
                             .getAspectSpec(STATUS_ASPECT_NAME))
-                    .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                    .auditStamp(auditStamp)
                     .systemMetadata(testItems.get(0).getSystemMetadata().setVersion("1"))
                     .recordTemplate(new Status().setRemoved(false))
                     .build(mockAspectRetriever),
@@ -295,7 +297,7 @@ public class AspectsBatchImplTest {
                         testRegistry
                             .getEntitySpec(DATASET_ENTITY_NAME)
                             .getAspectSpec(STATUS_ASPECT_NAME))
-                    .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+                    .auditStamp(auditStamp)
                     .systemMetadata(testItems.get(1).getSystemMetadata().setVersion("1"))
                     .recordTemplate(new Status().setRemoved(false))
                     .build(mockAspectRetriever))),

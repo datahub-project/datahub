@@ -60,15 +60,7 @@
                 "op": "add",
                 "path": "/inputDatajobEdges/urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,PROD),91d59f03-1c2b-3f3f-48bc-f89296a328bd)",
                 "value": {
-                    "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,PROD),91d59f03-1c2b-3f3f-48bc-f89296a328bd)",
-                    "created": {
-                        "time": 1638532800000,
-                        "actor": "urn:li:corpuser:datahub"
-                    },
-                    "lastModified": {
-                        "time": 1638532800000,
-                        "actor": "urn:li:corpuser:datahub"
-                    }
+                    "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,PROD),91d59f03-1c2b-3f3f-48bc-f89296a328bd)"
                 }
             }
         ]
@@ -178,30 +170,14 @@
                 "op": "add",
                 "path": "/inputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)",
                 "value": {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)",
-                    "created": {
-                        "time": 1638532800000,
-                        "actor": "urn:li:corpuser:datahub"
-                    },
-                    "lastModified": {
-                        "time": 1638532800000,
-                        "actor": "urn:li:corpuser:datahub"
-                    }
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)"
                 }
             },
             {
                 "op": "add",
                 "path": "/inputDatajobEdges/urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,PROD),cb7693ed-f93b-3340-3776-fe80e6283ddc)",
                 "value": {
-                    "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,PROD),cb7693ed-f93b-3340-3776-fe80e6283ddc)",
-                    "created": {
-                        "time": 1638532800000,
-                        "actor": "urn:li:corpuser:datahub"
-                    },
-                    "lastModified": {
-                        "time": 1638532800000,
-                        "actor": "urn:li:corpuser:datahub"
-                    }
+                    "destinationUrn": "urn:li:dataJob:(urn:li:dataFlow:(nifi,803ebb92-017d-1000-2961-4bdaa27a3ba0,PROD),cb7693ed-f93b-3340-3776-fe80e6283ddc)"
                 }
             }
         ]
@@ -287,15 +263,7 @@
                 "op": "add",
                 "path": "/inputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)",
                 "value": {
-                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)",
-                    "created": {
-                        "time": 1638532800000,
-                        "actor": "urn:li:corpuser:datahub"
-                    },
-                    "lastModified": {
-                        "time": 1638532800000,
-                        "actor": "urn:li:corpuser:datahub"
-                    }
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,enriched-topical-chat,PROD)"
                 }
             }
         ]

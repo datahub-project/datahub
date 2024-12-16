@@ -17,6 +17,7 @@ import { DataProductEntitiesTab } from './DataProductEntitiesTab';
 import { EntityActionItem } from '../shared/entity/EntityActions';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 /**
  * Definition of the DataHub Data Product entity.
@@ -123,6 +124,9 @@ export class DataProductEntity implements Entity<DataProduct> {
                 updateOnly: true,
             },
         },
+        {
+            component: SidebarStructuredPropsSection,
+        },
     ];
 
     renderPreview = (_: PreviewType, data: DataProduct) => {
@@ -190,5 +194,9 @@ export class DataProductEntity implements Entity<DataProduct> {
             EntityCapabilityType.TAGS,
             EntityCapabilityType.DOMAINS,
         ]);
+    };
+
+    getGraphName = () => {
+        return 'dataProduct';
     };
 }

@@ -43,6 +43,10 @@ record FormPrompt {
     /**
      * The structured property that is required on this entity
      */
+    @Searchable = {
+      "fieldType": "URN",
+      "fieldName": "structuredPropertyPromptUrns",
+    }
     urn: Urn
   }
 

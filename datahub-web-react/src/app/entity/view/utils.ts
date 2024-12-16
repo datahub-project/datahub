@@ -28,7 +28,7 @@ export const convertStateToUpdateInput = (state: ViewBuilderState) => {
             entityTypes: state?.definition?.entityTypes,
             filter: {
                 operator: state?.definition?.filter?.operator,
-                filters: state?.definition?.filter?.filters.map((filter) => ({
+                filters: state?.definition?.filter?.filters?.map((filter) => ({
                     field: filter.field,
                     condition: filter.condition,
                     values: filter.values,

@@ -151,7 +151,7 @@ public class SchemaFieldSideEffectTest {
                           UrnUtils.getUrn(
                               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"))
                       .aspectName(SCHEMA_FIELD_ALIASES_ASPECT)
-                      .changeType(changeType)
+                      .changeType(ChangeType.UPSERT)
                       .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
                       .aspectSpec(
                           TEST_REGISTRY
@@ -172,7 +172,7 @@ public class SchemaFieldSideEffectTest {
                           UrnUtils.getUrn(
                               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"))
                       .aspectName(SCHEMA_FIELD_ALIASES_ASPECT)
-                      .changeType(changeType)
+                      .changeType(ChangeType.UPSERT)
                       .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
                       .aspectSpec(
                           TEST_REGISTRY
@@ -248,7 +248,7 @@ public class SchemaFieldSideEffectTest {
                           UrnUtils.getUrn(
                               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"))
                       .aspectName(STATUS_ASPECT_NAME)
-                      .changeType(changeType)
+                      .changeType(ChangeType.UPSERT)
                       .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
                       .aspectSpec(
                           TEST_REGISTRY
@@ -263,7 +263,7 @@ public class SchemaFieldSideEffectTest {
                           UrnUtils.getUrn(
                               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"))
                       .aspectName(STATUS_ASPECT_NAME)
-                      .changeType(changeType)
+                      .changeType(ChangeType.UPSERT)
                       .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
                       .aspectSpec(
                           TEST_REGISTRY
@@ -324,7 +324,7 @@ public class SchemaFieldSideEffectTest {
                           UrnUtils.getUrn(
                               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"))
                       .aspectName(STATUS_ASPECT_NAME)
-                      .changeType(changeType)
+                      .changeType(ChangeType.UPSERT)
                       .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
                       .aspectSpec(
                           TEST_REGISTRY
@@ -339,7 +339,7 @@ public class SchemaFieldSideEffectTest {
                           UrnUtils.getUrn(
                               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"))
                       .aspectName(STATUS_ASPECT_NAME)
-                      .changeType(changeType)
+                      .changeType(ChangeType.UPSERT)
                       .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
                       .aspectSpec(
                           TEST_REGISTRY
@@ -354,7 +354,7 @@ public class SchemaFieldSideEffectTest {
                           UrnUtils.getUrn(
                               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_id)"))
                       .aspectName(SCHEMA_FIELD_ALIASES_ASPECT)
-                      .changeType(changeType)
+                      .changeType(ChangeType.UPSERT)
                       .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
                       .aspectSpec(
                           TEST_REGISTRY
@@ -375,7 +375,7 @@ public class SchemaFieldSideEffectTest {
                           UrnUtils.getUrn(
                               "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),user_name)"))
                       .aspectName(SCHEMA_FIELD_ALIASES_ASPECT)
-                      .changeType(changeType)
+                      .changeType(ChangeType.UPSERT)
                       .entitySpec(TEST_REGISTRY.getEntitySpec(SCHEMA_FIELD_ENTITY_NAME))
                       .aspectSpec(
                           TEST_REGISTRY
