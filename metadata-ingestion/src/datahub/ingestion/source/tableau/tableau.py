@@ -1290,7 +1290,6 @@ class TableauSiteSource:
         page_size = page_size_override or self.config.page_size
 
         filter_pages = get_filter_pages(query_filter, page_size)
-
         for filter_page in filter_pages:
             has_next_page = 1
             current_cursor: Optional[str] = None
