@@ -1,18 +1,21 @@
 plugins {
   id("com.palantir.git-version") apply false
   id 'java-library'
-  id 'com.github.johnrengelman.shadow'
-  id 'jacoco'
+  id 'com.gradleup.shadow'
   id 'signing'
   id 'io.codearte.nexus-staging'
   id 'maven-publish'
 }
 
+apply from: "../../../gradle/coverage/java-coverage.gradle"
 apply from: "../versioning.gradle"
 import org.apache.tools.ant.filters.ReplaceTokens
 
 
 jar {
+  if (project.hasProperty('archiveAppendix')) {
+    archiveAppendix.set(project.archiveAppendix)
+  }
   archiveClassifier = "lib"
 }
 
@@ -20,6 +23,7 @@ dependencies {
   api project(':entity-registry')
   api project(':metadata-integration:java:datahub-event')
   implementation project(':metadata-integration:java:datahub-schematron:lib')
+
   implementation(externalDependency.kafkaAvroSerializer) {
     exclude group: "org.apache.avro"
   }
@@ -59,16 +63,42 @@ task copyAvroSchemas {
 
 compileJava.dependsOn copyAvroSchemas
 
-jacocoTestReport {
-  dependsOn test // tests are required to run before generating the report
+
+// Add Python environment validation task
+task validatePythonEnv(dependsOn: [":metadata-ingestion:installDev"]) {
+    doFirst {
+        def venvPath = System.getProperty('python.venv.path', '../../../metadata-ingestion/venv')
+        def isWindows = System.getProperty('os.name').toLowerCase().contains('windows')
+        def pythonExe = isWindows ? "${venvPath}/Scripts/python.exe" : "${venvPath}/bin/python"
+
+        def result = exec {
+            commandLine pythonExe, "-c", "import sys; print(sys.executable)"
+            ignoreExitValue = true
+            standardOutput = new ByteArrayOutputStream()
+            errorOutput = new ByteArrayOutputStream()
+        }
+
+        if (result.exitValue != 0) {
+            throw new GradleException("Python virtual environment not properly set up at ${venvPath}")
+        }
+    }
 }
 
 test {
   // to avoid simultaneous executions of tests when complete build is run
   mustRunAfter(":metadata-io:test")
   useJUnit()
+  // Add Python environment configuration
+  dependsOn validatePythonEnv
+  dependsOn tasks.getByPath(":metadata-ingestion:installDev")
+  systemProperty 'python.venv.path', System.getProperty('python.venv.path', '../../../metadata-ingestion/venv')
   finalizedBy jacocoTestReport
 }
+
+// no submodule depends on datahub-schematron:cli
+// and tests there are the ones checking python-java compatibility
+test.dependsOn tasks.getByPath(":metadata-integration:java:datahub-schematron:cli:test")
+test.dependsOn tasks.getByPath(":metadata-integration:java:datahub-schematron:lib:test")
 
 task checkShadowJar(type: Exec) {
   commandLine 'sh', '-c', 'scripts/check_jar.sh'
@@ -76,6 +106,9 @@ task checkShadowJar(type: Exec) {
 
 shadowJar {
   zip64 = true
+  if (project.hasProperty('archiveAppendix')) {
+    archiveAppendix.set(project.archiveAppendix)
+  }
   archiveClassifier = ''
   // preventing java multi-release JAR leakage
   // https://github.com/johnrengelman/shadow/issues/729
@@ -115,7 +148,6 @@ shadowJar {
   relocate 'org.checkerframework', 'datahub.shaded.org.checkerframework'
   relocate 'com.google.errorprone', 'datahub.shaded.com.google.errorprone'
   // Below jars added for kafka emitter only
-//  relocate 'org.apache.avro', 'datahub.shaded.org.apache.avro'
   relocate 'com.thoughtworks.paranamer', 'datahub.shaded.com.thoughtworks.paranamer'
   relocate 'org.xerial.snappy', 'datahub.shaded.org.xerial.snappy'
   relocate 'org.apache.kafka', 'datahub.shaded.org.apache.kafka'
@@ -169,7 +201,7 @@ publishing {
       pom {
         name = 'Datahub Client'
         group = 'io.acryl'
-        artifactId = 'datahub-client'
+        artifactId = 'datahub-client' + (project.hasProperty('archiveAppendix') ? "-${archiveAppendix}" : '')
         description = 'DataHub Java client for metadata integration'
         url = 'https://datahubproject.io'
         artifacts = [shadowJar, javadocJar, sourcesJar]

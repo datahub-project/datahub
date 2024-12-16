@@ -133,7 +133,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info_swap,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:3865108263e5f0670e6506f5747392f8315a72039cbfde1c4be4dd9a71bdd500"
+                    "query": "urn:li:query:b256c8cc8f386b209ef8da55485d46c3fbd471b942f804d370e24350b3087405"
                 }
             ],
             "fineGrainedLineages": [
@@ -147,7 +147,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD),a)"
                     ],
                     "confidenceScore": 1.0,
-                    "query": "urn:li:query:3865108263e5f0670e6506f5747392f8315a72039cbfde1c4be4dd9a71bdd500"
+                    "query": "urn:li:query:b256c8cc8f386b209ef8da55485d46c3fbd471b942f804d370e24350b3087405"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -159,7 +159,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD),b)"
                     ],
                     "confidenceScore": 1.0,
-                    "query": "urn:li:query:3865108263e5f0670e6506f5747392f8315a72039cbfde1c4be4dd9a71bdd500"
+                    "query": "urn:li:query:b256c8cc8f386b209ef8da55485d46c3fbd471b942f804d370e24350b3087405"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -171,7 +171,7 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD),c)"
                     ],
                     "confidenceScore": 1.0,
-                    "query": "urn:li:query:3865108263e5f0670e6506f5747392f8315a72039cbfde1c4be4dd9a71bdd500"
+                    "query": "urn:li:query:b256c8cc8f386b209ef8da55485d46c3fbd471b942f804d370e24350b3087405"
                 }
             ]
         }
@@ -179,7 +179,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:3865108263e5f0670e6506f5747392f8315a72039cbfde1c4be4dd9a71bdd500",
+    "entityUrn": "urn:li:query:b256c8cc8f386b209ef8da55485d46c3fbd471b942f804d370e24350b3087405",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -202,7 +202,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:3865108263e5f0670e6506f5747392f8315a72039cbfde1c4be4dd9a71bdd500",
+    "entityUrn": "urn:li:query:b256c8cc8f386b209ef8da55485d46c3fbd471b942f804d370e24350b3087405",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -229,7 +229,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:3865108263e5f0670e6506f5747392f8315a72039cbfde1c4be4dd9a71bdd500",
+    "entityUrn": "urn:li:query:b256c8cc8f386b209ef8da55485d46c3fbd471b942f804d370e24350b3087405",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -411,7 +411,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,dev.public.person_info,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:d29a1c8ed6d4d77efb290260234e5eee56f98311a5631d0a12213798077d1a68"
+                    "query": "urn:li:query:3886d427c84692923797048da6d3991693e89ce44e10d1917c12e8b6fd493904"
                 },
                 {
                     "auditStamp": {
@@ -432,7 +432,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:d29a1c8ed6d4d77efb290260234e5eee56f98311a5631d0a12213798077d1a68",
+    "entityUrn": "urn:li:query:3886d427c84692923797048da6d3991693e89ce44e10d1917c12e8b6fd493904",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -455,7 +455,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:d29a1c8ed6d4d77efb290260234e5eee56f98311a5631d0a12213798077d1a68",
+    "entityUrn": "urn:li:query:3886d427c84692923797048da6d3991693e89ce44e10d1917c12e8b6fd493904",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -473,7 +473,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:d29a1c8ed6d4d77efb290260234e5eee56f98311a5631d0a12213798077d1a68",
+    "entityUrn": "urn:li:query:3886d427c84692923797048da6d3991693e89ce44e10d1917c12e8b6fd493904",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {

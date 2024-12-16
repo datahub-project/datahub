@@ -22,7 +22,7 @@ export default function GlossaryRelatedEntity() {
         ]) ||
         [];
 
-    entityData?.isAChildren?.relationships.forEach((term) => {
+    entityData?.isAChildren?.relationships?.forEach((term) => {
         const childUrn = term.entity?.urn;
 
         if (childUrn) {

@@ -62,6 +62,11 @@ fragment lineageNodeProperties on EntityWithRelationships {
         health {
             ...entityHealth
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on DataFlow {
         orchestrator
@@ -96,6 +101,11 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         health {
             ...entityHealth
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
         }
     }
     ... on Dashboard {
@@ -155,6 +165,11 @@ fragment lineageNodeProperties on EntityWithRelationships {
         health {
             ...entityHealth
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on Chart {
         tool
@@ -187,6 +202,11 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         health {
             ...entityHealth
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
         }
     }
     ... on Dataset {
@@ -227,6 +247,11 @@ fragment lineageNodeProperties on EntityWithRelationships {
         health {
             ...entityHealth
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on MLModelGroup {
         urn
@@ -243,6 +268,11 @@ fragment lineageNodeProperties on EntityWithRelationships {
         status {
             removed
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on MLModel {
         urn
@@ -258,6 +288,11 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         status {
             removed
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
         }
     }
     ... on MLFeatureTable {

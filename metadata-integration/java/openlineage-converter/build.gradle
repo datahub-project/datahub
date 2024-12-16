@@ -1,8 +1,8 @@
 apply plugin: 'java-library'
-apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'com.gradleup.shadow'
 apply plugin: 'signing'
 apply plugin: 'maven-publish'
-apply plugin: 'jacoco'
+apply from: '../../../gradle/coverage/java-coverage.gradle'
 apply from: '../versioning.gradle'
 
 repositories {
@@ -27,20 +27,16 @@ dependencies {
     testImplementation externalDependency.testng
 }
 
-jacocoTestReport {
-    dependsOn test // tests are required to run before generating the report
-}
-
 test {
     forkEvery = 1
     useJUnit()
-    finalizedBy jacocoTestReport
 }
 
 test {
     useJUnit()
-    finalizedBy jacocoTestReport
+    useTestNG()
 }
+
 shadowJar {
     zip64 = true
     archiveClassifier = ''

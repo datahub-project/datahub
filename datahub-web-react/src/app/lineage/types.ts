@@ -20,6 +20,7 @@ import {
     SchemaMetadata,
     SiblingProperties,
     Status,
+    StructuredProperties,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -58,6 +59,7 @@ export type FetchedEntity = {
     inputFields?: InputFields;
     canEditLineage?: boolean;
     health?: Maybe<Health[]>;
+    structuredProperties?: Maybe<StructuredProperties>;
 };
 
 export type NodeData = {
@@ -82,6 +84,8 @@ export type NodeData = {
     upstreamRelationships?: Array<LineageRelationship>;
     downstreamRelationships?: Array<LineageRelationship>;
     health?: Maybe<Health[]>;
+    structuredProperties?: Maybe<StructuredProperties>;
+    siblingStructuredProperties?: Maybe<StructuredProperties>;
 };
 
 export type VizNode = {
