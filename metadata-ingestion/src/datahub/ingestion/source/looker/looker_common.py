@@ -1618,27 +1618,6 @@ class LookerDashboard:
         return get_urn_looker_dashboard_id(self.id)
 
 
-@dataclass()
-class LookerPlatformResource:
-    resource_type: str
-    value: Dict[str, str]
-    platform_instance: Optional[str] = None
-
-    def platform_resource_key(self) -> PlatformResourceKey:
-        return PlatformResourceKey(
-            platform=LOOKER,
-            resource_type=self.resource_type,
-            platform_instance=self.platform_instance,
-            primary_key=self.platform_instance if self.platform_instance else "",
-        )
-
-    def platform_resource(self) -> PlatformResource:
-        return PlatformResource.create(
-            key=self.platform_resource_key(),
-            value=self.value,
-        )
-
-
 class LookerUserRegistry:
     looker_api_wrapper: LookerAPI
     fields: str = ",".join(["id", "email", "display_name", "first_name", "last_name"])
@@ -1674,7 +1653,7 @@ class LookerUserRegistry:
                 platform=LOOKER,
                 resource_type=ResourceType.USER_ID_MAPPING,
                 platform_instance=platform_instance,
-                primary_key=platform_instance if platform_instance else "",
+                primary_key="",
             )
 
             platform_resource = PlatformResource.create(

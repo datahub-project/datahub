@@ -6,11 +6,16 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from typing_extensions import Protocol
 
-from datahub.api.entities.platformresource.platform_resource import PlatformResource
-from datahub.ingestion.api.report import Report
+from datahub.api.entities.platformresource.platform_resource import (
+    ElasticPlatformResourceQuery,
+    PlatformResource,
+    PlatformResourceSearchFields,
+)
+from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.common.resource import ResourceType, from_serialized_value
 from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn
+from datahub.utilities.search_utils import LogicalOperator
 from datahub.utilities.stats_collections import int_top_k_dict
 
 UrnStr = str
@@ -33,7 +38,7 @@ def _get_last_line(query: str) -> str:
 
 
 @dataclass
-class ToolMetaExtractorReport(Report):
+class ToolMetaExtractorReport(SourceReport):
     num_queries_meta_extracted: Dict[str, int] = field(default_factory=int_top_k_dict)
 
 
@@ -65,24 +70,50 @@ class ToolMetaExtractor:
     def create(
         cls,
         graph: Optional[DataHubGraph] = None,
+        report: ToolMetaExtractorReport = ToolMetaExtractorReport(),
     ) -> "ToolMetaExtractor":
         looker_user_mapping: Dict[str, str] = {}
 
         if graph:
-            platform_resources = PlatformResource.search_by_key(
-                key="", resource_type=ResourceType.USER_ID_MAPPING, graph_client=graph
+            query = (
+                ElasticPlatformResourceQuery.create_from()
+                .group(LogicalOperator.AND)
+                .add_field_match(PlatformResourceSearchFields.PLATFORM, "looker")
+                .add_field_match(
+                    PlatformResourceSearchFields.RESOURCE_TYPE,
+                    ResourceType.USER_ID_MAPPING,
+                )
+                .end()
             )
-            for platform_resource in platform_resources:
-                if (
-                    platform_resource
-                    and platform_resource.resource_info
-                    and platform_resource.resource_info.value
-                ):
-                    with contextlib.suppress(ValueError, AssertionError):
-                        looker_user_mapping.update(
-                            from_serialized_value(platform_resource.resource_info.value)
-                        )
-                        assert isinstance(looker_user_mapping, dict)
+
+            platform_resources = [
+                platform_resource
+                for platform_resource in PlatformResource.search_by_filters(
+                    query=query, graph_client=graph
+                )
+            ]
+
+            if platform_resources and sum(1 for _ in platform_resources) > 1:
+                report.warning(
+                    "Tool metadata extraction failed due to multiple platform resources found for Looker."
+                )
+                raise ValueError(
+                    "Exactly one looker platform resource should be present"
+                )
+
+            platform_resource = platform_resources[0]
+
+            if (
+                platform_resource
+                and platform_resource.resource_info
+                and platform_resource.resource_info.value
+            ):
+                with contextlib.suppress(ValueError, AssertionError):
+                    looker_user_mapping = from_serialized_value(
+                        platform_resource.resource_info.value
+                    )
+
+                    assert isinstance(looker_user_mapping, dict)
 
         return cls(looker_user_mapping=looker_user_mapping)
 

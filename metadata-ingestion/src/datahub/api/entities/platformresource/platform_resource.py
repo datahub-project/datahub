@@ -249,7 +249,6 @@ class PlatformResource(BaseModel):
     def search_by_key(
         graph_client: DataHubGraph,
         key: str,
-        resource_type: str,
         primary: bool = True,
         is_exact: bool = True,
     ) -> Iterable["PlatformResource"]:
@@ -269,11 +268,6 @@ class PlatformResource(BaseModel):
             .group(LogicalOperator.OR)
             .add_field_match(
                 PlatformResourceSearchFields.PRIMARY_KEY, key, is_exact=is_exact
-            )
-            .add_field_match(
-                PlatformResourceSearchFields.RESOURCE_TYPE,
-                resource_type,
-                is_exact=is_exact,
             )
         )
         if not primary:  # we expand the search to secondary keys
