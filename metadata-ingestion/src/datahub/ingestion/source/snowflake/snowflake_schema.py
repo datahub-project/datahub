@@ -272,7 +272,6 @@ class SnowflakeDataDictionary(SupportsAsObj):
             lambda: defaultdict(lambda: defaultdict())
         )
         cur = self.connection.query(SnowflakeQuery.get_secure_view_definitions())
-
         for view in cur:
             db_name = view["TABLE_CATALOG"]
             schema_name = view["TABLE_SCHEMA"]

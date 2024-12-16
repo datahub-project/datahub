@@ -459,13 +459,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         try:
             view_definitions = self.data_dictionary.get_secure_view_definitions()
             return view_definitions[db_name][schema_name][table_name]
-
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
                 error_msg = (
                     "Failed to get secure views definitions. Please check permissions."
                 )
-
             else:
                 error_msg = "Failed to get secure views definitions"
             self.structured_reporter.warning(
