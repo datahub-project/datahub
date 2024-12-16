@@ -92,8 +92,8 @@ class PulsarSchema:
         self.schema_name = "null"
         if avro_schema.get("namespace") and avro_schema.get("name"):
             self.schema_name = (
-                                    avro_schema.get("namespace") + "." + avro_schema.get("name")
-                    )
+                    avro_schema.get("namespace") + "." + avro_schema.get("name")
+            )
         elif avro_schema.get("namespace"):
             self.schema_name = avro_schema.get("namespace")
         elif avro_schema.get("name"):
