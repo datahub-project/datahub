@@ -45,7 +45,6 @@
         "MANAGE_SYSTEM_OPERATIONS",
         "CREATE_CONSTRAINTS",
         "MANAGE_CONNECTIONS",
-        "MANAGE_DOCUMENTATION_FORMS",
         "MANAGE_MONITORS",
         "GET_PLATFORM_EVENTS",
         "MANAGE_ORGANIZATION_DISPLAY_PREFERENCES"
@@ -72,12 +71,15 @@
         "EDIT_ENTITY",
         "VIEW_ENTITY_PAGE",
         "VIEW_ENTITY",
+        "VIEW_DATASET_USAGE",
+        "VIEW_DATASET_PROFILE",
         "EDIT_LINEAGE",
         "MANAGE_ENTITY_TAGS",
         "MANAGE_ENTITY_GLOSSARY_TERMS",
         "MANAGE_DATASET_COL_GLOSSARY_TERMS",
         "MANAGE_DATASET_COL_TAGS",
         "MANAGE_ENTITY_DOCS_PROPOSALS_PRIVILEGE",
+        "MANAGE_ENTITY_DATA_CONTRACT_PROPOSALS",
         "EDIT_ENTITY_ASSERTIONS",
         "SEARCH_PRIVILEGE",
         "GET_COUNTS_PRIVILEGE",
@@ -89,7 +91,8 @@
         "MANAGE_GLOBAL_OWNERSHIP_TYPES",
         "DELETE_ENTITY",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
-        "SHARE_ENTITY"
+        "SHARE_ENTITY",
+        "CREATE_ER_MODEL_RELATIONSHIP_PRIVILEGE"
       ],
       "displayName": "Root User - Edit and View All Resources",
       "description": "Grants all edit and view privileges for all resources to root user.",
