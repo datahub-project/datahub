@@ -90,10 +90,17 @@ class ToolMetaExtractor:
                 )
             ]
 
-            if platform_resources and len(platform_resources) > 1:
+            if platform_resources is None:
+                report.warning(
+                    "Looker user metadata extraction failed. No Looker user id mappings found."
+                )
+                return cls()
+
+            if len(platform_resources) > 1:
                 report.warning(
                     "Looker user metadata extraction failed. Found more than one looker user id mappings."
                 )
+                return cls()
 
             platform_resource = platform_resources[0]
 
@@ -103,13 +110,10 @@ class ToolMetaExtractor:
                 and platform_resource.resource_info.value
             ):
                 with contextlib.suppress(ValueError, AssertionError):
-                    if platform_resource.resource_info.value.as_raw_json():
-                        assert isinstance(
-                            platform_resource.resource_info.value.as_raw_json(), dict
-                        )
-                        return cls(
-                            looker_user_mapping=platform_resource.resource_info.value.as_raw_json()
-                        )
+                    value = platform_resource.resource_info.value.as_raw_json()
+                    if value:
+                        assert isinstance(value, dict)
+                        return cls(looker_user_mapping=value)
         return cls()
 
     def _extract_mode_query(self, entry: QueryLog) -> bool:

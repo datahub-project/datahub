@@ -1424,7 +1424,6 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     user_resolution_latency: Dict[str, datetime.timedelta] = dataclasses_field(
         default_factory=dict
     )
-    user_cache_file: Optional[str] = None
 
     def report_total_dashboards(self, total_dashboards: int) -> None:
         self.total_dashboards = total_dashboards
@@ -1664,7 +1663,7 @@ class LookerUserRegistry:
             yield from platform_resource.to_mcps()
 
         except Exception as exc:
-            self.report.report_failure(
-                message="Failed to generate platform resource for looker",
+            self.report.warning(
+                message="Failed to generate platform resource for looker id mappings",
                 exc=exc,
             )
