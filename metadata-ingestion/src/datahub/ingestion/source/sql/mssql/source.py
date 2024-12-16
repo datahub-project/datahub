@@ -267,66 +267,54 @@ class SQLServerSource(SQLAlchemySource):
 
         if self.config.add_extended_properties:
             for ep in _extended_properties:
-                setting = self.config.map_extended_properties.get(ep["name"])
+                setting = self.config.map_extended_properties[ep["name"]]
                 _key = f"{db_name}.{ep['schema_name']}.{ep['table_name']}"
-                if (
-                    setting
-                    and setting.get("type")
-                    == ExtendedPropertiesMapping.TYPE_DESCRIPTION.value
-                ):
-                    if (
-                        setting.get("strategy")
-                        == ExtendedPropertiesMapping.STRATEGY_APPEND.value
-                    ):
-                        self.table_descriptions[_key] = setting.get(
-                            "delimiter", "\n ___ \n"
-                        ).join(
-                            [
-                                i
-                                for i in [
-                                    self.table_descriptions.get(_key),
-                                    ep["table_description"],
-                                ]
-                                if i
-                            ]
+
+                match setting["type"]:
+                    case ExtendedPropertiesMapping.TYPE_DESCRIPTION.value:
+                        match setting["strategy"]:
+                            case ExtendedPropertiesMapping.STRATEGY_APPEND.value:
+                                self.table_descriptions[_key] = setting.get(
+                                    "delimiter", "\n ___ \n"
+                                ).join(
+                                    [
+                                        i
+                                        for i in [
+                                            self.table_descriptions.get(_key),
+                                            ep["table_description"],
+                                        ]
+                                        if i
+                                    ]
+                                )
+                            case _:
+                                self.table_descriptions[_key] = ep["table_description"]
+
+                    case ExtendedPropertiesMapping.TYPE_DOMAINS.value:
+                        self.table_domains[_key] = (
+                            ep["table_description"].split(",")[0].strip()
                         )
-                    else:
-                        self.table_descriptions[_key] = ep["table_description"]
-                elif (
-                    setting
-                    and setting.get("type")
-                    == ExtendedPropertiesMapping.TYPE_DOMAINS.value
-                ):
-                    self.table_domains[_key] = (
-                        ep["table_description"].split(",")[0].strip()
-                    )
-                elif (
-                    setting
-                    and setting.get("type") == ExtendedPropertiesMapping.TYPE_TAG.value
-                ):
-                    self.table_tags.setdefault(_key, {}).update(
-                        {
-                            ep["name"]: [
-                                st.strip()
-                                for st in ep["table_description"].split('"')
-                                if st.strip() not in (",", "")
-                            ]
-                        }
-                    )
-                elif (
-                    setting
-                    and setting.get("type")
-                    == ExtendedPropertiesMapping.TYPE_OWNER.value
-                ):
-                    self.table_owners.setdefault(_key, {}).update(
-                        {
-                            ep["name"]: [
-                                st.strip()
-                                for st in ep["table_description"].split(",")
-                                if st.strip()
-                            ]
-                        }
-                    )
+
+                    case ExtendedPropertiesMapping.TYPE_TAG.value:
+                        self.table_tags.setdefault(_key, {}).update(
+                            {
+                                ep["name"]: [
+                                    st.strip()
+                                    for st in ep["table_description"].split('"')
+                                    if st.strip() not in (",", "")
+                                ]
+                            }
+                        )
+
+                    case ExtendedPropertiesMapping.TYPE_OWNER.value:
+                        self.table_owners.setdefault(_key, {}).update(
+                            {
+                                ep["name"]: [
+                                    st.strip()
+                                    for st in ep["table_description"].split(",")
+                                    if st.strip()
+                                ]
+                            }
+                        )
 
     def _populate_column_descriptions(self, conn: Connection, db_name: str) -> None:
         column_metadata = conn.execute(
@@ -908,7 +896,9 @@ class SQLServerSource(SQLAlchemySource):
                     owners.setdefault(owner.type, {}).update({owner.owner: owner})
             for k, v in owners_prop.items():
                 setting = self.config.map_extended_properties[k]
-                ownership_type = validate_ownership_type(setting["ownership_type"])
+                ownership_type, ownership_type_urn = validate_ownership_type(
+                    setting["ownership_type"]
+                )
                 owner_urns = []
                 absent = []
                 for o in v:
@@ -923,12 +913,13 @@ class SQLServerSource(SQLAlchemySource):
                         absent.append(o)
 
                 if absent:
-                    raise ValueError(f"Ingestion error: Absent: {absent}")
+                    logger.warning(
+                        f"Extracted owners do not exist in DataHub. Can not emit metadata: {absent}"
+                    )
 
                 owners_add = [
                     OwnerClass(
-                        owner=owner,
-                        type=ownership_type[0],
+                        owner=owner, type=ownership_type, typeUrn=ownership_type_urn
                     )
                     for owner in owner_urns
                 ]

@@ -60,6 +60,15 @@ GO
 
 GO
 EXEC sys.sp_addextendedproperty
+@name = N'MS_Description',
+@value = N'Description for column LastName of table Persons of schema Foo.',
+@level0type = N'SCHEMA', @level0name = 'Foo',
+@level1type = N'TABLE', @level1name = 'Persons',
+@level2type = N'COLUMN',@level2name = 'LastName';
+GO
+
+GO
+EXEC sys.sp_addextendedproperty
 @name = N'DESCRIPTION',
 @value = N'Description extended property.',
 @level0type = N'SCHEMA', @level0name = 'Foo',
@@ -84,20 +93,20 @@ GO
 
 GO
 EXEC sys.sp_addextendedproperty
-@name = N'DOMAINS',
-@value = N'Logistics',
+@name = N'WRITER',
+@value = N'baby_doe@datahub.com',
 @level0type = N'SCHEMA', @level0name = 'Foo',
 @level1type = N'TABLE',  @level1name = 'Items';
 GO
 
 GO
 EXEC sys.sp_addextendedproperty
-@name = N'MS_Description',
-@value = N'Description for column LastName of table Persons of schema Foo.',
+@name = N'DOMAIN',
+@value = N'Logistics',
 @level0type = N'SCHEMA', @level0name = 'Foo',
-@level1type = N'TABLE', @level1name = 'Persons',
-@level2type = N'COLUMN',@level2name = 'LastName';
+@level1type = N'TABLE',  @level1name = 'Items';
 GO
+
 USE msdb ;
 GO
 EXEC dbo.sp_add_job
