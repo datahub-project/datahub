@@ -6,6 +6,7 @@ import styled from 'styled-components';
 import HistoricalStats from './HistoricalStats';
 import StatsHighlights from './StatsHighlights';
 import ColumnStatsV2 from './ColumnStatsV2';
+import StorageSizeGraph from './graphs/StorageSizeGraph/StorageSizeGraph';
 
 const TabContainer = styled.div`
     padding: 16px 24px;
@@ -52,6 +53,7 @@ const StatsTabV2 = () => {
                 scrollToColumnStats={scrollToColumnStats}
             />
             <HistoricalStats users={users || undefined} />
+            <StorageSizeGraph urn={baseEntity?.dataset?.urn} />
             <div ref={columnStatsSectionRef}>
                 <ColumnStatsV2 columnStats={(latestProfile && latestProfile.fieldProfiles) || []} />
             </div>
