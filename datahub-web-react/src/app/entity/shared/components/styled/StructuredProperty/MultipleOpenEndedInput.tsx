@@ -4,6 +4,8 @@ import React from 'react';
 import styled from 'styled-components';
 import { ANTD_GRAY_V2 } from '../../../constants';
 
+const MultiStringWrapper = styled.div``;
+
 const StyledInput = styled(Input)`
     width: 75%;
     min-width: 350px;
@@ -29,10 +31,11 @@ const DeleteButton = styled(Button)`
 
 interface Props {
     selectedValues: any[];
+    inputType?: string;
     updateSelectedValues: (values: any[]) => void;
 }
 
-export default function MultipleStringInput({ selectedValues, updateSelectedValues }: Props) {
+export default function MultipleOpenEndedInput({ selectedValues, updateSelectedValues, inputType = 'text' }: Props) {
     function updateInput(text: string, index: number) {
         const updatedValues =
             selectedValues.length > 0 ? selectedValues.map((value, i) => (i === index ? text : value)) : [text];
@@ -53,14 +56,14 @@ export default function MultipleStringInput({ selectedValues, updateSelectedValu
     }
 
     return (
-        <div>
+        <MultiStringWrapper>
             {selectedValues.length > 1 &&
                 selectedValues.map((selectedValue, index) => {
                     const key = `${index}`;
                     return (
                         <InputWrapper key={key}>
                             <StyledInput
-                                type="text"
+                                type={inputType}
                                 value={selectedValue}
                                 onChange={(e) => updateInput(e.target.value, index)}
                             />
@@ -70,7 +73,7 @@ export default function MultipleStringInput({ selectedValues, updateSelectedValu
                 })}
             {selectedValues.length <= 1 && (
                 <StyledInput
-                    type="text"
+                    type={inputType}
                     value={selectedValues[0] || ''}
                     onChange={(e) => updateInput(e.target.value, 0)}
                 />
@@ -78,6 +81,6 @@ export default function MultipleStringInput({ selectedValues, updateSelectedValu
             <StyledButton type="link" onClick={addNewValue}>
                 + Add More
             </StyledButton>
-        </div>
+        </MultiStringWrapper>
     );
 }
