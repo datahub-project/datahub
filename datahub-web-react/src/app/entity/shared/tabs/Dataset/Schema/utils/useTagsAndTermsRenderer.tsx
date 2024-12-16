@@ -21,7 +21,7 @@ export default function useTagsAndTermsRenderer(
     };
 
     const tagAndTermRender = (tags: GlobalTags, record: SchemaField) => {
-        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
+        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find(
             (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
 

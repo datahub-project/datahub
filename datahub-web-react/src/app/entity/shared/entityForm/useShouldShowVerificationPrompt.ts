@@ -28,7 +28,7 @@ export default function useShouldShowVerificationPrompt(formUrn: string) {
     const { entityData } = useEntityData();
     const formVerification = getFormVerification(formUrn, entityData);
     const formAssociation = getFormAssociation(formUrn, entityData);
-    const formType = formAssociation?.form.info.type;
+    const formType = formAssociation?.form?.info?.type;
 
     return shouldShowVerificationPrompt({
         formType,

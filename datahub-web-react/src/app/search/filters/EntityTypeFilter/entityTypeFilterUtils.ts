@@ -91,7 +91,7 @@ export function getDisplayedFilterOptions(
                 .filter(
                     (option) => option.value.includes(FILTER_DELIMITER) && option.value.includes(filterOption.value),
                 )
-                .map((option) => ({ field: ENTITY_SUB_TYPE_FILTER_NAME, ...option }))
+                .map((option) => ({ field: ENTITY_SUB_TYPE_FILTER_NAME, ...option } as FilterOptionType))
                 .filter((o) => filterNestedOptions(o, entityRegistry, searchQuery));
             return mapFilterOption({
                 filterOption,
