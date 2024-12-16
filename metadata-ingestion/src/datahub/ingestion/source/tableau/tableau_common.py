@@ -976,18 +976,14 @@ def get_filter_pages(query_filter: dict, page_size: int) -> List[dict]:
     # causing below error:
     # tableauserverclient.server.endpoint.exceptions.NonXMLResponseError: b''
 
-    # Keys on which pagination can be applied
-    valid_keys: List[str] = [c.ID_WITH_IN, c.PROJECT_NAME_WITH_IN]
+    # in practice, we only do pagination if len(query_filter.keys()) == 1
+    if len(query_filter.keys()) != 1:
+        return filter_pages
 
-    current_key: Optional[str] = None
-
-    for key in valid_keys:
-        if key in query_filter:
-            current_key = key
-            break
+    current_key = (list(query_filter.keys()))[0]
 
     if (
-        len(query_filter.keys()) == 1
+        current_key in [c.ID_WITH_IN, c.PROJECT_NAME_WITH_IN]
         and query_filter.get(current_key)
         and isinstance(query_filter[current_key], list)
     ):
