@@ -230,10 +230,16 @@ The second way to delete metadata is to identify entities (and the aspects affec
 To view the ids of the most recent set of ingestion batches, execute
 
 ```shell
-datahub ingest list-run-ids
+datahub ingest list-runs
 ```
 
-That will print out a table of all the runs. Once you have an idea of which run you want to roll back, run
+That will print out a table of all the runs. To see run statuses or to filter runs by URN/source run
+
+```shell
+datahub ingest list-source-runs
+```
+
+Once you have an idea of which run you want to roll back, run
 
 ```shell
 datahub ingest show --run-id <run-id>

@@ -558,7 +558,7 @@ def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) ->
 )
 @upgrade.check_upgrade
 @telemetry.with_telemetry()
-def list_run_ids(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
+def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
     """List recent ingestion runs to datahub"""
 
     client = get_default_graph()
