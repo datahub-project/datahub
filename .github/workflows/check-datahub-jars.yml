@@ -5,12 +5,12 @@ on:
     branches:
       - master
     paths:
-      - "metadata-integration"
+      - "metadata-integration/**"
   pull_request:
     branches:
       - "**"
     paths:
-      - "metadata-integration"
+      - "metadata-integration/**"
   release:
     types: [published]
 
