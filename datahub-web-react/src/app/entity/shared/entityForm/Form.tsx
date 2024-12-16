@@ -54,10 +54,10 @@ function Form({ formUrn }: Props) {
     if (!hasRendered) return <Loading />;
 
     const formAssociation = getFormAssociation(formUrn, entityData);
-    const title = formAssociation?.form.info.name;
+    const title = formAssociation?.form?.info?.name;
     const associatedUrn = formAssociation?.associatedUrn;
-    const description = formAssociation?.form.info.description;
-    const owners = formAssociation?.form.ownership?.owners;
+    const description = formAssociation?.form?.info?.description;
+    const owners = formAssociation?.form?.ownership?.owners;
 
     return (
         <TabWrapper>

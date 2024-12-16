@@ -51,6 +51,8 @@ query getMe {
             manageGlobalAnnouncements
             createBusinessAttributes
             manageBusinessAttributes
+            manageStructuredProperties
+            viewStructuredPropertiesPage
         }
     }
 }

@@ -19,7 +19,7 @@ export default function EntityFormContextProvider({ children, formUrn }: Props) 
     const { entityData, refetch: refetchEntityProfile, loading: profileLoading } = useEntityContext();
     const formAssociation = getFormAssociation(formUrn, entityData);
     const initialPromptId =
-        formAssociation?.form.info.prompts.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type))[0]
+        formAssociation?.form?.info?.prompts?.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type))[0]
             ?.id || null;
     const isVerificationType = isFormVerificationType(entityData, formUrn);
     const [formView, setFormView] = useState<FormView>(FormView.BY_ENTITY);

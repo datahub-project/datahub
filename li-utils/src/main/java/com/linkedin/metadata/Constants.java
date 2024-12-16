@@ -108,6 +108,8 @@ public class Constants {
   // Common
   public static final String OWNERSHIP_ASPECT_NAME = "ownership";
 
+  public static final String TIMESTAMP_MILLIS = "timestampMillis";
+
   public static final String INSTITUTIONAL_MEMORY_ASPECT_NAME = "institutionalMemory";
   public static final String DATA_PLATFORM_INSTANCE_ASPECT_NAME = "dataPlatformInstance";
   public static final String BROWSE_PATHS_ASPECT_NAME = "browsePaths";
@@ -363,6 +365,8 @@ public class Constants {
   // Structured Property
   public static final String STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME = "propertyDefinition";
   public static final String STRUCTURED_PROPERTY_KEY_ASPECT_NAME = "structuredPropertyKey";
+  public static final String STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME =
+      "structuredPropertySettings";
 
   // Form
   public static final String FORM_INFO_ASPECT_NAME = "formInfo";

@@ -69,7 +69,7 @@ export default function useSchemaTitleRenderer(
                         ?.filter(
                             (constraint) =>
                                 (constraint?.sourceFields?.filter(
-                                    (sourceField) => sourceField?.fieldPath.trim() === fieldPath.trim(),
+                                    (sourceField) => sourceField?.fieldPath?.trim() === fieldPath.trim(),
                                 ).length || 0) > 0,
                         )
                         .map((constraint) => (
