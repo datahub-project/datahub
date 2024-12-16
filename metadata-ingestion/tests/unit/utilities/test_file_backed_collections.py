@@ -16,7 +16,7 @@ from datahub.utilities.file_backed_collections import (
 
 
 @pytest.mark.parametrize("use_sqlite_on_conflict", [True, False])
-def test_file_dict(use_sqlite_on_conflict) -> None:
+def test_file_dict(use_sqlite_on_conflict: bool) -> None:
     cache = FileBackedDict[int](
         tablename="cache",
         cache_max_size=10,
@@ -95,7 +95,7 @@ def test_file_dict(use_sqlite_on_conflict) -> None:
 
 
 @pytest.mark.parametrize("use_sqlite_on_conflict", [True, False])
-def test_custom_serde(use_sqlite_on_conflict) -> None:
+def test_custom_serde(use_sqlite_on_conflict: bool) -> None:
     @dataclass(frozen=True)
     class Label:
         a: str
