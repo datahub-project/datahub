@@ -24,11 +24,12 @@ import { ExternalUrlAction } from './ExternalUrlAction';
 import { useIsSeparateSiblingsMode } from '../../../../../../useIsSeparateSiblingsMode';
 import { useConnectionWithRunAssertionCapabilitiesForEntityExists } from '../../../acrylUtils';
 
-const ActionList = styled.div`
+const ActionList = styled.div<{ $shouldRightAlign?: boolean }>`
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0px 10px;
+    padding: ${(props) => (props.$shouldRightAlign ? '0px' : '0px 10px')};
+    margin-left: ${(props) => (props.$shouldRightAlign ? 'auto' : undefined)};
 `;
 
 type Props = {
@@ -39,6 +40,7 @@ type Props = {
     canEditMonitor: boolean;
     canEditContract: boolean;
     refetch?: () => void;
+    shouldRightAlign?: boolean;
 };
 
 export const AssertionListItemActions = ({
@@ -49,6 +51,7 @@ export const AssertionListItemActions = ({
     canEditMonitor,
     canEditContract,
     refetch,
+    shouldRightAlign,
 }: Props) => {
     const isSeparateSiblingsMode = useIsSeparateSiblingsMode();
     const mostRun = assertion.runEvents?.runEvents;
@@ -110,7 +113,7 @@ export const AssertionListItemActions = ({
         </Menu>
     );
     return (
-        <ActionList onClick={(e) => e.stopPropagation()}>
+        <ActionList onClick={(e) => e.stopPropagation()} $shouldRightAlign={shouldRightAlign}>
             <StartStopAction assertion={assertion} monitor={monitor} canEdit={canEditMonitor} refetch={refetch} />
 
             <SubscribeAction assertion={assertion} refetch={refetch} />

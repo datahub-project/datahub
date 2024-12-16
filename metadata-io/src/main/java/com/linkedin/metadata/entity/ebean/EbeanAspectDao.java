@@ -68,7 +68,10 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
-
+  // READ COMMITED is used in conjunction with SELECT FOR UPDATE (read lock) in order
+  // to ensure that the aspect's version is not modified outside the transaction.
+  // We rely on the retry mechanism if the row is modified and will re-read (require the lock)
+  public static final TxIsolation TX_ISOLATION = TxIsolation.READ_COMMITED;
   private final Database _server;
   private boolean _connectionValidated = false;
   private final Clock _clock = Clock.systemUTC();
@@ -329,7 +332,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public Map<EntityAspectIdentifier, EntityAspect> batchGet(
-      @Nonnull final Set<EntityAspectIdentifier> keys) {
+      @Nonnull final Set<EntityAspectIdentifier> keys, boolean forUpdate) {
     validateConnection();
     if (keys.isEmpty()) {
       return Collections.emptyMap();
@@ -341,9 +344,9 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
             .collect(Collectors.toSet());
     final List<EbeanAspectV2> records;
     if (_queryKeysCount == 0) {
-      records = batchGet(ebeanKeys, ebeanKeys.size());
+      records = batchGet(ebeanKeys, ebeanKeys.size(), forUpdate);
     } else {
-      records = batchGet(ebeanKeys, _queryKeysCount);
+      records = batchGet(ebeanKeys, _queryKeysCount, forUpdate);
     }
     return records.stream()
         .collect(
@@ -357,22 +360,23 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    *
    * @param keys a set of keys with urn, aspect and version
    * @param keysCount the max number of keys for each sub query
+   * @param forUpdate whether the operation is intending to write to this row in a tx
    */
   @Nonnull
   private List<EbeanAspectV2> batchGet(
-      @Nonnull final Set<EbeanAspectV2.PrimaryKey> keys, final int keysCount) {
+      @Nonnull final Set<EbeanAspectV2.PrimaryKey> keys, final int keysCount, boolean forUpdate) {
     validateConnection();
 
     int position = 0;
 
     final int totalPageCount = QueryUtils.getTotalPageCount(keys.size(), keysCount);
     final List<EbeanAspectV2> finalResult =
-        batchGetUnion(new ArrayList<>(keys), keysCount, position);
+        batchGetUnion(new ArrayList<>(keys), keysCount, position, forUpdate);
 
     while (QueryUtils.hasMore(position, keysCount, totalPageCount)) {
       position += keysCount;
       final List<EbeanAspectV2> oneStatementResult =
-          batchGetUnion(new ArrayList<>(keys), keysCount, position);
+          batchGetUnion(new ArrayList<>(keys), keysCount, position, forUpdate);
       finalResult.addAll(oneStatementResult);
     }
 
@@ -407,7 +411,10 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Nonnull
   private List<EbeanAspectV2> batchGetUnion(
-      @Nonnull final List<EbeanAspectV2.PrimaryKey> keys, final int keysCount, final int position) {
+      @Nonnull final List<EbeanAspectV2.PrimaryKey> keys,
+      final int keysCount,
+      final int position,
+      boolean forUpdate) {
     validateConnection();
 
     // Build one SELECT per key and then UNION ALL the results. This can be much more performant
@@ -437,6 +444,11 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       if (index != end - 1) {
         sb.append(" UNION ALL ");
       }
+    }
+
+    // Add FOR UPDATE clause only once at the end of the entire statement
+    if (forUpdate) {
+      sb.append(" FOR UPDATE");
     }
 
     final RawSql rawSql =
@@ -736,8 +748,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     T result = null;
     do {
       try (Transaction transaction =
-          _server.beginTransaction(
-              TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
+          _server.beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
         transaction.setBatchMode(true);
         result = block.apply(transactionContext.tx(transaction));
         transaction.commit();

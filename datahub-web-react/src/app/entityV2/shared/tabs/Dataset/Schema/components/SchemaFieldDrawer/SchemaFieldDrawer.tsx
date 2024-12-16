@@ -87,7 +87,7 @@ interface Props {
     refetch?: () => void;
     mask?: boolean;
     isShowMoreEnabled?: boolean;
-    navigateToTab?: string;
+    defaultSelectedTabName?: string;
 }
 
 export default function SchemaFieldDrawer({
@@ -104,7 +104,7 @@ export default function SchemaFieldDrawer({
     refetch,
     mask = false,
     isShowMoreEnabled,
-    navigateToTab,
+    defaultSelectedTabName = 'About',
 }: Props) {
     const expandedFieldIndex = useMemo(
         () => displayedRows.findIndex((row) => row.fieldPath === expandedDrawerFieldPath),
@@ -163,11 +163,7 @@ export default function SchemaFieldDrawer({
     }, [displayedRows, expandedDrawerFieldPath, setExpandedDrawerFieldPath]);
 
     const profiles = profilesData?.dataset?.datasetProfiles || [];
-    const [selectedTabName, setSelectedTabName] = useState('About');
-
-    useEffect(() => {
-        if (navigateToTab) setSelectedTabName(navigateToTab);
-    }, [navigateToTab]);
+    const [selectedTabName, setSelectedTabName] = useState(defaultSelectedTabName);
 
     /**
      * Fetches updated data profiles when the lookback window is changed in the Historical Chart view.

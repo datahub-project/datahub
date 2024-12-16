@@ -21,7 +21,7 @@ acryl-datahub-classify==0.0.11
     # via
     #   -r requirements.txt
     #   acryl-datahub
-acryl-executor==0.1.4
+acryl-executor==0.1.5
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)
@@ -60,7 +60,7 @@ appnope==0.1.4
     # via
     #   -r requirements.txt
     #   ipykernel
-apscheduler==3.10.1
+apscheduler @ git+https://github.com/acryldata/apscheduler-fork.git@8444cf421c0a78043428e85a76665deeca9d63ea
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)

@@ -16,7 +16,7 @@ dependencies = [
   "fastapi==0.95.2",
   "uvicorn[standard]>=0.23.2",
   "loguru==0.7.2",
-  "apscheduler==3.10.1",
+  "apscheduler @ git+https://github.com/acryldata/apscheduler-fork.git@ak--crontab-fix",
   "pydantic==1.10.19",
   "snowflake-connector-python>2.8.2",
   "pytz==2024.1",
@@ -29,7 +29,7 @@ dependencies = [
   "celery[redis,sqs]==5.4.0",
   "kombu==5.4.0",              # Note: 5.4.1 silently breaks
   "watchdog==3.0.0",
-  "acryl-executor==0.1.4",
+  "acryl-executor==0.1.5",
   "acryl-datahub-actions==0.1.4",
   "pycurl==7.45.3",
 ]

@@ -19,11 +19,21 @@ export const SelectBase = styled.div<SelectStyleProps>(({ isDisabled, isReadOnly
     transition: sharedTransition,
     justifyContent: 'space-between',
     alignSelf: 'end',
+    minHeight: '42px',
     alignItems: 'center',
     overflow: 'auto',
-    backgroundColor: isDisabled ? colors.gray[100] : 'white',
+    backgroundColor: isDisabled ? colors.gray[1500] : colors.white,
     width: width === 'full' ? '100%' : `max-content`,
 }));
+
+export const SelectLabelContainer = styled.div({
+    display: 'flex',
+    flexDirection: 'row' as const,
+    gap: spacing.xsm,
+    lineHeight: typography.lineHeights.none,
+    alignItems: 'center',
+    width: '100%',
+});
 
 /**
  * Styled components specific to the Basic version of the Select component
@@ -111,10 +121,12 @@ export const SearchIcon = styled(Icon)({
 // Styled components for SelectValue (Selected value display)
 export const SelectValue = styled.span({
     ...inputValueTextStyles(),
+    color: colors.gray[600],
 });
 
 export const Placeholder = styled.span({
     ...inputPlaceholderTextStyles,
+    color: colors.gray[1800],
 });
 
 export const ActionButtonsContainer = styled.div({
@@ -208,22 +220,26 @@ export const StyledCancelButton = styled(Button)({
     },
 });
 
+export const StyledIcon = styled(Icon)({
+    color: colors.gray[1800],
+});
+
 export const StyledClearButton = styled(Button)({
-    backgroundColor: colors.gray[200],
-    border: `1px solid ${colors.gray[200]}`,
-    color: colors.black,
-    padding: '1px',
+    backgroundColor: colors.transparent,
+    border: 'none',
+    color: colors.gray[1800],
+    padding: '0px',
 
     '&:hover': {
-        backgroundColor: colors.violet[100],
-        color: colors.violet[700],
-        borderColor: colors.violet[100],
+        border: 'none',
+        backgroundColor: colors.transparent,
+        borderColor: colors.transparent,
         boxShadow: shadows.none,
     },
 
     '&:focus': {
-        backgroundColor: colors.violet[100],
-        color: colors.violet[700],
+        border: 'none',
+        backgroundColor: colors.transparent,
         boxShadow: `0 0 0 2px ${colors.white}, 0 0 0 4px ${colors.violet[50]}`,
     },
 });

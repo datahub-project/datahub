@@ -1,3 +1,5 @@
+import { EntityType } from '@src/types.generated';
+
 export const isPresent = (val?: string | number | null): val is string | number => {
     return val !== undefined && val !== null;
 };
@@ -13,4 +15,18 @@ export const getItemKeySet = (items: Array<any>) => {
         });
     });
     return keySet;
+};
+
+export const getMockTopUsersData = (noOfUsers: number) => {
+    const user = {
+        type: EntityType.CorpUser,
+        urn: 'urn:li:corpuser:user_name',
+        username: 'user_name',
+    };
+    const count = 0;
+    return Array.from({ length: noOfUsers }, (_, index) => ({
+        user,
+        count,
+        id: index,
+    }));
 };

@@ -26,7 +26,6 @@ const TabButton = styled.div<{ selected: boolean; disabled: boolean }>`
     padding: 0px 12px 0px 12px;
     font-size: 14px;
     height: 40px;
-    margin-left: 4px;
     color: ${(props) => (props.disabled && '#00000040') || 'none'};
 `;
 const TabToolbar = styled.div`
@@ -34,7 +33,7 @@ const TabToolbar = styled.div`
     position: relative;
     z-index: 1;
     height: 46px;
-    padding: 7px 16px;
+    padding: 7px 12px;
     flex: 0 0 auto;
 `;
 

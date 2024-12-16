@@ -49,6 +49,8 @@ const StyledAssertionBadgeContainer = styled.div`
 
 const StyledAssertionName = styled(Typography.Paragraph)`
     margin-bottom: 0 !important;
+    font-size: 14px;
+    font-weight: 500;
 `;
 
 type Props = {

@@ -2,8 +2,9 @@ import json
 import logging
 import time
 from threading import Thread
-from typing import cast
+from typing import Optional, cast
 
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import MetadataChangeLogClass
 from datahub_actions.action.action import Action
 from datahub_actions.event.event_envelope import EventEnvelope
@@ -13,7 +14,7 @@ from datahub_executor.common.constants import (
     DATAHUB_EXECUTION_REQUEST_ENTITY_NAME,
     DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME,
 )
-from datahub_executor.common.helpers import create_datahub_graph
+from datahub_executor.common.discovery.discovery import DatahubExecutorDiscovery
 from datahub_executor.common.ingestion.helpers import (
     extract_execution_request,
     handle_ingestion_signal_requests,
@@ -37,12 +38,16 @@ logger = logging.getLogger(__name__)
 
 
 class IngestionAction(Action):
+    graph: DataHubGraph
+    discovery: Optional[DatahubExecutorDiscovery]
     ingestion_enabled: bool
     embedded_worker_enabled: bool
     embedded_worker_id: str = DATAHUB_EXECUTOR_WORKER_ID
 
     def __init__(
         self,
+        graph: DataHubGraph,
+        discovery: Optional[DatahubExecutorDiscovery],
         embedded_worker_enabled: bool,
         ingestion_enabled: bool,
         embedded_worker_id: str = DATAHUB_EXECUTOR_WORKER_ID,
@@ -51,10 +56,16 @@ class IngestionAction(Action):
         self.embedded_worker_id = embedded_worker_id
         self.embedded_worker_enabled = embedded_worker_enabled
         self.shutdown_flag = False
-        self.graph = create_datahub_graph()
+        self.graph = graph
 
         if self.embedded_worker_enabled:
-            self.ingestion_executor = setup_ingestion_executor()
+            if discovery is None:
+                self.ingestion_executor = setup_ingestion_executor()
+            else:
+                self.ingestion_executor = setup_ingestion_executor(
+                    executor_instance_id=discovery.get_instance_id(),
+                    executor_version=discovery.get_build_info().get_version(),
+                )
             self.tp = ThreadPoolExecutorWithQueueSizeLimit(
                 max_workers=DATAHUB_EXECUTOR_INGESTION_PIPELINE_MAX_WORKERS,
                 name="ingestions",
@@ -65,11 +76,19 @@ class IngestionAction(Action):
     @classmethod
     def create(
         cls,
+        graph: DataHubGraph,
+        discovery: Optional[DatahubExecutorDiscovery],
         embedded_worker_enabled: bool,
         ingestion_enabled: bool,
-        embedded_worker_id: str = "",
+        embedded_worker_id: str = DATAHUB_EXECUTOR_WORKER_ID,
     ) -> Action:
-        return cls(embedded_worker_enabled, ingestion_enabled, embedded_worker_id)
+        return cls(
+            graph,
+            discovery,
+            embedded_worker_enabled,
+            ingestion_enabled,
+            embedded_worker_id,
+        )
 
     def close(self) -> None:
         return super().close()

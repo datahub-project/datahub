@@ -2,7 +2,7 @@ import logging
 from typing import List
 
 import anyio
-from asyncify import asyncify
+from asyncer import asyncify
 from datahub.metadata.schema_classes import NotificationRequestClass
 
 from datahub_integrations.notifications.sinks.context import NotificationContext

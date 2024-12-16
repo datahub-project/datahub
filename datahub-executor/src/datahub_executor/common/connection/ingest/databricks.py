@@ -12,22 +12,20 @@ from datahub_executor.common.connection.databricks.databricks_connection import 
 logger = logging.getLogger(__name__)
 
 
-# Returns None if a connection cannot be extracted.
 def extract_connection_from_databricks_recipe(
     connection_urn: str, recipe: Dict, graph: DataHubGraph
 ) -> Optional[Connection]:
-    # Create a dictionary representing a redshift connection
+    # Create a dictionary representing a databricks connection
     # Here we simply reuse the base model provided inside of our ingestion library.
     try:
-        if "source" in recipe:
-            source = recipe["source"]
-            if "config" in source:
-                source_config = source["config"]
-                databricks_config = UnityCatalogSourceConfig.parse_obj_allow_extras(
-                    source_config
-                )
-                return DatabricksConnection(connection_urn, databricks_config, graph)
+        source_config = recipe.get("source", {}).get("config")
+        if not source_config:
+            return None
+        databricks_config = UnityCatalogSourceConfig.parse_obj_allow_extras(
+            source_config
+        )
+        return DatabricksConnection(connection_urn, databricks_config, graph)
     except Exception:
-        logger.exception("Failed to extract connection details from Redshift recipe!")
+        logger.exception("Failed to extract connection details from DataBricks recipe!")
 
     return None

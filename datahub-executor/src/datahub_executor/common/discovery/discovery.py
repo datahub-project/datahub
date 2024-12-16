@@ -114,7 +114,7 @@ class DatahubExecutorDiscovery:
     def start(self) -> None:
         version = self.build_info.get_version()
         logger.warning(
-            f"Discovery: starting discovery loop; Instance ID = {self.instance_id}; Version = #{version}; Update interval = {DATAHUB_EXECUTOR_DISCOVERY_INTERVAL}"
+            f"Discovery: starting discovery loop; Instance ID = {self.instance_id}; Version = {version}; Update interval = {DATAHUB_EXECUTOR_DISCOVERY_INTERVAL}"
         )
 
         # Register itself with GMS before starting the loop

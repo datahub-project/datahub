@@ -27,6 +27,8 @@ class ExecutionRequestManager:
         :param fetchers: A list of fetchers for fetching execution requests.
         :param scheduler: The ExecutionRequestScheduler for scheduling assertions.
         """
+
+        self.stop = False
         self.fetchers = {}
         for fetcher in fetchers:
             self.fetchers[fetcher.config.id] = fetcher
@@ -70,6 +72,7 @@ class ExecutionRequestManager:
             )
 
     def shutdown(self) -> None:
+        self.stop = True
         self.bg_scheduler.shutdown()
 
     def alive(self) -> bool:
@@ -115,6 +118,9 @@ class ExecutionRequestManager:
         """
         Refresh the list of execution_requests by fetching them from the API
         """
+        if self.stop:
+            logger.error("Manager: processing is shutting down.")
+            return
 
         try:
             fetcher = self.fetchers[fetcher_id]
@@ -142,4 +148,5 @@ class ExecutionRequestManager:
 
     def start(self) -> None:
         # Start the refresh scheduler
+        self.stop = False
         self.bg_scheduler.start()

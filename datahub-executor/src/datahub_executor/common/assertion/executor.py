@@ -30,6 +30,7 @@ class AssertionExecutor:
     def __init__(self) -> None:
         self.graph = create_datahub_graph()
         self.engine = create_assertion_engine(self.graph)
+        self.stop = False
         self.tp = ThreadPoolExecutorWithQueueSizeLimit(
             max_workers=DATAHUB_EXECUTOR_MONITORS_MAX_WORKERS,
             name="assertions",
@@ -40,17 +41,22 @@ class AssertionExecutor:
 
     def execute(self, request: ExecutionRequest) -> None:
         # submit will block if queue size > max_workers
-        self.tp.submit(self.worker, request)
+        if not self.stop:
+            self.tp.submit(self.worker, request)
 
     def worker(self, request: ExecutionRequest) -> None:
         try:
-            self.evaluate_assertion(request)
+            if not self.stop:
+                self.evaluate_assertion(request)
         except Exception as e:
             STATS_ASSERTION_EXECUTOR_EVALUATE_ERRORS.labels("exception").inc()
-            logger.error(e)
+            logger.exception(
+                f"AssertionExecutor: error executing {request.exec_id}: %s", e
+            )
             return
 
     def shutdown(self, wait: bool = True) -> None:
+        self.stop = True
         self.tp.shutdown(wait)
 
     @STATS_ASSERTION_EXECUTOR_EVALUATE_REQUESTS.time()

@@ -5,6 +5,7 @@ from typing import Callable, List
 
 from datahub.configuration.config_loader import load_config_file
 from datahub.configuration.kafka import KafkaConsumerConnectionConfig
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub_actions.pipeline.pipeline import (
     DEFAULT_FAILED_EVENTS_DIR,
     DEFAULT_FAILURE_MODE,
@@ -20,7 +21,6 @@ from datahub_actions.plugin.source.kafka.kafka_event_source import (
 from datahub_executor.common.client.fetcher.ingestion.fetcher import IngestionFetcher
 from datahub_executor.common.client.fetcher.monitors.fetcher import MonitorFetcher
 from datahub_executor.common.discovery.discovery import DatahubExecutorDiscovery
-from datahub_executor.common.helpers import create_datahub_graph
 from datahub_executor.config import (
     DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
     DATAHUB_EXECUTOR_INGESTION_ENABLED,
@@ -38,7 +38,11 @@ logger = logging.getLogger(__name__)
 manager = None
 
 
-def start_ingestion_pipeline(sighandler: List[Callable]) -> None:
+def start_ingestion_pipeline(
+    graph: DataHubGraph,
+    discovery: DatahubExecutorDiscovery,
+    sighandler: List[Callable],
+) -> None:
     config_dict = load_config_file(DATAHUB_EXECUTOR_INGESTION_PIPELINE_CONFIG_PATH)
     connection = config_dict.get("connection", {})
 
@@ -56,11 +60,13 @@ def start_ingestion_pipeline(sighandler: List[Callable]) -> None:
         ),
         ctx=PipelineContext(
             pipeline_name="datahub-executor-ingestion-pipeline",
-            graph=create_datahub_graph(),
+            graph=graph,
         ),
     )
 
     action = IngestionAction(
+        graph,
+        discovery,
         DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED,
         DATAHUB_EXECUTOR_INGESTION_ENABLED,
         DATAHUB_EXECUTOR_WORKER_ID,
@@ -89,16 +95,9 @@ def start_ingestion_pipeline(sighandler: List[Callable]) -> None:
     pt.start()
 
 
-def start_scheduler(sighandler: List[Callable]) -> None:
+def start_scheduler(graph: DataHubGraph, sighandler: List[Callable]) -> None:
     try:
         global manager
-
-        # Create DataHub Client
-        graph = create_datahub_graph()
-
-        if DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED:
-            discovery = DatahubExecutorDiscovery(graph)
-            discovery.start()
 
         # Create a fetcher
         monitor_fetcher = MonitorFetcher(graph, get_monitor_config())
@@ -111,9 +110,6 @@ def start_scheduler(sighandler: List[Callable]) -> None:
         manager = ExecutionRequestManager(
             [monitor_fetcher, ingestion_fetcher], scheduler
         )
-
-        if DATAHUB_EXECUTOR_EMBEDDED_WORKER_ENABLED:
-            sighandler.append(discovery.stop)
 
         sighandler.append(scheduler.shutdown)
         sighandler.append(manager.shutdown)

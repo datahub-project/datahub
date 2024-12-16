@@ -3,8 +3,9 @@ import { GetDatasetQuery, useGetLastMonthUsageAggregationsQuery } from '@src/gra
 import { UsageQueryResult } from '@src/types.generated';
 import React, { useRef } from 'react';
 import styled from 'styled-components';
-import ColumnStatsV2 from './ColumnStatsV2';
+import HistoricalStats from './HistoricalStats';
 import StatsHighlights from './StatsHighlights';
+import ColumnStatsV2 from './ColumnStatsV2';
 
 const TabContainer = styled.div`
     padding: 16px 24px;
@@ -39,15 +40,18 @@ const StatsTabV2 = () => {
         columnStatsSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
+    const users = usageStats?.aggregations?.users;
+
     return (
         <TabContainer>
             <StatsHighlights
                 rowCount={latestProfile?.rowCount || undefined}
                 columnCount={latestProfile?.columnCount || undefined}
                 queryCount={queryCountLast30Days || totalSqlQueries || undefined}
-                users={usageStats?.aggregations?.users || undefined}
+                users={users || undefined}
                 scrollToColumnStats={scrollToColumnStats}
             />
+            <HistoricalStats users={users || undefined} />
             <div ref={columnStatsSectionRef}>
                 <ColumnStatsV2 columnStats={(latestProfile && latestProfile.fieldProfiles) || []} />
             </div>

@@ -16,6 +16,7 @@ const StyledSummaryLabel = styled.div<{ background: string; color: string }>`
     font-weight: bold;
     padding: 4px 12px;
     border-radius: 16px;
+    font-size: 12px;
 `;
 
 const SummaryContainer = styled.div`

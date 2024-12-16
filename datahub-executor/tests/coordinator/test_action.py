@@ -4,10 +4,12 @@ from unittest.mock import Mock
 
 from acryl.executor.execution.reporting_executor import ReportingExecutor
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import GenericAspectClass, MetadataChangeLogClass
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.event.event_registry import METADATA_CHANGE_LOG_EVENT_V1_TYPE
 
+from datahub_executor.common.discovery.discovery import DatahubExecutorDiscovery
 from datahub_executor.common.types import ExecutorConfig
 
 with mock.patch(
@@ -23,7 +25,11 @@ with mock.patch(
 
 class TestIngestionAction:
     def setup_method(self) -> None:
-        self.action = IngestionAction(False, True, "default")
+        self.discovery = Mock(spec=DatahubExecutorDiscovery)
+        self.graph = Mock(spec=DataHubGraph)
+        self.action = IngestionAction(
+            self.graph, self.discovery, False, True, "default"
+        )
         self.change_event = MetadataChangeLogClass(
             entityType=DATAHUB_EXECUTION_REQUEST_ENTITY_NAME,
             changeType="UPSERT",
@@ -82,7 +88,7 @@ class TestIngestionAction:
     ) -> None:
         ingestion_executor_mock = Mock(spec=ReportingExecutor)
         setup_mock.return_value = ingestion_executor_mock
-        self.action = IngestionAction(True, True, "default")
+        self.action = IngestionAction(self.graph, self.discovery, True, True, "default")
         self.action.act(self.event)
 
         thread_mock.call_count == 1
@@ -99,7 +105,7 @@ class TestIngestionAction:
 
         ingestion_executor_mock = Mock(spec=ReportingExecutor)
         setup_mock.return_value = ingestion_executor_mock
-        self.action = IngestionAction(True, True, "default")
+        self.action = IngestionAction(self.graph, self.discovery, True, True, "default")
         self.action.act(self.event)
 
         thread_mock.call_count == 1
@@ -115,7 +121,7 @@ class TestIngestionAction:
 
         ingestion_executor_mock = Mock(spec=ReportingExecutor)
         setup_mock.return_value = ingestion_executor_mock
-        self.action = IngestionAction(True, True, "default")
+        self.action = IngestionAction(self.graph, self.discovery, True, True, "default")
         self.action.act(self.event)
 
         thread_mock.call_count == 1

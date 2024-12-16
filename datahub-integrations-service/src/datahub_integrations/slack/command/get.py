@@ -6,4 +6,4 @@ def handle_get_command(graph, ack, respond, entity_urn):
     # Fetch the Entity From DataHub. Display a preview.
     variables = {"urn": entity_urn}
     data = graph.execute_graphql(SLACK_GET_ENTITY_QUERY, variables=variables)
-    ack(render_entity_preview(data["entity"]))
+    respond(render_entity_preview(raw_entity=data["entity"], include_link=True))

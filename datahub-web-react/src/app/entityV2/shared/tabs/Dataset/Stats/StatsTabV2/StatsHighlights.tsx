@@ -39,8 +39,6 @@ const VerticalDivider = styled(Divider)`
 const CARD_WIDTH = '225px';
 
 const StatsHighlights = ({ rowCount, columnCount, queryCount, users, scrollToColumnStats }: Props) => {
-    const areLatestStatsPresent = rowCount || columnCount;
-    const areLast30DaysStatsPresent = (users && users.length > 0) || queryCount;
     const ViewButton = () => {
         return (
             <Button variant="text" icon="ArrowDownward">
@@ -56,52 +54,48 @@ const StatsHighlights = ({ rowCount, columnCount, queryCount, users, scrollToCol
                 variant="sectionHeader"
             />
             <StatsContainer>
-                {areLatestStatsPresent && (
-                    <Section>
-                        <Text size="sm" weight="bold">
-                            Latest
-                        </Text>
-                        <StatCards>
-                            {rowCount && <Card title={countFormatter(rowCount)} subTitle="Rows" width={CARD_WIDTH} />}
-                            {columnCount && (
-                                <Card
-                                    title={columnCount.toString()}
-                                    subTitle={pluralize(columnCount, 'Column')}
-                                    button={<ViewButton />}
-                                    width={CARD_WIDTH}
-                                    onClick={scrollToColumnStats}
-                                />
-                            )}
-                        </StatCards>
-                    </Section>
-                )}
-                {areLast30DaysStatsPresent && (
-                    <>
-                        <VerticalDivider type="vertical" />
-                        <Section>
-                            <Text size="sm" weight="bold">
-                                Last 30 days
-                            </Text>
-                            <StatCards>
-                                {users && users.length > 0 && (
-                                    <Card
-                                        title={users.length.toString()}
-                                        subTitle={pluralize(users.length, 'User')}
-                                        width={CARD_WIDTH}
-                                    />
-                                )}
-                                {queryCount && (
-                                    <Card
-                                        title={queryCount?.toString()}
-                                        subTitle={capitalizeFirstLetter(pluralize(queryCount, 'Query'))}
-                                        button={<ViewButton />}
-                                        width={CARD_WIDTH}
-                                    />
-                                )}
-                            </StatCards>
-                        </Section>
-                    </>
-                )}
+                <Section>
+                    <Text size="sm" weight="bold">
+                        Latest
+                    </Text>
+                    <StatCards>
+                        <Card
+                            title={countFormatter(rowCount || 0)}
+                            subTitle={pluralize(rowCount || 0, 'Row')}
+                            width={CARD_WIDTH}
+                            isEmpty={rowCount === undefined}
+                        />
+                        <Card
+                            title={columnCount?.toString() || ''}
+                            subTitle={pluralize(columnCount || 0, 'Column')}
+                            button={<ViewButton />}
+                            width={CARD_WIDTH}
+                            onClick={scrollToColumnStats}
+                            isEmpty={columnCount === undefined}
+                        />
+                    </StatCards>
+                </Section>
+                <VerticalDivider type="vertical" />
+                <Section>
+                    <Text size="sm" weight="bold">
+                        Last 30 days
+                    </Text>
+                    <StatCards>
+                        <Card
+                            title={users?.length?.toString() || ''}
+                            subTitle={pluralize(users?.length || 0, 'User')}
+                            width={CARD_WIDTH}
+                            isEmpty={users === undefined}
+                        />
+                        <Card
+                            title={queryCount?.toString() || ''}
+                            subTitle={capitalizeFirstLetter(pluralize(queryCount || 0, 'Query'))}
+                            button={<ViewButton />}
+                            width={CARD_WIDTH}
+                            isEmpty={queryCount === undefined}
+                        />
+                    </StatCards>
+                </Section>
             </StatsContainer>
         </>
     );
