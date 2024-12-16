@@ -35,11 +35,9 @@ export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
     // Currently unused.
     getPathName = () => 'schemaField';
 
-    // Currently unused.
-    getEntityName = () => 'schemaField';
+    getEntityName = () => 'Column';
 
-    // Currently unused.
-    getCollectionName = () => 'schemaFields';
+    getCollectionName = () => 'Columns';
 
     // Currently unused.
     renderProfile = (_: string) => <></>;

@@ -68,6 +68,7 @@ const TitleContainer = styled.div`
 const EntityTitleContainer = styled.div`
     display: flex;
     align-items: center;
+    gap: 8px;
 `;
 
 const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
@@ -77,7 +78,6 @@ const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
     }
 
     &&& {
-        margin-right 8px;
         font-size: ${(props) => props.$titleSizePx || 16}px;
         font-weight: 600;
         vertical-align: middle;
