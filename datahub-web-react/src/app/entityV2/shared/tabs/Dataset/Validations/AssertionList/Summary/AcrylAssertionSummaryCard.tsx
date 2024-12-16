@@ -1,6 +1,5 @@
 import React from 'react';
 import { useHistory } from 'react-router-dom';
-import { RightOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import { AssertionType, EntityType } from '@src/types.generated';
 import { ANTD_GRAY, REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
@@ -60,7 +59,7 @@ const AssertionIconWrapper = styled.div`
 `;
 
 const AssertionTitle = styled.span`
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
 `;
 
@@ -72,7 +71,7 @@ const AssertionDetailsContainer = styled.div`
 
 const AssertionTextContainer = styled.div`
     color: #8c8c8c;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
 `;
 
@@ -85,8 +84,8 @@ const ChartSectionContainer = styled.div`
 `;
 
 const ViewAllWrapper = styled.div`
-    color: ${REDESIGN_COLORS.BACKGROUND_PRIMARY_1};
-    font-size: 14px;
+    color: ${REDESIGN_COLORS.BODY_TEXT_GREY};
+    font-size: 12px;
     display: flex;
     align-items: center;
     gap: 8px;
@@ -145,7 +144,6 @@ export const AcrylAssertionSummaryCard: React.FC<Props> = ({ group }) => {
                     <AcrylAssertionSummarySection group={group} visibleStatus={visibleStatuses} />
                     <ViewAllWrapper>
                         <ViewAllText>View All</ViewAllText>
-                        <RightOutlined style={{ height: 12, width: 12 }} />
                     </ViewAllWrapper>
                 </ChartSectionContainer>
 
