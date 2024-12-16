@@ -32,7 +32,7 @@ const ViewAdvancedOptions = ({ propEntity }: Props) => {
                 {propEntity && (
                     <RowContainer>
                         <StyledLabel>Qualified Name</StyledLabel>
-                        <Text color="gray"> {propEntity?.definition.qualifiedName}</Text>
+                        <Text color="gray"> {propEntity?.definition?.qualifiedName}</Text>
                     </RowContainer>
                 )}
             </Collapse.Panel>
