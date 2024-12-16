@@ -51,3 +51,42 @@ For the remote task worker(s)
 
 - DATAHUB_EXECUTOR_MODE: worker
 - EXECUTOR_ID: remoteExecutor1 or remoteExecutor2, etc...
+
+
+### Adding dependencies
+
+We use [uv](https://github.com/astral-sh/uv)'s compile and sync subcommands to manage dependencies. To add a new dependency:
+
+```sh
+# First, add the dependency to pyproject.toml
+
+# Then run the following command to update the lockfile and install deps.
+./scripts/lockfile.sh
+```
+
+### Updating dependencies
+
+```sh
+# First, update the dependency's lower bound in pyproject.toml
+
+# Update the lockfiles and venv:
+./scripts/lockfile.sh
+```
+
+Alternative approach: updating requirements without updating pyproject.toml.
+
+```sh
+# Upgrade a single package:
+uv pip compile -o requirements.txt requirements-local.in --upgrade-package <package>
+
+# Upgrade all packages:
+uv pip compile -o requirements.txt requirements-local.in --upgrade
+
+# Either way, run the same lockfile and venv update commands as above.
+```
+
+### Updating lockfiles after a merge
+
+```sh
+./scripts/lockfile.sh
+```

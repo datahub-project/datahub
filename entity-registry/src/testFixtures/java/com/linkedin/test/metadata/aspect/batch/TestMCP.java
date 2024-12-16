@@ -6,6 +6,7 @@ import static org.mockito.Mockito.when;
 
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.ReadItem;
@@ -20,7 +21,9 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import java.net.URISyntaxException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -138,6 +141,42 @@ public class TestMCP implements ChangeMCP {
             mcp ->
                 mcp.getHeaders().entrySet().stream()
                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)))
-        .orElse(headers);
+        .orElse(headers != null ? headers : Collections.emptyMap());
+  }
+
+  @Override
+  public boolean isDatabaseDuplicateOf(BatchItem other) {
+    return equals(other);
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (o == null || getClass() != o.getClass()) {
+      return false;
+    }
+
+    TestMCP testMCP = (TestMCP) o;
+    return urn.equals(testMCP.urn)
+        && DataTemplateUtil.areEqual(recordTemplate, testMCP.recordTemplate)
+        && Objects.equals(systemAspect, testMCP.systemAspect)
+        && Objects.equals(previousSystemAspect, testMCP.previousSystemAspect)
+        && Objects.equals(auditStamp, testMCP.auditStamp)
+        && Objects.equals(changeType, testMCP.changeType)
+        && Objects.equals(metadataChangeProposal, testMCP.metadataChangeProposal);
+  }
+
+  @Override
+  public int hashCode() {
+    int result = urn.hashCode();
+    result = 31 * result + Objects.hashCode(recordTemplate);
+    result = 31 * result + Objects.hashCode(systemAspect);
+    result = 31 * result + Objects.hashCode(previousSystemAspect);
+    result = 31 * result + Objects.hashCode(auditStamp);
+    result = 31 * result + Objects.hashCode(changeType);
+    result = 31 * result + Objects.hashCode(metadataChangeProposal);
+    return result;
   }
 }

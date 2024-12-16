@@ -42,9 +42,10 @@ const Result = styled.div`
     align-items: center;
 `;
 
-const ActionButtonContainer = styled.div`
+const ActionButtonContainer = styled.div<{ removeRightPadding?: boolean }>`
     display: flex;
     align-items: center;
+    margin-left: ${(props) => (props.removeRightPadding ? 'auto' : undefined)};
 `;
 
 const DataContractLogo = styled(AuditOutlined)`
@@ -161,6 +162,9 @@ interface ActionsColumnProps {
     canEditContract: boolean;
     refetch?: () => void;
     shouldRightAlign?: boolean;
+    options?: {
+        removeRightPadding?: boolean;
+    };
 }
 
 export function ActionsColumn({
@@ -172,9 +176,10 @@ export function ActionsColumn({
     canEditContract,
     refetch,
     shouldRightAlign,
+    options,
 }: ActionsColumnProps) {
     return (
-        <ActionButtonContainer>
+        <ActionButtonContainer removeRightPadding={options?.removeRightPadding}>
             <AssertionListItemActions
                 assertion={assertion}
                 monitor={monitor}

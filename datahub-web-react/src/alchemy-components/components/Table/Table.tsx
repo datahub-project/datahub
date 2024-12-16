@@ -76,7 +76,7 @@ export const Table = <T,>({
                                     width={column.width}
                                     shouldAddRightBorder={index !== columns.length - 1} // Add border unless last column
                                 >
-                                    <HeaderContainer>
+                                    <HeaderContainer alignment={column.alignment}>
                                         {column.title}
                                         {column.sorter && ( // Render sort icons if the column is sortable
                                             <SortIconsContainer

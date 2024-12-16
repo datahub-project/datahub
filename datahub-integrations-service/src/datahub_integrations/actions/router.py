@@ -13,7 +13,7 @@ import httpx
 import reactpy
 import starlette
 import starlette.background
-from asyncify import asyncify
+from asyncer import asyncify
 from datahub.secret.datahub_secret_store import (
     DataHubSecretStore,
     DataHubSecretStoreConfig,

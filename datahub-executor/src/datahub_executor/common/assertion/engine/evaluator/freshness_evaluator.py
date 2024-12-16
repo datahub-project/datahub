@@ -339,9 +339,11 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                 AssertionResultType.SUCCESS,
                 parameters={
                     "row_count": current_row_count,
-                    "prev_row_count": previous_state.properties.get("row_count", "0")
-                    if previous_state
-                    else "0",
+                    "prev_row_count": (
+                        previous_state.properties.get("row_count", "0")
+                        if previous_state
+                        else "0"
+                    ),
                 },
             )
         else:
@@ -349,9 +351,11 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
                 AssertionResultType.FAILURE,
                 parameters={
                     "row_count": current_row_count,
-                    "prev_row_count": previous_state.properties.get("row_count", "0")
-                    if previous_state
-                    else 0,
+                    "prev_row_count": (
+                        previous_state.properties.get("row_count", "0")
+                        if previous_state
+                        else 0
+                    ),
                 },
             )
 

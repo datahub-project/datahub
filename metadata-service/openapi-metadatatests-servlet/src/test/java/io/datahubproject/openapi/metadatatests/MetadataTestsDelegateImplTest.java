@@ -16,6 +16,7 @@ import com.linkedin.entity.AspectType;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.gms.factory.entity.versioning.EntityVersioningServiceFactory;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.test.TestEngine;
@@ -58,7 +59,7 @@ import org.testng.annotations.Test;
         @ComponentScan.Filter(
             type = FilterType.REGEX,
             pattern = "io\\.datahubproject\\.openapi\\.scim\\..*"))
-@Import({MetadataTestsTestConfiguration.class})
+@Import({MetadataTestsTestConfiguration.class, EntityVersioningServiceFactory.class})
 @AutoConfigureMockMvc
 public class MetadataTestsDelegateImplTest extends AbstractTestNGSpringContextTests {
 

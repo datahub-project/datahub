@@ -97,7 +97,7 @@ public class InferDocumentationResolver
 
     try {
       // TODO: switch to patch
-      _entityClient.batchIngestProposals(operationContext, metadataChangeProposals, true);
+      _entityClient.batchIngestProposals(operationContext, metadataChangeProposals, false);
     } catch (Exception e) {
       log.error(
           String.format("Failed to save asset documentation for entity with urn %s", entityUrn), e);
@@ -148,6 +148,7 @@ public class InferDocumentationResolver
             .setTime(operationContext.getAuditStamp().getTime())
             .setActor(operationContext.getAuditStamp().getActor())
             .setSourceDetail(new StringMap(Map.of("inferred", "true")));
+
     associations.add(
         new DocumentationAssociation().setDocumentation(description).setAttribution(attribution));
 

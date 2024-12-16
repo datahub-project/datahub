@@ -281,6 +281,11 @@ type AssertionEvaluationContext {
   if present and if the EmbeddedAssertion's evaluationTimeWindow period is valid
   """
   embeddedAssertions:  [EmbeddedAssertion!]
+
+  """
+  The standard deviation that was used to calculate the threshold for the assertion
+  """
+  stdDev: Float
 }
 
 """

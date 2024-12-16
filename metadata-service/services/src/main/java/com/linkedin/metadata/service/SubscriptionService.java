@@ -455,6 +455,44 @@ public class SubscriptionService extends BaseService {
     }
   }
 
+  public List<Urn> getSubscribedUsersForEntity(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Integer numSubscribedUsers) {
+    try {
+      if (!this.entityClient.exists(opContext, entityUrn, false)) {
+        throw new RuntimeException(String.format("Entity %s does not exist", entityUrn));
+      }
+
+      final Filter filter =
+          buildGetActorSubscriptionsForEntityFilter(entityUrn, CORP_USER_ENTITY_NAME);
+      final SearchResult searchResult =
+          this.entityClient.filter(
+              opContext, SUBSCRIPTION_ENTITY_NAME, filter, null, 0, numSubscribedUsers);
+
+      final Set<Urn> subscriptionUrns =
+          searchResult.getEntities().stream()
+              .map(SearchEntity::getEntity)
+              .collect(Collectors.toSet());
+
+      final Map<Urn, EntityResponse> entityResponseMap =
+          this.entityClient.batchGetV2(
+              opContext, SUBSCRIPTION_ENTITY_NAME, subscriptionUrns, SUBSCRIPTION_ASPECTS);
+
+      final Map<Urn, DataMap> subscriptionInfoMap =
+          AspectUtils.getDataMapsFromEntityResponseMap(
+              entityResponseMap, SUBSCRIPTION_INFO_ASPECT_NAME);
+
+      return subscriptionInfoMap.values().stream()
+          .map(SubscriptionInfo::new)
+          .map(SubscriptionInfo::getActorUrn)
+          .collect(Collectors.toList());
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to get top subscriptions for entity %s", entityUrn), e);
+    }
+  }
+
   @Nonnull
   public List<Urn> getGroupSubscribersForEntity(
       @Nonnull OperationContext opContext,

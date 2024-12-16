@@ -78,15 +78,16 @@ interface Props {
     editableSchemaMetadata?: EditableSchemaMetadata | null;
     expandedDrawerFieldPath: string | null;
     setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
-    openTimelineDrawer: boolean;
-    setOpenTimelineDrawer: any;
-    selectPreviousField: () => void;
-    selectNextField: () => void;
+    openTimelineDrawer?: boolean;
+    setOpenTimelineDrawer?: any;
+    selectPreviousField?: () => void;
+    selectNextField?: () => void;
     usageStats?: UsageQueryResult | null;
     displayedRows: ExtendedSchemaFields[];
     refetch?: () => void;
     mask?: boolean;
     isShowMoreEnabled?: boolean;
+    defaultSelectedTabName?: string;
 }
 
 export default function SchemaFieldDrawer({
@@ -103,6 +104,7 @@ export default function SchemaFieldDrawer({
     refetch,
     mask = false,
     isShowMoreEnabled,
+    defaultSelectedTabName = 'About',
 }: Props) {
     const expandedFieldIndex = useMemo(
         () => displayedRows.findIndex((row) => row.fieldPath === expandedDrawerFieldPath),
@@ -161,7 +163,7 @@ export default function SchemaFieldDrawer({
     }, [displayedRows, expandedDrawerFieldPath, setExpandedDrawerFieldPath]);
 
     const profiles = profilesData?.dataset?.datasetProfiles || [];
-    const [selectedTabName, setSelectedTabName] = useState('About');
+    const [selectedTabName, setSelectedTabName] = useState(defaultSelectedTabName);
 
     /**
      * Fetches updated data profiles when the lookback window is changed in the Historical Chart view.
@@ -268,12 +270,14 @@ export default function SchemaFieldDrawer({
                                     />
                                 </Tabs>
                             </Body>
-                            <DrawerFooter
-                                expandedFieldIndex={expandedFieldIndex}
-                                selectPreviousField={selectPreviousField}
-                                selectNextField={selectNextField}
-                                displayedRows={displayedRows}
-                            />
+                            {selectNextField && selectPreviousField && (
+                                <DrawerFooter
+                                    expandedFieldIndex={expandedFieldIndex}
+                                    selectPreviousField={selectPreviousField}
+                                    selectNextField={selectNextField}
+                                    displayedRows={displayedRows}
+                                />
+                            )}
                         </DrawerContent>
                     )}
                 </StyledDrawer>

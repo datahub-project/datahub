@@ -4,6 +4,7 @@ from typing import List, Optional
 from acryl.executor.request.execution_request import ExecutionRequest
 from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.triggers.cron import CronTrigger
 
 from datahub_executor.common.assertion.executor import AssertionExecutor
 from datahub_executor.common.constants import RUN_INGEST_TASK_NAME
@@ -168,23 +169,15 @@ class ExecutionRequestScheduler:
                 else self.default_timezone
             )
 
-            # Parse the cron string into separate fields
-            minute, hour, day, month, day_of_week = cron.split(" ")
-
             logger.debug(
                 f"Scheduling execution_request evaluation job for execution_request with exec_id {execution_request.exec_id} at {cron}"
             )
 
+            trigger = CronTrigger.from_crontab(cron, timezone=timezone, strict=True)
             job = self.get_scheduler_for_execution_request(execution_request).add_job(
                 self.submit_execution_request,
-                trigger="cron",
+                trigger=trigger,
                 args=[execution_request],
-                minute=minute,
-                hour=hour,
-                day=day,
-                month=month,
-                day_of_week=day_of_week,
-                timezone=timezone,
                 misfire_grace_time=DATAHUB_EXECUTOR_SCHEDULER_MISFIRE_PERIOD,
             )
         except Exception as e:

@@ -5,6 +5,7 @@ import { FilterScenarioType } from './filters/render/types';
 import { useFilterRendererRegistry } from './filters/render/useFilterRenderer';
 import { SimpleSearchFilter } from './SimpleSearchFilter';
 import {
+    DEGREE_FILTER_NAME,
     ENTITY_FILTER_NAME,
     ENTITY_INDEX_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
@@ -48,6 +49,15 @@ export const SimpleSearchFilters = ({ facets, selectedFilters, onFilterSelect, l
                           : filter,
                   )
                   .filter((filter) => filter.field !== field || !(filter.values?.length === 0));
+
+        // Do not let user unselect all degree filters
+        if (field === DEGREE_FILTER_NAME && !selected) {
+            const hasDegreeFilter = newFilters.find((filter) => filter.field === DEGREE_FILTER_NAME);
+            if (!hasDegreeFilter) {
+                return;
+            }
+        }
+
         setCachedProps({ ...cachedProps, selectedFilters: newFilters });
         onFilterSelect(newFilters);
     };

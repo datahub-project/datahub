@@ -1,9 +1,11 @@
 import ast
+import collections
 import os
 import pathlib
 import re
 from typing import Dict, List, Tuple
 
+import asyncer
 import more_itertools
 from datahub.ingestion.graph.client import DataHubGraph
 from loguru import logger
@@ -24,6 +26,17 @@ TERM_SUGGESTION_GENERATION_MODEL: BedrockModel = parse_obj_as(
     ),
 )
 
+# The AWS quota is 1000 requests per minute for Haiku 3 and
+# 20-50 (depending on region) for Claude 3.5 Sonnet.
+# However, this limits the number of concurrent requests we can make, and not
+# the requests per minute. (Ideally we'll switch to a leaky bucket ratelimiter instead.)
+# Given that an average request might take a couple seconds, 80 seemed like
+# a reasonable enough default for now.
+# Update - this actually defaults to 40, which is a decent enough default for now.
+# _concurrency_limiter = anyio.CapacityLimiter(
+#     total_tokens=int(os.getenv("TERM_SUGGESTION_CONCURRENCY_LIMIT", 80))
+# )
+
 # Suggestions with a confidence score strictly below this should be filtered out.
 TERM_SUGGESTION_CONFIDENCE_THRESHOLD = float(
     os.getenv("TERM_SUGGESTION_CONFIDENCE_THRESHOLD", 9)
@@ -31,7 +44,7 @@ TERM_SUGGESTION_CONFIDENCE_THRESHOLD = float(
 
 # The maximum number of columns to include in a single prompt.
 # If there's more columns than this, we split it across multiple prompts.
-COLUMN_SPLIT_LENGTH = 40
+COLUMN_SPLIT_LENGTH = 20
 
 # The maximum number of glossary terms to include in a single prompt.
 # If there's more glossary terms than this, we split it across multiple prompts.
@@ -180,7 +193,7 @@ def get_terms_splits(glossary_info: GlossaryInfo) -> list[GlossaryInfo]:
     return glossary_batches
 
 
-def get_term_recommendations_for_column_splits(
+async def get_term_recommendations_for_column_splits(
     column_splits: List[List[str]],
     table_info: dict,
     column_info: dict,
@@ -189,29 +202,44 @@ def get_term_recommendations_for_column_splits(
 ) -> tuple[
     List[TermSuggestionBundle] | None, Dict[str, List[TermSuggestionBundle]] | None, str
 ]:
+    logger.debug(f"Column split lengths: {[len(split) for split in column_splits]}")
+    term_splits = get_terms_splits(glossary_info)
+    logger.debug(f"Term splits: {len(term_splits)}")
+
+    # Run the LLM calls in parallel.
+    raw_llm_responses: Dict[int, Dict[int, asyncer.SoonValue[str]]] = (
+        collections.defaultdict(dict)
+    )  # (col_split_idx, term_split_idx) -> raw_llm_response future
+    async with asyncer.create_task_group() as task_group:
+        for col_split_idx, column_split in enumerate(column_splits):
+            column_split_info = {
+                key: value for key, value in column_info.items() if key in column_split
+            }
+
+            for term_split_idx, term_split in enumerate(term_splits):
+                prompt = generate_prompt(
+                    table_info,
+                    column_split_info,
+                    glossary_info=term_split,
+                    prompt_path=prompt_path,
+                )
+                raw_llm_responses[col_split_idx][term_split_idx] = task_group.soonify(
+                    asyncer.asyncify(call_bedrock_llm)
+                )(
+                    prompt=prompt,
+                    model=TERM_SUGGESTION_GENERATION_MODEL,
+                    max_tokens=5000,
+                    temperature=0.2,
+                )
+
     column_terms: Dict[str, List[TermSuggestionBundle]] | None = None
     table_terms: List[TermSuggestionBundle] | None = None
     raw_llm_response: str = ""
-    logger.debug(f"Column split lengths: {[len(split) for split in column_splits]}")
-    for column_split in column_splits:
-        column_split_info = {
-            key: value for key, value in column_info.items() if key in column_split
-        }
-
-        term_splits = get_terms_splits(glossary_info)
-        for term_split in term_splits:
-            prompt = generate_prompt(
-                table_info,
-                column_split_info,
-                glossary_info=term_split,
-                prompt_path=prompt_path,
-            )
-            raw_llm_response_for_column_split = call_bedrock_llm(
-                prompt=prompt,
-                model=TERM_SUGGESTION_GENERATION_MODEL,
-                max_tokens=5000,
-                temperature=0.2,
-            )
+    for col_split_idx, _ in enumerate(column_splits):
+        for term_split_idx, _ in enumerate(term_splits):
+            raw_llm_response_for_column_split = raw_llm_responses[col_split_idx][
+                term_split_idx
+            ].value
 
             if _USE_EXTRACTION:
                 extraction_prompt = generate_extraction_prompt(
@@ -269,7 +297,10 @@ def get_term_recommendations(
         table_terms,
         column_terms,
         raw_llm_response,
-    ) = get_term_recommendations_for_column_splits(
+    ) = asyncer.syncify(
+        get_term_recommendations_for_column_splits,
+        raise_sync_error=False,
+    )(
         column_splits=column_splits,
         table_info=table_info_filtered,
         column_info=column_info_filtered,

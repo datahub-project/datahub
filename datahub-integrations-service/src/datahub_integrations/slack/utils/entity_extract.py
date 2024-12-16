@@ -126,7 +126,11 @@ def extract_platform_url(entity: dict) -> Optional[str]:
     if platform_entity:
         platform_properties = platform_entity.get("properties")
         if platform_properties is not None:
-            return platform_properties.get("logoUrl")
+            url = platform_properties.get("logoUrl")
+            if ("https://" not in url) and (url[0] == "/"):
+                return f"{DATAHUB_FRONTEND_URL}{url}"
+            else:
+                return url
     return None
 
 

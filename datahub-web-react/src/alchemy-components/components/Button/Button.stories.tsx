@@ -61,6 +61,19 @@ const meta = {
                 type: 'select',
             },
         },
+        iconSize: {
+            description: 'The optional size of the Icon.',
+            options: ['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl'],
+            table: {
+                defaultValue: {
+                    summary: 'undefined',
+                    detail: 'The size of the Button will be used as the size of the Icon',
+                },
+            },
+            control: {
+                type: 'select',
+            },
+        },
         icon: {
             description: 'The icon to display in the Button.',
             type: 'string',

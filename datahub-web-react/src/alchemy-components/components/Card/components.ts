@@ -2,7 +2,7 @@ import { colors, radius, spacing, typography } from '@src/alchemy-components/the
 import { IconAlignmentOptions } from '@src/alchemy-components/theme/config';
 import styled from 'styled-components';
 
-export const CardContainer = styled.div<{ hasButton: boolean; width?: string }>(({ hasButton, width }) => ({
+export const CardContainer = styled.div<{ hasButton?: boolean; width?: string }>(({ hasButton, width }) => ({
     border: `1px solid ${colors.gray[100]}`,
     borderRadius: radius.lg,
     padding: spacing.md,
@@ -12,7 +12,7 @@ export const CardContainer = styled.div<{ hasButton: boolean; width?: string }>(
     display: 'flex',
     flexDirection: 'column',
     gap: spacing.md,
-    width,
+    width: width || '100%',
 
     '&:hover': hasButton
         ? {
@@ -37,14 +37,14 @@ export const TitleContainer = styled.div({
     width: '100%',
 });
 
-export const Title = styled.div({
+export const Title = styled.div<{ $isEmpty?: boolean }>(({ $isEmpty }) => ({
     fontSize: typography.fontSizes.lg,
     fontWeight: typography.fontWeights.bold,
-    color: colors.gray[600],
+    color: $isEmpty ? colors.gray[1800] : colors.gray[600],
     display: 'flex',
     alignItems: 'center',
     gap: spacing.xsm,
-});
+}));
 
 export const SubTitleContainer = styled.div({
     display: 'flex',

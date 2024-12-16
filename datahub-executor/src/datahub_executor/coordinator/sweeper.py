@@ -1,16 +1,21 @@
 import datetime
 import logging
 import time
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 from datahub.metadata.schema_classes import (
     ExecutionRequestInputClass,
     ExecutionRequestSourceClass,
+    RemoteExecutorStatusClass,
 )
 
 from datahub_executor.common.constants import (
     DATAHUB_EXECUTION_REQUEST_STATUS_PENDING,
     DATAHUB_EXECUTION_REQUEST_STATUS_RUNNING,
+)
+from datahub_executor.common.discovery.utils import (
+    get_remote_executor_id_from_urn,
+    send_remote_executor_status,
 )
 from datahub_executor.common.graph import DataHubExecutorGraph
 from datahub_executor.common.ingestion.helpers import emit_execution_request_input
@@ -21,6 +26,9 @@ from datahub_executor.common.monitoring.metrics import (
 )
 from datahub_executor.common.types import ExecutionRequestStatus, SweeperAction
 from datahub_executor.config import (
+    DATAHUB_EXECUTOR_DISCOVERY_EXPIRE_THRESHOLD,
+    DATAHUB_EXECUTOR_DISCOVERY_PURGE_AFTER,
+    DATAHUB_EXECUTOR_DISCOVERY_PURGE_THRESHOLD,
     DATAHUB_EXECUTOR_SWEEPER_ABORT_THRESHOLD,
     DATAHUB_EXECUTOR_SWEEPER_DISABLED,
     DATAHUB_EXECUTOR_SWEEPER_PENDING_THRESHOLD,
@@ -41,6 +49,7 @@ class SweeperJob:
         self.is_locked = False
         self.is_disabled = DATAHUB_EXECUTOR_SWEEPER_DISABLED
         self.current_time: str
+        self.state: Dict[str, Any] = {}
         self.run_id: str
 
     def _lock(self) -> bool:
@@ -93,13 +102,13 @@ class SweeperJob:
         for exec_id, action in actions.items():
             if action.action != "DUPLICATE":
                 continue
-            ingestion = action.ingestion
+            ingestion = cast(ExecutionRequestStatus, action.args.get("ingestion"))
             if ingestion.ingestion_source_urn in running:
                 actions[exec_id] = self._build_duplicate_action(
                     ingestion,
                     running[ingestion.ingestion_source_urn].execution_request_urn,
                 )
-            elif action.ingestion.ingestion_source_urn in pending:
+            elif ingestion.ingestion_source_urn in pending:
                 actions[exec_id] = self._build_duplicate_action(
                     ingestion,
                     pending[ingestion.ingestion_source_urn].execution_request_urn,
@@ -107,21 +116,39 @@ class SweeperJob:
 
         return list(actions.values())
 
+    def _build_executor_action(
+        self, urn: str, status: RemoteExecutorStatusClass, action: str
+    ) -> SweeperAction:
+        return SweeperAction.parse_obj(
+            {
+                "action": action,
+                "description": f"Processing stale remote executor status record: {urn}; executorId = {status.executorId}",
+                "args": {
+                    "urn": urn,
+                    "status": status,
+                },
+            }
+        )
+
     def _build_aborted_action(self, ingestion: ExecutionRequestStatus) -> SweeperAction:
         elapsed = self._get_elapsed_seconds(ingestion.last_observed)
         return SweeperAction.parse_obj(
             {
                 "action": "ABORTED",
-                "description": f"ingestion has been inactive for {elapsed} seconds",
-                "report": f"{self.current_time} Ingestion was aborted due to worker pod eviction, crash, or restart.\n\n---\n{ingestion.report}",
-                "ingestion": ingestion,
+                "description": f"Ingestion {ingestion.execution_request_id} has been inactive for {elapsed} seconds",
+                "args": {
+                    "report": f"{self.current_time} Ingestion was aborted due to worker pod eviction, crash, or restart.\n\n---\n{ingestion.report}",
+                    "ingestion": ingestion,
+                },
             }
         )
 
     def _build_duplicate_action(
         self, ingestion: ExecutionRequestStatus, dup_of: Optional[str] = None
     ) -> SweeperAction:
-        action_message = "Ingestion was cancelled as a duplicate"
+        action_message = (
+            "Ingestion {ingestion.execution_request_id} was cancelled as a duplicate"
+        )
         if dup_of is not None:
             action_message = f"{action_message} of {dup_of}"
 
@@ -129,8 +156,10 @@ class SweeperJob:
             {
                 "action": "DUPLICATE",
                 "description": action_message,
-                "report": f"{self.current_time} {action_message}.\n\n---\n{ingestion.report}",
-                "ingestion": ingestion,
+                "args": {
+                    "report": f"{self.current_time} {action_message}.\n\n---\n{ingestion.report}",
+                    "ingestion": ingestion,
+                },
             }
         )
 
@@ -141,9 +170,11 @@ class SweeperJob:
         return SweeperAction.parse_obj(
             {
                 "action": "CANCELLED",
-                "description": "Pending ingestion has exceeded a timeout",
-                "report": f"{self.current_time} Pending ingestion was cancelled due to a timeout.\n\n---\n{ingestion.report}",
-                "ingestion": ingestion,
+                "description": "Ingestion {ingestion.execution_request_id} has exceeded a timeout",
+                "args": {
+                    "report": f"{self.current_time} Pending ingestion was cancelled due to a timeout.\n\n---\n{ingestion.report}",
+                    "ingestion": ingestion,
+                },
             }
         )
 
@@ -152,9 +183,11 @@ class SweeperJob:
         return SweeperAction.parse_obj(
             {
                 "action": "RESTART",
-                "description": "presiously aborted ingestion has been restarted",
-                "report": f"{self.current_time} Ingestion was restarted due to a previously aborted attempt.\n\n---\n{ingestion.report}",
-                "ingestion": ingestion,
+                "description": "Presiously aborted ingestion {ingestion.execution_request_id} has been restarted",
+                "args": {
+                    "report": f"{self.current_time} Ingestion was restarted due to a previously aborted attempt.\n\n---\n{ingestion.report}",
+                    "ingestion": ingestion,
+                },
                 "errors_fatal": True,
             }
         )
@@ -294,6 +327,51 @@ class SweeperJob:
 
         return self._repopulate_cancel_action_reports(actions, oldest_running, latest_pending)  # type: ignore
 
+    def _get_remote_executor_actions(
+        self, executors: Dict[str, RemoteExecutorStatusClass]
+    ) -> List[SweeperAction]:
+        actions: Dict[str, SweeperAction] = {}
+        keep: Dict[str, List] = {}
+
+        now = int(time.time())
+        expire_threshold = now - DATAHUB_EXECUTOR_DISCOVERY_EXPIRE_THRESHOLD
+        purge_threshold = now - DATAHUB_EXECUTOR_DISCOVERY_PURGE_THRESHOLD
+
+        for urn, status in executors.items():
+            # Save urn of the most recent status update for each executor id
+            if (
+                status.executorId not in keep
+                or keep[status.executorId][1] < status.reportedAt
+            ):
+                keep[status.executorId] = [urn, status.reportedAt]
+            # Delete status records updated over a month ago
+            if status.reportedAt < purge_threshold:
+                logger.info(
+                    f"Sweeper: going to DELETE executor status record for {status.executorId}: {urn}; reportedAt = {status.reportedAt}"
+                )
+                actions[urn] = self._build_executor_action(
+                    urn, status, "EXECUTOR_DELETE"
+                )
+            # Expire status records last updated over an hour ago, and not already expired
+            elif (
+                (status.reportedAt < expire_threshold) or status.executorStopped
+            ) and not status.executorExpired:
+                logger.info(
+                    f"Sweeper: going to EXPIRE executor status record for {status.executorId}: {urn}; reportedAt = {status.reportedAt}"
+                )
+                actions[urn] = self._build_executor_action(
+                    urn, status, "EXECUTOR_EXPIRE"
+                )
+
+        # Do not delete most recent status for each executorId
+        for info in keep.values():
+            logger.info(
+                f"Sweeper: going to SKIP expiring the most recent executor status record: {info[0]}"
+            )
+            actions.pop(info[0], None)
+
+        return list(actions.values())
+
     def _update_execution_request_metrics(
         self, ingestions: List[ExecutionRequestStatus]
     ) -> None:
@@ -315,26 +393,46 @@ class SweeperJob:
 
         actions = actions + self._get_cancel_actions(ingestions)
 
+        # To keep the amount of data being pulled from GMS every minute under control, pull
+        # status records that need to be expired every minute, pull records that need to be
+        # deleted once a day.
+        now = time.time()
+        if (
+            now - self.state.get("executors_last_purged", 0)
+        ) > DATAHUB_EXECUTOR_DISCOVERY_PURGE_AFTER:
+            logger.info("Sweeper: doing a full swipe of remote executor statuses")
+
+            executors = self.graph.get_remote_executors(query="*")
+            self.state["executors_last_purged"] = now
+        else:
+            logger.info("Sweeper: doing a partial swipe of remote executor statuses")
+            executors = self.graph.get_remote_executors(query="executorExpired:false")
+
+        actions = actions + self._get_remote_executor_actions(executors)
+
         return actions
 
     def _execute_cancel_action(self, action: SweeperAction) -> None:
         # Set our status first to provide proper reason for cancellation. Once "final" state is set on execution request
         # further updates are rejected by GMS.
+        ingestion = cast(ExecutionRequestStatus, action.args.get("ingestion"))
         self.graph.set_execution_request_status(
-            action.ingestion.execution_request_id,
-            action.report,
+            ingestion.execution_request_id,
+            cast(str, action.args.get("report")),
             action.action,
-            action.ingestion.start_time,
+            cast(ExecutionRequestStatus, action.args.get("ingestion")).start_time,
         )
         # We always cancel execution and update request status to better handle situations when the worker is still alive,
         # and keeps processing the job but it's not visible to the coordinator because of a network partition or kafka lag.
         self.graph.cancel_ingestion_execution(
-            action.ingestion.ingestion_source_urn,
-            action.ingestion.execution_request_urn,
+            ingestion.ingestion_source_urn,
+            ingestion.execution_request_urn,
         )
 
     def _execute_restart_action(self, action: SweeperAction) -> None:
-        old_input = action.ingestion.raw_input_aspect
+        old_input = cast(
+            ExecutionRequestStatus, action.args.get("ingestion")
+        ).raw_input_aspect
         source = old_input.get("source", None)
         args = old_input.get("args", None)
 
@@ -356,16 +454,28 @@ class SweeperJob:
                 f"Sweeper({self.run_id}): failed to emit restart MCP -- required arguments are missing or incorrect: {old_input}"
             )
 
+    def _execute_executor_action(self, action: SweeperAction) -> None:
+        urn = cast(str, action.args.get("urn"))
+        status = cast(RemoteExecutorStatusClass, action.args.get("status"))
+
+        if action.action == "EXECUTOR_EXPIRE":
+            status.executorExpired = True
+            instance_id = get_remote_executor_id_from_urn(urn)
+            send_remote_executor_status(self.graph, instance_id, status)
+        else:
+            self.graph.delete_entity(urn, True)
+
     def _execute_action(self, action: SweeperAction) -> bool:
         try:
             logger.info(
-                f"Sweeper({self.run_id}): executing {action.action} action for {action.ingestion.execution_request_id}: {action.description}"
+                f"Sweeper({self.run_id}): executing {action.action} action: {action.description}"
             )
             if action.action == "RESTART":
                 self._execute_restart_action(action)
+            elif action.action in ["EXECUTOR_EXPIRE", "EXECUTOR_DELETE"]:
+                self._execute_executor_action(action)
             else:
                 self._execute_cancel_action(action)
-
             return True
         except Exception as e:
             logger.error(f"Sweeper({self.run_id}): error executing an action: {e}")

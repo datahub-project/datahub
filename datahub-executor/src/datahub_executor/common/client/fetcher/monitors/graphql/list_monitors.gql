@@ -290,6 +290,7 @@ fragment MonitorSearchResults on SearchResults {
               }
               rawParameters
               context {
+                stdDev
                 embeddedAssertions {
                   assertion {
                     ...assertionInfoDetails

@@ -842,15 +842,34 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
         .type(
             "EntitySubscriptionSummary",
             typeWiring ->
-                typeWiring.dataFetcher(
-                    "exampleGroups",
-                    new EntityTypeBatchResolver(
-                        baseEngine.entityTypes,
-                        (env) ->
-                            ((EntitySubscriptionSummary) env.getSource())
-                                .getExampleGroups().stream()
-                                    .map(group -> (Entity) group)
-                                    .collect(Collectors.toList()))));
+                typeWiring
+                    .dataFetcher(
+                        "exampleGroups",
+                        new EntityTypeBatchResolver(
+                            baseEngine.entityTypes,
+                            (env) ->
+                                ((EntitySubscriptionSummary) env.getSource())
+                                    .getExampleGroups().stream()
+                                        .map(group -> (Entity) group)
+                                        .collect(Collectors.toList())))
+                    .dataFetcher(
+                        "subscribedGroups",
+                        new EntityTypeBatchResolver(
+                            baseEngine.entityTypes,
+                            (env) ->
+                                ((EntitySubscriptionSummary) env.getSource())
+                                    .getSubscribedGroups().stream()
+                                        .map(group -> (Entity) group)
+                                        .collect(Collectors.toList())))
+                    .dataFetcher(
+                        "subscribedUsers",
+                        new EntityTypeBatchResolver(
+                            baseEngine.entityTypes,
+                            (env) ->
+                                ((EntitySubscriptionSummary) env.getSource())
+                                    .getSubscribedUsers().stream()
+                                        .map(group -> (Entity) group)
+                                        .collect(Collectors.toList()))));
     builder.type(
         "ChartStatsSummary",
         typeWiring ->

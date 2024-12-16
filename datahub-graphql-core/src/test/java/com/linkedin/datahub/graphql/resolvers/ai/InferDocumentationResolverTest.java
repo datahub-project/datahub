@@ -168,7 +168,7 @@ public class InferDocumentationResolverTest {
                 schemaDoc));
     Mockito.verify(client, Mockito.times(1))
         .batchIngestProposals(
-            eq(mockContext.getOperationContext()), any(Collection.class), eq(true));
+            eq(mockContext.getOperationContext()), any(Collection.class), eq(false));
   }
 
   @Test

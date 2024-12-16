@@ -1,7 +1,6 @@
 import {
-    BellFilled,
-    BellOutlined,
     DeleteOutlined,
+    EditOutlined,
     FolderAddOutlined,
     FolderOpenOutlined,
     LinkOutlined,
@@ -20,10 +19,8 @@ import styled from 'styled-components';
 import { useUpdateDeprecationMutation } from '../../../../graphql/mutations.generated';
 import { EntityType } from '../../../../types.generated';
 import { useUserContext } from '../../../context/useUserContext';
-import Loading from '../../../shared/Loading';
 import { getEntityProfileDeleteRedirectPath } from '../../../shared/deleteUtils';
 import ShareButtonMenu from '../../../shared/share/v2/ShareButtonMenu';
-import SubscribeButtonMenu from '../../../shared/subscribe/v2/SubscribeButtonMenu';
 import { useIsNestedDomainsEnabled } from '../../../useAppConfig';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import CreateEntityAnnouncementModal from '../announce/CreateEntityAnnouncementModal';
@@ -60,7 +57,7 @@ const MenuItem = styled.div`
     gap: 6px;
 `;
 
-const StyledSubMenu = styled(Menu.SubMenu)`
+export const StyledSubMenu = styled(Menu.SubMenu)`
     .ant-dropdown-menu-submenu-title {
         display: flex;
         align-items: end;
@@ -104,6 +101,7 @@ interface Props {
     refetchForTerms?: () => void;
     refetchForNodes?: () => void;
     onDeleteEntity?: () => void;
+    onEditEntity?: () => void;
     triggerType?: ('click' | 'contextMenu' | 'hover')[] | undefined;
 }
 
@@ -119,6 +117,7 @@ const EntityDropdown = (props: Props) => {
         refetchForTerms,
         refetchForNodes,
         onDeleteEntity: onDelete,
+        onEditEntity: onEdit,
         options,
         triggerType = ['click'],
     } = props;
@@ -137,8 +136,6 @@ const EntityDropdown = (props: Props) => {
         options?.skipDeleteWait,
     );
 
-    const [isFetchingSubscriptionSummary, setIsFetchingSubscriptionSummary] = useState(false);
-    const [isUserSubscribed, setIsUserSubscribed] = useState(false);
     const [isCreateTermModalVisible, setIsCreateTermModalVisible] = useState(false);
     const [isCreateNodeModalVisible, setIsCreateNodeModalVisible] = useState(false);
     const [isDeprecationModalVisible, setIsDeprecationModalVisible] = useState(false);
@@ -181,16 +178,6 @@ const EntityDropdown = (props: Props) => {
      * A default path to redirect to if the entity is deleted.
      */
     const deleteRedirectPath = getEntityProfileDeleteRedirectPath(entityType, entityData);
-
-    const renderSubscribeIcon = () => {
-        if (isFetchingSubscriptionSummary) {
-            return <Loading height={13} />;
-        }
-        if (isUserSubscribed) {
-            return <BellFilled />;
-        }
-        return <BellOutlined />;
-    };
 
     return (
         <>
@@ -289,32 +276,19 @@ const EntityDropdown = (props: Props) => {
                                 </Tooltip>
                             </StyledMenuItem>
                         )}
+                        {menuItems.has(EntityMenuItems.EDIT) && onEdit && (
+                            <StyledMenuItem key="9" onClick={onEdit}>
+                                <MenuItem data-testid="entity-menu-edit-button">
+                                    <EditOutlined /> &nbsp;Edit
+                                </MenuItem>
+                            </StyledMenuItem>
+                        )}
                         {menuItems.has(EntityMenuItems.RAISE_INCIDENT) && (
                             <StyledMenuItem key="6" disabled={false}>
                                 <MenuItem onClick={() => setIsRaiseIncidentModalVisible(true)}>
                                     <WarningOutlined /> &nbsp;Raise Incident
                                 </MenuItem>
                             </StyledMenuItem>
-                        )}
-                        {menuItems.has(EntityMenuItems.SUBSCRIBE) && (
-                            <StyledSubMenu
-                                key="7"
-                                disabled={false}
-                                title={
-                                    <MenuItem>
-                                        <div>{renderSubscribeIcon()}</div>
-                                        &nbsp;Subscribe
-                                    </MenuItem>
-                                }
-                            >
-                                <SubscribeButtonMenu
-                                    setIsFetchingSubscriptionSummary={setIsFetchingSubscriptionSummary}
-                                    setIsSubscribed={setIsUserSubscribed}
-                                    entityUrn={urn}
-                                    entityData={entityData}
-                                    entityType={entityType}
-                                />
-                            </StyledSubMenu>
                         )}
                         {menuItems.has(EntityMenuItems.SHARE) && (
                             <StyledSubMenu

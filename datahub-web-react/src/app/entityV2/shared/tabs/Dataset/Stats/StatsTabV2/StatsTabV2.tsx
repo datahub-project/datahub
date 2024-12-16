@@ -1,8 +1,18 @@
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import { GetDatasetQuery, useGetLastMonthUsageAggregationsQuery } from '@src/graphql/dataset.generated';
 import { UsageQueryResult } from '@src/types.generated';
-import React from 'react';
-import StatsHighlights from '../snapshot/StatsHighlights';
+import React, { useRef } from 'react';
+import styled from 'styled-components';
+import HistoricalStats from './HistoricalStats';
+import StatsHighlights from './StatsHighlights';
+import ColumnStatsV2 from './ColumnStatsV2';
+
+const TabContainer = styled.div`
+    padding: 16px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+`;
 
 const StatsTabV2 = () => {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
@@ -11,6 +21,8 @@ const StatsTabV2 = () => {
         variables: { urn: baseEntity?.dataset?.urn as string },
         skip: !baseEntity?.dataset?.urn,
     });
+
+    const columnStatsSectionRef = useRef<HTMLDivElement>(null);
 
     const hasUsageStats = usageStatsData?.dataset?.usageStats !== undefined;
 
@@ -24,13 +36,26 @@ const StatsTabV2 = () => {
 
     const latestProfile = latestFullTableProfile || latestPartitionProfile;
 
+    const scrollToColumnStats = () => {
+        columnStatsSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    const users = usageStats?.aggregations?.users;
+
     return (
-        <StatsHighlights
-            rowCount={latestProfile?.rowCount || undefined}
-            columnCount={latestProfile?.columnCount || undefined}
-            queryCount={queryCountLast30Days || totalSqlQueries || undefined}
-            users={usageStats?.aggregations?.users || undefined}
-        />
+        <TabContainer>
+            <StatsHighlights
+                rowCount={latestProfile?.rowCount || undefined}
+                columnCount={latestProfile?.columnCount || undefined}
+                queryCount={queryCountLast30Days || totalSqlQueries || undefined}
+                users={users || undefined}
+                scrollToColumnStats={scrollToColumnStats}
+            />
+            <HistoricalStats users={users || undefined} />
+            <div ref={columnStatsSectionRef}>
+                <ColumnStatsV2 columnStats={(latestProfile && latestProfile.fieldProfiles) || []} />
+            </div>
+        </TabContainer>
     );
 };
 

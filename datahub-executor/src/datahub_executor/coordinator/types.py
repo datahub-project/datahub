@@ -163,18 +163,26 @@ class AssertionEvaluationParametersSchema(BaseModel):
     def to_internal_params(self) -> AssertionEvaluationParameters:
         return AssertionEvaluationParameters(
             type=self.type,
-            dataset_freshness_parameters=self.dataset_freshness_parameters.to_internal_params()
-            if self.dataset_freshness_parameters
-            else None,
-            dataset_volume_parameters=self.dataset_volume_parameters.to_internal_params()
-            if self.dataset_volume_parameters
-            else None,
-            dataset_field_parameters=self.dataset_field_parameters.to_internal_params()
-            if self.dataset_field_parameters
-            else None,
-            dataset_schema_parameters=self.dataset_schema_parameters.to_internal_params()
-            if self.dataset_schema_parameters
-            else None,
+            dataset_freshness_parameters=(
+                self.dataset_freshness_parameters.to_internal_params()
+                if self.dataset_freshness_parameters
+                else None
+            ),
+            dataset_volume_parameters=(
+                self.dataset_volume_parameters.to_internal_params()
+                if self.dataset_volume_parameters
+                else None
+            ),
+            dataset_field_parameters=(
+                self.dataset_field_parameters.to_internal_params()
+                if self.dataset_field_parameters
+                else None
+            ),
+            dataset_schema_parameters=(
+                self.dataset_schema_parameters.to_internal_params()
+                if self.dataset_schema_parameters
+                else None
+            ),
         )
 
 

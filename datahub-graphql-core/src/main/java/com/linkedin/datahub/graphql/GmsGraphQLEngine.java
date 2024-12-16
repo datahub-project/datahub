@@ -188,6 +188,8 @@ import com.linkedin.datahub.graphql.resolvers.domain.UnsetDomainResolver;
 import com.linkedin.datahub.graphql.resolvers.embed.UpdateEmbedResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.EntityExistsResolver;
 import com.linkedin.datahub.graphql.resolvers.entity.EntityPrivilegesResolver;
+import com.linkedin.datahub.graphql.resolvers.entity.versioning.LinkAssetVersionResolver;
+import com.linkedin.datahub.graphql.resolvers.entity.versioning.UnlinkAssetVersionResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchAssignFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.BatchRemoveFormResolver;
 import com.linkedin.datahub.graphql.resolvers.form.CreateDynamicFormAssignmentResolver;
@@ -382,6 +384,7 @@ import com.linkedin.metadata.config.VisualConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import com.linkedin.metadata.integration.IntegrationsService;
@@ -473,6 +476,7 @@ public class GmsGraphQLEngine {
   private ConnectionService connectionService;
   private AssertionService assertionService;
   private final IntegrationsService integrationsService;
+  private final EntityVersioningService entityVersioningService;
 
   private final BusinessAttributeService businessAttributeService;
   private final FeatureFlags featureFlags;
@@ -595,6 +599,7 @@ public class GmsGraphQLEngine {
     this.connectionService = args.connectionService;
     this.assertionService = args.assertionService;
     this.integrationsService = args.integrationsService;
+    this.entityVersioningService = args.entityVersioningService;
 
     this.businessAttributeService = args.businessAttributeService;
     this.ingestionConfiguration = Objects.requireNonNull(args.ingestionConfiguration);
@@ -1416,6 +1421,16 @@ public class GmsGraphQLEngine {
                 .dataFetcher(
                     "removeBusinessAttribute",
                     new RemoveBusinessAttributeResolver(this.entityService));
+          }
+          if (featureFlags.isEntityVersioning()) {
+            typeWiring
+                .dataFetcher(
+                    "linkAssetVersion",
+                    new LinkAssetVersionResolver(this.entityVersioningService, this.featureFlags))
+                .dataFetcher(
+                    "unlinkAssetVersion",
+                    new UnlinkAssetVersionResolver(
+                        this.entityVersioningService, this.featureFlags));
           }
           return typeWiring;
         });

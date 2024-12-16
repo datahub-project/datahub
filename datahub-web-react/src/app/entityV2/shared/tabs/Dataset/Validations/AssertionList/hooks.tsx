@@ -101,6 +101,7 @@ export const useAssertionsTableColumns = ({
                                 canEditContract
                                 refetch={refetch}
                                 shouldRightAlign
+                                options={{ removeRightPadding: true }}
                             />
                         )
                     );

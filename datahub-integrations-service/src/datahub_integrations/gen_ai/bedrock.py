@@ -2,6 +2,7 @@ import enum
 import functools
 import json
 import os
+import pprint
 import time
 from typing import TYPE_CHECKING
 
@@ -9,6 +10,8 @@ import boto3
 import botocore.config
 from datahub.cli.env_utils import get_boolean_env_variable
 from loguru import logger
+
+from datahub_integrations.util.serialized import serialized
 
 if TYPE_CHECKING:
     from mypy_boto3_bedrock_runtime import BedrockRuntimeClient
@@ -21,9 +24,12 @@ class BedrockModel(enum.Enum):
     CLAUDE_35_SONNET = "anthropic.claude-3-5-sonnet-20240620-v1:0"
 
 
+@serialized
 @functools.cache
 def get_bedrock_client() -> "BedrockRuntimeClient":
-    # Set up Bedrock client - the cache decorator ensures that this is a singleton.
+    # Set up Bedrock client. The cache decorator ensures that this is a singleton,
+    # and the serialized decorator ensures that it is only initialized once
+    # even if called from multiple threads.
 
     # Increase the read and connect timeouts, since Bedrock can be slow.
     config = botocore.config.Config(read_timeout=300, connect_timeout=60)
@@ -82,7 +88,9 @@ def call_bedrock_llm(
     )
     response_body = json.loads(response["body"].read())
     if _LLM_TRACE:
-        logger.info(f"LLM response body: {response_body}")
+        logger.info(
+            f"LLM response body: {pprint.pformat(response_body, sort_dicts=False, width=120)}"
+        )
 
     # If the generation ran out of tokens, log a warning.
     stop_reason = response_body["stop_reason"]

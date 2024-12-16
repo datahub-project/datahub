@@ -54,11 +54,27 @@ Your output should be a JSON object with the following structure:
 }}
 
 3. Confidence Score Guidelines
+Assign a confidence score to each term-column match based on relevance, similarity, and substantiated reasoning. The higher the score, the more closely aligned the term is with the column. Use the following scale to determine the confidence score:
 
-- 10: Perfect match, term directly describes the column/table :  example "urn": "urn:li:glossaryTerm:id_government" = "name": "Government ID",
-- 8-9: Strong match, term is highly relevant : example "urn": "urn:li:glossaryTerm:id_gov" = "name": "Government ID"
-- 5-7: Moderate match, term is related but not perfectly aligned to provide absolute certainty :"urn": "urn:li:glossaryTerm:login_history_timestamp" = "name": "Login_history" (  atleast 1 substantiated assumption is required to make this match. )
-- 1-4: Weak match, term is tangentially related Example : "urn": "urn:li:glossaryTerm:login_history" = "name": "timestamp" (  atleast 1 unsubstantiated assumption is required to make this match. )  
+10: Perfect match
+The term directly and unequivocally describes the column/table.
+Example: "urn": "urn:li:glossaryTerm:customer_address" = "name": "Customer Address"
+Rationale: The term "Customer Address" directly corresponds to the column's name, with no ambiguity or need for assumptions.
+
+8–9: Strong match
+The term is highly relevant and describes the column/table well, but might not be a perfect match.
+Example: "urn": "urn:li:glossaryTerm:order_value" = "name": "Order Amount"
+Rationale: "Order Value" closely matches "Order Amount", but there may be slight contextual differences (e.g., the type of currency or value unit), though the core concept is very similar.
+
+5–7: Moderate match
+The term is related to the column/table but requires assumptions to confirm the match.
+Example: "urn": "urn:li:glossaryTerm:payment_method" = "name": "Payment Details"
+Rationale: "Payment Method" is related to "Payment Details", but assumptions about what constitutes "details" (e.g., method, date, amount) need to be made to confirm the connection.
+
+1–4: Weak match
+The term is tangentially related or only loosely connected to the column/table. A match requires significant assumptions, and the connection is not well-supported.
+Example: "urn": "urn:li:glossaryTerm:shipping_address" = "name": "Delivery Date"
+Rationale: "Shipping Address" and "Delivery Date" are loosely related, as both pertain to shipping, but they are distinct concepts. The connection requires assumptions about whether the column relates to the timing of delivery, which isn't clearly indicated.
 
 
 Each assigned glossary term should be an object with:

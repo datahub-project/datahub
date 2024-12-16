@@ -48,7 +48,9 @@ from datahub_executor.config import (
 logger = logging.getLogger(__name__)
 
 
-def setup_ingestion_executor() -> ReportingExecutor:
+def setup_ingestion_executor(
+    executor_instance_id: Optional[str] = None, executor_version: Optional[str] = None
+) -> ReportingExecutor:
     # Build default task config
     ingest_task_config = TaskConfig(
         name=RUN_INGEST_TASK_NAME,
@@ -80,6 +82,8 @@ def setup_ingestion_executor() -> ReportingExecutor:
         graph_client_config=DatahubClientConfig(
             server=DATAHUB_GMS_URL, token=DATAHUB_GMS_TOKEN
         ),
+        executor_instance_id=executor_instance_id,
+        executor_version=executor_version,
     )
 
     return ReportingExecutor(ingestion_executor_config)

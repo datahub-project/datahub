@@ -23,6 +23,8 @@ RUN chmod a+x /health_status
 WORKDIR /datahub-executor
 
 ARG RELEASE_VERSION
+ARG DOCKER_VERSION
+
 RUN sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed 's/+/-/'|sed '1 s/-/+/')\"/" src/datahub_executor/__init__.py && \
     sed -i.bak "s/version = \"1!0.0.0.dev0\"/version = \"$(echo $RELEASE_VERSION|sed 's/+/-/'|sed '1 s/-/+/')\"/" pyproject.toml && \
     cat src/datahub_executor/__init__.py && \
@@ -42,7 +44,7 @@ ENV JAVA_HOME=/usr/lib/jvm/default-jvm
 
 # Separate curl + git installation
 RUN apt-get update \
-    && apt-get install -y curl git \
+    && apt-get install -y curl git jq \
     && apt-get clean \
     && rm -rf /var/lib/{apt,dpkg,cache,log}/
 
@@ -98,6 +100,8 @@ RUN if [ $(arch) = "x86_64" ]; then \
     ldconfig; \
     fi;
 
+# Embed build info into the image
+RUN jq -n '{"docker_version": env.DOCKER_VERSION, "release_version": env.RELEASE_VERSION}' > /build_info.json
 
 USER datahub
 RUN uv pip install --no-cache -e .
@@ -119,4 +123,4 @@ FROM ${APP_ENV}-install AS final
 
 HEALTHCHECK --start-period=2m --retries=4 CMD curl --fail http://localhost:9004/health || exit 1
 ENTRYPOINT []
-CMD dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_executor.sh
+CMD exec dockerize -wait ${DATAHUB_GMS_PROTOCOL:-http}://$DATAHUB_GMS_HOST:$DATAHUB_GMS_PORT/health -timeout 240s /start_datahub_executor.sh

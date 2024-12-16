@@ -33,9 +33,11 @@ class RedshiftConnection(Connection):
                 port=int(port),
                 user=self.config.username,
                 database=self.config.database,
-                password=self.config.password.get_secret_value()
-                if self.config.password
-                else None,
+                password=(
+                    self.config.password.get_secret_value()
+                    if self.config.password
+                    else None
+                ),
                 **client_options,
             )
             self.connection.autocommit = True

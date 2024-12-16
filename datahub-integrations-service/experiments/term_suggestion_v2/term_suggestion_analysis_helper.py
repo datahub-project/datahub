@@ -2,6 +2,7 @@ import pathlib
 import sys
 from typing import Dict, List
 
+import nest_asyncio
 import numpy as np
 import pandas as pd
 from loguru import logger
@@ -15,6 +16,8 @@ from datahub_integrations.gen_ai.term_suggestion_v2 import get_term_recommendati
 current_dir = pathlib.Path().parent.resolve()
 sys.path.append(str(current_dir.parent))
 from docs_generation.graph_helper import create_datahub_graph
+
+nest_asyncio.apply()
 
 
 def get_table_and_column_infos_dict(
@@ -75,7 +78,7 @@ def get_prediction_df(parsed_llm_responses, confidence_threshold=8):
     terms_assigned = {}
     for response in parsed_llm_responses:
         #         print(response[0], response[1])
-        instance, table_urn = response[1], response[0]
+        table_urn = response[0]
         column_terms = response[3]
         if column_terms is not None:
             for column_name, terms in column_terms.items():

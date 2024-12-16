@@ -23,6 +23,7 @@ export enum EntityMenuItems {
     ADD_TERM_GROUP, // Make primary
     MOVE,
     DELETE, // acryl-main only
+    EDIT, // acryl-main only
     ANNOUNCE, // acryl-main only
     RAISE_INCIDENT,
 }
@@ -70,9 +71,7 @@ function EntityMenuActions(props: Props) {
                 <MenuItems>
                     {menuItems.has(EntityMenuItems.EXTERNAL_URL) && <ExternalUrlMenuAction />}
                     {menuItems.has(EntityMenuItems.MOVE) && <MoveEntityMenuAction />}
-                    {menuItems.has(EntityMenuItems.SUBSCRIBE) && (
-                        <SubscribeMenuAction entityUrn={urn} entityType={entityType} entityData={entityData} />
-                    )}
+                    {menuItems.has(EntityMenuItems.SUBSCRIBE) && <SubscribeMenuAction />}
                     {menuItems.has(EntityMenuItems.SHARE) && <ShareMenuAction />}
                     {menuItems.has(EntityMenuItems.UPDATE_DEPRECATION) && <UpdateDeprecationMenuAction />}
                     {menuItems.has(EntityMenuItems.DELETE) && (
@@ -84,6 +83,7 @@ function EntityMenuActions(props: Props) {
             ) : (
                 <MenuItems>
                     {menuItems.has(EntityMenuItems.EXTERNAL_URL) && <ExternalUrlMenuAction />}
+                    {menuItems.has(EntityMenuItems.SUBSCRIBE) && <SubscribeMenuAction />}
                     <MoreOptionsContainer id={ENTITY_PROFILE_V2_SUBSCRIPTION_ID}>
                         <MoreOptionsMenuAction
                             menuItems={menuItems}

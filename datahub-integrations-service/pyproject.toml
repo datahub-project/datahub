@@ -25,7 +25,7 @@ dependencies = [
 	"httpx",
 	# Our usage of anyio currently requires 3.x because of the way it handles exception groups.
 	"anyio>=3,<4",
-	"asyncify",
+	"asyncer",
 	"reactpy",
 	"reactpy-router",
 	# AI.
