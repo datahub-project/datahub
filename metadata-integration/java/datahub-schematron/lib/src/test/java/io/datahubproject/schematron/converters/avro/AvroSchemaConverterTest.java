@@ -171,7 +171,7 @@ class AvroSchemaConverterTest {
                     new MapType().setKeyType("string").setValueType("ComplexType"))));
     assertSchemaField(
         schema.getFields().get(2),
-        "[version=2.0].[type=MapType].[type=map].[type=ComplexType].mapOfComplexType",
+        "[version=2.0].[type=MapType].[type=map].[type=ComplexType].value",
         "ComplexType",
         false,
         false,
@@ -181,14 +181,14 @@ class AvroSchemaConverterTest {
                     new MapType().setKeyType("string").setValueType("ComplexType"))));
     assertSchemaField(
         schema.getFields().get(3),
-        "[version=2.0].[type=MapType].[type=map].[type=ComplexType].mapOfComplexType.[type=string].field1",
+        "[version=2.0].[type=MapType].[type=map].[type=ComplexType].value.[type=string].field1",
         "string",
         false,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
         schema.getFields().get(4),
-        "[version=2.0].[type=MapType].[type=map].[type=ComplexType].mapOfComplexType.[type=int].field2",
+        "[version=2.0].[type=MapType].[type=map].[type=ComplexType].value.[type=int].field2",
         "int",
         false,
         false,
@@ -205,7 +205,7 @@ class AvroSchemaConverterTest {
                     new MapType().setKeyType("string").setValueType("union"))));
     assertSchemaField(
         schema.getFields().get(6),
-        "[version=2.0].[type=MapType].[type=map].[type=union].mapOfNullableString",
+        "[version=2.0].[type=MapType].[type=map].[type=union].value",
         "union",
         false,
         false,
@@ -215,7 +215,7 @@ class AvroSchemaConverterTest {
                     new MapType().setKeyType("string").setValueType("union"))));
     assertSchemaField(
         schema.getFields().get(7),
-        "[version=2.0].[type=MapType].[type=map].[type=union].[type=string].mapOfNullableString",
+        "[version=2.0].[type=MapType].[type=map].[type=union].[type=string].value",
         "string",
         false,
         false,
@@ -232,7 +232,7 @@ class AvroSchemaConverterTest {
                     new MapType().setKeyType("string").setValueType("union"))));
     assertSchemaField(
         schema.getFields().get(9),
-        "[version=2.0].[type=MapType].[type=map].[type=union].mapOfNullableComplexType",
+        "[version=2.0].[type=MapType].[type=map].[type=union].value",
         "union",
         false,
         false,
@@ -242,21 +242,21 @@ class AvroSchemaConverterTest {
                     new MapType().setKeyType("string").setValueType("union"))));
     assertSchemaField(
         schema.getFields().get(10),
-        "[version=2.0].[type=MapType].[type=map].[type=union].[type=ComplexTypeNullable].mapOfNullableComplexType",
+        "[version=2.0].[type=MapType].[type=map].[type=union].[type=ComplexTypeNullable].value",
         "ComplexTypeNullable",
         false,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new RecordType())));
     assertSchemaField(
         schema.getFields().get(11),
-        "[version=2.0].[type=MapType].[type=map].[type=union].[type=ComplexTypeNullable].mapOfNullableComplexType.[type=string].field1",
+        "[version=2.0].[type=MapType].[type=map].[type=union].[type=ComplexTypeNullable].value.[type=string].field1",
         "string",
         false,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
         schema.getFields().get(12),
-        "[version=2.0].[type=MapType].[type=map].[type=union].[type=ComplexTypeNullable].mapOfNullableComplexType.[type=int].field2",
+        "[version=2.0].[type=MapType].[type=map].[type=union].[type=ComplexTypeNullable].value.[type=int].field2",
         "int",
         false,
         false,
@@ -273,7 +273,7 @@ class AvroSchemaConverterTest {
                     new MapType().setKeyType("string").setValueType("array"))));
     assertSchemaField(
         schema.getFields().get(14),
-        "[version=2.0].[type=MapType].[type=map].[type=array].mapOfArray",
+        "[version=2.0].[type=MapType].[type=map].[type=array].value",
         "array(string)",
         false,
         false,
@@ -293,7 +293,7 @@ class AvroSchemaConverterTest {
                     new MapType().setKeyType("string").setValueType("map"))));
     assertSchemaField(
         schema.getFields().get(16),
-        "[version=2.0].[type=MapType].[type=map].[type=map].mapOfMap",
+        "[version=2.0].[type=MapType].[type=map].[type=map].value",
         "map<string,int>",
         false,
         false,
@@ -313,7 +313,7 @@ class AvroSchemaConverterTest {
                     new MapType().setKeyType("string").setValueType("union"))));
     assertSchemaField(
         schema.getFields().get(18),
-        "[version=2.0].[type=MapType].[type=map].[type=union].mapOfUnion",
+        "[version=2.0].[type=MapType].[type=map].[type=union].value",
         "union",
         false,
         false,
@@ -323,14 +323,14 @@ class AvroSchemaConverterTest {
                     new MapType().setKeyType("string").setValueType("union"))));
     assertSchemaField(
         schema.getFields().get(19),
-        "[version=2.0].[type=MapType].[type=map].[type=union].[type=string].mapOfUnion",
+        "[version=2.0].[type=MapType].[type=map].[type=union].[type=string].value",
         "string",
         false,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
         schema.getFields().get(20),
-        "[version=2.0].[type=MapType].[type=map].[type=union].[type=int].mapOfUnion",
+        "[version=2.0].[type=MapType].[type=map].[type=union].[type=int].value",
         "int",
         false,
         false,
@@ -369,7 +369,7 @@ class AvroSchemaConverterTest {
                     new ArrayType().setNestedType(new StringArray("map")))));
     assertSchemaField(
         schema.getFields().get(2),
-        "[version=2.0].[type=ArrayType].[type=array].[type=map].arrayOfMap",
+        "[version=2.0].[type=ArrayType].[type=array].[type=map].items",
         "map<string,string>",
         false,
         false,
@@ -389,7 +389,7 @@ class AvroSchemaConverterTest {
                     new ArrayType().setNestedType(new StringArray("ComplexType")))));
     assertSchemaField(
         schema.getFields().get(4),
-        "[version=2.0].[type=ArrayType].[type=array].[type=ComplexType].arrayOfRecord",
+        "[version=2.0].[type=ArrayType].[type=array].[type=ComplexType].items",
         "ComplexType",
         false,
         false,
@@ -399,14 +399,14 @@ class AvroSchemaConverterTest {
                     new ArrayType().setNestedType(new StringArray("ComplexType")))));
     assertSchemaField(
         schema.getFields().get(5),
-        "[version=2.0].[type=ArrayType].[type=array].[type=ComplexType].arrayOfRecord.[type=string].field1",
+        "[version=2.0].[type=ArrayType].[type=array].[type=ComplexType].items.[type=string].field1",
         "string",
         false,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
         schema.getFields().get(6),
-        "[version=2.0].[type=ArrayType].[type=array].[type=ComplexType].arrayOfRecord.[type=int].field2",
+        "[version=2.0].[type=ArrayType].[type=array].[type=ComplexType].items.[type=int].field2",
         "int",
         false,
         false,
@@ -423,7 +423,7 @@ class AvroSchemaConverterTest {
                     new ArrayType().setNestedType(new StringArray("array")))));
     assertSchemaField(
         schema.getFields().get(8),
-        "[version=2.0].[type=ArrayType].[type=array].[type=array].arrayOfArray",
+        "[version=2.0].[type=ArrayType].[type=array].[type=array].items",
         "array(string)",
         false,
         false,
@@ -443,7 +443,7 @@ class AvroSchemaConverterTest {
                     new ArrayType().setNestedType(new StringArray("union")))));
     assertSchemaField(
         schema.getFields().get(10),
-        "[version=2.0].[type=ArrayType].[type=array].[type=union].arrayOfUnion",
+        "[version=2.0].[type=ArrayType].[type=array].[type=union].items",
         "union",
         false,
         false,
@@ -453,21 +453,21 @@ class AvroSchemaConverterTest {
                     new ArrayType().setNestedType(new StringArray("union")))));
     assertSchemaField(
         schema.getFields().get(11),
-        "[version=2.0].[type=ArrayType].[type=array].[type=union].[type=string].arrayOfUnion",
+        "[version=2.0].[type=ArrayType].[type=array].[type=union].[type=string].items",
         "string",
         false,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
         schema.getFields().get(12),
-        "[version=2.0].[type=ArrayType].[type=array].[type=union].[type=int].arrayOfUnion",
+        "[version=2.0].[type=ArrayType].[type=array].[type=union].[type=int].items",
         "int",
         false,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new NumberType())));
     assertSchemaField(
         schema.getFields().get(13),
-        "[version=2.0].[type=ArrayType].[type=array].[type=union].[type=boolean].arrayOfUnion",
+        "[version=2.0].[type=ArrayType].[type=array].[type=union].[type=boolean].items",
         "boolean",
         false,
         false,
@@ -484,7 +484,7 @@ class AvroSchemaConverterTest {
                     new ArrayType().setNestedType(new StringArray("union")))));
     assertSchemaField(
         schema.getFields().get(15),
-        "[version=2.0].[type=ArrayType].[type=array].[type=union].arrayOfNullableString",
+        "[version=2.0].[type=ArrayType].[type=array].[type=union].items",
         "union",
         false,
         false,
@@ -494,7 +494,7 @@ class AvroSchemaConverterTest {
                     new ArrayType().setNestedType(new StringArray("union")))));
     assertSchemaField(
         schema.getFields().get(16),
-        "[version=2.0].[type=ArrayType].[type=array].[type=union].[type=string].arrayOfNullableString",
+        "[version=2.0].[type=ArrayType].[type=array].[type=union].[type=string].items",
         "string",
         false,
         false,
@@ -511,7 +511,7 @@ class AvroSchemaConverterTest {
                     new ArrayType().setNestedType(new StringArray("union")))));
     assertSchemaField(
         schema.getFields().get(18),
-        "[version=2.0].[type=ArrayType].[type=array].[type=union].arrayOfNullableRecord",
+        "[version=2.0].[type=ArrayType].[type=array].[type=union].items",
         "union",
         false,
         false,
@@ -521,21 +521,21 @@ class AvroSchemaConverterTest {
                     new ArrayType().setNestedType(new StringArray("union")))));
     assertSchemaField(
         schema.getFields().get(19),
-        "[version=2.0].[type=ArrayType].[type=array].[type=union].[type=ComplexTypeNullable].arrayOfNullableRecord",
+        "[version=2.0].[type=ArrayType].[type=array].[type=union].[type=ComplexTypeNullable].items",
         "ComplexTypeNullable",
         false,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new RecordType())));
     assertSchemaField(
         schema.getFields().get(20),
-        "[version=2.0].[type=ArrayType].[type=array].[type=union].[type=ComplexTypeNullable].arrayOfNullableRecord.[type=string].field1",
+        "[version=2.0].[type=ArrayType].[type=array].[type=union].[type=ComplexTypeNullable].items.[type=string].field1",
         "string",
         false,
         false,
         new SchemaFieldDataType().setType(SchemaFieldDataType.Type.create(new StringType())));
     assertSchemaField(
         schema.getFields().get(21),
-        "[version=2.0].[type=ArrayType].[type=array].[type=union].[type=ComplexTypeNullable].arrayOfNullableRecord.[type=int].field2",
+        "[version=2.0].[type=ArrayType].[type=array].[type=union].[type=ComplexTypeNullable].items.[type=int].field2",
         "int",
         false,
         false,
@@ -1015,7 +1015,7 @@ class AvroSchemaConverterTest {
                     new MapType().setKeyType("string").setValueType("union"))));
     assertSchemaField(
         schema.getFields().get(19),
-        "[version=2.0].[type=users_record].[type=map].[type=int].props",
+        "[version=2.0].[type=users_record].[type=map].[type=int].value",
         "int",
         true,
         false,

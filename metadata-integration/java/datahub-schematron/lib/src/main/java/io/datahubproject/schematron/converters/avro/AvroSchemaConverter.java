@@ -23,6 +23,8 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final Map<String, Supplier<SchemaFieldDataType.Type>> LOGICAL_TYPE_MAPPING;
+  public static final String ARRAY_ITEMS_FIELD_NAME = "items";
+  public static final String MAP_VALUE_FIELD_NAME = "value";
 
   static {
     Map<String, Supplier<SchemaFieldDataType.Type>> logicalTypeMap = new HashMap<>();
@@ -361,7 +363,7 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
               new FieldElement(Collections.singletonList("array"), new ArrayList<>(), null, null));
       Schema.Field elementField =
           new Schema.Field(
-              field.name(),
+              ARRAY_ITEMS_FIELD_NAME,
               elementSchema,
               elementSchema.getDoc() != null ? elementSchema.getDoc() : field.doc(),
               null // TODO: What is the default value for an array element?
@@ -403,7 +405,7 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
         || valueSchema.getType() == Schema.Type.UNION) {
       Schema.Field valueField =
           new Schema.Field(
-              field.name(),
+              MAP_VALUE_FIELD_NAME,
               valueSchema,
               valueSchema.getDoc() != null ? valueSchema.getDoc() : field.doc(),
               null // TODO: What is the default value for a map value?
