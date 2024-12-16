@@ -330,11 +330,11 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                 try:
                     self._conn.execute(
                         f"""INSERT INTO {self.tablename} (
-                        key,
-                        value
-                        {''.join(f', {column_name}' for column_name in self.extra_columns.keys())}
-                    )
-                    VALUES ({', '.join(['?'] *(2 + len(self.extra_columns)))})""",
+                            key,
+                            value
+                            {''.join(f', {column_name}' for column_name in self.extra_columns.keys())}
+                        )
+                        VALUES ({', '.join(['?'] *(2 + len(self.extra_columns)))})""",
                         item,
                     )
                 except sqlite3.IntegrityError:
