@@ -1,18 +1,18 @@
 import json
 import os
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
+
 import boto3
-from moto import mock_sts, mock_lambda, mock_iam
+import pytest
+from moto import mock_iam, mock_lambda, mock_sts
 
 from datahub.ingestion.source.aws.aws_common import (
+    AwsConnectionConfig,
     AwsEnvironment,
     detect_aws_environment,
     get_current_identity,
     get_instance_metadata_token,
     get_instance_role_arn,
-    AwsConnectionConfig,
-    get_lambda_role_arn,
     is_running_on_ec2,
 )
 

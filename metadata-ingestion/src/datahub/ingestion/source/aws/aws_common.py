@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Uni
 
 import boto3
 import requests
-
 from boto3.session import Session
 from botocore.config import DEFAULT_TIMEOUT, Config
 from botocore.utils import fix_s3_host
