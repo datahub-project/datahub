@@ -1,11 +1,14 @@
 from datahub.configuration.datetimes import parse_absolute_time
 from datahub.metadata.urns import CorpUserUrn
 from datahub.sql_parsing.sql_parsing_aggregator import PreparsedQuery
-from datahub.sql_parsing.tool_meta_extractor import ToolMetaExtractor
+from datahub.sql_parsing.tool_meta_extractor import (
+    ToolMetaExtractor,
+    ToolMetaExtractorReport,
+)
 
 
 def test_extract_mode_metadata() -> None:
-    extractor = ToolMetaExtractor()
+    extractor = ToolMetaExtractor(report=ToolMetaExtractorReport())
     query = """\
 select * from LONG_TAIL_COMPANIONS.ADOPTION.PET_PROFILES
 LIMIT 100
@@ -31,7 +34,9 @@ LIMIT 100
 
 
 def test_extract_looker_metadata() -> None:
-    extractor = ToolMetaExtractor(looker_user_mapping={"7": "john.doe@xyz.com"})
+    extractor = ToolMetaExtractor(
+        report=ToolMetaExtractorReport(), looker_user_mapping={"7": "john.doe@xyz.com"}
+    )
     looker_query = """\
 SELECT
     all_entities_extended_sibling."ENTITY"  AS "all_entities_extended_sibling.entity_type",
@@ -63,7 +68,7 @@ FETCH NEXT 50 ROWS ONLY
 
 
 def test_extract_no_metadata() -> None:
-    extractor = ToolMetaExtractor()
+    extractor = ToolMetaExtractor(report=ToolMetaExtractorReport())
     query = """\
 select * from LONG_TAIL_COMPANIONS.ADOPTION.PET_PROFILES
 LIMIT 100
