@@ -963,6 +963,15 @@ class SnowflakeSinkConnector:
         # Snowflake identifier names so this case is not recommended by snowflake.
         return table_name
 
+    def get_topics_from_config(self) -> List[str]:
+        if self.connector_manifest.config and isinstance(
+            self.connector_manifest.config.get("topics"), str
+        ):
+            topics = self.connector_manifest.config["topics"].split(",")
+            return topics
+
+        return []
+
     def get_parser(
         self,
         connector_manifest: ConnectorManifest,
@@ -980,8 +989,8 @@ class SnowflakeSinkConnector:
                 provided_topics_to_tables[topic.strip()] = table.strip()
 
         topics_to_tables: Dict[str, str] = {}
-        # Extract lineage for only those topics whose data ingestion started
-        for topic in connector_manifest.topic_names:
+        topics = connector_manifest.topic_names or self.get_topics_from_config()
+        for topic in topics:
             if topic in provided_topics_to_tables:
                 # If user provided which table to get mapped with this topic
                 topics_to_tables[topic] = provided_topics_to_tables[topic]
@@ -1256,16 +1265,18 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     connector_manifest = ConfluentS3SinkConnector(
                         connector_manifest=connector_manifest, report=self.report
                     ).connector_manifest
-                elif connector_manifest.config.get("connector.class").__eq__(
-                    "com.snowflake.kafka.connector.SnowflakeSinkConnector"
+                elif connector_manifest.config.get("connector.class") in (
+                    "com.snowflake.kafka.connector.SnowflakeSinkConnector",
+                    "SnowflakeSink",
                 ):
                     connector_manifest = SnowflakeSinkConnector(
                         connector_manifest=connector_manifest, report=self.report
                     ).connector_manifest
                 else:
                     self.report.report_dropped(connector_manifest.name)
-                    logger.warning(
-                        f"Skipping connector {connector_manifest.name}. Lineage for  Connector not yet implemented"
+                    self.report.warning(
+                        "Lineage for Connector is not supported",
+                        context=connector_manifest.name,
                     )
                 pass
 
@@ -1303,18 +1314,19 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         return response.json()
 
     def _get_connector_topics(self, connector_name: str) -> List[str]:
+        topics: List[str] = []
         try:
             response = self.session.get(
                 f"{self.config.connect_uri}/connectors/{connector_name}/topics",
             )
             response.raise_for_status()
+            topics = response.json()[connector_name]["topics"]
         except Exception as e:
             self.report.warning(
                 "Error getting connector topics", context=connector_name, exc=e
             )
-            return []
 
-        return response.json()[connector_name]["topics"]
+        return topics
 
     def construct_flow_workunit(self, connector: ConnectorManifest) -> MetadataWorkUnit:
         connector_name = connector.name
