@@ -759,12 +759,11 @@ class HiveSource(TwoTierSQLAlchemySource):
                 }
 
                 if table.get("StorageDescriptor", {}).get("Location"):
-                    for lineage_wu in self.storage_lineage.get_lineage_mcp(
+                    yield from self.storage_lineage.get_lineage_mcp(
                         dataset_urn=dataset_urn,
                         table=table,
                         dataset_schema=schema_metadata,
-                    ):
-                        yield lineage_wu
+                    )
 
     def get_schema_names(self, inspector):
         assert isinstance(self.config, HiveConfig)
