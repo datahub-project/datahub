@@ -233,7 +233,7 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                     <>
                                         <IncidentDescriptionLabel>Resolution Note</IncidentDescriptionLabel>
                                         <IncidentDescriptionText>
-                                            {incident?.status.message || 'No additional details'}
+                                            {incident?.status?.message || 'No additional details'}
                                         </IncidentDescriptionText>
                                     </>
                                 ) : null}
@@ -264,15 +264,15 @@ export default function IncidentListItem({ incident, refetch }: Props) {
                                 placement="left"
                                 title={<Typography.Text strong>Note</Typography.Text>}
                                 content={
-                                    incident?.status.message === null ? (
+                                    incident?.status?.message === null ? (
                                         <Typography.Text type="secondary">No additional details</Typography.Text>
                                     ) : (
-                                        <Typography.Text type="secondary">{incident?.status.message}</Typography.Text>
+                                        <Typography.Text type="secondary">{incident?.status?.message}</Typography.Text>
                                     )
                                 }
                             >
                                 <IncidentResolvedText>
-                                    {incident?.status.lastUpdated && (
+                                    {incident?.status?.lastUpdated && (
                                         <Tooltip showArrow={false} title={toLocalDateTimeString(lastModifiedDate)}>
                                             Resolved {toRelativeTimeString(lastModifiedDate)} by{' '}
                                         </Tooltip>

@@ -13,7 +13,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from datahub.metadata.urns import DataPlatformUrn
-from datahub.sql_parsing._models import _TableName
+from datahub.sql_parsing._models import _TableName as _TableName  # noqa: I250
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
@@ -122,6 +122,13 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             name=table_name,
         )
         return urn
+
+    def resolve_urn(self, urn: str) -> Tuple[str, Optional[SchemaInfo]]:
+        schema_info = self._resolve_schema_info(urn)
+        if schema_info:
+            return urn, schema_info
+
+        return urn, None
 
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         urn = self.get_urn_for_table(table)
@@ -293,3 +300,19 @@ def _convert_schema_field_list_to_info(
 
 def _convert_schema_aspect_to_info(schema_metadata: SchemaMetadataClass) -> SchemaInfo:
     return _convert_schema_field_list_to_info(schema_metadata.fields)
+
+
+def match_columns_to_schema(
+    schema_info: SchemaInfo, input_columns: List[str]
+) -> List[str]:
+    column_from_gms: List[str] = list(schema_info.keys())  # list() to silent lint
+
+    gms_column_map: Dict[str, str] = {
+        column.lower(): column for column in column_from_gms
+    }
+
+    output_columns: List[str] = [
+        gms_column_map.get(column.lower(), column) for column in input_columns
+    ]
+
+    return output_columns

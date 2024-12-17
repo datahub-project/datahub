@@ -762,7 +762,6 @@ class SqlParsingAggregator(Closeable):
 
         This assumes that queries come in order of increasing timestamps.
         """
-
         self.report.num_observed_queries += 1
 
         # All queries with no session ID are assumed to be part of the same session.
@@ -831,7 +830,6 @@ class SqlParsingAggregator(Closeable):
         session_has_temp_tables: bool = True,
         _is_internal: bool = False,
     ) -> None:
-
         # Adding tool specific metadata extraction here allows it
         # to work for both ObservedQuery and PreparsedQuery as
         # add_preparsed_query it used within add_observed_query.
@@ -1385,8 +1383,7 @@ class SqlParsingAggregator(Closeable):
         return QueryUrn(query_id).urn()
 
     @classmethod
-    def _composite_query_id(cls, composed_of_queries: Iterable[QueryId]) -> str:
-        composed_of_queries = list(composed_of_queries)
+    def _composite_query_id(cls, composed_of_queries: List[QueryId]) -> str:
         combined = json.dumps(composed_of_queries)
         return f"composite_{generate_hash(combined)}"
 

@@ -9,6 +9,7 @@ from ruamel.yaml import YAML
 
 from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.ingestion.api.global_context import get_graph_context, set_graph_context
 from datahub.ingestion.graph.client import DataHubGraph, get_default_graph
 from datahub.metadata.schema_classes import (
     PropertyValueClass,
@@ -18,6 +19,15 @@ from datahub.utilities.urns.urn import Urn
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+class StructuredPropertiesConfig:
+    """Configuration class to hold the graph client"""
+
+    @classmethod
+    def get_graph_required(cls) -> DataHubGraph:
+        """Get the current graph, falling back to default if none set"""
+        return get_graph_context() or get_default_graph()
 
 
 class AllowedTypes(Enum):
@@ -41,25 +51,28 @@ class AllowedValue(ConfigModel):
     description: Optional[str] = None
 
 
+VALID_ENTITY_TYPES_PREFIX_STRING = ", ".join(
+    [
+        f"urn:li:entityType:datahub.{x}"
+        for x in ["dataset", "dashboard", "dataFlow", "schemaField"]
+    ]
+)
+VALID_ENTITY_TYPES_STRING = f"Valid entity type urns are {VALID_ENTITY_TYPES_PREFIX_STRING}, etc... Ensure that the entity type is valid."
+
+
 class TypeQualifierAllowedTypes(ConfigModel):
     allowed_types: List[str]
 
-    @validator("allowed_types")
+    @validator("allowed_types", each_item=True)
     def validate_allowed_types(cls, v):
-        validated_entity_type_urns = []
         if v:
-            with get_default_graph() as graph:
-                for et in v:
-                    validated_urn = Urn.make_entity_type_urn(et)
-                    if graph.exists(validated_urn):
-                        validated_entity_type_urns.append(validated_urn)
-                    else:
-                        logger.warn(
-                            f"Input {et} is not a valid entity type urn. Skipping."
-                        )
-        v = validated_entity_type_urns
-        if not v:
-            logger.warn("No allowed_types given within type_qualifier.")
+            graph = StructuredPropertiesConfig.get_graph_required()
+            validated_urn = Urn.make_entity_type_urn(v)
+            if not graph.exists(validated_urn):
+                raise ValueError(
+                    f"Input {v} is not a valid entity type urn. {VALID_ENTITY_TYPES_STRING}"
+                )
+            v = str(validated_urn)
         return v
 
 
@@ -77,14 +90,28 @@ class StructuredProperties(ConfigModel):
     type_qualifier: Optional[TypeQualifierAllowedTypes] = None
     immutable: Optional[bool] = False
 
+    @validator("entity_types", each_item=True)
+    def validate_entity_types(cls, v):
+        if v:
+            graph = StructuredPropertiesConfig.get_graph_required()
+            validated_urn = Urn.make_entity_type_urn(v)
+            if not graph.exists(validated_urn):
+                raise ValueError(
+                    f"Input {v} is not a valid entity type urn. {VALID_ENTITY_TYPES_STRING}"
+                )
+            v = str(validated_urn)
+        return v
+
     @property
     def fqn(self) -> str:
         assert self.urn is not None
-        return (
-            self.qualified_name
-            or self.id
-            or Urn.create_from_string(self.urn).get_entity_id()[0]
-        )
+        id = Urn.create_from_string(self.urn).get_entity_id()[0]
+        if self.qualified_name is not None:
+            # ensure that qualified name and ID match
+            assert (
+                self.qualified_name == id
+            ), "ID in the urn and the qualified_name must match"
+        return id
 
     @validator("urn", pre=True, always=True)
     def urn_must_be_present(cls, v, values):
@@ -96,17 +123,19 @@ class StructuredProperties(ConfigModel):
 
     @staticmethod
     def create(file: str, graph: Optional[DataHubGraph] = None) -> None:
-        emitter: DataHubGraph = graph if graph else get_default_graph()
+        with set_graph_context(graph):
+            graph = StructuredPropertiesConfig.get_graph_required()
 
-        with open(file) as fp:
-            structuredproperties: List[dict] = yaml.safe_load(fp)
+            with open(file) as fp:
+                structuredproperties: List[dict] = yaml.safe_load(fp)
             for structuredproperty_raw in structuredproperties:
                 structuredproperty = StructuredProperties.parse_obj(
                     structuredproperty_raw
                 )
+
                 if not structuredproperty.type.islower():
                     structuredproperty.type = structuredproperty.type.lower()
-                    logger.warn(
+                    logger.warning(
                         f"Structured property type should be lowercase. Updated to {structuredproperty.type}"
                     )
                 if not AllowedTypes.check_allowed_type(structuredproperty.type):
@@ -145,45 +174,49 @@ class StructuredProperties(ConfigModel):
                         ),
                     ),
                 )
-                emitter.emit_mcp(mcp)
+                graph.emit_mcp(mcp)
 
                 logger.info(f"Created structured property {structuredproperty.urn}")
 
     @classmethod
     def from_datahub(cls, graph: DataHubGraph, urn: str) -> "StructuredProperties":
-
-        structured_property: Optional[
-            StructuredPropertyDefinitionClass
-        ] = graph.get_aspect(urn, StructuredPropertyDefinitionClass)
-        if structured_property is None:
-            raise Exception(
-                "StructuredPropertyDefinition aspect is None. Unable to create structured property."
+        with set_graph_context(graph):
+            structured_property: Optional[
+                StructuredPropertyDefinitionClass
+            ] = graph.get_aspect(urn, StructuredPropertyDefinitionClass)
+            if structured_property is None:
+                raise Exception(
+                    "StructuredPropertyDefinition aspect is None. Unable to create structured property."
+                )
+            return StructuredProperties(
+                urn=urn,
+                qualified_name=structured_property.qualifiedName,
+                display_name=structured_property.displayName,
+                type=structured_property.valueType,
+                description=structured_property.description,
+                entity_types=structured_property.entityTypes,
+                cardinality=structured_property.cardinality,
+                allowed_values=(
+                    [
+                        AllowedValue(
+                            value=av.value,
+                            description=av.description,
+                        )
+                        for av in structured_property.allowedValues or []
+                    ]
+                    if structured_property.allowedValues is not None
+                    else None
+                ),
+                type_qualifier=(
+                    {
+                        "allowed_types": structured_property.typeQualifier.get(
+                            "allowedTypes"
+                        )
+                    }
+                    if structured_property.typeQualifier
+                    else None
+                ),
             )
-        return StructuredProperties(
-            urn=urn,
-            qualified_name=structured_property.qualifiedName,
-            display_name=structured_property.displayName,
-            type=structured_property.valueType,
-            description=structured_property.description,
-            entity_types=structured_property.entityTypes,
-            cardinality=structured_property.cardinality,
-            allowed_values=(
-                [
-                    AllowedValue(
-                        value=av.value,
-                        description=av.description,
-                    )
-                    for av in structured_property.allowedValues or []
-                ]
-                if structured_property.allowedValues is not None
-                else None
-            ),
-            type_qualifier=(
-                {"allowed_types": structured_property.typeQualifier.get("allowedTypes")}
-                if structured_property.typeQualifier
-                else None
-            ),
-        )
 
     def to_yaml(
         self,

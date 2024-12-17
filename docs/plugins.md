@@ -65,14 +65,14 @@ The sample authenticator implementation can be found at [Authenticator Sample](.
 3. Use `getResourceAsStream` to read files: If your plugin read any configuration file like properties or YAML or JSON or xml then use `this.getClass().getClassLoader().getResourceAsStream("<file-name>")` to read that file from DataHub GMS plugin's class-path. For DataHub GMS resource look-up behavior please refer [Plugin Installation](#plugin-installation) section. Sample code of `getResourceAsStream` is available in sample Authenticator plugin [TestAuthenticator.java](../metadata-service/plugin/src/test/sample-test-plugins/src/main/java/com/datahub/plugins/test/TestAuthenticator.java).
 
 
-4. Bundle your Jar: Use `com.github.johnrengelman.shadow` gradle plugin to create an uber jar. 
+4. Bundle your Jar: Use `com.gradleup.shadow` gradle plugin to create an uber jar. 
 
    To see an example of building an uber jar, check out the `build.gradle` file for the apache-ranger-plugin file of [Apache Ranger Plugin](https://github.com/acryldata/datahub-ranger-auth-plugin/tree/main/apache-ranger-plugin) for reference. 
 
    Exclude signature files as shown in below `shadowJar` task.
 
    ```groovy
-     apply plugin: 'com.github.johnrengelman.shadow';
+     apply plugin: 'com.gradleup.shadow';
      shadowJar {
          // Exclude com.datahub.plugins package and files related to jar signature   
          exclude "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
@@ -152,14 +152,14 @@ The sample authorizer implementation can be found at [Authorizer Sample](https:/
 
 3. Use `getResourceAsStream` to read files: If your plugin read any configuration file like properties or YAML or JSON or xml then use `this.getClass().getClassLoader().getResourceAsStream("<file-name>")` to read that file from DataHub GMS plugin's class-path. For DataHub GMS resource look-up behavior please refer [Plugin Installation](#plugin-installation) section. Sample code of `getResourceAsStream` is available in sample Authenticator plugin [TestAuthenticator.java](../metadata-service/plugin/src/test/sample-test-plugins/src/main/java/com/datahub/plugins/test/TestAuthenticator.java).
 
-4. Bundle your Jar: Use `com.github.johnrengelman.shadow` gradle plugin to create an uber jar. 
+4. Bundle your Jar: Use `com.gradleup.shadow` gradle plugin to create an uber jar. 
 
    To see an example of building an uber jar, check out the `build.gradle` file for the apache-ranger-plugin file of [Apache Ranger Plugin](https://github.com/acryldata/datahub-ranger-auth-plugin/tree/main/apache-ranger-plugin) for reference.
 
    Exclude signature files as shown in below `shadowJar` task.
 
    ```groovy
-     apply plugin: 'com.github.johnrengelman.shadow';
+     apply plugin: 'com.gradleup.shadow';
      shadowJar {
          // Exclude com.datahub.plugins package and files related to jar signature   
          exclude "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"

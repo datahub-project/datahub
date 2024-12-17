@@ -1,6 +1,10 @@
 import logging
+import math
 import time
 from concurrent.futures import Future
+
+import pytest
+from pydantic.schema import timedelta
 
 from datahub.utilities.partition_executor import (
     BatchPartitionExecutor,
@@ -76,7 +80,8 @@ def test_partitioned_executor_bounding():
         assert len(done_tasks) == 16
 
 
-def test_batch_partition_executor_sequential_key_execution():
+@pytest.mark.parametrize("max_workers", [1, 2, 10])
+def test_batch_partition_executor_sequential_key_execution(max_workers: int) -> None:
     executing_tasks = set()
     done_tasks = set()
     done_task_batches = set()
@@ -95,7 +100,7 @@ def test_batch_partition_executor_sequential_key_execution():
         done_task_batches.add(tuple(id for _, id in batch))
 
     with BatchPartitionExecutor(
-        max_workers=2,
+        max_workers=max_workers,
         max_pending=10,
         max_per_batch=2,
         process_batch=process_batch,
@@ -129,7 +134,9 @@ def test_batch_partition_executor_sequential_key_execution():
     }
 
 
+@pytest.mark.timeout(5)
 def test_batch_partition_executor_max_batch_size():
+    n = 5
     batches_processed = []
 
     def process_batch(batch):
@@ -137,17 +144,50 @@ def test_batch_partition_executor_max_batch_size():
         time.sleep(0.1)  # Simulate batch processing time
 
     with BatchPartitionExecutor(
-        max_workers=5, max_pending=20, process_batch=process_batch, max_per_batch=2
+        max_workers=5,
+        max_pending=10,
+        process_batch=process_batch,
+        max_per_batch=2,
+        min_process_interval=timedelta(seconds=0.1),
+        read_from_pending_interval=timedelta(seconds=0.1),
     ) as executor:
         # Submit more tasks than the max_per_batch to test batching limits.
-        for i in range(5):
+        for i in range(n):
             executor.submit("key3", "key3", f"task{i}")
 
     # Check the batches.
     logger.info(f"batches_processed: {batches_processed}")
-    assert len(batches_processed) == 3
+    assert len(batches_processed) == math.ceil(n / 2), "Incorrect number of batches"
     for batch in batches_processed:
         assert len(batch) <= 2, "Batch size exceeded max_per_batch limit"
+
+
+@pytest.mark.timeout(10)
+def test_batch_partition_executor_deadlock():
+    n = 20  # Exceed max_pending to test for deadlocks when max_pending exceeded
+    batch_size = 2
+    batches_processed = []
+
+    def process_batch(batch):
+        batches_processed.append(batch)
+        time.sleep(0.1)  # Simulate batch processing time
+
+    with BatchPartitionExecutor(
+        max_workers=5,
+        max_pending=2,
+        process_batch=process_batch,
+        max_per_batch=batch_size,
+        min_process_interval=timedelta(seconds=30),
+        read_from_pending_interval=timedelta(seconds=0.01),
+    ) as executor:
+        # Submit more tasks than the max_per_batch to test batching limits.
+        executor.submit("key3", "key3", "task0")
+        executor.submit("key3", "key3", "task1")
+        executor.submit("key1", "key1", "task1")  # Populates second batch
+        for i in range(3, n):
+            executor.submit("key3", "key3", f"task{i}")
+
+    assert sum(len(batch) for batch in batches_processed) == n
 
 
 def test_empty_batch_partition_executor():

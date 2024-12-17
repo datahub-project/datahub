@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set, cast
+from typing import Dict, List, Optional, Set
 
 import pydantic
 from pydantic import Field, SecretStr, root_validator, validator
@@ -16,6 +16,9 @@ from datahub.configuration.source_common import (
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+)
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
@@ -118,9 +121,10 @@ class SnowflakeFilterConfig(SQLFilterConfig):
             )
 
         # Always exclude reporting metadata for INFORMATION_SCHEMA schema
-        if schema_pattern is not None and schema_pattern:
+        if schema_pattern:
             logger.debug("Adding deny for INFORMATION_SCHEMA to schema_pattern.")
-            cast(AllowDenyPattern, schema_pattern).deny.append(r".*INFORMATION_SCHEMA$")
+            assert isinstance(schema_pattern, AllowDenyPattern)
+            schema_pattern.deny.append(r".*INFORMATION_SCHEMA$")
 
         return values
 
@@ -187,6 +191,7 @@ class SnowflakeV2Config(
     StatefulUsageConfigMixin,
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
+    IncrementalPropertiesConfigMixin,
 ):
     include_usage_stats: bool = Field(
         default=True,

@@ -117,7 +117,8 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((mlFeatureTable, dataMap) ->
             mlFeatureTable.setStructuredProperties(
-                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(
+                    context, new StructuredProperties(dataMap), entityUrn))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
