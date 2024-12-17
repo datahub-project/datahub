@@ -60,7 +60,11 @@ export default function StructuredPropertyInput({
                 <DateInput selectedValues={selectedValues} updateSelectedValues={updateSelectedValues} />
             )}
             {!allowedValues && valueType.info.type === StdDataType.Number && (
-                <NumberInput selectedValues={selectedValues} updateSelectedValues={updateSelectedValues} />
+                <NumberInput
+                    selectedValues={selectedValues}
+                    cardinality={cardinality}
+                    updateSelectedValues={updateSelectedValues}
+                />
             )}
             {!allowedValues && valueType.info.type === StdDataType.Urn && (
                 <UrnInput
