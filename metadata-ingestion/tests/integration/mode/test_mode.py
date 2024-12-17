@@ -38,7 +38,6 @@ test_resources_dir = pathlib.Path(__file__).parent
 
 class MockResponse:
     def __init__(self, error_list, status_code):
-        self.text = None
         self.json_data = None
         self.error_list = error_list
         self.status_code = status_code
