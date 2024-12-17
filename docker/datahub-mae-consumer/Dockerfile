@@ -5,13 +5,16 @@ ARG APP_ENV=prod
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 ARG GITHUB_REPO_URL=https://github.com
 ARG MAVEN_CENTRAL_REPO_URL=https://repo1.maven.org/maven2
+ARG GOPROXY_URL=https://proxy.golang.org,direct
 
 FROM golang:1-alpine3.20 AS binary
 
 # Re-declaring arg from above to make it available in this stage (will inherit default value)
 ARG ALPINE_REPO_URL
+ARG GOPROXY_URL
 
 ENV DOCKERIZE_VERSION=v0.6.1
+ENV GOPROXY=${GOPROXY_URL}
 WORKDIR /go/src/github.com/jwilder
 
 # Optionally set corporate mirror for apk
