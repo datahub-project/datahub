@@ -1,0 +1,71 @@
+input OperationsStatsInput {
+    """
+    The time range you want to get operations stats for
+    """
+    range: TimeRange
+}
+
+"""
+The result of a Dataset operations query
+"""
+type OperationsQueryResult {
+    """
+    A set of relevant time windows for use in displaying operations
+    """
+    buckets: [OperationsAggregation]
+
+    """
+    A set of rolled up aggregations about the Dataset operations
+    """
+    aggregations: OperationsAggregationsResult
+}
+
+"""
+An aggregation of Dataset operations statistics
+"""
+type OperationsAggregation {
+    """
+    The time window start time
+    """
+    bucket: Long
+
+    """
+    The time window span
+    """
+    duration: WindowDuration
+
+    """
+    The resource urn associated with the operations information, eg a Dataset urn
+    """
+    resource: String
+
+    """
+    The rolled up operations metrics
+    """
+    aggregations: OperationsAggregationsResult
+}
+
+"""
+Rolled up metrics about Dataset operations over time
+"""
+type OperationsAggregationsResult {
+    """
+    The total number of operations performed within the queried time range
+    """
+    totalOperations: Int
+
+    """
+    The total number of INSERT operations performed within the queried time range
+    """
+    totalInserts: Int
+
+    """
+    The total number of UPDATE operations performed within the queried time range
+    """
+    totalUpdates: Int
+
+    """
+    The total number of DELETE operations performed within the queried time range
+    """
+    totalDeletes: Int
+}

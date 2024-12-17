@@ -26,6 +26,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
+import com.linkedin.metadata.timeseries.elastic.TimeseriesUtils;
 import com.linkedin.metadata.timeseries.elastic.UsageServiceUtil;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.parseq.Task;
@@ -194,7 +195,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
     DatasetUsageStatistics datasetUsageStatistics = new DatasetUsageStatistics();
     datasetUsageStatistics.setTimestampMillis(bucket.getBucket());
     datasetUsageStatistics.setEventGranularity(
-        new TimeWindowSize().setUnit(UsageServiceUtil.windowToInterval(bucket.getDuration())).setMultiple(1));
+        new TimeWindowSize().setUnit(TimeseriesUtils.windowToInterval(bucket.getDuration())).setMultiple(1));
     UsageAggregationMetrics aggregationMetrics = bucket.getMetrics();
     if (aggregationMetrics.hasUniqueUserCount()) {
       datasetUsageStatistics.setUniqueUserCount(aggregationMetrics.getUniqueUserCount());

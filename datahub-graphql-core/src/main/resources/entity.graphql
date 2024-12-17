@@ -1921,6 +1921,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Cached, potentially stale information about the entity's lineage.
     """
     lineageFeatures: LineageFeatures
+
+    """
+    Statistics about how this Dataset has been operated on
+    """
+    operationsStats(input: OperationsStatsInput): OperationsQueryResult
 }
 
 type RoleAssociation {
