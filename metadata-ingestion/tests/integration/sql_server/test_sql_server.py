@@ -81,9 +81,7 @@ def test_mssql_extended_properties(
     pipeline = Pipeline.create(config)
 
     pipeline.ctx.graph = mock_datahub_graph(DatahubClientConfig())
-    pipeline.ctx.graph.list_all_entity_urns.return_value = [  # type: ignore[attr-defined, union-attr]
-        "urn:li:corpuser:john_doe@datahub.com"
-    ]
+    pipeline.ctx.graph.list_all_entity_urns.return_value = ["urn:li:corpuser:john_doe@datahub.com", "urn:li:corpuser:baby_doe@datahub.com"]  # type: ignore[attr-defined, union-attr]
     pipeline.ctx.graph.get_ownership.return_value = None  # type: ignore[attr-defined, union-attr]
 
     pipeline.run()

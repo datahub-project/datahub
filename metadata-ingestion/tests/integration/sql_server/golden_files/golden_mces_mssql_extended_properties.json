@@ -112,11 +112,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "ae13bc43-970e-423f-8c60-15e3d73b0dbf",
+                "job_id": "dbcf9e35-741c-4289-a3c2-c88ee092dd8b",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2024-12-16 17:53:05.857000",
-                "date_modified": "2024-12-16 17:53:06.030000",
+                "date_created": "2024-12-17 09:54:14.503000",
+                "date_modified": "2024-12-17 09:54:14.707000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
@@ -1623,6 +1623,10 @@
                 {
                     "owner": "urn:li:corpuser:john_doe@datahub.com",
                     "type": "BUSINESS_OWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:baby_doe@datahub.com",
+                    "type": "DATA_STEWARD"
                 }
             ],
             "ownerTypes": {},
@@ -2025,8 +2029,8 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2024-12-16 17:53:05.760000",
-                "date_modified": "2024-12-16 17:53:05.760000"
+                "date_created": "2024-12-17 09:54:14.407000",
+                "date_modified": "2024-12-17 09:54:14.407000"
             },
             "externalUrl": "",
             "name": "DemoData.Foo.Proc.With.SpecialChar",

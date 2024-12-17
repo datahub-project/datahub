@@ -22,6 +22,14 @@ source:
         type: owner
         strategy: append
         ownership_type: BUSINESS_OWNER
+      WRITER:
+        type: owner
+        strategy: append
+        ownership_type: DATA_STEWARD
+      DEVELOPER:
+        type: owner
+        strategy: append
+        ownership_type: TECHNICAL_OWNER
     # use_odbc: True
     # uri_args:
     #   driver: "ODBC Driver 17 for SQL Server"

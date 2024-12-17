@@ -101,6 +101,14 @@ GO
 
 GO
 EXEC sys.sp_addextendedproperty
+@name = N'DEVELOPER',
+@value = N'jane_doe@datahub.com',
+@level0type = N'SCHEMA', @level0name = 'Foo',
+@level1type = N'TABLE',  @level1name = 'Items';
+GO
+
+GO
+EXEC sys.sp_addextendedproperty
 @name = N'DOMAIN',
 @value = N'Logistics',
 @level0type = N'SCHEMA', @level0name = 'Foo',
