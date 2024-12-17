@@ -192,8 +192,11 @@ class ToolMetaExtractor:
                 if meta_extractor(entry):
                     self.report.num_queries_meta_extracted[tool] += 1
                     return True
-            except Exception:
-                logger.debug("Tool metadata extraction failed with error : {e}")
+            except Exception as e:
+                self.report.failures.append(
+                    f"Tool metadata extraction failed with error : {e}"
+                )
+                logger.debug(f"Tool metadata extraction failed with error : {e}")
         return False
 
 
