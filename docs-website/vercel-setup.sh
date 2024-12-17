@@ -22,6 +22,6 @@ uv python install 3.10
 # Set python3.10 as the default version.
 py3="$(which python3)"
 rm "$py3"
-ln "$(uv python find 3.10)" "$py3"
+ln -s "$(uv python find 3.10)" "$py3"
 python3 --version
 
