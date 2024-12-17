@@ -5,6 +5,7 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { orderBy } from 'lodash';
 import CheckIcon from '@mui/icons-material/Check';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
@@ -14,7 +15,7 @@ import { useListRecommendationsQuery } from '../../../graphql/recommendations.ge
 import { DataHubViewType, DataPlatform, EntityType, ScenarioType } from '../../../types.generated';
 import { useUserContext } from '../../context/useUserContext';
 import { PLATFORMS_MODULE_ID } from '../content/tabs/discovery/sections/platform/useGetPlatforms';
-import { PERSONA_TYPE_TO_VIEW_URN, ROLE_TO_PERSONA_TYPE } from '../shared/types';
+import { PERSONA_TYPE_TO_VIEW_URN, PersonaType, ROLE_TO_PERSONA_TYPE } from '../shared/types';
 import {
     useUpdateCorpUserPropertiesMutation,
     useUpdateCorpUserViewsSettingsMutation,
@@ -197,6 +198,23 @@ const SelectOption = styled.div`
 const SelectTag = styled.div`
     margin-right: 4px;
 `;
+
+const Footer = styled.div`
+    margin-top: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+`;
+
+const SkipButton = styled.div`
+    color: ${colors.gray[400]};
+    font-weight: 700;
+    :hover {
+        cursor: pointer;
+    }
+`;
+
+const DEFAULT_PERSONA = PersonaType.TECHNICAL_USER;
 
 // const RoleCard = styled.div`
 //     border: 1px solid #828da7;
@@ -385,6 +403,31 @@ export const IntroduceYourselfMainContent = () => {
             });
     };
 
+    const onSkip = () => {
+        setIsUserInitializing(true);
+
+        updateCorpUserMutation({
+            variables: {
+                urn: user?.urn as string,
+                input: {
+                    personaUrn: DEFAULT_PERSONA,
+                    platformUrns: [],
+                },
+            },
+        })
+            .then(async () => {
+                analytics.event({
+                    type: EventType.IntroduceYourselfSkipEvent,
+                });
+                await refetchUser();
+                history.push('/');
+            })
+            .catch((err) => {
+                console.error(err);
+                message.error('Failed to save user details. :(');
+            });
+    };
+
     const hasPersona = !!selectedPersona;
     // Possibly needed in the future
     // const hasPlatforms = selectedPlatforms.length > 0;
@@ -498,6 +541,11 @@ export const IntroduceYourselfMainContent = () => {
                 >
                     Done
                 </DoneButton>
+                <Footer>
+                    <Tooltip placement="bottom" title="Continue to DataHub">
+                        <SkipButton onClick={onSkip}>Skip</SkipButton>
+                    </Tooltip>
+                </Footer>
             </Content>
         </Container>
     );

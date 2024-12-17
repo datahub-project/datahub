@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from typing import List, Optional, cast
 
@@ -49,6 +50,12 @@ logger = logging.getLogger(__name__)
 
 
 STATEFUL_ASSERTION_EVALUATION_BUFFER = 5 * 60 * 1000
+
+# 5 minute buffer for the evaluation of freshness assertions
+# Just in case the query takes longer than expected to run.
+FRESHNESS_ASSERTION_QUERY_EVALUATION_BUFFER_SECONDS = int(
+    os.getenv("FRESHNESS_ASSERTION_EVALUATION_BUFFER_SECONDS", 5 * 60)
+)
 
 
 class InternalAssertionEvaluationResult:
@@ -471,7 +478,10 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
             if cron_schedule_start_offset is not None
             else prev_cron_schedule_time
         )
-        end_time_ms = next_cron_schedule_time
+        end_time_ms = (
+            next_cron_schedule_time
+            + FRESHNESS_ASSERTION_QUERY_EVALUATION_BUFFER_SECONDS * 1000
+        )
 
         validation_window = [start_time_ms, end_time_ms]
 
@@ -494,7 +504,10 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
             FixedIntervalSchedule, freshness_assertion.schedule.fixed_interval
         )
 
-        end_time = int(time.time() * 1000)
+        end_time = (
+            int(time.time() * 1000)
+            + FRESHNESS_ASSERTION_QUERY_EVALUATION_BUFFER_SECONDS * 1000
+        )
         start_time = get_fixed_interval_start(end_time, fixed_interval_schedule)
 
         validation_window = [start_time, end_time]
@@ -529,7 +542,10 @@ class FreshnessAssertionEvaluator(AssertionEvaluator):
             result=AssertionEvaluationResult(AssertionResultType.INIT)
         )
         # 2.2 get the current ts in millis
-        now_millis = int(time.time() * 1000)
+        now_millis = (
+            int(time.time() * 1000)
+            + FRESHNESS_ASSERTION_QUERY_EVALUATION_BUFFER_SECONDS * 1000
+        )
 
         # 3. If there's a valid previous state, evaluate freshness from last monitor run time to now
         if previous_state and previous_state.timestamp is not None:

@@ -1,7 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
 import colors from '@src/alchemy-components/theme/foundations/colors';
-import { Heading, Icon } from '@src/alchemy-components';
+import { Heading } from '@src/alchemy-components';
 import {
     PERSONA_TYPE_TO_DESCRIPTION,
     PERSONA_TYPE_TO_LABEL,
@@ -52,12 +52,6 @@ const Text = styled.div`
     margin-bottom: 4px;
 `;
 
-const Footer = styled.div`
-    display: flex;
-    align-items: center;
-    font-size: 11px;
-`;
-
 type Props = {
     onSelect: (urn: string) => void;
     selectedPersona: string;
@@ -80,12 +74,6 @@ export const PersonaSelector = ({ onSelect, selectedPersona }: Props) => {
                     </Content>
                 </PersonaCard>
             ))}
-            <Footer>
-                <StyledIcon>
-                    <Icon icon="Info" size="lg" color="gray" />
-                </StyledIcon>
-                <Text>Choose wisely! Your experience will be curated based on your selection</Text>
-            </Footer>
         </PersonaSelectorContainer>
     );
 };

@@ -129,6 +129,7 @@ export enum EventType {
     InboxPageViewEvent,
     IntroduceYourselfViewEvent,
     IntroduceYourselfSubmitEvent,
+    IntroduceYourselfSkipEvent,
     SharedEntityEvent,
     UnsharedEntityEvent,
     ExpandLineageEvent,
@@ -200,6 +201,13 @@ export interface IntroduceYourselfSubmitEvent extends BaseEvent {
     type: EventType.IntroduceYourselfSubmitEvent;
     role: string;
     platformUrns: Array<string>;
+}
+
+/**
+ * Skipped the "Introduce Yourself" page through the UI.
+ */
+export interface IntroduceYourselfSkipEvent extends BaseEvent {
+    type: EventType.IntroduceYourselfSkipEvent;
 }
 
 export interface SharedEntityEvent extends BaseEvent {
@@ -1131,6 +1139,7 @@ export type Event =
     | HomePageViewEvent
     | IntroduceYourselfViewEvent
     | IntroduceYourselfSubmitEvent
+    | IntroduceYourselfSkipEvent
     | SignUpEvent
     | LogInEvent
     | LogOutEvent

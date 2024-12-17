@@ -4,6 +4,7 @@ from unittest.mock import ANY, Mock, patch
 import pytest
 
 from datahub_executor.common.assertion.engine.evaluator.freshness_evaluator import (
+    FRESHNESS_ASSERTION_QUERY_EVALUATION_BUFFER_SECONDS,
     FreshnessAssertionEvaluator,
     InternalAssertionEvaluationResult,
 )
@@ -447,7 +448,7 @@ class TestFreshnessEvaluator:
             and int(eval_internal_result.result.parameters["window_end_time"])
             >= start_millis
             and int(eval_internal_result.result.parameters["window_end_time"])
-            <= end_millis
+            <= end_millis + FRESHNESS_ASSERTION_QUERY_EVALUATION_BUFFER_SECONDS * 1000
         )
         assert eval_internal_result.next_assertion_state.properties["row_count"] == str(
             high_watermark_column_row_count
@@ -510,5 +511,6 @@ class TestFreshnessEvaluator:
         assert (
             next_assertion_state_ts is not None
             and next_assertion_state_ts >= start_millis
-            and next_assertion_state_ts <= end_millis
+            and next_assertion_state_ts
+            <= end_millis + FRESHNESS_ASSERTION_QUERY_EVALUATION_BUFFER_SECONDS * 1000
         )
