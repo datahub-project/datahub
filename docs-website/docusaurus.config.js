@@ -327,6 +327,7 @@ module.exports = {
             require.resolve("./src/styles/sphinx.scss"),
             require.resolve("./src/styles/config-table.scss"),
             require.resolve("./src/components/SecondNavbar/styles.module.scss"),
+            require.resolve("./src/components/SolutionsDropdown/styles.module.css"),
           ],
         },
         pages: {
