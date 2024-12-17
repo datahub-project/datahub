@@ -73,8 +73,8 @@ from datahub.metadata.schema_classes import (
     ChartTypeClass,
     DashboardInfoClass,
     DatasetPropertiesClass,
-    OwnershipClass,
     OwnerClass,
+    OwnershipClass,
     OwnershipTypeClass,
 )
 from datahub.utilities import config_clean
@@ -359,18 +359,18 @@ class SupersetSource(StatefulIngestionSourceBase):
                 env=self.config.env,
             )
         raise ValueError("Could not construct dataset URN")
-    
-    def parse_owner_payload(self, payload: dict) -> dict:
+
+    def parse_owner_payload(self, payload: Dict[str, Any]) -> Dict[str, str]:
         owners_dict = {}
-        for owner_data in payload.get("result", []):
-            email = owner_data.get("extra", {}).get("email")
-            value = owner_data.get("value")
+        for owner_data in payload["result"]:
+            email = owner_data["extra"]["email"]
+            value = owner_data["value"]
 
             if value and email:
                 owners_dict[value] = email
         return owners_dict
-    
-    def build_preset_owner_dict(self) -> Dict[str, str]: 
+
+    def build_preset_owner_dict(self) -> Dict[str, str]:
         owners_dict = {}
         dataset_payload = self.get_all_entity_owners("dataset")
         chart_payload = self.get_all_entity_owners("chart")
@@ -379,10 +379,9 @@ class SupersetSource(StatefulIngestionSourceBase):
         owners_dict.update(self.parse_owner_payload(dataset_payload))
         owners_dict.update(self.parse_owner_payload(chart_payload))
         owners_dict.update(self.parse_owner_payload(dashboard_payload))
-        
         return owners_dict
-    
-    def build_owners_urn_list(self, data: dict) -> List[str]:
+
+    def build_owners_urn_list(self, data: Dict[str, Any]) -> List[str]:
         owners_urn_list = []
         for owner in data.get("owners", []):
             owner_id = owner.get("id")
@@ -391,8 +390,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                 owners_urn = make_user_urn(owner_email)
                 owners_urn_list.append(owners_urn)
         return owners_urn_list
-    
-    def get_all_entity_owners(self, entity: str) -> Iterable[Dict]:
+
+    def get_all_entity_owners(self, entity: str) -> Dict[str, Any]:
         current_page = 1
         total_owners = PAGE_SIZE
         all_owners = []
@@ -403,15 +402,16 @@ class SupersetSource(StatefulIngestionSourceBase):
                 params=f"q=(page:{current_page},page_size:{PAGE_SIZE})",
             )
             if full_owners_response.status_code != 200:
-                logger.warning(f"Failed to get {entity} data: {full_owners_response.text}")
+                logger.warning(
+                    f"Failed to get {entity} data: {full_owners_response.text}"
+                )
             full_owners_response.raise_for_status()
 
             payload = full_owners_response.json()
             total_owners = payload.get("count", total_owners)
             all_owners.extend(payload.get("result", []))
             current_page += 1
-        
-        #return combined payload
+        # return combined payload
         return {"result": all_owners, "count": total_owners}
 
     def construct_dashboard_from_api_data(
@@ -492,7 +492,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             owners=[
                 OwnerClass(
                     owner=urn,
-                    #default as Technical Owners from Preset
+                    # default as Technical Owners from Preset
                     type=OwnershipTypeClass.TECHNICAL_OWNER,
                 )
                 for urn in (dashboard_owners_list or [])
@@ -548,13 +548,14 @@ class SupersetSource(StatefulIngestionSourceBase):
 
         datasource_id = chart_data.get("datasource_id")
         if not datasource_id:
-            logger.debug(f'chart {chart_data["id"]} has no datasource_id, skipping fetching dataset info')
+            logger.debug(
+                f'chart {chart_data["id"]} has no datasource_id, skipping fetching dataset info'
+            )
             datasource_urn = None
         else:
             dataset_response = self.get_dataset_info(datasource_id)
-            datasource_urn = list(self.get_datasource_urn_from_id(
-                dataset_response, self.platform
-            ))
+            ds_urn = self.get_datasource_urn_from_id(dataset_response, self.platform)
+            datasource_urn = [ds_urn] if not isinstance(ds_urn, list) else ds_urn
 
         params = json.loads(chart_data.get("params", "{}"))
         metrics = [
@@ -609,7 +610,7 @@ class SupersetSource(StatefulIngestionSourceBase):
             owners=[
                 OwnerClass(
                     owner=urn,
-                    #default as Technical Owners from Preset
+                    # default as Technical Owners from Preset
                     type=OwnershipTypeClass.TECHNICAL_OWNER,
                 )
                 for urn in (chart_owners_list or [])
@@ -711,14 +712,13 @@ class SupersetSource(StatefulIngestionSourceBase):
             owners=[
                 OwnerClass(
                     owner=urn,
-                    #default as Technical Owners from Preset
+                    # default as Technical Owners from Preset
                     type=OwnershipTypeClass.TECHNICAL_OWNER,
                 )
                 for urn in (dataset_owners_list or [])
             ],
         )
         aspects_items.append(owners_info)
-        
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
             aspects=aspects_items,
