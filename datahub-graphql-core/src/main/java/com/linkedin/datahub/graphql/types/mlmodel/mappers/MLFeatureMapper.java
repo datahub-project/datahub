@@ -142,7 +142,8 @@ public class MLFeatureMapper implements ModelMapper<EntityResponse, MLFeature> {
       @Nonnull DataMap dataMap,
       @Nonnull Urn entityUrn) {
     MLFeatureProperties featureProperties = new MLFeatureProperties(dataMap);
-    var graphqlProperties = MLFeaturePropertiesMapper.map(context, featureProperties, entityUrn);
+    com.linkedin.datahub.graphql.generated.MLFeatureProperties graphqlProperties =
+        MLFeaturePropertiesMapper.map(context, featureProperties, entityUrn);
     mlFeature.setFeatureProperties(graphqlProperties);
     mlFeature.setProperties(graphqlProperties);
     mlFeature.setDescription(featureProperties.getDescription());

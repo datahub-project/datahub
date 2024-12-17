@@ -136,7 +136,7 @@ public class MLPrimaryKeyMapper implements ModelMapper<EntityResponse, MLPrimary
       DataMap dataMap,
       @Nonnull Urn entityUrn) {
     MLPrimaryKeyProperties primaryKeyProperties = new MLPrimaryKeyProperties(dataMap);
-    var graphqlProperties =
+    com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties graphqlProperties =
         MLPrimaryKeyPropertiesMapper.map(context, primaryKeyProperties, entityUrn);
     mlPrimaryKey.setPrimaryKeyProperties(graphqlProperties);
     mlPrimaryKey.setProperties(graphqlProperties);
