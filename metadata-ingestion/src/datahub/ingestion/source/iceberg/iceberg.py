@@ -269,7 +269,6 @@ class IcebergSource(StatefulIngestionSourceBase):
                 ] = table.current_snapshot().manifest_list
             dataset_properties = DatasetPropertiesClass(
                 name=table.name()[-1],
-                tags=[],
                 description=table.metadata.properties.get("comment", None),
                 customProperties=custom_properties,
             )
