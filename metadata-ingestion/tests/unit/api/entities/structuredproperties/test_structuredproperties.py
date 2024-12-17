@@ -16,6 +16,9 @@ def test_type_validation() -> None:
     with pytest.raises(pydantic.ValidationError):
         TypeQualifierAllowedTypes(allowed_types=["thisdoesnotexist"])
 
+    types = TypeQualifierAllowedTypes(allowed_types=["dataset"])
+    assert types.allowed_types == ["urn:li:entityType:datahub.dataset"]
+
 
 def test_structuredproperties_load(pytestconfig: pytest.Config) -> None:
     example_properties_file = (
@@ -31,5 +34,5 @@ def test_structuredproperties_load(pytestconfig: pytest.Config) -> None:
     check_goldens_stream(
         pytestconfig,
         mcps,
-        golden_path=RESOURCE_DIR / "example_structured_properties.json",
+        golden_path=RESOURCE_DIR / "example_structured_properties_golden.json",
     )
