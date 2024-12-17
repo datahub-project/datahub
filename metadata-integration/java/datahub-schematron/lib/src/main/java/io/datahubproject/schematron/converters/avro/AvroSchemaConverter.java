@@ -581,6 +581,10 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
       } else {
         return schema.getFullName();
       }
+    } else if(schema.getType() == Schema.Type.UNION && schema.getTypes().size() == 2 && schema.getTypes().stream().anyMatch(s -> s.getType() == Schema.Type.NULL)) {
+      // If this is a union with null, we want to use the non-null type for the discriminated type
+      Schema nonNullSchema = schema.getTypes().stream().filter(s -> s.getType() != Schema.Type.NULL).findFirst().get();
+      return nonNullSchema.getFullName();
     }
     return schema.getType().getName().toLowerCase();
   }
