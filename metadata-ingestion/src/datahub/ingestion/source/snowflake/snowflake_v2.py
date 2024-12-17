@@ -17,6 +17,9 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import auto_incremental_lineage
+from datahub.ingestion.api.incremental_properties_helper import (
+    auto_incremental_properties,
+)
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
@@ -445,6 +448,9 @@ class SnowflakeV2Source(
             *super().get_workunit_processors(),
             functools.partial(
                 auto_incremental_lineage, self.config.incremental_lineage
+            ),
+            functools.partial(
+                auto_incremental_properties, self.config.incremental_properties
             ),
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx

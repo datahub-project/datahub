@@ -111,6 +111,8 @@ from datahub.ingestion.source.tableau.tableau_common import (
     tableau_field_to_schema_field,
     workbook_graphql_query,
 )
+from datahub.ingestion.source.tableau.tableau_server_wrapper import UserInfo
+from datahub.ingestion.source.tableau.tableau_validation import check_user_role
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -167,7 +169,7 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 try:
     # On earlier versions of the tableauserverclient, the NonXMLResponseError
-    # was thrown when reauthentication was needed. We'll keep both exceptions
+    # was thrown when reauthentication was necessary. We'll keep both exceptions
     # around for now, but can remove this in the future.
     from tableauserverclient.server.endpoint.exceptions import (  # type: ignore
         NotSignedInError,
@@ -353,7 +355,7 @@ class TableauConfig(
 
     project_path_separator: str = Field(
         default="/",
-        description="The separator used for the project_pattern field between project names. By default, we use a slash. "
+        description="The separator used for the project_path_pattern field between project names. By default, we use a slash. "
         "You can change this if your Tableau projects contain slashes in their names, and you'd like to filter by project.",
     )
 
@@ -632,6 +634,33 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
     num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
     num_hidden_assets_skipped: int = 0
+    logged_in_user: List[UserInfo] = []
+
+
+def report_user_role(report: TableauSourceReport, server: Server) -> None:
+    title: str = "Insufficient Permissions"
+    message: str = "The user must have the `Site Administrator Explorer` role to perform metadata ingestion."
+    try:
+        # TableauSiteSource instance is per site, so each time we need to find-out user detail
+        # the site-role might be different on another site
+        logged_in_user: UserInfo = UserInfo.from_server(server=server)
+
+        if not logged_in_user.is_site_administrator_explorer():
+            report.warning(
+                title=title,
+                message=message,
+                context=f"user-name={logged_in_user.user_name}, role={logged_in_user.site_role}, site_id={logged_in_user.site_id}",
+            )
+
+        report.logged_in_user.append(logged_in_user)
+
+    except Exception as e:
+        report.warning(
+            title=title,
+            message="Failed to verify the user's role. The user must have `Site Administrator Explorer` role.",
+            context=f"{e}",
+            exc=e,
+        )
 
 
 @platform_name("Tableau")
@@ -676,6 +705,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         try:
             logger.info(f"Authenticated to Tableau site: '{site_content_url}'")
             self.server = self.config.make_tableau_client(site_content_url)
+            report_user_role(report=self.report, server=self.server)
         # Note that we're not catching ConfigurationError, since we want that to throw.
         except ValueError as e:
             self.report.failure(
@@ -689,9 +719,17 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         test_report = TestConnectionReport()
         try:
             source_config = TableauConfig.parse_obj_allow_extras(config_dict)
-            source_config.make_tableau_client(source_config.site)
+
+            server = source_config.make_tableau_client(source_config.site)
+
             test_report.basic_connectivity = CapabilityReport(capable=True)
+
+            test_report.capability_report = check_user_role(
+                logged_in_user=UserInfo.from_server(server=server)
+            )
+
         except Exception as e:
+            logger.warning(f"{e}", exc_info=e)
             test_report.basic_connectivity = CapabilityReport(
                 capable=False, failure_reason=str(e)
             )
@@ -831,6 +869,8 @@ class TableauSiteSource:
         # when emitting custom SQL data sources.
         self.custom_sql_ids_being_used: List[str] = []
 
+        report_user_role(report=report, server=server)
+
     @property
     def no_env_browse_prefix(self) -> str:
         # Prefix to use with browse path (v1)
@@ -959,19 +999,36 @@ class TableauSiteSource:
         return is_allowed
 
     def _is_denied_project(self, project: TableauProject) -> bool:
-        # Either project name or project path should exist in deny
-        for deny_pattern in self.config.project_pattern.deny:
-            # Either name or project path is denied
-            if re.match(
-                deny_pattern, project.name, self.config.project_pattern.regex_flags
-            ) or re.match(
-                deny_pattern,
-                self._get_project_path(project),
-                self.config.project_pattern.regex_flags,
-            ):
-                return True
-        logger.info(f"project({project.name}) is not denied as per project_pattern")
-        return False
+        """
+        Why use an explicit denial check instead of the `AllowDenyPattern.allowed` method?
+
+        Consider a scenario where a Tableau site contains four projects: A, B, C, and D, with the following hierarchical relationship:
+
+        - **A**
+          - **B** (Child of A)
+          - **C** (Child of A)
+        - **D**
+
+        In this setup:
+
+        - `project_pattern` is configured with `allow: ["A"]` and `deny: ["B"]`.
+        - `extract_project_hierarchy` is set to `True`.
+
+        The goal is to extract assets from project A and its children while explicitly denying the child project B.
+
+        If we rely solely on the `project_pattern.allowed()` method, project C's assets will not be ingested.
+        This happens because project C is not explicitly included in the `allow` list, nor is it part of the `deny` list.
+        However, since `extract_project_hierarchy` is enabled, project C should ideally be included in the ingestion process unless explicitly denied.
+
+        To address this, the function explicitly checks the deny regex to ensure that project C’s assets are ingested if it is not specifically denied in the deny list. This approach ensures that the hierarchy is respected while adhering to the configured allow/deny rules.
+        """
+
+        # Either project_pattern or project_path_pattern is set in a recipe
+        # TableauConfig.projects_backward_compatibility ensures that at least one of these properties is configured.
+
+        return self.config.project_pattern.denied(
+            project.name
+        ) or self.config.project_path_pattern.denied(self._get_project_path(project))
 
     def _init_tableau_project_registry(self, all_project_map: dict) -> None:
         list_of_skip_projects: List[TableauProject] = []
@@ -999,9 +1056,11 @@ class TableauSiteSource:
             for project in list_of_skip_projects:
                 if (
                     project.parent_id in projects_to_ingest
-                    and self._is_denied_project(project) is False
+                    and not self._is_denied_project(project)
                 ):
-                    logger.debug(f"Project {project.name} is added in project registry")
+                    logger.debug(
+                        f"Project {project.name} is added in project registry as it's a child project and not explicitly denied in `deny` list"
+                    )
                     projects_to_ingest[project.id] = project
 
         # We rely on automatic browse paths (v2) when creating containers. That's why we need to sort the projects here.
@@ -1271,7 +1330,6 @@ class TableauSiteSource:
         page_size = page_size_override or self.config.page_size
 
         filter_pages = get_filter_pages(query_filter, page_size)
-
         for filter_page in filter_pages:
             has_next_page = 1
             current_cursor: Optional[str] = None

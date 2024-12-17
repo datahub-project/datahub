@@ -14,6 +14,11 @@ record AggregationMetadata {
     displayName: optional string
 
     /**
+     * Entity associated with this facet
+     */
+    entity: optional Urn
+
+    /**
      * List of aggregations showing the number of documents falling into each bucket. e.g, for platform aggregation, the bucket can be hive, kafka, etc
      */
     aggregations: map[string, long]

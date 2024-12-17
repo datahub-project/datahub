@@ -8,6 +8,7 @@ import {
     SolutionOutlined,
     DownOutlined,
     GlobalOutlined,
+    UnorderedListOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { Button, Dropdown, Tooltip } from 'antd';
@@ -15,6 +16,7 @@ import { useAppConfig, useBusinessAttributesFlag } from '../../useAppConfig';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 import { HOME_PAGE_INGESTION_ID } from '../../onboarding/config/HomePageOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '../../onboarding/useToggleEducationStepIdsAllowList';
+import { PageRoutes } from '../../../conf/Global';
 import { useUserContext } from '../../context/useUserContext';
 import DomainIcon from '../../domain/DomainIcon';
 
@@ -42,6 +44,10 @@ const NavTitleContainer = styled.span`
     padding: 2px;
 `;
 
+const NavSubItemTitleContainer = styled(NavTitleContainer)`
+    line-height: 20px;
+`;
+
 const NavTitleText = styled.span`
     margin-left: 6px;
     font-weight: bold;
@@ -64,13 +70,16 @@ export function HeaderLinks(props: Props) {
 
     const businessAttributesFlag = useBusinessAttributesFlag();
 
-    const isAnalyticsEnabled = config?.analyticsConfig.enabled;
-    const isIngestionEnabled = config?.managedIngestionConfig.enabled;
+    const isAnalyticsEnabled = config?.analyticsConfig?.enabled;
+    const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
 
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showSettings = true;
     const showIngestion =
         isIngestionEnabled && me && (me.platformPrivileges?.manageIngestion || me.platformPrivileges?.manageSecrets);
+    const showStructuredProperties =
+        config?.featureFlags?.showManageStructuredProperties &&
+        (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
 
     useToggleEducationStepIdsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
@@ -120,6 +129,22 @@ export function HeaderLinks(props: Props) {
                                   <NavTitleText>Business Attribute</NavTitleText>
                               </NavTitleContainer>
                               <NavTitleDescription>Universal field for data consistency</NavTitleDescription>
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
+        ...(showStructuredProperties
+            ? [
+                  {
+                      key: 5,
+                      label: (
+                          <Link to={PageRoutes.STRUCTURED_PROPERTIES}>
+                              <NavSubItemTitleContainer>
+                                  <UnorderedListOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                                  <NavTitleText>Structured Properties</NavTitleText>
+                              </NavSubItemTitleContainer>
+                              <NavTitleDescription>Manage custom properties for your data assets</NavTitleDescription>
                           </Link>
                       ),
                   },

@@ -13,7 +13,7 @@ const glossaryTermWithParent = {
 describe('glossary utils tests', () => {
     it('should get the direct parent node urn in getParentNodeToUpdate for glossary nodes', () => {
         const parentNode = getParentNodeToUpdate(glossaryNode3 as any, EntityType.GlossaryNode);
-        expect(parentNode).toBe(glossaryNode3.parentNodes?.nodes[0].urn);
+        expect(parentNode).toBe(glossaryNode3.parentNodes?.nodes[0]?.urn);
     });
 
     it('should get the direct parent node urn in getParentNodeToUpdate for glossary terms', () => {

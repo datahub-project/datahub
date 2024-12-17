@@ -12,6 +12,8 @@ import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -115,6 +117,22 @@ public interface TimeseriesAspectService {
       @Nullable final Integer limit,
       @Nullable final Filter filter,
       @Nullable final SortCriterion sort);
+
+  /**
+   * Returns the latest value for the given URNs and aspects
+   *
+   * @param opContext operation context
+   * @param urns the urns
+   * @param aspectNames the aspects
+   * @param endTimeMillis fetch latest aspect before this time in milliseconds for each aspect
+   * @return Map of the urns
+   */
+  @Nonnull
+  Map<Urn, Map<String, EnvelopedAspect>> getLatestTimeseriesAspectValues(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Set<Urn> urns,
+      @Nonnull final Set<String> aspectNames,
+      @Nullable final Map<String, Long> endTimeMillis);
 
   /**
    * Perform a arbitrary aggregation query over a set of Time-Series aspects. This is used to answer
