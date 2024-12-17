@@ -78,41 +78,54 @@ class ToolMetaExtractor:
         report = ToolMetaExtractorReport()
         looker_user_mapping = None
         if graph:
-            query = (
-                ElasticPlatformResourceQuery.create_from()
-                .group(LogicalOperator.AND)
-                .add_field_match(PlatformResourceSearchFields.PLATFORM, "looker")
-                .add_field_match(
-                    PlatformResourceSearchFields.RESOURCE_TYPE,
-                    "USER_ID_MAPPING",
+            try:
+                looker_user_mapping = cls.extract_looker_user_mapping_from_graph(
+                    graph, report
                 )
-                .end()
-            )
-
-            platform_resources = [
-                platform_resource
-                for platform_resource in PlatformResource.search_by_filters(
-                    query=query, graph_client=graph
-                )
-            ]
-
-            if len(platform_resources) > 1:
+            except Exception as e:
                 report.failures.append(
-                    "Looker user metadata extraction failed. Found more than one looker user id mappings."
+                    f"Unexpected error during Looker user metadata extraction: {str(e)}"
                 )
-            else:
-                platform_resource = platform_resources[0]
 
-                if (
-                    platform_resource
-                    and platform_resource.resource_info
-                    and platform_resource.resource_info.value
-                ):
-                    with contextlib.suppress(ValueError, AssertionError):
-                        value = platform_resource.resource_info.value.as_raw_json()
-                        if value:
-                            looker_user_mapping = value
         return cls(report, looker_user_mapping)
+
+    @classmethod
+    def extract_looker_user_mapping_from_graph(
+        cls, graph: DataHubGraph, report: ToolMetaExtractorReport
+    ) -> Optional[Dict[str, str]]:
+        looker_user_mapping = None
+        query = (
+            ElasticPlatformResourceQuery.create_from()
+            .group(LogicalOperator.AND)
+            .add_field_match(PlatformResourceSearchFields.PLATFORM, "looker")
+            .add_field_match(
+                PlatformResourceSearchFields.RESOURCE_TYPE,
+                "USER_ID_MAPPING",
+            )
+            .end()
+        )
+        platform_resources = list(
+            PlatformResource.search_by_filters(query=query, graph_client=graph)
+        )
+
+        if len(platform_resources) > 1:
+            report.failures.append(
+                "Looker user metadata extraction failed. Found more than one looker user id mappings."
+            )
+        else:
+            platform_resource = platform_resources[0]
+
+            if (
+                platform_resource
+                and platform_resource.resource_info
+                and platform_resource.resource_info.value
+            ):
+                with contextlib.suppress(ValueError, AssertionError):
+                    value = platform_resource.resource_info.value.as_raw_json()
+                    if value:
+                        looker_user_mapping = value
+
+        return looker_user_mapping
 
     def _extract_mode_query(self, entry: QueryLog) -> bool:
         """
