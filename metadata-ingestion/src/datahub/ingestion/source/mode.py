@@ -2,6 +2,8 @@ import dataclasses
 import logging
 import re
 import time
+from json import JSONDecodeError
+
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -15,6 +17,7 @@ import tenacity
 import yaml
 from liquid import Template, Undefined
 from pydantic import Field, validator
+from requests import Response
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import ConnectionError
 from requests.models import HTTPBasicAuth, HTTPError
@@ -1466,10 +1469,13 @@ class ModeSource(StatefulIngestionSourceBase):
 
         @r.wraps
         def get_request():
+            response: Optional[Response] = None
             try:
                 response = self.session.get(
                     url, timeout=self.config.api_options.timeout
                 )
+                if response.status_code == 204:
+                    return {}
                 return response.json()
             except HTTPError as http_error:
                 error_response = http_error.response
@@ -1481,6 +1487,10 @@ class ModeSource(StatefulIngestionSourceBase):
                     raise HTTPError429
 
                 raise http_error
+            except JSONDecodeError as json_error:
+                raise HTTPError(
+                    f"{json_error.__class__.__name__}: {json_error}"
+                ) from json_error
 
         return get_request()
 
