@@ -72,7 +72,6 @@ def test_mssql_ingest(mssql_runner, pytestconfig, tmp_path, mock_time, config_fi
 
 config_file = ["mssql_extended_properties.yml"]
 
-
 @pytest.mark.parametrize("config_file", config_file)
 @pytest.mark.integration
 def test_mssql_extended_properties(
