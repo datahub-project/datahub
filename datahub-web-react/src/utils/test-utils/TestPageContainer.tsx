@@ -26,6 +26,7 @@ import { DataPlatformEntity } from '../../app/entity/dataPlatform/DataPlatformEn
 import { ContainerEntity } from '../../app/entity/container/ContainerEntity';
 import AppConfigProvider from '../../AppConfigProvider';
 import { BusinessAttributeEntity } from '../../app/entity/businessAttribute/BusinessAttributeEntity';
+import { SchemaFieldPropertiesEntity } from '../../app/entity/schemaField/SchemaFieldPropertiesEntity';
 
 type Props = {
     children: React.ReactNode;
@@ -49,6 +50,7 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new DataPlatformEntity());
     entityRegistry.register(new ContainerEntity());
     entityRegistry.register(new BusinessAttributeEntity());
+    entityRegistry.register(new SchemaFieldPropertiesEntity());
     return entityRegistry;
 }
 

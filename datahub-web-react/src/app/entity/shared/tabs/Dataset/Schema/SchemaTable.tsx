@@ -27,6 +27,8 @@ import PropertiesColumn from './components/PropertiesColumn';
 import SchemaFieldDrawer from './components/SchemaFieldDrawer/SchemaFieldDrawer';
 import useBusinessAttributeRenderer from './utils/useBusinessAttributeRenderer';
 import { useBusinessAttributesFlag } from '../../../../../useAppConfig';
+import { useGetTableColumnProperties } from './useGetTableColumnProperties';
+import { useGetStructuredPropColumns } from './useGetStructuredPropColumns';
 
 const TableContainer = styled.div`
     overflow: inherit;
@@ -126,6 +128,9 @@ export default function SchemaTable({
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath, filterText);
     const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);
 
+    const tableColumnStructuredProps = useGetTableColumnProperties();
+    const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps);
+
     const fieldColumn = {
         width: '22%',
         title: 'Field',
@@ -188,7 +193,7 @@ export default function SchemaTable({
     function getCount(fieldPath: any) {
         const data: any =
             usageStats?.aggregations?.fields &&
-            usageStats?.aggregations?.fields.find((field) => {
+            usageStats?.aggregations?.fields?.find((field) => {
                 return field?.fieldName === fieldPath;
             });
         return data && data.count;
@@ -219,6 +224,10 @@ export default function SchemaTable({
 
     if (hasProperties) {
         allColumns = [...allColumns, propertiesColumn];
+    }
+
+    if (structuredPropColumns) {
+        allColumns = [...allColumns, ...structuredPropColumns];
     }
 
     if (hasUsageStats) {

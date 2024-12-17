@@ -1043,8 +1043,8 @@
         "json": {
             "timestampMillis": 1638860400000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "viewsCount": 5
         }
@@ -1111,6 +1111,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -1397,6 +1402,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -1969,6 +1979,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -2594,6 +2609,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -3114,6 +3134,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -3269,6 +3294,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -3805,6 +3835,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -4317,6 +4352,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -4796,6 +4836,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -5306,6 +5351,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -5702,6 +5752,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -6071,6 +6126,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -6470,6 +6530,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -6922,6 +6987,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -7344,6 +7414,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -7687,6 +7762,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -8058,6 +8138,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -8323,6 +8408,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -8775,6 +8865,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -9121,6 +9216,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -9494,6 +9594,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -9890,6 +9995,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -10342,6 +10452,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -10496,8 +10611,8 @@
         "json": {
             "timestampMillis": 1638860400000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "viewsCount": 3
         }
@@ -10544,6 +10659,11 @@
                             }
                         },
                         "dashboardUrl": "https://do-not-connect/#/site/acryl/views/EmailPerformancebyCampaign/EmailPerformancebyCampaign"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -10658,6 +10778,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/tableau/Acryl/default/Dvdrental Workbook"
@@ -10764,6 +10889,11 @@
                             }
                         },
                         "dashboardUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Story1"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -10887,6 +11017,11 @@
                             }
                         },
                         "dashboardUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/ExecutiveDashboard"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -11321,6 +11456,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -13285,6 +13425,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/prod/tableau/Acryl/default/Dvdrental Workbook"
@@ -13627,6 +13772,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -14546,6 +14696,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -15511,6 +15666,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -22390,6 +22550,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/prod/tableau/Acryl/default/Executive Dashboard"
@@ -26511,6 +26676,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -31872,6 +32042,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/prod/tableau/Acryl/default/Workbook published ds"
@@ -32217,6 +32392,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -32994,6 +33174,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -44181,8 +44366,8 @@
         "json": {
             "timestampMillis": 1638860400000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "viewsCount": 5
         }
@@ -44249,6 +44434,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -44505,6 +44695,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -45047,6 +45242,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -45642,6 +45842,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -46132,6 +46337,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -46257,6 +46467,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -46732,6 +46947,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -47215,6 +47435,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -47664,6 +47889,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -48144,6 +48374,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -48510,6 +48745,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -48849,6 +49089,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -49218,6 +49463,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -49640,6 +49890,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -50032,6 +50287,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -50345,6 +50605,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -50686,6 +50951,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -50921,6 +51191,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -51343,6 +51618,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -51659,6 +51939,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -52002,6 +52287,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -52368,6 +52658,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -52790,6 +53085,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -52914,8 +53214,8 @@
         "json": {
             "timestampMillis": 1638860400000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "viewsCount": 3
         }
@@ -52962,6 +53262,11 @@
                             }
                         },
                         "dashboardUrl": "https://do-not-connect/#/site/site2/views/EmailPerformancebyCampaign/EmailPerformancebyCampaign"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -53046,6 +53351,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/tableau/Site 2/default/Dvdrental Workbook"
@@ -53122,6 +53432,11 @@
                             }
                         },
                         "dashboardUrl": "https://do-not-connect/#/site/site2/views/dvdrental/Story1"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -53215,6 +53530,11 @@
                             }
                         },
                         "dashboardUrl": "https://do-not-connect/#/site/site2/views/ExecutiveDashboard/ExecutiveDashboard"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -53619,6 +53939,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -55553,6 +55878,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/prod/tableau/Site 2/default/Dvdrental Workbook"
@@ -55865,6 +56195,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -56754,6 +57089,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -57689,6 +58029,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -64538,6 +64883,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/prod/tableau/Site 2/default/Executive Dashboard"
@@ -68629,6 +68979,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -73960,6 +74315,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/prod/tableau/Site 2/default/Workbook published ds"
@@ -74275,6 +74635,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -74996,6 +75361,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
