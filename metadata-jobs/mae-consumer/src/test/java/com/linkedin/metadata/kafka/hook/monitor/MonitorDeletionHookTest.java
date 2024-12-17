@@ -17,6 +17,7 @@ import com.linkedin.assertion.AssertionRunStatus;
 import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationshipArray;
 import com.linkedin.common.EntityRelationships;
+import com.linkedin.common.FabricType;
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -30,6 +31,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.incident.IncidentInfo;
 import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.key.AssertionKey;
+import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.key.MonitorKey;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
@@ -254,6 +256,25 @@ public class MonitorDeletionHookTest {
         .deleteEntity(any(OperationContext.class), Mockito.any());
   }
 
+  @Test
+  public void testInvokeMonitorDeleteFollowsDatasetHardDelete() throws Exception {
+    SystemEntityClient entityClient = mock(SystemEntityClient.class);
+    GraphClient graphClient = initGraphClient();
+
+    final MonitorDeletionHook hook =
+        new MonitorDeletionHook(entityClient, graphClient, true).init(opContext);
+
+    MetadataChangeLog event =
+        buildMetadataChangeLog(
+            TEST_DATASET_URN,
+            DATASET_KEY_ASPECT_NAME,
+            ChangeType.DELETE,
+            buildDatasetKey(TEST_ASSERTION_URN));
+    hook.invoke(event);
+    Mockito.verify(entityClient, Mockito.times(1))
+        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_MONITOR_URN));
+  }
+
   private static GraphClient initGraphClient() {
     GraphClient graphClient = mock(GraphClient.class);
     Mockito.when(
@@ -283,6 +304,20 @@ public class MonitorDeletionHookTest {
                 .setRelationships(
                     new EntityRelationshipArray(
                         ImmutableList.of(new EntityRelationship().setEntity(TEST_ASSERTION_URN)))));
+
+    Mockito.when(
+            graphClient.getRelatedEntities(
+                Mockito.eq(TEST_DATASET_URN.toString()),
+                Mockito.eq(ImmutableList.of("Monitors")),
+                Mockito.eq(RelationshipDirection.INCOMING),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any()))
+        .thenReturn(
+            new EntityRelationships()
+                .setRelationships(
+                    new EntityRelationshipArray(
+                        ImmutableList.of(new EntityRelationship().setEntity(TEST_MONITOR_URN)))));
     return graphClient;
   }
 
@@ -461,6 +496,14 @@ public class MonitorDeletionHookTest {
     MonitorKey event = new MonitorKey();
     event.setEntity(Urn.createFromString(urn.getEntityKey().get(0)));
     event.setId(urn.getEntityKey().get(1));
+    return event;
+  }
+
+  private DatasetKey buildDatasetKey(final Urn urn) {
+    DatasetKey event = new DatasetKey();
+    event.setName("test");
+    event.setOrigin(FabricType.DEV);
+    event.setPlatform(UrnUtils.getUrn("urn:li:dataPlatform:snowflake"));
     return event;
   }
 

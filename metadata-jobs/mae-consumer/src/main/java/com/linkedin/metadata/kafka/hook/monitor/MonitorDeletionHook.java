@@ -15,6 +15,7 @@ import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nonnull;
 import lombok.Getter;
@@ -89,6 +90,8 @@ public class MonitorDeletionHook implements MetadataChangeLogHook {
         handleAssertionHardDeleteEvent(urn);
       } else if (isMonitorHardDeletionEvent(mcl)) {
         handleMonitorHardDeleteEvent(urn);
+      } else if (isDatasetHardDeletionEvent(mcl)) {
+        handleDatasetHardDeleteEvent(urn);
       }
     }
   }
@@ -137,6 +140,30 @@ public class MonitorDeletionHook implements MetadataChangeLogHook {
     }
   }
 
+  private void handleDatasetHardDeleteEvent(Urn assertionUrn) {
+    // Find linked monitors, if any.
+    List<Urn> monitors = MonitorUtils.getMonitorUrnsForDataset(graphClient, assertionUrn);
+    // delete monitors
+    if (monitors != null) {
+      log.info(
+          String.format(
+              "Found monitor URNs associated with dataset being removed urn %s. Removing monitors %s",
+              assertionUrn, monitors));
+      try {
+        for (final Urn urn : monitors) {
+          entityClient.deleteEntity(systemOperationContext, urn);
+        }
+      } catch (RemoteInvocationException e) {
+        log.error(
+            String.format(
+                "Caught exception while attempting to delete monitors %s associated with removed dataset urn %s! "
+                    + "This means that one or more stale monitors may remain active.",
+                monitors, assertionUrn),
+            e);
+      }
+    }
+  }
+
   private boolean isAssertionHardDeletionEvent(@Nonnull final MetadataChangeLog event) {
     return ChangeType.DELETE.equals(event.getChangeType())
         && ASSERTION_KEY_ASPECT_NAME.equals(event.getAspectName());
@@ -145,5 +172,10 @@ public class MonitorDeletionHook implements MetadataChangeLogHook {
   private boolean isMonitorHardDeletionEvent(@Nonnull final MetadataChangeLog event) {
     return ChangeType.DELETE.equals(event.getChangeType())
         && MONITOR_KEY_ASPECT_NAME.equals(event.getAspectName());
+  }
+
+  private boolean isDatasetHardDeletionEvent(@Nonnull final MetadataChangeLog event) {
+    return ChangeType.DELETE.equals(event.getChangeType())
+        && DATASET_KEY_ASPECT_NAME.equals(event.getAspectName());
   }
 }

@@ -45,11 +45,21 @@ def graphql_to_monitors(graphql_monitors: List[Dict]) -> List[Monitor]:
                 )
                 continue
             monitors.append(Monitor.parse_obj(graphql_monitor))
-        except Exception:
-            STATS_ASSERTION_FETCHER_ITEMS_ERRORED.labels("exception").inc()
-            logger.exception(
-                f"Failed to convert GraphQL Monitor object to Python object. {graphql_monitor}"
-            )
+        except Exception as e:
+            error_message = str(e)
+            # Check if the specific validation error is in the exception message
+            if (
+                "assertion_monitor -> assertions -> 0 -> assertion -> entity"
+                in error_message
+            ):
+                logger.debug(
+                    f"Validation error ignored for monitor. {graphql_monitor}: {error_message}"
+                )
+            else:
+                STATS_ASSERTION_FETCHER_ITEMS_ERRORED.labels("exception").inc()
+                logger.exception(
+                    f"Failed to convert GraphQL Monitor object to Python object. {graphql_monitor}"
+                )
     logger.debug(f"Finished converting GraphQL monitors to Engine monitors {monitors}")
     return monitors
 

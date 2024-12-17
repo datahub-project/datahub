@@ -56,6 +56,9 @@ import javax.annotation.Nullable;
 
 public class MonitorUtils {
 
+  private static final String MONITORS_RELATIONSHIP_NAME = "Monitors";
+  private static final int MAX_MONITORS_TO_FETCH = 10000;
+
   // Entity types that have system monitors enabled.
   public static final Set<String> ENTITY_TYPES_WITH_SYSTEM_MONITORS =
       ImmutableSet.of(Constants.DATASET_ENTITY_NAME);
@@ -369,5 +372,20 @@ public class MonitorUtils {
       return assertionUrns.get(0);
     }
     return null;
+  }
+
+  public static List<Urn> getMonitorUrnsForDataset(GraphClient graphClient, Urn datasetUrn) {
+    final EntityRelationships relationships =
+        graphClient.getRelatedEntities(
+            datasetUrn.toString(),
+            ImmutableList.of(MONITORS_RELATIONSHIP_NAME),
+            RelationshipDirection.INCOMING,
+            0,
+            MAX_MONITORS_TO_FETCH,
+            null);
+
+    return relationships.getRelationships().stream()
+        .map(EntityRelationship::getEntity)
+        .collect(Collectors.toList());
   }
 }
