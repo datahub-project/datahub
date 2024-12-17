@@ -1,0 +1,9 @@
+mutation shareEntity($entityUrn: String!, $destinationUrn: String!, $lineageDirection: ShareLineageDirection) {
+    shareEntity(input: {
+        entityUrn: $entityUrn,
+        connectionUrn: $destinationUrn,
+        lineageDirection: $lineageDirection
+    }) {
+        succeeded
+    }
+}
