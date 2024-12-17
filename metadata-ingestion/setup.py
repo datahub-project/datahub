@@ -101,7 +101,7 @@ sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # Prior to the patching, we originally maintained an acryl-sqlglot fork:
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "sqlglot[rs]==25.26.0",
+    "sqlglot[rs]==25.32.1",
     "patchy==2.8.0",
 }
 
@@ -159,14 +159,6 @@ sql_common = (
     | classification_lib
 )
 
-sqllineage_lib = {
-    "sqllineage==1.3.8",
-    # We don't have a direct dependency on sqlparse but it is a dependency of sqllineage.
-    # There have previously been issues from not pinning sqlparse, so it's best to pin it.
-    # Related: https://github.com/reata/sqllineage/issues/361 and https://github.com/reata/sqllineage/pull/360
-    "sqlparse==0.4.4",
-}
-
 aws_common = {
     # AWS Python SDK
     "boto3",
@@ -216,7 +208,6 @@ redshift_common = {
     "sqlalchemy-redshift>=0.8.3",
     "GeoAlchemy2",
     "redshift-connector>=2.1.0",
-    *sqllineage_lib,
     *path_spec_common,
 }
 
@@ -464,9 +455,7 @@ plugins: Dict[str, Set[str]] = {
         # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
         "setuptools",
     },
-    "mode": {"requests", "python-liquid", "tenacity>=8.0.1"}
-    | sqllineage_lib
-    | sqlglot_lib,
+    "mode": {"requests", "python-liquid", "tenacity>=8.0.1"} | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc"},
@@ -482,7 +471,7 @@ plugins: Dict[str, Set[str]] = {
     | pyhive_common
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
-    "redash": {"redash-toolbelt", "sql-metadata"} | sqllineage_lib,
+    "redash": {"redash-toolbelt", "sql-metadata"} | sqlglot_lib,
     "redshift": sql_common
     | redshift_common
     | usage_common
@@ -503,9 +492,7 @@ plugins: Dict[str, Set[str]] = {
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,
-    # FIXME: I don't think tableau uses sqllineage anymore so we should be able
-    # to remove that dependency.
-    "tableau": {"tableauserverclient>=0.24.0"} | sqllineage_lib | sqlglot_lib,
+    "tableau": {"tableauserverclient>=0.24.0"} | sqlglot_lib,
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
@@ -527,9 +514,9 @@ plugins: Dict[str, Set[str]] = {
     ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
-    "unity-catalog": databricks | sql_common | sqllineage_lib,
+    "unity-catalog": databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
-    "databricks": databricks | sql_common | sqllineage_lib,
+    "databricks": databricks | sql_common,
     "fivetran": snowflake_common | bigquery_common | sqlglot_lib,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},

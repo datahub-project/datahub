@@ -114,16 +114,16 @@ function IngestionSourceTable({
         execCount: source.executions?.total || 0,
         lastExecUrn:
             source.executions &&
-            source.executions?.executionRequests.length > 0 &&
-            source.executions?.executionRequests[0].urn,
+            source.executions?.executionRequests?.length > 0 &&
+            source.executions?.executionRequests[0]?.urn,
         lastExecTime:
             source.executions &&
-            source.executions?.executionRequests.length > 0 &&
-            source.executions?.executionRequests[0].result?.startTimeMs,
+            source.executions?.executionRequests?.length > 0 &&
+            source.executions?.executionRequests[0]?.result?.startTimeMs,
         lastExecStatus:
             source.executions &&
-            source.executions?.executionRequests.length > 0 &&
-            getIngestionSourceStatus(source.executions?.executionRequests[0].result),
+            source.executions?.executionRequests?.length > 0 &&
+            getIngestionSourceStatus(source.executions?.executionRequests[0]?.result),
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
     }));
 

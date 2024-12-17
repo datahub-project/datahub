@@ -80,7 +80,8 @@ def test_partitioned_executor_bounding():
         assert len(done_tasks) == 16
 
 
-def test_batch_partition_executor_sequential_key_execution():
+@pytest.mark.parametrize("max_workers", [1, 2, 10])
+def test_batch_partition_executor_sequential_key_execution(max_workers: int) -> None:
     executing_tasks = set()
     done_tasks = set()
     done_task_batches = set()
@@ -99,7 +100,7 @@ def test_batch_partition_executor_sequential_key_execution():
         done_task_batches.add(tuple(id for _, id in batch))
 
     with BatchPartitionExecutor(
-        max_workers=2,
+        max_workers=max_workers,
         max_pending=10,
         max_per_batch=2,
         process_batch=process_batch,
