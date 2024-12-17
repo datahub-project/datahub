@@ -581,7 +581,10 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
+                            "project": "lkml_samples",
+                            "model": "look_data",
                             "looker.explore.label": "My Explore View",
+                            "looker.explore.name": "look_view",
                             "looker.explore.file": "test_source_file.lkml"
                         },
                         "externalUrl": "https://looker.company.com/explore/look_data/look_view",

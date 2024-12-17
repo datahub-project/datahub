@@ -42,6 +42,7 @@ from datahub.metadata.schema_classes import (
     TimeWindowSizeClass,
     _Aspect as AspectAbstract,
 )
+from datahub.utilities.lossy_collections import LossySet
 
 logger = logging.getLogger(__name__)
 
@@ -225,9 +226,8 @@ class BaseStatGenerator(ABC):
     def get_id_from_row(self, row: dict) -> str:
         pass
 
-    @property
     @abstractmethod
-    def SKIPPED_REPORT_KEY(self) -> str:
+    def report_skip_set(self) -> LossySet[str]:
         pass
 
     def create_mcp(
@@ -402,13 +402,10 @@ class BaseStatGenerator(ABC):
             if object_id in self.id_to_model:
                 yield self.create_mcp(self.id_to_model[object_id], aspect)
             else:
-                skipped_set = getattr(self.report, self.SKIPPED_REPORT_KEY)
-                skipped_set.add(object_id)
+                self.report_skip_set().add(object_id)
 
 
 class DashboardStatGenerator(BaseStatGenerator):
-    SKIPPED_REPORT_KEY = "dashboards_skipped_for_usage"
-
     def __init__(
         self,
         config: StatGeneratorConfig,
@@ -427,6 +424,9 @@ class DashboardStatGenerator(BaseStatGenerator):
 
     def get_stats_generator_name(self) -> str:
         return "DashboardStats"
+
+    def report_skip_set(self) -> LossySet[str]:
+        return self.report.dashboards_skipped_for_usage
 
     def get_filter(self) -> Dict[ViewField, str]:
         return {
@@ -525,8 +525,6 @@ class DashboardStatGenerator(BaseStatGenerator):
 
 
 class LookStatGenerator(BaseStatGenerator):
-    SKIPPED_REPORT_KEY = "charts_skipped_for_usage"
-
     def __init__(
         self,
         config: StatGeneratorConfig,
@@ -545,6 +543,9 @@ class LookStatGenerator(BaseStatGenerator):
 
     def get_stats_generator_name(self) -> str:
         return "ChartStats"
+
+    def report_skip_set(self) -> LossySet[str]:
+        return self.report.charts_skipped_for_usage
 
     def get_filter(self) -> Dict[ViewField, str]:
         return {
