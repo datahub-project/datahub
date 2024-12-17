@@ -185,7 +185,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "ALTER TABLE dev.public.person_info_swap SWAP WITH dev.public.person_info",
+                "value": "ALTER TABLE dev.public.person_info_swap SWAP WITH dev.public.person_info /* Datahub generated query text-- */",
                 "language": "SQL"
             },
             "source": "SYSTEM",
@@ -438,7 +438,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "ALTER TABLE dev.public.person_info SWAP WITH dev.public.person_info_swap",
+                "value": "ALTER TABLE dev.public.person_info SWAP WITH dev.public.person_info_swap /* Datahub generated query text-- */",
                 "language": "SQL"
             },
             "source": "SYSTEM",
