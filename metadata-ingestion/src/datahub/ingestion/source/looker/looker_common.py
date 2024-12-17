@@ -1640,7 +1640,7 @@ class LookerUserRegistry:
 
         looker_user = LookerUser.create_looker_user(raw_user)
         if looker_user.email:
-            self._user_email_cache[id_] = looker_user.email
+            self._user_email_cache[str(id_)] = looker_user.email
         return looker_user
 
     def to_platform_resource(

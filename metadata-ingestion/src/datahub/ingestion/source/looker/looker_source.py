@@ -1152,13 +1152,10 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         return looker_dashboard
 
     def _get_looker_user(self, user_id: Optional[str]) -> Optional[LookerUser]:
-        user = (
-            self.user_registry.get_by_id(
-                user_id,
-            )
-            if self.source_config.extract_owners and user_id is not None
-            else None
-        )
+        if user_id is None:
+            return None
+
+        user = self.user_registry.get_by_id(user_id)
 
         if user is not None and self.source_config.extract_owners:
             # Keep track of how many user ids we were able to resolve
