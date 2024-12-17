@@ -1,4 +1,3 @@
-import doctest
 from datetime import timedelta
 from typing import Dict, List, Union
 from unittest import mock
@@ -22,6 +21,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
 )
+from datahub.testing.doctest import assert_doctest
 
 
 def create_owners_list_from_urn_list(
@@ -442,7 +442,7 @@ def test_dbt_cloud_config_with_defined_metadata_endpoint():
 
 
 def test_infer_metadata_endpoint() -> None:
-    assert doctest.testmod(dbt_cloud, raise_on_error=True).attempted > 0
+    assert_doctest(dbt_cloud)
 
 
 def test_dbt_time_parsing() -> None:

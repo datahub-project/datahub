@@ -7,7 +7,6 @@ from typing import Any, Callable, Dict, Generic, Iterable, List, Optional, Set, 
 
 import pyspark
 from databricks.sdk.service.sql import QueryStatementType
-from sqllineage.runner import LineageRunner
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
@@ -22,6 +21,9 @@ from datahub.ingestion.source.unity.proxy_types import (
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.usage.usage_common import UsageAggregator
 from datahub.metadata.schema_classes import OperationClass
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +49,7 @@ class UnityCatalogUsageExtractor:
     proxy: UnityCatalogApiProxy
     table_urn_builder: Callable[[TableReference], str]
     user_urn_builder: Callable[[str], str]
+    platform: str = "databricks"
 
     def __post_init__(self):
         self.usage_aggregator = UsageAggregator[TableReference](self.config)
@@ -76,6 +79,7 @@ class UnityCatalogUsageExtractor:
         self, table_refs: Set[TableReference]
     ) -> Iterable[MetadataWorkUnit]:
         table_map = defaultdict(list)
+        query_hashes = set()
         for ref in table_refs:
             table_map[ref.table].append(ref)
             table_map[f"{ref.schema}.{ref.table}"].append(ref)
@@ -85,6 +89,13 @@ class UnityCatalogUsageExtractor:
             for query in self._get_queries():
                 self.report.num_queries += 1
                 with current_timer.pause():
+                    with self.report.usage_perf_report.query_fingerprinting_timer:
+                        query_hashes.add(
+                            get_query_fingerprint(
+                                query.query_text, "databricks", fast=True
+                            )
+                        )
+                        self.report.num_unique_queries = len(query_hashes)
                     table_info = self._parse_query(query, table_map)
                     if table_info is not None:
                         if self.config.include_operational_stats:
@@ -164,9 +175,10 @@ class UnityCatalogUsageExtractor:
         self, query: Query, table_map: TableMap
     ) -> Optional[QueryTableInfo]:
         with self.report.usage_perf_report.sql_parsing_timer:
-            table_info = self._parse_query_via_lineage_runner(query.query_text)
+            table_info = self._parse_query_via_sqlglot(query.query_text)
             if table_info is None and query.statement_type == QueryStatementType.SELECT:
-                table_info = self._parse_query_via_spark_sql_plan(query.query_text)
+                with self.report.usage_perf_report.spark_sql_parsing_timer:
+                    table_info = self._parse_query_via_spark_sql_plan(query.query_text)
 
             if table_info is None:
                 self.report.num_queries_dropped_parse_failure += 1
@@ -181,26 +193,33 @@ class UnityCatalogUsageExtractor:
                     ),
                 )
 
-    def _parse_query_via_lineage_runner(self, query: str) -> Optional[StringTableInfo]:
+    def _parse_query_via_sqlglot(self, query: str) -> Optional[StringTableInfo]:
         try:
-            runner = LineageRunner(query)
+            sql_parser_in_tables = create_lineage_sql_parsed_result(
+                query=query,
+                default_db=None,
+                platform=self.platform,
+                env=self.config.env,
+                platform_instance=None,
+            )
+
             return GenericTableInfo(
                 source_tables=[
-                    self._parse_sqllineage_table(table)
-                    for table in runner.source_tables
+                    self._parse_sqlglot_table(table)
+                    for table in sql_parser_in_tables.in_tables
                 ],
                 target_tables=[
-                    self._parse_sqllineage_table(table)
-                    for table in runner.target_tables
+                    self._parse_sqlglot_table(table)
+                    for table in sql_parser_in_tables.out_tables
                 ],
             )
         except Exception as e:
-            logger.info(f"Could not parse query via lineage runner, {query}: {e!r}")
+            logger.info(f"Could not parse query via sqlglot, {query}: {e!r}")
             return None
 
     @staticmethod
-    def _parse_sqllineage_table(sqllineage_table: object) -> str:
-        full_table_name = str(sqllineage_table)
+    def _parse_sqlglot_table(table_urn: str) -> str:
+        full_table_name = DatasetUrn.from_string(table_urn).name
         default_schema = "<default>."
         if full_table_name.startswith(default_schema):
             return full_table_name[len(default_schema) :]

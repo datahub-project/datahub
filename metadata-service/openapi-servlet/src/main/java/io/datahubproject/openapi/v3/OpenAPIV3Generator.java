@@ -45,6 +45,7 @@ public class OpenAPIV3Generator {
   private static final String NAME_VERSION = "version";
   private static final String NAME_SCROLL_ID = "scrollId";
   private static final String NAME_INCLUDE_SOFT_DELETE = "includeSoftDelete";
+  private static final String NAME_PIT_KEEP_ALIVE = "pitKeepAlive";
   private static final String PROPERTY_VALUE = "value";
   private static final String PROPERTY_URN = "urn";
   private static final String PROPERTY_PATCH = "patch";
@@ -199,8 +200,7 @@ public class OpenAPIV3Generator {
                               String.format(
                                   "/v3/entity/%s/{urn}/%s",
                                   e.getName().toLowerCase(), a.getName().toLowerCase()),
-                              buildSingleEntityAspectPath(
-                                  e, a.getName(), a.getPegasusSchema().getName())));
+                              buildSingleEntityAspectPath(e, a)));
             });
     return new OpenAPI().openapi("3.0.1").info(info).paths(paths).components(components);
   }
@@ -502,6 +502,12 @@ public class OpenAPIV3Generator {
                 .name(NAME_SKIP_CACHE)
                 .description("Skip cache when listing entities.")
                 .schema(new Schema().type(TYPE_BOOLEAN)._default(false)),
+            new Parameter()
+                .in(NAME_QUERY)
+                .name(NAME_PIT_KEEP_ALIVE)
+                .description(
+                    "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
+                .schema(new Schema().type(TYPE_STRING)._default("5m")),
             new Parameter().$ref("#/components/parameters/PaginationCount" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/ScrollId" + MODEL_VERSION),
             new Parameter().$ref("#/components/parameters/SortBy" + MODEL_VERSION),
@@ -563,7 +569,7 @@ public class OpenAPIV3Generator {
         "SortBy" + MODEL_VERSION,
         new Parameter()
             .in(NAME_QUERY)
-            .name("sort")
+            .name("sortCriteria")
             .explode(true)
             .description("Sort fields for pagination.")
             .example(PROPERTY_URN)
@@ -571,11 +577,7 @@ public class OpenAPIV3Generator {
                 new Schema()
                     .type(TYPE_ARRAY)
                     ._default(List.of(PROPERTY_URN))
-                    .items(
-                        new Schema<>()
-                            .type(TYPE_STRING)
-                            ._enum(List.of(PROPERTY_URN))
-                            ._default(PROPERTY_URN))));
+                    .items(new Schema<>().type(TYPE_STRING)._default(PROPERTY_URN))));
     components.addParameters(
         "SortOrder" + MODEL_VERSION,
         new Parameter()
@@ -995,10 +997,10 @@ public class OpenAPIV3Generator {
   }
 
   private static PathItem buildSingleEntityAspectPath(
-      final EntitySpec entity, final String aspect, final String upperFirstAspect) {
+      final EntitySpec entity, final AspectSpec aspectSpec) {
     final String upperFirstEntity = toUpperFirst(entity.getName());
 
-    List<String> tags = List.of(aspect + " Aspect");
+    List<String> tags = List.of(aspectSpec.getName() + " Aspect");
     // Get Operation
     final Parameter getParameter =
         new Parameter()
@@ -1010,7 +1012,10 @@ public class OpenAPIV3Generator {
         new Parameter()
             .in(NAME_QUERY)
             .name(NAME_VERSION)
-            .description("Return a specific aspect version.")
+            .description(
+                aspectSpec.isTimeseries()
+                    ? "This aspect is a `timeseries` aspect, version=0 indicates the most recent aspect should be return. Otherwise return the most recent <= to version as epoch milliseconds."
+                    : "Return a specific aspect version of the aspect.")
             .schema(new Schema().type(TYPE_INTEGER)._default(0).minimum(BigDecimal.ZERO));
     final ApiResponse successApiResponse =
         new ApiResponse()
@@ -1025,25 +1030,27 @@ public class OpenAPIV3Generator {
                                     .$ref(
                                         String.format(
                                             "#/components/schemas/%s%s",
-                                            upperFirstAspect, ASPECT_RESPONSE_SUFFIX)))));
+                                            aspectSpec.getPegasusSchema().getName(),
+                                            ASPECT_RESPONSE_SUFFIX)))));
     final Operation getOperation =
         new Operation()
-            .summary(String.format("Get %s for %s.", aspect, entity.getName()))
+            .summary(String.format("Get %s for %s.", aspectSpec.getName(), entity.getName()))
             .tags(tags)
             .parameters(List.of(getParameter, versionParameter))
             .responses(new ApiResponses().addApiResponse("200", successApiResponse));
     // Head Operation
     final ApiResponse successHeadResponse =
         new ApiResponse()
-            .description(String.format("%s on %s exists.", aspect, entity.getName()))
+            .description(String.format("%s on %s exists.", aspectSpec.getName(), entity.getName()))
             .content(new Content().addMediaType("application/json", new MediaType()));
     final ApiResponse notFoundHeadResponse =
         new ApiResponse()
-            .description(String.format("%s on %s does not exist.", aspect, entity.getName()))
+            .description(
+                String.format("%s on %s does not exist.", aspectSpec.getName(), entity.getName()))
             .content(new Content().addMediaType("application/json", new MediaType()));
     final Operation headOperation =
         new Operation()
-            .summary(String.format("%s on %s existence.", aspect, upperFirstEntity))
+            .summary(String.format("%s on %s existence.", aspectSpec.getName(), upperFirstEntity))
             .tags(tags)
             .parameters(
                 List.of(
@@ -1059,17 +1066,21 @@ public class OpenAPIV3Generator {
     // Delete Operation
     final ApiResponse successDeleteResponse =
         new ApiResponse()
-            .description(String.format("Delete %s on %s entity.", aspect, upperFirstEntity))
+            .description(
+                String.format("Delete %s on %s entity.", aspectSpec.getName(), upperFirstEntity))
             .content(new Content().addMediaType("application/json", new MediaType()));
     final Operation deleteOperation =
         new Operation()
-            .summary(String.format("Delete %s on entity %s", aspect, upperFirstEntity))
+            .summary(
+                String.format("Delete %s on entity %s", aspectSpec.getName(), upperFirstEntity))
             .tags(tags)
             .responses(new ApiResponses().addApiResponse("200", successDeleteResponse));
     // Post Operation
     final ApiResponse successPostResponse =
         new ApiResponse()
-            .description(String.format("Create aspect %s on %s entity.", aspect, upperFirstEntity))
+            .description(
+                String.format(
+                    "Create aspect %s on %s entity.", aspectSpec.getName(), upperFirstEntity))
             .content(
                 new Content()
                     .addMediaType(
@@ -1080,10 +1091,13 @@ public class OpenAPIV3Generator {
                                     .$ref(
                                         String.format(
                                             "#/components/schemas/%s%s",
-                                            upperFirstAspect, ASPECT_RESPONSE_SUFFIX)))));
+                                            aspectSpec.getPegasusSchema().getName(),
+                                            ASPECT_RESPONSE_SUFFIX)))));
     final RequestBody requestBody =
         new RequestBody()
-            .description(String.format("Create aspect %s on %s entity.", aspect, upperFirstEntity))
+            .description(
+                String.format(
+                    "Create aspect %s on %s entity.", aspectSpec.getName(), upperFirstEntity))
             .required(true)
             .content(
                 new Content()
@@ -1095,10 +1109,12 @@ public class OpenAPIV3Generator {
                                     .$ref(
                                         String.format(
                                             "#/components/schemas/%s%s",
-                                            upperFirstAspect, ASPECT_REQUEST_SUFFIX)))));
+                                            aspectSpec.getPegasusSchema().getName(),
+                                            ASPECT_REQUEST_SUFFIX)))));
     final Operation postOperation =
         new Operation()
-            .summary(String.format("Create aspect %s on %s ", aspect, upperFirstEntity))
+            .summary(
+                String.format("Create aspect %s on %s ", aspectSpec.getName(), upperFirstEntity))
             .tags(tags)
             .parameters(
                 List.of(
@@ -1127,7 +1143,9 @@ public class OpenAPIV3Generator {
     // Patch Operation
     final ApiResponse successPatchResponse =
         new ApiResponse()
-            .description(String.format("Patch aspect %s on %s entity.", aspect, upperFirstEntity))
+            .description(
+                String.format(
+                    "Patch aspect %s on %s entity.", aspectSpec.getName(), upperFirstEntity))
             .content(
                 new Content()
                     .addMediaType(
@@ -1138,10 +1156,13 @@ public class OpenAPIV3Generator {
                                     .$ref(
                                         String.format(
                                             "#/components/schemas/%s%s",
-                                            upperFirstAspect, ASPECT_RESPONSE_SUFFIX)))));
+                                            aspectSpec.getPegasusSchema().getName(),
+                                            ASPECT_RESPONSE_SUFFIX)))));
     final RequestBody patchRequestBody =
         new RequestBody()
-            .description(String.format("Patch aspect %s on %s entity.", aspect, upperFirstEntity))
+            .description(
+                String.format(
+                    "Patch aspect %s on %s entity.", aspectSpec.getName(), upperFirstEntity))
             .required(true)
             .content(
                 new Content()
@@ -1158,7 +1179,8 @@ public class OpenAPIV3Generator {
                         .name(NAME_SYSTEM_METADATA)
                         .description("Include systemMetadata with response.")
                         .schema(new Schema().type(TYPE_BOOLEAN)._default(false))))
-            .summary(String.format("Patch aspect %s on %s ", aspect, upperFirstEntity))
+            .summary(
+                String.format("Patch aspect %s on %s ", aspectSpec.getName(), upperFirstEntity))
             .tags(tags)
             .requestBody(patchRequestBody)
             .responses(new ApiResponses().addApiResponse("200", successPatchResponse));

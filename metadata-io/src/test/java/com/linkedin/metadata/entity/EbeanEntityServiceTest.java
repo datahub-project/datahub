@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.entity.ebean.EbeanAspectDao.TX_ISOLATION;
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -39,7 +40,6 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
-import io.ebean.annotation.TxIsolation;
 import java.net.URISyntaxException;
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -281,12 +281,11 @@ public class EbeanEntityServiceTest
     Database server = _aspectDao.getServer();
 
     try (Transaction transaction =
-        server.beginTransaction(TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
+        server.beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
       transaction.setBatchMode(true);
       // Work 1
       try (Transaction transaction2 =
-          server.beginTransaction(
-              TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
+          server.beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
         transaction2.setBatchMode(true);
         // Work 2
         transaction2.commit();
@@ -337,7 +336,7 @@ public class EbeanEntityServiceTest
     try (Transaction transaction =
         ((EbeanAspectDao) _entityServiceImpl.aspectDao)
             .getServer()
-            .beginTransaction(TxScope.requiresNew().setIsolation(TxIsolation.REPEATABLE_READ))) {
+            .beginTransaction(TxScope.requiresNew().setIsolation(TX_ISOLATION))) {
       TransactionContext transactionContext = TransactionContext.empty(transaction, 3);
       _entityServiceImpl.aspectDao.saveAspect(
           transactionContext,
@@ -383,57 +382,6 @@ public class EbeanEntityServiceTest
   }
 
   @Test
-  public void testBatchDuplicate() throws Exception {
-    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:batchDuplicateTest");
-    SystemMetadata systemMetadata = AspectGenerationUtils.createSystemMetadata();
-    ChangeItemImpl item1 =
-        ChangeItemImpl.builder()
-            .urn(entityUrn)
-            .aspectName(STATUS_ASPECT_NAME)
-            .recordTemplate(new Status().setRemoved(true))
-            .systemMetadata(systemMetadata.copy())
-            .auditStamp(TEST_AUDIT_STAMP)
-            .build(TestOperationContexts.emptyAspectRetriever(null));
-    ChangeItemImpl item2 =
-        ChangeItemImpl.builder()
-            .urn(entityUrn)
-            .aspectName(STATUS_ASPECT_NAME)
-            .recordTemplate(new Status().setRemoved(false))
-            .systemMetadata(systemMetadata.copy())
-            .auditStamp(TEST_AUDIT_STAMP)
-            .build(TestOperationContexts.emptyAspectRetriever(null));
-    _entityServiceImpl.ingestAspects(
-        opContext,
-        AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
-            .items(List.of(item1, item2))
-            .build(),
-        false,
-        true);
-
-    // List aspects urns
-    ListUrnsResult batch = _entityServiceImpl.listUrns(opContext, entityUrn.getEntityType(), 0, 2);
-
-    assertEquals(batch.getStart().intValue(), 0);
-    assertEquals(batch.getCount().intValue(), 1);
-    assertEquals(batch.getTotal().intValue(), 1);
-    assertEquals(batch.getEntities().size(), 1);
-    assertEquals(entityUrn.toString(), batch.getEntities().get(0).toString());
-
-    EnvelopedAspect envelopedAspect =
-        _entityServiceImpl.getLatestEnvelopedAspect(
-            opContext, CORP_USER_ENTITY_NAME, entityUrn, STATUS_ASPECT_NAME);
-    assertEquals(
-        envelopedAspect.getSystemMetadata().getVersion(),
-        "2",
-        "Expected version 2 accounting for duplicates");
-    assertEquals(
-        envelopedAspect.getValue().toString(),
-        "{removed=false}",
-        "Expected 2nd item to be the latest");
-  }
-
-  @Test
   public void dataGeneratorThreadingTest() {
     DataGenerator dataGenerator = new DataGenerator(opContext, _entityServiceImpl);
     List<String> aspects = List.of("status", "globalTags", "glossaryTerms");
@@ -468,7 +416,7 @@ public class EbeanEntityServiceTest
     List<List<MetadataChangeProposal>> testData =
         dataGenerator.generateMCPs("dataset", 25, aspects).collect(Collectors.toList());
 
-    executeThreadingTest(opContext, _entityServiceImpl, testData, 15);
+    executeThreadingTest(userContext, _entityServiceImpl, testData, 15);
 
     // Expected aspects
     Set<Triple<String, String, Long>> generatedAspectIds =
@@ -507,7 +455,9 @@ public class EbeanEntityServiceTest
     assertEquals(
         missing.size(),
         0,
-        String.format("Expected all generated aspects to be inserted. Missing: %s", missing));
+        String.format(
+            "Expected all generated aspects to be inserted. Missing Examples: %s",
+            missing.stream().limit(10).collect(Collectors.toSet())));
   }
 
   /**
@@ -524,7 +474,7 @@ public class EbeanEntityServiceTest
     List<List<MetadataChangeProposal>> testData =
         dataGenerator.generateMCPs("dataset", 25, aspects).collect(Collectors.toList());
 
-    executeThreadingTest(opContext, _entityServiceImpl, testData, 1);
+    executeThreadingTest(userContext, _entityServiceImpl, testData, 1);
 
     // Expected aspects
     Set<Triple<String, String, Long>> generatedAspectIds =

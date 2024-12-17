@@ -281,10 +281,10 @@
         "json": {
             "subjects": [
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_session3,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD)"
                 },
                 {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD)"
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo_session3,PROD)"
                 }
             ]
         }

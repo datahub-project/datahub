@@ -33,7 +33,9 @@ from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.config import (  # noqa: I250; TODO: Remove this alias
+    DatahubClientConfig as DatahubClientConfig,
+)
 from datahub.ingestion.graph.connections import (
     connections_gql,
     get_id_from_connection_urn,
@@ -65,6 +67,7 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
+from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import Urn, guess_entity_type
@@ -1241,14 +1244,29 @@ class DataHubGraph(DatahubRestEmitter):
         Args:
             urn: The urn of the entity to soft-delete.
         """
+        self.set_soft_delete_status(
+            urn=urn, run_id=run_id, deletion_timestamp=deletion_timestamp, delete=True
+        )
 
+    def set_soft_delete_status(
+        self,
+        urn: str,
+        delete: bool,
+        run_id: str = _GRAPH_DUMMY_RUN_ID,
+        deletion_timestamp: Optional[int] = None,
+    ) -> None:
+        """Change status of soft-delete an entity by urn.
+
+        Args:
+            urn: The urn of the entity to soft-delete.
+        """
         assert urn
 
         deletion_timestamp = deletion_timestamp or int(time.time() * 1000)
         self.emit(
             MetadataChangeProposalWrapper(
                 entityUrn=urn,
-                aspect=StatusClass(removed=True),
+                aspect=StatusClass(removed=delete),
                 systemMetadata=SystemMetadataClass(
                     runId=run_id, lastObserved=deletion_timestamp
                 ),
@@ -1802,4 +1820,5 @@ def get_default_graph() -> DataHubGraph:
     graph_config = config_utils.load_client_config()
     graph = DataHubGraph(graph_config)
     graph.test_connection()
+    telemetry_instance.set_context(server=graph)
     return graph

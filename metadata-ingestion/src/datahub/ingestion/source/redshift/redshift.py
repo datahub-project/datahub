@@ -222,6 +222,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     ```
     """
 
+    # TODO: Replace with standardized types in sql_types.py
     REDSHIFT_FIELD_TYPE_MAPPINGS: Dict[
         str,
         Type[
@@ -436,7 +437,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def _extract_metadata(
         self, connection: redshift_connector.Connection, database: str
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-
         yield from self.gen_database_container(
             database=database,
         )
@@ -831,6 +831,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             customProperties=custom_properties,
         )
         if self.config.patch_custom_properties:
+            # TODO: use auto_incremental_properties workunit processor instead
+            # Deprecate use of patch_custom_properties
             patch_builder = create_dataset_props_patch_builder(
                 dataset_urn, dataset_properties
             )

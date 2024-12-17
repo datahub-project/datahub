@@ -8,7 +8,7 @@ import pydantic
 
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.glossary.classification_mixin import ClassificationReportMixin
-from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.ingestion.source_report.time_window import BaseTimeWindowReport
 from datahub.sql_parsing.sql_parsing_aggregator import SqlAggregatorReport
@@ -77,7 +77,7 @@ class BigQueryQueriesExtractorReport(Report):
 
 @dataclass
 class BigQueryV2Report(
-    ProfilingSqlReport,
+    SQLSourceReport,
     IngestionStageReport,
     BaseTimeWindowReport,
     ClassificationReportMixin,
@@ -157,6 +157,8 @@ class BigQueryV2Report(
     num_filtered_query_events: int = 0
     num_usage_query_hash_collisions: int = 0
     num_operational_stats_workunits_emitted: int = 0
+    num_lineage_dropped_gcs_path: int = 0
+
     snapshots_scanned: int = 0
 
     # view lineage
@@ -185,6 +187,7 @@ class BigQueryV2Report(
     usage_start_time: Optional[datetime] = None
     usage_end_time: Optional[datetime] = None
     stateful_usage_ingestion_enabled: bool = False
+    num_skipped_external_table_lineage: int = 0
 
     queries_extractor: Optional[BigQueryQueriesExtractorReport] = None
 
