@@ -142,7 +142,7 @@ public class UpstreamLineagePatchBuilder
             FINE_GRAINED_PATH_START
                 + transformationOperation
                 + "/"
-                + downstreamSchemaField
+                + encodeValueUrn(downstreamSchemaField)
                 + "/"
                 + finalQueryUrn
                 + "/"
