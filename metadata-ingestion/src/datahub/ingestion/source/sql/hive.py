@@ -301,13 +301,11 @@ class HiveStorageLineage:
         storage_urn: str,
         dataset_schema: SchemaMetadataClass,
         storage_schema: SchemaMetadataClass,
-    ) -> Optional[List[FineGrainedLineageClass]]:
+    ) -> Iterable[FineGrainedLineageClass]:
         """Generate column-level lineage between dataset and storage"""
 
         if not self.config.include_column_lineage:
-            return None
-
-        fine_grained_lineages: List[FineGrainedLineageClass] = []
+            return
 
         for dataset_field in dataset_schema.fields:
             dataset_path = dataset_field.fieldPath
@@ -320,63 +318,64 @@ class HiveStorageLineage:
 
             if matching_field:
                 if self.config.hive_storage_lineage_direction == "upstream":
-                    fine_grained_lineages.append(
-                        FineGrainedLineageClass(
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[
-                                make_schema_field_urn(
-                                    parent_urn=storage_urn,
-                                    field_path=matching_field.fieldPath,
-                                )
-                            ],
-                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            downstreams=[
-                                make_schema_field_urn(
-                                    parent_urn=dataset_urn,
-                                    field_path=dataset_path,
-                                )
-                            ],
-                        )
+                    yield FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[
+                            make_schema_field_urn(
+                                parent_urn=storage_urn,
+                                field_path=matching_field.fieldPath,
+                            )
+                        ],
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[
+                            make_schema_field_urn(
+                                parent_urn=dataset_urn,
+                                field_path=dataset_path,
+                            )
+                        ],
                     )
                 else:
-                    fine_grained_lineages.append(
-                        FineGrainedLineageClass(
-                            upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
-                            upstreams=[
-                                make_schema_field_urn(
-                                    parent_urn=dataset_urn,
-                                    field_path=dataset_path,
-                                )
-                            ],
-                            downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
-                            downstreams=[
-                                make_schema_field_urn(
-                                    parent_urn=storage_urn,
-                                    field_path=matching_field.fieldPath,
-                                )
-                            ],
-                        )
+                    yield FineGrainedLineageClass(
+                        upstreamType=FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        upstreams=[
+                            make_schema_field_urn(
+                                parent_urn=dataset_urn,
+                                field_path=dataset_path,
+                            )
+                        ],
+                        downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
+                        downstreams=[
+                            make_schema_field_urn(
+                                parent_urn=storage_urn,
+                                field_path=matching_field.fieldPath,
+                            )
+                        ],
                     )
-
-        return fine_grained_lineages if fine_grained_lineages else None
 
     def _create_lineage_mcp(
         self,
         source_urn: str,
         target_urn: str,
-        fine_grained_lineages: Optional[List[FineGrainedLineageClass]] = None,
-    ) -> MetadataChangeProposalWrapper:
+        fine_grained_lineages: Optional[Iterable[FineGrainedLineageClass]] = None,
+    ) -> Iterable[MetadataWorkUnit]:
         """Create lineage MCP between source and target datasets"""
+
+        lineages_list = (
+            list(fine_grained_lineages) if fine_grained_lineages is not None else None
+        )
 
         upstream_lineage = UpstreamLineageClass(
             upstreams=[
                 UpstreamClass(dataset=source_urn, type=DatasetLineageTypeClass.COPY)
             ],
-            fineGrainedLineages=fine_grained_lineages,
+            fineGrainedLineages=lineages_list,
         )
 
-        return MetadataChangeProposalWrapper(
-            entityUrn=target_urn, aspect=upstream_lineage
+        yield MetadataWorkUnit(
+            id=f"{source_urn}-{target_urn}-lineage",
+            mcp=MetadataChangeProposalWrapper(
+                entityUrn=target_urn, aspect=upstream_lineage
+            ),
         )
 
     def get_storage_dataset_mcp(
@@ -384,18 +383,17 @@ class HiveStorageLineage:
         storage_location: str,
         platform_instance: Optional[str] = None,
         schema_metadata: Optional[SchemaMetadataClass] = None,
-    ) -> Optional[List[MetadataChangeProposalWrapper]]:
+    ) -> Iterable[MetadataWorkUnit]:
         """
         Generate MCPs for storage dataset if needed.
         This creates the storage dataset entity in DataHub.
         """
 
-        platform_instance = None
         storage_info = StoragePathParser.parse_storage_location(
             storage_location,
         )
         if not storage_info:
-            return None
+            return
 
         platform, path = storage_info
         platform_name = StoragePathParser.get_platform_name(platform)
@@ -414,52 +412,50 @@ class HiveStorageLineage:
                 platform_instance=platform_instance,
             )
 
-            mcps = []
-
+            # Dataset properties
             props = DatasetPropertiesClass(name=path)
-
-            mcps.append(
-                MetadataChangeProposalWrapper(
+            yield MetadataWorkUnit(
+                id=f"storage-{storage_urn}-props",
+                mcp=MetadataChangeProposalWrapper(
                     entityUrn=storage_urn,
                     aspect=props,
-                )
+                ),
             )
 
-            # Add platform instance
+            # Platform instance
             platform_instance_aspect = self._make_dataset_platform_instance(
                 platform=platform_name,
                 instance=platform_instance,
             )
-
-            mcps.append(
-                MetadataChangeProposalWrapper(
+            yield MetadataWorkUnit(
+                id=f"storage-{storage_urn}-platform",
+                mcp=MetadataChangeProposalWrapper(
                     entityUrn=storage_urn, aspect=platform_instance_aspect
-                )
+                ),
             )
 
-            # Add schema if available
+            # Schema if available
             if schema_metadata:
                 storage_schema = SchemaMetadataClass(
                     schemaName=f"{platform.value}_schema",
                     platform=f"urn:li:dataPlatform:{platform.value}",
                     version=0,
-                    fields=schema_metadata.fields,  # Use the same fields as the table
+                    fields=schema_metadata.fields,
                     hash="",
                     platformSchema=OtherSchemaClass(rawSchema=""),
                 )
-
-                mcps.append(
-                    MetadataChangeProposalWrapper(
+                yield MetadataWorkUnit(
+                    id=f"storage-{storage_urn}-schema",
+                    mcp=MetadataChangeProposalWrapper(
                         entityUrn=storage_urn, aspect=storage_schema
-                    )
+                    ),
                 )
 
-            return mcps
         except Exception as e:
             logger.error(
                 f"Failed to create storage dataset MCPs for {storage_location}: {e}"
             )
-            return None
+            return
 
     def get_lineage_mcp(
         self,
@@ -502,17 +498,11 @@ class HiveStorageLineage:
             platform_instance = self.config.storage_platform_instance.lower()
 
         # Create storage dataset entity
-        storage_mcps = self.get_storage_dataset_mcp(
+        yield from self.get_storage_dataset_mcp(
             storage_location=storage_location,
             platform_instance=platform_instance,
             schema_metadata=dataset_schema,
         )
-        if storage_mcps:
-            for mcp in storage_mcps:
-                yield MetadataWorkUnit(
-                    id=f"storage-{storage_urn}",
-                    mcp=mcp,
-                )
 
         # Get storage schema if available (implement based on storage system)
         storage_schema = (
@@ -522,30 +512,27 @@ class HiveStorageLineage:
         )
 
         # Generate fine-grained lineage if schemas available
-        fine_grained_lineages = None
-        if dataset_schema and storage_schema:
-            fine_grained_lineages = self._get_fine_grained_lineages(
+        fine_grained_lineages = (
+            None
+            if not (dataset_schema and storage_schema)
+            else self._get_fine_grained_lineages(
                 dataset_urn, storage_urn, dataset_schema, storage_schema
             )
+        )
 
         # Create lineage MCP
         if self.config.hive_storage_lineage_direction == "upstream":
-            mcp = self._create_lineage_mcp(
+            yield from self._create_lineage_mcp(
                 source_urn=storage_urn,
                 target_urn=dataset_urn,
                 fine_grained_lineages=fine_grained_lineages,
             )
         else:
-            mcp = self._create_lineage_mcp(
+            yield from self._create_lineage_mcp(
                 source_urn=dataset_urn,
                 target_urn=storage_urn,
                 fine_grained_lineages=fine_grained_lineages,
             )
-
-        yield MetadataWorkUnit(
-            id=f"{dataset_urn}-{storage_urn}-lineage",
-            mcp=mcp,
-        )
 
     def _get_storage_schema(
         self,
