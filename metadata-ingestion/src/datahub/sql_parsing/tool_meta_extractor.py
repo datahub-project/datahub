@@ -74,11 +74,9 @@ class ToolMetaExtractor:
     def create(
         cls,
         graph: Optional[DataHubGraph] = None,
-        report: Optional[ToolMetaExtractorReport] = None,
     ) -> "ToolMetaExtractor":
-        if report is None:
-            report = ToolMetaExtractorReport()
-
+        report = ToolMetaExtractorReport()
+        looker_user_mapping = None
         if graph:
             query = (
                 ElasticPlatformResourceQuery.create_from()
@@ -98,31 +96,23 @@ class ToolMetaExtractor:
                 )
             ]
 
-            if platform_resources is None:
-                report.failures.append(
-                    "Looker user metadata extraction failed. No Looker user id mappings found."
-                )
-                return cls(report=report)
-
             if len(platform_resources) > 1:
                 report.failures.append(
                     "Looker user metadata extraction failed. Found more than one looker user id mappings."
                 )
-                return cls(report)
+            else:
+                platform_resource = platform_resources[0]
 
-            platform_resource = platform_resources[0]
-
-            if (
-                platform_resource
-                and platform_resource.resource_info
-                and platform_resource.resource_info.value
-            ):
-                with contextlib.suppress(ValueError, AssertionError):
-                    value = platform_resource.resource_info.value.as_raw_json()
-                    if value:
-                        assert isinstance(value, dict)
-                        return cls(report, looker_user_mapping=value)
-        return cls(report)
+                if (
+                    platform_resource
+                    and platform_resource.resource_info
+                    and platform_resource.resource_info.value
+                ):
+                    with contextlib.suppress(ValueError, AssertionError):
+                        value = platform_resource.resource_info.value.as_raw_json()
+                        if value:
+                            looker_user_mapping = value
+        return cls(report, looker_user_mapping)
 
     def _extract_mode_query(self, entry: QueryLog) -> bool:
         """
@@ -193,9 +183,6 @@ class ToolMetaExtractor:
                     self.report.num_queries_meta_extracted[tool] += 1
                     return True
             except Exception as e:
-                self.report.failures.append(
-                    f"Tool metadata extraction failed with error : {e}"
-                )
                 logger.debug(f"Tool metadata extraction failed with error : {e}")
         return False
 
