@@ -2,6 +2,7 @@ import logging
 import os
 from datetime import datetime, timedelta, timezone
 from enum import Enum
+from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, Dict, List, Literal, Optional, Tuple, Union
 
 import boto3
@@ -39,6 +40,15 @@ class AwsEnvironment(Enum):
     UNKNOWN = "UNKNOWN"
 
 
+class AwsServicePrincipal(Enum):
+    LAMBDA = "lambda.amazonaws.com"
+    EKS = "eks.amazonaws.com"
+    APP_RUNNER = "apprunner.amazonaws.com"
+    ECS = "ecs.amazonaws.com"
+    ELASTIC_BEANSTALK = "elasticbeanstalk.amazonaws.com"
+    EC2 = "ec2.amazonaws.com"
+
+
 class AwsAssumeRoleConfig(PermissiveConfigModel):
     # Using the PermissiveConfigModel to allow the user to pass additional arguments.
 
@@ -59,7 +69,7 @@ def get_instance_metadata_token() -> Optional[str]:
             headers={"X-aws-ec2-metadata-token-ttl-seconds": "21600"},
             timeout=1,
         )
-        if response.status_code == 200:
+        if response.status_code == HTTPStatus.OK:
             return response.text
     except requests.exceptions.RequestException:
         logger.debug("Failed to get IMDSv2 token")
@@ -78,7 +88,7 @@ def is_running_on_ec2() -> bool:
             headers={"X-aws-ec2-metadata-token": token},
             timeout=1,
         )
-        return response.status_code == 200
+        return response.status_code == HTTPStatus.OK
     except requests.exceptions.RequestException:
         return False
 
@@ -167,17 +177,17 @@ def get_current_identity() -> Tuple[Optional[str], Optional[str]]:
 
     if env == AwsEnvironment.LAMBDA:
         role_arn = get_lambda_role_arn()
-        return role_arn, "lambda.amazonaws.com"
+        return role_arn, AwsServicePrincipal.LAMBDA.value
 
     elif env == AwsEnvironment.EKS:
         role_arn = os.getenv("AWS_ROLE_ARN")
-        return role_arn, "eks.amazonaws.com"
+        return role_arn, AwsServicePrincipal.EKS.value
 
     elif env == AwsEnvironment.APP_RUNNER:
         try:
             sts = boto3.client("sts")
             identity = sts.get_caller_identity()
-            return identity.get("Arn"), "apprunner.amazonaws.com"
+            return identity.get("Arn"), AwsServicePrincipal.APP_RUNNER.value
         except Exception as e:
             logger.debug(f"Failed to get App Runner role: {e}")
 
@@ -188,19 +198,22 @@ def get_current_identity() -> Tuple[Optional[str], Optional[str]]:
             )
             if metadata_uri:
                 response = requests.get(f"{metadata_uri}/task", timeout=1)
-                if response.status_code == 200:
+                if response.status_code == HTTPStatus.OK:
                     task_metadata = response.json()
                     if "TaskARN" in task_metadata:
-                        return task_metadata.get("TaskARN"), "ecs.amazonaws.com"
+                        return (
+                            task_metadata.get("TaskARN"),
+                            AwsServicePrincipal.ECS.value,
+                        )
         except Exception as e:
             logger.debug(f"Failed to get ECS task role: {e}")
 
     elif env == AwsEnvironment.BEANSTALK:
         # Beanstalk uses EC2 instance metadata
-        return get_instance_role_arn(), "elasticbeanstalk.amazonaws.com"
+        return get_instance_role_arn(), AwsServicePrincipal.ELASTIC_BEANSTALK.value
 
     elif env == AwsEnvironment.EC2:
-        return get_instance_role_arn(), "ec2.amazonaws.com"
+        return get_instance_role_arn(), AwsServicePrincipal.EC2.value
 
     return None, None
 
@@ -266,7 +279,7 @@ class AwsConnectionConfig(ConfigModel):
     )
     aws_profile: Optional[str] = Field(
         default=None,
-        description="Named AWS profile to use. Only used if access key / secret are unset. If not set the default will be used",
+        description="The [named profile](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-profiles.html) to use from AWS credentials. Falls back to default profile if not specified and no access keys provided. Profiles are configured in ~/.aws/credentials or ~/.aws/config.",
     )
     aws_region: Optional[str] = Field(None, description="AWS region code.")
 
