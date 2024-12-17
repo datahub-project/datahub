@@ -6,6 +6,7 @@ import json
 import pathlib
 import random
 import string
+import tempfile
 from io import StringIO
 from typing import Any, Iterator, List, Optional, TypeVar
 
@@ -45,6 +46,36 @@ def get_where_field_matches(doc: list[_D], field: str, value: str) -> Optional[_
 
 def get_where_name_matches(doc: list[_D], name: str) -> Optional[_D]:
     return get_where_field_matches(doc, "name", name)
+
+
+class SafeYamlUpdateError(Exception):
+    pass
+
+
+@contextlib.contextmanager
+def SafeYamlFileUpdater(file: pathlib.Path) -> Iterator[Any]:
+    """A wrapper around YamlFileUpdater that ensures the output is valid YAML before writing to the original file."""
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Copy the original file to a temp location.
+        temp_file = pathlib.Path(temp_dir) / (
+            file.with_suffix(".temp.yml").name or "temp.yml"
+        )
+        temp_file.write_text(file.read_text())
+
+        # Edit the temp file.
+        with YamlFileUpdater(temp_file) as doc:
+            yield doc
+
+        try:
+            yaml.safe_load(temp_file.read_text())
+        except yaml.YAMLError as e:
+            raise SafeYamlUpdateError(
+                f"Generated invalid YAML while updating {file}"
+            ) from e
+
+        # Now that it's validated, copy it back to the original file.
+        file.write_text(temp_file.read_text())
 
 
 class DbtProject:
@@ -315,7 +346,7 @@ class DbtFileLocator:
         if node_type == "source":
             yml_file = self.dbt_dir / original_file_path
 
-            with YamlFileUpdater(yml_file) as doc:
+            with SafeYamlFileUpdater(yml_file) as doc:
                 table = self._get_source_table_by_id(doc, dbt_unique_id)
                 yield table
 
@@ -358,7 +389,7 @@ class DbtFileLocator:
                 # Create the file.
                 yml_file.write_text(f"{plural_node_type}: []\n")
 
-            with YamlFileUpdater(yml_file) as doc:
+            with SafeYamlFileUpdater(yml_file) as doc:
                 doc.setdefault(plural_node_type, [])
                 model = get_where_name_matches(doc[plural_node_type], model_name)
 
