@@ -1198,7 +1198,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 domain_config=sql_config.domain,
                 domain_registry=self.domain_registry,
             )
-        
+
         db_name = self.get_db_name(inspector)
         _key = f"{db_name}.{schema}.{view}"
 

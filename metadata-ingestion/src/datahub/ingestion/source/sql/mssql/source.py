@@ -129,13 +129,6 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         default=False,
         description="Enable to convert the SQL Server assets urns to lowercase",
     )
-    add_extended_properties: bool = Field(
-        default=False,
-        description="Enable reading extended properties from mssql",
-    )
-    map_extended_properties: Dict[str, Dict] = Field(
-        default={}, description="Mapping for extended properties from msqsl to datahub"
-    )
     include_lineage: bool = Field(
         default=True,
         description="Enable lineage extraction for stored procedures",
@@ -857,132 +850,6 @@ class SQLServerSource(SQLAlchemySource):
             else qualified_table_name
         )
 
-    def get_extended_properties_name(self) -> str:
-        names = "','".join(
-            list(self.config.map_extended_properties.keys()) + ["MS_Description"]
-        )
-        return f"('{names}')"
-
-    def get_extra_tags(
-        self, inspector: Inspector, schema: str, table: str
-    ) -> Optional[Dict[str, List[str]]]:
-        result = {}
-        db_name = self.get_db_name(inspector)
-        _key = f"{db_name}.{schema}.{table}"
-        for k, v in self.column_tags.items():
-            if k.startswith(_key):
-                column = k.split(".")[-1]
-                for name, tags in v.items():
-                    setting = self.config.map_extended_properties.get(name)
-                    if (
-                        setting
-                        and setting.get("strategy")
-                        == ExtendedPropertiesMapping.STRATEGY_OVERWRITE.value
-                    ):
-                        result[column] = tags
-                    else:
-                        result.setdefault(column, []).extend(tags)
-        return result
-
-    def get_tags(self, key: str, dataset_urn: str) -> Optional[GlobalTagsClass]:
-        tags = self.table_tags.get(key)
-        if tags:
-            tags_ex: Optional[GlobalTagsClass] = (
-                self.ctx.graph.get_tags(entity_urn=dataset_urn)
-                if self.ctx.graph
-                else None
-            )
-            tags_to_add = [t.tag for t in tags_ex.tags] if tags_ex else []
-            for k, v in tags.items():
-                setting = self.config.map_extended_properties.get(k)
-                if (
-                    setting
-                    and setting.get("strategy")
-                    == ExtendedPropertiesMapping.STRATEGY_OVERWRITE.value
-                ):
-                    tags_to_add = [make_tag_urn(t) for t in v]
-                else:
-                    tags_to_add.extend([make_tag_urn(t) for t in v])
-            tags_to_add = list(set(tags_to_add))
-            if tags_to_add:
-                return GlobalTagsClass(
-                    tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
-                )
-        return None
-
-    def get_owners(self, key: str, dataset_urn: str) -> Optional[OwnershipClass]:
-        owners_prop = self.table_owners.get(key)
-        if owners_prop:
-            own: Optional[List[str]] = (
-                self.ctx.graph.list_all_entity_urns("corpuser", 0, 10**10)
-                if self.ctx.graph
-                else None
-            )
-            all_owners_urn = set(own) if own else set()
-            owners: Dict[Union[str, OwnershipTypeClass], Dict[str, OwnerClass]] = dict()
-            ownership_ex: Optional[OwnershipClass] = (
-                self.ctx.graph.get_ownership(entity_urn=dataset_urn)
-                if self.ctx.graph
-                else None
-            )
-            if ownership_ex:
-                for owner in ownership_ex.owners:
-                    if owner.typeUrn:
-                        owner = OwnerClass(
-                            owner=owner.owner,
-                            type=owner.typeUrn.split("__")[-1].upper(),
-                        )
-                    owners.setdefault(owner.type, {}).update({owner.owner: owner})
-            for k, v in owners_prop.items():
-                setting = self.config.map_extended_properties[k]
-                ownership_type, ownership_type_urn = validate_ownership_type(
-                    setting["ownership_type"]
-                )
-                owner_urns = []
-                absent = []
-                for o in v:
-                    ownername, _ = o.split("@")
-                    owner_urn = make_user_urn(o)
-                    ownername_urn = make_user_urn(ownername)
-                    if owner_urn in all_owners_urn:
-                        owner_urns.append(owner_urn)
-                    elif ownername_urn in all_owners_urn:
-                        owner_urns.append(ownername_urn)
-                    else:
-                        absent.append(o)
-
-                if absent:
-                    logger.warning(
-                        f"Extracted owners do not exist in DataHub. Can not emit metadata: {absent}"
-                    )
-
-                owners_add = [
-                    OwnerClass(
-                        owner=owner, type=ownership_type, typeUrn=ownership_type_urn
-                    )
-                    for owner in owner_urns
-                ]
-
-                if (
-                    setting.get("strategy")
-                    == ExtendedPropertiesMapping.STRATEGY_OVERWRITE.value
-                ):
-                    owners[ownership_type[0]] = {
-                        owner.owner: owner for owner in owners_add
-                    }
-                else:
-                    owners.setdefault(ownership_type[0], {}).update(
-                        {owner.owner: owner for owner in owners_add}
-                    )
-            if owners:
-                return OwnershipClass(
-                    owners=[
-                        owner
-                        for owners_by_type in owners.values()
-                        for owner in owners_by_type.values()
-                    ]
-                )
-        return None
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from super().get_workunits_internal()
 
@@ -1037,6 +904,7 @@ class SQLServerSource(SQLAlchemySource):
             if self.config.convert_urns_to_lowercase
             else table_ref_str
         )
+
     def get_extended_properties_name(self) -> str:
         names = "','".join(
             list(self.config.map_extended_properties.keys()) + ["MS_Description"]
