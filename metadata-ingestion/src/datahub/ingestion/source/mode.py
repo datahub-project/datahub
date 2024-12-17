@@ -1469,7 +1469,6 @@ class ModeSource(StatefulIngestionSourceBase):
 
         @r.wraps
         def get_request():
-            response: Optional[Response] = None
             try:
                 response = self.session.get(
                     url, timeout=self.config.api_options.timeout
