@@ -236,7 +236,7 @@ class SupersetSource(StatefulIngestionSourceBase):
                 graph=self.ctx.graph,
             )
         self.session = self.login()
-        self.owners_dict = self.build_preset_owner_dict()
+        self.owners_id_to_email_dict = self.build_preset_owner_dict()
 
     def login(self) -> requests.Session:
         login_response = requests.post(
@@ -360,38 +360,38 @@ class SupersetSource(StatefulIngestionSourceBase):
             )
         raise ValueError("Could not construct dataset URN")
 
-    def parse_owner_payload(self, payload: Dict[str, Any]) -> Dict[str, str]:
-        owners_dict = {}
+    def _parse_owner_payload(self, payload: Dict[str, Any]) -> Dict[str, str]:
+        owners_id_to_email_dict = {}
         for owner_data in payload["result"]:
-            email = owner_data["extra"]["email"]
-            value = owner_data["value"]
+            owner_email = owner_data.get("extra", {}).get("email", None)
+            owner_id = owner_data.get("value", None)
 
-            if value and email:
-                owners_dict[value] = email
-        return owners_dict
+            if owner_id and owner_email:
+                owners_id_to_email_dict[owner_id] = owner_email
+        return owners_id_to_email_dict
 
     def build_preset_owner_dict(self) -> Dict[str, str]:
-        owners_dict = {}
-        dataset_payload = self.get_all_entity_owners("dataset")
-        chart_payload = self.get_all_entity_owners("chart")
-        dashboard_payload = self.get_all_entity_owners("dashboard")
+        owners_id_to_email_dict = {}
+        dataset_payload = self._get_all_entity_owners("dataset")
+        chart_payload = self._get_all_entity_owners("chart")
+        dashboard_payload = self._get_all_entity_owners("dashboard")
 
-        owners_dict.update(self.parse_owner_payload(dataset_payload))
-        owners_dict.update(self.parse_owner_payload(chart_payload))
-        owners_dict.update(self.parse_owner_payload(dashboard_payload))
-        return owners_dict
+        owners_id_to_email_dict.update(self._parse_owner_payload(dataset_payload))
+        owners_id_to_email_dict.update(self._parse_owner_payload(chart_payload))
+        owners_id_to_email_dict.update(self._parse_owner_payload(dashboard_payload))
+        return owners_id_to_email_dict
 
     def build_owners_urn_list(self, data: Dict[str, Any]) -> List[str]:
         owners_urn_list = []
         for owner in data.get("owners", []):
             owner_id = owner.get("id")
-            owner_email = self.owners_dict.get(owner_id)
+            owner_email = self.owners_id_to_email_dict.get(owner_id)
             if owner_email is not None:
                 owners_urn = make_user_urn(owner_email)
                 owners_urn_list.append(owners_urn)
         return owners_urn_list
 
-    def get_all_entity_owners(self, entity: str) -> Dict[str, Any]:
+    def _get_all_entity_owners(self, entity: str) -> Dict[str, Any]:
         current_page = 1
         total_owners = PAGE_SIZE
         all_owners = []
@@ -405,7 +405,8 @@ class SupersetSource(StatefulIngestionSourceBase):
                 logger.warning(
                     f"Failed to get {entity} data: {full_owners_response.text}"
                 )
-            full_owners_response.raise_for_status()
+                current_page += 1
+                continue
 
             payload = full_owners_response.json()
             total_owners = payload.get("count", total_owners)
