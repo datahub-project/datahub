@@ -55,7 +55,7 @@ jobs:
       - uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v5
         with:
-          python-version: 3.10
+          python-version: "3.10"
           cache: "pip"
       - uses: actions/cache@v4
         with:
