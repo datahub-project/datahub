@@ -119,6 +119,47 @@ EXEC sys.sp_addextendedproperty
 @level1type = N'TABLE', @level1name = 'Persons',
 @level2type = N'COLUMN',@level2name = 'LastName';
 GO
+
+GO
+EXEC sys.sp_addextendedproperty
+@name = N'DESCRIPTION',
+@value = N'Description extended property.',
+@level0type = N'SCHEMA', @level0name = 'Foo',
+@level1type = N'TABLE',  @level1name = 'Items';
+GO
+
+GO
+EXEC sys.sp_addextendedproperty
+@name = N'TAGS',
+@value = N'Deprecated',
+@level0type = N'SCHEMA', @level0name = 'Foo',
+@level1type = N'TABLE',  @level1name = 'Items';
+GO
+
+GO
+EXEC sys.sp_addextendedproperty
+@name = N'OWNER',
+@value = N'john_doe@datahub.com',
+@level0type = N'SCHEMA', @level0name = 'Foo',
+@level1type = N'TABLE',  @level1name = 'Items';
+GO
+
+GO
+EXEC sys.sp_addextendedproperty
+@name = N'WRITER',
+@value = N'baby_doe@datahub.com',
+@level0type = N'SCHEMA', @level0name = 'Foo',
+@level1type = N'TABLE',  @level1name = 'Items';
+GO
+
+GO
+EXEC sys.sp_addextendedproperty
+@name = N'DOMAIN',
+@value = N'Logistics',
+@level0type = N'SCHEMA', @level0name = 'Foo',
+@level1type = N'TABLE',  @level1name = 'Items';
+GO
+
 USE msdb ;
 GO
 EXEC dbo.sp_add_job

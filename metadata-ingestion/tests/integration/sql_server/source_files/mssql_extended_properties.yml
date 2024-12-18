@@ -1,0 +1,40 @@
+run_id: mssql-test
+
+source:
+  type: mssql
+  config:
+    username: sa
+    password: test!Password
+    database: DemoData
+    host_port: localhost:21433
+    convert_urns_to_lowercase: true
+    add_extended_properties: true
+    map_extended_properties: 
+      DESCRIPTION:
+        type: description
+        strategy: append
+      DOMAIN:
+        type: domains
+      TAGS:
+        type: tag
+        strategy: append
+      OWNER:
+        type: owner
+        strategy: append
+        ownership_type: BUSINESS_OWNER
+      WRITER:
+        type: owner
+        strategy: append
+        ownership_type: DATA_STEWARD
+      DEVELOPER:
+        type: owner
+        strategy: append
+        ownership_type: TECHNICAL_OWNER
+    # use_odbc: True
+    # uri_args:
+    #   driver: "ODBC Driver 17 for SQL Server"
+
+sink:
+  type: file
+  config:
+    filename: "./mssql_mces.json"
