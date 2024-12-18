@@ -649,6 +649,9 @@ class HiveConfig(TwoTierSQLAlchemyConfig):
     # defaults
     scheme: str = Field(default="hive", hidden_from_docs=True)
 
+    # Overriding as table location lineage is richer implementation here than with include_table_location_lineage
+    include_table_location_lineage: bool = Field(default=False, hidden_from_docs=True)
+
     emit_storage_lineage: bool = Field(
         default=False,
         description="Whether to emit storage-to-Hive lineage",
