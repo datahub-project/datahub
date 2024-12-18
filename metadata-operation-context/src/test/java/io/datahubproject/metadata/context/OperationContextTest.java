@@ -8,6 +8,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.testng.annotations.Test;
 
 public class OperationContextTest {
@@ -25,7 +26,7 @@ public class OperationContextTest {
             mock(EntityRegistry.class),
             mock(ServicesRegistryContext.class),
             null,
-            mock(RetrieverContext.class),
+            TestOperationContexts.emptyActiveUsersRetrieverContext(null),
             mock(ValidationContext.class));
 
     OperationContext opContext =

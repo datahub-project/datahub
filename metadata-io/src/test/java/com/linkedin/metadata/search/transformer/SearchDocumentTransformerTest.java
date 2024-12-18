@@ -247,6 +247,9 @@ public class SearchDocumentTransformerTest {
         TestOperationContexts.systemContextNoSearchAuthorization(
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
+                .cachingAspectRetriever(
+                    TestOperationContexts.emptyActiveUsersAspectRetriever(
+                        () -> TEST_ENTITY_REGISTRY))
                 .graphRetriever(mock(GraphRetriever.class))
                 .searchRetriever(mock(SearchRetriever.class))
                 .build());
@@ -301,6 +304,9 @@ public class SearchDocumentTransformerTest {
         TestOperationContexts.systemContextNoSearchAuthorization(
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
+                .cachingAspectRetriever(
+                    TestOperationContexts.emptyActiveUsersAspectRetriever(
+                        () -> TEST_ENTITY_REGISTRY))
                 .graphRetriever(mock(GraphRetriever.class))
                 .searchRetriever(mock(SearchRetriever.class))
                 .build());
@@ -337,6 +343,9 @@ public class SearchDocumentTransformerTest {
         TestOperationContexts.systemContextNoSearchAuthorization(
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
+                .cachingAspectRetriever(
+                    TestOperationContexts.emptyActiveUsersAspectRetriever(
+                        () -> TEST_ENTITY_REGISTRY))
                 .graphRetriever(mock(GraphRetriever.class))
                 .searchRetriever(mock(SearchRetriever.class))
                 .build());
@@ -369,6 +378,9 @@ public class SearchDocumentTransformerTest {
         TestOperationContexts.systemContextNoSearchAuthorization(
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
+                .cachingAspectRetriever(
+                    TestOperationContexts.emptyActiveUsersAspectRetriever(
+                        () -> TEST_ENTITY_REGISTRY))
                 .graphRetriever(mock(GraphRetriever.class))
                 .searchRetriever(mock(SearchRetriever.class))
                 .build());

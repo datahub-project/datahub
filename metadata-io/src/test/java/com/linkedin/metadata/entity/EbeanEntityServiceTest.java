@@ -19,6 +19,7 @@ import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.EbeanTestUtils;
+import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
@@ -98,12 +99,15 @@ public class EbeanEntityServiceTest
                             .entityService(_entityServiceImpl)
                             .entityRegistry(_testEntityRegistry)
                             .build())
-                    .graphRetriever(TestOperationContexts.emptyGraphRetriever)
-                    .searchRetriever(TestOperationContexts.emptySearchRetriever)
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(
+                            () -> _testEntityRegistry))
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
                     .build(),
             null,
             opContext ->
-                ((EntityServiceAspectRetriever) opContext.getAspectRetrieverOpt().get())
+                ((EntityServiceAspectRetriever) opContext.getAspectRetriever())
                     .setSystemOperationContext(opContext),
             null);
   }
@@ -152,25 +156,25 @@ public class EbeanEntityServiceTest
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(TestOperationContexts.emptyAspectRetriever(null)),
+                .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null)),
             ChangeItemImpl.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect2)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(TestOperationContexts.emptyAspectRetriever(null)),
+                .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null)),
             ChangeItemImpl.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect3)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(TestOperationContexts.emptyAspectRetriever(null)));
+                .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null)));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,
@@ -230,25 +234,25 @@ public class EbeanEntityServiceTest
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(TestOperationContexts.emptyAspectRetriever(null)),
+                .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null)),
             ChangeItemImpl.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect2)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(TestOperationContexts.emptyAspectRetriever(null)),
+                .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null)),
             ChangeItemImpl.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect3)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(TestOperationContexts.emptyAspectRetriever(null)));
+                .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null)));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,
@@ -310,11 +314,11 @@ public class EbeanEntityServiceTest
             .recordTemplate(new Status().setRemoved(true))
             .systemMetadata(systemMetadata)
             .auditStamp(TEST_AUDIT_STAMP)
-            .build(TestOperationContexts.emptyAspectRetriever(null));
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(item))
             .build(),
         false,
@@ -356,7 +360,7 @@ public class EbeanEntityServiceTest
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(
                 List.of(
                     ChangeItemImpl.builder()
@@ -365,7 +369,7 @@ public class EbeanEntityServiceTest
                         .recordTemplate(new Status().setRemoved(false))
                         .systemMetadata(systemMetadata)
                         .auditStamp(TEST_AUDIT_STAMP)
-                        .build(TestOperationContexts.emptyAspectRetriever(null))))
+                        .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null))))
             .build(),
         false,
         true);
@@ -600,7 +604,7 @@ public class EbeanEntityServiceTest
           auditStamp.setTime(System.currentTimeMillis());
           AspectsBatchImpl batch =
               AspectsBatchImpl.builder()
-                  .mcps(mcps, auditStamp, operationContext.getRetrieverContext().get())
+                  .mcps(mcps, auditStamp, operationContext.getRetrieverContext())
                   .build();
           entityService.ingestProposal(operationContext, batch, false);
         }

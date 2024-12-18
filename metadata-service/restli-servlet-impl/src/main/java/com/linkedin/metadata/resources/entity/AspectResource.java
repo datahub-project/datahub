@@ -309,7 +309,7 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
       log.debug("Proposals: {}", metadataChangeProposals);
       try {
         final AspectsBatch batch = AspectsBatchImpl.builder()
-                .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext().get(),
+                .mcps(metadataChangeProposals, auditStamp, opContext.getRetrieverContext(),
                     opContext.getValidationContext().isAlternateValidation())
                 .build();
 

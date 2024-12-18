@@ -137,7 +137,7 @@ public class DefaultAspectsUtil {
                               getProposalFromAspectForDefault(
                                   entry.getKey(), entry.getValue(), entityKeyAspect, templateItem),
                               templateItem.getAuditStamp(),
-                              opContext.getAspectRetrieverOpt().get()))
+                              opContext.getAspectRetriever()))
                   .filter(Objects::nonNull);
             })
         .collect(Collectors.toList());
