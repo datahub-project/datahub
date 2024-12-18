@@ -976,43 +976,24 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         def simplify_field_path(field_path):
             return Dataset._simplify_field_path(field_path)
 
-        if self.ctx.graph:
-            upstream_schema_metadata: Optional[
-                SchemaMetadata
-            ] = self.ctx.graph.get_schema_metadata(upstream_dataset_urn)
-
-            if schema_fields and upstream_schema_metadata:
-                fine_grained_lineages: List[FineGrainedLineage] = []
-                for schema_field in schema_fields:
-                    field_path_v1 = simplify_field_path(schema_field.fieldPath)
-                    matching_upstream_field = next(
-                        (
-                            f
-                            for f in upstream_schema_metadata.fields
-                            if simplify_field_path(f.fieldPath) == field_path_v1
-                        ),
-                        None,
-                    )
-                    if matching_upstream_field:
-                        fine_grained_lineages.append(
-                            FineGrainedLineage(
-                                downstreamType=FineGrainedLineageDownstreamType.FIELD,
-                                downstreams=[
-                                    make_schema_field_urn(dataset_urn, field_path_v1)
-                                ],
-                                upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
-                                upstreams=[
-                                    make_schema_field_urn(
-                                        upstream_dataset_urn,
-                                        simplify_field_path(
-                                            matching_upstream_field.fieldPath
-                                        ),
-                                    )
-                                ],
-                            )
+        fine_grained_lineages: List[FineGrainedLineage] = []
+        for schema_field in schema_fields:
+            field_path_v1 = simplify_field_path(schema_field.fieldPath)
+            fine_grained_lineages.append(
+                FineGrainedLineage(
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreams=[make_schema_field_urn(dataset_urn, field_path_v1)],
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    upstreams=[
+                        make_schema_field_urn(
+                            upstream_dataset_urn,
+                            simplify_field_path(schema_field.fieldPath),
                         )
-                if fine_grained_lineages:
-                    return fine_grained_lineages
+                    ],
+                )
+            )
+        if fine_grained_lineages:
+            return fine_grained_lineages
         return None
 
     def get_schema_fields(
