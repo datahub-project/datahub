@@ -7,12 +7,11 @@ import TabItem from '@theme/TabItem';
 
 By default, most of the SDK tutorials and APIs involve applying full upserts at the aspect level, e.g. replacing the aspect entirely. 
 This means that when you want to change even a single field within an aspect without modifying others, you need to do a read-modify-write to avoid overwriting existing fields.
-To support these scenarios, DataHub supports `PATCH` operations to perform targeted changes ob individual fields or values within arrays of fields are possible without impacting other existing metadata.
+To support these scenarios, DataHub supports `PATCH` operations to perform targeted changes for individual fields or values within arrays of fields are possible without impacting other existing metadata.
 
 :::note
 
 Currently, PATCH support is only available for a selected set of aspects, so before pinning your hopes on using PATCH as a way to make modifications to aspect values, confirm whether your aspect supports PATCH semantics. The complete list of Aspects that are supported are maintained [here](https://github.com/datahub-project/datahub/blob/9588440549f3d99965085e97b214a7dabc181ed2/entity-registry/src/main/java/com/linkedin/metadata/models/registry/template/AspectTemplateEngine.java#L24). 
-We do have plans to automatically support PATCH semantics for all aspects by default.
 
 :::
 
