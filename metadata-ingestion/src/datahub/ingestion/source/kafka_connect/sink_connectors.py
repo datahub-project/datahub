@@ -334,3 +334,8 @@ class BigQuerySinkConnector(BaseConnector):
                 )
             )
         return lineages
+
+
+BIGQUERY_SINK_CONNECTOR_CLASS = "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector"
+S3_SINK_CONNECTOR_CLASS = "io.confluent.connect.s3.S3SinkConnector"
+SNOWFLAKE_SINK_CONNECTOR_CLASS = "com.snowflake.kafka.connector.SnowflakeSinkConnector"

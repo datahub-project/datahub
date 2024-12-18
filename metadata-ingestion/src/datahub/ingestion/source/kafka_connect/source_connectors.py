@@ -561,6 +561,10 @@ class ConfigDrivenSourceConnector(BaseConnector):
                 target_dataset=topic,
                 target_platform=KAFKA,
             )
-
             lineages.append(lineage)
         return lineages
+
+
+JDBC_SOURCE_CONNECTOR_CLASS = "io.confluent.connect.jdbc.JdbcSourceConnector"
+DEBEZIUM_SOURCE_CONNECTOR_PREFIX = "io.debezium.connector"
+MONGO_SOURCE_CONNECTOR_CLASS = "com.mongodb.kafka.connect.MongoSourceConnector"

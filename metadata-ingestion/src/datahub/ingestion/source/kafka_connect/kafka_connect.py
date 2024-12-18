@@ -32,11 +32,17 @@ from datahub.ingestion.source.kafka_connect.common import (
     transform_connector_config,
 )
 from datahub.ingestion.source.kafka_connect.sink_connectors import (
+    BIGQUERY_SINK_CONNECTOR_CLASS,
+    S3_SINK_CONNECTOR_CLASS,
+    SNOWFLAKE_SINK_CONNECTOR_CLASS,
     BigQuerySinkConnector,
     ConfluentS3SinkConnector,
     SnowflakeSinkConnector,
 )
 from datahub.ingestion.source.kafka_connect.source_connectors import (
+    DEBEZIUM_SOURCE_CONNECTOR_PREFIX,
+    JDBC_SOURCE_CONNECTOR_CLASS,
+    MONGO_SOURCE_CONNECTOR_CLASS,
     ConfigDrivenSourceConnector,
     ConfluentJDBCSourceConnector,
     DebeziumSourceConnector,
@@ -50,13 +56,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 
 logger = logging.getLogger(__name__)
-
-JDBC_SOURCE_CONNECTOR_CLASS = "io.confluent.connect.jdbc.JdbcSourceConnector"
-DEBEZIUM_SOURCE_CONNECTOR_PREFIX = "io.debezium.connector"
-MONGO_SOURCE_CONNECTOR_CLASS = "com.mongodb.kafka.connect.MongoSourceConnector"
-BIGQUERY_SINK_CONNECTOR_CLASS = "com.wepay.kafka.connect.bigquery.BigQuerySinkConnector"
-S3_SINK_CONNECTOR_CLASS = "io.confluent.connect.s3.S3SinkConnector"
-SNOWFLAKE_SINK_CONNECTOR_CLASS = "com.snowflake.kafka.connector.SnowflakeSinkConnector"
 
 
 @platform_name("Kafka Connect")
@@ -131,11 +130,11 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
             connector_manifest.topic_names = self._get_connector_topics(connector_name)
             connector_class_value = connector_manifest.config.get(CONNECTOR_CLASS) or ""
 
+            class_type: Type[BaseConnector] = BaseConnector
+
             # Populate Source Connector metadata
             if connector_manifest.type == SOURCE:
                 connector_manifest.tasks = self._get_connector_tasks(connector_name)
-
-                class_type: Type[BaseConnector] = ConfigDrivenSourceConnector
 
                 # JDBC source connector lineages
                 if connector_class_value == JDBC_SOURCE_CONNECTOR_CLASS:
@@ -144,17 +143,19 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                     class_type = DebeziumSourceConnector
                 elif connector_class_value == MONGO_SOURCE_CONNECTOR_CLASS:
                     class_type = MongoSourceConnector
-                elif not any(
+                elif any(
                     [
                         connector.connector_name == connector_manifest.name
                         for connector in self.config.generic_connectors
                     ]
                 ):
+                    class_type = ConfigDrivenSourceConnector
+                else:
                     self.report.report_dropped(connector_manifest.name)
                     self.report.warning(
-                        "Lineage for Sink Connector not supported. "
-                        "Please refer to Kafka Connect ingestion recipe to define this customized connector.",
-                        context=connector_manifest.name,
+                        "Lineage for Source Connector not supported. "
+                        "Please refer to Kafka Connect docs to use `generic_connectors` config.",
+                        context=f"{connector_manifest.name} of type {connector_class_value}",
                     )
                     continue
             elif connector_manifest.type == SINK:
@@ -167,10 +168,9 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
                 else:
                     self.report.report_dropped(connector_manifest.name)
                     self.report.warning(
-                        "Lineage for Sink Connector not supported",
-                        context=connector_manifest.name,
+                        "Lineage for Sink Connector not supported.",
+                        context=f"{connector_manifest.name} of type {connector_class_value}",
                     )
-                    continue
 
             connector_class = class_type(connector_manifest, self.config, self.report)
             connector_manifest.lineages = connector_class.extract_lineages()
