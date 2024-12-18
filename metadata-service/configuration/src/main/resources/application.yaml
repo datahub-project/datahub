@@ -164,6 +164,7 @@ ebean:
   waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
   postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
+  batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
   locking:
     enabled: ${EBEAN_LOCKING_ENABLED:false}
     durationSeconds: ${EBEAN_LOCKING_DURATION_SECONDS:60}
@@ -561,7 +562,7 @@ springdoc.api-docs.groups.enabled: true
 
 forms:
   hook:
-    enabled: { $FORMS_HOOK_ENABLED:true }
+    enabled: ${FORMS_HOOK_ENABLED:true}
     consumerGroupSuffix: ${FORMS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 businessAttribute:
