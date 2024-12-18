@@ -3,7 +3,7 @@ import React, { ChangeEvent } from 'react';
 import styled from 'styled-components';
 import { ANTD_GRAY_V2 } from '../../../constants';
 import { PropertyCardinality } from '../../../../../../types.generated';
-import MultipleStringInput from './MultipleStringInput';
+import MultipleOpenEndedInput from './MultipleOpenEndedInput';
 
 const StyledInput = styled(Input)`
     width: 75%;
@@ -24,8 +24,15 @@ export default function StringInput({ selectedValues, cardinality, updateSelecte
     }
 
     if (cardinality === PropertyCardinality.Multiple) {
-        return <MultipleStringInput selectedValues={selectedValues} updateSelectedValues={updateSelectedValues} />;
+        return <MultipleOpenEndedInput selectedValues={selectedValues} updateSelectedValues={updateSelectedValues} />;
     }
 
-    return <StyledInput type="text" value={selectedValues[0] || ''} onChange={updateInput} />;
+    return (
+        <StyledInput
+            type="text"
+            value={selectedValues[0] || ''}
+            onChange={updateInput}
+            data-testid="structured-property-string-value-input"
+        />
+    );
 }

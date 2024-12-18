@@ -94,10 +94,10 @@ jobs:
             !**/binary/**
       - name: Upload coverage to Codecov
         if: ${{ always() && matrix.python-version == '3.10' }}
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: .
+          directory: ./build/coverage-reports/
           fail_ci_if_error: false
           flags: pytest-${{ matrix.command }}
           name: pytest-${{ matrix.command }}
