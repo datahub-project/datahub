@@ -561,7 +561,7 @@ springdoc.api-docs.groups.enabled: true
 
 forms:
   hook:
-    enabled: { $FORMS_HOOK_ENABLED:true }
+    enabled: ${FORMS_HOOK_ENABLED:true}
     consumerGroupSuffix: ${FORMS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 businessAttribute:
