@@ -198,7 +198,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public Map<EntityAspectIdentifier, EntityAspect> batchGet(
-      @Nonnull final Set<EntityAspectIdentifier> keys) {
+      @Nonnull final Set<EntityAspectIdentifier> keys, boolean forUpdate) {
     validateConnection();
     return keys.stream()
         .map(this::getAspect)
@@ -590,7 +590,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     // Save oldValue as the largest version + 1
     long largestVersion = ASPECT_LATEST_VERSION;
     BatchStatement batch = BatchStatement.newInstance(BatchType.UNLOGGED);
-    if (oldAspectMetadata != null && oldTime != null) {
+    if (!ASPECT_LATEST_VERSION.equals(nextVersion) && oldTime != null) {
       largestVersion = nextVersion;
       final EntityAspect aspect =
           new EntityAspect(
@@ -616,7 +616,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             newTime,
             newActor,
             newImpersonator);
-    batch = batch.add(generateSaveStatement(aspect, oldAspectMetadata == null));
+    batch = batch.add(generateSaveStatement(aspect, ASPECT_LATEST_VERSION.equals(nextVersion)));
     _cqlSession.execute(batch);
     return largestVersion;
   }

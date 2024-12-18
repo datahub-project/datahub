@@ -1,12 +1,15 @@
 import logging
 
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.file import GenericFileSource
 
 logger = logging.getLogger(__name__)
 
 
 def check_mce_file(filepath: str) -> str:
-    mce_source = GenericFileSource.create({"filename": filepath}, None)
+    mce_source = GenericFileSource.create(
+        {"filename": filepath}, PipelineContext(run_id="json-file")
+    )
     for _ in mce_source.get_workunits():
         pass
     if len(mce_source.get_report().failures):

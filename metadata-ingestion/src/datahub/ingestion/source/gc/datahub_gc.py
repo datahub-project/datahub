@@ -144,15 +144,32 @@ class DataHubGcSource(Source):
         self,
     ) -> Iterable[MetadataWorkUnit]:
         if self.config.cleanup_expired_tokens:
-            self.revoke_expired_tokens()
+            try:
+                self.revoke_expired_tokens()
+            except Exception as e:
+                self.report.failure("While trying to cleanup expired token ", exc=e)
         if self.config.truncate_indices:
-            self.truncate_indices()
-        if self.dataprocess_cleanup:
-            yield from self.dataprocess_cleanup.get_workunits_internal()
+            try:
+                self.truncate_indices()
+            except Exception as e:
+                self.report.failure("While trying to truncate indices ", exc=e)
         if self.soft_deleted_entities_cleanup:
-            self.soft_deleted_entities_cleanup.cleanup_soft_deleted_entities()
+            try:
+                self.soft_deleted_entities_cleanup.cleanup_soft_deleted_entities()
+            except Exception as e:
+                self.report.failure(
+                    "While trying to cleanup soft deleted entities ", exc=e
+                )
         if self.execution_request_cleanup:
-            self.execution_request_cleanup.run()
+            try:
+                self.execution_request_cleanup.run()
+            except Exception as e:
+                self.report.failure("While trying to cleanup execution request ", exc=e)
+        if self.dataprocess_cleanup:
+            try:
+                yield from self.dataprocess_cleanup.get_workunits_internal()
+            except Exception as e:
+                self.report.failure("While trying to cleanup data process ", exc=e)
         yield from []
 
     def truncate_indices(self) -> None:

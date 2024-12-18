@@ -1,0 +1,115 @@
+[{
+  "request": {
+    "url": "/openapi/v3/entity/dataset",
+    "params": {
+      "async": "false"
+    },
+    "description": "Create dataset batch, single transaction",
+    "json": [
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,database_test_3,PROD)",
+        "status": {
+          "value": {
+            "removed": false
+          }
+        }
+      },
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,database_test_7,PROD)",
+        "status": {
+          "value": {
+            "removed": false
+          }
+        }
+      },
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,database_test_11,PROD)",
+        "status": {
+          "value": {
+            "removed": false
+          }
+        }
+      },
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,database_test_15,PROD)",
+        "status": {
+          "value": {
+            "removed": false
+          }
+        }
+      },
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,database_test_19,PROD)",
+        "status": {
+          "value": {
+            "removed": false
+          }
+        }
+      },
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,database_test_23,PROD)",
+        "status": {
+          "value": {
+            "removed": false
+          }
+        }
+      },
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,database_test_27,PROD)",
+        "status": {
+          "value": {
+            "removed": false
+          }
+        }
+      },
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,database_test_31,PROD)",
+        "status": {
+          "value": {
+            "removed": false
+          }
+        }
+      },
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,database_test_35,PROD)",
+        "status": {
+          "value": {
+            "removed": false
+          }
+        }
+      },
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,database_test_39,PROD)",
+        "status": {
+          "value": {
+            "removed": false
+          }
+        }
+      },
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,database_test_43,PROD)",
+        "status": {
+          "value": {
+            "removed": false
+          }
+        }
+      },
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,database_test_47,PROD)",
+        "status": {
+          "value": {
+            "removed": false
+          }
+        }
+      },
+      {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:test,database_test_51,PROD)",
+        "status": {
+          "value": {
+            "removed": false
+          }
+        }
+      }
+    ]
+  }
+}]

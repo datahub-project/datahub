@@ -12,13 +12,14 @@
       timezone: '{{schedule.timezone}}{{^schedule.timezone}}UTC{{/schedule.timezone}}'
       interval: '{{schedule.interval}}{{^schedule.interval}}0 1 * * *{{/schedule.interval}}'
     config:
-      version: '{{&ingestion.version}}{{^ingestion.version}}0.14.1.6{{/ingestion.version}}'
+      version: '{{&ingestion.version}}{{^ingestion.version}}0.14.1.7rc2{{/ingestion.version}}'
       recipe:
         source:
           type: 'datahub-gc'
           config:
             cleanup_expired_tokens: {{cleanup_expired_tokens}}{{^cleanup_expired_tokens}}false{{/cleanup_expired_tokens}}
             truncate_indices: {{truncate_indices}}{{^truncate_indices}}true{{/truncate_indices}}
+            truncate_index_older_than_days: {{truncate_indices_retention_days}}{{^truncate_indices_retention_days}}30{{/truncate_indices_retention_days}}
             dataprocess_cleanup:
               retention_days: {{dataprocess_cleanup.retention_days}}{{^dataprocess_cleanup.retention_days}}10{{/dataprocess_cleanup.retention_days}}
               delete_empty_data_jobs: {{dataprocess_cleanup.delete_empty_data_jobs}}{{^dataprocess_cleanup.delete_empty_data_jobs}}true{{/dataprocess_cleanup.delete_empty_data_jobs}}

@@ -6,14 +6,18 @@ plugins {
   id 'org.hidetake.swagger.generator'
 }
 
+apply from: '../gradle/coverage/java-coverage.gradle'
 
 dependencies {
-  api spec.product.pegasus.data
-    constraints {
-      implementation('org.apache.commons:commons-text:1.10.0') {
-        because 'Vulnerability Issue'
-      }
+  constraints {
+    implementation('org.apache.commons:commons-text:1.10.0') {
+      because 'Vulnerability Issue'
     }
+  }
+
+  api(spec.product.pegasus.data) {
+    exclude group: 'javax.servlet', module: 'javax.servlet-api'
+  }
   api project(':li-utils')
   api project(path: ':li-utils', configuration: "dataTemplate")
   dataModel project(':li-utils')
@@ -25,7 +29,7 @@ dependencies {
 
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
-  api externalDependency.swaggerAnnotations
+  compileOnly externalDependency.swaggerAnnotations
   compileOnly externalDependency.jacksonCore
   compileOnly externalDependency.jacksonDataBind
 

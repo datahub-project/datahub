@@ -237,6 +237,7 @@ entities:
       - dataPlatformInstance
       - subTypes
       - ownership
+      - deprecation
       - container
       - globalTags
       - glossaryTerms
@@ -601,6 +602,7 @@ entities:
     keyAspect: structuredPropertyKey
     aspects:
       - propertyDefinition
+      - structuredPropertySettings
       - institutionalMemory
       - status
   - name: form

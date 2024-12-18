@@ -229,7 +229,7 @@ class User:
     groupUserAccessRight: Optional[str] = None
 
     def get_urn_part(self, use_email: bool, remove_email_suffix: bool) -> str:
-        if use_email:
+        if use_email and self.emailAddress:
             if remove_email_suffix:
                 return self.emailAddress.split("@")[0]
             else:

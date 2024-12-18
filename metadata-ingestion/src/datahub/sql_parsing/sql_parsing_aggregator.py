@@ -762,7 +762,6 @@ class SqlParsingAggregator(Closeable):
 
         This assumes that queries come in order of increasing timestamps.
         """
-
         self.report.num_observed_queries += 1
 
         # All queries with no session ID are assumed to be part of the same session.
@@ -831,7 +830,6 @@ class SqlParsingAggregator(Closeable):
         session_has_temp_tables: bool = True,
         _is_internal: bool = False,
     ) -> None:
-
         # Adding tool specific metadata extraction here allows it
         # to work for both ObservedQuery and PreparsedQuery as
         # add_preparsed_query it used within add_observed_query.
@@ -1385,8 +1383,7 @@ class SqlParsingAggregator(Closeable):
         return QueryUrn(query_id).urn()
 
     @classmethod
-    def _composite_query_id(cls, composed_of_queries: Iterable[QueryId]) -> str:
-        composed_of_queries = list(composed_of_queries)
+    def _composite_query_id(cls, composed_of_queries: List[QueryId]) -> str:
         combined = json.dumps(composed_of_queries)
         return f"composite_{generate_hash(combined)}"
 
@@ -1571,7 +1568,10 @@ class SqlParsingAggregator(Closeable):
                 if upstream_query_ids:
                     for upstream_query_id in upstream_query_ids:
                         upstream_query = self._query_map.get(upstream_query_id)
-                        if upstream_query:
+                        if (
+                            upstream_query
+                            and upstream_query.query_id not in composed_of_queries
+                        ):
                             temp_query_lineage_info = _recurse_into_query(
                                 upstream_query, recursion_path
                             )

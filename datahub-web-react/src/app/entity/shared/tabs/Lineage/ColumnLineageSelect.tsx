@@ -70,7 +70,7 @@ export default function ColumnsLineageSelect({
                     allowClear
                     placeholder="Select column"
                 >
-                    {entityWithSchema?.schemaMetadata?.fields.map((field) => {
+                    {entityWithSchema?.schemaMetadata?.fields?.map((field) => {
                         const fieldPath = downgradeV2FieldPath(field.fieldPath);
                         return (
                             <Select.Option value={field.fieldPath}>

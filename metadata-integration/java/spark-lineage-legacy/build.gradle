@@ -2,11 +2,10 @@ plugins {
     id("com.palantir.git-version") apply false
 }
 apply plugin: 'java'
-apply plugin: 'com.github.johnrengelman.shadow'
+apply plugin: 'com.gradleup.shadow'
 apply plugin: 'signing'
 apply plugin: 'io.codearte.nexus-staging'
 apply plugin: 'maven-publish'
-apply plugin: 'jacoco'
 apply from: '../versioning.gradle'
 
 jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
@@ -123,15 +122,6 @@ shadowJar {
   finalizedBy checkShadowJar
 }
 
-checkShadowJar {
-   dependsOn shadowJar
-}
-
-
-jacocoTestReport {
-    dependsOn test // tests are required to run before generating the report
-}
-
 test {
   forkEvery = 1
   useJUnit()
@@ -154,7 +144,6 @@ test {
   ]
   jvmArgs = sparkJava17CompatibleJvmArgs
 
-  finalizedBy jacocoTestReport
 }
 
 assemble {
