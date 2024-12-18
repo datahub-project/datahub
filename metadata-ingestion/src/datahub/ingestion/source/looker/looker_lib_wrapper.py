@@ -68,6 +68,7 @@ class LookerAPIStats(BaseModel):
     get_look_calls: int = 0
     search_looks_calls: int = 0
     search_dashboards_calls: int = 0
+    all_user_calls: int = 0
 
 
 class LookerAPI:
@@ -154,8 +155,8 @@ class LookerAPI:
         # User not found
         return None
 
-    @lru_cache(maxsize=5000)
     def all_users(self, user_fields: str) -> Sequence[User]:
+        self.client_stats.all_user_calls += 1
         try:
             return self.client.all_users(
                 fields=cast(str, user_fields),
