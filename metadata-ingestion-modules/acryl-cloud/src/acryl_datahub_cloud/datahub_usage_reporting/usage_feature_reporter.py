@@ -275,25 +275,27 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                     "last_modified_at": (
                         doc["_source"]["lastModifiedAt"]
                         if "lastModifiedAt" in doc["_source"]
+                        and doc["_source"]["lastModifiedAt"]
                         else (
                             doc["_source"]["lastModifiedAt"]
                             if "lastModifiedAt" in doc["_source"]
+                            and doc["_source"]["lastModifiedAt"]
                             else None
                         )
                     ),
                     "removed": (
                         doc["_source"]["removed"]
-                        if "removed" in doc["_source"]
+                        if "removed" in doc["_source"] and doc["_source"]["removed"]
                         else False
                     ),
                     "siblings": (
                         doc["_source"]["siblings"]
-                        if "siblings" in doc["_source"]
+                        if "siblings" in doc["_source"] and doc["_source"]["siblings"]
                         else []
                     ),
                     "isView": (
                         "View" in doc["_source"]["typeNames"]
-                        if "typeNames" in doc["_source"]
+                        if "typeNames" in doc["_source"] and doc["_source"]["typeNames"]
                         else False
                     ),
                 }
