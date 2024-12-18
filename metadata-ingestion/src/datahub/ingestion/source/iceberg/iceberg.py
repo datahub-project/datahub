@@ -145,6 +145,13 @@ class IcebergSource(StatefulIngestionSourceBase):
         self.report.report_no_listed_namespaces(len(namespaces))
         tables_count = 0
         for namespace in namespaces:
+            namespace_repr = ".".join(namespace)
+            if not self.config.namespace_pattern.allowed(namespace_repr):
+                LOGGER.info(
+                    f"Namespace {namespace_repr} is not allowed by config pattern, skipping"
+                )
+                self.report.report_dropped(f"{namespace_repr}.*")
+                continue
             try:
                 tables = catalog.list_tables(namespace)
                 tables_count += len(tables)
