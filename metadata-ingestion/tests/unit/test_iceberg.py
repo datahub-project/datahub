@@ -557,9 +557,9 @@ class MockCatalog:
 
 class MockCatalogExceptionListingTables(MockCatalog):
     def list_tables(self, namespace: str) -> Iterable[Tuple[str, str]]:
-        if namespace == "no_such_namespace":
+        if namespace == ("no_such_namespace",):
             raise NoSuchNamespaceError()
-        if namespace == "generic_exception":
+        if namespace == ("generic_exception",):
             raise Exception()
         return super().list_tables(namespace)
 
