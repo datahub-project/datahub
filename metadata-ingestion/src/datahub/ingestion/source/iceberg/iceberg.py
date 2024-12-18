@@ -189,6 +189,9 @@ class IcebergSource(StatefulIngestionSourceBase):
             if not self.config.table_pattern.allowed(dataset_name):
                 # Dataset name is rejected by pattern, report as dropped.
                 self.report.report_dropped(dataset_name)
+                LOGGER.debug(
+                    f"Skipping table {dataset_name} due to not being allowed by the config pattern"
+                )
                 return
             try:
                 if not hasattr(thread_local, "local_catalog"):
