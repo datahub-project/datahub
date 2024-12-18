@@ -5,8 +5,8 @@ set -euxo pipefail
 ./metadata-ingestion/scripts/install_deps.sh
 
 # Set up java version for gradle
-yum install java-17-amazon-corretto -y
-java --version
+yum install java-17-amazon-corretto-devel -y
+javac --version
 
 # Build python from source.
 # Amazon Linux 2 has Python 3.8, but it's version of OpenSSL is super old and hence it

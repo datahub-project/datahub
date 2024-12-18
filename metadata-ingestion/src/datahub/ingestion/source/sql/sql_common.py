@@ -588,6 +588,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             generate_operations=False,
         )
         for dataset_name in self._view_definition_cache.keys():
+            # TODO: Ensure that the lineage generated from the view definition
+            # matches the dataset_name.
             view_definition = self._view_definition_cache[dataset_name]
             result = self._run_sql_parser(
                 dataset_name,
@@ -1121,6 +1123,20 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 exc=e,
             )
 
+    def _get_view_definition(self, inspector: Inspector, schema: str, view: str) -> str:
+        try:
+            view_definition = inspector.get_view_definition(view, schema)
+            if view_definition is None:
+                view_definition = ""
+            else:
+                # Some dialects return a TextClause instead of a raw string,
+                # so we need to convert them to a string.
+                view_definition = str(view_definition)
+        except NotImplementedError:
+            view_definition = ""
+
+        return view_definition
+
     def _process_view(
         self,
         dataset_name: str,
@@ -1139,7 +1155,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             columns = inspector.get_columns(view, schema)
         except KeyError:
             # For certain types of views, we are unable to fetch the list of columns.
-            self.warn(logger, dataset_name, "unable to get schema for this view")
+            self.report.warning(
+                message="Unable to get schema for a view",
+                context=f"{dataset_name}",
+            )
             schema_metadata = None
         else:
             schema_fields = self.get_schema_fields(dataset_name, columns, inspector)
@@ -1153,19 +1172,12 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             if self._save_schema_to_resolver():
                 self.schema_resolver.add_schema_metadata(dataset_urn, schema_metadata)
                 self.discovered_datasets.add(dataset_name)
+
         description, properties, _ = self.get_table_properties(inspector, schema, view)
-        try:
-            view_definition = inspector.get_view_definition(view, schema)
-            if view_definition is None:
-                view_definition = ""
-            else:
-                # Some dialects return a TextClause instead of a raw string,
-                # so we need to convert them to a string.
-                view_definition = str(view_definition)
-        except NotImplementedError:
-            view_definition = ""
-        properties["view_definition"] = view_definition
         properties["is_view"] = "True"
+
+        view_definition = self._get_view_definition(inspector, schema, view)
+        properties["view_definition"] = view_definition
         if view_definition and self.config.include_view_lineage:
             self._view_definition_cache[dataset_name] = view_definition
 
@@ -1197,15 +1209,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn,
             aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
         ).as_workunit()
-        if "view_definition" in properties:
-            view_definition_string = properties["view_definition"]
-            view_properties_aspect = ViewPropertiesClass(
-                materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=view_properties_aspect,
-            ).as_workunit()
+
+        view_properties_aspect = ViewPropertiesClass(
+            materialized=False, viewLanguage="SQL", viewLogic=view_definition
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=view_properties_aspect,
+        ).as_workunit()
 
         if self.config.domain and self.domain_registry:
             yield from get_domain_wu(
@@ -1259,6 +1270,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             )
         else:
             self.report.num_view_definitions_parsed += 1
+            if raw_lineage.out_tables != [view_urn]:
+                self.report.num_view_definitions_view_urn_mismatch += 1
         return view_definition_lineage_helper(raw_lineage, view_urn)
 
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:

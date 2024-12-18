@@ -102,7 +102,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
 
         Notes:
             If `input` is an Edge object, it is used directly. If `input` is a Urn object or string,
-            it is converted to an Edge object and added with default audit stamps.
+            it is converted to an Edge object and added without any audit stamps.
         """
         if isinstance(input, Edge):
             input_urn: str = input.destinationUrn
@@ -114,8 +114,6 @@ class DataJobPatchBuilder(MetadataPatchProposal):
 
             input_edge = Edge(
                 destinationUrn=input_urn,
-                created=self._mint_auditstamp(),
-                lastModified=self._mint_auditstamp(),
             )
 
         self._ensure_urn_type("dataJob", [input_edge], "add_input_datajob")
@@ -185,7 +183,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
 
         Notes:
             If `input` is an Edge object, it is used directly. If `input` is a Urn object or string,
-            it is converted to an Edge object and added with default audit stamps.
+            it is converted to an Edge object and added without any audit stamps.
         """
         if isinstance(input, Edge):
             input_urn: str = input.destinationUrn
@@ -197,8 +195,6 @@ class DataJobPatchBuilder(MetadataPatchProposal):
 
             input_edge = Edge(
                 destinationUrn=input_urn,
-                created=self._mint_auditstamp(),
-                lastModified=self._mint_auditstamp(),
             )
 
         self._ensure_urn_type("dataset", [input_edge], "add_input_dataset")
@@ -270,7 +266,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
 
         Notes:
             If `output` is an Edge object, it is used directly. If `output` is a Urn object or string,
-            it is converted to an Edge object and added with default audit stamps.
+            it is converted to an Edge object and added without any audit stamps.
         """
         if isinstance(output, Edge):
             output_urn: str = output.destinationUrn
@@ -282,15 +278,13 @@ class DataJobPatchBuilder(MetadataPatchProposal):
 
             output_edge = Edge(
                 destinationUrn=output_urn,
-                created=self._mint_auditstamp(),
-                lastModified=self._mint_auditstamp(),
             )
 
         self._ensure_urn_type("dataset", [output_edge], "add_output_dataset")
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/outputDatasetEdges/{self.quote(str(output))}",
+            path=f"/outputDatasetEdges/{self.quote(output_urn)}",
             value=output_edge,
         )
         return self
