@@ -154,6 +154,17 @@ class LookerAPI:
         # User not found
         return None
 
+    @lru_cache(maxsize=5000)
+    def all_users(self, user_fields: str) -> Sequence[User]:
+        try:
+            return self.client.all_users(
+                fields=cast(str, user_fields),
+                transport_options=self.transport_options,
+            )
+        except SDKError as e:
+            logger.warning(f"Failure was {e}")
+        return []
+
     def execute_query(self, write_query: WriteQuery) -> List[Dict]:
         logger.debug(f"Executing query {write_query}")
         self.client_stats.query_calls += 1

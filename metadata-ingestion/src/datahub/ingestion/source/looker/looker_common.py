@@ -1619,18 +1619,30 @@ class LookerDashboard:
 class LookerUserRegistry:
     looker_api_wrapper: LookerAPI
     fields: str = ",".join(["id", "email", "display_name", "first_name", "last_name"])
-    _user_email_cache: Dict[str, str] = {}
+    _user_cache: Dict[str, LookerUser] = {}
 
     def __init__(self, looker_api: LookerAPI, report: LookerDashboardSourceReport):
         self.looker_api_wrapper = looker_api
         self.report = report
-        self._user_email_cache = {}
+        self._initialize_user_cache()
+
+    def _initialize_user_cache(self) -> None:
+        raw_users: Sequence[User] = self.looker_api_wrapper.all_users(
+            user_fields=self.fields
+        )
+
+        for raw_user in raw_users:
+            looker_user = LookerUser.create_looker_user(raw_user)
+            self._user_cache[str(looker_user.id)] = looker_user
 
     def get_by_id(self, id_: str) -> Optional[LookerUser]:
         if not id_:
             return None
 
         logger.debug(f"Will get user {id_}")
+
+        if str(id_) in self._user_cache:
+            return self._user_cache.get(str(id_))
 
         raw_user: Optional[User] = self.looker_api_wrapper.get_user(
             str(id_), user_fields=self.fields
@@ -1639,8 +1651,6 @@ class LookerUserRegistry:
             return None
 
         looker_user = LookerUser.create_looker_user(raw_user)
-        if looker_user.email:
-            self._user_email_cache[str(id_)] = looker_user.email
         return looker_user
 
     def to_platform_resource(
@@ -1654,12 +1664,19 @@ class LookerUserRegistry:
                 primary_key="",
             )
 
+            # Extract user email mappings
+            user_email_cache = {
+                user_id: user.email
+                for user_id, user in self._user_cache.items()
+                if user.email
+            }
+
             platform_resource = PlatformResource.create(
                 key=platform_resource_key,
-                value=self._user_email_cache,
+                value=user_email_cache,
             )
 
-            self.report.looker_user_count = len(self._user_email_cache)
+            self.report.looker_user_count = len(user_email_cache)
             yield from platform_resource.to_mcps()
 
         except Exception as exc:
