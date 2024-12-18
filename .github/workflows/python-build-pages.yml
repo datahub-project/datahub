@@ -26,17 +26,21 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' }}
-      has_pages_token: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' && secrets.CLOUDFLARE_API_TOKEN != '' }}
+      have_cloudflare_token: ${{ steps.check-cloudflare-token.outputs.have_cloudflare_token }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
+      - id: check-cloudflare-token
+        run: |
+          echo "have_cloudflare_token=${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' && secrets.CLOUDFLARE_API_TOKEN != '' }}"
+          echo "have_cloudflare_token=${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' && secrets.CLOUDFLARE_API_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
 
   deploy-pages:
     needs: setup
     runs-on: ubuntu-latest
-    if: ${{ needs.setup.outputs.ingestion_change == 'true' && needs.setup.outputs.has_pages_token == 'true' }}
+    if: ${{ needs.setup.outputs.ingestion_change == 'true' && needs.setup.outputs.have_cloudflare_token == 'true' }}
 
     permissions:
       contents: read

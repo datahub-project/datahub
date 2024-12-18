@@ -27,15 +27,10 @@ jobs:
   prefect-plugin:
     runs-on: ubuntu-latest
     env:
-      SPARK_VERSION: 3.0.3
       DATAHUB_TELEMETRY_ENABLED: false
     strategy:
       matrix:
         python-version: ["3.8", "3.9", "3.10"]
-        include:
-          - python-version: "3.8"
-          - python-version: "3.9"
-          - python-version: "3.10"
       fail-fast: false
     steps:
       - name: Set up JDK 17
@@ -44,8 +39,8 @@ jobs:
           distribution: "zulu"
           java-version: 17
       - uses: gradle/actions/setup-gradle@v3
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v4
+      - uses: acryldata/sane-checkout-action@v3
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip"
@@ -56,7 +51,7 @@ jobs:
       - name: pip freeze show list installed
         if: always()
         run: source metadata-ingestion-modules/prefect-plugin/venv/bin/activate && uv pip freeze
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: ${{ always() && matrix.python-version == '3.10'}}
         with:
           name: Test Results (Prefect Plugin ${{ matrix.python-version}})
@@ -80,7 +75,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Event File
           path: ${{ github.event_path }}
