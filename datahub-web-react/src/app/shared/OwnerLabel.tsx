@@ -25,7 +25,7 @@ type Props = {
     corpUserDepartmentName?: string;
 };
 
-export const OwnerLabel = ({ name, avatarUrl, type , corpUserId, corpUserTitle, corpUserDepartmentName }: Props) => {
+export const OwnerLabel = ({ name, avatarUrl, type, corpUserId, corpUserTitle, corpUserDepartmentName }: Props) => {
     const subHeader = [corpUserId, corpUserTitle, corpUserDepartmentName].filter(Boolean).join(' - ');
 
     return (
