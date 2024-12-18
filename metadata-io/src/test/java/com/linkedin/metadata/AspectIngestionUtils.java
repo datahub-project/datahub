@@ -46,12 +46,12 @@ public class AspectIngestionUtils {
               .recordTemplate(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
-              .build(opContext.getAspectRetrieverOpt().get()));
+              .build(opContext.getAspectRetriever()));
     }
     entityService.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,
@@ -83,12 +83,12 @@ public class AspectIngestionUtils {
               .recordTemplate(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
-              .build(opContext.getAspectRetrieverOpt().get()));
+              .build(opContext.getAspectRetriever()));
     }
     entityService.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,
@@ -121,12 +121,12 @@ public class AspectIngestionUtils {
               .recordTemplate(aspect)
               .auditStamp(AspectGenerationUtils.createAuditStamp())
               .systemMetadata(AspectGenerationUtils.createSystemMetadata())
-              .build(opContext.getAspectRetrieverOpt().get()));
+              .build(opContext.getAspectRetriever()));
     }
     entityService.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,

@@ -4,6 +4,7 @@ import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
@@ -95,6 +96,28 @@ public interface GraphRetriever {
       } else {
         scrollId = result.getScrollId();
       }
+    }
+  }
+
+  GraphRetriever EMPTY = new EmptyGraphRetriever();
+
+  class EmptyGraphRetriever implements GraphRetriever {
+
+    @Nonnull
+    @Override
+    public RelatedEntitiesScrollResult scrollRelatedEntities(
+        @Nullable List<String> sourceTypes,
+        @Nonnull Filter sourceEntityFilter,
+        @Nullable List<String> destinationTypes,
+        @Nonnull Filter destinationEntityFilter,
+        @Nonnull List<String> relationshipTypes,
+        @Nonnull RelationshipFilter relationshipFilter,
+        @Nonnull List<SortCriterion> sortCriterion,
+        @Nullable String scrollId,
+        int count,
+        @Nullable Long startTimeMillis,
+        @Nullable Long endTimeMillis) {
+      return new RelatedEntitiesScrollResult(0, 0, null, Collections.emptyList());
     }
   }
 }
