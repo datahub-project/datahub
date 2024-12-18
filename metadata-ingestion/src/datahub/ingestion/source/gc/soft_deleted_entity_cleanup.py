@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 class SoftDeletedEntitiesCleanupConfig(ConfigModel):
     enabled: bool = Field(
-        default=False, description="Whether to do soft deletion cleanup."
+        default=True, description="Whether to do soft deletion cleanup."
     )
     retention_days: Optional[int] = Field(
         10,

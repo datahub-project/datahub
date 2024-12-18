@@ -99,7 +99,7 @@ query getDataJobRuns($dataJobUrn: String!, $start: Int!, $count: Int!) {
 
 class DataProcessCleanupConfig(ConfigModel):
     enabled: bool = Field(
-        default=False, description="Whether to do data process cleanup."
+        default=True, description="Whether to do data process cleanup."
     )
     retention_days: Optional[int] = Field(
         10,
