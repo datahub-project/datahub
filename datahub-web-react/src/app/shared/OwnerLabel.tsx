@@ -20,20 +20,21 @@ type Props = {
     name: string;
     avatarUrl: string | undefined;
     type: EntityType;
+    corpUserId?: string;
+    corpUserTitle?: string;
+    corpUserDepartmentName?: string;
 };
 
-export const OwnerLabel = ({ name, avatarUrl, type }: Props) => {
+export const OwnerLabel = ({ name, avatarUrl, type , corpUserId, corpUserTitle, corpUserDepartmentName }: Props) => {
+    const subHeader = [corpUserId, corpUserTitle, corpUserDepartmentName].filter(Boolean).join(' - ');
+
     return (
         <OwnerContainerWrapper>
             <OwnerContentWrapper>
                 <CustomAvatar size={24} name={name} photoUrl={avatarUrl} isGroup={type === EntityType.CorpGroup} />
                 <div>
-                    {name.split('\n').map((line, index) => (
-                        <span key={index} style={index > 0 ? { color: 'gray' } : {}}>
-                            {line}
-                            <br />
-                        </span>
-                    ))}
+                    <div>{name}</div>
+                    {subHeader && <div style={{ color: 'gray' }}>{subHeader}</div>}
                 </div>
             </OwnerContentWrapper>
         </OwnerContainerWrapper>

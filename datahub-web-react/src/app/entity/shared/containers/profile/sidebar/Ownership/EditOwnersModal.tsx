@@ -84,11 +84,6 @@ export const EditOwnersModal = ({
         const corpUserId = (entity.type === EntityType.CorpUser && (entity as CorpUser).username) || '';
         const corpUserTitle = (entity.type === EntityType.CorpUser && (entity as CorpUser).properties?.title) || '';
         const displayName = entityRegistry.getDisplayName(entity.type, entity);
-        const concatenatedValue = isCorpUser
-            ? `${displayName}\n${corpUserId ? `${corpUserId}` : ''}${corpUserTitle ? ` ${corpUserTitle}` : ''}${
-                  corpUserDepartmentName ? ` ${corpUserDepartmentName}` : ''
-              }`
-            : displayName;
     
         return (
             <Select.Option
@@ -96,7 +91,14 @@ export const EditOwnersModal = ({
                 value={entity.urn}
                 label={<OwnerLabel name={displayName} avatarUrl={avatarUrl} type={entity.type} />}
             >
-                <OwnerLabel name={concatenatedValue} avatarUrl={avatarUrl} type={entity.type} />
+                <OwnerLabel
+                    name={displayName}
+                    avatarUrl={avatarUrl}
+                    type={entity.type}
+                    corpUserId={corpUserId}
+                    corpUserTitle={corpUserTitle}
+                    corpUserDepartmentName={corpUserDepartmentName}
+                />
             </Select.Option>
         );
     };
