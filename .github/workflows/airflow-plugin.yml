@@ -27,7 +27,6 @@ jobs:
   airflow-plugin:
     runs-on: ubuntu-latest
     env:
-      SPARK_VERSION: 3.0.3
       DATAHUB_TELEMETRY_ENABLED: false
     strategy:
       matrix:

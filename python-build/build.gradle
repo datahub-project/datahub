@@ -1,0 +1,27 @@
+plugins {
+  id 'base'
+}
+
+ext {
+  python_executable = 'python3'
+}
+
+task checkPythonVersion(type: Exec) {
+  commandLine python_executable, '-c',
+    'import sys; sys.version_info >= (3, 8), f"Python version {sys.version_info} is too old"'
+}
+
+task buildWheels(type: Exec, dependsOn: [
+  checkPythonVersion,
+  ':metadata-ingestion:buildWheel',
+  ':metadata-ingestion-modules:airflow-plugin:buildWheel',
+  ':metadata-ingestion-modules:dagster-plugin:buildWheel',
+  ':metadata-ingestion-modules:prefect-plugin:buildWheel',
+  ':metadata-ingestion-modules:gx-plugin:buildWheel',
+]) {
+  commandLine python_executable, "copy_wheels.py"
+}
+
+task buildSite(type: Exec, dependsOn: [buildWheels]) {
+  commandLine python_executable, "build_site.py"
+}
