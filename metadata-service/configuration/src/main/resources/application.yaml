@@ -522,12 +522,12 @@ cache:
       entityAspectTTLSeconds:
         # cache user aspects for 20s
         corpuser:
-          corpUserKey: 20
+          corpUserKey: 300 # 5 min
           corpUserInfo: 20
           corpUserEditableInfo: 20
-          corpUserStatus: 20
+          corpUserStatus: 300 # 5 min
           globalTags: 20
-          status: 20
+          status: 300 # 5 min
           corpUserCredentials: 20
           corpUserSettings: 20
           roleMembership: 20
