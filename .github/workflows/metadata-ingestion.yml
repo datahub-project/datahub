@@ -85,7 +85,7 @@ jobs:
           docker system df
       - uses: actions/upload-artifact@v4
         with:
-          name: Test Results (metadata ingestion ${{ matrix.python-version }})
+          name: Test Results (metadata ingestion ${{ matrix.python-version }} ${{ matrix.command }})
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
@@ -99,7 +99,7 @@ jobs:
           directory: ./build/coverage-reports/
           fail_ci_if_error: false
           flags: pytest-${{ matrix.command }}
-          name: pytest-${{ matrix.command }}
+          name: pytest-${{ matrix.python-version }}-${{ matrix.command }}
           verbose: true
 
   event-file:
