@@ -76,6 +76,10 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         default=None,
         description="Iceberg table property to look for a `CorpGroup` owner.  Can only hold a single group value.  If property has no value, no owner information will be emitted.",
     )
+    ignore_table_errors: Optional[bool] = Field(
+        default=False,
+        description="Set to true to not produce errors when tables have errors."
+    )
     profiling: IcebergProfilingConfig = IcebergProfilingConfig()
     processing_threads: int = Field(
         default=1, description="How many threads will be processing tables"

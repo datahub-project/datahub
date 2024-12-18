@@ -203,27 +203,34 @@ class IcebergSource(StatefulIngestionSourceBase):
                 LOGGER.warning(
                     f"NoSuchPropertyException while processing table {dataset_path}, skipping it.",
                 )
-            except NoSuchIcebergTableError as e:
-                self.report.report_warning(
-                    "not-an-iceberg-table",
-                    f"Failed to create workunit for {dataset_name}. {e}",
-                )
-                LOGGER.warning(
-                    f"NoSuchIcebergTableError while processing table {dataset_path}, skipping it.",
-                )
-            except NoSuchTableError as e:
-                self.report.report_warning(
-                    "no-such-table",
-                    f"Failed to create workunit for {dataset_name}. {e}",
-                )
-                LOGGER.warning(
-                    f"NoSuchTableError while processing table {dataset_path}, skipping it.",
-                )
+            except (NoSuchIcebergTableError, NoSuchTableError) as e:
+                if self.config.ignore_table_errors:
+                    self.report.report_warning(
+                        "not-such-table",
+                        f"Failed to create workunit for {dataset_name}. {e}",
+                    )
+                    LOGGER.warning(
+                        f"{e.__class__} while processing table {dataset_path}, skipping it.",
+                    )
+                else:
+                    self.report.report_failure(
+                        "not-such-table",
+                        f"Failed to create workunit for {dataset_name}. {e}",
+                    )
+                    LOGGER.exception(
+                        f"{e.__class__} while processing table {dataset_path}, skipping it.",
+                    )
             except Exception as e:
-                self.report.report_failure("general", f"Failed to create workunit: {e}")
-                LOGGER.exception(
-                    f"Exception while processing table {dataset_path}, skipping it.",
-                )
+                if self.config.ignore_table_errors:
+                    self.report.report_warning("general", f"Failed to create workunit: {e}")
+                    LOGGER.warning(
+                        f"Exception while processing table {dataset_path}, skipping it.",
+                    )
+                else:
+                    self.report.report_failure("general", f"Failed to create workunit: {e}")
+                    LOGGER.exception(
+                        f"Exception while processing table {dataset_path}, skipping it.",
+                    )
 
         try:
             catalog = self.config.get_catalog()
