@@ -1,5 +1,5 @@
 from datahub.emitter.mce_builder import make_dataset_urn, make_schema_field_urn
-from datahub.emitter.rest_emitter import DataHubRestEmitter
+from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
 from datahub.metadata.schema_classes import (
     DatasetLineageTypeClass,
     FineGrainedLineageClass,
@@ -9,7 +9,7 @@ from datahub.metadata.schema_classes import (
 from datahub.specific.dataset import DatasetPatchBuilder
 
 # Create DataHub Client
-rest_emitter = DataHubRestEmitter(gms_server="http://localhost:8080")
+datahub_client = DataHubGraph(DataHubGraphConfig(server="http://localhost:8080"))
 
 # Create Dataset URN
 dataset_urn = make_dataset_urn(
@@ -59,4 +59,4 @@ patch_mcps = patch_builder.build()
 
 # Emit Dataset Patch
 for patch_mcp in patch_mcps:
-    rest_emitter.emit(patch_mcp)
+    datahub_client.emit(patch_mcp)
