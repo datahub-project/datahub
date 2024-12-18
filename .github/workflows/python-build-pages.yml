@@ -67,10 +67,11 @@ jobs:
         run: |
           ./gradlew :python-build:buildSite
       - name: Publish
-        uses: cloudflare/wrangler-action@v3
+        uses: cloudflare/pages-action@v1
         with:
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: datahub-wheels
           workingDirectory: python-build
-          command: pages deploy ./site --project-name=datahub-wheels
+          directory: site
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}

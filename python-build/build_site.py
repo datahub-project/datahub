@@ -14,6 +14,11 @@ SITE_ARTIFACT_WHEEL_DIR.mkdir(parents=True)
 for wheel_file in WHEEL_DIR.glob("*"):
     shutil.copy(wheel_file, SITE_ARTIFACT_WHEEL_DIR)
 
+
+def package_name(wheel_file: pathlib.Path) -> str:
+    return wheel_file.name.split("-")[0].replace("_", "-")
+
+
 newline = "\n"
 (SITE_OUTPUT_DIR / "index.html").write_text(
     f"""
@@ -28,7 +33,10 @@ newline = "\n"
   <body>
     <div class="ui container">
       <h1 class="ui header" style="padding-top: 1.5em;">DataHub Python Builds</h1>
-      <p>Built at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}</p>
+      <p>
+        These prebuilt wheel files can be used to install our Python packages as of a specific commit.
+      </p>
+      <p>Built at {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}.</p>
 
       <p>
       Current base URL: <span class="base-url">unknown</span>
@@ -47,9 +55,9 @@ newline = "\n"
         newline.join(
             f'''
             <tr>
-              <td><code>{wheel_file.name.split('-')[0].replace('_', '-')}</code></td>
+              <td><code>{package_name(wheel_file)}</code></td>
               <td>{wheel_file.stat().st_size / 1024 / 1024:.3f} MB</td>
-              <td><code>pip install '<span class="base-url">&lt;base-url&gt;</span>/artifacts/wheels/{wheel_file.name}'</code></td>
+              <td><code>pip install '{package_name(wheel_file)} @ <span class="base-url">&lt;base-url&gt;</span>/artifacts/wheels/{wheel_file.name}'</code></td>
             </tr>
             '''
             for wheel_file in sorted(WHEEL_DIR.glob("*.whl"))
@@ -60,12 +68,13 @@ newline = "\n"
     </div>
   </body>
   <script>
+    const baseUrl = window.location.href.split('/').slice(0, -1).join('/');
     document.querySelectorAll(".base-url").forEach(el => {{
-      el.textContent = window.location.href.split('/').slice(0, -1).join('/');
+      el.textContent = baseUrl;
     }});
   </script>
 </html>
 """
 )
 
-print("Built site in", SITE_OUTPUT_DIR)
+print("DataHub Python wheel site built in", SITE_OUTPUT_DIR)
