@@ -10,6 +10,7 @@ from pyiceberg.exceptions import (
     NoSuchNamespaceError,
     NoSuchPropertyException,
     NoSuchTableError,
+    ServerError,
 )
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
@@ -233,6 +234,14 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
                 LOGGER.warning(
                     f"FileNotFoundError while processing table {dataset_path}, skipping it."
+                )
+            except ServerError as e:
+                self.report.report_warning(
+                    "iceberg-rest-server-error",
+                    f"Iceberg Rest Catalog returned 500 status due to an unhandled exception for {dataset_name}. Exception: {e}",
+                )
+                LOGGER.warning(
+                    f"Iceberg Rest Catalog server error (500 status) encountered when processing table {dataset_path}, skipping it."
                 )
             except Exception as e:
                 self.report.report_failure("general", f"Failed to create workunit: {e}")
