@@ -23,7 +23,16 @@ Here's how to find the appropriate classes for the language for your choice.
 <Tabs>
 <TabItem value="Python" label="Python SDK" default>
 
-The Python Patch builders are entity-oriented and located in the [metadata-ingestion](https://github.com/datahub-project/datahub/tree/9588440549f3d99965085e97b214a7dabc181ed2/metadata-ingestion/src/datahub/specific) module and located in the `datahub.specific` module.
+The Python Patch builders are entity-oriented and located in the [metadata-ingestion](https://github.com/datahub-project/datahub/tree/9588440549f3d99965085e97b214a7dabc181ed2/metadata-ingestion/src/datahub/specific) module and located in the `datahub.specific` module. 
+Patch builder helper classes exist for 
+
+- [Datasets](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/dataset.py)
+- [Charts](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/chart.py)
+- [Dashboards](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/dashboard.py)
+- [Data Jobs (Tasks)](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/datajob.py)
+- [Data Products](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/dataproduct.py)
+
+And we are gladly accepting contributions for Containers, Data Flows (Pipelines), Tags, Glossary Terms, Domains, and ML Models.
 
 ### Add & Remove Owners for Dataset
 
