@@ -29,6 +29,7 @@ export default function RowCountGraph({ urn }: RowCountGraphProps) {
             isEmpty={data.length === 0}
             loading={loading}
             graphHeight="290px"
+            width="70%"
             renderControls={() => (
                 <>
                     <Button icon="Add" variant="outline">

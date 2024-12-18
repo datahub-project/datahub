@@ -1,4 +1,4 @@
-import { DateInterval } from '@src/types.generated';
+import { DateInterval, TimeRange } from '@src/types.generated';
 
 export const GRAPH_LOOPBACK_WINDOWS = {
     MONTH: { text: 'Last 30 Days', windowSize: { interval: DateInterval.Day, count: 30 } },
@@ -13,3 +13,36 @@ export const GRAPH_LOOPBACK_WINDOWS_OPTIONS = [
         value: key,
     })),
 ];
+
+const getTimeRangeLabel = (value: TimeRange) => {
+    switch (value) {
+        case TimeRange.Day:
+            return 'Last day';
+        case TimeRange.Week:
+            return 'Last Week';
+        case TimeRange.Month:
+            return 'Last 30 days';
+        case TimeRange.Quarter:
+            return 'Last 3 months';
+        case TimeRange.Year:
+            return 'Last Year';
+        case TimeRange.All:
+            return 'All the time';
+        default:
+            return value;
+    }
+};
+
+const QUERY_COUNT_TIME_RANGE_OPTIONS = [
+    TimeRange.Day,
+    TimeRange.Week,
+    TimeRange.Month,
+    TimeRange.Quarter,
+    TimeRange.Year,
+    TimeRange.All,
+];
+
+export const AGGRAGATION_TIME_RANGE_OPTIONS = Object.values(QUERY_COUNT_TIME_RANGE_OPTIONS).map((value) => ({
+    label: getTimeRangeLabel(value),
+    value,
+}));

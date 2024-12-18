@@ -3,10 +3,9 @@ import { GetDatasetQuery, useGetLastMonthUsageAggregationsQuery } from '@src/gra
 import { UsageQueryResult } from '@src/types.generated';
 import React, { useRef } from 'react';
 import styled from 'styled-components';
+import ColumnStatsV2 from './ColumnStatsV2';
 import HistoricalStats from './HistoricalStats';
 import StatsHighlights from './StatsHighlights';
-import ColumnStatsV2 from './ColumnStatsV2';
-import StorageSizeGraph from './graphs/StorageSizeGraph/StorageSizeGraph';
 
 const TabContainer = styled.div`
     padding: 16px 24px;
@@ -42,6 +41,9 @@ const StatsTabV2 = () => {
     };
 
     const users = usageStats?.aggregations?.users;
+    const queryCountBuckets = usageStats?.buckets;
+    const columnStats = (latestProfile && latestProfile.fieldProfiles) || [];
+    const hasColumnStats = columnStats?.length > 0;
 
     return (
         <TabContainer>
@@ -51,12 +53,18 @@ const StatsTabV2 = () => {
                 queryCount={queryCountLast30Days || totalSqlQueries || undefined}
                 users={users || undefined}
                 scrollToColumnStats={scrollToColumnStats}
+                hasColumnStats={hasColumnStats}
             />
-            <HistoricalStats users={users || undefined} />
-            <StorageSizeGraph urn={baseEntity?.dataset?.urn} />
-            <div ref={columnStatsSectionRef}>
-                <ColumnStatsV2 columnStats={(latestProfile && latestProfile.fieldProfiles) || []} />
-            </div>
+            <HistoricalStats
+                users={users || undefined}
+                queryCountBuckets={queryCountBuckets || undefined}
+                urn={baseEntity?.dataset?.urn}
+            />
+            {hasColumnStats && (
+                <div ref={columnStatsSectionRef}>
+                    <ColumnStatsV2 columnStats={columnStats} />
+                </div>
+            )}
         </TabContainer>
     );
 };

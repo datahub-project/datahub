@@ -16,13 +16,14 @@ export function GraphCard({
     subTitle,
     loading,
     graphHeight = '350px',
+    width = '100%',
     renderGraph,
     renderControls,
     isEmpty,
     emptyContent,
 }: GraphCardProps) {
     return (
-        <CardContainer>
+        <CardContainer width={width}>
             <GraphCardHeader>
                 <PageTitle title={title} subTitle={subTitle} variant="sectionHeader" />
                 <ControlsContainer>{renderControls?.()}</ControlsContainer>
