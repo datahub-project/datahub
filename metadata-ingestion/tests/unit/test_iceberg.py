@@ -65,7 +65,7 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def with_iceberg_source(processing_threads: int = 1, **kwargs) -> IcebergSource:
+def with_iceberg_source(processing_threads: int = 1, **kwargs: Any) -> IcebergSource:
     catalog = {"test": {"type": "rest"}}
     return IcebergSource(
         ctx=PipelineContext(run_id="iceberg-source-test"),
@@ -545,7 +545,7 @@ class MockCatalog:
         """
         self.tables = tables
 
-    def list_namespaces(self) -> Iterable[str]:
+    def list_namespaces(self) -> Iterable[Tuple[str]]:
         return [*[(key,) for key in self.tables.keys()]]
 
     def list_tables(self, namespace: str) -> Iterable[Tuple[str, str]]:
@@ -565,7 +565,7 @@ class MockCatalogExceptionListingTables(MockCatalog):
 
 
 class MockCatalogExceptionListingNamespaces(MockCatalog):
-    def list_namespaces(self) -> Iterable[str]:
+    def list_namespaces(self) -> Iterable[Tuple[str]]:
         raise Exception()
 
 
