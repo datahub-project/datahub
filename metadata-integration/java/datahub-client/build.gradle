@@ -95,6 +95,11 @@ test {
   finalizedBy jacocoTestReport
 }
 
+// no submodule depends on datahub-schematron:cli
+// and tests there are the ones checking python-java compatibility
+test.dependsOn tasks.getByPath(":metadata-integration:java:datahub-schematron:cli:test")
+test.dependsOn tasks.getByPath(":metadata-integration:java:datahub-schematron:lib:test")
+
 task checkShadowJar(type: Exec) {
   commandLine 'sh', '-c', 'scripts/check_jar.sh'
 }

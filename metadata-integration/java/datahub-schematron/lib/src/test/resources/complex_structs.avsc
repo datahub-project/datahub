@@ -1,0 +1,76 @@
+{
+  "type": "record",
+  "name": "StructType",
+  "fields": [
+    {
+      "name": "structField",
+      "type": {
+        "type": "record",
+        "name": "ComplexStruct",
+        "fields": [
+          {
+            "name": "fieldString",
+            "type": "string"
+          },
+          {
+            "name": "fieldInt",
+            "type": "int"
+          },
+          {
+            "name": "fieldBoolean",
+            "type": "boolean"
+          },
+          {
+            "name": "fieldMap",
+            "type": {
+              "type": "map",
+              "values": "string"
+            }
+          },
+          {
+            "name": "fieldRecord",
+            "type": {
+              "type": "record",
+              "name": "NestedRecord",
+              "fields": [
+                {
+                  "name": "nestedField1",
+                  "type": "string"
+                },
+                {
+                  "name": "nestedField2",
+                  "type": "int"
+                }
+              ]
+            }
+          },
+          {
+            "name": "fieldArray",
+            "type": {
+              "type": "array",
+              "items": "string"
+            }
+          },
+          {
+            "name": "fieldUnion",
+            "type": [
+              "null",
+              "string",
+              "int"
+            ]
+          },
+          {
+            "name": "fieldNullableMap",
+            "type": [
+              "null",
+              {
+                "type": "map",
+                "values": "string"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
