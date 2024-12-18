@@ -10,6 +10,7 @@ from pyiceberg.exceptions import (
     NoSuchIcebergTableError,
     NoSuchNamespaceError,
     NoSuchPropertyException,
+    NoSuchTableError,
 )
 from pyiceberg.io.pyarrow import PyArrowFileIO
 from pyiceberg.partitioning import PartitionSpec
@@ -820,8 +821,14 @@ def test_handle_expected_exceptions() -> None:
     def _raise_no_such_property_exception():
         raise NoSuchPropertyException()
 
-    def _raise_no_such_table_exception():
+    def _raise_no_such_iceberg_table_exception():
         raise NoSuchIcebergTableError()
+
+    def _raise_file_not_found_error():
+        raise FileNotFoundError()
+
+    def _raise_no_such_table_exception():
+        raise NoSuchTableError()
 
     mock_catalog = MockCatalog(
         {
@@ -876,6 +883,8 @@ def test_handle_expected_exceptions() -> None:
                 ),
                 "table5": _raise_no_such_property_exception,
                 "table6": _raise_no_such_table_exception,
+                "table7": _raise_file_not_found_error,
+                "table8": _raise_no_such_iceberg_table_exception,
             }
         }
     )
@@ -899,7 +908,7 @@ def test_handle_expected_exceptions() -> None:
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table4,PROD)",
             ],
         )
-        assert source.report.warnings.total_elements == 2
+        assert source.report.warnings.total_elements == 4
         assert source.report.failures.total_elements == 0
         assert source.report.tables_scanned == 4
 

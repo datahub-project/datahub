@@ -226,6 +226,14 @@ class IcebergSource(StatefulIngestionSourceBase):
                 LOGGER.warning(
                     f"NoSuchTableError while processing table {dataset_path}, skipping it.",
                 )
+            except FileNotFoundError as e:
+                self.report.report_warning(
+                    "file-not-found",
+                    f"Encountered FileNotFoundError when trying to read manifest file for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"FileNotFoundError while processing table {dataset_path}, skipping it."
+                )
             except Exception as e:
                 self.report.report_failure("general", f"Failed to create workunit: {e}")
                 LOGGER.exception(
