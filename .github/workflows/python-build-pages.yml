@@ -22,9 +22,21 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  deploy-pages:
+  setup:
     runs-on: ubuntu-latest
-    if: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' && secrets.CLOUDFLARE_API_TOKEN != '' }}
+    outputs:
+      ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' }}
+      has_pages_token: ${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' && secrets.CLOUDFLARE_API_TOKEN != '' }}
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@v3
+      - uses: ./.github/actions/ci-optimization
+        id: ci-optimize
+
+  deploy-pages:
+    needs: setup
+    runs-on: ubuntu-latest
+    if: ${{ needs.setup.outputs.ingestion_change == 'true' && needs.setup.outputs.has_pages_token == 'true' }}
 
     permissions:
       contents: read
