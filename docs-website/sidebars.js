@@ -1,3 +1,34 @@
+const fs = require("fs");
+
+function list_ids_in_directory(directory, hardcoded_labels) {
+  if (hardcoded_labels === undefined) {
+    hardcoded_labels = {};
+  }
+
+  const files = fs.readdirSync(`../${directory}`).sort();
+  let ids = [];
+  for (const name of files) {
+    if (fs.lstatSync(`../${directory}/${name}`).isDirectory()) {
+      // Recurse into the directory.
+      const inner_ids = list_ids_in_directory(`${directory}/${name}`);
+      ids = ids.concat(inner_ids);
+    } else {
+      if (name.endsWith(".md")) {
+        const slug = name.replace(/\.md$/, "");
+        const id = `${directory}/${slug}`;
+
+        if (id in hardcoded_labels) {
+          label = hardcoded_labels[id];
+          ids.push({ type: "doc", id, label });
+        } else {
+          ids.push({ type: "doc", id });
+        }
+      }
+    }
+  }
+  return ids;
+}
+
 // note: to handle errors where you don't want a markdown file in the sidebar, add it as a comment.
 // this will fix errors like `Error: File not accounted for in sidebar: ...`
 module.exports = {
@@ -26,6 +57,9 @@ module.exports = {
           label: "Quickstart",
           id: "docs/quickstart",
         },
+<<<<<<< HEAD
+        "docs/saas",
+=======
         {
           type: "link",
           label: "Demo",
@@ -37,6 +71,7 @@ module.exports = {
           href: "/adoption-stories",
         },
         "docs/what-is-datahub/datahub-concepts",
+>>>>>>> upstream/master
       ],
     },
     {
@@ -419,6 +454,9 @@ module.exports = {
           id: "metadata-ingestion/recipe_overview",
         },
         {
+<<<<<<< HEAD
+          Sinks: list_ids_in_directory("metadata-ingestion/sink_docs"),
+=======
           type: "category",
           label: "Sinks",
           link: { type: "doc", id: "metadata-ingestion/sink_overview" },
@@ -428,6 +466,7 @@ module.exports = {
               dirName: "metadata-ingestion/sink_docs",
             },
           ],
+>>>>>>> upstream/master
         },
         {
           type: "category",
@@ -838,6 +877,52 @@ module.exports = {
             },
           ],
         },
+<<<<<<< HEAD
+        {
+          "Getting Started: APIs & SDKs": [
+            {
+              "Creating Entities": [
+                "docs/api/tutorials/creating-datasets",
+                "docs/api/tutorials/creating-tags",
+                "docs/api/tutorials/creating-terms",
+                "docs/api/tutorials/creating-users-and-groups",
+                "docs/api/tutorials/creating-domain",
+              ],
+            },
+            {
+              "Reading Entities": [
+                "docs/api/tutorials/reading-tags",
+                "docs/api/tutorials/reading-terms",
+                "docs/api/tutorials/reading-domains",
+                "docs/api/tutorials/reading-owners",
+                "docs/api/tutorials/reading-deprecation",
+              ],
+            },
+            {
+              "Enriching Entities": [
+                "docs/api/tutorials/adding-tags",
+                "docs/api/tutorials/adding-terms",
+                "docs/api/tutorials/adding-domain",
+                "docs/api/tutorials/adding-ownerships",
+                "docs/api/tutorials/adding-dataset-description",
+                "docs/api/tutorials/adding-column-description",
+                "docs/api/tutorials/adding-lineage",
+                "docs/api/tutorials/update-deprecation",
+              ],
+            },
+            {
+              "Deleting Entities": [
+                "docs/api/tutorials/removing-tags",
+                "docs/api/tutorials/removing-terms",
+                "docs/api/tutorials/removing-owners",
+                "docs/api/tutorials/removing-domains",
+                "docs/api/tutorials/deleting-entities-by-urn",
+              ],
+            },
+          ],
+        },
+=======
+>>>>>>> upstream/master
       ],
     },
     {
