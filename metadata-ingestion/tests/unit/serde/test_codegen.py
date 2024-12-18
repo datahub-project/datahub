@@ -18,6 +18,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
     _Aspect,
 )
+from datahub.utilities.urns._urn_base import URN_TYPES
 
 _UPDATE_ENTITY_REGISTRY = os.getenv("UPDATE_ENTITY_REGISTRY", "false").lower() == "true"
 ENTITY_REGISTRY_PATH = pathlib.Path(
@@ -165,3 +166,9 @@ def test_enum_options():
     # This is mainly a sanity check to ensure that it doesn't do anything too crazy.
     env_options = get_enum_options(FabricTypeClass)
     assert "PROD" in env_options
+
+
+def test_urn_types() -> None:
+    assert len(URN_TYPES) > 10
+    for checked_type in ["dataset", "dashboard", "dataFlow", "schemaField"]:
+        assert checked_type in URN_TYPES
