@@ -42,6 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ needs.setup.outputs.ingestion_change == 'true' && needs.setup.outputs.have_cloudflare_token == 'true' }}
 
+    name: Python Wheels
     permissions:
       contents: read
       deployments: write
