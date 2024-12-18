@@ -1,9 +1,10 @@
+import GenericEntityPage, { GENERIC_ENTITY_PAGE_PATH } from '@app/GenericEntityPage';
+import TypedEntityPage from '@app/TypedEntityPage';
 import React, { useState } from 'react';
 import { matchPath, Route, Switch, useLocation } from 'react-router-dom';
 import styled from 'styled-components/macro';
 import { PageRoutes } from '../../conf/Global';
 import { EntityType } from '../../types.generated';
-import { EntityPage } from '../entity/EntityPage';
 import { GenericEntityProperties } from '../entity/shared/types';
 import EntitySidebarContext from '../sharedV2/EntitySidebarContext';
 import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
@@ -30,28 +31,32 @@ export default function DomainRoutes() {
 
     const location = useLocation();
     const isEntityProfile =
+        location.pathname.startsWith('/urn') ||
         matchPath(location.pathname, `/${entityRegistry.getPathName(EntityType.Domain)}/:urn`) !== null;
 
     return (
         <DomainsContext.Provider value={{ entityData, setEntityData }}>
             <ContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign} $isEntityProfile={isEntityProfile}>
                 <ManageDomainsSidebar isEntityProfile={isEntityProfile} />
-                <Switch>
-                    <EntitySidebarContext.Provider
-                        value={{
-                            width: entitySidebarWidth,
-                            isClosed: isSidebarClosed,
-                            setSidebarClosed: setIsSidebarClosed,
-                        }}
-                    >
+                <EntitySidebarContext.Provider
+                    value={{
+                        width: entitySidebarWidth,
+                        isClosed: isSidebarClosed,
+                        setSidebarClosed: setIsSidebarClosed,
+                    }}
+                >
+                    <Switch>
                         <Route
-                            key={entityRegistry.getPathName(EntityType.Domain)}
-                            path={`/${entityRegistry.getPathName(EntityType.Domain)}/:urn`}
-                            render={() => <EntityPage entityType={EntityType.Domain} />}
+                            path={`${PageRoutes.DOMAIN}${GENERIC_ENTITY_PAGE_PATH}`}
+                            render={() => <GenericEntityPage />}
+                        />
+                        <Route
+                            path={`/${entityRegistry.getPathName(EntityType.Domain)}/:urn/:tab?`}
+                            render={() => <TypedEntityPage entityType={EntityType.Domain} />}
                         />
                         <Route path={PageRoutes.DOMAINS} render={() => <ManageDomainsPageV2 />} />
-                    </EntitySidebarContext.Provider>
-                </Switch>
+                    </Switch>
+                </EntitySidebarContext.Provider>
             </ContentWrapper>
         </DomainsContext.Provider>
     );

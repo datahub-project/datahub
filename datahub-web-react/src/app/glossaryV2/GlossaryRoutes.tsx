@@ -1,3 +1,5 @@
+import GenericEntityPage, { GENERIC_ENTITY_PAGE_PATH } from '@app/GenericEntityPage';
+import TypedEntityPage from '@app/TypedEntityPage';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { Switch, Route, Redirect, useLocation, matchPath } from 'react-router-dom';
@@ -5,7 +7,6 @@ import { PageRoutes } from '../../conf/Global';
 import { GlossaryEntityContext } from '../entityV2/shared/GlossaryEntityContext';
 import { GenericEntityProperties } from '../entity/shared/types';
 import BusinessGlossaryPage from './BusinessGlossaryPage';
-import { EntityPage as EntityPageV2 } from '../entityV2/EntityPage';
 import GlossarySidebar from './GlossarySidebar';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { useAppConfig } from '../useAppConfig';
@@ -35,6 +36,7 @@ export default function GlossaryRoutes() {
     const isShowNavBarRedesign = useShowNavBarRedesign();
     const location = useLocation();
     const isEntityProfile =
+        location.pathname.startsWith('/urn') ||
         matchPath(
             location.pathname,
             entityRegistry.getGlossaryEntities().map((entity) => `/${entityRegistry.getPathName(entity.type)}/:urn`),
@@ -55,11 +57,15 @@ export default function GlossaryRoutes() {
             <ContentWrapper $isShowNavBarRedesign={isShowNavBarRedesign} $isEntityProfile={isEntityProfile}>
                 <GlossarySidebar isEntityProfile={isEntityProfile} />
                 <Switch>
+                    <Route
+                        path={`${PageRoutes.GLOSSARY}${GENERIC_ENTITY_PAGE_PATH}`}
+                        render={() => <GenericEntityPage />}
+                    />
                     {entityRegistry.getGlossaryEntities().map((entity) => (
                         <Route
                             key={entity.getPathName()}
-                            path={`/${entity.getPathName()}/:urn`}
-                            render={() => <EntityPageV2 entityType={entity.type} />}
+                            path={`/${entity.getPathName()}/:urn/:tab?`}
+                            render={() => <TypedEntityPage entityType={entity.type} />}
                         />
                     ))}
                     <Route

@@ -113,6 +113,8 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     getCollectionName = () => 'Dashboards';
 
+    getGraphName = () => 'dashboard';
+
     useEntityQuery = useGetDashboardQuery;
 
     renderProfile = (urn: string) => (
@@ -390,8 +392,6 @@ export class DashboardEntity implements Entity<Dashboard> {
             EntityCapabilityType.HEALTH,
         ]);
     };
-
-    getGraphName = () => this.getPathName();
 
     renderEmbeddedProfile = (urn: string) => (
         <EmbeddedProfile

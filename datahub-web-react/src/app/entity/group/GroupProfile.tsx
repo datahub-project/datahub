@@ -2,11 +2,9 @@ import React from 'react';
 import { Col, Row } from 'antd';
 import styled from 'styled-components';
 import { useGetGroupQuery } from '../../../graphql/group.generated';
-import useUserParams from '../../shared/entitySearch/routingUtils/useUserParams';
 import { OriginType, EntityRelationshipsResult, Ownership } from '../../../types.generated';
 import { Message } from '../../shared/Message';
 import GroupMembers from './GroupMembers';
-import { decodeUrn } from '../shared/utils';
 import { RoutedTabs } from '../../shared/RoutedTabs';
 import GroupInfoSidebar from './GroupInfoSideBar';
 import { GroupAssets } from './GroupAssets';
@@ -42,12 +40,14 @@ const Content = styled.div`
     }
 `;
 
+interface Props {
+    urn: string;
+}
+
 /**
  * Responsible for reading & writing groups.
  */
-export default function GroupProfile() {
-    const { urn: encodedUrn } = useUserParams();
-    const urn = encodedUrn && decodeUrn(encodedUrn);
+export default function GroupProfile({ urn }: Props) {
     const { loading, error, data, refetch } = useGetGroupQuery({ variables: { urn, membersCount: MEMBER_PAGE_SIZE } });
 
     const groupMemberRelationships = data?.corpGroup?.relationships as EntityRelationshipsResult;

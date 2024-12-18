@@ -1,3 +1,5 @@
+import GenericEntityPage, { GENERIC_ENTITY_PAGE_PATH } from '@app/GenericEntityPage';
+import TypedEntityPage from '@app/TypedEntityPage';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { Switch, Route, Redirect } from 'react-router-dom';
@@ -6,7 +8,6 @@ import { GlossaryEntityContext } from '../entity/shared/GlossaryEntityContext';
 import { GenericEntityProperties } from '../entity/shared/types';
 import BusinessGlossaryPage from './BusinessGlossaryPage';
 import BusinessGlossaryPageV2 from '../glossaryV2/BusinessGlossaryPage';
-import { EntityPage } from '../entity/EntityPage';
 import GlossarySidebar from './GlossarySidebar';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { useAppConfig } from '../useAppConfig';
@@ -61,11 +62,15 @@ export default function GlossaryRoutes() {
             <ContentWrapper>
                 <GlossarySidebar />
                 <Switch>
+                    <Route
+                        path={`${PageRoutes.GLOSSARY}${GENERIC_ENTITY_PAGE_PATH}`}
+                        render={() => <GenericEntityPage />}
+                    />{' '}
                     {entityRegistry.getGlossaryEntities().map((entity) => (
                         <Route
                             key={entity.getPathName()}
-                            path={`/${entity.getPathName()}/:urn`}
-                            render={() => <EntityPage entityType={entity.type} />}
+                            path={`/${entity.getPathName()}/:urn/:tab?`}
+                            render={() => <TypedEntityPage entityType={entity.type} />}
                         />
                     ))}
                     <Route path={PageRoutes.GLOSSARY} render={() => renderPage(isThemeV2, showGlossary)} />

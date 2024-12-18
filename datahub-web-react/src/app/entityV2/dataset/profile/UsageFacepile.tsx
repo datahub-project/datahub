@@ -29,7 +29,7 @@ export default function UsageFacepile({ users, maxNumberDisplayed }: Props) {
                         <ActorAvatar
                             size={32}
                             name={userName}
-                            url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user?.urn}`}
+                            url={entityRegistry.getEntityUrl(EntityType.CorpUser, user?.urn)}
                             photoUrl={
                                 user?.editableProperties?.pictureLink || user?.editableInfo?.pictureLink || undefined
                             }

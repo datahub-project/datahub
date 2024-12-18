@@ -79,6 +79,8 @@ export class DashboardEntity implements Entity<Dashboard> {
 
     getCollectionName = () => 'Dashboards';
 
+    getGraphName = () => 'dashboard';
+
     useEntityQuery = useGetDashboardQuery;
 
     getSidebarSections = () => [
@@ -294,8 +296,6 @@ export class DashboardEntity implements Entity<Dashboard> {
             EntityCapabilityType.DATA_PRODUCTS,
         ]);
     };
-
-    getGraphName = () => this.getPathName();
 
     renderEmbeddedProfile = (urn: string) => (
         <EmbeddedProfile

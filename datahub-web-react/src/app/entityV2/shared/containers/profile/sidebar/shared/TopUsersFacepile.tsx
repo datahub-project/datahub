@@ -25,7 +25,7 @@ export default function TopUsersFacepile({ users, max, checkExistence = true }: 
                         <ActorAvatar
                             size={26}
                             name={userName}
-                            url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${user.urn}`}
+                            url={entityRegistry.getEntityUrl(EntityType.CorpUser, user.urn)}
                             photoUrl={
                                 user?.editableProperties?.pictureLink || user?.editableInfo?.pictureLink || undefined
                             }

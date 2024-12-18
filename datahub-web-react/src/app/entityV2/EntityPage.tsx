@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
 import { EntityType } from '../../types.generated';
 import { BrowsableEntityPage } from '../browse/BrowsableEntityPage';
 import LineageExplorer from '../lineage/LineageExplorer';
@@ -8,7 +7,6 @@ import { useLineageV2 } from '../lineageV2/useLineageV2';
 import useSidebarWidth from '../sharedV2/sidebar/useSidebarWidth';
 import { useEntityRegistry } from '../useEntityRegistry';
 import analytics, { EventType } from '../analytics';
-import { decodeUrn } from './shared/utils';
 import { useGetGrantedPrivilegesQuery } from '../../graphql/policy.generated';
 import { UnauthorizedPage } from '../authorization/UnauthorizedPage';
 import { ErrorSection } from '../shared/error/ErrorSection';
@@ -17,11 +15,8 @@ import { useUserContext } from '../context/useUserContext';
 import EntitySidebarContext from '../sharedV2/EntitySidebarContext';
 import TabFullSizedContext from '../shared/TabFullsizedContext';
 
-interface RouteParams {
-    urn: string;
-}
-
 interface Props {
+    urn: string;
     entityType: EntityType;
 }
 
@@ -44,9 +39,7 @@ const ALLOWED_ENTITY_TYPES = [
 /**
  * Responsible for rendering an Entity Profile
  */
-export const EntityPage = ({ entityType }: Props) => {
-    const { urn: encodedUrn } = useParams<RouteParams>();
-    const urn = decodeUrn(encodedUrn);
+export const EntityPage = ({ urn, entityType }: Props) => {
     const entityRegistry = useEntityRegistry();
     const entity = entityRegistry.getEntity(entityType);
     const isBrowsable = entity.isBrowseEnabled();

@@ -87,7 +87,7 @@ export const QueryCreatedBy = ({ createdBy }: CreatedByProps) => {
             <ActorAvatar
                 size={26}
                 name={userName}
-                url={`/${entityRegistry.getPathName(EntityType.CorpUser)}/${createdBy.urn}`}
+                url={entityRegistry.getEntityUrl(EntityType.CorpUser, createdBy.urn)}
                 photoUrl={
                     createdBy?.editableProperties?.pictureLink || createdBy?.editableInfo?.pictureLink || undefined
                 }

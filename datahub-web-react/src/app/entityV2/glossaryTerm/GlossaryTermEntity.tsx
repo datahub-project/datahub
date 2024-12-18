@@ -88,6 +88,8 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     getEntityName = () => 'Glossary Term';
 
+    getGraphName = () => 'glossaryTerm';
+
     useEntityQuery = useGetGlossaryTermQuery;
 
     renderProfile = (urn) => {
@@ -239,6 +241,4 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             EntityCapabilityType.SOFT_DELETE,
         ]);
     };
-
-    getGraphName = () => this.getPathName();
 }

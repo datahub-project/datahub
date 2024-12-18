@@ -1,10 +1,7 @@
 import { useEffect } from 'react';
-import { useLocation } from 'react-router';
-import queryString from 'query-string';
+import { useLocation, useParams } from 'react-router';
 import { isEqual } from 'lodash';
 import { AppConfig, EntityType } from '../../../../../types.generated';
-import useIsLineageMode from '../../../../lineage/utils/useIsLineageMode';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
 import EntityRegistry from '../../../EntityRegistry';
 import { EntityTab, GenericEntityProperties } from '../../types';
 import { useIsSeparateSiblingsMode, SEPARATE_SIBLINGS_URL_PARAM } from '../../siblingUtils';
@@ -91,37 +88,18 @@ export function getEntityPath(
     isLineageMode: boolean,
     isHideSiblingMode: boolean,
     tabName?: string,
-    tabParams?: Record<string, any>,
 ) {
-    const tabParamsString = tabParams ? `&${queryString.stringify(tabParams)}` : '';
-
     if (!tabName) {
-        return `${entityRegistry.getEntityUrl(entityType, urn)}?is_lineage_mode=${isLineageMode}${tabParamsString}`;
+        return `${entityRegistry.getEntityUrl(entityType, urn)}?is_lineage_mode=${isLineageMode}`;
     }
     return `${entityRegistry.getEntityUrl(entityType, urn)}/${tabName}?is_lineage_mode=${isLineageMode}${
         isHideSiblingMode ? `&${SEPARATE_SIBLINGS_URL_PARAM}=${isHideSiblingMode}` : ''
-    }${tabParamsString}`;
-}
-
-export function useEntityPath(entityType: EntityType, urn: string, tabName?: string, tabParams?: Record<string, any>) {
-    const isLineageMode = useIsLineageMode();
-    const isHideSiblingMode = useIsSeparateSiblingsMode();
-    const entityRegistry = useEntityRegistry();
-    return getEntityPath(entityType, urn, entityRegistry, isLineageMode, isHideSiblingMode, tabName, tabParams);
+    }`;
 }
 
 export function useRoutedTab(tabs: EntityTab[]): EntityTab | undefined {
-    const { pathname } = useLocation();
-    const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
-    // Match against the regex
-    const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
-    if (match && match[1]) {
-        const selectedTabPath = match[1];
-        const routedTab = tabs.find((tab) => tab.name === selectedTabPath);
-        return routedTab;
-    }
-    // No match found!
-    return undefined;
+    const { tab } = useParams<{ tab?: string }>();
+    return tabs.find((t) => t.name === tab);
 }
 
 export function useIsOnTab(tabName: string): boolean {

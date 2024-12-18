@@ -15,8 +15,6 @@ import styled from 'styled-components/macro';
 
 import { useEntityData } from '../../EntityContext';
 import TabToolbar from '../../components/styled/TabToolbar';
-import { getEntityPath } from '../../containers/profile/utils';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
 import { ImpactAnalysis } from './ImpactAnalysis';
 import { LineageDirection } from '../../../../../types.generated';
 import { generateSchemaFieldUrn } from './utils';
@@ -74,7 +72,6 @@ export const LineageTab = ({
     const { urn, entityType, entityData } = useEntityData();
     const history = useHistory();
     const location = useLocation();
-    const entityRegistry = useEntityRegistry();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const [lineageDirection, setLineageDirection] = useState<LineageDirection>(properties.defaultDirection);
     const [selectedColumn, setSelectedColumn] = useState<string | undefined>(params?.column as string);
@@ -88,13 +85,12 @@ export const LineageTab = ({
     }
 
     const routeToLineage = useCallback(() => {
-        history.push(
-            getEntityPath(entityType, urn, entityRegistry, true, false, 'Lineage', {
-                start_time_millis: startTimeMillis,
-                end_time_millis: endTimeMillis,
-            }),
-        );
-    }, [history, entityType, urn, entityRegistry, startTimeMillis, endTimeMillis]);
+        const currentParams = Object.fromEntries(new URLSearchParams(location.search));
+        history.push({
+            pathname: location.pathname,
+            search: new URLSearchParams({ ...currentParams, is_lineage_mode: 'true' }).toString(),
+        });
+    }, [history, location]);
 
     const selectedV1FieldPath = downgradeV2FieldPath(selectedColumn) || '';
     const selectedColumnUrn = generateSchemaFieldUrn(selectedV1FieldPath, urn);

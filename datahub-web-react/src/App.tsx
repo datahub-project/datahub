@@ -6,7 +6,7 @@ import { onError } from '@apollo/client/link/error';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import './App.less';
 import './AppV2.less';
-import { Routes } from './app/Routes';
+import { Routes } from '@app/Routes';
 import { PageRoutes } from './conf/Global';
 import { isLoggedInVar } from './app/auth/checkAuthStatus';
 import { GlobalCfg } from './conf';
