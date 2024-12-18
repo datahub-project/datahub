@@ -23,10 +23,12 @@ import jaydebeapi
 import glob
 from pydantic import Field, validator
 
+from datahub.cli.specific.structuredproperties_cli import properties
 from datahub.configuration.common import ConfigModel, AllowDenyPattern
 from datahub.configuration.source_common import PlatformInstanceConfigMixin, EnvConfigMixin
 from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn_with_platform_instance, \
-    make_container_urn
+    make_container_urn, make_dataplatform_instance_urn
+from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import Source, SourceReport, MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -39,7 +41,8 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import StatefulIngestionConfigBase, \
     StatefulIngestionSourceBase
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
-from datahub.metadata._schema_classes import SchemaFieldDataTypeClass, OtherSchemaClass
+from datahub.metadata._schema_classes import SchemaFieldDataTypeClass, OtherSchemaClass, ContainerPropertiesClass, \
+    DataPlatformInstanceClass, SubTypesClass, StatusClass, ContainerClass
 from datahub.metadata.com.linkedin.pegasus2avro.schema import OtherSchema
 from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
@@ -86,6 +89,9 @@ JDBC_TYPE_MAP = {
     "TIME": TimeTypeClass,
     "TIMESTAMP": TimeStampClass,
 }
+
+class JDBCContainerKey(ContainerKey):
+    key: str
 
 
 class SSLConfig(ConfigModel):
@@ -393,6 +399,95 @@ class JDBCSource(StatefulIngestionSourceBase):
             self.report.report_failure("connection", f"Connection test failed: {str(e)}")
             raise
 
+    def create_data_platform_instance(self) -> DataPlatformInstanceClass:
+        return DataPlatformInstanceClass(
+            platform=make_data_platform_urn(self.platform),
+            instance=make_dataplatform_instance_urn(
+                self.platform,
+                self.platform_instance,
+            ) if self.platform_instance else None
+        )
+
+    def get_container_key(
+            self, name: Optional[str], path: Optional[List[str]]
+    ) -> JDBCContainerKey:
+        key = name if name else ""
+        if path:
+            key = ".".join(path) + ("." + name if name else "")
+
+        return JDBCContainerKey(
+            platform=self.platform,
+            instance=self.platform_instance,
+            env=str(self.env),
+            key=key,
+        )
+
+    def create_container_properties(
+            self,
+            name: str,
+            path: Optional[List[str]] = None,
+            properties: Optional[Dict[str ,str]] = None
+    ) -> ContainerPropertiesClass:
+        qualified_name = name
+        if path:
+            qualified_name = f"{'.'.join(path)}.{name}"
+
+        return ContainerPropertiesClass(
+            name=name,
+            customProperties=properties,
+            qualifiedName=qualified_name,
+            description="",
+            env=self.env,
+        )
+
+    def get_container_workunits(
+        self,
+        database_name: str,
+        container_subtype: str,
+        path: Optional[List[str]] = None,
+        props: Optional[Dict[str, str]] = None,
+    ) -> Iterable[MetadataWorkUnit]:
+
+        container_urn = self.get_container_key(
+            name=database_name,
+            path=path,
+        ).as_urn()
+
+        if path:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=container_urn,
+                aspect=ContainerClass(
+                    container=self.get_container_key(
+                        name=path[-1],
+                        path=path[:-1] if len(path)>1 else None
+                    ).as_urn()
+                ),
+            ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=container_urn,
+            aspect=self.create_container_properties(
+                name=database_name,
+                path=path,
+                properties=props,
+            ),
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=container_urn,
+            aspect=SubTypesClass(typeNames=[container_subtype]),
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=container_urn,
+            aspect=StatusClass(removed=False),
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=container_urn,
+            aspect=self.create_data_platform_instance(),
+        ).as_workunit()
+
     def _extract_database_metadata(self, metadata) -> Iterable[MetadataWorkUnit]:
         try:
             props = {
@@ -403,20 +498,12 @@ class JDBCSource(StatefulIngestionSourceBase):
             }
 
             database_name = props["productName"].lower()
-            container_urn = make_container_urn(
-                make_container_key()
-            )f"urn:li:container:{self.platform}:{database_name}"
 
-            container_workunits = gen_containers(
-                container_key=database_name,
-                name=database_name,
-                sub_types=["Database"],
-                description=f"Version: {props['productVersion']}",
-                properties=props
+            yield from self.get_container_workunits(
+                database_name=database_name,
+                container_subtype="Database",
+                props=props,
             )
-
-            for wu in container_workunits:
-                yield wu
 
         except Exception as e:
             self.report.report_failure(
@@ -429,12 +516,23 @@ class JDBCSource(StatefulIngestionSourceBase):
         try:
             with metadata.getSchemas() as rs:
                 for schema in rs:
+                    props = {
+                        "productName": rs.,
+                        "productVersion": metadata.getDatabaseProductVersion(),
+                        "driverName": metadata.getDriverName(),
+                        "driverVersion": metadata.getDriverVersion(),
+                    }
                     schema_name = schema.getString(1)
                     if not self.config.schema_pattern.allowed(schema_name):
                         self.report.report_schema_filtered(schema_name)
                         continue
 
                     container_key = schema_name
+                    yield from self.get_container_workunits(
+                        database_name=database_name,
+                        container_subtype="Schema",
+                        props=props,
+                    )
                     container_workunits = gen_containers(
                         container_key=container_key,
                         name=schema_name,
