@@ -838,7 +838,7 @@
             "resourceType": "USER_ID_MAPPING",
             "primaryKey": "",
             "value": {
-                "blob": "{}",
+                "blob": "{\"1\": \"test-1@looker.com\", \"2\": \"test-2@looker.com\", \"3\": \"test-3@looker.com\"}",
                 "contentType": "JSON"
             }
         }
