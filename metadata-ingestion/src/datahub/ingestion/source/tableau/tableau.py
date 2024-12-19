@@ -896,8 +896,8 @@ class TableauSiteSource:
         return f"/{self.config.env.lower()}{self.no_env_browse_prefix}"
 
     def _re_authenticate(self):
-        # Sign-in again may not be enough because Tableau sometimes caches invalid sessions 
-        # so we need to restart the Tableau Server object
+        # Sign-in again may not be enough because Tableau sometimes caches invalid sessions
+        # so we need to restart the Tableau Server object
         self.server = make_tableau_client(self.site_id)
 
     @property
