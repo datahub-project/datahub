@@ -13,6 +13,7 @@ export * from './components/Heading';
 export * from './components/Icon';
 export * from './components/Input';
 export * from './components/LineChart';
+export * from './components/Loader';
 export * from './components/PageTitle';
 export * from './components/Pills';
 export * from './components/Popover';
