@@ -50,7 +50,7 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
     DataProcessInstanceProperties dataProcessInstanceProperties =
         new DataProcessInstanceProperties(dataMap);
     dpi.setName(dataProcessInstanceProperties.getName());
-    
+
     com.linkedin.datahub.graphql.generated.DataProcessInstanceProperties properties =
         new com.linkedin.datahub.graphql.generated.DataProcessInstanceProperties();
     properties.setCreated(TimeStampMapper.map(context, dataProcessInstanceProperties.getCreated()));
