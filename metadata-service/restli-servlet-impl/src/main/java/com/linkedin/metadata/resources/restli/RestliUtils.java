@@ -8,6 +8,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
+import io.datahubproject.metadata.exception.ActorAccessException;
 import java.util.Optional;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
@@ -38,6 +39,8 @@ public class RestliUtils {
       if (throwable instanceof IllegalArgumentException
           || throwable.getCause() instanceof IllegalArgumentException) {
         finalException = badRequestException(throwable.getMessage());
+      } else if (throwable.getCause() instanceof ActorAccessException) {
+          finalException = forbidden(throwable.getCause().getMessage());
       } else if (throwable instanceof APIThrottleException) {
         finalException = apiThrottled(throwable.getMessage());
       } else if (throwable instanceof RestLiServiceException) {
@@ -108,5 +111,10 @@ public class RestliUtils {
   @Nonnull
   public static RestLiServiceException apiThrottled(@Nullable String message) {
     return new RestLiServiceException(HttpStatus.S_429_TOO_MANY_REQUESTS, message);
+  }
+
+  @Nonnull
+  public static RestLiServiceException forbidden(@Nullable String message) {
+    return new RestLiServiceException(HttpStatus.S_403_FORBIDDEN, message);
   }
 }

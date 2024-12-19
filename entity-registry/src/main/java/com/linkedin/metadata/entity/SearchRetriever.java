@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntityArray;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -21,4 +22,22 @@ public interface SearchRetriever {
       @Nullable Filter filters,
       @Nullable String scrollId,
       int count);
+
+  SearchRetriever EMPTY = new EmptySearchRetriever();
+
+  class EmptySearchRetriever implements SearchRetriever {
+
+    @Override
+    public ScrollResult scroll(
+        @Nonnull List<String> entities,
+        @Nullable Filter filters,
+        @Nullable String scrollId,
+        int count) {
+      ScrollResult empty = new ScrollResult();
+      empty.setEntities(new SearchEntityArray());
+      empty.setNumEntities(0);
+      empty.setPageSize(0);
+      return empty;
+    }
+  }
 }
