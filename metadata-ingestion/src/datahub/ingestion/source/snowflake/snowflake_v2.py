@@ -540,6 +540,7 @@ class SnowflakeV2Source(
                 identifiers=self.identifiers,
                 schema_resolver=schema_resolver,
                 discovered_tables=discovered_datasets,
+                graph=self.ctx.graph,
             )
 
             # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs

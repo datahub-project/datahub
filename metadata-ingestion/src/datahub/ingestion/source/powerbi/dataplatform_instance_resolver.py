@@ -2,8 +2,8 @@ import logging
 from abc import ABC, abstractmethod
 from typing import Union
 
+from datahub.configuration.source_common import PlatformDetail
 from datahub.ingestion.source.powerbi.config import (
-    PlatformDetail,
     PowerBiDashboardSourceConfig,
     PowerBIPlatformDetail,
 )
