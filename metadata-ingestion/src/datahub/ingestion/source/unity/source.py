@@ -27,7 +27,7 @@ from datahub.emitter.mcp_builder import (
 )
 from datahub.emitter.sql_parsing_builder import SqlParsingBuilder
 from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
-    ensure_aspect_size,
+    EnsureAspectSizeProcessor,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -263,7 +263,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             StaleEntityRemovalHandler.create(
                 self, self.config, self.ctx
             ).workunit_processor,
-            ensure_aspect_size,
+            EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
         ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
