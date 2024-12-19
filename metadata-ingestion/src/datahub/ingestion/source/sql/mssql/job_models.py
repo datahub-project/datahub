@@ -1,7 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Union
 
-from datahub.api.entities.common.data_platform_instance import DataPlatformInstance
 from datahub.emitter.mce_builder import (
     make_data_flow_urn,
     make_data_job_urn,
