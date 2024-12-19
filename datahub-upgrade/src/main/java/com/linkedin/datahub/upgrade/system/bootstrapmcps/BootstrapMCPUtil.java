@@ -100,8 +100,8 @@ public class BootstrapMCPUtil {
             .collect(Collectors.toList());
 
     return AspectsBatchImpl.builder()
-        .mcps(mcps, auditStamp, opContext.getRetrieverContext().get())
-        .retrieverContext(opContext.getRetrieverContext().get())
+        .mcps(mcps, auditStamp, opContext.getRetrieverContext())
+        .retrieverContext(opContext.getRetrieverContext())
         .build();
   }
 

@@ -156,10 +156,15 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Urn urn,
-      @Nullable final Set<String> aspectNames)
+      @Nullable final Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     final EntitiesV2GetRequestBuilder requestBuilder =
-        ENTITIES_V2_REQUEST_BUILDERS.get().aspectsParam(aspectNames).id(urn.toString());
+        ENTITIES_V2_REQUEST_BUILDERS
+            .get()
+            .aspectsParam(aspectNames)
+            .id(urn.toString())
+            .alwaysIncludeKeyAspectParam(alwaysIncludeKeyAspect);
     return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
   }
 
@@ -241,7 +246,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Set<Urn> urns,
-      @Nullable final Set<String> aspectNames)
+      @Nullable final Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
 
     Map<Urn, EntityResponse> responseMap = new HashMap<>();
@@ -260,6 +266,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
                                 ENTITIES_V2_REQUEST_BUILDERS
                                     .batchGet()
                                     .aspectsParam(aspectNames)
+                                    .alwaysIncludeKeyAspectParam(alwaysIncludeKeyAspect)
                                     .ids(
                                         batch.stream()
                                             .map(Urn::toString)
