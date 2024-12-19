@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -358,6 +359,61 @@ public class EntitySpecBuilder {
   }
 
   private void validateAspect(final AspectSpec aspectSpec) {
+
+    /*Set<String> searchableKeyAnnotations = aspectSpec.getSearchableFieldSpecs()
+        .stream()
+        //.filter(searchableFieldSpec -> searchableFieldSpec.getSearchableAnnotation().isRequiresRelationship())
+        .filter(searchableFieldSpec -> searchableFieldSpec.getSearchableAnnotation().getFieldType()
+            .equals(SearchableAnnotation.FieldType.URN))
+        .map(SearchableFieldSpec::getPath)
+        .map(PathSpec::toString)
+        .collect(Collectors.toSet());
+
+    if (!searchableKeyAnnotations.isEmpty()) {
+      Set<String> relationshipKeyAnnotations = aspectSpec.getRelationshipFieldSpecMap().keySet();
+
+      searchableKeyAnnotations.removeAll(relationshipKeyAnnotations);
+
+      if (!searchableKeyAnnotations.isEmpty()) {
+        failValidation(String.format(
+            "Aspect %s with the following searchable annotations %s with foreign key references do not include matching @Relationship annotations. "
+                + "Lack of the @Relationship annotation can cause issues with referential deletes.",
+            aspectSpec.getName(), searchableKeyAnnotations));
+      }
+    }
+     */
+
+    List<String> urnFieldsWithoutRelationships =
+        aspectSpec.getPegasusSchema().getFields().stream()
+            .filter(
+                field -> {
+                  // Ignore fields that are not type refs
+                  if (!(field.getType() instanceof TyperefDataSchema)) {
+                    return false;
+                  }
+                  // Ignore type ref fields that are not Urns (note this might need to be reviewed
+                  if (!((TyperefDataSchema) field.getType())
+                      .getFullName()
+                      .equals("com.linkedin.common.Urn")) {
+                    return false;
+                  }
+                  // Ignore fields that have a relationship field
+                  return !aspectSpec
+                      .getRelationshipFieldSpecMap()
+                      .containsKey(String.format("/%s", field.getName()));
+                })
+            .map(RecordDataSchema.Field::getName)
+            .collect(Collectors.toList());
+
+    if (!urnFieldsWithoutRelationships.isEmpty()) {
+      failValidation(
+          String.format(
+              "Aspect %s has the following URN type fields: %s without relationship annotations. "
+                  + "Lack of the @Relationship annotation on these fields can cause issues with referential deletes. \n"
+                  + "To prevent overloading the search service, recommended adding the following property to the annotation: \"isIndexed\": false ",
+              aspectSpec.getName(), urnFieldsWithoutRelationships));
+    }
+
     if (aspectSpec.isTimeseries()) {
       if (aspectSpec.getPegasusSchema().contains(TIMESTAMP_FIELD_NAME)) {
         DataSchema timestamp =

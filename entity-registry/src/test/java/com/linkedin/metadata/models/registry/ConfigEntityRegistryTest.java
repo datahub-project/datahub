@@ -64,4 +64,13 @@ public class ConfigEntityRegistryTest {
                 .getResourceAsStream("test-entity-registry.yml"));
     assertEquals(configEntityRegistry.getIdentifier(), "test-registry");
   }
+
+  @Test
+  public void testDefaultEntitySpecs() {
+    // InputStream inputStream = ClassLoader.getSystemResourceAsStream("entity-registry.yml");
+    EntityRegistry entityRegistry =
+        new ConfigEntityRegistry(
+            TestEntityProfile.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
+    assertEquals(entityRegistry.getIdentifier(), "Unknown");
+  }
 }

@@ -13,6 +13,11 @@ record MLModelKey {
   /**
   * Standardized platform urn for the model
   */
+  @Relationship = {
+      "name": "InstanceOf",
+      "entityTypes": ["dataPlatform"],
+      "isIndexed": false
+  }
   platform: Urn
 
   /**

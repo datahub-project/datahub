@@ -30,5 +30,10 @@ record Deprecation {
   /**
    * The user URN which will be credited for modifying this deprecation content.
    */
+  @Relationship = {
+    "name": "deprecatedBy",
+    "entityTypes": ["corpUser"],
+    "isIndexed": false
+  }
   actor: Urn
 }

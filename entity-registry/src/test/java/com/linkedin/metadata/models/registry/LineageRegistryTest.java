@@ -91,6 +91,7 @@ public class LineageRegistryTest {
                 destinationEntityTypes,
                 isUpstream,
                 isLineage,
+                true,
                 null,
                 null,
                 null,

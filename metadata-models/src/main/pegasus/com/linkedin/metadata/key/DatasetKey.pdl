@@ -17,6 +17,11 @@ record DatasetKey {
     "fieldType": "URN",
     "enableAutocomplete": true
   }
+  @Relationship = {
+    "name": "partOf",
+    "entityTypes": ["dataPlatform"],
+    "isIndexed": false
+  }
   platform: Urn
 
   /**

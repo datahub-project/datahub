@@ -15,6 +15,11 @@ record Operation includes TimeseriesAspectBase {
    * Actor who issued this operation.
    */
   @TimeseriesField = {}
+  @Relationship = {
+      "name": "triggeredBy",
+      "entityTypes": ["corpUser", "corpGroup"],
+      "isIndexed": false
+    }
   actor: optional Urn
 
   /**

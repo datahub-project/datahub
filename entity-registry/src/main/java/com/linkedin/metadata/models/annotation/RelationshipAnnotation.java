@@ -19,6 +19,7 @@ public class RelationshipAnnotation {
   private static final String ENTITY_TYPES_FIELD = "entityTypes";
   private static final String IS_UPSTREAM_FIELD = "isUpstream";
   private static final String IS_LINEAGE_FIELD = "isLineage";
+  private static final String IS_INDEX_FIELD = "isIndexed";
   private static final String CREATED_ON = "createdOn";
   private static final String CREATED_ACTOR = "createdActor";
   private static final String UPDATED_ON = "updatedOn";
@@ -31,6 +32,7 @@ public class RelationshipAnnotation {
   List<String> validDestinationTypes;
   boolean isUpstream;
   boolean isLineage;
+  boolean isIndexed;
   String createdOn;
   String createdActor;
   String updatedOn;
@@ -53,29 +55,36 @@ public class RelationshipAnnotation {
     if (!name.isPresent()) {
       throw new ModelValidationException(
           String.format(
-              "Failed to validate @%s annotation at %s: Invalid field '%s'. Expected type String",
+              "Failed to validate @%s annotation at %s: Invalid field '%s'. Missing name property in annotation.",
               ANNOTATION_NAME, context, NAME_FIELD));
     }
 
     final Optional<List> entityTypesList =
         AnnotationUtils.getField(map, ENTITY_TYPES_FIELD, List.class);
+    if (!entityTypesList.isPresent()) {
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation at %s: Invalid field '%s'. Missing entityTypes property in annotation.",
+              ANNOTATION_NAME, context, NAME_FIELD));
+    }
     final List<String> entityTypes = new ArrayList<>();
-    if (entityTypesList.isPresent()) {
-      for (Object entityTypeObj : entityTypesList.get()) {
-        if (!String.class.isAssignableFrom(entityTypeObj.getClass())) {
-          throw new ModelValidationException(
-              String.format(
-                  "Failed to validate @%s annotation at %s: Invalid field '%s'. Expected type List<String>",
-                  ANNOTATION_NAME, context, ENTITY_TYPES_FIELD));
-        }
-        entityTypes.add((String) entityTypeObj);
+
+    for (Object entityTypeObj : entityTypesList.get()) {
+      if (!String.class.isAssignableFrom(entityTypeObj.getClass())) {
+        throw new ModelValidationException(
+            String.format(
+                "Failed to validate @%s annotation at %s: Invalid field '%s'. entityTypes must be a List<String>",
+                ANNOTATION_NAME, context, ENTITY_TYPES_FIELD));
       }
+      entityTypes.add((String) entityTypeObj);
     }
 
     final Optional<Boolean> isUpstream =
         AnnotationUtils.getField(map, IS_UPSTREAM_FIELD, Boolean.class);
     final Optional<Boolean> isLineage =
         AnnotationUtils.getField(map, IS_LINEAGE_FIELD, Boolean.class);
+    final Optional<Boolean> isIndexed =
+        AnnotationUtils.getField(map, IS_INDEX_FIELD, Boolean.class);
     final Optional<String> createdOn = AnnotationUtils.getField(map, CREATED_ON, String.class);
     final Optional<String> createdActor =
         AnnotationUtils.getField(map, CREATED_ACTOR, String.class);
@@ -90,6 +99,7 @@ public class RelationshipAnnotation {
         entityTypes,
         isUpstream.orElse(true),
         isLineage.orElse(false),
+        isIndexed.orElse(true),
         createdOn.orElse(null),
         createdActor.orElse(null),
         updatedOn.orElse(null),
@@ -105,6 +115,7 @@ public class RelationshipAnnotation {
    * @param entityTypes
    * @param isUpstream
    * @param isLineage
+   * @param isIndexed
    * @param createdOn
    * @param createdActor
    * @param updatedOn
@@ -116,6 +127,7 @@ public class RelationshipAnnotation {
       List<String> validDestinationTypes,
       boolean isUpstream,
       boolean isLineage,
+      boolean isIndexed,
       String createdOn,
       String createdActor,
       String updatedOn,
@@ -126,6 +138,7 @@ public class RelationshipAnnotation {
         validDestinationTypes,
         isUpstream,
         isLineage,
+        isIndexed,
         createdOn,
         createdActor,
         updatedOn,

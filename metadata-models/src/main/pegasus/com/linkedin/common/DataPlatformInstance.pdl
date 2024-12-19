@@ -15,6 +15,11 @@ record DataPlatformInstance {
     "addToFilters": true,
     "filterNameOverride": "Platform"
   }
+  @Relationship = {
+      "name": "IsPartOf",
+      "entityTypes": ["dataPlatform"],
+      "isIndexed": false
+  }
   platform: Urn
 
   /**
@@ -25,6 +30,11 @@ record DataPlatformInstance {
     "addToFilters": true,
     "filterNameOverride": "Platform Instance"
     "fieldName": "platformInstance"
+  }
+  @Relationship = {
+    "name": "InstanceOf",
+    "entityTypes": ["dataPlatform"],
+    "isIndexed": false
   }
   instance: optional Urn
 }
