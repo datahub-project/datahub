@@ -24,7 +24,7 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "${python_executable} -m venv ${venv_name} && " +
-    "${venv_name}/bin/python -m pip install --upgrade pip uv wheel 'setuptools>=63.0.0' && " +
+    "${venv_name}/bin/${python_executable} -m pip install --upgrade pip uv wheel 'setuptools>=63.0.0' && " +
     "touch ${sentinel_file}"
 }
 
@@ -34,7 +34,7 @@ task installPackageOnly(type: Exec, dependsOn: environmentSetup) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "uv pip install -e . &&" +
+    "uv pip install -p ${venv_name}/bin/${python_executable} -e . &&" +
     "touch ${sentinel_file}"
 }
 
@@ -44,7 +44,7 @@ task installPackage(type: Exec, dependsOn: installPackageOnly) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "uv pip install -e . ${extra_pip_requirements} && " +
+    "uv pip install -p ${venv_name}/bin/${python_executable} -e . ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -74,7 +74,7 @@ task installDev(type: Exec, dependsOn: [install]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "uv pip install -e .[dev] ${extra_pip_requirements} && " +
+    "uv pip install -p ${venv_name}/bin/${python_executable} -e .[dev] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -84,7 +84,7 @@ task installAll(type: Exec, dependsOn: [install]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "uv pip install -e .[all] ${extra_pip_requirements} && " +
+    "uv pip install -p ${venv_name}/bin/${python_executable} -e .[all] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -145,7 +145,7 @@ task installDevTest(type: Exec, dependsOn: [install]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "uv pip install -e .[dev,integration-tests] ${extra_pip_requirements} && " +
+    "uv pip install -p ${venv_name}/bin/${python_executable} -e .[dev,integration-tests] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 

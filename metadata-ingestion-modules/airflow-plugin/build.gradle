@@ -20,7 +20,7 @@ if (extra_pip_extras != "") {
     ext.extra_pip_extras = "," + extra_pip_extras
 }
 
-def pip_install_command = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip install -e ../../metadata-ingestion"
+def pip_install_command = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip install -p ${venv_name}/bin/${python_executable} -e ../../metadata-ingestion"
 
 task environmentSetup(type: Exec) {
   def sentinel_file = "${venv_name}/.venv_environment_sentinel"
