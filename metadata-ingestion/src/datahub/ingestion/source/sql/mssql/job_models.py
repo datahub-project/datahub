@@ -223,6 +223,7 @@ class MSSQLDataJob:
             )
         return None
 
+
 @dataclass
 class MSSQLDataFlow:
     entity: Union[MSSQLJob, MSSQLProceduresContainer]
@@ -262,6 +263,8 @@ class MSSQLDataFlow:
         if self.entity.platform_instance:
             return DataPlatformInstanceClass(
                 platform=make_data_platform_urn(self.entity.orchestrator),
-                instance=make_dataplatform_instance_urn(self.entity.orchestrator, self.entity.platform_instance),
+                instance=make_dataplatform_instance_urn(
+                    self.entity.orchestrator, self.entity.platform_instance
+                ),
             )
         return None
