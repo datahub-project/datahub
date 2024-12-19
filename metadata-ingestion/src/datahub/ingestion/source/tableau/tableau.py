@@ -49,6 +49,7 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     ContainerKey,
@@ -382,7 +383,7 @@ class TableauConfig(
 
     fetch_size: int = Field(
         default=250,
-        description="[deprecated] Use page_size instead. Specifies the number of records to retrieve in each batch during a query execution.",
+        description="[removed] The 'fetch_size' field is no longer used. Please use 'page_size' instead.",
         hidden_from_docs=True,
     )
 
@@ -500,9 +501,8 @@ class TableauConfig(
         "This can only be used with ingest_tags enabled as it will overwrite tags entered from the UI.",
     )
 
-    _fetch_size = pydantic_field_deprecated(
+    _fetch_size = pydantic_removed_field(
         "fetch_size",
-        message="fetch_size is deprecated, use page_size instead",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
