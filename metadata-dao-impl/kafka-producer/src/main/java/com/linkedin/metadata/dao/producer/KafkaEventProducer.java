@@ -1,10 +1,15 @@
 package com.linkedin.metadata.dao.producer;
 
+import static com.linkedin.metadata.utils.metrics.MetricUtils.PRODUCE_MCL_METRIC_NAME;
+import static com.linkedin.metadata.utils.metrics.MetricUtils.PRODUCE_MCP_METRIC_NAME;
+import static com.linkedin.metadata.utils.metrics.MetricUtils.PRODUCE_PE_METRIC_NAME;
+
 import com.datahub.util.exception.ModelConversionException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.DataHubUpgradeHistoryEvent;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
@@ -73,6 +78,7 @@ public class KafkaEventProducer implements EventProducer {
     if (aspectSpec.isTimeseries()) {
       topic = _topicConvention.getMetadataChangeLogTimeseriesTopicName();
     }
+    MetricUtils.counter(this.getClass(), PRODUCE_MCL_METRIC_NAME).inc();
     return _producer.send(
         new ProducerRecord(topic, urn.toString(), record),
         _kafkaHealthChecker.getKafkaCallBack("MCL", urn.toString()));
@@ -97,6 +103,7 @@ public class KafkaEventProducer implements EventProducer {
     }
 
     String topic = _topicConvention.getMetadataChangeProposalTopicName();
+    MetricUtils.counter(this.getClass(), PRODUCE_MCP_METRIC_NAME).inc();
     return _producer.send(
         new ProducerRecord(topic, urn.toString(), record),
         _kafkaHealthChecker.getKafkaCallBack("MCP", urn.toString()));
@@ -116,6 +123,7 @@ public class KafkaEventProducer implements EventProducer {
     }
 
     final String topic = _topicConvention.getPlatformEventTopicName();
+    MetricUtils.counter(this.getClass(), PRODUCE_PE_METRIC_NAME).inc();
     return _producer.send(
         new ProducerRecord(topic, key == null ? name : key, record),
         _kafkaHealthChecker.getKafkaCallBack("Platform Event", name));
