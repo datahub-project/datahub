@@ -1,10 +1,11 @@
-import { Table, Text } from '@components';
+import { colors, Table, Text } from '@components';
 import { groupByFieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import { DatasetFieldProfile } from '@src/types.generated';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import SchemaFieldDrawer from '../../Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
 import { useGetEntityWithSchema } from '../../Schema/useGetEntitySchema';
+import useKeyboardControls from '../../Schema/useKeyboardControls';
 import { decimalToPercentStr } from '../../Schema/utils/statsUtil';
 import { useGetColumnStatsColumns } from './useGetColumnStatsColumns';
 import { isPresent } from './utils';
@@ -17,6 +18,12 @@ const EmptyContainer = styled.div`
     height: 100%;
     width: 100%;
     height: 150px;
+`;
+
+const StyledTable = styled(Table)`
+    .selected-row {
+        background: ${colors.gray[100]} !important;
+    }
 `;
 
 interface Props {
@@ -59,6 +66,27 @@ const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
         setExpandedDrawerFieldPath,
     });
 
+    const { selectPreviousField, selectNextField } = useKeyboardControls(
+        rows,
+        expandedDrawerFieldPath,
+        setExpandedDrawerFieldPath,
+    );
+
+    const rowRefs = useRef<HTMLTableRowElement[]>([]);
+
+    useEffect(() => {
+        if (expandedDrawerFieldPath) {
+            const selectedIndex = rows.findIndex((row) => row.fieldPath === expandedDrawerFieldPath);
+
+            if (selectedIndex !== -1 && rowRefs.current[selectedIndex]) {
+                rowRefs.current[selectedIndex].scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                });
+            }
+        }
+    }, [expandedDrawerFieldPath, rows]);
+
     if (filteredData.length === 0) {
         return (
             <EmptyContainer>
@@ -69,9 +97,25 @@ const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
         );
     }
 
+    const getRowClassName = (record) => {
+        return expandedDrawerFieldPath === record.column ? 'selected-row' : '';
+    };
+
+    const onRowClick = (record) => {
+        setExpandedDrawerFieldPath(expandedDrawerFieldPath === record.column ? null : record.column);
+    };
+
     return (
         <>
-            <Table columns={columnStatsColumns} data={filteredData} isScrollable />
+            <StyledTable
+                columns={columnStatsColumns}
+                data={filteredData}
+                isScrollable
+                maxHeight="300px"
+                onRowClick={onRowClick}
+                rowClassName={getRowClassName}
+                rowRefs={rowRefs}
+            />
             {!!fields && (
                 <SchemaFieldDrawer
                     schemaFields={fields}
@@ -80,6 +124,8 @@ const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                     displayedRows={rows}
                     defaultSelectedTabName="Statistics"
+                    selectPreviousField={selectPreviousField}
+                    selectNextField={selectNextField}
                 />
             )}
         </>

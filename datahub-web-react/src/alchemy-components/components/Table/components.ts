@@ -50,20 +50,22 @@ export const HeaderContainer = styled.div<{ alignment?: AlignmentOptions }>(({ a
     justifyContent: alignment,
 }));
 
-export const TableRow = styled.tr<{ canExpand?: boolean }>(({ canExpand }) => ({
-    background: canExpand ? '#EBECF0' : 'transparent',
-    cursor: 'pointer',
-    '&:last-child': {
-        '& td': {
-            borderBottom: 'none',
+export const TableRow = styled.tr<{ canExpand?: boolean; isRowClickable?: boolean }>(
+    ({ canExpand, isRowClickable }) => ({
+        background: canExpand ? '#EBECF0' : 'transparent',
+        cursor: isRowClickable ? 'pointer' : 'normal',
+        '&:last-child': {
+            '& td': {
+                borderBottom: 'none',
+            },
         },
-    },
 
-    '& td:first-child': {
-        fontWeight: typography.fontWeights.medium,
-        color: colors.gray[600],
-    },
-}));
+        '& td:first-child': {
+            fontWeight: typography.fontWeights.medium,
+            color: colors.gray[600],
+        },
+    }),
+);
 
 export const TableCell = styled.td<{
     width?: string;
