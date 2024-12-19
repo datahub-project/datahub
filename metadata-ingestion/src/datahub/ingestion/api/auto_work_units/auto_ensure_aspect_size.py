@@ -46,7 +46,7 @@ class EnsureAspectSizeProcessor:
                         self.report.warning(
                             title="Dataset profile truncated due to size constraint",
                             message="Dataset profile contained too much data and would have caused ingestion to fail",
-                            context=f"Sample values for field {field.fieldPath} was removed from dataset profile for {dataset_urn} due to aspect size constraints",
+                            context=f"Sample values for field {field.fieldPath} were removed from dataset profile for {dataset_urn} due to aspect size constraints",
                         )
                     else:
                         sample_fields_size += values_len
