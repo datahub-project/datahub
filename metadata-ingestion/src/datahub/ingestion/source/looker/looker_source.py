@@ -68,6 +68,7 @@ from datahub.ingestion.source.looker.looker_common import (
     ViewField,
     ViewFieldType,
     gen_model_key,
+    get_urn_looker_element_id,
 )
 from datahub.ingestion.source.looker.looker_config import LookerDashboardSourceConfig
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
@@ -164,6 +165,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         # To keep track of folders (containers) which have already been ingested
         # Required, as we do not ingest all folders but only those that have dashboards/looks
         self.processed_folders: List[str] = []
+
+        # Keep track of ingested chart urns, to omit usage for non-ingested entities
+        self.chart_urns: Set[str] = set()
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:
@@ -642,6 +646,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         chart_urn = self._make_chart_urn(
             element_id=dashboard_element.get_urn_element_id()
         )
+        self.chart_urns.add(chart_urn)
         chart_snapshot = ChartSnapshot(
             urn=chart_urn,
             aspects=[Status(removed=False)],
@@ -1380,7 +1385,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         yield from self._emit_folder_as_container(folder)
 
     def extract_usage_stat(
-        self, looker_dashboards: List[looker_usage.LookerDashboardForUsage]
+        self,
+        looker_dashboards: List[looker_usage.LookerDashboardForUsage],
+        ingested_chart_urns: Set[str],
     ) -> List[MetadataChangeProposalWrapper]:
         looks: List[looker_usage.LookerChartForUsage] = []
         # filter out look from all dashboard
@@ -1391,6 +1398,15 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
 
         # dedup looks
         looks = list({str(look.id): look for look in looks}.values())
+        filtered_looks = []
+        for look in looks:
+            if not look.id:
+                continue
+            chart_urn = self._make_chart_urn(get_urn_looker_element_id(look.id))
+            if chart_urn in ingested_chart_urns:
+                filtered_looks.append(look)
+            else:
+                self.reporter.charts_skipped_for_usage.add(look.id)
 
         # Keep stat generators to generate entity stat aspect later
         stat_generator_config: looker_usage.StatGeneratorConfig = (
@@ -1414,7 +1430,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             stat_generator_config,
             self.reporter,
             self._make_chart_urn,
-            looks,
+            filtered_looks,
         )
 
         mcps: List[MetadataChangeProposalWrapper] = []
@@ -1669,7 +1685,7 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         if self.source_config.extract_usage_history:
             self.reporter.report_stage_start("usage_extraction")
             usage_mcps: List[MetadataChangeProposalWrapper] = self.extract_usage_stat(
-                looker_dashboards_for_usage
+                looker_dashboards_for_usage, self.chart_urns
             )
             for usage_mcp in usage_mcps:
                 yield usage_mcp.as_workunit()
