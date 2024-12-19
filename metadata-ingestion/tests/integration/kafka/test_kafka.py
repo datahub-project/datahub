@@ -102,7 +102,7 @@ def test_kafka_test_connection(mock_kafka_service, config_dict, is_success):
         test_connection_helpers.assert_capability_report(
             capability_report=report.capability_report,
             failure_capabilities={
-                SourceCapability.SCHEMA_METADATA: "Failed to establish a new connection"
+                SourceCapability.SCHEMA_METADATA: "[Errno 111] Connection refused"
             },
         )
 

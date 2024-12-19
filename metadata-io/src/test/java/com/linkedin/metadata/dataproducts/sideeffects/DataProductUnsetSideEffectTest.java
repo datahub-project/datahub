@@ -15,7 +15,7 @@ import com.linkedin.dataproduct.DataProductAssociation;
 import com.linkedin.dataproduct.DataProductAssociationArray;
 import com.linkedin.dataproduct.DataProductProperties;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.MCPItem;
@@ -75,12 +75,12 @@ public class DataProductUnsetSideEffectTest {
                       .build()))
           .build();
 
-  private AspectRetriever mockAspectRetriever;
+  private CachingAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
 
   @BeforeMethod
   public void setup() {
-    mockAspectRetriever = mock(AspectRetriever.class);
+    mockAspectRetriever = mock(CachingAspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
     GraphRetriever graphRetriever = mock(GraphRetriever.class);
     RelatedEntities relatedEntities =
@@ -139,7 +139,7 @@ public class DataProductUnsetSideEffectTest {
     retrieverContext =
         RetrieverContext.builder()
             .searchRetriever(mock(SearchRetriever.class))
-            .aspectRetriever(mockAspectRetriever)
+            .cachingAspectRetriever(mockAspectRetriever)
             .graphRetriever(graphRetriever)
             .build();
   }

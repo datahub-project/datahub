@@ -93,8 +93,14 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
    */
   private final LoadingCache<String, Lock> locks;
 
+  private final String batchGetMethod;
+
   public EbeanAspectDao(@Nonnull final Database server, EbeanConfiguration ebeanConfiguration) {
     _server = server;
+    this.batchGetMethod =
+        ebeanConfiguration.getBatchGetMethod() != null
+            ? ebeanConfiguration.getBatchGetMethod()
+            : "IN";
     if (ebeanConfiguration.getLocking().isEnabled()) {
       this.locks =
           CacheBuilder.newBuilder()
@@ -371,23 +377,37 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
 
     final int totalPageCount = QueryUtils.getTotalPageCount(keys.size(), keysCount);
     final List<EbeanAspectV2> finalResult =
-        batchGetUnion(new ArrayList<>(keys), keysCount, position, forUpdate);
+        batchGetSelectString(new ArrayList<>(keys), keysCount, position, forUpdate);
 
     while (QueryUtils.hasMore(position, keysCount, totalPageCount)) {
       position += keysCount;
       final List<EbeanAspectV2> oneStatementResult =
-          batchGetUnion(new ArrayList<>(keys), keysCount, position, forUpdate);
+          batchGetSelectString(new ArrayList<>(keys), keysCount, position, forUpdate);
       finalResult.addAll(oneStatementResult);
     }
 
     return finalResult;
   }
 
+  @Nonnull
+  private List<EbeanAspectV2> batchGetSelectString(
+      @Nonnull final List<EbeanAspectV2.PrimaryKey> keys,
+      final int keysCount,
+      final int position,
+      boolean forUpdate) {
+
+    if (batchGetMethod.equals("IN")) {
+      return batchGetIn(keys, keysCount, position, forUpdate);
+    }
+
+    return batchGetUnion(keys, keysCount, position, forUpdate);
+  }
+
   /**
    * Builds a single SELECT statement for batch get, which selects one entity, and then can be
    * UNION'd with other SELECT statements.
    */
-  private String batchGetSelect(
+  private String batchGetSelectString(
       final int selectId,
       @Nonnull final String urn,
       @Nonnull final String aspect,
@@ -434,7 +454,7 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     final Map<String, Object> params = new HashMap<>();
     for (int index = position; index < end; index++) {
       sb.append(
-          batchGetSelect(
+          batchGetSelectString(
               index - position,
               keys.get(index).getUrn(),
               keys.get(index).getAspect(),
@@ -447,6 +467,65 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
     }
 
     // Add FOR UPDATE clause only once at the end of the entire statement
+    if (forUpdate) {
+      sb.append(" FOR UPDATE");
+    }
+
+    final RawSql rawSql =
+        RawSqlBuilder.parse(sb.toString())
+            .columnMapping(EbeanAspectV2.URN_COLUMN, "key.urn")
+            .columnMapping(EbeanAspectV2.ASPECT_COLUMN, "key.aspect")
+            .columnMapping(EbeanAspectV2.VERSION_COLUMN, "key.version")
+            .create();
+
+    final Query<EbeanAspectV2> query = _server.find(EbeanAspectV2.class).setRawSql(rawSql);
+
+    for (Map.Entry<String, Object> param : params.entrySet()) {
+      query.setParameter(param.getKey(), param.getValue());
+    }
+
+    return query.findList();
+  }
+
+  @Nonnull
+  private List<EbeanAspectV2> batchGetIn(
+      @Nonnull final List<EbeanAspectV2.PrimaryKey> keys,
+      final int keysCount,
+      final int position,
+      boolean forUpdate) {
+    validateConnection();
+
+    // Build a single SELECT with IN clause using composite key comparison
+    // Query will look like:
+    // SELECT * FROM metadata_aspect WHERE (urn, aspect, version) IN
+    // (('urn0', 'aspect0', 0), ('urn1', 'aspect1', 1))
+    final StringBuilder sb = new StringBuilder();
+    sb.append(
+        "SELECT urn, aspect, version, metadata, systemMetadata, createdOn, createdBy, createdFor ");
+    sb.append("FROM metadata_aspect_v2 WHERE (urn, aspect, version) IN (");
+
+    final int end = Math.min(keys.size(), position + keysCount);
+    final Map<String, Object> params = new HashMap<>();
+
+    for (int index = position; index < end; index++) {
+      int paramIndex = index - position;
+      String urnParam = "urn" + paramIndex;
+      String aspectParam = "aspect" + paramIndex;
+      String versionParam = "version" + paramIndex;
+
+      params.put(urnParam, keys.get(index).getUrn());
+      params.put(aspectParam, keys.get(index).getAspect());
+      params.put(versionParam, keys.get(index).getVersion());
+
+      sb.append("(:" + urnParam + ", :" + aspectParam + ", :" + versionParam + ")");
+
+      if (index != end - 1) {
+        sb.append(",");
+      }
+    }
+
+    sb.append(")");
+
     if (forUpdate) {
       sb.append(" FOR UPDATE");
     }

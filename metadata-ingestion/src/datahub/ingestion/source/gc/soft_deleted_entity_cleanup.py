@@ -20,6 +20,9 @@ logger = logging.getLogger(__name__)
 
 
 class SoftDeletedEntitiesCleanupConfig(ConfigModel):
+    enabled: bool = Field(
+        default=True, description="Whether to do soft deletion cleanup."
+    )
     retention_days: Optional[int] = Field(
         10,
         description="Number of days to retain metadata in DataHub",
@@ -156,6 +159,8 @@ class SoftDeletedEntitiesCleanup:
                 self.delete_entity(urn)
 
     def cleanup_soft_deleted_entities(self) -> None:
+        if not self.config.enabled:
+            return
         assert self.ctx.graph
         start_time = time.time()
 

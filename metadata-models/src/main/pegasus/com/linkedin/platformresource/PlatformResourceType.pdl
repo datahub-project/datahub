@@ -9,9 +9,13 @@ enum PlatformResourceType {
     /**
      * e.g. a Slack member resource, Looker user resource, etc.
      */
-    USER_INFO,
+    USER_INFO, 
     /**
      * e.g. a Slack channel
      */
     CONVERSATION
+    /**
+      * e.g. Looker mapping of all user ids
+      */
+    USER_ID_MAPPING
 }
