@@ -56,8 +56,7 @@ public class DefaultAspectsUtilTest {
         DefaultAspectsUtil.getAdditionalChanges(
                 opContext,
                 AspectsBatchImpl.builder()
-                    .mcps(
-                        List.of(proposal1), new AuditStamp(), opContext.getRetrieverContext().get())
+                    .mcps(List.of(proposal1), new AuditStamp(), opContext.getRetrieverContext())
                     .build()
                     .getMCPItems(),
                 entityServiceImpl,

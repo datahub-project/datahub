@@ -72,7 +72,7 @@ public class EntityUtils {
     entityService.ingestProposal(
         opContext,
         AspectsBatchImpl.builder()
-            .mcps(changes, getAuditStamp(actor), opContext.getRetrieverContext().get())
+            .mcps(changes, getAuditStamp(actor), opContext.getRetrieverContext())
             .build(),
         async);
   }
