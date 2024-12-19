@@ -2,10 +2,11 @@ import sys
 from typing import Any, Dict, List, Optional, Union
 
 import pydantic
- 
+
 # setting path
 sys.path.append('../../scripts')
 
+from docgen import find_child_prefix_type
 from docgen import gen_md_table_from_struct, FieldRow, FieldTree
 from datahub.configuration.common import ConfigModel
 from enum import Enum
@@ -137,3 +138,7 @@ def test_field_row():
         'path'
     ]
 
+
+def test_find_child_prefix_type():
+    field_path = "[version=2.0].[type=UnityCatalogSourceConfig].[type=union].[type=UnityCatalogGEProfilerConfig].profiling"
+    assert find_child_prefix_type(field_path) is None
