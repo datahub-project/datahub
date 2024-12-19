@@ -322,22 +322,10 @@ class BigqueryLineageExtractor:
     def get_lineage_workunits(
         self,
         projects: List[str],
-        view_refs_by_project: Dict[str, Set[str]],
-        view_definitions: FileBackedDict[str],
-        snapshot_refs_by_project: Dict[str, Set[str]],
-        snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
         table_refs: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
         if not self._should_ingest_lineage():
             return
-
-        yield from self.get_lineage_workunits_for_views_and_snapshots(
-            projects,
-            view_refs_by_project,
-            view_definitions,
-            snapshot_refs_by_project,
-            snapshots_by_ref,
-        )
 
         if self.config.use_exported_bigquery_audit_metadata:
             projects = ["*"]  # project_id not used when using exported metadata
