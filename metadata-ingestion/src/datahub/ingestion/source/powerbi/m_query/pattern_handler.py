@@ -5,13 +5,13 @@ from typing import Dict, List, Optional, Tuple, Type, cast
 
 from lark import Tree
 
+from datahub.configuration.source_common import PlatformDetail
 from datahub.emitter import mce_builder as builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     DataBricksPlatformDetail,
     DataPlatformPair,
-    PlatformDetail,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
     PowerBIPlatformDetail,
