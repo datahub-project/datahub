@@ -195,6 +195,7 @@ class BigQuerySchemaGenerator:
 
         # Global store of table identifiers for lineage filtering
         self.table_refs: Set[str] = set()
+        self.view_snapshot_refs: Set[str] = set()
 
         # Maps project -> view_ref, so we can find all views in a project
         self.view_refs_by_project: Dict[str, Set[str]] = defaultdict(set)
@@ -229,6 +230,14 @@ class BigQuerySchemaGenerator:
     def store_table_refs(self):
         return (
             self.config.include_table_lineage
+            or self.config.include_usage_statistics
+            or self.config.use_queries_v2
+        )
+
+    @property
+    def store_view_refs(self):
+        return (
+            self.config.include_view_lineage
             or self.config.include_usage_statistics
             or self.config.use_queries_v2
         )
@@ -653,11 +662,11 @@ class BigQuerySchemaGenerator:
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.store_table_refs:
+        if self.store_view_refs:
             table_ref = str(
                 BigQueryTableRef(table_identifier).get_sanitized_table_ref()
             )
-            self.table_refs.add(table_ref)
+            self.view_snapshot_refs.add(table_ref)
             if self.config.lineage_parse_view_ddl and view.view_definition:
                 self.view_refs_by_project[project_id].add(table_ref)
                 self.view_definitions[table_ref] = view.view_definition
@@ -701,11 +710,11 @@ class BigQuerySchemaGenerator:
                 f"Snapshot doesn't have any column or unable to get columns for snapshot: {table_identifier}"
             )
 
-        if self.store_table_refs:
+        if self.store_view_refs:
             table_ref = str(
                 BigQueryTableRef(table_identifier).get_sanitized_table_ref()
             )
-            self.table_refs.add(table_ref)
+            self.view_snapshot_refs.add(table_ref)
             if snapshot.base_table_identifier:
                 self.snapshot_refs_by_project[project_id].add(table_ref)
                 self.snapshots_by_ref[table_ref] = snapshot
