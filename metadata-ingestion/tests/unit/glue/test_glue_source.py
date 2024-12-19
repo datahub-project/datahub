@@ -35,8 +35,8 @@ from tests.test_helpers.state_helpers import (
     validate_all_providers_have_committed_successfully,
 )
 from tests.unit.glue.test_glue_source_stubs import (
+    empty_database,
     flights_database,
-    test_database,
     get_bucket_tagging,
     get_databases_delta_response,
     get_databases_response,
@@ -64,7 +64,7 @@ from tests.unit.glue.test_glue_source_stubs import (
     tables_2,
     tables_profiling_1,
     target_database_tables,
-    empty_database,
+    test_database,
 )
 
 FROZEN_TIME = "2020-04-14 07:00:00"
