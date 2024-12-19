@@ -11,7 +11,7 @@ class UserInfo:
     site_role: str
     site_id: str
 
-    def is_site_administrator_explorer(self):
+    def has_site_administrator_explorer_privileges(self):
         return self.site_role in [
             c.ROLE_SITE_ADMIN_EXPLORER, 
             c.ROLE_SITE_ADMIN_CREATOR, 
