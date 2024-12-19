@@ -32,6 +32,7 @@ dependencies = [
   "acryl-executor==0.1.6",
   "acryl-datahub-actions==0.1.4",
   "pycurl==7.45.3",
+  "confluent-kafka<=2.6.1"
 ]
 
 [project.optional-dependencies]
