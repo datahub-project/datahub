@@ -3838,6 +3838,11 @@ enum CorpUserStatus {
   A User that has been provisioned and logged in
   """
   ACTIVE
+
+  """
+  A user that has been suspended
+  """
+  SUSPENDED
 }
 
 union ResolvedActor = CorpUser | CorpGroup
