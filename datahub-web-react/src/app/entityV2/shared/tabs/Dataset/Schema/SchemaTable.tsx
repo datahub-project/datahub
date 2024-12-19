@@ -516,6 +516,9 @@ export default function SchemaTable({
                         pagination={false}
                         onRow={(record) => ({
                             onClick: () => {
+                                // shouldScrollToSelectedRow is meant for scrolling on page load, scrolling
+                                // on select for certain screen sizes causes weird UI bug
+                                setShouldScrollToSelectedRow(false);
                                 setExpandedDrawerFieldPath(
                                     expandedDrawerFieldPath === record.fieldPath ? null : record.fieldPath,
                                 );
