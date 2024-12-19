@@ -645,7 +645,7 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
         # the site-role might be different on another site
         logged_in_user: UserInfo = UserInfo.from_server(server=server)
 
-        if not logged_in_user.is_site_administrator_explorer():
+        if not logged_in_user.has_site_administrator_explorer_privileges():
             report.warning(
                 title=title,
                 message=message,
