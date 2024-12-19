@@ -4,6 +4,7 @@ import com.linkedin.common.Urn
 import com.linkedin.common.Time
 import com.linkedin.common.VersionTag
 import com.linkedin.common.CustomProperties
+import com.linkedin.common.TimeStamp
 
 /**
  * Properties associated with an ML Model Group
@@ -25,7 +26,18 @@ record MLModelGroupProperties includes CustomProperties {
   /**
    * Date when the MLModelGroup was developed
    */
+  @deprecated
   createdAt: optional Time
+
+  /**
+   * Time and Actor who created the MLModelGroup
+   */
+  created: optional TimeStamp
+
+  /**
+   * Date when the MLModelGroup was last modified
+   */
+  lastModified: optional TimeStamp
 
   /**
    * Version of the MLModelGroup
