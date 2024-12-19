@@ -48,6 +48,7 @@ import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.rolemetadata.mappers.AccessMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.dataquality.DataQuality;
 import com.linkedin.dataset.DatasetDeprecation;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
@@ -183,6 +184,7 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         SUB_TYPES_ASPECT_NAME,
         (dashboard, dataMap) ->
             dashboard.setSubTypes(SubTypesMapper.map(context, new SubTypes(dataMap))));
+    mappingHelper.mapToResult(context, DATA_QUALITY_ASPECT_NAME, this::mapDataQuality);
 
     if (context != null && !canView(context.getOperationContext(), entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Dataset.class);
@@ -293,5 +295,12 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
       @Nullable final QueryContext context, @Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
     dataset.setDomain(DomainAssociationMapper.map(context, domains, dataset.getUrn()));
+  }
+
+  private void mapDataQuality(
+      QueryContext context, @Nonnull Dataset dataset, @Nonnull DataMap dataMap) {
+    com.linkedin.datahub.graphql.generated.DataQuality dataQuality =
+        DataQualityMapper.map(context, new DataQuality(dataMap));
+    dataset.setDataQuality(dataQuality);
   }
 }

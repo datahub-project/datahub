@@ -1,0 +1,25 @@
+namespace com.linkedin.dataquality
+
+import com.linkedin.common.ChangeAuditStamps
+import com.linkedin.common.Urn
+
+/**
+ * Record to capture Dataset/Field level Data Quality Metrics
+ */
+record SchemaFieldQualityDimensionInfo includes ChangeAuditStamps {
+  /**
+  * schemaFieldUrn attribute to capture schema field URN
+  * Required field, if this record is initialized
+  */
+  @Relationship = {
+     "name": "IsAssociatedWith",
+     "entityTypes": [ "schemaField" ]
+  }
+  schemaFieldUrn: Urn
+
+  /**
+  * schemaFieldDimensionInfo attribute to capture schema field dimension
+  * Required field, if this record is initialized
+  */
+  schemaFieldDimensionInfo: DataQualityDimensionInfo
+}
