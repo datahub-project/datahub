@@ -21,6 +21,11 @@
 //      |   empty_string
 //      |   empty_string "," argument_list
 // - Added sql_string in any_literal
+// - Added WS_INLINE? in field expression
+//   Added to ignore any comments
+//    %ignore WS             // Ignore whitespace
+//    %ignore CPP_COMMENT    // Ignore single-line comments
+//    %ignore C_COMMENT      // Ignore multi-line comments
 
 lexical_unit:   lexical_elements?
 
@@ -414,7 +419,7 @@ record_expression:  "[" field_list? "]"
 field_list: field
         |   field "," field_list
 
-field:  field_name WS_INLINE? "=" WS_INLINE? expression
+field:  WS_INLINE? field_name WS_INLINE? "=" WS_INLINE? expression
 
 field_name: generalized_identifier
         |   quoted_identifier
@@ -627,3 +632,7 @@ any_literal:      record_literal
 %import common.LF
 %import common.CR
 %import common.ESCAPED_STRING
+
+%ignore WS            // Ignore whitespace
+%ignore CPP_COMMENT    // Ignore single-line comments
+%ignore C_COMMENT      // Ignore multi-line comments
