@@ -7,7 +7,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataProcessInstance;
 import com.linkedin.datahub.graphql.generated.EntityType;
-import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.TimeStampMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.dataprocess.DataProcessInstanceProperties;
@@ -50,11 +50,13 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
     DataProcessInstanceProperties dataProcessInstanceProperties =
         new DataProcessInstanceProperties(dataMap);
     dpi.setName(dataProcessInstanceProperties.getName());
-    if (dataProcessInstanceProperties.hasCreated()) {
-      dpi.setCreated(AuditStampMapper.map(context, dataProcessInstanceProperties.getCreated()));
-    }
+
+    com.linkedin.datahub.graphql.generated.DataProcessInstanceProperties properties =
+        new com.linkedin.datahub.graphql.generated.DataProcessInstanceProperties();
+    properties.setCreated(TimeStampMapper.map(context, dataProcessInstanceProperties.getCreated()));
     if (dataProcessInstanceProperties.hasExternalUrl()) {
       dpi.setExternalUrl(dataProcessInstanceProperties.getExternalUrl().toString());
     }
+    dpi.setProperties(properties);
   }
 }
