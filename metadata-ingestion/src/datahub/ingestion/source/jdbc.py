@@ -704,17 +704,19 @@ class JDBCSource(StatefulIngestionSourceBase):
                         viewLanguage="SQL"
                     )
 
-                    view_wu = MetadataWorkUnit(
-                        id=f"{full_name}-view",
-                        mcp=MetadataChangeProposalWrapper(
+                    self.sql_parsing_aggregator.add_view_definition(
+                        view_urn=dataset_urn,
+                        view_definition=view_definition,
+                        default_schema=schema,
+                    )
+
+                    yield MetadataChangeProposalWrapper(
                             entityType="dataset",
                             entityUrn=dataset_urn,
                             changeType="UPSERT",
                             aspectName="viewProperties",
                             aspect=view_properties
-                        )
-                    )
-                    yield view_wu
+                        ).as_workunit()
 
             except Exception as e:
                 logger.debug(f"Could not get view definition for {full_name}: {e}")
