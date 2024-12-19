@@ -145,7 +145,7 @@ public class RequestContext implements ContextInterface {
               "%s(%s)", action, entityNames.stream().distinct().collect(Collectors.toList()));
     }
 
-    private static String extractUserAgent(@Nonnull HttpServletRequest request) {
+    public static String extractUserAgent(@Nonnull HttpServletRequest request) {
       return Optional.ofNullable(request.getHeader(HttpHeaders.USER_AGENT)).orElse("");
     }
 

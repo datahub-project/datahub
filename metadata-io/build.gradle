@@ -31,7 +31,7 @@ dependencies {
   implementation externalDependency.guava
   implementation externalDependency.reflections
   // https://mvnrepository.com/artifact/nl.basjes.parse.useragent/yauaa
-  implementation 'nl.basjes.parse.useragent:yauaa:7.27.0'
+  api 'nl.basjes.parse.useragent:yauaa:7.27.0'
 
   api(externalDependency.dgraph4j) {
     exclude group: 'com.google.guava', module: 'guava'

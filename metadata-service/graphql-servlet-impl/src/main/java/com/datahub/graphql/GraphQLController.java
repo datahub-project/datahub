@@ -1,6 +1,7 @@
 package com.datahub.graphql;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.userAgent.UserAgentUtils.UAA;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -11,6 +12,7 @@ import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableSet;
 import com.google.inject.name.Named;
 import com.linkedin.datahub.graphql.GraphQLEngine;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
@@ -19,6 +21,7 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.ExecutionResult;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.api.trace.Span;
 import jakarta.inject.Inject;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,7 +32,9 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import nl.basjes.parse.useragent.UserAgent;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatus;
@@ -159,7 +164,8 @@ public class GraphQLController {
            * Format & Return Response
            */
           try {
-            long totalDuration = submitMetrics(executionResult);
+            long totalDuration =
+                submitMetrics(executionResult, context.getOperationContext().getRequestContext());
             String executionTook = totalDuration > 0 ? " in " + totalDuration + " ms" : "";
             log.info("Executed operation {}" + executionTook, queryName);
             // Remove tracing from response to reduce bulk, not used by the frontend
@@ -187,7 +193,8 @@ public class GraphQLController {
     throw new HttpRequestMethodNotSupportedException("GET");
   }
 
-  private void observeErrors(ExecutionResult executionResult) {
+  private void observeErrors(
+      ExecutionResult executionResult, @Nullable RequestContext requestContext) {
     executionResult
         .getErrors()
         .forEach(
@@ -209,15 +216,28 @@ public class GraphQLController {
               }
             });
     if (executionResult.getErrors().size() != 0) {
+      // Coarse grained
       MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "error")).inc();
+      if (requestContext != null) {
+        // User agent driven
+        String userAgent = UAA.parse(requestContext.getUserAgent()).getValue(UserAgent.AGENT_CLASS);
+        MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "error", userAgent)).inc();
+      }
     }
   }
 
   @SuppressWarnings("unchecked")
-  private long submitMetrics(ExecutionResult executionResult) {
+  private long submitMetrics(
+      ExecutionResult executionResult, @Nullable RequestContext requestContext) {
     try {
-      observeErrors(executionResult);
+      observeErrors(executionResult, requestContext);
+      // Coarse grained
       MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "call")).inc();
+      if (requestContext != null) {
+        // User agent driven
+        String userAgent = UAA.parse(requestContext.getUserAgent()).getValue(UserAgent.AGENT_CLASS);
+        MetricUtils.get().counter(MetricRegistry.name(this.getClass(), "call", userAgent)).inc();
+      }
       Object tracingInstrumentation = executionResult.getExtensions().get("tracing");
       if (tracingInstrumentation instanceof Map) {
         Map<String, Object> tracingMap = (Map<String, Object>) tracingInstrumentation;
@@ -229,7 +249,8 @@ public class GraphQLController {
         String fieldName =
             resolvers.stream()
                 .filter(
-                    resolver -> List.of("Query", "Mutation").contains(resolver.get("parentType")))
+                    resolver ->
+                        ImmutableSet.of("Query", "Mutation").contains(resolver.get("parentType")))
                 .findFirst()
                 .map(parentResolver -> parentResolver.get("fieldName"))
                 .map(Object::toString)

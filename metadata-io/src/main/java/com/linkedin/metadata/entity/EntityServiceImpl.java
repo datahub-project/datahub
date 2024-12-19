@@ -12,6 +12,9 @@ import static com.linkedin.metadata.utils.PegasusUtils.getDataTemplateClassFromS
 import static com.linkedin.metadata.utils.PegasusUtils.urnToEntityName;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
 import static com.linkedin.metadata.utils.metrics.ExceptionUtils.collectMetrics;
+import static com.linkedin.metadata.utils.metrics.MetricUtils.INGEST_PROPOSAL_API_SOURCE_METRIC_NAME;
+import static com.linkedin.metadata.utils.metrics.MetricUtils.PRE_PROCESS_MCL_METRIC_NAME;
+import static com.linkedin.metadata.utils.metrics.MetricUtils.PRODUCE_MCL_METRIC_NAME;
 
 import com.codahale.metrics.Timer;
 import com.datahub.util.RecordUtils;
@@ -1195,8 +1198,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     Stream<IngestResult> nonTimeseriesIngestResults =
         async ? ingestProposalAsync(aspectsBatch) : ingestProposalSync(opContext, aspectsBatch);
 
-    return Stream.concat(nonTimeseriesIngestResults, timeseriesIngestResults)
-        .collect(Collectors.toList());
+    List<IngestResult> fullResults =
+        Stream.concat(nonTimeseriesIngestResults, timeseriesIngestResults)
+            .collect(Collectors.toList());
+    String apiSource =
+        opContext.getRequestContext() != null
+            ? opContext.getRequestContext().getRequestAPI().name()
+            : "Unknown";
+    String syncType = async ? "async" : "sync";
+    MetricUtils.counter(
+            this.getClass(),
+            String.format(INGEST_PROPOSAL_API_SOURCE_METRIC_NAME, syncType, apiSource))
+        .inc(fullResults.size());
+
+    return fullResults;
   }
 
   /**
@@ -1427,6 +1442,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             // Pre-process the update indices hook for UI updates to avoid perceived lag from Kafka
             if (updateIndicesService != null) {
               updateIndicesService.handleChangeEvent(opContext, metadataChangeLog);
+              MetricUtils.counter(this.getClass(), PRE_PROCESS_MCL_METRIC_NAME).inc();
             }
             return true;
           }
@@ -1769,6 +1785,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull final AspectSpec aspectSpec,
       @Nonnull final MetadataChangeLog metadataChangeLog) {
     Future<?> future = producer.produceMetadataChangeLog(urn, aspectSpec, metadataChangeLog);
+    MetricUtils.counter(this.getClass(), PRODUCE_MCL_METRIC_NAME).inc();
     return Pair.of(future, preprocessEvent(opContext, metadataChangeLog));
   }
 

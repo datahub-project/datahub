@@ -15,6 +15,10 @@ public class MetricUtils {
   public static final String NAME = "default";
   private static final MetricRegistry REGISTRY = SharedMetricRegistries.getOrCreate(NAME);
 
+  public static String PRODUCE_MCL_METRIC_NAME = "produceMCL";
+  public static String INGEST_PROPOSAL_API_SOURCE_METRIC_NAME = "ingestProposal_%s_%s";
+  public static String PRE_PROCESS_MCL_METRIC_NAME = "preProcessChangeLog";
+
   static {
     final JmxReporter reporter = JmxReporter.forRegistry(REGISTRY).build();
     reporter.start();
