@@ -47,7 +47,6 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DatasetUrn, DataPlatformUrn, MlModelUrn, MlModelGroupUrn, DataProcessInstanceUrn, DataPlatformInstanceUrn
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
-    InstanceRunResult,
 )
 
 T = TypeVar("T")
@@ -160,7 +159,6 @@ class MLflowSource(Source):
         return self.report
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        print("get_workunits_internal")
         yield from self._get_tags_workunits()
         yield from self._get_ml_model_workunits()
         # yield from self._get_experiment_workunits()
@@ -220,8 +218,8 @@ class MLflowSource(Source):
             description=experiment.tags.get('mlflow.note.content')
         ) # TODO: urn should be experiment id 
 
-        print("experiment.key.id:", experiment.key.id) # this should be same as container key as urn
-        print("experiment.key.as_urn(): ", experiment.key.as_urn())
+        # print("experiment.key.id:", experiment.key.id) # this should be same as container key as urn
+        # print("experiment.key.as_urn(): ", experiment.key.as_urn())
 
         workunits = [mcp.as_workunit() for mcp in experiment.generate_mcp()]
         return workunits
@@ -258,12 +256,11 @@ class MLflowSource(Source):
         )
 
         # TODO: urn should be run id
-
-        print("dpi id", run.info.run_name)
-        print("experiment_key.id:", experiment_key.id)
-        print("run id", run.info.run_id)
-        print("data_proceess_instance.urn:", str(data_process_instance.urn))
-        print("--------------------")
+        # print("dpi id", run.info.run_name)
+        # print("experiment_key.id:", experiment_key.id)
+        # print("run id", run.info.run_id)
+        # print("data_proceess_instance.urn:", str(data_process_instance.urn))
+        # print("--------------------")
 
         workunits = []
 
@@ -398,7 +395,6 @@ class MLflowSource(Source):
                 versionTag=self._get_latest_version(registered_model)
             ),
         )
-        print("ml_model_group_properties: ", ml_model_group_properties)
         wu = self._create_workunit(
             urn=ml_model_group_urn,
             aspect=ml_model_group_properties,
@@ -453,15 +449,15 @@ class MLflowSource(Source):
         ml_model_group_urn = self._make_ml_model_group_urn(registered_model)
         ml_model_urn = self._make_ml_model_urn(model_version)
 
-        hyperparams = None
-        training_metrics = None
-        training_jobs = None
-
         if run:
             # Use the same metrics and hyperparams from the run
             hyperparams = self._get_run_params(run)
             training_metrics = self._get_run_metrics(run)
-            # training_jobs = [str(builder.make_data_process_instance_urn(run.info.run_id))]
+            training_jobs = [str(builder.make_data_process_instance_urn(run.info.run_id))]
+        else:
+            hyperparams = None
+            training_metrics = None
+            training_jobs = None
 
         created_time = model_version.creation_timestamp
         created_actor = f"urn:li:platformResource:{model_version.user_id}" if model_version.user_id else None
