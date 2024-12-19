@@ -1,11 +1,18 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Union
 
-from datahub.emitter.mce_builder import make_data_flow_urn, make_data_job_urn
+from datahub.api.entities.common.data_platform_instance import DataPlatformInstance
+from datahub.emitter.mce_builder import (
+    make_data_flow_urn,
+    make_data_job_urn,
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+)
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
+    DataPlatformInstanceClass,
 )
 
 
@@ -204,6 +211,17 @@ class MSSQLDataJob:
             status=self.status,
         )
 
+    @property
+    def as_maybe_platform_instance_aspect(self) -> Optional[DataPlatformInstanceClass]:
+        if self.entity.flow.platform_instance:
+            return DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.entity.flow.orchestrator),
+                instance=make_dataplatform_instance_urn(
+                    platform=self.entity.flow.orchestrator,
+                    instance=self.entity.flow.platform_instance,
+                ),
+            )
+        return None
 
 @dataclass
 class MSSQLDataFlow:
@@ -238,3 +256,12 @@ class MSSQLDataFlow:
             customProperties=self.flow_properties,
             externalUrl=self.external_url,
         )
+
+    @property
+    def as_maybe_platform_instance_aspect(self) -> Optional[DataPlatformInstanceClass]:
+        if self.entity.platform_instance:
+            return DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.entity.orchestrator),
+                instance=make_dataplatform_instance_urn(self.entity.orchestrator, self.entity.platform_instance),
+            )
+        return None
