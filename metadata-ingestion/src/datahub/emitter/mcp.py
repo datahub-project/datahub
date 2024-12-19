@@ -14,7 +14,7 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     _Aspect,
 )
-from datahub.utilities.urns.urn import guess_entity_type
+from datahub.utilities.urns.urn import Urn, guess_entity_type
 
 if TYPE_CHECKING:
     from datahub.ingestion.api.workunit import MetadataWorkUnit
@@ -63,7 +63,7 @@ class MetadataChangeProposalWrapper:
 
     entityType: str = _ENTITY_TYPE_UNSET
     changeType: Union[str, ChangeTypeClass] = ChangeTypeClass.UPSERT
-    entityUrn: Union[None, str] = None
+    entityUrn: Union[None, str,] = None
     entityKeyAspect: Union[None, _Aspect] = None
     auditHeader: Union[None, KafkaAuditHeaderClass] = None
     aspectName: Union[None, str] = None
@@ -71,7 +71,11 @@ class MetadataChangeProposalWrapper:
     systemMetadata: Union[None, SystemMetadataClass] = None
 
     def __post_init__(self) -> None:
-        if self.entityUrn and self.entityType == _ENTITY_TYPE_UNSET:
+        if isinstance(self.entityUrn, Urn):
+            if self.entityType == _ENTITY_TYPE_UNSET:
+                self.entityType = self.entityUrn.entity_type
+            self.entityUrn = str(self.entityUrn)
+        elif self.entityUrn and self.entityType == _ENTITY_TYPE_UNSET:
             self.entityType = guess_entity_type(self.entityUrn)
         elif self.entityUrn and self.entityType:
             guessed_entity_type = guess_entity_type(self.entityUrn).lower()
@@ -104,7 +108,8 @@ class MetadataChangeProposalWrapper:
     ) -> List["MetadataChangeProposalWrapper"]:
         return [cls(entityUrn=entityUrn, aspect=aspect) for aspect in aspects if aspect]
 
-    def _make_mcp_without_aspects(self) -> MetadataChangeProposalClass:
+    def _make_mcp_without_aspects(self) -> MetadataChangeProposalClass: 
+        assert self.entityUrn is None or isinstance(self.entityUrn, str)
         return MetadataChangeProposalClass(
             entityType=self.entityType,
             entityUrn=self.entityUrn,
