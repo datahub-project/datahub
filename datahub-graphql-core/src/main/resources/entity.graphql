@@ -9861,9 +9861,12 @@ type MLModelGroupProperties {
     """
     name: String
 
+<<<<<<< HEAD
     """
     Detailed description of the model group's purpose and contents
     """
+=======
+>>>>>>> b7bb5ca7e (feat(graphql/ml): Add custom properties to ml entities (#12152))
     description: String
 
     """
@@ -9881,11 +9884,15 @@ type MLModelGroupProperties {
     """
     version: VersionTag
 
+<<<<<<< HEAD
     """
     Deprecated creation timestamp
     @deprecated Use the 'created' field instead
     """
     createdAt: Long @deprecated(reason: "Use `created` instead")
+=======
+    customProperties: [CustomPropertiesEntry!]
+>>>>>>> b7bb5ca7e (feat(graphql/ml): Add custom properties to ml entities (#12152))
 }
 
 """
@@ -10143,6 +10150,8 @@ type MLFeatureProperties {
     version: VersionTag
 
     sources: [Dataset]
+
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -10279,13 +10288,15 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
 
 type MLPrimaryKeyProperties {
 
-description: String
+    description: String
 
     dataType: MLFeatureDataType
 
     version: VersionTag
 
     sources: [Dataset]
+
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -10462,7 +10473,7 @@ type MLModelGroupEditableProperties {
 
 type MLFeatureTableProperties {
 
-description: String
+    description: String
 
     mlFeatures: [MLFeature]
 
