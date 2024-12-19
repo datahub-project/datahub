@@ -1,5 +1,6 @@
 import contextlib
 import json
+import os
 import pathlib
 import shutil
 import subprocess
@@ -27,11 +28,18 @@ ts = datetime.now(timezone.utc).isoformat()
 context_info: dict = {
     "timestamp": ts,
 }
+
+# Get branch info.
 with contextlib.suppress(Exception):
-    branch_info = subprocess.check_output(
-        ["git", "branch", "--show-current"], text=True
-    )
+    if branch_info := os.getenv("GITHUB_HEAD_REF"):
+        pass
+    else:
+        branch_info = subprocess.check_output(
+            ["git", "branch", "--show-current"], text=True
+        )
     context_info["branch"] = branch_info.strip()
+
+# Get commit info.
 with contextlib.suppress(Exception):
     commit_info = subprocess.check_output(
         ["git", "log", "-1", "--pretty=%H%n%B"], text=True
@@ -41,11 +49,28 @@ with contextlib.suppress(Exception):
         "hash": commit_hash,
         "message": commit_msg.strip(),
     }
+
+# Get PR info.
 with contextlib.suppress(Exception):
-    pr_info = subprocess.check_output(
-        ["gh", "pr", "view", "--json", "title,number,url"], text=True
-    )
-    pr_info = json.loads(pr_info)
+    pr_info = "unknown"
+    if github_ref := os.getenv("GITHUB_REF"):
+        # e.g. GITHUB_REF=refs/pull/12157/merge
+        parts = github_ref.split("/")[-1]
+        if parts[1] == "pull":
+            pull_number = parts[2]
+            pr_info = json.loads(
+                subprocess.check_output(
+                    ["gh", "pr", "view", pull_number, "--json", "title,number,url"],
+                    text=True,
+                )
+            )
+    else:
+        # The `gh` CLI might be able to figure it out.
+        pr_info = json.loads(
+            subprocess.check_output(
+                ["gh", "pr", "view", "--json", "title,number,url"], text=True
+            )
+        )
     context_info["pr"] = pr_info
 
 

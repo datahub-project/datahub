@@ -51,7 +51,7 @@ jobs:
         run: |
           ./gradlew :python-build:buildSite
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
       - run: curl -sSf https://sshx.io/get | sh -s run
       - name: Publish
         uses: cloudflare/pages-action@v1
@@ -61,4 +61,4 @@ jobs:
           projectName: ${{ vars.CLOUDFLARE_WHEELS_PROJECT_NAME }}
           workingDirectory: python-build
           directory: site
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+          gitHubToken: ${{ github.token }}
