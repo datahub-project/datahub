@@ -31,14 +31,16 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
 )
 from datahub.metadata.schema_classes import DatasetLineageTypeClass, UpstreamClass
 from datahub.sql_parsing.sql_parsing_aggregator import (
-    ColumnLineageInfo,
-    ColumnRef,
     KnownLineageMapping,
     KnownQueryLineageInfo,
     SqlParsingAggregator,
     UrnStr,
 )
-from datahub.sql_parsing.sqlglot_lineage import DownstreamColumnRef
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+)
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.time import ts_millis_to_datetime
 
@@ -234,7 +236,6 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
     def get_known_query_lineage(
         self, query: Query, dataset_name: str, db_row: UpstreamLineageEdge
     ) -> Optional[KnownQueryLineageInfo]:
-
         if not db_row.UPSTREAM_TABLES:
             return None
 
@@ -412,9 +413,14 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             return UpstreamLineageEdge.parse_obj(db_row)
         except Exception as e:
             self.report.num_upstream_lineage_edge_parsing_failed += 1
+            upstream_tables = db_row.get("UPSTREAM_TABLES")
+            downstream_table = db_row.get("DOWNSTREAM_TABLE_NAME")
             self.structured_reporter.warning(
                 "Failed to parse lineage edge",
-                context=db_row.get("DOWNSTREAM_TABLE_NAME") or None,
+                # Tricky: sometimes the full row data is too large, and so the context
+                # message gets truncated. By pulling out the upstreams and downstream
+                # list, we can at least get the important fields if truncation does occur.
+                context=f"Upstreams: {upstream_tables} Downstream: {downstream_table} Full row: {db_row}",
                 exc=e,
             )
             return None

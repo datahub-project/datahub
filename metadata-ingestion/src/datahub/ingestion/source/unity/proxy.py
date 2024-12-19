@@ -462,8 +462,6 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 datetime.fromtimestamp(obj.updated_at / 1000, tz=timezone.utc)
                 if obj.updated_at
                 else None
-                if obj.updated_at
-                else None
             ),
             updated_by=obj.updated_by,
             table_id=obj.table_id,

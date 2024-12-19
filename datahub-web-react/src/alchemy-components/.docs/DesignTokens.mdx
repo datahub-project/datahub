@@ -1,0 +1,63 @@
+import { Meta, Source } from '@storybook/blocks';
+
+import theme from '@components/theme';
+
+import { ColorCard, CopyButton } from './mdx-components';
+
+<Meta title="Design Tokens" />
+
+<div className="custom-docs">
+	## Design Tokens
+
+    To streamline the design process and ensure consistency across all Acryl products, we use a set of design tokens that define the visual properties of our design system. These tokens include colors, typography, spacing, and other visual elements that can be used to create a cohesive user experience.
+
+    ### Colors
+
+    ```tsx
+    import theme from '@components/theme';
+
+    // Accessing a color via object path
+    <div style={{ color: theme.semanticTokens.colors.primary }}>Hello, World!</div>
+
+    // Using CSS variables
+    <div style={{ color: 'var(--alch-color-primary)' }}>Hello, World!</div>
+    ```
+
+    <table style={{ width: '100%' }}>
+    	<thead style={{ textAlign: 'left' }}>
+    		<tr>
+    			<th>Token Value</th>
+    			<th>Selector</th>
+    			<th>CSS Variable <small>(coming soon)</small></th>
+    		</tr>
+    	</thead>
+    	<tbody>
+    		{Object.keys(theme.semanticTokens.colors).map((color) => {
+    			const objectKey = `colors['${color}']`;
+    			const hexValue = theme.semanticTokens.colors[color];
+    			const cssVar = `--alch-color-${color}`;
+
+    			return (
+    				<tr key={color}>
+    					<td>
+    						<ColorCard color={hexValue} size="sm">
+    							<span className="colorChip" />
+    							<div>
+    								<span className="colorValue">{color}</span>
+    								<span className="hex">{hexValue}</span>
+    							</div>
+    						</ColorCard>
+    					</td>
+    					<td>
+    						<span style={{ display: 'flex', alignItems: 'center', fontSize: 'inherit' }}>
+    							{objectKey} <CopyButton text={objectKey} />
+    						</span>
+    					</td>
+    					<td>{cssVar}</td>
+    				</tr>
+    			);
+    		})}
+    	</tbody>
+    </table>
+
+</div>

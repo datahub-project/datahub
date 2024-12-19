@@ -174,7 +174,8 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((dataset, dataMap) ->
             dataset.setStructuredProperties(
-                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(
+                    context, new StructuredProperties(dataMap), entityUrn))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->

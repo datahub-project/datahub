@@ -64,7 +64,7 @@ export const OwnershipList = () => {
     });
     const totalOwnershipTypes = data?.listOwnershipTypes?.total || 0;
     const ownershipTypes =
-        data?.listOwnershipTypes?.ownershipTypes.filter((type) => type.urn !== 'urn:li:ownershipType:none') || [];
+        data?.listOwnershipTypes?.ownershipTypes?.filter((type) => type.urn !== 'urn:li:ownershipType:none') || [];
 
     const onClickCreateOwnershipType = () => {
         setShowOwnershipBuilder(true);

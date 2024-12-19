@@ -18,22 +18,6 @@
     }
 },
 {
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:users.User2@foo.com",
-    "changeType": "UPSERT",
-    "aspectName": "corpUserKey",
-    "aspect": {
-        "json": {
-            "username": "User2@foo.com"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.public_issue_history,DEV)",
     "changeType": "UPSERT",
@@ -63,22 +47,6 @@
             "name": "public issue_history",
             "description": "Library dataset description",
             "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:users.User2@foo.com",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
         }
     },
     "systemMetadata": {
@@ -401,22 +369,6 @@
     }
 },
 {
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:users.User1@foo.com",
-    "changeType": "UPSERT",
-    "aspectName": "corpUserKey",
-    "aspect": {
-        "json": {
-            "username": "User1@foo.com"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:powerbi,library-dataset.big-query-with-parameter,DEV)",
     "changeType": "UPSERT",
@@ -446,22 +398,6 @@
             "name": "big-query-with-parameter",
             "description": "Library dataset description",
             "tags": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1643871600000,
-        "runId": "powerbi-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "corpuser",
-    "entityUrn": "urn:li:corpuser:users.User1@foo.com",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
         }
     },
     "systemMetadata": {
@@ -773,6 +709,38 @@
             "name": "dbo_book_issue",
             "description": "hr pbi test description",
             "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserKey",
+    "aspect": {
+        "json": {
+            "username": "User1@foo.com"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User2@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserKey",
+    "aspect": {
+        "json": {
+            "username": "User2@foo.com"
         }
     },
     "systemMetadata": {
@@ -1103,11 +1071,11 @@
         "json": {
             "owners": [
                 {
-                    "owner": "urn:li:corpuser:users.User1@foo.com",
+                    "owner": "urn:li:corpuser:User1@foo.com",
                     "type": "NONE"
                 },
                 {
-                    "owner": "urn:li:corpuser:users.User2@foo.com",
+                    "owner": "urn:li:corpuser:User2@foo.com",
                     "type": "NONE"
                 }
             ],
@@ -1134,6 +1102,38 @@
             "typeNames": [
                 "Table"
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User1@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1643871600000,
+        "runId": "powerbi-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:User2@foo.com",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     },
     "systemMetadata": {

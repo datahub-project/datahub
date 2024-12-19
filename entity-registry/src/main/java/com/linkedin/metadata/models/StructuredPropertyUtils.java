@@ -6,7 +6,6 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD_PREFIX;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Status;
@@ -21,6 +20,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.StructuredProperties;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.structured.StructuredPropertySettings;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import com.linkedin.util.Pair;
@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -45,6 +46,11 @@ public class StructuredPropertyUtils {
 
   static final Date MIN_DATE = Date.valueOf("1000-01-01");
   static final Date MAX_DATE = Date.valueOf("9999-12-31");
+
+  public static final String INVALID_SETTINGS_MESSAGE =
+      "Cannot have property isHidden = true while other display location settings are also true.";
+  public static final String ONLY_ONE_BADGE =
+      "Cannot have more than one property set with show as badge. Property urns currently set: ";
 
   public static LogicalValueType getLogicalValueType(
       StructuredPropertyDefinition structuredPropertyDefinition) {
@@ -120,12 +126,13 @@ public class StructuredPropertyUtils {
       lookupDefinitionFromFilterOrFacetName(
           @Nonnull String fieldOrFacetName, @Nullable AspectRetriever aspectRetriever) {
     if (fieldOrFacetName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD + ".")) {
-      String fqn =
-          fieldOrFacetName
-              .substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1)
-              .replace(".keyword", "")
-              .replace(".delimited", "");
+      // Coming in from the UI this is structuredProperties.<FQN> + any particular specifier for
+      // subfield (.keyword etc)
+      String fqn = fieldOrFacetToFQN(fieldOrFacetName);
+
+      // FQN Maps directly to URN with urn:li:structuredProperties:FQN
       Urn urn = toURNFromFQN(fqn);
+
       Map<Urn, Map<String, Aspect>> result =
           Objects.requireNonNull(aspectRetriever)
               .getLatestAspectObjects(
@@ -178,7 +185,7 @@ public class StructuredPropertyUtils {
   /**
    * Return an elasticsearch type from structured property type
    *
-   * @param fieldName filter or facet field name
+   * @param fieldName filter or facet field name - must match actual FQN of structured prop
    * @param aspectRetriever aspect retriever
    * @return elasticsearch type
    */
@@ -223,9 +230,8 @@ public class StructuredPropertyUtils {
    * @param fqn structured property's fqn
    * @return the expected structured property urn
    */
-  private static Urn toURNFromFQN(@Nonnull String fqn) {
-    return UrnUtils.getUrn(
-        String.join(":", "urn:li", STRUCTURED_PROPERTY_ENTITY_NAME, fqn.replace('_', '.')));
+  public static Urn toURNFromFQN(@Nonnull String fqn) {
+    return UrnUtils.getUrn(String.join(":", "urn:li", STRUCTURED_PROPERTY_ENTITY_NAME, fqn));
   }
 
   public static void validateFilter(
@@ -235,12 +241,13 @@ public class StructuredPropertyUtils {
       return;
     }
 
-    Set<String> fieldNames = new HashSet<>();
+    Set<String> fqns = new HashSet<>();
 
     if (filter.getCriteria() != null) {
       for (Criterion c : filter.getCriteria()) {
         if (c.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
-          fieldNames.add(stripStructuredPropertyPrefix(c.getField()));
+          String fqn = fieldOrFacetToFQN(c.getField());
+          fqns.add(fqn);
         }
       }
     }
@@ -249,24 +256,23 @@ public class StructuredPropertyUtils {
       for (ConjunctiveCriterion cc : filter.getOr()) {
         for (Criterion c : cc.getAnd()) {
           if (c.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
-            fieldNames.add(stripStructuredPropertyPrefix(c.getField()));
+            String fqn = fieldOrFacetToFQN(c.getField());
+            fqns.add(fqn);
           }
         }
       }
     }
 
-    if (!fieldNames.isEmpty()) {
-      validateStructuredPropertyFQN(fieldNames, Objects.requireNonNull(aspectRetriever));
+    if (!fqns.isEmpty()) {
+      validateStructuredPropertyFQN(fqns, Objects.requireNonNull(aspectRetriever));
     }
   }
 
-  private static String stripStructuredPropertyPrefix(String s) {
-    if (s.startsWith(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD_PREFIX)) {
-      return s.substring(STRUCTURED_PROPERTY_MAPPING_VERSIONED_FIELD.length() + 1).split("[.]")[0];
-    } else if (s.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
-      return s.substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1).split("[.]")[0];
-    }
-    return s;
+  private static String fieldOrFacetToFQN(String fieldOrFacet) {
+    return fieldOrFacet
+        .substring(STRUCTURED_PROPERTY_MAPPING_FIELD.length() + 1)
+        .replace(".keyword", "")
+        .replace(".delimited", "");
   }
 
   public static Date toDate(PrimitivePropertyValue value) throws DateTimeParseException {
@@ -355,5 +361,49 @@ public class StructuredPropertyUtils {
                   .collect(Collectors.toSet())),
           true);
     }
+  }
+
+  /*
+   * We accept both ID and qualifiedName as inputs when creating a structured property. However,
+   * these two fields should ALWAYS be the same. If they don't provide either, use a UUID for both.
+   * If they provide both, ensure they are the same otherwise throw. Otherwise, use what is provided.
+   */
+  public static String getPropertyId(
+      @Nullable final String inputId, @Nullable final String inputQualifiedName) {
+    if (inputId != null && inputQualifiedName != null && !inputId.equals(inputQualifiedName)) {
+      throw new IllegalArgumentException(
+          "Qualified name and the ID of a structured property must match");
+    }
+
+    String id = UUID.randomUUID().toString();
+
+    if (inputQualifiedName != null) {
+      id = inputQualifiedName;
+    } else if (inputId != null) {
+      id = inputId;
+    }
+
+    return id;
+  }
+
+  /*
+   * Ensure that a structured property settings aspect is valid by ensuring that if isHidden is true,
+   * the other fields concerning display locations are false;
+   */
+  public static boolean validatePropertySettings(
+      StructuredPropertySettings settings, boolean shouldThrow) {
+    if (settings.isIsHidden()) {
+      if (settings.isShowInSearchFilters()
+          || settings.isShowInAssetSummary()
+          || settings.isShowAsAssetBadge()
+          || settings.isShowInColumnsTable()) {
+        if (shouldThrow) {
+          throw new IllegalArgumentException(INVALID_SETTINGS_MESSAGE);
+        } else {
+          return false;
+        }
+      }
+    }
+    return true;
   }
 }

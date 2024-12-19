@@ -218,3 +218,6 @@ Another form of conditional writes which considers the existence of an aspect or
 
 `CREATE_ENTITY` - Create the aspect if no aspects exist for the entity.
 
+By default, a validation exception is thrown if the `CREATE`/`CREATE_ENTITY` constraint is violated. If the write operation
+should be dropped without considering it an exception, then add the following header: `If-None-Match: *` to the MCP.
+

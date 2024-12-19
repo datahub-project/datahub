@@ -3,6 +3,7 @@ plugins {
   id 'com.palantir.docker'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
 apply from: "../../gradle/versioning/versioning.gradle"
 
 ext {
@@ -43,6 +44,10 @@ dependencies {
   implementation externalDependency.awsMskIamAuth
   testRuntimeOnly externalDependency.logbackClassic
   implementation externalDependency.charle
+
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.springBootTest
+  testRuntimeOnly externalDependency.logbackClassic
 }
 configurations.all{
   exclude group: "com.charleskorn.kaml", module:"kaml"

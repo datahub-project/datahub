@@ -144,6 +144,11 @@ module.exports = {
               id: "docs/automations/docs-propagation",
             },
             {
+              label: "Glossary Term Propagation",
+              type: "doc",
+              id: "docs/automations/glossary-term-propagation",
+            },
+            {
               label: "BigQuery Metadata Sync",
               type: "doc",
               id: "docs/automations/bigquery-metadata-sync",
@@ -180,6 +185,25 @@ module.exports = {
           id: "docs/glossary/business-glossary",
         },
         {
+          label: "Compliance Forms",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/overview",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/create-a-form",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/complete-a-form",
+            },
+          ],
+        },
+        {
           label: "Data Contract",
           type: "doc",
           id: "docs/managed-datahub/observe/data-contract",
@@ -194,7 +218,6 @@ module.exports = {
           type: "doc",
           id: "docs/features/dataset-usage-and-query-history",
         },
-        "docs/features/feature-guides/documentation-forms",
         {
           label: "Domains",
           type: "doc",
@@ -251,7 +274,21 @@ module.exports = {
           type: "doc",
           id: "docs/posts",
         },
-        "docs/features/feature-guides/properties",
+        {
+          label: "Properties",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/properties/overview",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/properties/create-a-property",
+            },
+          ],
+        },
         {
           label: "Schema history",
           type: "doc",
@@ -285,9 +322,18 @@ module.exports = {
       items: [
         "docs/managed-datahub/welcome-acryl",
         {
-          type: "doc",
-          id: "docs/managed-datahub/approval-workflows",
-          className: "saasOnly",
+          "Configure Single Sign-On": [
+            {
+              type: "doc",
+              id: "docs/authentication/guides/sso/initialize-oidc",
+              className: "saasOnly",
+            },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/integrations/oidc-sso-integration",
+              className: "saasOnly",
+            },
+          ],
         },
         {
           "DataHub API": [
@@ -300,20 +346,6 @@ module.exports = {
               "GraphQL API": [
                 "docs/managed-datahub/datahub-api/graphql-api/getting-started",
               ],
-            },
-          ],
-        },
-        {
-          Integrations: [
-            {
-              type: "doc",
-              id: "docs/managed-datahub/integrations/aws-privatelink",
-              className: "saasOnly",
-            },
-            {
-              type: "doc",
-              id: "docs/managed-datahub/integrations/oidc-sso-integration",
-              className: "saasOnly",
             },
           ],
         },
@@ -337,7 +369,7 @@ module.exports = {
           ],
         },
         {
-          "Operator Guide": [
+          "Operator Guides": [
             {
               type: "doc",
               id: "docs/managed-datahub/operator-guide/setting-up-remote-ingestion-executor",
@@ -348,7 +380,17 @@ module.exports = {
               id: "docs/managed-datahub/operator-guide/setting-up-events-api-on-aws-eventbridge",
               className: "saasOnly",
             },
+            {
+              type: "doc",
+              id: "docs/managed-datahub/integrations/aws-privatelink",
+              className: "saasOnly",
+            },
           ],
+        },
+        {
+          type: "doc",
+          id: "docs/managed-datahub/approval-workflows",
+          className: "saasOnly",
         },
         {
           type: "doc",
@@ -361,6 +403,7 @@ module.exports = {
         },
         {
           "DataHub Cloud Release History": [
+            "docs/managed-datahub/release-notes/v_0_3_7",
             "docs/managed-datahub/release-notes/v_0_3_6",
             "docs/managed-datahub/release-notes/v_0_3_5",
             "docs/managed-datahub/release-notes/v_0_3_4",
@@ -537,6 +580,7 @@ module.exports = {
         },
 
         "docs/platform-instances",
+        "docs/lineage/sql_parsing",
         "metadata-ingestion/docs/dev_guides/stateful",
         "metadata-ingestion/docs/dev_guides/classification",
         "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
@@ -589,6 +633,7 @@ module.exports = {
         {
           "Frontend Authentication": [
             "docs/authentication/guides/jaas",
+            "docs/authentication/guides/sso/initialize-oidc",
             "docs/authentication/guides/sso/configure-oidc-react",
             "docs/authentication/guides/sso/configure-oidc-behind-proxy",
           ],
@@ -1062,6 +1107,7 @@ module.exports = {
     // "metadata-ingestion/examples/structured_properties/README"
     // "smoke-test/tests/openapi/README"
     // "docs/SECURITY_STANCE"
+    // "metadata-integration/java/datahub-schematron/README"
     // ],
   ],
 };

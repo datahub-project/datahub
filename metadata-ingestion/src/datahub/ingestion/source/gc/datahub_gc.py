@@ -24,6 +24,11 @@ from datahub.ingestion.source.gc.dataprocess_cleanup import (
     DataProcessCleanupConfig,
     DataProcessCleanupReport,
 )
+from datahub.ingestion.source.gc.execution_request_cleanup import (
+    DatahubExecutionRequestCleanup,
+    DatahubExecutionRequestCleanupConfig,
+    DatahubExecutionRequestCleanupReport,
+)
 from datahub.ingestion.source.gc.soft_deleted_entity_cleanup import (
     SoftDeletedEntitiesCleanup,
     SoftDeletedEntitiesCleanupConfig,
@@ -60,19 +65,28 @@ class DataHubGcSourceConfig(ConfigModel):
         description="Sleep between truncation monitoring.",
     )
 
-    dataprocess_cleanup: Optional[DataProcessCleanupConfig] = Field(
-        default=None,
+    dataprocess_cleanup: DataProcessCleanupConfig = Field(
+        default_factory=DataProcessCleanupConfig,
         description="Configuration for data process cleanup",
     )
 
-    soft_deleted_entities_cleanup: Optional[SoftDeletedEntitiesCleanupConfig] = Field(
-        default=None,
+    soft_deleted_entities_cleanup: SoftDeletedEntitiesCleanupConfig = Field(
+        default_factory=SoftDeletedEntitiesCleanupConfig,
         description="Configuration for soft deleted entities cleanup",
+    )
+
+    execution_request_cleanup: DatahubExecutionRequestCleanupConfig = Field(
+        default_factory=DatahubExecutionRequestCleanupConfig,
+        description="Configuration for execution request cleanup",
     )
 
 
 @dataclass
-class DataHubGcSourceReport(DataProcessCleanupReport, SoftDeletedEntitiesReport):
+class DataHubGcSourceReport(
+    DataProcessCleanupReport,
+    SoftDeletedEntitiesReport,
+    DatahubExecutionRequestCleanupReport,
+):
     expired_tokens_revoked: int = 0
 
 
@@ -94,21 +108,22 @@ class DataHubGcSource(Source):
         self.ctx = ctx
         self.config = config
         self.report = DataHubGcSourceReport()
+        self.report.event_not_produced_warn = False
         self.graph = ctx.require_graph("The DataHubGc source")
-        self.dataprocess_cleanup: Optional[DataProcessCleanup] = None
-        self.soft_deleted_entities_cleanup: Optional[SoftDeletedEntitiesCleanup] = None
-
-        if self.config.dataprocess_cleanup:
-            self.dataprocess_cleanup = DataProcessCleanup(
-                ctx, self.config.dataprocess_cleanup, self.report, self.config.dry_run
-            )
-        if self.config.soft_deleted_entities_cleanup:
-            self.soft_deleted_entities_cleanup = SoftDeletedEntitiesCleanup(
-                ctx,
-                self.config.soft_deleted_entities_cleanup,
-                self.report,
-                self.config.dry_run,
-            )
+        self.dataprocess_cleanup = DataProcessCleanup(
+            ctx, self.config.dataprocess_cleanup, self.report, self.config.dry_run
+        )
+        self.soft_deleted_entities_cleanup = SoftDeletedEntitiesCleanup(
+            ctx,
+            self.config.soft_deleted_entities_cleanup,
+            self.report,
+            self.config.dry_run,
+        )
+        self.execution_request_cleanup = DatahubExecutionRequestCleanup(
+            config=self.config.execution_request_cleanup,
+            graph=self.graph,
+            report=self.report,
+        )
 
     @classmethod
     def create(cls, config_dict, ctx):
@@ -123,13 +138,32 @@ class DataHubGcSource(Source):
         self,
     ) -> Iterable[MetadataWorkUnit]:
         if self.config.cleanup_expired_tokens:
-            self.revoke_expired_tokens()
+            try:
+                self.revoke_expired_tokens()
+            except Exception as e:
+                self.report.failure("While trying to cleanup expired token ", exc=e)
         if self.config.truncate_indices:
-            self.truncate_indices()
-        if self.dataprocess_cleanup:
-            yield from self.dataprocess_cleanup.get_workunits_internal()
-        if self.soft_deleted_entities_cleanup:
-            self.soft_deleted_entities_cleanup.cleanup_soft_deleted_entities()
+            try:
+                self.truncate_indices()
+            except Exception as e:
+                self.report.failure("While trying to truncate indices ", exc=e)
+        if self.config.soft_deleted_entities_cleanup.enabled:
+            try:
+                self.soft_deleted_entities_cleanup.cleanup_soft_deleted_entities()
+            except Exception as e:
+                self.report.failure(
+                    "While trying to cleanup soft deleted entities ", exc=e
+                )
+        if self.config.execution_request_cleanup.enabled:
+            try:
+                self.execution_request_cleanup.run()
+            except Exception as e:
+                self.report.failure("While trying to cleanup execution request ", exc=e)
+        if self.config.dataprocess_cleanup.enabled:
+            try:
+                yield from self.dataprocess_cleanup.get_workunits_internal()
+            except Exception as e:
+                self.report.failure("While trying to cleanup data process ", exc=e)
         yield from []
 
     def truncate_indices(self) -> None:

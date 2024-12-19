@@ -32,6 +32,7 @@ from datahub.metadata.schema_classes import (
     SchemaFieldClass,
     SchemaMetadataClass,
     StatusClass,
+    SystemMetadataClass,
     TimeWindowSizeClass,
 )
 from datahub.metadata.urns import DatasetUrn, GlossaryTermUrn, TagUrn, Urn
@@ -65,9 +66,10 @@ def auto_workunit(
 def create_dataset_props_patch_builder(
     dataset_urn: str,
     dataset_properties: DatasetPropertiesClass,
+    system_metadata: Optional[SystemMetadataClass] = None,
 ) -> DatasetPatchBuilder:
     """Creates a patch builder with a table's or view's attributes and dataset properties"""
-    patch_builder = DatasetPatchBuilder(dataset_urn)
+    patch_builder = DatasetPatchBuilder(dataset_urn, system_metadata)
     patch_builder.set_display_name(dataset_properties.name)
     patch_builder.set_description(dataset_properties.description)
     patch_builder.set_created(dataset_properties.created)
@@ -148,7 +150,7 @@ def auto_workunit_reporter(report: "SourceReport", stream: Iterable[T]) -> Itera
         report.report_workunit(wu)
         yield wu
 
-    if report.events_produced == 0:
+    if report.event_not_produced_warn and report.events_produced == 0:
         report.warning(
             title="No metadata was produced by the source",
             message="Please check the source configuration, filters, and permissions.",

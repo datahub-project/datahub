@@ -1,1 +1,3 @@
-from datahub.metadata.urns import DataFlowUrn  # noqa: F401
+from datahub.metadata.urns import DataFlowUrn
+
+__all__ = ["DataFlowUrn"]

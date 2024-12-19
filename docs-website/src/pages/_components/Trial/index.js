@@ -20,7 +20,7 @@ const Trial = ({onOpenTourModal}) => {
                 onClick={onOpenTourModal}
               >Product Tour</a>
             </div>
-            <Link className={styles.start_arrow} to="/docs">Get started with Core →</Link>
+            <Link className={styles.start_arrow} to="/docs">Get started with Open Source →</Link>
           </div>
         </div>
         <div className={styles.trial_right}>

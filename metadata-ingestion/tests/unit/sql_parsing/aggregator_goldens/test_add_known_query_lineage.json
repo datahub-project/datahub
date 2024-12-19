@@ -86,26 +86,6 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "operation",
-    "aspect": {
-        "json": {
-            "timestampMillis": 1707182625000,
-            "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
-            },
-            "operationType": "INSERT",
-            "customProperties": {
-                "query_urn": "urn:li:query:6ed1d12fbf2ccc8138ceec08cc35b981030d6d004bfad9743c7afd84260fa63f"
-            },
-            "lastUpdatedTimestamp": 20000
-        }
-    }
-},
-{
     "entityType": "query",
     "entityUrn": "urn:li:query:6ed1d12fbf2ccc8138ceec08cc35b981030d6d004bfad9743c7afd84260fa63f",
     "changeType": "UPSERT",
@@ -140,6 +120,26 @@
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:redshift"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:redshift,dev.public.foo,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "operation",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1707182625000,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "operationType": "INSERT",
+            "customProperties": {
+                "query_urn": "urn:li:query:6ed1d12fbf2ccc8138ceec08cc35b981030d6d004bfad9743c7afd84260fa63f"
+            },
+            "lastUpdatedTimestamp": 20000
         }
     }
 }
