@@ -8,26 +8,30 @@ import com.linkedin.datahub.graphql.generated.MLFeature;
 import com.linkedin.datahub.graphql.generated.MLFeatureTableProperties;
 import com.linkedin.datahub.graphql.generated.MLPrimaryKey;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
+import com.linkedin.datahub.graphql.types.mappers.EmbeddedModelMapper;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.NonNull;
 
-public class MLFeatureTablePropertiesMapper {
+public class MLFeatureTablePropertiesMapper
+    implements EmbeddedModelMapper<
+        com.linkedin.ml.metadata.MLFeatureTableProperties, MLFeatureTableProperties> {
 
   public static final MLFeatureTablePropertiesMapper INSTANCE =
       new MLFeatureTablePropertiesMapper();
 
   public static MLFeatureTableProperties map(
       @Nullable final QueryContext context,
-      @NonNull final com.linkedin.ml.metadata.MLFeatureTableProperties mlFeatureTableProperties,
-      Urn entityUrn) {
+      @Nonnull final com.linkedin.ml.metadata.MLFeatureTableProperties mlFeatureTableProperties,
+      @Nonnull Urn entityUrn) {
     return INSTANCE.apply(context, mlFeatureTableProperties, entityUrn);
   }
 
-  public static MLFeatureTableProperties apply(
+  @Override
+  public MLFeatureTableProperties apply(
       @Nullable final QueryContext context,
-      @NonNull final com.linkedin.ml.metadata.MLFeatureTableProperties mlFeatureTableProperties,
-      Urn entityUrn) {
+      @Nonnull final com.linkedin.ml.metadata.MLFeatureTableProperties mlFeatureTableProperties,
+      @Nonnull Urn entityUrn) {
     final MLFeatureTableProperties result = new MLFeatureTableProperties();
 
     result.setDescription(mlFeatureTableProperties.getDescription());

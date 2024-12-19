@@ -74,9 +74,8 @@ public class MLPrimaryKeyMapper implements ModelMapper<EntityResponse, MLPrimary
     mappingHelper.mapToResult(
         ML_PRIMARY_KEY_KEY_ASPECT_NAME, MLPrimaryKeyMapper::mapMLPrimaryKeyKey);
     mappingHelper.mapToResult(
-        context,
         ML_PRIMARY_KEY_PROPERTIES_ASPECT_NAME,
-        MLPrimaryKeyMapper::mapMLPrimaryKeyProperties);
+        (entity, dataMap) -> mapMLPrimaryKeyProperties(context, entity, dataMap, entityUrn));
     mappingHelper.mapToResult(
         INSTITUTIONAL_MEMORY_ASPECT_NAME,
         (mlPrimaryKey, dataMap) ->
@@ -132,11 +131,15 @@ public class MLPrimaryKeyMapper implements ModelMapper<EntityResponse, MLPrimary
   }
 
   private static void mapMLPrimaryKeyProperties(
-      @Nullable final QueryContext context, MLPrimaryKey mlPrimaryKey, DataMap dataMap) {
+      @Nullable final QueryContext context,
+      MLPrimaryKey mlPrimaryKey,
+      DataMap dataMap,
+      @Nonnull Urn entityUrn) {
     MLPrimaryKeyProperties primaryKeyProperties = new MLPrimaryKeyProperties(dataMap);
-    mlPrimaryKey.setPrimaryKeyProperties(
-        MLPrimaryKeyPropertiesMapper.map(context, primaryKeyProperties));
-    mlPrimaryKey.setProperties(MLPrimaryKeyPropertiesMapper.map(context, primaryKeyProperties));
+    com.linkedin.datahub.graphql.generated.MLPrimaryKeyProperties graphqlProperties =
+        MLPrimaryKeyPropertiesMapper.map(context, primaryKeyProperties, entityUrn);
+    mlPrimaryKey.setPrimaryKeyProperties(graphqlProperties);
+    mlPrimaryKey.setProperties(graphqlProperties);
     mlPrimaryKey.setDescription(primaryKeyProperties.getDescription());
     if (primaryKeyProperties.getDataType() != null) {
       mlPrimaryKey.setDataType(
