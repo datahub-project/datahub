@@ -2,7 +2,7 @@ import atexit
 import functools
 import logging
 import os
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Set
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -255,10 +255,8 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         for project in projects:
             yield from self.bq_schema_extractor.get_project_workunits(project)
 
-        if self.config.use_queries_v2:
-            # Always ingest View and Snapshot lineage with schema ingestion
+        if self.config.include_view_lineage:
             self.report.set_ingestion_stage("*", "View and Snapshot Lineage")
-
             yield from self.lineage_extractor.get_lineage_workunits_for_views_and_snapshots(
                 [p.id for p in projects],
                 self.bq_schema_extractor.view_refs_by_project,
@@ -267,6 +265,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 self.bq_schema_extractor.snapshots_by_ref,
             )
 
+        if self.config.use_queries_v2:
             # if both usage and lineage are disabled then skip queries extractor piece
             if (
                 not self.config.include_usage_statistics
@@ -276,13 +275,21 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
             self.report.set_ingestion_stage("*", QUERIES_EXTRACTION)
 
+            discovered_tables: Set[str] = set()
+            if self.config.include_table_lineage:
+                discovered_tables.update(self.bq_schema_extractor.table_refs)
+
+            if self.config.include_view_lineage:
+                discovered_tables.update(self.bq_schema_extractor.view_snapshot_refs)
+
             with BigQueryQueriesExtractor(
                 connection=self.config.get_bigquery_client(),
                 schema_api=self.bq_schema_extractor.schema_api,
                 config=BigQueryQueriesExtractorConfig(
                     window=self.config,
                     user_email_pattern=self.config.usage.user_email_pattern,
-                    include_lineage=self.config.include_table_lineage,
+                    include_lineage=self.config.include_table_lineage
+                    or self.config.include_view_lineage,
                     include_usage_statistics=self.config.include_usage_statistics,
                     include_operations=self.config.usage.include_operational_stats,
                     top_n_queries=self.config.usage.top_n_queries,
@@ -292,7 +299,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 filters=self.filters,
                 identifiers=self.identifiers,
                 schema_resolver=self.sql_parser_schema_resolver,
-                discovered_tables=self.bq_schema_extractor.table_refs,
+                discovered_tables=discovered_tables,
             ) as queries_extractor:
                 self.report.queries_extractor = queries_extractor.report
                 yield from queries_extractor.get_workunits_internal()
@@ -300,16 +307,15 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         else:
             if self.config.include_usage_statistics:
                 yield from self.usage_extractor.get_usage_workunits(
-                    [p.id for p in projects], self.bq_schema_extractor.table_refs
+                    [p.id for p in projects],
+                    self.bq_schema_extractor.table_refs.union(
+                        self.bq_schema_extractor.view_snapshot_refs
+                    ),
                 )
 
             if self.config.include_table_lineage:
                 yield from self.lineage_extractor.get_lineage_workunits(
                     [p.id for p in projects],
-                    self.bq_schema_extractor.view_refs_by_project,
-                    self.bq_schema_extractor.view_definitions,
-                    self.bq_schema_extractor.snapshot_refs_by_project,
-                    self.bq_schema_extractor.snapshots_by_ref,
                     self.bq_schema_extractor.table_refs,
                 )
 
