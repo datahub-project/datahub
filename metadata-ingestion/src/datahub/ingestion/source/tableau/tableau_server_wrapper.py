@@ -12,7 +12,7 @@ class UserInfo:
     site_id: str
 
     def is_site_administrator_explorer(self):
-        return self.site_role == c.SITE_ROLE
+        return self.site_role in [c.SITE_ROLE_EXPLORER, c.SITE_ROLE_CREATOR]
 
     @staticmethod
     def from_server(server: Server) -> "UserInfo":
