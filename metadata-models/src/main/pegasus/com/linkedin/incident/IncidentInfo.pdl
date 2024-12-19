@@ -45,7 +45,7 @@ record IncidentInfo {
   @Relationship = {
     "/*": {
       "name": "IncidentOn",
-      "entityTypes": [ "dataset", "chart", "dashboard", "dataFlow", "dataJob", "schemaField" ]
+      "entityTypes": [ "dataset", "chart", "dashboard", "dataFlow", "dataJob", "schemaField", "mlModel", "mlFeature" ]
     }
   }
   @Searchable = {

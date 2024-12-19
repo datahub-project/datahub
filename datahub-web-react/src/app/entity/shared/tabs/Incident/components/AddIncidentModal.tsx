@@ -86,6 +86,7 @@ export const AddIncidentModal = ({ open, onClose, refetch }: AddIncidentProps) =
                         time: Date.now(),
                         actor: user?.urn,
                     },
+                    tags: null,
                 };
                 message.success({ content: 'Incident Added', duration: 2 });
                 analytics.event({

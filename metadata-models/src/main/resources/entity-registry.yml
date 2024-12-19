@@ -358,6 +358,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -425,6 +426,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - incidentsSummary
   - name: mlPrimaryKey
     category: core
     keyAspect: mlPrimaryKeyKey
