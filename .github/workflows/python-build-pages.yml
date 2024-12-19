@@ -66,6 +66,8 @@ jobs:
       - name: Build Python wheel site
         run: |
           ./gradlew :python-build:buildSite
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Publish
         uses: cloudflare/pages-action@v1
         with:
