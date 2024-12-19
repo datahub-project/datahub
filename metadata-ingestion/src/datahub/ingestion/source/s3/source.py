@@ -9,6 +9,7 @@ from datetime import datetime
 from itertools import groupby
 from pathlib import PurePath
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import smart_open.compression as so_compression
 from more_itertools import peekable
@@ -993,9 +994,7 @@ class S3Source(StatefulIngestionSourceBase):
                         folders = []
                         for dir in dirs_to_process:
                             logger.info(f"Getting files from folder: {dir}")
-                            prefix_to_process = dir.rstrip("\\").lstrip(
-                                self.create_s3_path(bucket_name, "/")
-                            )
+                            prefix_to_process = urlparse(dir).path.lstrip("/")
 
                             folders.extend(
                                 self.get_folder_info(

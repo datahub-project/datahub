@@ -145,7 +145,7 @@ public class StatefulTokenService extends StatelessTokenService {
     _entityService.ingestProposal(
         systemOperationContext,
         AspectsBatchImpl.builder()
-            .mcps(List.of(proposal), auditStamp, systemOperationContext.getRetrieverContext().get())
+            .mcps(List.of(proposal), auditStamp, systemOperationContext.getRetrieverContext())
             .build(),
         false);
 

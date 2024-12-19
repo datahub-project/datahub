@@ -145,7 +145,9 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
         self.source_config: LookerDashboardSourceConfig = config
         self.reporter: LookerDashboardSourceReport = LookerDashboardSourceReport()
         self.looker_api: LookerAPI = LookerAPI(self.source_config)
-        self.user_registry: LookerUserRegistry = LookerUserRegistry(self.looker_api)
+        self.user_registry: LookerUserRegistry = LookerUserRegistry(
+            self.looker_api, self.reporter
+        )
         self.explore_registry: LookerExploreRegistry = LookerExploreRegistry(
             self.looker_api, self.reporter, self.source_config
         )
@@ -1672,6 +1674,15 @@ class LookerDashboardSource(TestableSource, StatefulIngestionSourceBase):
             for usage_mcp in usage_mcps:
                 yield usage_mcp.as_workunit()
             self.reporter.report_stage_end("usage_extraction")
+
+        # Dump looker user resource mappings.
+        logger.info("Ingesting looker user resource mapping workunits")
+        self.reporter.report_stage_start("user_resource_extraction")
+        yield from auto_workunit(
+            self.user_registry.to_platform_resource(
+                self.source_config.platform_instance
+            )
+        )
 
     def get_report(self) -> SourceReport:
         return self.reporter

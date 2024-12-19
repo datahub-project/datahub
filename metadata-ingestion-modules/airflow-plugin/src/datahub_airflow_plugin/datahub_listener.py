@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, TypeVar, cast
 
 import airflow
 import datahub.emitter.mce_builder as builder
+from airflow.models import Variable
 from airflow.models.serialized_dag import SerializedDagModel
 from datahub.api.entities.datajob import DataJob
 from datahub.api.entities.dataprocess.dataprocess_instance import InstanceRunResult
@@ -77,6 +78,8 @@ _RUN_IN_THREAD_TIMEOUT = float(
     os.getenv("DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT", 10)
 )
 _DATAHUB_CLEANUP_DAG = "Datahub_Cleanup"
+
+KILL_SWITCH_VARIABLE_NAME = "datahub_airflow_plugin_disable_listener"
 
 
 def get_airflow_plugin_listener() -> Optional["DataHubListener"]:
@@ -364,6 +367,12 @@ class DataHubListener:
                     redact_with_exclusions(v)
                 )
 
+    def check_kill_switch(self):
+        if Variable.get(KILL_SWITCH_VARIABLE_NAME, "false").lower() == "true":
+            logger.debug("DataHub listener disabled by kill switch")
+            return True
+        return False
+
     @hookimpl
     @run_in_thread
     def on_task_instance_running(
@@ -372,6 +381,8 @@ class DataHubListener:
         task_instance: "TaskInstance",
         session: "Session",  # This will always be QUEUED
     ) -> None:
+        if self.check_kill_switch():
+            return
         self._set_log_level()
 
         # This if statement mirrors the logic in https://github.com/OpenLineage/OpenLineage/pull/508.
@@ -454,6 +465,9 @@ class DataHubListener:
             f"DataHub listener finished processing notification about task instance start for {task_instance.task_id}"
         )
 
+        self.materialize_iolets(datajob)
+
+    def materialize_iolets(self, datajob: DataJob) -> None:
         if self.config.materialize_iolets:
             for outlet in datajob.outlets:
                 reported_time: int = int(time.time() * 1000)
@@ -541,6 +555,9 @@ class DataHubListener:
     def on_task_instance_success(
         self, previous_state: None, task_instance: "TaskInstance", session: "Session"
     ) -> None:
+        if self.check_kill_switch():
+            return
+
         self._set_log_level()
 
         logger.debug(
@@ -556,6 +573,9 @@ class DataHubListener:
     def on_task_instance_failed(
         self, previous_state: None, task_instance: "TaskInstance", session: "Session"
     ) -> None:
+        if self.check_kill_switch():
+            return
+
         self._set_log_level()
 
         logger.debug(
@@ -696,6 +716,9 @@ class DataHubListener:
         @hookimpl
         @run_in_thread
         def on_dag_run_running(self, dag_run: "DagRun", msg: str) -> None:
+            if self.check_kill_switch():
+                return
+
             self._set_log_level()
 
             logger.debug(
