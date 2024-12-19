@@ -930,6 +930,9 @@ fragment searchResultsWithoutSchemaField on Entity {
     ... on BusinessAttribute {
         ...businessAttributeFields
     }
+    ... on DataProcessInstance {
+        ...dataProcessInstanceFields
+    }
     ... on StructuredPropertyEntity {
         ...structuredPropertyFields
     }
