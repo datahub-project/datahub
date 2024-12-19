@@ -14,7 +14,7 @@ from datahub.metadata.schema_classes import (
     PropertyValueClass,
     StructuredPropertyDefinitionClass,
 )
-from datahub.metadata.urns import StructuredPropertyUrn, Urn
+from datahub.metadata.urns import DataTypeUrn, StructuredPropertyUrn, Urn
 from datahub.utilities.urns._urn_base import URN_TYPES
 
 logging.basicConfig(level=logging.INFO)
@@ -86,19 +86,31 @@ class StructuredProperties(ConfigModel):
 
     @validator("type")
     def validate_type(cls, v: str) -> str:
-        # Convert to lowercase if needed
-        if not v.islower():
-            logger.warning(
-                f"Structured property type should be lowercase. Updated to {v.lower()}"
-            )
+        # This logic is somewhat hacky, since we need to deal with
+        # 1. fully qualified urns
+        # 2. raw data types, that need to get the datahub namespace prefix
+        # While keeping the user-facing interface and error messages clean.
+
+        if not v.startswith("urn:li:") and not v.islower():
+            # Convert to lowercase if needed
             v = v.lower()
+            logger.warning(
+                f"Structured property type should be lowercase. Updated to {v}"
+            )
+
+        urn = Urn.make_data_type_urn(v)
 
         # Check if type is allowed
-        if not AllowedTypes.check_allowed_type(v):
+        data_type_urn = DataTypeUrn.from_string(urn)
+        unqualified_data_type = data_type_urn.id
+        if unqualified_data_type.startswith("datahub."):
+            unqualified_data_type = unqualified_data_type[len("datahub.") :]
+        if not AllowedTypes.check_allowed_type(unqualified_data_type):
             raise ValueError(
-                f"Type {v} is not allowed. Allowed types are {AllowedTypes.values()}"
+                f"Type {unqualified_data_type} is not allowed. Allowed types are {AllowedTypes.values()}"
             )
-        return v
+
+        return urn
 
     @property
     def fqn(self) -> str:
