@@ -74,7 +74,7 @@ The following code adds custom properties `cluster_name` and `retention_time` to
 <TabItem value="python" label="Python" default>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/dataset_add_properties.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/dataset_add_custom_properties_patch.py show_path_as_comment }}
 ```
 
 </TabItem>
@@ -128,7 +128,7 @@ The following code shows you how can add and remove custom properties in the sam
 <TabItem value="python" label="Python" default>
 
 ```python
-{{ inline /metadata-ingestion/examples/library/dataset_add_remove_properties.py show_path_as_comment }}
+{{ inline /metadata-ingestion/examples/library/dataset_add_remove_custom_properties_patch.py show_path_as_comment }}
 ```
 
 </TabItem>
