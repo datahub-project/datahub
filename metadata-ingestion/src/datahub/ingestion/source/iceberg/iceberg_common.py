@@ -68,6 +68,10 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to filter in ingestion.",
     )
+    namespace_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for namespaces to filter in ingestion.",
+    )
     user_ownership_property: Optional[str] = Field(
         default="owner",
         description="Iceberg table property to look for a `CorpUser` owner.  Can only hold a single user value.  If property has no value, no owner information will be emitted.",
