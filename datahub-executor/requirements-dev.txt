@@ -1071,6 +1071,7 @@ requests==2.32.3
     # via
     #   -r requirements.txt
     #   acryl-datahub
+    #   confluent-kafka
     #   databricks-sdk
     #   databricks-sql-connector
     #   dataflows-tabulator
