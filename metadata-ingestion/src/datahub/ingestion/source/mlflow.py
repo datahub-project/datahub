@@ -33,7 +33,6 @@ from datahub.metadata.schema_classes import (
     VersionTagClass,
     DataProcessInstanceRunEventClass,
     DataProcessInstancePropertiesClass,
-    DataProcessInstanceRelationshipsClass,
     ContainerPropertiesClass,
     TimeStampClass,
     DataProcessRunStatusClass,
@@ -44,7 +43,7 @@ from datahub.metadata.schema_classes import (
     MLTrainingRunPropertiesClass,
     DataProcessInstanceRunResultClass,
 )
-from datahub.metadata.urns import DatasetUrn, DataPlatformUrn, MlModelUrn, MlModelGroupUrn, DataProcessInstanceUrn, DataPlatformInstanceUrn
+from datahub.metadata.urns import DataPlatformUrn
 from datahub.api.entities.dataprocess.dataprocess_instance import (
     DataProcessInstance,
 )
@@ -161,7 +160,7 @@ class MLflowSource(Source):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from self._get_tags_workunits()
         yield from self._get_ml_model_workunits()
-        # yield from self._get_experiment_workunits()
+        yield from self._get_experiment_workunits()
 
     def _get_tags_workunits(self) -> Iterable[MetadataWorkUnit]:
         for stage_info in self.registered_model_stages_info:
@@ -208,20 +207,17 @@ class MLflowSource(Source):
         return experiment_custom_props
 
     def _get_experiment_container_workunit(self, experiment: Experiment) -> List[MetadataWorkUnit]:
-        experiment = Container(
+        experiment_container = Container(
             key=ContainerKeyWithId(
                 platform=str(DataPlatformUrn.create_from_id("mlflow")),
-                id=experiment.name
+                id=experiment.name,
             ),
             subtype="ML Experiment",
             name=experiment.name,
             description=experiment.tags.get('mlflow.note.content')
-        ) # TODO: urn should be experiment id 
+        ) # TODO: this generates a urn as guid, should we change this to use experiment.id?
 
-        # print("experiment.key.id:", experiment.key.id) # this should be same as container key as urn
-        # print("experiment.key.as_urn(): ", experiment.key.as_urn())
-
-        workunits = [mcp.as_workunit() for mcp in experiment.generate_mcp()]
+        workunits = [mcp.as_workunit() for mcp in experiment_container.generate_mcp()]
         return workunits
 
 
@@ -253,15 +249,7 @@ class MLflowSource(Source):
         data_process_instance = DataProcessInstance.from_container(
             container_key=experiment_key,
             id=run.info.run_name
-        )
-
-        # TODO: urn should be run id
-        # print("dpi id", run.info.run_name)
-        # print("experiment_key.id:", experiment_key.id)
-        # print("run id", run.info.run_id)
-        # print("data_proceess_instance.urn:", str(data_process_instance.urn))
-        # print("--------------------")
-
+        ) # TODO: this generates a urn as guid, should we change this to use run.info.run_id?
         workunits = []
 
         run_custom_props = self._get_run_custom_properties(run)
@@ -290,6 +278,7 @@ class MLflowSource(Source):
                 hyperParams=hyperparams,
                 trainingMetrics=metrics,
                 outputUrls=[run.info.artifact_uri],
+                id=run.info.run_id,
                 )
             ).as_workunit()
         )
