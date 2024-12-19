@@ -3888,6 +3888,11 @@ type CorpUser implements Entity {
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
 
     """
+    Origin info about this user.
+    """
+    origin: Origin
+
+    """
     Whether or not this user is a native DataHub user
     """
     isNativeUser: Boolean
