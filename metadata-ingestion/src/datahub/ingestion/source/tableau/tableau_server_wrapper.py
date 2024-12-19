@@ -15,7 +15,7 @@ class UserInfo:
         return self.site_role in [
             c.ROLE_SITE_ADMIN_EXPLORER, 
             c.ROLE_SITE_ADMIN_CREATOR, 
-            ROLE_SERVER_ADMIN
+            c.ROLE_SERVER_ADMIN,
         ]
 
     @staticmethod
