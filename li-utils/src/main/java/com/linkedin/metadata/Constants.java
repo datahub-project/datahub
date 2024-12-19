@@ -103,6 +103,7 @@ public class Constants {
   public static final String FORM_ENTITY_NAME = "form";
   public static final String RESTRICTED_ENTITY_NAME = "restricted";
   public static final String BUSINESS_ATTRIBUTE_ENTITY_NAME = "businessAttribute";
+  public static final String DIMENSION_TYPE_ENTITY_NAME = "dimensionNameType";
 
   /** Aspects */
   // Common
@@ -462,6 +463,13 @@ public class Constants {
   // Config
   public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";
   public static final String ELASTICSEARCH_IMPLEMENTATION_ELASTICSEARCH = "elasticsearch";
+
+  // Data Quality
+  public static final String DATA_QUALITY_ASPECT_NAME = "dataQuality";
+
+  // Dimension Name
+  public static final String DIMENSION_NAME_KEY_ASPECT_NAME = "dimensionTypeKey";
+  public static final String DIMENSION_NAME_INFO_ASPECT_NAME = "dimensionTypeInfo";
 
   // DAO
   public static final long LATEST_VERSION = 0;

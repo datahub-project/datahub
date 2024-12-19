@@ -28,6 +28,7 @@ import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataProductService;
+import com.linkedin.metadata.service.DimensionTypeService;
 import com.linkedin.metadata.service.ERModelRelationshipService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
@@ -88,6 +89,7 @@ public class GmsGraphQLEngineArgs {
   BusinessAttributeService businessAttributeService;
   ConnectionService connectionService;
   AssertionService assertionService;
+  DimensionTypeService dimensionTypeService;
 
   // any fork specific args should go below this line
 }

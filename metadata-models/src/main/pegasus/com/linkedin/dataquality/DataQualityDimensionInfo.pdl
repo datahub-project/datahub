@@ -1,0 +1,32 @@
+namespace com.linkedin.dataquality
+
+/**
+ * Record to capture Dataset/Field level Data Quality Metrics
+ */
+record DataQualityDimensionInfo {
+
+  /**
+  * dimensions attribute to capture dimensions. It is an array of dimensionScore
+  * Required if this record is initialized
+  */
+  dimensions: array[DimensionScore]
+
+ /**
+  * tool_name attribute to capture the tool that has been used to generate the quality metrics.
+  * Optional field
+  */
+  toolName: optional string
+
+ /**
+  * record_count attribute to capture the number of data records that have been used to capture the quality metrics
+  * Optional field
+  */
+  recordCount: optional long
+
+ /**
+  * note attribute to capture comment or any other information about the result
+  * Optional field
+  */
+  note: optional string 
+
+}

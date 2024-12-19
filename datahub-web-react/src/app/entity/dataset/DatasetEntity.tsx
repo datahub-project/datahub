@@ -175,7 +175,10 @@ export class DatasetEntity implements Entity<Dataset> {
                     display: {
                         visible: (_, _1) => true,
                         enabled: (_, dataset: GetDatasetQuery) => {
-                            return (dataset?.dataset?.assertions?.total || 0) > 0;
+                            return (
+                                (dataset?.dataset?.assertions?.total || 0) > 0 ||
+                                dataset?.dataset?.dataQuality !== null
+                            );
                         },
                     },
                 },
