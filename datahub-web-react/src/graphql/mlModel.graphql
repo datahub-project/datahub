@@ -34,5 +34,8 @@ query getMLModel($urn: String!) {
         forms {
             ...formsFields
         }
+        activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+            total
+        }
     }
 }

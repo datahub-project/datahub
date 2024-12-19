@@ -12,6 +12,7 @@ import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
+import com.linkedin.datahub.graphql.resolvers.incident.IncidentUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.EmbedUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.entity.client.EntityClient;
@@ -141,5 +142,6 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
       @Nonnull EntityPrivileges result, @Nonnull Urn urn, @Nonnull QueryContext context) {
     result.setCanEditLineage(canEditEntityLineage(urn, context));
     result.setCanEditProperties(AuthorizationUtils.canEditProperties(urn, context));
+    result.setCanEditIncidents(IncidentUtils.isAuthorizedToEditIncidentForResource(urn, context));
   }
 }
