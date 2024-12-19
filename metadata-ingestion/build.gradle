@@ -24,7 +24,7 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     "${python_executable} -m venv ${venv_name} && set -x && " +
-    "${venv_name}/bin/${python_executable} -m pip install --upgrade uv && " +
+    "${venv_name}/bin/python -m pip install --upgrade uv && " +
     "touch ${sentinel_file}"
 }
 
@@ -62,7 +62,7 @@ task customPackageGenerate(type: Exec, dependsOn: [environmentSetup, installPack
   def package_version = project.findProperty('package_version')
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
-    "uv pip install build && " +
+    "uv pip install -p ${venv_name}/bin/${python_executable} build && " +
     "./scripts/custom_package_codegen.sh '${package_name}' '${package_version}'"
 }
 
