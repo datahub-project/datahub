@@ -59,6 +59,13 @@ newline = "\n"
 
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.css" integrity="sha256-cDGQ39yChhpN5vzgHbjIdGEtQ5kXE9tttCsI7VR9TuY=" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/semantic-ui@2.5.0/dist/semantic.min.js" integrity="sha256-fN8vcX2ULyTDspVTHEteK8hd3rQAb5thNiwakjAW75Q=" crossorigin="anonymous"></script>
+
+    <!-- CDN example (jsDelivr) -->
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/utc.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/relativeTime.js"></script>
+    <script>dayjs.extend(window.dayjs_plugin_utc)</script>
+    <script>dayjs.extend(window.dayjs_plugin_relativeTime)</script>
   </head>
   <body>
     <div class="ui container">
@@ -68,6 +75,9 @@ newline = "\n"
       </p>
 
       <h2>Build context</h2>
+      <p>
+        Built <span id="build-timestamp">at {ts}</span>.
+      </p>
       <pre id="context-info">{json.dumps(context_info, indent=2)}</pre>
 
       <h2>Usage</h2>
@@ -105,6 +115,10 @@ newline = "\n"
     document.querySelectorAll(".base-url").forEach(el => {{
       el.textContent = baseUrl;
     }});
+
+    const buildTimestamp = document.getElementById("build-timestamp");
+    const buildTimestampDate = dayjs('{ts}');
+    buildTimestamp.textContent = buildTimestampDate.fromNow();
   </script>
 </html>
 """
