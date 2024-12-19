@@ -13,12 +13,7 @@ from datahub.api.entities.dataprocess.dataprocess_instance import (
 from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import get_default_graph
-from datahub.metadata.urns import (
-    DatasetUrn,
-    DataPlatformUrn,
-    MlModelGroupUrn,
-    MlModelUrn,
-)
+from datahub.metadata.urns import DatasetUrn, DataPlatformUrn, MlModelGroupUrn, MlModelUrn
 from datahub.emitter.mcp_builder import ContainerKey
 
 ORCHESTRATOR_MLFLOW = "mlflow"
@@ -138,9 +133,7 @@ def generate_pipeline(
 
         yield from experiment.generate_mcp()
 
-        model_group_urn = MlModelGroupUrn(
-            platform="mlflow", name="airline_forecast_models"
-        )
+        model_group_urn = MlModelGroupUrn(platform="mlflow", name="airline_forecast_models")
         current_time = int(time.time() * 1000)
         model_group_info = models.MLModelGroupPropertiesClass(
             description="ML models for airline passenger forecasting",
@@ -160,20 +153,8 @@ def generate_pipeline(
 
         print("model_group_urn: ", model_group_urn)
 
-        model_aliases = [
-            "challenger",
-            "champion",
-            "production",
-            "experimental",
-            "deprecated",
-        ]
-        model_tags = [
-            "stage:production",
-            "stage:development",
-            "team:data_science",
-            "team:ml_engineering",
-            "team:analytics",
-        ]
+        model_aliases = ["challenger", "champion", "production", "experimental", "deprecated"]
+        model_tags = ["stage:production", "stage:development", "team:data_science", "team:ml_engineering", "team:analytics"]
 
         model_dict = {
             "arima_model_1": "ARIMA model for airline passenger forecasting",
@@ -185,45 +166,21 @@ def generate_pipeline(
 
         # Generate run timestamps within the last month
         end_time = int(time.time() * 1000)  # Current timestamp in milliseconds
-        start_time = end_time - (
-            30 * 24 * 60 * 60 * 1000
-        )  # 30 days ago in milliseconds
+        start_time = end_time - (30 * 24 * 60 * 60 * 1000)  # 30 days ago in milliseconds
         run_timestamps = [
             start_time + (i * 5 * 24 * 60 * 60 * 1000)  # 5-day intervals
             for i in range(5)
         ]
 
         run_dict = {
-            "run_1": {
-                "start_time": run_timestamps[0],
-                "duration": 45,
-                "result": InstanceRunResult.SUCCESS,
-            },
-            "run_2": {
-                "start_time": run_timestamps[1],
-                "duration": 60,
-                "result": InstanceRunResult.FAILURE,
-            },
-            "run_3": {
-                "start_time": run_timestamps[2],
-                "duration": 55,
-                "result": InstanceRunResult.SUCCESS,
-            },
-            "run_4": {
-                "start_time": run_timestamps[3],
-                "duration": 70,
-                "result": InstanceRunResult.SUCCESS,
-            },
-            "run_5": {
-                "start_time": run_timestamps[4],
-                "duration": 50,
-                "result": InstanceRunResult.FAILURE,
-            },
+            "run_1": {"start_time": run_timestamps[0], "duration": 45, "result": InstanceRunResult.SUCCESS},
+            "run_2": {"start_time": run_timestamps[1], "duration": 60, "result": InstanceRunResult.FAILURE},
+            "run_3": {"start_time": run_timestamps[2], "duration": 55, "result": InstanceRunResult.SUCCESS},
+            "run_4": {"start_time": run_timestamps[3], "duration": 70, "result": InstanceRunResult.SUCCESS},
+            "run_5": {"start_time": run_timestamps[4], "duration": 50, "result": InstanceRunResult.FAILURE},
         }
 
-        for i, (model_name, model_description) in enumerate(
-            model_dict.items(), start=1
-        ):
+        for i, (model_name, model_description) in enumerate(model_dict.items(), start=1):
             run_id = f"run_{i}"
             data_process_instance = DataProcessInstance.from_container(
                 container_key=experiment.key, id=run_id
@@ -249,25 +206,25 @@ def generate_pipeline(
                 models.MLMetricClass(
                     name="accuracy",
                     value=str(random.uniform(0.7, 0.99)),
-                    description="Test accuracy",
+                    description="Test accuracy"
                 ),
                 models.MLMetricClass(
                     name="f1_score",
                     value=str(random.uniform(0.7, 0.99)),
-                    description="Test F1 score",
-                ),
+                    description="Test F1 score"
+                )
             ]
             hyper_params = [
                 models.MLHyperParamClass(
                     name="n_estimators",
                     value=str(random.randint(50, 200)),
-                    description="Number of trees",
+                    description="Number of trees"
                 ),
                 models.MLHyperParamClass(
                     name="max_depth",
                     value=str(random.randint(5, 15)),
-                    description="Maximum tree depth",
-                ),
+                    description="Maximum tree depth"
+                )
             ]
 
             # DPI properties
@@ -275,10 +232,8 @@ def generate_pipeline(
             print(start_time)
             dpi_props = models.DataProcessInstancePropertiesClass(
                 name=f"Training {run_id}",
-                created=models.AuditStampClass(
-                    time=created_at, actor="urn:li:corpuser:datahub"
-                ),
-                createdAt=int(created_at / 1000),
+                created=models.AuditStampClass(time=created_at, actor="urn:li:corpuser:datahub"),
+                createdAt=int(created_at/1000),
                 createdBy="jane_doe",
                 loggedModels=["sklearn"],
                 artifactsLocation="s3://mlflow/artifacts",
@@ -306,9 +261,7 @@ def generate_pipeline(
             duration_minutes = run_dict[run_id]["duration"]
             end_time_millis = start_time_millis + duration_minutes * 60000
             result = run_dict[run_id]["result"]
-            result_type = (
-                "SUCCESS" if result == InstanceRunResult.SUCCESS else "FAILURE"
-            )
+            result_type = "SUCCESS" if result == InstanceRunResult.SUCCESS else "FAILURE"
 
             yield from data_process_instance.start_event_mcp(
                 start_timestamp_millis=start_time_millis
@@ -322,12 +275,7 @@ def generate_pipeline(
 
             print("data_process_instance.urn: ", data_process_instance.urn)
             print("start Time:", start_time_millis)
-            print(
-                "start Time:",
-                time.strftime(
-                    "%Y-%m-%d %H:%M:%S", time.localtime(start_time_millis / 1000)
-                ),
-            )
+            print("start Time:", time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time_millis/1000)))
 
             # Model
             selected_aliases = random.sample(model_aliases, k=random.randint(1, 2))
