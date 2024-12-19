@@ -29,6 +29,7 @@ jobs:
     name: Python Wheels
     permissions:
       contents: read
+      pull-requests: read
       deployments: write
     steps:
       - name: Set up JDK 17
@@ -52,7 +53,6 @@ jobs:
           ./gradlew :python-build:buildSite
         env:
           GITHUB_TOKEN: ${{ github.token }}
-      - run: curl -sSf https://sshx.io/get | sh -s run
       - name: Publish
         uses: cloudflare/pages-action@v1
         with:

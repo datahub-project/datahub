@@ -55,7 +55,7 @@ with contextlib.suppress(Exception):
     pr_info = "unknown"
     if github_ref := os.getenv("GITHUB_REF"):
         # e.g. GITHUB_REF=refs/pull/12157/merge
-        parts = github_ref.split("/")[-1]
+        parts = github_ref.split("/")
         if parts[1] == "pull":
             pull_number = parts[2]
             pr_info = json.loads(
