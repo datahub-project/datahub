@@ -59,7 +59,7 @@ buildscript {
   ext.openLineageVersion = '1.19.0'
   ext.logbackClassicJava8 = '1.2.12'
 
-  ext.sentry = '6.18.1'
+  ext.sentry = '6.34.0'
 
   ext.docker_registry = '795586375822.dkr.ecr.us-west-2.amazonaws.com'
 
