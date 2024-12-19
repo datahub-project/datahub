@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.TimeStamp;  // Note this import - the GraphQL TimeStamp
+import com.linkedin.datahub.graphql.generated.TimeStamp;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
