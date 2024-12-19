@@ -13,8 +13,8 @@ class UserInfo:
 
     def has_site_administrator_explorer_privileges(self):
         return self.site_role in [
-            c.ROLE_SITE_ADMIN_EXPLORER, 
-            c.ROLE_SITE_ADMIN_CREATOR, 
+            c.ROLE_SITE_ADMIN_EXPLORER,
+            c.ROLE_SITE_ADMIN_CREATOR,
             c.ROLE_SERVER_ADMIN,
         ]
 
