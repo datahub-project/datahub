@@ -60,6 +60,7 @@ const QueryCountChart = ({ queryCountBuckets }: Props) => {
                         values={[timeRange]}
                         onUpdate={(values) => handleFilterChange(values[0] as TimeRange)}
                         showClear={false}
+                        width="full"
                     />
                 </>
             )}

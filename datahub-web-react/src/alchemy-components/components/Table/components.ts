@@ -4,15 +4,12 @@ import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import styled from 'styled-components';
 
 export const TableContainer = styled.div<{ isScrollable?: boolean; maxHeight?: string; isBorderless?: boolean }>(
-    ({ maxHeight, isBorderless }) => ({
+    ({ isScrollable, maxHeight, isBorderless }) => ({
         borderRadius: isBorderless ? radius.none : radius.lg,
         border: isBorderless ? borders.none : `1px solid ${colors.gray[1400]}`,
-        overflow: 'hidden',
+        overflow: isScrollable ? 'auto' : 'hidden',
         width: '100%',
         maxHeight: maxHeight || '100%',
-        '&:hover': {
-            overflow: 'auto',
-        },
     }),
 );
 
@@ -80,8 +77,7 @@ export const TableCell = styled.td<{
     fontWeight: typography.fontWeights.normal,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    whiteSpace: 'normal',
-    wordBreak: 'break-word',
+    whiteSpace: 'nowrap',
     maxWidth: width || 'unset',
     textAlign: alignment || 'left',
 }));

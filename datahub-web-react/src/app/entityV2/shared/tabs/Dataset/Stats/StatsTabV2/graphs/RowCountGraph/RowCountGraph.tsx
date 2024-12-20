@@ -40,6 +40,7 @@ export default function RowCountGraph({ urn }: RowCountGraphProps) {
                         values={rangeType ? [rangeType] : []}
                         onUpdate={(values) => setRangeType(values[0])}
                         showClear={false}
+                        width="full"
                     />
                 </>
             )}

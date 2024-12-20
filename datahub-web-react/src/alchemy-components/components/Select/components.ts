@@ -32,7 +32,7 @@ export const SelectLabelContainer = styled.div({
     gap: spacing.xsm,
     lineHeight: typography.lineHeights.none,
     alignItems: 'center',
-    width: '100%',
+    maxWidth: 'calc(100% - 54px)',
 });
 
 /**
@@ -180,7 +180,7 @@ export const LabelsWrapper = styled.div({
     flexWrap: 'wrap',
     gap: spacing.xxsm,
     maxHeight: '150px',
-    maxWidth: 'calc(100% - 54px)',
+    maxWidth: '100%',
 });
 
 export const OptionLabel = styled.label<{
