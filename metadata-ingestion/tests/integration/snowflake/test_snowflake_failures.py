@@ -49,7 +49,6 @@ def snowflake_pipeline_config(tmp_path):
                 include_technical_schema=True,
                 match_fully_qualified_names=True,
                 schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
-                include_view_lineage=False,
                 include_usage_stats=False,
                 start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                     tzinfo=timezone.utc
@@ -227,7 +226,6 @@ def test_snowflake_missing_snowflake_lineage_permission_causes_pipeline_failure(
                 snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
                     start_time_millis=1654473600000,
                     end_time_millis=1654586220000,
-                    include_view_lineage=True,
                     include_column_lineage=True,
                 )
             ],

@@ -435,11 +435,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     )
 
         if self.config.include_views:
-            if (
-                self.aggregator
-                and self.config.include_view_lineage
-                and self.config.parse_view_ddl
-            ):
+            if self.aggregator:
                 for view in views:
                     view_identifier = self.identifiers.get_dataset_identifier(
                         view.name, schema_name, db_name

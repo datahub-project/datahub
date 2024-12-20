@@ -15,6 +15,7 @@ USAGE_EXTRACTION_INGESTION = "Usage Extraction Ingestion"
 USAGE_EXTRACTION_OPERATIONAL_STATS = "Usage Extraction Operational Stats"
 USAGE_EXTRACTION_USAGE_AGGREGATION = "Usage Extraction Usage Aggregation"
 EXTERNAL_TABLE_DDL_LINEAGE = "External table DDL Lineage"
+VIEW_PARSING = "View Parsing"
 QUERIES_EXTRACTION = "Queries Extraction"
 PROFILING = "Profiling"
 

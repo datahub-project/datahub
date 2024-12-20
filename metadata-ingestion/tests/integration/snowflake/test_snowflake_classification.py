@@ -66,7 +66,6 @@ def test_snowflake_classification_perf(num_workers, num_cols_per_table, num_tabl
                         schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                         include_technical_schema=True,
                         include_table_lineage=False,
-                        include_view_lineage=False,
                         include_column_lineage=False,
                         include_usage_stats=False,
                         include_operational_stats=False,

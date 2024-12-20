@@ -256,17 +256,6 @@ def test_options_contain_connect_args():
     assert connect_args is not None
 
 
-def test_snowflake_config_with_view_lineage_no_table_lineage_throws_error():
-    config_dict = default_config_dict.copy()
-    config_dict["include_view_lineage"] = True
-    config_dict["include_table_lineage"] = False
-    with pytest.raises(
-        ValidationError,
-        match="include_table_lineage must be True for include_view_lineage to be set",
-    ):
-        SnowflakeV2Config.parse_obj(config_dict)
-
-
 def test_snowflake_config_with_column_lineage_no_table_lineage_throws_error():
     config_dict = default_config_dict.copy()
     config_dict["include_column_lineage"] = True

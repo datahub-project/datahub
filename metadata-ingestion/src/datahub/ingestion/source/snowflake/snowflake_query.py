@@ -376,7 +376,6 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     def table_to_table_lineage_history_v2(
         start_time_millis: int,
         end_time_millis: int,
-        include_view_lineage: bool = True,
         include_column_lineage: bool = True,
         upstreams_deny_pattern: List[str] = DEFAULT_TEMP_TABLES_PATTERNS,
     ) -> str:
@@ -385,14 +384,12 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 start_time_millis,
                 end_time_millis,
                 upstreams_deny_pattern,
-                include_view_lineage,
             )
         else:
             return SnowflakeQuery.table_upstreams_only(
                 start_time_millis,
                 end_time_millis,
                 upstreams_deny_pattern,
-                include_view_lineage,
             )
 
     @staticmethod
@@ -677,12 +674,9 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         start_time_millis: int,
         end_time_millis: int,
         upstreams_deny_pattern: List[str],
-        include_view_lineage: bool = True,
     ) -> str:
         allowed_upstream_table_domains = (
             SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER
-            if include_view_lineage
-            else SnowflakeQuery.ACCESS_HISTORY_TABLE_DOMAINS_FILTER
         )
 
         upstream_sql_filter = create_deny_regex_sql_filter(
@@ -847,12 +841,9 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         start_time_millis: int,
         end_time_millis: int,
         upstreams_deny_pattern: List[str],
-        include_view_lineage: bool = True,
     ) -> str:
         allowed_upstream_table_domains = (
             SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER
-            if include_view_lineage
-            else SnowflakeQuery.ACCESS_HISTORY_TABLE_DOMAINS_FILTER
         )
 
         upstream_sql_filter = create_deny_regex_sql_filter(
