@@ -31,9 +31,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
     DataProcessInstanceProperties,
 )
 from datahub.metadata.schema_classes import (
-    AuditStampClass,
     DataPlatformInstanceClass,
     StatusClass,
+    TimeStampClass,
 )
 from datahub.metadata.urns import DataPlatformUrn, QueryUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
@@ -137,7 +137,7 @@ class DummySource(StatefulIngestionSourceBase):
                 entityUrn=str(dpi.urn),
                 aspect=DataProcessInstanceProperties(
                     name=dpi.id,
-                    created=AuditStampClass(
+                    created=TimeStampClass(
                         time=int(time.time() * 1000),
                         actor="urn:li:corpuser:datahub",
                     ),
