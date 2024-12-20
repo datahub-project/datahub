@@ -1,11 +1,12 @@
+import React from 'react';
 import { PageTitle } from '@src/alchemy-components';
 import { Maybe, UsageAggregation, UserUsageCounts } from '@src/types.generated';
-import React from 'react';
 import styled from 'styled-components';
-import QueryCountChart from './graphs/QueryCountGraph/QueryCountChart';
 import TopUsers from './TopUsers';
-import StorageSizeGraph from './graphs/StorageSizeGraph/StorageSizeGraph';
+import ChangeHistoryGraph from './graphs/ChangeHistoryGraph/ChangeHistoryGraph';
+import QueryCountChart from './graphs/QueryCountGraph/QueryCountChart';
 import RowCountGraph from './graphs/RowCountGraph/RowCountGraph';
+import StorageSizeGraph from './graphs/StorageSizeGraph/StorageSizeGraph';
 
 const ChartsRow = styled.div`
     display: flex;
@@ -29,6 +30,7 @@ const HistoricalStats = ({ users, queryCountBuckets, urn }: Props) => {
             </ChartsRow>
             <QueryCountChart queryCountBuckets={queryCountBuckets} />
             <StorageSizeGraph urn={urn} />
+            <ChangeHistoryGraph urn={urn} />
         </>
     );
 };

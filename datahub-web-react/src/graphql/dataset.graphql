@@ -459,3 +459,13 @@ fragment getRoles on Access {
         }
     }
 }
+
+query getOperations($urn: String!, $limit: Int, $startTime: Long, $endTime: Long, $filters: FilterInput) {
+    dataset(urn: $urn) {
+        operations(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime, filter: $filters) {
+            timestampMillis
+            operationType
+            actor
+        }
+    }
+}
