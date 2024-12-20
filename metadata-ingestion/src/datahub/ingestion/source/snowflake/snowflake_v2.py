@@ -161,35 +161,32 @@ class SnowflakeV2Source(
         # For database, schema, tables, views, etc
         self.data_dictionary = SnowflakeDataDictionary(connection=self.connection)
         self.lineage_extractor: Optional[SnowflakeLineageExtractor] = None
-        self.aggregator: Optional[SqlParsingAggregator] = None
 
-        if self.config.use_queries_v2 or self.config.include_table_lineage:
-            self.aggregator = self._exit_stack.enter_context(
-                SqlParsingAggregator(
-                    platform=self.identifiers.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                    graph=self.ctx.graph,
-                    eager_graph_load=(
-                        # If we're ingestion schema metadata for tables/views, then we will populate
-                        # schemas into the resolver as we go. We only need to do a bulk fetch
-                        # if we're not ingesting schema metadata as part of ingestion.
-                        not (
-                            self.config.include_technical_schema
-                            and self.config.include_tables
-                            and self.config.include_views
-                        )
-                        and not self.config.lazy_schema_resolver
-                    ),
-                    generate_usage_statistics=False,
-                    generate_operations=False,
-                    format_queries=self.config.format_sql_queries,
-                )
+        self.aggregator: SqlParsingAggregator = self._exit_stack.enter_context(
+            SqlParsingAggregator(
+                platform=self.identifiers.platform,
+                platform_instance=self.config.platform_instance,
+                env=self.config.env,
+                graph=self.ctx.graph,
+                eager_graph_load=(
+                    # If we're ingestion schema metadata for tables/views, then we will populate
+                    # schemas into the resolver as we go. We only need to do a bulk fetch
+                    # if we're not ingesting schema metadata as part of ingestion.
+                    not (
+                        self.config.include_technical_schema
+                        and self.config.include_tables
+                        and self.config.include_views
+                    )
+                    and not self.config.lazy_schema_resolver
+                ),
+                generate_usage_statistics=False,
+                generate_operations=False,
+                format_queries=self.config.format_sql_queries,
             )
-            self.report.sql_aggregator = self.aggregator.report
+        )
+        self.report.sql_aggregator = self.aggregator.report
 
         if self.config.include_table_lineage:
-            assert self.aggregator is not None
             redundant_lineage_run_skip_handler: Optional[
                 RedundantLineageRunSkipHandler
             ] = None
@@ -486,8 +483,6 @@ class SnowflakeV2Source(
         yield from schema_extractor.get_workunits_internal()
 
         databases = schema_extractor.databases
-
-        # TODO: The checkpoint state for stale entity detection can be committed here.
 
         if self.config.shares:
             yield from SnowflakeSharesHandler(
