@@ -3,8 +3,8 @@ from typing import Any, Callable, Iterable, Optional, TypeVar, Union, List
 import time
 
 from mlflow import MlflowClient
-from mlflow.entities import Run
-from mlflow.entities.model_registry import ModelVersion, RegisteredModel, Experiment
+from mlflow.entities import Run, Experiment
+from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.store.entities import PagedList
 from pydantic.fields import Field
 
