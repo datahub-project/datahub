@@ -124,7 +124,7 @@ function truncate(input, length) {
 function getLastTokenOfTitle(title?: string): string {
     if (!title) return '';
 
-    const lastToken = title?.split('.').slice(-1)[0];
+    const lastToken = title?.split('.')?.slice(-1)[0];
 
     // if the last token does not contain any content, the string should not be tokenized on `.`
     if (lastToken.replace(/\s/g, '').length === 0) {
