@@ -1,0 +1,13 @@
+namespace com.linkedin.common
+
+import com.linkedin.query.QueryStatement
+
+/**
+ * Information about a transformation. It may be a query,
+ */
+record DataTransform {
+    /**
+     * The data transform may be defined by a query statement
+     */
+    queryStatement: optional QueryStatement
+}
