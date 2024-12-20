@@ -39,7 +39,6 @@ class Dataset(HasSubtype, Entity):
         # external_url
         subtype: Optional[str] = None,
         owners: Optional[OwnersInputType] = None,
-        # owners
         # tags
         # terms
         # structured_properties
