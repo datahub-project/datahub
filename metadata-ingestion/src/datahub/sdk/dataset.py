@@ -1,10 +1,19 @@
-from typing import List, Optional, Type
+from typing import Optional, Type
+
+import pytest
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import DatasetUrn, Urn
-from datahub.sdk._shared import Entity, HasSubtype, HasUrn, OwnersInputType, UrnOrStr
+from datahub.sdk._shared import (
+    Entity,
+    HasOwnership,
+    HasSubtype,
+    HasUrn,
+    OwnersInputType,
+    UrnOrStr,
+)
 from datahub.specific.dataset import DatasetPatchBuilder
 
 
@@ -15,12 +24,7 @@ class DatasetUpdater:
     pass
 
 
-def set_owners(self: Entity, owners: List[models.OwnerClass], /) -> None:
-    """Set the owners of the entity."""
-    self._set_aspect(models.OwnershipClass(owners=owners))
-
-
-class Dataset(HasSubtype, Entity):
+class Dataset(HasSubtype, HasOwnership, Entity):
     @classmethod
     def get_urn_type(cls) -> Type[Urn]:
         return DatasetUrn
@@ -59,10 +63,10 @@ class Dataset(HasSubtype, Entity):
             pass
 
         if subtype is not None:
-            self.subtype = subtype
+            self.set_subtype(subtype)
 
         if owners is not None:
-            self.owners = owners
+            self.set_owners(owners)
 
     @property
     def urn(self) -> DatasetUrn:
@@ -74,8 +78,6 @@ class Dataset(HasSubtype, Entity):
         if dataPlatformInstance and dataPlatformInstance.instance:
             return dataPlatformInstance.instance
         return None
-
-    set_owners = set_owners
 
 
 def graph_get_dataset(graph: DataHubGraph, urn: UrnOrStr) -> Dataset:
@@ -95,9 +97,11 @@ if __name__ == "__main__":
         platform="bigquery",
         name="test",
     )
+    assert isinstance(d, HasUrn)
     print(d.urn)
 
-    # assert issubclass(Entity, HasUrn)
-    # assert issubclass(Dataset, HasUrn)
-    assert isinstance(d, HasUrn)
-    # assert issubclass(DatasetPatchBuilder, HasUrn)
+    with pytest.raises(AttributeError):
+        d.owners = []  # TODO: make this throw a nicer error
+
+    d.set_owners(["my_user", "other_user", ("third_user", "BUSINESS_OWNER")])
+    print(d.owners)
