@@ -20,7 +20,13 @@ from datahub.metadata.schema_classes import (
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
     DataProcessTypeClass,
+<<<<<<< HEAD
     ContainerClass
+=======
+    TimeStampClass,
+    SubTypesClass,
+    ContainerClass,
+>>>>>>> 5d5682fe7 (fix linting)
 )
 from datahub.metadata.urns import DataPlatformInstanceUrn, DataPlatformUrn, ContainerUrn
 from datahub.utilities.str_enum import StrEnum
@@ -65,7 +71,9 @@ class DataProcessInstance:
     orchestrator: str
     cluster: Optional[str] = None
     type: str = DataProcessTypeClass.BATCH_SCHEDULED
-    template_urn: Optional[Union[DataJobUrn, DataFlowUrn, DatasetUrn, ContainerUrn]] = None
+    template_urn: Optional[
+        Union[DataJobUrn, DataFlowUrn, DatasetUrn, ContainerUrn]
+    ] = None
     parent_instance: Optional[DataProcessInstanceUrn] = None
     properties: Dict[str, str] = field(default_factory=dict)
     url: Optional[str] = None
@@ -408,9 +416,11 @@ class DataProcessInstance:
         """
         dpi: DataProcessInstance = DataProcessInstance(
             id=id,
-            orchestrator=DataPlatformUrn.from_string(container_key.platform).platform_name,
+            orchestrator=DataPlatformUrn.from_string(
+                container_key.platform
+            ).platform_name,
             template_urn=None,
-            container_urn = container_key.as_urn(),
+            container_urn=container_key.as_urn(),
         )
 
         return dpi
