@@ -55,9 +55,6 @@ export function GraphCard({
                                         No Data
                                     </Text>
                                     <Text color="gray">No stats collected for this asset at the moment.</Text>
-                                    <Text>
-                                        <a href="/">More info</a>
-                                    </Text>
                                 </EmptyMessageWrapper>
                             </EmptyMessageContainer>
                         ))}
