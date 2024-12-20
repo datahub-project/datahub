@@ -1,5 +1,5 @@
+import { getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
 import { CorpUser, Entity, QueryEntity, SchemaFieldEntity } from '../../../../../../../types.generated';
-import { getSourceUrnFromSchemaFieldUrn } from '../../../../../../lineageV2/lineageUtils';
 import { Query } from '../types';
 
 interface Props {

@@ -1654,6 +1654,9 @@ fragment entityDisplayNameFields on Entity {
             qualifiedName
         }
     }
+    ... on SchemaFieldEntity {
+        fieldPath
+    }
 }
 
 fragment entityPlatformFields on Entity {

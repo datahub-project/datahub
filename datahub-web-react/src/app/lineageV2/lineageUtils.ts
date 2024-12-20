@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { EntityType, SchemaField } from '../../types.generated';
 import { KEY_SCHEMA_PREFIX, VERSION_PREFIX } from '../entity/dataset/profile/schema/utils/constants';
 import EntityRegistry from '../entityV2/EntityRegistry';
+import { getFieldPathFromSchemaFieldUrn } from '../entityV2/schemaField/utils';
 
 export function downgradeV2FieldPath(fieldPath: string): string;
 export function downgradeV2FieldPath(fieldPath?: string | null) {
@@ -33,19 +34,6 @@ export function convertFieldsToV1FieldPath(fields: SchemaField[]) {
         ...field,
         fieldPath: downgradeV2FieldPath(field.fieldPath) || '',
     }));
-}
-
-export function getSourceUrnFromSchemaFieldUrn(schemaFieldUrn: string) {
-    return schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[0].concat(')');
-}
-
-export function getFieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
-    const val = schemaFieldUrn.replace('urn:li:schemaField:(', '').split(')')[1]?.replace(',', '') ?? '';
-    try {
-        return decodeURI(val);
-    } catch (e) {
-        return val;
-    }
 }
 
 export function getV1FieldPathFromSchemaFieldUrn(schemaFieldUrn: string) {
