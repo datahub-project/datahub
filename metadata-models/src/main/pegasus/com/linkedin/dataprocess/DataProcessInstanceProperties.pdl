@@ -51,4 +51,5 @@ record DataProcessInstanceProperties includes CustomProperties, ExternalReferenc
     }
   }
   created: AuditStamp
+
 }
