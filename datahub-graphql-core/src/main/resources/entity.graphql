@@ -10013,50 +10013,103 @@ description: String
 }
 
 type MLMetric {
+    """
+    Name of the metric (e.g. accuracy, precision, recall)
+    """
     name: String
 
+    """
+    Description of what this metric measures
+    """
     description: String
 
+    """
+    The computed value of the metric
+    """
     value: String
 
+    """
+    Timestamp when this metric was recorded
+    """
     createdAt: Long
 }
 
 type MLModelProperties {
-
     """
-    The name of the model used in display
+    The display name of the model used in the UI
     """
     name: String!
 
+    """
+    Detailed description of the model's purpose and characteristics
+    """
     description: String
 
+    """
+    When the model was last modified
+    """
     lastModified: TimeStamp
 
+    """
+    Version identifier for this model
+    """
     version: String
 
+    """
+    The type/category of ML model (e.g. classification, regression)
+    """
     type: String
 
+    """
+    Mapping of hyperparameter configurations
+    """
     hyperParameters: HyperParameterMap
 
-    hyperParams:  [MLHyperParam]
+    """
+    List of hyperparameter settings used to train this model
+    """
+    hyperParams: [MLHyperParam]
 
+    """
+    Performance metrics from model training
+    """
     trainingMetrics: [MLMetric]
 
+    """
+    Names of ML features used by this model
+    """
     mlFeatures: [String!]
 
+    """
+    Tags for categorizing and searching models
+    """
     tags: [String!]
 
+    """
+    Model groups this model belongs to
+    """
     groups: [MLModelGroup]
 
+    """
+    Additional custom properties specific to this model
+    """
     customProperties: [CustomPropertiesEntry!]
 
+    """
+    URL to view this model in external system
+    """
     externalUrl: String
 
+    """
+    When this model was created
+    """
     created: TimeStamp
 
+    """
+    Deprecated timestamp for model creation
+    @deprecated Use 'created' field instead
+    """
     date: Long @deprecated(reason: "Use `created` instead")
-
 }
 
 type MLFeatureProperties {
@@ -12835,26 +12888,53 @@ type CronSchedule {
 }
 
 
+"""
+Properties describing a data process instance's execution metadata
+"""
 type DataProcessInstanceProperties {
-
+    """
+    The display name of this process instance
+    """
     name: String!
 
+    """
+    URL to view this process instance in the external system
+    """
     externalUrl: String
 
+    """
+    When this process instance was created
+    """
     created: TimeStamp
 
+    """
+    Additional custom properties specific to this process instance
+    """
     customProperties: [CustomPropertiesEntry!]
 }
 
-
+"""
+Properties specific to an ML model training run instance
+"""
 type MLTrainingRunProperties {
-
+    """
+    Unique identifier for this training run
+    """
     id: String
 
+    """
+    List of URLs to access training run outputs (e.g. model artifacts, logs)
+    """
     outputUrls: [String]
     
-    hyperParams:  [MLHyperParam]
+    """
+    Hyperparameters used in this training run
+    """
+    hyperParams: [MLHyperParam]
 
+    """
+    Performance metrics recorded during this training run
+    """
     trainingMetrics: [MLMetric]
 }
 
