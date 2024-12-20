@@ -1,7 +1,7 @@
 import abc
 from typing import List, Optional, Protocol, Tuple, Type, Union, runtime_checkable
 
-from typing_extensions import Self
+from typing_extensions import Self, TypeAlias
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import (
@@ -12,8 +12,8 @@ from datahub.emitter.mce_builder import (
 from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn, OwnershipTypeUrn, Urn
 from datahub.sdk.errors import SdkUsageError
 
-UrnOrStr = Union[Urn, str]
-ActorUrn = Union[CorpUserUrn, CorpGroupUrn]
+UrnOrStr: TypeAlias = Union[Urn, str]
+ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
 
 
 @runtime_checkable
@@ -75,22 +75,21 @@ class HasSubtype(Entity):
         # TODO: throw an error if there is no subtype? or default to None?
         return None
 
-    @subtype.setter
-    def subtype(self, subtype: str) -> None:
+    def set_subtype(self, subtype: str) -> None:
         self._set_aspect(models.SubTypesClass(typeNames=[subtype]))
 
 
-OwnershipTypeType = Union[str, OwnershipTypeUrn]
-OwnerInputType = Union[
+OwnershipTypeType: TypeAlias = Union[str, OwnershipTypeUrn]
+OwnerInputType: TypeAlias = Union[
     str,
     ActorUrn,
     Tuple[Union[str, ActorUrn], OwnershipTypeType],
     models.OwnerClass,
 ]
-OwnersInputType = List[OwnerInputType]
+OwnersInputType: TypeAlias = List[OwnerInputType]
 
 
-class HasOwners(Entity):
+class HasOwnership(Entity):
     @staticmethod
     def _parse_owner_class(owner: OwnerInputType) -> models.OwnerClass:
         # TODO: better support for custom ownership types?
@@ -138,7 +137,10 @@ class HasOwners(Entity):
             return owners_aspect.owners
         return None
 
-    @owners.setter
-    def owners(self, owners: OwnersInputType) -> None:
+    # Due to https://github.com/python/mypy/issues/3004, we cannot use python setters directly.
+    # Otherwise, we'll get a bunch of complaints about type annotations, since the getter
+    # and setter would differ.
+    def set_owners(self, owners: OwnersInputType) -> None:
+        # TODO: add docs on the default parsing + default ownership type
         parsed_owners = [self._parse_owner_class(owner) for owner in owners]
         self._set_aspect(models.OwnershipClass(owners=parsed_owners))
