@@ -53,11 +53,8 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
     if (dataProcessInstanceProperties.hasCreated()) {
       dpi.setCreated(AuditStampMapper.map(context, dataProcessInstanceProperties.getCreated()));
     }
-    com.linkedin.datahub.graphql.generated.DataProcessInstanceProperties properties =
-        new com.linkedin.datahub.graphql.generated.DataProcessInstanceProperties();
     if (dataProcessInstanceProperties.hasExternalUrl()) {
       dpi.setExternalUrl(dataProcessInstanceProperties.getExternalUrl().toString());
     }
-    dpi.setProperties(properties);
   }
 }
