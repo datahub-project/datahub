@@ -19,6 +19,7 @@ DESCRIPTION_GENERATION_MODEL: BedrockModel = pydantic.parse_obj_as(
         "DESCRIPTION_GENERATION_BEDROCK_MODEL", BedrockModel.CLAUDE_3_HAIKU.value
     ),
 )
+_MAX_COLUMNS = int(os.getenv("DESCRIPTION_GENERATION_MAX_COLUMNS", 100))
 
 _MAX_UPSTREAM_TABLES = 5
 _MAX_DOWNSTREAM_TABLES = 8
@@ -397,6 +398,10 @@ class ShellEntityError(Exception):
     pass
 
 
+class TooManyColumnsError(Exception):
+    pass
+
+
 def extract_metadata_for_urn(
     entity: AspectBag, urn: str, graph_client: DataHubGraph
 ) -> Dict[str, dict]:
@@ -547,6 +552,12 @@ def generate_entity_descriptions_for_urn(
     entity = graph_client.get_entity_semityped(urn)
     extracted_entity_info = extract_metadata_for_urn(entity, urn, graph_client)
     table_info, column_info = transform_table_info_for_llm(extracted_entity_info)
+    if len(column_info) > _MAX_COLUMNS:
+        raise TooManyColumnsError(
+            f"Too many columns ({len(column_info)}) for urn: {urn}. "
+            f"Select a table with less than {_MAX_COLUMNS} columns."
+        )
+
     prompt = f'''\
 You are tasked with generating concise descriptions for a DataHub table and its columns based on provided metadata. Here is the information you will be working with:
 

@@ -63,9 +63,13 @@ class SuggestedDescription(pydantic.BaseModel):
     )
 
 
+class DescriptionV2ParsingError(Exception):
+    pass
+
+
 @tenacity.retry(
     stop=tenacity.stop_after_attempt(2),
-    retry=tenacity.retry_if_exception_type(ValueError),
+    retry=tenacity.retry_if_exception_type(DescriptionV2ParsingError),
 )
 def _description_v2(graph: DataHubGraph, urn: DatasetUrn) -> SuggestedDescription:
     raw_llm_output, _ = generate_entity_descriptions_for_urn(
@@ -73,7 +77,7 @@ def _description_v2(graph: DataHubGraph, urn: DatasetUrn) -> SuggestedDescriptio
     )
     table_description, column_descriptions = parse_llm_output(raw_llm_output)
     if column_descriptions is None:
-        raise ValueError(
+        raise DescriptionV2ParsingError(
             "Failed to parse structured output from raw output: " f"{raw_llm_output}"
         )
 

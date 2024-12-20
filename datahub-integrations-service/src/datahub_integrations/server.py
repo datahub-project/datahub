@@ -22,6 +22,10 @@ from datahub_integrations.actions.router import (
 from datahub_integrations.analytics.router import router as analytics_router
 from datahub_integrations.app import STATIC_ASSETS_DIR
 from datahub_integrations.dist import external_router as dist_external_router
+from datahub_integrations.gen_ai.description_v2 import (
+    ShellEntityError,
+    TooManyColumnsError,
+)
 from datahub_integrations.gen_ai.router import router as gen_ai_router
 from datahub_integrations.notifications.router import router as notifications_router
 from datahub_integrations.share.share_router import router as share_router
@@ -46,21 +50,20 @@ internal_router = APIRouter(
     ]
 )
 
+_exception_type_mapping = {
+    # Actions.
+    NoSuchPipeline: status.HTTP_404_NOT_FOUND,
+    InvalidPipelineCommand: status.HTTP_400_BAD_REQUEST,
+    # Gen AI.
+    ShellEntityError: status.HTTP_400_BAD_REQUEST,
+    TooManyColumnsError: status.HTTP_422_UNPROCESSABLE_ENTITY,
+}
 
-@app.exception_handler(NoSuchPipeline)
-def handle_no_such_pipeline(request: fastapi.Request, exc: NoSuchPipeline) -> Response:
-    return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND, content={"message": str(exc)}
-    )
+for exception_type, status_code in _exception_type_mapping.items():
 
-
-@app.exception_handler(InvalidPipelineCommand)
-def handle_invalid_pipeline_command(
-    request: fastapi.Request, exc: InvalidPipelineCommand
-) -> Response:
-    return JSONResponse(
-        status_code=status.HTTP_400_BAD_REQUEST, content={"message": str(exc)}
-    )
+    @app.exception_handler(exception_type)
+    def handle_exception(request: fastapi.Request, exc: Exception) -> Response:
+        return JSONResponse(status_code=status_code, content={"message": str(exc)})
 
 
 @app.get("/ping")
