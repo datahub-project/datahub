@@ -14,11 +14,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataprocess import (
     RunResultType,
 )
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DataProcessInstanceRunEventClass,
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
     DataProcessTypeClass,
-    TimeStampClass,
 )
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
@@ -244,7 +244,7 @@ class DataProcessInstance:
             entityUrn=str(self.urn),
             aspect=DataProcessInstanceProperties(
                 name=self.id,
-                created=TimeStampClass(
+                created=AuditStampClass(
                     time=created_ts_millis or int(time.time() * 1000),
                     actor="urn:li:corpuser:datahub",
                 ),
