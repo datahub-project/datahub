@@ -1,10 +1,17 @@
 import React from 'react';
-import { Skeleton } from 'antd';
 import styled from 'styled-components';
 import { CardContainer } from '../Card/components';
+import { Loader } from '../Loader';
 import { PageTitle } from '../PageTitle';
 import { Text } from '../Text';
-import { ControlsContainer, EmptyMessageContainer, GraphCardBody, GraphCardHeader, GraphContainer } from './components';
+import {
+    ControlsContainer,
+    EmptyMessageContainer,
+    GraphCardBody,
+    GraphCardHeader,
+    GraphContainer,
+    LoaderContainer,
+} from './components';
 import { GraphCardProps } from './types';
 
 const EmptyMessageWrapper = styled.div`
@@ -29,7 +36,11 @@ export function GraphCard({
                 <ControlsContainer>{renderControls?.()}</ControlsContainer>
             </GraphCardHeader>
 
-            {loading && <Skeleton.Button style={{ width: '100%', height: graphHeight }} active />}
+            {loading && (
+                <LoaderContainer $height={graphHeight}>
+                    <Loader />
+                </LoaderContainer>
+            )}
 
             {!loading && (
                 <GraphCardBody>
