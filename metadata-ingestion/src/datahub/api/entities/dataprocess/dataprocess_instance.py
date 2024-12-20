@@ -20,13 +20,8 @@ from datahub.metadata.schema_classes import (
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
     DataProcessTypeClass,
-<<<<<<< HEAD
-    ContainerClass
-=======
-    TimeStampClass,
     SubTypesClass,
     ContainerClass,
->>>>>>> 5d5682fe7 (fix linting)
 )
 from datahub.metadata.urns import DataPlatformInstanceUrn, DataPlatformUrn, ContainerUrn
 from datahub.utilities.str_enum import StrEnum
