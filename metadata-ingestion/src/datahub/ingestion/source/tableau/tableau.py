@@ -645,7 +645,7 @@ def report_user_role(report: TableauSourceReport, server: Server) -> None:
         # the site-role might be different on another site
         logged_in_user: UserInfo = UserInfo.from_server(server=server)
 
-        if not logged_in_user.is_site_administrator_explorer():
+        if not logged_in_user.has_site_administrator_explorer_privileges():
             report.warning(
                 title=title,
                 message=message,
@@ -896,10 +896,9 @@ class TableauSiteSource:
         return f"/{self.config.env.lower()}{self.no_env_browse_prefix}"
 
     def _re_authenticate(self):
-        tableau_auth: Union[
-            TableauAuth, PersonalAccessTokenAuth
-        ] = self.config.get_tableau_auth(self.site_id)
-        self.server.auth.sign_in(tableau_auth)
+        # Sign-in again may not be enough because Tableau sometimes caches invalid sessions
+        # so we need to recreate the Tableau Server object
+        self.server = self.config.make_tableau_client(self.site_id)
 
     @property
     def site_content_url(self) -> Optional[str]:
