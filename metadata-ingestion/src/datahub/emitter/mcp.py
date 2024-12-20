@@ -63,7 +63,10 @@ class MetadataChangeProposalWrapper:
 
     entityType: str = _ENTITY_TYPE_UNSET
     changeType: Union[str, ChangeTypeClass] = ChangeTypeClass.UPSERT
-    entityUrn: Union[None, str,] = None
+    entityUrn: Union[
+        None,
+        str,
+    ] = None
     entityKeyAspect: Union[None, _Aspect] = None
     auditHeader: Union[None, KafkaAuditHeaderClass] = None
     aspectName: Union[None, str] = None
@@ -108,7 +111,7 @@ class MetadataChangeProposalWrapper:
     ) -> List["MetadataChangeProposalWrapper"]:
         return [cls(entityUrn=entityUrn, aspect=aspect) for aspect in aspects if aspect]
 
-    def _make_mcp_without_aspects(self) -> MetadataChangeProposalClass: 
+    def _make_mcp_without_aspects(self) -> MetadataChangeProposalClass:
         assert self.entityUrn is None or isinstance(self.entityUrn, str)
         return MetadataChangeProposalClass(
             entityType=self.entityType,
