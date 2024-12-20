@@ -1,12 +1,12 @@
 import React from 'react';
-import styled from 'styled-components';
-import { Drawer, Modal, Typography } from 'antd';
-import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
+import ClickOutside from '@src/app/shared/ClickOutside';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
+import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
+import { Assertion, AssertionType, DataPlatform, EntityType } from '@src/types.generated';
+import { Drawer, Modal, Typography } from 'antd';
+import styled from 'styled-components';
 import { AssertionMonitorBuilder } from './AssertionMonitorBuilder';
 import { AssertionMonitorBuilderState } from './types';
-import { EntityType, Assertion, DataPlatform } from '../../../../../../../../types.generated';
-import ClickOutside from '../../../../../../../shared/ClickOutside';
 
 const modalStyle = {};
 const modalBodyStyle = { paddingRight: 48, paddingLeft: 48, paddingBottom: 20 };
@@ -33,6 +33,7 @@ type Props = {
     initialState?: AssertionMonitorBuilderState;
     onSubmit?: (assertion: Assertion) => void;
     onCancel?: () => void;
+    predefinedType?: AssertionType;
 };
 
 /**
@@ -46,6 +47,7 @@ export const AssertionMonitorBuilderDrawer = ({
     initialState,
     onSubmit,
     onCancel,
+    predefinedType,
 }: Props) => {
     const isEditing = initialState !== undefined;
     const titleText = isEditing ? 'Edit Assertion Monitor' : 'New Assertion Monitor';
@@ -91,6 +93,7 @@ export const AssertionMonitorBuilderDrawer = ({
                     initialState={initialState}
                     onSubmit={onSubmit}
                     onCancel={onCancel}
+                    predefinedType={predefinedType}
                 />
             </Drawer>
         </ClickOutside>

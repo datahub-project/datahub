@@ -50,7 +50,7 @@ export const ConfigureDatasetFreshnessAssertionStep = ({ state, updateState, goT
                 <AssertionActionsSection state={state} updateState={updateState} />
             </div>
             <Controls>
-                <Button onClick={prev}>Back</Button>
+                {prev && <Button onClick={prev}>Back</Button>}
                 <ControlsGroup>
                     <Tooltip
                         title={

@@ -88,6 +88,8 @@ export const entityPrivileges: EntityPrivileges = {
     canManageChildren: true,
     canShareEntity: true,
     canEditProperties: true,
+    canEditMonitors: true,
+    canEditSqlAssertionMonitors: true,
     __typename: 'EntityPrivileges',
 };
 

@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
-import styled from 'styled-components';
+import { Assertion, AssertionType, EntityType } from '@src/types.generated';
 import { Form, Steps } from 'antd';
-import { AssertionMonitorBuilderState, StepProps, AssertionBuilderStep } from './types';
+import React, { useEffect, useMemo, useState } from 'react';
+import styled from 'styled-components';
+import { useConnectionForEntityExists } from '../../acrylUtils';
 import { AssertionBuilderStepTitles, getAssertionsBuilderStepComponent } from './conf';
 import { DEFAULT_BUILDER_STATE } from './constants';
-import { EntityType, Assertion, AssertionType } from '../../../../../../../../types.generated';
+import getInitBuilderStateByAssertionType from './steps/utils';
+import { AssertionBuilderStep, AssertionMonitorBuilderState, StepProps } from './types';
 import { useUpsertAssertionMonitor } from './useUpsertAssertionMonitor';
+import { isEntityEligibleForAssertionMonitoring } from './utils';
 
 const MainContent = styled.div`
     display: flex;
@@ -22,8 +25,6 @@ const StyledForm = styled(Form)`
 `;
 
 const stepIds = Object.values(AssertionBuilderStep);
-const stepIndexToId = new Map();
-stepIds.forEach((stepId, index) => stepIndexToId.set(stepId, index));
 
 type Props = {
     entityUrn: string;
@@ -32,6 +33,7 @@ type Props = {
     initialState?: AssertionMonitorBuilderState;
     onSubmit?: (assertion: Assertion) => void;
     onCancel?: () => void;
+    predefinedType?: AssertionType;
 };
 
 export const AssertionMonitorBuilder = ({
@@ -41,6 +43,7 @@ export const AssertionMonitorBuilder = ({
     initialState,
     onSubmit,
     onCancel,
+    predefinedType,
 }: Props) => {
     const [form] = Form.useForm();
     const [assertionType, setAssertionType] = useState(AssertionType.Freshness);
@@ -48,6 +51,49 @@ export const AssertionMonitorBuilder = ({
     const [builderState, setBuilderState] = useState<AssertionMonitorBuilderState>(
         initialState || { ...DEFAULT_BUILDER_STATE, entityUrn, entityType, platformUrn },
     );
+    const [isInitializedWithPredefinedType, setIsInitializedWithPredefinedType] = useState<boolean>(false);
+
+    const connectionForEntityExists = useConnectionForEntityExists(builderState.entityUrn as string);
+    const isConnectionSupportedByMonitors = isEntityEligibleForAssertionMonitoring(builderState.platformUrn);
+    const monitorsConnectionForEntityExists = connectionForEntityExists && isConnectionSupportedByMonitors;
+
+    const steps = useMemo(() => {
+        // Skip the first step if the type is predefined
+        if (predefinedType) return stepIds.slice(1);
+        return stepIds;
+    }, [predefinedType]);
+
+    const stepIndexToId = useMemo(() => {
+        const map = new Map();
+        steps.forEach((stepId, index) => map.set(stepId, index));
+        return map;
+    }, [steps]);
+
+    useEffect(() => {
+        if (predefinedType && !isInitializedWithPredefinedType) {
+            setAssertionType(predefinedType);
+
+            // Initialize state for `Configure Assertion` step
+            setBuilderState((prevState) =>
+                getInitBuilderStateByAssertionType(
+                    prevState,
+                    predefinedType,
+                    connectionForEntityExists,
+                    monitorsConnectionForEntityExists,
+                ),
+            );
+
+            setStepStack([AssertionBuilderStep.CONFIGURE_ASSERTION]);
+            setIsInitializedWithPredefinedType(true);
+        }
+    }, [
+        predefinedType,
+        setBuilderState,
+        setIsInitializedWithPredefinedType,
+        isInitializedWithPredefinedType,
+        connectionForEntityExists,
+        monitorsConnectionForEntityExists,
+    ]);
 
     const onCreateAssertionMonitor = (newAssertion: Assertion) => {
         onSubmit?.(newAssertion);
@@ -106,7 +152,7 @@ export const AssertionMonitorBuilder = ({
         <MainContent>
             <StepsContainer>
                 <Steps current={currentStepIndex}>
-                    {stepIds.map((id) => (
+                    {steps.map((id) => (
                         <Steps.Step key={id} title={AssertionBuilderStepTitles[id]} />
                     ))}
                 </Steps>

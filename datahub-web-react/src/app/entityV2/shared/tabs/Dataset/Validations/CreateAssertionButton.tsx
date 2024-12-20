@@ -48,13 +48,26 @@ const SiblingSelectionDropdownLink = styled.div`
     }
 `;
 
+type RenderButtonProps = {
+    id: string;
+    className: string;
+    disabled: boolean;
+    onClick: () => void;
+};
+
+type CreateAssertionButtonProps = {
+    privileges: EntityPrivileges;
+    onCreateAssertion: (params: EntityStagedForAssertion) => void;
+    renderCustomButton?: (props: RenderButtonProps) => React.ReactNode;
+    className?: string;
+};
+
 export const CreateAssertionButton = ({
     privileges,
     onCreateAssertion,
-}: {
-    privileges: EntityPrivileges;
-    onCreateAssertion: (params: EntityStagedForAssertion) => void;
-}) => {
+    renderCustomButton,
+    className,
+}: CreateAssertionButtonProps) => {
     const primaryEntityData = useEntityData();
     const { entityData } = primaryEntityData;
     const { config } = useAppConfig();
@@ -132,19 +145,24 @@ export const CreateAssertionButton = ({
             </Tooltip>
         ),
     }));
-    const createButton = (
-        <CreateButton
-            onClick={onClickCreateButton}
-            disabled={disableCreateAssertion}
-            id="create-assertion-btn-main"
-            className="create-assertion-button"
-        >
+
+    const renderDefaultButton = (props: RenderButtonProps) => (
+        <CreateButton {...props}>
             <PlusOutlined /> Create
         </CreateButton>
     );
 
+    const renderButton = renderCustomButton || renderDefaultButton;
+
+    const createButton = renderButton({
+        id: 'create-assertion-btn-main',
+        className: 'create-assertion-button',
+        disabled: disableCreateAssertion,
+        onClick: onClickCreateButton,
+    });
+
     return assertionMonitorsEnabled ? (
-        <TabToolbar style={{ boxShadow: 'none' }}>
+        <TabToolbar style={{ boxShadow: 'none' }} className={className}>
             {isSiblingMode && !disableCreateAssertion ? (
                 <Dropdown placement="bottom" menu={{ items: siblingSelectionOptions }}>
                     {createButton}

@@ -45,7 +45,7 @@ export const ConfigureDatasetSchemaAssertionStep = ({ state, updateState, goTo, 
                 <AssertionActionsSection state={state} updateState={updateState} />
             </div>
             <Controls>
-                <Button onClick={prev}>Back</Button>
+                {prev && <Button onClick={prev}>Back</Button>}
                 <ControlsGroup>
                     <Button onClick={handleTestAssertionSubmit}>Try it out</Button>
                     <Button type="primary" onClick={() => goTo(AssertionBuilderStep.FINISH_UP)}>
