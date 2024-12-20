@@ -1,4 +1,4 @@
-import { colors, Table, Text } from '@components';
+import { Table, Text } from '@components';
 import { groupByFieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import { DatasetFieldProfile } from '@src/types.generated';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -18,12 +18,6 @@ const EmptyContainer = styled.div`
     height: 100%;
     width: 100%;
     height: 150px;
-`;
-
-const StyledTable = styled(Table)`
-    .selected-row {
-        background: ${colors.gray[100]} !important;
-    }
 `;
 
 interface Props {
@@ -73,17 +67,36 @@ const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
     );
 
     const rowRefs = useRef<HTMLTableRowElement[]>([]);
+    const headerRef = useRef<HTMLTableSectionElement | null>(null);
 
     useEffect(() => {
         if (expandedDrawerFieldPath) {
             const selectedIndex = rows.findIndex((row) => row.fieldPath === expandedDrawerFieldPath);
+            const row = rowRefs.current[selectedIndex];
+            const header = headerRef.current;
 
-            if (selectedIndex !== -1 && rowRefs.current[selectedIndex]) {
-                rowRefs.current[selectedIndex].scrollIntoView({
+            // To bring the selected row into view
+            if (selectedIndex !== -1 && row) {
+                row.scrollIntoView({
                     behavior: 'smooth',
                     block: 'nearest',
                 });
             }
+            // To bring the row hidden behind the fixed header into view fully
+            setTimeout(() => {
+                if (row && header) {
+                    const rowRect = row.getBoundingClientRect();
+                    const headerRect = header.getBoundingClientRect();
+                    const rowTop = rowRect.top;
+                    const headerBottom = headerRect.bottom;
+                    const scrollContainer = row.closest('table')?.parentElement;
+
+                    if (scrollContainer && rowTop < headerBottom) {
+                        const scrollAmount = headerBottom - rowTop;
+                        scrollContainer.scrollTop -= scrollAmount;
+                    }
+                }
+            }, 100);
         }
     }, [expandedDrawerFieldPath, rows]);
 
@@ -107,14 +120,15 @@ const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
 
     return (
         <>
-            <StyledTable
+            <Table
                 columns={columnStatsColumns}
                 data={filteredData}
                 isScrollable
-                maxHeight="300px"
+                maxHeight="475px"
                 onRowClick={onRowClick}
                 rowClassName={getRowClassName}
                 rowRefs={rowRefs}
+                headerRef={headerRef}
             />
             {!!fields && (
                 <SchemaFieldDrawer

@@ -10,6 +10,10 @@ export const TableContainer = styled.div<{ isScrollable?: boolean; maxHeight?: s
         overflow: isScrollable ? 'auto' : 'hidden',
         width: '100%',
         maxHeight: maxHeight || '100%',
+
+        '& .selected-row': {
+            background: `${colors.gray[100]} !important`,
+        },
     }),
 );
 
@@ -49,7 +53,7 @@ export const HeaderContainer = styled.div<{ alignment?: AlignmentOptions }>(({ a
 
 export const TableRow = styled.tr<{ canExpand?: boolean; isRowClickable?: boolean }>(
     ({ canExpand, isRowClickable }) => ({
-        background: canExpand ? '#EBECF0' : 'transparent',
+        background: canExpand ? colors.gray[100] : 'transparent',
         cursor: isRowClickable ? 'pointer' : 'normal',
         '&:last-child': {
             '& td': {

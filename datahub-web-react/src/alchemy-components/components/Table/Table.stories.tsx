@@ -63,6 +63,34 @@ const meta = {
                 defaultValue: { summary: tableDefaults.maxHeight },
             },
         },
+        isBorderless: {
+            description: 'Whether the table is borderless.',
+            control: 'boolean',
+            table: {
+                defaultValue: { summary: tableDefaults.isBorderless?.toString() },
+            },
+        },
+        onRowClick: {
+            description: 'Callback function for row click.',
+        },
+        rowClassName: {
+            description: 'Callback to get class name for the rows.',
+        },
+        onExpand: {
+            description: 'Callback for when a row is expanded.',
+        },
+        expandable: {
+            description: 'Set of props when a row is expandable.',
+            control: false,
+        },
+        rowRefs: {
+            description: 'List of refs for table rows.',
+            control: false,
+        },
+        headerRef: {
+            description: 'Ref for table header.',
+            control: false,
+        },
     },
 
     // Define defaults
@@ -79,6 +107,7 @@ const meta = {
         isLoading: tableDefaults.isLoading,
         isScrollable: tableDefaults.isScrollable,
         maxHeight: tableDefaults.maxHeight,
+        isBorderless: tableDefaults.isBorderless,
     },
 } satisfies Meta<typeof Table<any>>;
 
@@ -166,6 +195,27 @@ export const withoutHeader = () => (
         showHeader={false}
     />
 );
+
+// Table with clickable rows
+export const ClickableRows = () => {
+    const [selectedRow, setSelectedRow] = useState<number | undefined>();
+
+    return (
+        <Table
+            columns={[
+                { title: 'Key', key: 'key', dataIndex: 'key' },
+                { title: 'Column 1', key: 'column1', dataIndex: 'column1' },
+                { title: 'Column 2', key: 'column2', dataIndex: 'column2' },
+            ]}
+            data={[
+                { key: 1, column1: 'Row 1 Col 1', column2: 'Row 1 Col 2' },
+                { key: 2, column1: 'Row 2 Col 1', column2: 'Row 2 Col 2' },
+            ]}
+            onRowClick={(record) => setSelectedRow(record.key)}
+            rowClassName={(record) => (record.key === selectedRow ? 'selected-row' : '')}
+        />
+    );
+};
 
 // Define columns for the grouped table. Each column specifies its title, data key, and optional functionalities like sorting or custom rendering.
 const groupByColumns = [

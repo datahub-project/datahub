@@ -24,6 +24,7 @@ export const tableDefaults: TableProps<any> = {
     isLoading: false,
     isScrollable: false,
     maxHeight: '100%',
+    isBorderless: false,
 };
 
 export const Table = <T,>({
@@ -34,12 +35,13 @@ export const Table = <T,>({
     isScrollable = tableDefaults.isScrollable,
     maxHeight = tableDefaults.maxHeight,
     expandable,
-    isBorderless,
+    isBorderless = tableDefaults.isBorderless,
     onRowClick,
     onExpand,
     rowClassName,
     handleSortColumnChange = undefined,
     rowRefs,
+    headerRef,
     ...props
 }: TableProps<T>) => {
     const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -69,7 +71,7 @@ export const Table = <T,>({
             <BaseTable {...props}>
                 {/* Render the table header if enabled */}
                 {showHeader && (
-                    <TableHeader>
+                    <TableHeader ref={headerRef}>
                         <tr>
                             {/* Map through columns to create header cells */}
                             {columns.map((column, index) => (
