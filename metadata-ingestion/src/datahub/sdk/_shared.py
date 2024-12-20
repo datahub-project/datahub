@@ -1,11 +1,15 @@
 import abc
-from typing import List, Optional, Protocol, Type, Union, runtime_checkable
+from typing import List, Optional, Protocol, Tuple, Type, Union, runtime_checkable
 
 from typing_extensions import Self
 
 import datahub.metadata.schema_classes as models
-from datahub.emitter.mce_builder import Aspect as AspectTypeVar, make_user_urn
-from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn, Urn
+from datahub.emitter.mce_builder import (
+    Aspect as AspectTypeVar,
+    make_user_urn,
+    validate_ownership_type,
+)
+from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn, OwnershipTypeUrn, Urn
 from datahub.sdk.errors import SdkUsageError
 
 UrnOrStr = Union[Urn, str]
@@ -76,23 +80,52 @@ class HasSubtype(Entity):
         self._set_aspect(models.SubTypesClass(typeNames=[subtype]))
 
 
-OwnerInputType = Union[str, ActorUrn, models.OwnerClass]
+OwnershipTypeType = Union[str, OwnershipTypeUrn]
+OwnerInputType = Union[
+    str,
+    ActorUrn,
+    Tuple[Union[str, ActorUrn], OwnershipTypeType],
+    models.OwnerClass,
+]
 OwnersInputType = List[OwnerInputType]
 
 
 class HasOwners(Entity):
     @staticmethod
-    def _parse_owner(owner: OwnerInputType) -> models.OwnerClass:
+    def _parse_owner_class(owner: OwnerInputType) -> models.OwnerClass:
         # TODO: better support for custom ownership types?
         # TODO: add the user auto-resolver here?
 
-        if isinstance(owner, str):
-            # Tricky: this will gracefully handle a user passing in a group urn as a string.
-            return models.OwnerClass(owner=make_user_urn(owner))
-        elif isinstance(owner, Urn):
-            return models.OwnerClass(owner=str(owner))
-        elif isinstance(owner, models.OwnerClass):
+        if isinstance(owner, models.OwnerClass):
             return owner
+
+        owner_type = models.OwnershipTypeClass.TECHNICAL_OWNER
+        owner_type_urn = None
+
+        if isinstance(owner, tuple):
+            raw_owner, raw_owner_type = owner
+
+            if isinstance(raw_owner_type, OwnershipTypeUrn):
+                owner_type = models.OwnershipTypeClass.CUSTOM
+                owner_type_urn = str(raw_owner_type)
+            else:
+                owner_type, owner_type_urn = validate_ownership_type(raw_owner_type)
+        else:
+            raw_owner = owner
+
+        if isinstance(raw_owner, str):
+            # Tricky: this will gracefully handle a user passing in a group urn as a string.
+            return models.OwnerClass(
+                owner=make_user_urn(raw_owner),
+                type=owner_type,
+                typeUrn=owner_type_urn,
+            )
+        elif isinstance(raw_owner, Urn):
+            return models.OwnerClass(
+                owner=str(raw_owner),
+                type=owner_type,
+                typeUrn=owner_type_urn,
+            )
         else:
             raise SdkUsageError(
                 f"Invalid owner {owner}: {type(owner)} is not a valid owner type"
@@ -100,11 +133,12 @@ class HasOwners(Entity):
 
     @property
     def owners(self) -> Optional[List[models.OwnerClass]]:
+        # TODO: Ideally we'd use first-class type urns here, not strings.
         if owners_aspect := self._get_aspect(models.OwnershipClass):
             return owners_aspect.owners
         return None
 
     @owners.setter
     def owners(self, owners: OwnersInputType) -> None:
-        parsed_owners = [self._parse_owner(owner) for owner in owners]
+        parsed_owners = [self._parse_owner_class(owner) for owner in owners]
         self._set_aspect(models.OwnershipClass(owners=parsed_owners))
