@@ -14,6 +14,9 @@ from datahub_integrations.gen_ai.term_suggestion_action import (
     TermSuggestionActionConfig,
     get_urns_to_process,
 )
+from datahub_integrations.gen_ai.term_suggestion_v2 import (
+    get_entity_info_for_term_suggestion,
+)
 
 gql = """
 query listTermProposals($urn: String!) {
@@ -55,6 +58,20 @@ def generate(urn: str, action_config: str):
     bulk_term_suggester = BulkTermSuggester(graph, action_config_parsed)
 
     bulk_term_suggester.process_urns([urn])
+
+
+@main.command()
+@click.option("--urn", required=True)
+def dump_entity_info(urn: str):
+    assert DatasetUrn.from_string(urn)
+
+    graph = get_default_graph()
+    logger.info(f"Using graph {graph}")
+
+    table_info, column_info = get_entity_info_for_term_suggestion(graph, urn)
+
+    pprint.pprint(table_info)
+    pprint.pprint(column_info)
 
 
 @main.command()

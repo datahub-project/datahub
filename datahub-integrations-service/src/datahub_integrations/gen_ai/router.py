@@ -1,3 +1,4 @@
+import functools
 from datetime import timedelta
 from typing import Annotated, List
 
@@ -8,7 +9,6 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import DatasetUrn, QueryUrn, Urn
 from loguru import logger
 
-from datahub_integrations.app import graph as uncached_graph
 from datahub_integrations.gen_ai.cached_graph import make_cached_graph
 from datahub_integrations.gen_ai.description_v2 import (
     ShellEntityError,
@@ -33,13 +33,22 @@ from datahub_integrations.gen_ai.term_suggestion_v2_context import (
 _METADATA_CACHE_TTL_SEC = timedelta(minutes=15).total_seconds()
 
 router = fastapi.APIRouter()
-_raw_cached_graph = make_cached_graph(uncached_graph, ttl_sec=_METADATA_CACHE_TTL_SEC)
 
 
+@functools.cache
 def cached_graph() -> DataHubGraph:
-    # Using dependency injection to provide the cached graph. This keeps the API endpoint
-    # methods generic, and lets us call them directly as well.
-    return _raw_cached_graph
+    # Using FastAPI dependency injection to provide the cached graph. This keeps
+    # the API endpoint methods generic. It also lets us call them directly as well,
+    # which is useful for scripts and the action runner.
+
+    # Wrapping it with the functools.cache decorator ensures that we only
+    # have one instance of the cached graph, so that it actually caches.
+
+    # By putting the import inside the function, we can avoid requiring the graph
+    # for cases where this file is used outside of the FastAPI app.
+    from datahub_integrations.app import graph as uncached_graph
+
+    return make_cached_graph(uncached_graph, ttl_sec=_METADATA_CACHE_TTL_SEC)
 
 
 class SuggestedDescription(pydantic.BaseModel):

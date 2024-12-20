@@ -5,9 +5,10 @@ from typing import Any, Dict, List, Tuple
 
 import datahub.metadata.schema_classes as models
 import pydantic
+from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import AspectBag
-from datahub.metadata.urns import SchemaFieldUrn
+from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from loguru import logger
 
 from datahub_integrations.gen_ai.bedrock import BedrockModel, call_bedrock_llm
@@ -256,21 +257,28 @@ def get_sample_values(urn, graph_client):
     return sample_values
 
 
-def get_table_name_and_description(entity, urn):
-    dataset_properties = entity.get("datasetPoperties")
-    if dataset_properties is None:
-        dataset_key = entity.get("datasetKey")
-        if dataset_key is None or dataset_key.name in [None, ""]:
-            dataset_name = urn.split(",")[-2]
-            dataset_description = ""
-        else:
-            dataset_name = dataset_key.name.split(".")[-1]
-            dataset_description = ""
-    else:
+def get_table_name_and_description(
+    entity: AspectBag, urn: str
+) -> tuple[str | None, str | None]:
+    if dataset_properties := entity.get("datasetProperties"):
         dataset_name, dataset_description = (
             dataset_properties.name,
             dataset_properties.description,
         )
+    else:
+        dataset_key = entity.get("datasetKey")
+        if dataset_key is None or dataset_key.name in [None, ""]:
+            dataset_name = DatasetUrn.from_string(urn).name
+        else:
+            dataset_name = dataset_key.name.split(".")[-1]
+        dataset_description = None
+
+    if (
+        editable_dataset_properties := entity.get("editableDatasetProperties")
+    ) and editable_dataset_properties.description:
+        # If we have an edited description, that takes precedence over the one in the dataset properties.
+        dataset_description = editable_dataset_properties.description
+
     return dataset_name, dataset_description
 
 
@@ -396,14 +404,24 @@ def extract_metadata_for_urn(
         raise ShellEntityError(
             f"Schema metadata not found in the entity {urn}; likely a shell entity."
         )
+    # TODO: This also contains the schema field description, which is redundant.
     column_metadata = {
-        f"urn:li:schemaField:({urn},{field.fieldPath})": filter_schema_fields(field)
+        make_schema_field_urn(urn, field.fieldPath): filter_schema_fields(field)
         for field in entity["schemaMetadata"].fields
     }
+
     column_descriptions = {
-        f"urn:li:schemaField:({urn},{field.fieldPath})": field.description
+        make_schema_field_urn(urn, field.fieldPath): field.description
         for field in entity["schemaMetadata"].fields
     }
+    if editableSchemaMetadata := entity.get("editableSchemaMetadata"):
+        for field in editableSchemaMetadata.editableSchemaFieldInfo:
+            field_urn = make_schema_field_urn(urn, field.fieldPath)
+            if field_urn in column_descriptions and field.description:
+                column_descriptions[field_urn] = field.description
+
+    # TODO: We should consider AI-generated descriptions for tables/columns
+    # if no user-generated description is available.
 
     # Upstream Lineage Information
     upstream_lineages = entity.get("upstreamLineage")
