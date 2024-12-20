@@ -9880,6 +9880,8 @@ type MLModelGroupProperties {
     Version identifier for this model group
     """
     version: VersionTag
+    
+    customProperties: [CustomPropertiesEntry!]
 
     """
     Deprecated creation timestamp
@@ -10143,6 +10145,8 @@ type MLFeatureProperties {
     version: VersionTag
 
     sources: [Dataset]
+
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -10279,13 +10283,15 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
 
 type MLPrimaryKeyProperties {
 
-description: String
+    description: String
 
     dataType: MLFeatureDataType
 
     version: VersionTag
 
     sources: [Dataset]
+
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -10462,7 +10468,7 @@ type MLModelGroupEditableProperties {
 
 type MLFeatureTableProperties {
 
-description: String
+    description: String
 
     mlFeatures: [MLFeature]
 
