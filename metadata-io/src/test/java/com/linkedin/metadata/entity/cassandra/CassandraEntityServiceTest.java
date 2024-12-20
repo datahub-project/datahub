@@ -10,11 +10,13 @@ import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.AspectIngestionUtils;
 import com.linkedin.metadata.CassandraTestUtils;
+import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.EntityServiceTest;
 import com.linkedin.metadata.entity.ListResult;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -93,12 +95,15 @@ public class CassandraEntityServiceTest
                             .entityService(_entityServiceImpl)
                             .entityRegistry(_testEntityRegistry)
                             .build())
-                    .graphRetriever(TestOperationContexts.emptyGraphRetriever)
-                    .searchRetriever(TestOperationContexts.emptySearchRetriever)
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(
+                            () -> _testEntityRegistry))
+                    .graphRetriever(GraphRetriever.EMPTY)
+                    .searchRetriever(SearchRetriever.EMPTY)
                     .build(),
             null,
             opContext ->
-                ((EntityServiceAspectRetriever) opContext.getAspectRetrieverOpt().get())
+                ((EntityServiceAspectRetriever) opContext.getAspectRetriever())
                     .setSystemOperationContext(opContext),
             null);
   }

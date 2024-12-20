@@ -100,7 +100,7 @@ public class AspectResourceTest {
             .recordTemplate(mcp.getAspect())
             .auditStamp(new AuditStamp())
             .metadataChangeProposal(mcp)
-            .build(opContext.getAspectRetrieverOpt().get());
+            .build(opContext.getAspectRetriever());
     when(aspectDao.runInTransactionWithRetry(any(), any(), anyInt()))
         .thenReturn(
             List.of(List.of(
