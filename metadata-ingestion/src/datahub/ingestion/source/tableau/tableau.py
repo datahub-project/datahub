@@ -381,12 +381,6 @@ class TableauConfig(
         description="[advanced] Number of metadata objects (e.g. CustomSQLTable, PublishedDatasource, etc) to query at a time using the Tableau API.",
     )
 
-    fetch_size: int = Field(
-        default=250,
-        description="[removed] The 'fetch_size' field is no longer used. Please use 'page_size' instead.",
-        hidden_from_docs=True,
-    )
-
     # We've found that even with a small workbook page size (e.g. 10), the Tableau API often
     # returns warnings like this:
     # {
