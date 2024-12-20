@@ -6594,12 +6594,12 @@ type DataProcessInstance implements EntityWithRelationships & Entity {
     """
     When the run was kicked off
     """
-    created: AuditStamp!
+    created: AuditStamp
 
     """
     The name of the data process
     """
-    name: String!
+    name: String
 
     """
     Edges extending from this entity.
@@ -9852,18 +9852,35 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     privileges: EntityPrivileges
 }
 
+"""
+Properties describing a group of related ML models
+"""
 type MLModelGroupProperties {
-
+    """
+    Detailed description of the model group's purpose and contents
+    """
     description: String
 
+    """
+    When this model group was created
+    """
     created: TimeStamp
 
+    """
+    When this model group was last modified
+    """
     lastModified: TimeStamp
 
+    """
+    Version identifier for this model group
+    """
     version: VersionTag
 
+    """
+    Deprecated creation timestamp
+    @deprecated Use the 'created' field instead
+    """
     createdAt: Long @deprecated(reason: "Use `created` instead")
-
 }
 
 """
