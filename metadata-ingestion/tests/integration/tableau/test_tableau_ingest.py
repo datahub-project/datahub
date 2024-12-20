@@ -27,6 +27,7 @@ from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau import (
     TableauConfig,
+    TableauProject,
     TableauSiteSource,
     TableauSource,
     TableauSourceReport,
@@ -1342,6 +1343,82 @@ def test_permission_warning(pytestconfig, tmp_path, mock_datahub_graph):
 
 
 @freeze_time(FROZEN_TIME)
+@pytest.mark.parametrize(
+    "extract_project_hierarchy, allowed_projects",
+    [
+        (True, ["project1", "project4", "project3"]),
+        (False, ["project1", "project4"]),
+    ],
+)
+def test_extract_project_hierarchy(extract_project_hierarchy, allowed_projects):
+    context = PipelineContext(run_id="0", pipeline_name="test_tableau")
+
+    config_dict = config_source_default.copy()
+
+    del config_dict["stateful_ingestion"]
+    del config_dict["projects"]
+
+    config_dict["project_pattern"] = {
+        "allow": ["project1", "project4"],
+        "deny": ["project2"],
+    }
+
+    config_dict["extract_project_hierarchy"] = extract_project_hierarchy
+
+    config = TableauConfig.parse_obj(config_dict)
+
+    site_source = TableauSiteSource(
+        config=config,
+        ctx=context,
+        platform="tableau",
+        site=SiteItem(name="Site 1", content_url="site1"),
+        site_id="site1",
+        report=TableauSourceReport(),
+        server=Server("https://test-tableau-server.com"),
+    )
+
+    all_project_map: Dict[str, TableauProject] = {
+        "p1": TableauProject(
+            id="1",
+            name="project1",
+            path=[],
+            parent_id=None,
+            parent_name=None,
+            description=None,
+        ),
+        "p2": TableauProject(
+            id="2",
+            name="project2",
+            path=[],
+            parent_id="1",
+            parent_name="project1",
+            description=None,
+        ),
+        "p3": TableauProject(
+            id="3",
+            name="project3",
+            path=[],
+            parent_id="1",
+            parent_name="project1",
+            description=None,
+        ),
+        "p4": TableauProject(
+            id="4",
+            name="project4",
+            path=[],
+            parent_id=None,
+            parent_name=None,
+            description=None,
+        ),
+    }
+
+    site_source._init_tableau_project_registry(all_project_map)
+
+    assert allowed_projects == [
+        project.name for project in site_source.tableau_project_registry.values()
+    ]
+
+
 @pytest.mark.integration
 def test_connection_report_test(requests_mock):
     server_info_response = """
