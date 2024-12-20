@@ -1,65 +1,65 @@
 import React from 'react';
-import { GetDatasetDocument, UpdateDatasetDocument, GetDatasetSchemaDocument } from './graphql/dataset.generated';
-import { GetDataFlowDocument } from './graphql/dataFlow.generated';
-import { GetDataJobDocument } from './graphql/dataJob.generated';
-import { GetBrowsePathsDocument, GetBrowseResultsDocument } from './graphql/browse.generated';
-import {
-    GetAutoCompleteResultsDocument,
-    GetAutoCompleteMultipleResultsDocument,
-    GetSearchResultsDocument,
-    GetSearchResultsQuery,
-    GetSearchResultsForMultipleDocument,
-    GetSearchResultsForMultipleQuery,
-} from './graphql/search.generated';
-import { GetUserDocument } from './graphql/user.generated';
-import {
-    Dataset,
-    DataFlow,
-    DataJob,
-    GlossaryTerm,
-    GlossaryNode,
-    EntityType,
-    PlatformType,
-    MlModel,
-    MlModelGroup,
-    SchemaFieldDataType,
-    ScenarioType,
-    RecommendationRenderType,
-    RelationshipDirection,
-    FabricType,
-    Container,
-    PlatformPrivileges,
-    FilterOperator,
-    AppConfig,
-    EntityPrivileges,
-    Owner,
-    OwnershipType,
-    GlobalTags,
-    BusinessAttribute,
-    DataHubViewFilter,
-    LogicalOperator,
-    DataHubViewType,
-    DataHubView,
-    SearchResult,
-    EntityRelationshipsResult,
-    Maybe,
-} from './types.generated';
-import { GetTagDocument } from './graphql/tag.generated';
-import { GetMlModelDocument } from './graphql/mlModel.generated';
-import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
-import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
-import { GetEntityCountsDocument, AppConfigDocument } from './graphql/app.generated';
-import { GetMeDocument } from './graphql/me.generated';
-import { ListRecommendationsDocument } from './graphql/recommendations.generated';
+import { Entity } from './app/entity/Entity';
+import { VIEW_ENTITY_PAGE } from './app/entity/shared/constants';
+import { GenericEntityProperties } from './app/entity/shared/types';
+import { ViewBuilderState } from './app/entity/view/types';
+import { EntityCapabilityType } from './app/entityV2/Entity';
 import { FetchedEntity } from './app/lineage/types';
 import { DEFAULT_APP_CONFIG } from './appConfigContext';
-import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
+import { AppConfigDocument, GetEntityCountsDocument } from './graphql/app.generated';
+import { GetBrowsePathsDocument, GetBrowseResultsDocument } from './graphql/browse.generated';
+import { GetDataFlowDocument } from './graphql/dataFlow.generated';
+import { GetDataJobDocument } from './graphql/dataJob.generated';
+import { GetDatasetDocument, GetDatasetSchemaDocument, UpdateDatasetDocument } from './graphql/dataset.generated';
+import { GetGlossaryTermDocument, GetGlossaryTermQuery } from './graphql/glossaryTerm.generated';
+import { GetMeDocument } from './graphql/me.generated';
+import { GetMlModelDocument } from './graphql/mlModel.generated';
+import { GetMlModelGroupDocument } from './graphql/mlModelGroup.generated';
 import { GetGrantedPrivilegesDocument } from './graphql/policy.generated';
-import { VIEW_ENTITY_PAGE } from './app/entity/shared/constants';
-import { Entity } from './app/entity/Entity';
-import { EntityCapabilityType } from './app/entityV2/Entity';
-import { ViewBuilderState } from './app/entity/view/types';
-import { GenericEntityProperties } from './app/entity/shared/types';
+import { GetQuickFiltersDocument } from './graphql/quickFilters.generated';
+import { ListRecommendationsDocument } from './graphql/recommendations.generated';
+import {
+    GetAutoCompleteMultipleResultsDocument,
+    GetAutoCompleteResultsDocument,
+    GetSearchResultsDocument,
+    GetSearchResultsForMultipleDocument,
+    GetSearchResultsForMultipleQuery,
+    GetSearchResultsQuery,
+} from './graphql/search.generated';
+import { GetTagDocument } from './graphql/tag.generated';
+import { GetUserDocument } from './graphql/user.generated';
+import {
+    AppConfig,
+    BusinessAttribute,
+    Container,
+    DataFlow,
+    DataHubView,
+    DataHubViewFilter,
+    DataHubViewType,
+    DataJob,
+    Dataset,
+    EntityPrivileges,
+    EntityRelationshipsResult,
+    EntityType,
+    FabricType,
+    FilterOperator,
+    GlobalTags,
+    GlossaryNode,
+    GlossaryTerm,
+    LogicalOperator,
+    Maybe,
+    MlModel,
+    MlModelGroup,
+    Owner,
+    OwnershipType,
+    PlatformPrivileges,
+    PlatformType,
+    RecommendationRenderType,
+    RelationshipDirection,
+    ScenarioType,
+    SchemaFieldDataType,
+    SearchResult,
+} from './types.generated';
 
 export const entityPrivileges: EntityPrivileges = {
     canEditLineage: true,
@@ -1491,6 +1491,36 @@ export const dataJob1 = {
     },
     privileges: {
         ...entityPrivileges,
+    },
+    queryProperties: {
+        statement: {
+            value: 'INSERT INTO target SELECT * FROM source',
+            language: 'SQL',
+        },
+        source: 'SYSTEM',
+        name: 'Example Query',
+        description: 'An example transformation query',
+        created: {
+            time: 1612396473001,
+            actor: 'urn:li:corpuser:datahub',
+        },
+        createdOn: {
+            time: 1612396473001,
+            actor: {
+                urn: 'urn:li:corpuser:datahub',
+                username: 'datahub',
+                type: EntityType.CorpUser,
+            },
+        },
+        lastModified: {
+            time: 1612396473001,
+            actor: 'urn:li:corpuser:datahub',
+        },
+        origin: {
+            type: EntityType.Dataset,
+            urn: 'urn:li:dataset:origin-dataset',
+            name: 'Origin Dataset',
+        },
     },
     properties: {
         name: 'DataJobInfoName',

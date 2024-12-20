@@ -13,8 +13,9 @@ import { DataJob, EntityType, SearchResult } from '../../../types.generated';
 import { GenericEntityProperties } from '../../entity/shared/types';
 import { EntityAndType } from '../../lineage/types';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
-import { DataFlowEntity } from '../dataFlow/DataFlowEntity';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
+import { DataFlowEntity } from '../dataFlow/DataFlowEntity';
+import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
 import { SidebarAboutSection } from '../shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
@@ -23,13 +24,13 @@ import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domai
 import SidebarLineageSection from '../shared/containers/profile/sidebar/Lineage/SidebarLineageSection';
 import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
 import SidebarQueryOperationsSection from '../shared/containers/profile/sidebar/Query/SidebarQueryOperationsSection';
-import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
-import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import SidebarEntityHeader from '../shared/containers/profile/sidebar/SidebarEntityHeader';
 import { SidebarGlossaryTermsSection } from '../shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
+import { SidebarDataJobTransformationLogicSection } from '../shared/containers/profile/sidebar/SidebarLogicSection';
 import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
+import SharingAssetSection from '../shared/containers/profile/sidebar/shared/SharingAssetSection';
+import StatusSection from '../shared/containers/profile/sidebar/shared/StatusSection';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
-import { EntityMenuItems } from '../shared/EntityDropdown/EntityMenuActions';
 import SidebarStructuredProperties from '../shared/sidebarSection/SidebarStructuredProperties';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import { DataJobFlowTab } from '../shared/tabs/Entity/DataJobFlowTab';
@@ -170,6 +171,7 @@ export class DataJobEntity implements Entity<DataJob> {
         {
             component: SidebarStructuredProperties,
         },
+        { component: SidebarDataJobTransformationLogicSection },
     ];
 
     getSidebarTabs = () => [

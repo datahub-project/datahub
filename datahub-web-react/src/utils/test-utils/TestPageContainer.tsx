@@ -5,33 +5,34 @@ import { Remirror, useRemirror } from '@remirror/react';
 import { ItalicExtension, UnderlineExtension } from 'remirror/extensions';
 
 import { HelmetProvider } from 'react-helmet-async';
-import { CLIENT_AUTH_COOKIE } from '../../conf/Global';
-import { DatasetEntity } from '../../app/entity/dataset/DatasetEntity';
+import EntityRegistry from '../../app/entity/EntityRegistry';
 import { DataFlowEntity } from '../../app/entity/dataFlow/DataFlowEntity';
 import { DataJobEntity } from '../../app/entity/dataJob/DataJobEntity';
-import { UserEntity } from '../../app/entity/user/User';
+import { DatasetEntity } from '../../app/entity/dataset/DatasetEntity';
 import { GroupEntity } from '../../app/entity/group/Group';
-import EntityRegistry from '../../app/entity/EntityRegistry';
-import { EntityRegistryContext } from '../../entityRegistryContext';
 import { TagEntity } from '../../app/entity/tag/Tag';
+import { UserEntity } from '../../app/entity/user/User';
+import { CLIENT_AUTH_COOKIE } from '../../conf/Global';
+import { EntityRegistryContext } from '../../entityRegistryContext';
 
+import AppConfigProvider from '../../AppConfigProvider';
+import CustomThemeProvider from '../../CustomThemeProvider';
+import UserContextProvider from '../../app/context/UserContextProvider';
+import { BusinessAttributeEntity } from '../../app/entity/businessAttribute/BusinessAttributeEntity';
+import { ChartEntity } from '../../app/entity/chart/ChartEntity';
+import { ContainerEntity } from '../../app/entity/container/ContainerEntity';
+import { DashboardEntity } from '../../app/entity/dashboard/DashboardEntity';
+import { DataPlatformEntity } from '../../app/entity/dataPlatform/DataPlatformEntity';
+import { DataPlatformInstanceEntity } from '../../app/entity/dataPlatformInstance/DataPlatformInstanceEntity';
+import { DataProductEntity } from '../../app/entity/dataProduct/DataProductEntity';
+import { DomainEntity } from '../../app/entity/domain/DomainEntity';
 import { GlossaryTermEntity } from '../../app/entity/glossaryTerm/GlossaryTermEntity';
 import { MLFeatureTableEntity } from '../../app/entity/mlFeatureTable/MLFeatureTableEntity';
 import { MLModelEntity } from '../../app/entity/mlModel/MLModelEntity';
 import { MLModelGroupEntity } from '../../app/entity/mlModelGroup/MLModelGroupEntity';
-import { ChartEntity } from '../../app/entity/chart/ChartEntity';
-import { DashboardEntity } from '../../app/entity/dashboard/DashboardEntity';
-import { LineageExplorerContext } from '../../app/lineage/utils/LineageExplorerContext';
-import UserContextProvider from '../../app/context/UserContextProvider';
-import { DataPlatformEntity } from '../../app/entity/dataPlatform/DataPlatformEntity';
-import { ContainerEntity } from '../../app/entity/container/ContainerEntity';
-import AppConfigProvider from '../../AppConfigProvider';
-import { BusinessAttributeEntity } from '../../app/entity/businessAttribute/BusinessAttributeEntity';
-import { DomainEntity } from '../../app/entity/domain/DomainEntity';
-import { DataProductEntity } from '../../app/entity/dataProduct/DataProductEntity';
-import CustomThemeProvider from '../../CustomThemeProvider';
-import { DataPlatformInstanceEntity } from '../../app/entity/dataPlatformInstance/DataPlatformInstanceEntity';
+import { QueryEntity } from '../../app/entity/query/QueryEntity';
 import { SchemaFieldPropertiesEntity } from '../../app/entity/schemaField/SchemaFieldPropertiesEntity';
+import { LineageExplorerContext } from '../../app/lineage/utils/LineageExplorerContext';
 
 type Props = {
     children: React.ReactNode;
@@ -59,6 +60,7 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new DataProductEntity());
     entityRegistry.register(new DataPlatformInstanceEntity());
     entityRegistry.register(new SchemaFieldPropertiesEntity());
+    entityRegistry.register(new QueryEntity());
     return entityRegistry;
 }
 

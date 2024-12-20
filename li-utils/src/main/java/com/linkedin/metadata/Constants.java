@@ -139,6 +139,7 @@ public class Constants {
   public static final String ASSERTIONS_SUMMARY_ASPECT_NAME = "assertionsSummary";
   public static final String SHARE_ASPECT_NAME = "share";
   public static final String VERSION_PROPERTIES_ASPECT_NAME = "versionProperties";
+  public static final String DATA_TRANSFORM_LOGIC_ASPECT_NAME = "dataTransformLogic";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";

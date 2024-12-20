@@ -610,6 +610,9 @@ fragment dataJobFields on DataJob {
     assetOrigin {
         ...originFields
     }
+    dataTransformLogic {
+        ...dataTransformLogicFields
+    }
 }
 
 fragment dashboardFields on Dashboard {
@@ -2286,6 +2289,15 @@ fragment notes on EntityWithRelationships {
                     }
                 }
             }
+        }
+    }
+}
+
+fragment dataTransformLogicFields on DataTransformLogic {
+    transforms {
+        queryStatement {
+            value
+            language
         }
     }
 }
