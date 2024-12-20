@@ -896,10 +896,9 @@ class TableauSiteSource:
         return f"/{self.config.env.lower()}{self.no_env_browse_prefix}"
 
     def _re_authenticate(self):
-        tableau_auth: Union[
-            TableauAuth, PersonalAccessTokenAuth
-        ] = self.config.get_tableau_auth(self.site_id)
-        self.server.auth.sign_in(tableau_auth)
+        # Sign-in again may not be enough because Tableau sometimes caches invalid sessions
+        # so we need to recreate the Tableau Server object
+        self.server = self.config.make_tableau_client(self.site_id)
 
     @property
     def site_content_url(self) -> Optional[str]:
