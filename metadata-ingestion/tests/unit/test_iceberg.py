@@ -10,6 +10,8 @@ from pyiceberg.exceptions import (
     NoSuchIcebergTableError,
     NoSuchNamespaceError,
     NoSuchPropertyException,
+    NoSuchTableError,
+    ServerError,
 )
 from pyiceberg.io.pyarrow import PyArrowFileIO
 from pyiceberg.partitioning import PartitionSpec
@@ -39,6 +41,7 @@ from pyiceberg.types import (
     UUIDType,
 )
 
+from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.iceberg.iceberg import (
@@ -62,12 +65,12 @@ from datahub.metadata.schema_classes import (
 )
 
 
-def with_iceberg_source(processing_threads: int = 1) -> IcebergSource:
+def with_iceberg_source(processing_threads: int = 1, **kwargs: Any) -> IcebergSource:
     catalog = {"test": {"type": "rest"}}
     return IcebergSource(
         ctx=PipelineContext(run_id="iceberg-source-test"),
         config=IcebergSourceConfig(
-            catalog=catalog, processing_threads=processing_threads
+            catalog=catalog, processing_threads=processing_threads, **kwargs
         ),
     )
 
@@ -542,11 +545,11 @@ class MockCatalog:
         """
         self.tables = tables
 
-    def list_namespaces(self) -> Iterable[str]:
-        return [*self.tables.keys()]
+    def list_namespaces(self) -> Iterable[Tuple[str]]:
+        return [*[(key,) for key in self.tables.keys()]]
 
     def list_tables(self, namespace: str) -> Iterable[Tuple[str, str]]:
-        return [(namespace, table) for table in self.tables[namespace].keys()]
+        return [(namespace[0], table) for table in self.tables[namespace[0]].keys()]
 
     def load_table(self, dataset_path: Tuple[str, str]) -> Table:
         return self.tables[dataset_path[0]][dataset_path[1]]()
@@ -554,15 +557,15 @@ class MockCatalog:
 
 class MockCatalogExceptionListingTables(MockCatalog):
     def list_tables(self, namespace: str) -> Iterable[Tuple[str, str]]:
-        if namespace == "no_such_namespace":
+        if namespace == ("no_such_namespace",):
             raise NoSuchNamespaceError()
-        if namespace == "generic_exception":
+        if namespace == ("generic_exception",):
             raise Exception()
         return super().list_tables(namespace)
 
 
 class MockCatalogExceptionListingNamespaces(MockCatalog):
-    def list_namespaces(self) -> Iterable[str]:
+    def list_namespaces(self) -> Iterable[Tuple[str]]:
         raise Exception()
 
 
@@ -814,14 +817,156 @@ def test_proper_run_with_multiple_namespaces() -> None:
         )
 
 
+def test_filtering() -> None:
+    source = with_iceberg_source(
+        processing_threads=1,
+        table_pattern=AllowDenyPattern(deny=[".*abcd.*"]),
+        namespace_pattern=AllowDenyPattern(allow=["namespace1"]),
+    )
+    mock_catalog = MockCatalog(
+        {
+            "namespace1": {
+                "table_xyz": lambda: Table(
+                    identifier=("namespace1", "table_xyz"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespace1/table_xyz",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespace1/table_xyz",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "JKLtable": lambda: Table(
+                    identifier=("namespace1", "JKLtable"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespace1/JKLtable",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespace1/JKLtable",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "table_abcd": lambda: Table(
+                    identifier=("namespace1", "table_abcd"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespace1/table_abcd",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespace1/table_abcd",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "aaabcd": lambda: Table(
+                    identifier=("namespace1", "aaabcd"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespace1/aaabcd",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespace1/aaabcd",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+            },
+            "namespace2": {
+                "foo": lambda: Table(
+                    identifier=("namespace2", "foo"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespace2/foo",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespace2/foo",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "bar": lambda: Table(
+                    identifier=("namespace2", "bar"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespace2/bar",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespace2/bar",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+            },
+            "namespace3": {
+                "sales": lambda: Table(
+                    identifier=("namespace3", "sales"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespace3/sales",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespace3/sales",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+                "products": lambda: Table(
+                    identifier=("namespace2", "bar"),
+                    metadata=TableMetadataV2(
+                        partition_specs=[PartitionSpec(spec_id=0)],
+                        location="s3://abcdefg/namespace3/products",
+                        last_column_id=0,
+                        schemas=[Schema(schema_id=0)],
+                    ),
+                    metadata_location="s3://abcdefg/namespace3/products",
+                    io=PyArrowFileIO(),
+                    catalog=None,
+                ),
+            },
+        }
+    )
+    with patch(
+        "datahub.ingestion.source.iceberg.iceberg.IcebergSourceConfig.get_catalog"
+    ) as get_catalog:
+        get_catalog.return_value = mock_catalog
+        wu: List[MetadataWorkUnit] = [*source.get_workunits_internal()]
+        assert len(wu) == 2
+        urns = []
+        for unit in wu:
+            assert isinstance(unit.metadata, MetadataChangeEvent)
+            assert isinstance(unit.metadata.proposedSnapshot, DatasetSnapshotClass)
+            urns.append(unit.metadata.proposedSnapshot.urn)
+        TestCase().assertCountEqual(
+            urns,
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespace1.table_xyz,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespace1.JKLtable,PROD)",
+            ],
+        )
+        assert source.report.tables_scanned == 2
+
+
 def test_handle_expected_exceptions() -> None:
     source = with_iceberg_source(processing_threads=3)
 
     def _raise_no_such_property_exception():
         raise NoSuchPropertyException()
 
-    def _raise_no_such_table_exception():
+    def _raise_no_such_iceberg_table_exception():
         raise NoSuchIcebergTableError()
+
+    def _raise_file_not_found_error():
+        raise FileNotFoundError()
+
+    def _raise_no_such_table_exception():
+        raise NoSuchTableError()
+
+    def _raise_server_error():
+        raise ServerError()
 
     mock_catalog = MockCatalog(
         {
@@ -876,6 +1021,9 @@ def test_handle_expected_exceptions() -> None:
                 ),
                 "table5": _raise_no_such_property_exception,
                 "table6": _raise_no_such_table_exception,
+                "table7": _raise_file_not_found_error,
+                "table8": _raise_no_such_iceberg_table_exception,
+                "table9": _raise_server_error,
             }
         }
     )
@@ -899,7 +1047,7 @@ def test_handle_expected_exceptions() -> None:
                 "urn:li:dataset:(urn:li:dataPlatform:iceberg,namespaceA.table4,PROD)",
             ],
         )
-        assert source.report.warnings.total_elements == 2
+        assert source.report.warnings.total_elements == 5
         assert source.report.failures.total_elements == 0
         assert source.report.tables_scanned == 4
 
