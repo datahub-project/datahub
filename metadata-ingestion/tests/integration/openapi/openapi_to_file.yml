@@ -2,8 +2,8 @@ source:
   type: openapi
   config:
     name: test_openapi
-    url: https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/examples/
-    swagger_file: v3.0/api-with-examples.yaml
+    url: https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/tests/
+    swagger_file: v3.0/pass/api-with-examples.yaml
 
 
 sink:
