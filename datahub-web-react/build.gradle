@@ -39,6 +39,14 @@ node {
 
 }
 
+yarnSetup() {
+  // Base URL for npm registry (set npmRegistryBaseUrl if you have a mirror).
+  if (project.hasProperty('npmRegistryBaseUrl')) {
+    npmRegistryBaseUrl = project.getProperty('npmRegistryBaseUrl')
+    args.addAll(['--registry', npmRegistryBaseUrl])
+  }
+}
+
 /*
   Wrappers around Yarn Tasks.
  */
