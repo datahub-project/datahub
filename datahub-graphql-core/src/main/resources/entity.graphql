@@ -9857,6 +9857,11 @@ Properties describing a group of related ML models
 """
 type MLModelGroupProperties {
     """
+    Display name of the model group
+    """
+    name: String
+
+    """
     Detailed description of the model group's purpose and contents
     """
     description: String
