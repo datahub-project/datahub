@@ -165,6 +165,7 @@ class SnowflakeConfig(
     )
 
     _include_view_lineage = pydantic_removed_field("include_view_lineage")
+    _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
 
     ignore_start_time_lineage: bool = False
     upstream_lineage_in_report: bool = False
@@ -208,13 +209,8 @@ class SnowflakeV2Config(
         description="Populates table->table and view->table column lineage. Requires appropriate grants given to the role and the Snowflake Enterprise Edition or above.",
     )
 
-    include_view_column_lineage: bool = Field(
-        default=True,
-        description="Populates view->view and table->view column lineage using DataHub's sql parser.",
-    )
-
     use_queries_v2: bool = Field(
-        default=True,
+        default=False,
         description="If enabled, uses the new queries extractor to extract queries from snowflake.",
     )
 

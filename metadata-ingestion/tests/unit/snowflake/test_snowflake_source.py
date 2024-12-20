@@ -653,3 +653,15 @@ def test_create_snowsight_base_url_ap_northeast_1():
 
 def test_snowflake_utils() -> None:
     assert_doctest(datahub.ingestion.source.snowflake.snowflake_utils)
+
+
+def test_using_removed_fields_causes_no_error() -> None:
+    assert SnowflakeV2Config.parse_obj(
+        {
+            "account_id": "test",
+            "username": "snowflake",
+            "password": "snowflake",
+            "include_view_lineage": "true",
+            "include_view_column_lineage": "true",
+        }
+    )
