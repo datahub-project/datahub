@@ -9856,13 +9856,14 @@ type MLModelGroupProperties {
 
     description: String
 
-    createdAt: Long @deprecated(reason: "Use `created` instead")
-
     created: TimeStamp
 
     lastModified: TimeStamp
 
     version: VersionTag
+
+    createdAt: Long @deprecated(reason: "Use `created` instead")
+
 }
 
 """
@@ -10030,8 +10031,6 @@ type MLModelProperties {
 
     description: String
 
-    date: Long @deprecated(reason: "Use `created` instead")
-
     lastModified: TimeStamp
 
     version: String
@@ -10044,8 +10043,6 @@ type MLModelProperties {
 
     trainingMetrics: [MLMetric]
 
-    trainingJobs: [String!]
-
     mlFeatures: [String!]
 
     tags: [String!]
@@ -10057,6 +10054,9 @@ type MLModelProperties {
     externalUrl: String
 
     created: TimeStamp
+
+    date: Long @deprecated(reason: "Use `created` instead")
+
 }
 
 type MLFeatureProperties {
@@ -12866,11 +12866,6 @@ extend type DataProcessInstance {
     properties: DataProcessInstanceProperties
 
     """
-    Additional properties when subtype is Training Run
-    """
-    mlTrainingRunProperties: MLTrainingRunProperties
-
-    """
     The specific instance of the data platform that this entity belongs to
     """
     dataPlatformInstance: DataPlatformInstance
@@ -12894,4 +12889,9 @@ extend type DataProcessInstance {
     Recursively get the lineage of containers for this entity
     """
     parentContainers: ParentContainersResult
+
+    """
+    Additional properties when subtype is Training Run
+    """
+    mlTrainingRunProperties: MLTrainingRunProperties
 }

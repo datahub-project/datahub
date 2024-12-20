@@ -15,8 +15,7 @@ record DataProcessInstanceInput {
   @Relationship = {
     "/*": {
       "name": "Consumes",
-      "entityTypes": [ "dataset" ],
-      "isLineage": true
+      "entityTypes": [ "dataset" ]
     }
   }
   @Searchable = {

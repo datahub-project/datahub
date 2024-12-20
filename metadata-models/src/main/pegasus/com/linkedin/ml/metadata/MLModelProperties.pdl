@@ -117,24 +117,24 @@ record MLModelProperties includes CustomProperties, ExternalReference {
   deployments: optional array[Urn]
 
   /**
-   * List of jobs or process instances (if any) used to train the model
+   * List of jobs (if any) used to train the model
    */
   @Relationship = {
     "/*": {
       "name": "TrainedBy",
-      "entityTypes": [ "dataJob", "dataProcessInstance" ],
+      "entityTypes": [ "dataJob" ],
       "isLineage": true
     }
   }
   trainingJobs: optional array[Urn]
 
   /**
-   * List of jobs or process instance (if any) that use the model
+   * List of jobs (if any) that use the model
    */
   @Relationship = {
     "/*": {
       "name": "UsedBy",
-      "entityTypes": [ "dataJob" , "dataProcessInstance" ],
+      "entityTypes": [ "dataJob" ],
       "isLineage": true,
       "isUpstream": false
     }
