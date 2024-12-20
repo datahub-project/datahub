@@ -22,6 +22,7 @@ export const SelectBase = styled.div<SelectStyleProps>(({ isDisabled, isReadOnly
     minHeight: '42px',
     alignItems: 'center',
     overflow: 'auto',
+    textWrapMode: 'nowrap',
     backgroundColor: isDisabled ? colors.gray[1500] : colors.white,
     width: width === 'full' ? '100%' : `max-content`,
 }));
@@ -221,6 +222,7 @@ export const StyledCancelButton = styled(Button)({
 });
 
 export const StyledIcon = styled(Icon)({
+    flexShrink: 0,
     color: colors.gray[1800],
 });
 
