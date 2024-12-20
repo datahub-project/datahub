@@ -1,7 +1,8 @@
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
+import EntitySidebarContext from '@src/app/sharedV2/EntitySidebarContext';
 import { GetDatasetQuery, useGetLastMonthUsageAggregationsQuery } from '@src/graphql/dataset.generated';
 import { UsageQueryResult } from '@src/types.generated';
-import React, { useRef } from 'react';
+import React, { useContext, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import ColumnStatsV2 from './ColumnStatsV2';
 import HistoricalStats from './HistoricalStats';
@@ -16,6 +17,7 @@ const TabContainer = styled.div`
 
 const StatsTabV2 = () => {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const { isClosed, setSidebarClosed } = useContext(EntitySidebarContext);
 
     const { data: usageStatsData } = useGetLastMonthUsageAggregationsQuery({
         variables: { urn: baseEntity?.dataset?.urn as string },
@@ -44,6 +46,11 @@ const StatsTabV2 = () => {
     const queryCountBuckets = usageStats?.buckets;
     const columnStats = (latestProfile && latestProfile.fieldProfiles) || [];
     const hasColumnStats = columnStats?.length > 0;
+
+    useEffect(() => {
+        if (!isClosed) setSidebarClosed(true);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <TabContainer>
