@@ -5,54 +5,11 @@ import EntitySidebarContext, { FineGrainedOperation } from '../../../../../../sh
 import { REDESIGN_COLORS } from '../../../../constants';
 import { SidebarSection } from '../SidebarSection';
 
-const SAMPLE_OPERATION: FineGrainedOperation = {
-    // SQL transformation logic
-    transformOperation: `
-SELECT 
-    customers.id,
-    customers.name,
-    COUNT(orders.id) as total_orders,
-    SUM(orders.amount) as total_spent
-FROM customers
-LEFT JOIN orders ON customers.id = orders.customer_id
-WHERE orders.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-GROUP BY customers.id, customers.name
-HAVING total_orders > 0
-ORDER BY total_spent DESC
-    `.trim(),
-
-    // Input columns showing the source tables and columns used
-    inputColumns: [
-        ['customers', 'id'] as [string, string],
-        ['customers', 'name'] as [string, string],
-        ['orders', 'id'] as [string, string],
-        ['orders', 'amount'] as [string, string],
-        ['orders', 'customer_id'] as [string, string],
-        ['orders', 'created_at'] as [string, string],
-    ] as [string, string][],
-
-    // Output columns showing the resulting columns after transformation
-    outputColumns: [
-        ['customers', 'id'] as [string, string],
-        ['customers', 'name'] as [string, string],
-        ['aggregated', 'total_orders'] as [string, string],
-        ['aggregated', 'total_spent'] as [string, string],
-    ] as [string, string][],
-};
-
 export default function SidebarQueryOperationsSection() {
     const { fineGrainedOperations } = useContext(EntitySidebarContext);
 
     if (!fineGrainedOperations?.length) {
-        // return null;
-        return (
-            <SidebarSection
-                title="Operation 1"
-                /* eslint-disable-next-line react/no-array-index-key */
-                key={1}
-                content={<SidebarQueryOperation operation={SAMPLE_OPERATION} />}
-            />
-        );
+        return null;
     }
 
     return (
