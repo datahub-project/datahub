@@ -14,6 +14,11 @@ Root type used for fetching DataHub Metadata
 Coming soon listEntity queries for listing all entities of a given type
 """
 type Query {
+  _empty: String
+}
+
+
+extend type Query {
     """
     Fetch a Data Platform by primary key (urn)
     """
@@ -262,7 +267,15 @@ type Query {
     Fetch all Business Attributes
     """
     listBusinessAttributes(input: ListBusinessAttributesInput!): ListBusinessAttributesResult
+
+    """
+    Fetch a Data Process Instance by primary key (urn)
+    """
+    dataProcessInstance(urn: String!): DataProcessInstance
+
+
 }
+
 
 """
 An ERModelRelationship is a high-level abstraction that dictates what datasets fields are erModelRelationshiped.
@@ -9488,6 +9501,18 @@ type AuditStamp {
     actor: String
 }
 
+type TimeStamp {
+  """
+  When did the event occur
+  """
+  time: Long!
+  
+  """
+  The actor involved in the event
+  """
+  actor: String
+}
+
 """
 Input for creating a new group
 """
@@ -9832,15 +9857,42 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     privileges: EntityPrivileges
 }
 
+"""
+Properties describing a group of related ML models
+"""
 type MLModelGroupProperties {
+    """
+    Display name of the model group
+    """
+    name: String
 
+    """
+    Detailed description of the model group's purpose and contents
+    """
     description: String
 
-    createdAt: Long
+    """
+    When this model group was created
+    """
+    created: TimeStamp
 
+    """
+    When this model group was last modified
+    """
+    lastModified: TimeStamp
+
+    """
+    Version identifier for this model group
+    """
     version: VersionTag
-
+    
     customProperties: [CustomPropertiesEntry!]
+
+    """
+    Deprecated creation timestamp
+    @deprecated Use the 'created' field instead
+    """
+    createdAt: Long @deprecated(reason: "Use `created` instead")
 }
 
 """
@@ -9990,40 +10042,103 @@ description: String
 }
 
 type MLMetric {
+    """
+    Name of the metric (e.g. accuracy, precision, recall)
+    """
     name: String
 
+    """
+    Description of what this metric measures
+    """
     description: String
 
+    """
+    The computed value of the metric
+    """
     value: String
 
+    """
+    Timestamp when this metric was recorded
+    """
     createdAt: Long
 }
 
 type MLModelProperties {
+    """
+    The display name of the model used in the UI
+    """
+    name: String!
 
+    """
+    Detailed description of the model's purpose and characteristics
+    """
     description: String
 
-    date: Long
+    """
+    When the model was last modified
+    """
+    lastModified: TimeStamp
 
+    """
+    Version identifier for this model
+    """
     version: String
 
+    """
+    The type/category of ML model (e.g. classification, regression)
+    """
     type: String
 
+    """
+    Mapping of hyperparameter configurations
+    """
     hyperParameters: HyperParameterMap
 
-    hyperParams:  [MLHyperParam]
+    """
+    List of hyperparameter settings used to train this model
+    """
+    hyperParams: [MLHyperParam]
 
+    """
+    Performance metrics from model training
+    """
     trainingMetrics: [MLMetric]
 
+    """
+    Names of ML features used by this model
+    """
     mlFeatures: [String!]
 
+    """
+    Tags for categorizing and searching models
+    """
     tags: [String!]
 
+    """
+    Model groups this model belongs to
+    """
     groups: [MLModelGroup]
 
+    """
+    Additional custom properties specific to this model
+    """
     customProperties: [CustomPropertiesEntry!]
 
+    """
+    URL to view this model in external system
+    """
     externalUrl: String
+
+    """
+    When this model was created
+    """
+    created: TimeStamp
+
+    """
+    Deprecated timestamp for model creation
+    @deprecated Use 'created' field instead
+    """
+    date: Long @deprecated(reason: "Use `created` instead")
 }
 
 type MLFeatureProperties {
@@ -12803,4 +12918,93 @@ type CronSchedule {
     Timezone in which the cron interval applies, e.g. America/Los_Angeles
     """
     timezone: String!
+}
+
+
+"""
+Properties describing a data process instance's execution metadata
+"""
+type DataProcessInstanceProperties {
+    """
+    The display name of this process instance
+    """
+    name: String!
+
+    """
+    URL to view this process instance in the external system
+    """
+    externalUrl: String
+
+    """
+    When this process instance was created
+    """
+    created: TimeStamp
+
+    """
+    Additional custom properties specific to this process instance
+    """
+    customProperties: [CustomPropertiesEntry!]
+}
+
+"""
+Properties specific to an ML model training run instance
+"""
+type MLTrainingRunProperties {
+    """
+    Unique identifier for this training run
+    """
+    id: String
+
+    """
+    List of URLs to access training run outputs (e.g. model artifacts, logs)
+    """
+    outputUrls: [String]
+    
+    """
+    Hyperparameters used in this training run
+    """
+    hyperParams: [MLHyperParam]
+
+    """
+    Performance metrics recorded during this training run
+    """
+    trainingMetrics: [MLMetric]
+}
+
+extend type DataProcessInstance {
+
+    """
+    Additional read only properties associated with the Data Job
+    """
+    properties: DataProcessInstanceProperties
+
+    """
+    The specific instance of the data platform that this entity belongs to
+    """
+    dataPlatformInstance: DataPlatformInstance
+
+    """
+    Sub Types that this entity implements
+    """
+    subTypes: SubTypes
+
+    """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
+    Standardized platform urn where the data process instance is defined
+    """
+    platform: DataPlatform!
+
+    """
+    Recursively get the lineage of containers for this entity
+    """
+    parentContainers: ParentContainersResult
+
+    """
+    Additional properties when subtype is Training Run
+    """
+    mlTrainingRunProperties: MLTrainingRunProperties
 }
