@@ -316,17 +316,19 @@ def test_get_databases_filters_by_catalog():
         return set(d["Name"] for d in databases)
 
     all_catalogs_source: GlueSource = GlueSource(
-        config=GlueSourceConfig(), ctx=PipelineContext(run_id="glue-source-test")
+        config=GlueSourceConfig(aws_region="us-west-2"),
+        ctx=PipelineContext(run_id="glue-source-test"),
     )
     with Stubber(all_catalogs_source.glue_client) as glue_stubber:
         glue_stubber.add_response("get_databases", get_databases_response, {})
 
-        expected = format_databases([flights_database, test_database, empty_database])
-        assert format_databases(all_catalogs_source.get_all_databases()) == expected
+        expected = [flights_database, test_database, empty_database]
+        actual = all_catalogs_source.get_all_databases()
+        assert format_databases(actual) == format_databases(expected)
 
     catalog_id = "123412341234"
     single_catalog_source = GlueSource(
-        config=GlueSourceConfig(catalog_id=catalog_id),
+        config=GlueSourceConfig(catalog_id=catalog_id, aws_region="us-west-2"),
         ctx=PipelineContext(run_id="glue-source-test"),
     )
     with Stubber(single_catalog_source.glue_client) as glue_stubber:
@@ -334,8 +336,9 @@ def test_get_databases_filters_by_catalog():
             "get_databases", get_databases_response, {"CatalogId": catalog_id}
         )
 
-        expected = format_databases([flights_database, test_database])
-        assert format_databases(single_catalog_source.get_all_databases()) == expected
+        expected = [flights_database, test_database]
+        actual = single_catalog_source.get_all_databases()
+        assert format_databases(actual) == format_databases(expected)
 
 
 @freeze_time(FROZEN_TIME)

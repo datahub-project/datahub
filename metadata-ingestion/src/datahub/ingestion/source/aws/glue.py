@@ -52,6 +52,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
@@ -219,6 +220,7 @@ class GlueSourceConfig(
 class GlueSourceReport(StaleEntityRemovalSourceReport):
     tables_scanned = 0
     filtered: List[str] = dataclass_field(default_factory=list)
+    databases = EntityFilterReport.field(type="database")
 
     num_job_script_location_missing: int = 0
     num_job_script_location_invalid: int = 0
@@ -684,15 +686,15 @@ class GlueSource(StatefulIngestionSourceBase):
             pattern += "[?!TargetDatabase]"
 
         for database in paginator_response.search(pattern):
-            if not self.source_config.database_pattern.allowed(database["Name"]):
-                continue
-            if (
+            if (not self.source_config.database_pattern.allowed(database["Name"])) or (
                 self.source_config.catalog_id
                 and database.get("CatalogId")
                 and database.get("CatalogId") != self.source_config.catalog_id
             ):
-                continue
-            yield database
+                self.report.databases.dropped(database["Name"])
+            else:
+                self.report.databases.processed(database["Name"])
+                yield database
 
     def get_tables_from_database(self, database: Mapping[str, Any]) -> Iterable[Dict]:
         logger.debug(f"Getting tables from database {database['Name']}")
