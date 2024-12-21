@@ -40,7 +40,7 @@ export const useSearchResult = () => {
 };
 
 export const useEntityType = () => {
-    return useSearchResultContext()?.searchResult.entity.type;
+    return useSearchResultContext()?.searchResult?.entity?.type;
 };
 
 export const useMatchedFields = () => {

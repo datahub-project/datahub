@@ -42,7 +42,7 @@ const RenderedField = ({
     field: MatchedField;
 }) => {
     const entityRegistry = useEntityRegistry();
-    const query = useSearchQuery()?.trim().toLowerCase();
+    const query = useSearchQuery()?.trim()?.toLowerCase();
     const customRenderedField = customFieldRenderer?.(field);
     if (customRenderedField) return <b>{customRenderedField}</b>;
     if (isHighlightableEntityField(field)) {
