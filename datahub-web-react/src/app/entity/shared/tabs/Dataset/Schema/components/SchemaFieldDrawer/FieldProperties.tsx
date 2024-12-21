@@ -74,7 +74,7 @@ export default function FieldProperties({ expandedField, schemaColumnProperties 
             <PropertiesWrapper>
                 {properties.map((structuredProp) => {
                     const isRichText =
-                        structuredProp.structuredProperty.definition.valueType?.info.type === StdDataType.RichText;
+                        structuredProp.structuredProperty.definition.valueType?.info?.type === StdDataType.RichText;
                     const valuesData = mapStructuredPropertyValues(structuredProp);
                     const hasMultipleValues = valuesData.length > 1;
 

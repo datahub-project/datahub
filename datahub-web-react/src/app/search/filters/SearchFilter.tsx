@@ -1,8 +1,7 @@
 import React from 'react';
-import { useFilterDisplayName } from '@src/app/searchV2/filters/utils';
 import { FacetFilterInput, FacetMetadata } from '../../../types.generated';
 import useSearchFilterDropdown from './useSearchFilterDropdown';
-import { getFilterDropdownIcon } from './utils';
+import { getFilterDropdownIcon, useFilterDisplayName } from './utils';
 import SearchFilterView from './SearchFilterView';
 import { ENTITY_FILTER_NAME } from '../utils/constants';
 import EntityTypeFilter from './EntityTypeFilter/EntityTypeFilter';

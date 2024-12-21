@@ -350,6 +350,27 @@ public class SearchUtils {
     return result;
   }
 
+  public static List<SortCriterion> getSortCriteria(@Nullable final SearchSortInput sortInput) {
+    List<SortCriterion> sortCriteria;
+    if (sortInput != null) {
+      if (sortInput.getSortCriteria() != null) {
+        sortCriteria =
+            sortInput.getSortCriteria().stream()
+                .map(SearchUtils::mapSortCriterion)
+                .collect(Collectors.toList());
+      } else {
+        sortCriteria =
+            sortInput.getSortCriterion() != null
+                ? Collections.singletonList(mapSortCriterion(sortInput.getSortCriterion()))
+                : new ArrayList<>();
+      }
+    } else {
+      sortCriteria = new ArrayList<>();
+    }
+
+    return sortCriteria;
+  }
+
   public static CompletableFuture<ScrollResults> scrollAcrossEntities(
       QueryContext inputContext,
       final EntityClient _entityClient,
@@ -442,26 +463,5 @@ public class SearchUtils {
         },
         className,
         "scrollAcrossEntities");
-  }
-
-  public static List<SortCriterion> getSortCriteria(@Nullable final SearchSortInput sortInput) {
-    List<SortCriterion> sortCriteria;
-    if (sortInput != null) {
-      if (sortInput.getSortCriteria() != null) {
-        sortCriteria =
-            sortInput.getSortCriteria().stream()
-                .map(SearchUtils::mapSortCriterion)
-                .collect(Collectors.toList());
-      } else {
-        sortCriteria =
-            sortInput.getSortCriterion() != null
-                ? Collections.singletonList(mapSortCriterion(sortInput.getSortCriterion()))
-                : new ArrayList<>();
-      }
-    } else {
-      sortCriteria = new ArrayList<>();
-    }
-
-    return sortCriteria;
   }
 }

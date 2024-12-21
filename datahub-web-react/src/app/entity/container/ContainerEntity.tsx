@@ -19,8 +19,8 @@ import { getDataProduct } from '../shared/utils';
 import EmbeddedProfile from '../shared/embed/EmbeddedProfile';
 import AccessManagement from '../shared/tabs/Dataset/AccessManagement/AccessManagement';
 import { useAppConfig } from '../../useAppConfig';
-import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 
 /**
  * Definition of the DataHub Container entity.
@@ -63,7 +63,7 @@ export class ContainerEntity implements Entity<Container> {
 
     getGraphName = () => 'container';
 
-    getPathName = () => this.getGraphName();
+    getPathName = () => 'container';
 
     getEntityName = () => 'Container';
 

@@ -93,14 +93,14 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
                 BusinessAttributeAuthorizationUtils.canCreateBusinessAttribute(context));
             platformPrivileges.setManageBusinessAttributes(
                 BusinessAttributeAuthorizationUtils.canManageBusinessAttribute(context));
-            platformPrivileges.setManageDocumentationForms(
-                AuthorizationUtils.canManageForms(context));
-            platformPrivileges.setViewDocumentationFormsPage(
-                AuthorizationUtils.canViewForms(context));
             platformPrivileges.setManageStructuredProperties(
                 AuthorizationUtils.canManageStructuredProperties(context));
             platformPrivileges.setViewStructuredPropertiesPage(
                 AuthorizationUtils.canViewStructuredPropertiesPage(context));
+            platformPrivileges.setManageDocumentationForms(
+                AuthorizationUtils.canManageForms(context));
+            platformPrivileges.setViewDocumentationFormsPage(
+                AuthorizationUtils.canViewForms(context));
             platformPrivileges.setManageOrganizationDisplayPreferences(
                 AuthorizationUtils.canManageOrganizationDisplayPreferences(context));
 

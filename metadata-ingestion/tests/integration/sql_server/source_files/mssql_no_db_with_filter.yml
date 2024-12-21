@@ -9,6 +9,9 @@ source:
     database_pattern:
       deny:
         - NewData
+    procedure_pattern:
+      deny:
+        - DemoData.Foo.NewProc
 
 sink:
   type: file

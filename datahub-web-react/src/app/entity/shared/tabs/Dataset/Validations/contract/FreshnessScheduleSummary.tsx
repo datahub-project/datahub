@@ -29,7 +29,7 @@ export const FreshnessScheduleSummary = ({ definition, evaluationSchedule }: Pro
         case FreshnessAssertionScheduleType.FixedInterval:
             scheduleText = `In the past ${
                 definition.fixedInterval?.multiple
-            } ${definition.fixedInterval?.unit.toLocaleLowerCase()}s${
+            } ${definition.fixedInterval?.unit?.toLocaleLowerCase()}s${
                 cronStr ? `, as of ${cronstrue.toString(cronStr).toLowerCase()}` : ''
             }`;
             break;

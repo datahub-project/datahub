@@ -4,6 +4,7 @@ from typing import ClassVar, Optional, TextIO
 from liquid import Environment
 from liquid.ast import Node
 from liquid.context import Context
+from liquid.filter import string_filter
 from liquid.parse import expect, get_parser
 from liquid.stream import TokenStream
 from liquid.tag import Tag
@@ -81,12 +82,18 @@ class ConditionTag(Tag):
 custom_tags = [ConditionTag]
 
 
+@string_filter
+def sql_quote_filter(variable: str) -> str:
+    return f"'{variable}'"
+
+
 @lru_cache(maxsize=1)
 def _create_env() -> Environment:
-    env: Environment = Environment()
+    env: Environment = Environment(strict_filters=False)
     # register tag. One time activity
     for custom_tag in custom_tags:
         env.add_tag(custom_tag)
+    env.add_filter("sql_quote", sql_quote_filter)
     return env
 
 

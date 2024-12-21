@@ -53,7 +53,18 @@ ip-192-168-64-56.us-west-2.compute.internal   Ready    <none>   3h    v1.18.9-ek
 ip-192-168-8-126.us-west-2.compute.internal   Ready    <none>   3h    v1.18.9-eks-d1db3c
 ```
 
-Once your cluster is running, make sure to install the EBS CSI driver, Core DNS, and VPC CNI plugin for Kubernetes. [add-ons](https://docs.aws.amazon.com/eks/latest/userguide/eks-add-ons.html)
+### Install EBS CSI driver, Core DNS, and VPC CNI plugin for Kubernetes
+
+Once your cluster is running, make sure to install the EBS CSI driver, Core DNS, and VPC CNI plugin for Kubernetes. [add-ons](https://docs.aws.amazon.com/eks/latest/userguide/eks-add-ons.html).  By default Core DNS and VPC CNI plugins are installed.  You need to manually install the EBS CSI driver. It show look this in your console when you are done.
+
+![Screenshot 2024-11-15 at 4 42 09 PM](https://github.com/user-attachments/assets/5a9a2af0-e804-4896-85bb-dc5834208719)
+
+### Add the AmazonEBSCSIDriverPolicy role to the EKS node group 
+
+Next is to add the AmazonEBSCSIDriverPolicy role to the EKS node group.    You will from the EKS Node group by going to the Compute tab in your EKS cluster and clicking on the IAM entry for the EKS node group.  Add the AmazonEBSCSIDriverPolicy policy. 
+
+![Screenshot 2024-11-15 at 4 42 29 PM](https://github.com/user-attachments/assets/8971c8d6-8543-408b-9a07-814aacb2532d)
+![Screenshot 2024-11-15 at 4 42 46 PM](https://github.com/user-attachments/assets/397f9131-5f13-4d9f-a664-9921d9bbf44e)
 
 ## Setup DataHub using Helm
 

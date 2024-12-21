@@ -103,6 +103,14 @@ export enum EventType {
     EmbedProfileViewInDataHubEvent,
     EmbedLookupNotFoundEvent,
     CreateBusinessAttributeEvent,
+    CreateStructuredPropertyClickEvent,
+    CreateStructuredPropertyEvent,
+    EditStructuredPropertyEvent,
+    DeleteStructuredPropertyEvent,
+    ViewStructuredPropertyEvent,
+    ApplyStructuredPropertyEvent,
+    UpdateStructuredPropertyOnAssetEvent,
+    RemoveStructuredPropertyEvent,
     ClickDocRequestCTA,
     CompleteDocRequestPrompt,
     CompleteVerification,
@@ -146,14 +154,6 @@ export enum EventType {
     DeleteFormEvent,
     CreateQuestionEvent,
     EditQuestionEvent,
-    CreateStructuredPropertyClickEvent,
-    CreateStructuredPropertyEvent,
-    EditStructuredPropertyEvent,
-    DeleteStructuredPropertyEvent,
-    ViewStructuredPropertyEvent,
-    ApplyStructuredPropertyEvent,
-    UpdateStructuredPropertyOnAssetEvent,
-    RemoveStructuredPropertyEvent,
     SSOConfigurationEvent,
 }
 
@@ -1218,6 +1218,14 @@ export type Event =
     | EmbedProfileViewInDataHubEvent
     | EmbedLookupNotFoundEvent
     | CreateBusinessAttributeEvent
+    | CreateStructuredPropertyClickEvent
+    | CreateStructuredPropertyEvent
+    | EditStructuredPropertyEvent
+    | DeleteStructuredPropertyEvent
+    | ViewStructuredPropertyEvent
+    | ApplyStructuredPropertyEvent
+    | UpdateStructuredPropertyOnAssetEvent
+    | RemoveStructuredPropertyEvent
     | ClickDocRequestCTA
     | CompleteDocRequestPrompt
     | CompleteVerification
@@ -1254,12 +1262,4 @@ export type Event =
     | DeleteFormEvent
     | CreateQuestionEvent
     | EditQuestionEvent
-    | CreateStructuredPropertyClickEvent
-    | CreateStructuredPropertyEvent
-    | EditStructuredPropertyEvent
-    | DeleteStructuredPropertyEvent
-    | ViewStructuredPropertyEvent
-    | ApplyStructuredPropertyEvent
-    | UpdateStructuredPropertyOnAssetEvent
-    | RemoveStructuredPropertyEvent
     | SSOConfigurationEvent;

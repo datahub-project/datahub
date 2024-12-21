@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getEntityNames;
+import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.convertFilterToTestConditions;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -49,7 +50,6 @@ import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.service.FormService;
-import com.linkedin.metadata.service.util.MetadataTestServiceUtils;
 import com.linkedin.structured.PrimitivePropertyValueArray;
 import com.linkedin.test.MetadataTestClient;
 import io.datahubproject.metadata.context.OperationContext;
@@ -537,9 +537,7 @@ public class FormUtils {
     ArrayNode orConditions = conditionsNode.putArray("or");
     ObjectNode filterNode = orConditions.addObject();
     ArrayNode orArray = filterNode.putArray("or");
-    orArray.addAll(
-        MetadataTestServiceUtils.convertFilterToTestConditions(
-            filter, searchableFieldsToPathSpecs));
+    orArray.addAll(convertFilterToTestConditions(filter, searchableFieldsToPathSpecs));
 
     return definitionNode;
   }

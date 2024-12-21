@@ -213,7 +213,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     name: 'Incidents',
                     component: IncidentTab,
                     getDynamicName: (_, dataset) => {
-                        const activeIncidentCount = dataset?.dataset?.activeIncidents.total;
+                        const activeIncidentCount = dataset?.dataset?.activeIncidents?.total;
                         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
@@ -263,7 +263,8 @@ export class DatasetEntity implements Entity<Dataset> {
         },
         {
             component: SidebarStructuredPropsSection,
-        }, // TODO: Add back once entity-level recommendations are complete.
+        },
+        // TODO: Add back once entity-level recommendations are complete.
         // {
         //    component: SidebarRecommendationsSection,
         // },

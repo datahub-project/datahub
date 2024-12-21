@@ -546,6 +546,11 @@ jobs:
     needs: setup
     if: ${{ needs.setup.outputs.kafka_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Build and push
@@ -606,6 +611,11 @@ jobs:
     needs: setup
     if: ${{ needs.setup.outputs.mysql_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Build and push
@@ -666,6 +676,11 @@ jobs:
     needs: setup
     if: ${{ needs.setup.outputs.elasticsearch_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
+      - name: Free up disk space
+        run: |
+          sudo apt-get remove 'dotnet-*' azure-cli || true
+          sudo rm -rf /usr/local/lib/android/ || true
+          sudo docker image prune -a -f || true
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Build and push

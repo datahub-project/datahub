@@ -59,7 +59,7 @@ export class BusinessAttributeEntity implements Entity<BusinessAttribute> {
 
     getCollectionName = () => 'Business Attributes';
 
-    getGraphName = () => 'Business Attribute';
+    getGraphName = () => 'businessAttribute';
 
     getCustomCardUrlPath = () => PageRoutes.BUSINESS_ATTRIBUTE;
 

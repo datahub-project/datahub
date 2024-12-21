@@ -61,13 +61,13 @@ fragment lineageNodeProperties on EntityWithRelationships {
         health {
             ...entityHealth
         }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
         structuredProperties {
             properties {
                 ...structuredPropertiesFields
             }
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
     }
     ... on DataFlow {
@@ -105,13 +105,13 @@ fragment lineageNodeProperties on EntityWithRelationships {
         health {
             ...entityHealth
         }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
         structuredProperties {
             properties {
                 ...structuredPropertiesFields
             }
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
     }
     ... on Dashboard {
@@ -289,13 +289,13 @@ fragment lineageNodeProperties on EntityWithRelationships {
         status {
             removed
         }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
         structuredProperties {
             properties {
                 ...structuredPropertiesFields
             }
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
         deprecation {
             ...deprecationFields
@@ -315,13 +315,13 @@ fragment lineageNodeProperties on EntityWithRelationships {
         status {
             removed
         }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
         structuredProperties {
             properties {
                 ...structuredPropertiesFields
             }
+        }
+        browsePathV2 {
+            ...browsePathV2Fields
         }
         deprecation {
             ...deprecationFields

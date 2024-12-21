@@ -76,7 +76,7 @@ export default function EntityFormContextProvider({ children, formUrn, defaultFo
 
     // Find intitial prompt
     const initialPromptId =
-        form?.info.prompts.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type))[0]?.id || null;
+        form?.info?.prompts?.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type))[0]?.id || null;
 
     // Place current entity first in entity array
     const entitiesForForm = entityUrnsByForm?.searchAcrossEntities?.searchResults

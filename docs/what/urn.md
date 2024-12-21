@@ -48,4 +48,4 @@ The following characters are not allowed within an URN tuple.
 
 Example: `urn:li:dashboard:(looker,dashboards.thelook)` is a valid urn, but `urn:li:dashboard:(looker,dashboards.the,look)` is invalid.
 
-Please do not use these characters when creating or generating urns.
+Please do not use these characters when creating or generating urns. One approach is to use URL encoding for the characters.

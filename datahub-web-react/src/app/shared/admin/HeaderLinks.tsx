@@ -99,8 +99,8 @@ export function HeaderLinks(props: Props) {
 
     const businessAttributesFlag = useBusinessAttributesFlag();
 
-    const isAnalyticsEnabled = config?.analyticsConfig.enabled;
-    const isIngestionEnabled = config?.managedIngestionConfig.enabled;
+    const isAnalyticsEnabled = config?.analyticsConfig?.enabled;
+    const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
     // SaaS Only
     // Currently we only have a flag for metadata proposals.
     // In the future, we may add configs for alerts, announcements, etc.
@@ -111,6 +111,9 @@ export function HeaderLinks(props: Props) {
     const showSettings = true;
     const showIngestion =
         isIngestionEnabled && me && (me.platformPrivileges?.manageIngestion || me.platformPrivileges?.manageSecrets);
+    const showStructuredProperties =
+        config?.featureFlags?.showManageStructuredProperties &&
+        (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
 
     // SaaS only
     const showActionRequests =
@@ -123,9 +126,6 @@ export function HeaderLinks(props: Props) {
         config?.featureFlags?.documentationFormsEnabled &&
         (me.platformPrivileges?.manageDocumentationForms || me.platformPrivileges?.viewDocumentationFormsPage) &&
         (showFormAnalytics || formCreationEnabled);
-    const showStructuredProperties =
-        config?.featureFlags?.showManageStructuredProperties &&
-        (me.platformPrivileges?.manageStructuredProperties || me.platformPrivileges?.viewStructuredPropertiesPage);
 
     useToggleEducationStepIdsAllowList(!!showIngestion, HOME_PAGE_INGESTION_ID);
 
@@ -175,6 +175,22 @@ export function HeaderLinks(props: Props) {
                                   <NavTitleText>Business Attribute</NavTitleText>
                               </NavSubItemTitleContainer>
                               <NavTitleDescription>Universal field for data consistency</NavTitleDescription>
+                          </Link>
+                      ),
+                  },
+              ]
+            : []),
+        ...(showStructuredProperties
+            ? [
+                  {
+                      key: 5,
+                      label: (
+                          <Link to={PageRoutes.STRUCTURED_PROPERTIES}>
+                              <NavSubItemTitleContainer>
+                                  <UnorderedListOutlined style={{ fontSize: '14px', fontWeight: 'bold' }} />
+                                  <NavTitleText>Structured Properties</NavTitleText>
+                              </NavSubItemTitleContainer>
+                              <NavTitleDescription>Manage custom properties for your data assets</NavTitleDescription>
                           </Link>
                       ),
                   },

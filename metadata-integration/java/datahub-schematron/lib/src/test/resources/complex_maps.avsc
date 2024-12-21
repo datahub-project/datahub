@@ -1,0 +1,87 @@
+{
+  "type": "record",
+  "name": "MapType",
+  "fields": [
+    {
+      "name": "mapOfString",
+      "type": {
+        "type": "map",
+        "values": "string"
+      }
+    },
+    {
+      "name": "mapOfComplexType",
+      "type": {
+        "type": "map",
+        "values": {
+          "type": "record",
+          "name": "ComplexType",
+          "fields": [
+            {
+              "name": "field1",
+              "type": "string"
+            },
+            {
+              "name": "field2",
+              "type": "int"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "mapOfNullableString",
+      "type": {
+        "type": "map",
+        "values": ["null", "string"]
+      }
+    },
+    {
+      "name": "mapOfNullableComplexType",
+      "type": {
+        "type": "map",
+        "values": ["null", {
+          "type": "record",
+          "name": "ComplexTypeNullable",
+          "fields": [
+            {
+              "name": "field1",
+              "type": "string"
+            },
+            {
+              "name": "field2",
+              "type": "int"
+            }
+          ]
+        }]
+      }
+    },
+    {
+      "name": "mapOfArray",
+      "type": {
+        "type": "map",
+        "values": {
+          "type": "array",
+          "items": "string"
+        }
+      }
+    },
+    {
+      "name": "mapOfMap",
+      "type": {
+        "type": "map",
+        "values": {
+          "type": "map",
+          "values": "int"
+        }
+      }
+    },
+    {
+      "name": "mapOfUnion",
+      "type": {
+        "type": "map",
+        "values": ["null", "string", "int"]
+      }
+    }
+  ]
+}

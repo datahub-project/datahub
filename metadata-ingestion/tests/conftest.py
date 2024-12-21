@@ -7,6 +7,7 @@ from typing import List
 import pytest
 
 os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
+os.environ["DATAHUB_TEST_MODE"] = "1"
 
 # Enable debug logging.
 logging.getLogger().setLevel(logging.DEBUG)

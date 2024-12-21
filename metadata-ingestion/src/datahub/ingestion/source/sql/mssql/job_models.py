@@ -101,6 +101,7 @@ class StoredProcedure:
     flow: Union[MSSQLJob, MSSQLProceduresContainer]
     type: str = "STORED_PROCEDURE"
     source: str = "mssql"
+    code: Optional[str] = None
 
     @property
     def full_type(self) -> str:

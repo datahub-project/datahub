@@ -37,8 +37,8 @@ export const AdminConsole = (): JSX.Element => {
     const [adminConsoleOpen, setAdminConsoleOpen] = useState(false);
     const { config } = useAppConfig();
 
-    const isAnalyticsEnabled = config?.analyticsConfig.enabled;
-    const isPoliciesEnabled = config?.policiesConfig.enabled;
+    const isAnalyticsEnabled = config?.analyticsConfig?.enabled;
+    const isPoliciesEnabled = config?.policiesConfig?.enabled;
     // Currently we only have a flag for metadata proposals.
     // In the future, we may add configs for alerts, announcements, etc.
     const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;

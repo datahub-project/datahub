@@ -4,8 +4,8 @@ import { StyledList } from '@src/app/entity/shared/tabs/Dataset/Schema/component
 import { EditColumn } from '@src/app/entity/shared/tabs/Properties/Edit/EditColumn';
 import StructuredPropertyValue from '@src/app/entity/shared/tabs/Properties/StructuredPropertyValue';
 import { PropertyRow } from '@src/app/entity/shared/tabs/Properties/types';
+import EmptySectionText from '@src/app/shared/sidebar/EmptySectionText';
 import { EMPTY_MESSAGES } from '@src/app/entityV2/shared/constants';
-import EmptySectionText from '@src/app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import {
     getDisplayName,
     getEntityTypesPropertyFilter,
@@ -18,7 +18,7 @@ import { EntityType, SchemaField, SearchResult, StdDataType, StructuredPropertyE
 import {
     SHOW_IN_ASSET_SUMMARY_PROPERTY_FILTER_NAME,
     SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME,
-} from '@src/app/searchV2/utils/constants';
+} from '@src/app/search/utils/constants';
 import {
     SectionHeader,
     StyledDivider,
@@ -88,7 +88,7 @@ const SidebarStructuredPropsSection = ({ properties }: Props) => {
                     property,
                     currentProperties,
                 );
-                const isRichText = propertyRow?.dataType?.info.type === StdDataType.RichText;
+                const isRichText = propertyRow?.dataType?.info?.type === StdDataType.RichText;
                 const values = propertyRow?.values;
                 const hasMultipleValues = values && values.length > 1;
                 const propertyName = getDisplayName(property.entity as StructuredPropertyEntity);

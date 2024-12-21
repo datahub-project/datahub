@@ -5,7 +5,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability saasOnly />
 
 ## Install the DataHub Slack App into your Slack workspace
-
+You can see the permissions required by the DataHub Slack bot [below](#datahub-slack-bot-permissions).
 
 ### Video Walkthrough
 <div align="center"><iframe width="560" height="315" src="https://www.loom.com/embed/af6fcfd435cf4993b79a0c8e13aecaaa?sid=93f2a66b-1362-4809-996b-5abb399f82dd" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe></div>
@@ -29,7 +29,11 @@ The following steps should be performed by a Slack Workspace Admin.
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_4.png"/>
 </p>
-6. You will be automatically re-directed to Slack to confirm DataHub Slack App's permissions and complete the installation process:
+6. You will be automatically re-directed to Slack to confirm DataHub Slack App's permissions and complete the installation process.
+
+:::note
+You may need approval from a workspace admin to do this step. Learn about [what to do in this scenario here](#workspace-admin-approval-guide).
+:::
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/saas/slack/setup_5.png"/>
 </p>
@@ -43,6 +47,50 @@ The following steps should be performed by a Slack Workspace Admin.
 </p>
 
 Now proceed to the [Subscriptions and Notifications page](https://datahubproject.io/docs/managed-datahub/subscription-and-notification) to see how you can subscribe to be notified about events on the platform, or visit the [Slack App page](saas-slack-app.md) to see how you can use DataHub's powerful capabilities directly within Slack.
+
+### DataHub Slack bot permissions
+The DataHub Slack bot requires a certain set of scopes (permissions) to function. We've listed them below with thier explanations.
+```
+# Required for slash commands / shortcuts.
+commands
+# Required to get @DataHub messages and send messages as @DataHub.
+app_mentions:read
+chat:write
+chat:write.public
+# When sending messages we want to use a custom icon_url so that we can display the DataHub Cloud logo.
+chat:write.customize
+# Required to see conversation details + read messages.
+channels:history
+channels:read
+groups:history
+groups:read
+im:history
+im:read
+mpim:history
+mpim:read
+metadata.message:read
+# Required to get workspace ID and create links to user profiles.
+team:read
+# Allows the bot to join a public channel when someone configures notifications to be sent to one.
+channels:join
+# Required to unfurl links.
+links:read
+links:write
+# Required to resolve user IDs to names/emails + enable lookup by email address.
+users:read
+users:read.email
+# Future-proofing.
+reactions:read
+reactions:write
+```
+
+### Workspace admin approval guide
+In some workspaces, you will find at step 6 above you will need approval from your workspace admin. In this case, you will want to:
+1. On step #6 above, continue by clicking the button to request their approval.
+2. Once approved, you will get a notification from the **Slack bot** that your request has been approved. Follow the link it provides to complete the process.
+**If you do not get the message:** visit [api.slack.com/apps](https://api.slack.com/apps), open your DataHub app and complete the installation from there.
+3. Once it is done, you can visit `<your-datahub-instance-url>/settings/notifications`, and send a test notification to verify everything's working.
+4. **Making Slack commands work:** when running Slack commands such as `/datahub search my dataset` you may get a `dispatch_failed` error. To resolve this, see [the steps here](https://datahubproject.io/docs/managed-datahub/slack/saas-slack-troubleshoot#slack-bot-issues).
 
 <!-- NOTE: we are hiding this method for now. If a need arises, we can uncomment below docs.
 # Bot Token Method (Not recommended)

@@ -1,0 +1,188 @@
+[
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
+            "urn": "urn:li:glossaryNode:Custom URN Types",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
+                        "customProperties": {},
+                        "definition": "Testing custom ownership URN types",
+                        "name": "Custom URN Types"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:user1",
+                                "type": "CUSTOM",
+                                "typeUrn": "urn:li:ownershipType:custom_type_1"
+                            },
+                            {
+                                "owner": "urn:li:corpGroup:group1",
+                                "type": "CUSTOM",
+                                "typeUrn": "urn:li:ownershipType:custom_type_1"
+                            },
+                            {
+                                "owner": "urn:li:corpuser:user2",
+                                "type": "CUSTOM",
+                                "typeUrn": "urn:li:ownershipType:custom_type_2"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-dlsmlo",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+            "urn": "urn:li:glossaryTerm:Custom URN Types.Mixed URN Types",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+                        "customProperties": {},
+                        "name": "Mixed URN Types",
+                        "definition": "Term with custom URN types",
+                        "parentNode": "urn:li:glossaryNode:Custom URN Types",
+                        "termSource": "INTERNAL",
+                        "sourceRef": "DataHub",
+                        "sourceUrl": "https://github.com/datahub-project/datahub/"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:user3",
+                                "type": "CUSTOM",
+                                "typeUrn": "urn:li:ownershipType:custom_type_3"
+                            },
+                            {
+                                "owner": "urn:li:corpGroup:group2",
+                                "type": "CUSTOM",
+                                "typeUrn": "urn:li:ownershipType:custom_type_4"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-dlsmlo",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
+            "urn": "urn:li:glossaryTerm:Custom URN Types.Mixed Standard and URN",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
+                        "customProperties": {},
+                        "name": "Mixed Standard and URN",
+                        "definition": "Term with both standard and URN types",
+                        "parentNode": "urn:li:glossaryNode:Custom URN Types",
+                        "termSource": "INTERNAL",
+                        "sourceRef": "DataHub",
+                        "sourceUrl": "https://github.com/datahub-project/datahub/"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:dev1",
+                                "type": "DEVELOPER"
+                            },
+                            {
+                                "owner": "urn:li:corpGroup:group3",
+                                "type": "CUSTOM",
+                                "typeUrn": "urn:li:ownershipType:custom_type_5"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-dlsmlo",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Custom URN Types",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-dlsmlo",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Custom URN Types.Mixed Standard and URN",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-dlsmlo",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Custom URN Types.Mixed URN Types",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-dlsmlo",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

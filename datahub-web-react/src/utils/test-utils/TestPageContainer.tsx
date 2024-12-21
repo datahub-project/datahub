@@ -27,6 +27,7 @@ import { DataPlatformEntity } from '../../app/entity/dataPlatform/DataPlatformEn
 import { ContainerEntity } from '../../app/entity/container/ContainerEntity';
 import AppConfigProvider from '../../AppConfigProvider';
 import { BusinessAttributeEntity } from '../../app/entity/businessAttribute/BusinessAttributeEntity';
+import { SchemaFieldPropertiesEntity } from '../../app/entity/schemaField/SchemaFieldPropertiesEntity';
 import { DomainEntity } from '../../app/entity/domain/DomainEntity';
 import { DataProductEntity } from '../../app/entity/dataProduct/DataProductEntity';
 import CustomThemeProvider from '../../CustomThemeProvider';
@@ -55,10 +56,10 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new DataPlatformEntity());
     entityRegistry.register(new ContainerEntity());
     entityRegistry.register(new BusinessAttributeEntity());
+    entityRegistry.register(new SchemaFieldPropertiesEntity());
     entityRegistry.register(new DomainEntity());
     entityRegistry.register(new DataProductEntity());
     entityRegistry.register(new DataPlatformInstanceEntity());
-    entityRegistry.register(new SchemaFieldPropertiesEntity());
     return entityRegistry;
 }
 

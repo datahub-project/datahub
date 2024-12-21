@@ -22,7 +22,7 @@ export default function SchemaFieldPrompts({ prompts, associatedUrn }: Props) {
 
     if (!entityWithSchema?.schemaMetadata || !entityWithSchema.schemaMetadata.fields.length) return null;
 
-    const schemaFields = entityWithSchema.schemaMetadata.fields;
+    const schemaFields = entityWithSchema?.schemaMetadata?.fields;
 
     return (
         <>

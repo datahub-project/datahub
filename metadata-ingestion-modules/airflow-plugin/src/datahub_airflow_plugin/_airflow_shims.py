@@ -46,7 +46,7 @@ def get_task_inlets(operator: "Operator") -> List:
         return operator._inlets  # type: ignore[attr-defined, union-attr]
     if hasattr(operator, "get_inlet_defs"):
         return operator.get_inlet_defs()  # type: ignore[attr-defined]
-    return operator.inlets
+    return operator.inlets or []
 
 
 def get_task_outlets(operator: "Operator") -> List:
@@ -56,7 +56,7 @@ def get_task_outlets(operator: "Operator") -> List:
         return operator._outlets  # type: ignore[attr-defined, union-attr]
     if hasattr(operator, "get_outlet_defs"):
         return operator.get_outlet_defs()
-    return operator.outlets
+    return operator.outlets or []
 
 
 __all__ = [

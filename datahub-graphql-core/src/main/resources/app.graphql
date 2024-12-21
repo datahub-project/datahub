@@ -191,6 +191,15 @@ type PlatformPrivileges {
   """
   manageBusinessAttributes: Boolean!
 
+  """
+  Whether the user can create, edit, and delete structured properties.
+  """
+  manageStructuredProperties: Boolean!
+
+  """
+  Whether the user can view the manage structured properties page.
+  """
+  viewStructuredPropertiesPage: Boolean!
 
   """
   Whether the user can create, edit, and assign documentation forms.
@@ -201,16 +210,6 @@ type PlatformPrivileges {
   Whether the user can view the manage documentation forms page.
   """
   viewDocumentationFormsPage: Boolean!
-
-  """
-  Whether the user can create, edit, and delete structured properties.
-  """
-  manageStructuredProperties: Boolean!
-
-  """
-  Whether the user can view the manage structured properties page.
-  """
-  viewStructuredPropertiesPage: Boolean!
 
   """
   Whether the user can manage Organization Display Preferences
@@ -1267,6 +1266,11 @@ type FeatureFlagsConfig {
   showSeparateSiblings: Boolean!
 
   """
+  If turned on, show the manage structured properties tab in the govern dropdown
+  """
+  showManageStructuredProperties: Boolean!
+
+  """
   If turned on, hides DBT Sources from lineage by:
   i) Hiding the source in the lineage graph, if it has no downstreams
   ii) Swapping to the source's sibling urn on V2 lineage graph
@@ -1278,7 +1282,7 @@ type FeatureFlagsConfig {
   If turned on, the bulk form by question view will be shown by default from the task center
   """
   showBulkFormByDefault: Boolean!
-  
+
   """
   If turned on, schema field lineage will always fetch ghost entities and present them as real
   """
@@ -1288,11 +1292,6 @@ type FeatureFlagsConfig {
   Enables showing sort by row count, query count, update count, size in bytes.
   """
   showDatasetFeaturesSearchSortOptions: Boolean!
-
-  """
-  If turned on, show the manage structured properties tab in the govern dropdown
-  """
-  showManageStructuredProperties: Boolean!
 
   """
   If turned on, show the newly designed nav bar in the V2 experience

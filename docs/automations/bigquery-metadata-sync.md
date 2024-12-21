@@ -18,26 +18,31 @@ BigQuery. This automation is exclusively available in DataHub Cloud (Acryl).
 - Facilitate compliance efforts by automatically tagging sensitive data columns
 - Support data lineage tracking by keeping metadata aligned across platforms
 
-## Capabilities
+## Sync Capabilities
 
-- Automatically add DataHub Tags as BigQuery Labels to tables
-- Automatically add DataHub Table descriptions to BigQuery Tables
-- Automatically add DataHub Column descriptions to BigQuery Columns
-- Automatically add DataHub Glossary Terms as Policy Tags to BigQuery Columns (under a **DataHub** taxonomy created in BigQuery)
-- Automatically remove Policy Tags/Table Labels when removed in DataHub
+| DataHub Source | BigQuery Target | Sync Direction | Notes |
+|----------------|-----------------|----------------|--------|
+| Table Tags | Table Labels | Bi-directional | Changes in either system reflect in both |
+| Table Descriptions | Table Descriptions | Bi-directional | Changes in either system reflect in both |
+| Column Descriptions | Column Descriptions | Bi-directional | Changes in either system reflect in both. <br/> Thes sync doesn't delete table description from BigQuery |
+| Column Glossary Terms | Column Policy Tags | DataHub → BigQuery | Created under DataHub taxonomy |
 
+## Setup Instructions
 
-## Required Bigquery Permissions 
+### 1. Verify Permissions
 
-| Action | Required Permission(s) |
-|--------|------------------------|
-| Create/update policy tags and taxonomies | `bigquery.taxonomies.create` <br/> `bigquery.taxonomies.update` |
-| Assign/remove policy tags from columns | `bigquery.tables.updateTag` |
-| Edit table description | `bigquery.tables.update` |
-| Edit column description | `bigquery.tables.update` |
-| Assign/remove labels from tables | `bigquery.tables.update` |
+Ensure your service account has the following permissions:
 
-## Enabling BigQuery Sync Automation
+| Task | Required Permissions | Available Role |
+|------|---------------------|----------------|
+| Policy Tag Management | • `datacatalog.taxonomies.create`<br/>• `datacatalog.taxonomies.update`<br/>• `datacatalog.taxonomies.list`<br/>• `datacatalog.taxonomies.get`<br/>• `bigquery.tables.createTagBinding` | Policy Tag Admin |
+| Policy Tag Assignment | • `bigquery.tables.updateTag` | - |
+| Description Management | • `bigquery.tables.update` | - |
+| Label Management | • `bigquery.tables.update` | - |
+
+**Note**: `bigquery.tables` permissions must be granted in every project where metadata sync is needed.
+
+### 2. Enable the Automation
 
 1. **Navigate to Automations**: Click on 'Govern' > 'Automations' in the navigation bar.
 
@@ -87,7 +92,7 @@ BigQuery. This automation is exclusively available in DataHub Cloud (Acryl).
 
     3. **Finally, click 'Save and Run' to start the automation**
 
-## Propagating for Existing Assets
+## 3. Propagating for Existing Assets (Optional)
 
 To ensure that all existing table Tags and Column Glossary Terms are propagated to BigQuery, you can back-fill historical data for existing assets. Note that the initial back-filling process may take some time, depending on the number of BigQuery assets you have.
 
@@ -131,7 +136,7 @@ A: No, BigQuery Policy Tags are only propagated from DataHub to BigQuery, not vi
 
 It is recommended to avoid enabling `extract_policy_tags_from_catalog` during
 ingestion, as this will ingest policy tags as BigQuery labels. Our sync process
-propagates Glossary Term assignments to BigQuery as Policy Tags. 
+propagates Glossary Term assignments to BigQuery as Policy Tags.
 
 In a future release, we plan to remove this restriction to support full bi-directional syncing.
 
@@ -159,7 +164,7 @@ a specific area of the Business Glossary.
 A: From DataHub to BigQuery, the sync happens instantly (within a few seconds)
 when the change occurs in DataHub.
 
-From BigQuery to DataHub, changes are synced when ingestion occurs, and the frequency depends on your custom ingestion schedule. (Visible on the **Integrations** page) 
+From BigQuery to DataHub, changes are synced when ingestion occurs, and the frequency depends on your custom ingestion schedule. (Visible on the **Integrations** page)
 
 ### Q: What happens if there's a conflict between DataHub and BigQuery metadata?
 
@@ -168,6 +173,10 @@ A: In case of conflicts (e.g., a tag is modified in both systems between syncs),
 ### Q: What permissions are required for bi-directional syncing?
 
 A: Ensure that the service account used for the automation has the necessary permissions in both DataHub and BigQuery to read and write metadata. See the required BigQuery permissions at the top of the page.
+
+### Q: Can table description removed?
+
+No, the sync can only modify table description but it won't remove or clear a description from a table. 
 
 ## Related Documentation
 

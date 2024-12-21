@@ -54,7 +54,7 @@ export default function buildEntityRegistry() {
     registry.register(new RestrictedEntity());
     registry.register(new BusinessAttributeEntity());
     registry.register(new SchemaFieldPropertiesEntity());
-    registry.register(new QueryEntity());
     registry.register(new StructuredPropertyEntity());
+    registry.register(new QueryEntity());
     return registry;
 }

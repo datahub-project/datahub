@@ -53,6 +53,10 @@ dependencies {
   testRuntimeOnly externalDependency.logbackJackson
   testRuntimeOnly externalDependency.logbackJsonClassic
   implementation externalDependency.charle
+
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.springBootTest
+  testRuntimeOnly externalDependency.logbackClassic
 }
 configurations.all{
   exclude group: "com.charleskorn.kaml", module:"kaml"

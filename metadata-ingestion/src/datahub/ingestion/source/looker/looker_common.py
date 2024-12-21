@@ -48,7 +48,7 @@ from datahub.ingestion.source.looker.looker_dataclasses import ProjectInclude
 from datahub.ingestion.source.looker.looker_file_loader import LookerViewFileLoader
 from datahub.ingestion.source.looker.looker_lib_wrapper import LookerAPI
 from datahub.ingestion.source.looker.lookml_config import (
-    _BASE_PROJECT_NAME,
+    BASE_PROJECT_NAME,
     LookMLSourceReport,
 )
 from datahub.ingestion.source.looker.str_functions import remove_suffix
@@ -307,7 +307,6 @@ class ViewField:
         type_cls: ViewFieldType,
         populate_sql_logic_in_descriptions: bool,
     ) -> "ViewField":
-
         is_primary_key = field_dict.get("primary_key", "no") == "yes"
 
         name = field_dict["name"]
@@ -370,7 +369,7 @@ class ExploreUpstreamViewField:
         assert view_name  # for lint false positive
 
         project_include: ProjectInclude = ProjectInclude(
-            project=view_project_map.get(view_name, _BASE_PROJECT_NAME),
+            project=view_project_map.get(view_name, BASE_PROJECT_NAME),
             include=view_name,
         )
 
@@ -385,7 +384,7 @@ class ExploreUpstreamViewField:
         view_urn = LookerViewId(
             project_name=(
                 project_include.project
-                if project_include.project != _BASE_PROJECT_NAME
+                if project_include.project != BASE_PROJECT_NAME
                 else explore_project_name
             ),
             model_name=model_name,
@@ -929,7 +928,6 @@ class LookerExplore:
         reporter: SourceReport,
         source_config: LookerDashboardSourceConfig,
     ) -> Optional["LookerExplore"]:  # noqa: C901
-
         try:
             explore = client.lookml_model_explore(model, explore_name)
             views: Set[str] = set()
@@ -987,13 +985,11 @@ class LookerExplore:
             field_name_vs_raw_explore_field: Dict = {}
 
             if explore.fields is not None:
-
                 if explore.fields.dimensions is not None:
                     for dim_field in explore.fields.dimensions:
                         if dim_field.name is None:
                             continue
                         else:
-
                             field_name_vs_raw_explore_field[dim_field.name] = dim_field
 
                             view_fields.append(
@@ -1034,7 +1030,6 @@ class LookerExplore:
                         if measure_field.name is None:
                             continue
                         else:
-
                             field_name_vs_raw_explore_field[
                                 measure_field.name
                             ] = measure_field
@@ -1113,7 +1108,7 @@ class LookerExplore:
                 fields=view_fields,
                 upstream_views=list(
                     ProjectInclude(
-                        project=view_project_map.get(view_name, _BASE_PROJECT_NAME),
+                        project=view_project_map.get(view_name, BASE_PROJECT_NAME),
                         include=view_name,
                     )
                     for view_name in views
@@ -1239,7 +1234,7 @@ class LookerExplore:
                 view_urn = LookerViewId(
                     project_name=(
                         view_ref.project
-                        if view_ref.project != _BASE_PROJECT_NAME
+                        if view_ref.project != BASE_PROJECT_NAME
                         else self.project_name
                     ),
                     model_name=self.model_name,

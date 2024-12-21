@@ -102,7 +102,29 @@ source:
     connection:
       bootstrap: "broker:9092"
       schema_registry_url: http://localhost:8081
+```
 
+### OAuth Callback 
+The OAuth callback function can be set up using `config.connection.consumer_config.oauth_cb`.
+
+You need to specify a Python function reference in the format &lt;python-module&gt;:&lt;function-name&gt;.
+
+For example, in the configuration `oauth:create_token`, `create_token` is a function defined in `oauth.py`, and `oauth.py` must be accessible in the PYTHONPATH.
+
+```YAML
+source:
+  type: "kafka"
+  config:
+    # Set the custom schema registry implementation class
+    schema_registry_class: "datahub.ingestion.source.confluent_schema_registry.ConfluentSchemaRegistry"
+    # Coordinates
+    connection:
+      bootstrap: "broker:9092"
+      schema_registry_url: http://localhost:8081
+      consumer_config:
+        security.protocol: "SASL_PLAINTEXT"
+        sasl.mechanism: "OAUTHBEARER"
+        oauth_cb: "oauth:create_token"
 # sink configs
 ```
 

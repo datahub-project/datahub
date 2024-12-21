@@ -149,11 +149,11 @@ export const AnalyticsPage = () => {
                                 placeholder="Select a domain"
                                 onChange={onDomainChange}
                                 filterOption={(input, option) =>
-                                    option?.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                                    option?.children?.toLowerCase()?.indexOf(input.toLowerCase()) >= 0
                                 }
                             >
                                 <Select.Option value="ALL">All</Select.Option>
-                                {domainData?.listDomains?.domains.map((domainChoice) => (
+                                {domainData?.listDomains?.domains?.map((domainChoice) => (
                                     <Select.Option value={domainChoice.urn} key={domainChoice.urn}>
                                         {domainChoice?.properties?.name}
                                     </Select.Option>

@@ -104,9 +104,10 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
         () -> {
 
           final Authentication auth = AuthenticationContext.getAuthentication();
+          String actorUrnStr = auth.getActor().toUrnStr();
           Set<Urn> urns = Arrays.stream(buckets).sequential().map(UsageAggregation::getResource).collect(Collectors.toSet());
           final OperationContext opContext = OperationContext.asSession(
-                  systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(),
+                  systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
                           ACTION_BATCH_INGEST, urns.stream().map(Urn::getEntityType).collect(Collectors.toList())), _authorizer,
                   auth, true);
 
@@ -115,7 +116,7 @@ public class UsageStats extends SimpleResourceTemplate<UsageAggregation> {
                   UPDATE,
                   urns)) {
             throw new RestLiServiceException(
-                HttpStatus.S_403_FORBIDDEN, "User is unauthorized to edit entities.");
+                HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to edit entities.");
           }
 
           for (UsageAggregation agg : buckets) {

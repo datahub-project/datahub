@@ -38,8 +38,8 @@ export default function PropertyTypeLabel({ type, dataType, displayTransparent }
     const nativeFallback = type.type === SchemaFieldDataType.Null;
 
     const typeText =
-        dataType?.info.displayName ||
-        dataType?.info.type ||
+        dataType?.info?.displayName ||
+        dataType?.info?.type ||
         (nativeFallback ? truncate(250, nativeDataType) : type.type);
 
     return <PropertyTypeBadge count={capitalizeFirstLetterOnly(typeText)} displayTransparent={displayTransparent} />;

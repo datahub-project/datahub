@@ -1,0 +1,163 @@
+.container {
+  padding: 5rem;
+  padding-bottom: 0;
+  display: flex;
+  position: relative;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(30deg, #EBEBEB 15.52%, #FFF 85.84%);
+}
+
+.personas {
+  width: 100%;
+}
+
+.persona_heading {
+  color: var(--primitives-text-tex-subtext, #777E99);
+  text-align: center;
+  font-family: Manrope;
+  font-size: 2rem;
+  font-style: normal;
+  font-weight: 500;
+  line-height: normal;
+  letter-spacing: 0.34px;
+  margin-bottom: 2rem;
+  position: relative;
+  padding: 0 2rem;
+  display: block;
+  width: 100%;
+
+  &:before, &:after {
+    content: " ";
+    height: 2px;
+    width: calc((100vw - 1500px)/2);
+    background: #D9DBE4;
+    display: block;
+    position: absolute;
+    top: 50%;
+  }
+
+  &:before {
+    left: 8rem;
+  }
+
+  &:after {
+    right: 8rem;
+  }
+}
+
+.persona_row {
+  display: flex;
+  justify-content: center;
+  gap: 50px;
+  position: relative;
+  padding-top: 20px; /* Add some padding to give space above the line */
+}
+
+.persona_row_mobile {
+  display: none;
+}
+
+.persona_row_wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: inherit; /* Inherit the container's gradient */
+}
+
+.persona {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 365px;
+  margin: 2rem;
+  margin-bottom: 0;
+  height: 100%;
+  background: inherit; /* Allow persona card to have gradient */
+}
+
+.persona_img {
+  margin-bottom: 12px;
+  z-index: 1;
+}
+
+.persona_img img {
+  height: 200px;
+}
+
+.features {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.featureItem {
+  display: flex;
+  padding: 0.625rem;
+  border-radius: 0.375rem;
+  background: white;
+  opacity: 0.8;
+  color: var(--primitives-text-tex-subtext, #777E99);
+  font-family: Manrope;
+  font-size: 1rem;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  letter-spacing: 0.01rem;
+  text-transform: capitalize;
+  margin: 0.5rem;
+  justify-content: center;
+  width: max-content;
+}
+
+.card_gradient {
+  position: absolute;
+  right: 0;
+  left: 0;
+  bottom: 0;
+  height: 40%;
+  background: linear-gradient(to top, #EBEBEB 15.52%, transparent);
+}
+
+.persona_bg_line {
+  width: 100%;
+  max-width: 900px;
+  height: 0;
+  border-bottom: 1px dashed #aaa;
+  background-size: contain; 
+  position: absolute;
+  top: 28%; 
+  margin: auto;
+}
+
+
+@media (max-width: 768px) {
+  .container {
+    padding: 4rem 2rem;
+    max-width: 100vw;
+  }
+
+  .persona_heading {
+    font-size: 1.4rem;
+  }
+  .persona_row {
+    display: none !important;
+  }
+  .persona_row_mobile {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+  }
+  
+  .persona_row_wrapper {
+    display: block !important;
+  }
+
+  .persona {
+    margin: 3rem auto;
+  }
+
+  .card_gradient {
+    height: 15%;
+  }
+}

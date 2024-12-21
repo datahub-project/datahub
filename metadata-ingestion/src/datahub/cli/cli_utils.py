@@ -327,6 +327,8 @@ def _ensure_valid_gms_url_acryl_cloud(url: str) -> str:
         url = f"{url}/gms"
     elif url.endswith("acryl.io/"):
         url = f"{url}gms"
+    if url.endswith("acryl.io/api/gms"):
+        url = url.replace("acryl.io/api/gms", "acryl.io/gms")
 
     return url
 

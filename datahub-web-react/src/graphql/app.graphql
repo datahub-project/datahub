@@ -105,6 +105,7 @@ query appConfig {
             slackBotTokensConfigEnabled
             slackBotTokensObfuscationEnabled
             showSeparateSiblings
+            showManageStructuredProperties
             formCreationEnabled
             schemaFieldCLLEnabled
             showSeparateSiblings
@@ -112,7 +113,6 @@ query appConfig {
             showBulkFormByDefault
             schemaFieldLineageIgnoreStatus
             showDatasetFeaturesSearchSortOptions
-            showManageStructuredProperties
             showNavBarRedesign
             showAutoCompleteResults
             showFormAnalytics

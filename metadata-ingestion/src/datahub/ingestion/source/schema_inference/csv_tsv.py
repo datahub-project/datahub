@@ -3,15 +3,15 @@ from typing import IO, Dict, List, Type
 from tableschema import Table
 
 from datahub.ingestion.source.schema_inference.base import SchemaInferenceBase
-from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
     DateTypeClass,
     NullTypeClass,
     NumberTypeClass,
     RecordTypeClass,
-    SchemaField,
-    SchemaFieldDataType,
+    SchemaFieldClass as SchemaField,
+    SchemaFieldDataTypeClass as SchemaFieldDataType,
     StringTypeClass,
     TimeTypeClass,
     UnionTypeClass,

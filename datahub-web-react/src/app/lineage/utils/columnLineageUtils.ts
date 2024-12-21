@@ -149,7 +149,7 @@ export function filterColumns(
     setColumnsByUrn: (value: React.SetStateAction<Record<string, SchemaField[]>>) => void,
 ) {
     const formattedFilterText = filterText.toLocaleLowerCase();
-    const filteredFields = node.data.schemaMetadata?.fields.filter((field) =>
+    const filteredFields = node.data.schemaMetadata?.fields?.filter((field) =>
         field.fieldPath.toLocaleLowerCase().includes(formattedFilterText),
     );
     if (filteredFields) {

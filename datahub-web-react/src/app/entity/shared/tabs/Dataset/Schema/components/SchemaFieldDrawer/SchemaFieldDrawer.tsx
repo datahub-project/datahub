@@ -49,7 +49,7 @@ export default function SchemaFieldDrawer({
     );
     const expandedField =
         expandedFieldIndex !== undefined && expandedFieldIndex !== -1 ? schemaFields[expandedFieldIndex] : undefined;
-    const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find((candidateEditableFieldInfo) =>
+    const editableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find((candidateEditableFieldInfo) =>
         pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, expandedField?.fieldPath),
     );
     const schemaColumnProperties = useGetSchemaColumnProperties();

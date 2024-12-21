@@ -164,6 +164,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private final Integer ebeanMaxTransactionRetry;
   private final boolean enableBrowseV2;
 
+  private static final long DB_TIMER_LOG_THRESHOLD_MS = 50;
+
   @Getter
   private final Map<Set<ThrottleType>, ThrottleEvent> throttleEvents = new ConcurrentHashMap<>();
 
@@ -854,6 +856,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     if (inputBatch.containsDuplicateAspects()) {
       log.warn("Batch contains duplicates: {}", inputBatch.duplicateAspects());
+      MetricUtils.counter(EntityServiceImpl.class, "batch_with_duplicate").inc();
     }
 
     return aspectDao
@@ -932,12 +935,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
               // No changes, return
               if (changeMCPs.isEmpty()) {
+                MetricUtils.counter(EntityServiceImpl.class, "batch_empty").inc();
                 return Collections.<UpdateAspectResult>emptyList();
               }
 
               // do final pre-commit checks with previous aspect value
               ValidationExceptionCollection exceptions =
                   AspectsBatch.validatePreCommit(changeMCPs, opContext.getRetrieverContext().get());
+
               if (exceptions.hasFatalExceptions()) {
                 // IF this is a client request/API request we fail the `transaction batch`
                 if (opContext.getRequestContext() != null) {
@@ -1002,10 +1007,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 if (txContext != null) {
                   txContext.commitAndContinue();
                 }
-                log.info(
-                    "Ingestion of aspects batch to database took {} in {} ms",
-                    upsertResults.size(),
-                    TimeUnit.NANOSECONDS.toMillis(ingestToLocalDBTimer.stop()));
+                long took = TimeUnit.NANOSECONDS.toMillis(ingestToLocalDBTimer.stop());
+                if (took > DB_TIMER_LOG_THRESHOLD_MS) {
+                  log.info("Ingestion of aspects batch to database took {} ms", took);
+                }
 
                 // Retention optimization and tx
                 if (retentionService != null) {
@@ -1042,6 +1047,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   log.warn("Retention service is missing!");
                 }
               } else {
+                MetricUtils.counter(EntityServiceImpl.class, "batch_empty_transaction").inc();
                 // This includes no-op batches. i.e. patch removing non-existent items
                 log.debug("Empty transaction detected");
               }
@@ -1279,6 +1285,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return timeseriesResults.stream()
         .map(
             result -> {
+              MCPItem item = result.getFirst();
               Optional<Pair<Future<?>, Boolean>> emissionStatus = result.getSecond();
 
               emissionStatus.ifPresent(
@@ -1290,10 +1297,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     }
                   });
 
-              MCPItem request = result.getFirst();
               return IngestResult.builder()
-                  .urn(request.getUrn())
-                  .request(request)
+                  .urn(item.getUrn())
+                  .request(item)
+                  .result(
+                      UpdateAspectResult.builder()
+                          .urn(item.getUrn())
+                          .newValue(item.getRecordTemplate())
+                          .auditStamp(item.getAuditStamp())
+                          .newSystemMetadata(item.getSystemMetadata())
+                          .build())
                   .publishedMCL(
                       emissionStatus.map(status -> status.getFirst() != null).orElse(false))
                   .processedMCL(emissionStatus.map(Pair::getSecond).orElse(false))
@@ -2612,6 +2625,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .maxVersion(0)
             .build();
       } else {
+        MetricUtils.counter(EntityServiceImpl.class, "batch_with_noop_sysmetadata").inc();
         return null;
       }
     }

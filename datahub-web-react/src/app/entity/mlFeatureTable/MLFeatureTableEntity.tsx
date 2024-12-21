@@ -19,8 +19,8 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
-import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 
 /**
  * Definition of the DataHub MLFeatureTable entity.

@@ -1,0 +1,30 @@
+source:
+  type: "cassandra"
+  config:
+    # Credentials for on prem cassandra
+    contact_point: "localhost"
+    port: 9042
+    username: "admin"
+    password: "password"
+
+    # Or
+    # Credentials Astra Cloud
+    #cloud_config:
+    #  secure_connect_bundle: "Path to Secure Connect Bundle (.zip)"
+    #  token: "Application Token"
+
+    # Optional Allow / Deny extraction of particular keyspaces.
+    keyspace_pattern:
+      allow: [".*"]
+
+    # Optional Allow / Deny extraction of particular tables.
+    table_pattern:
+      allow: [".*"]
+
+    # Optional 
+    profiling:
+      enabled: true
+      profile_table_level_only: true
+
+sink:
+  # config sinks

@@ -47,7 +47,7 @@ const QuickstartContent = ({}) => {
       >
         <div className="quickstart__title">The only platform you need.</div>
         <div className="quickstart__subtitle">
-          Unified Discovery, Observability, and Governance for Data and AI.
+          Unified discovery, observability, and governance for data and AI.
         </div>
       </motion.div>
       <div
@@ -87,7 +87,7 @@ const QuickstartContent = ({}) => {
               <div className="quickstart__text__head">{data.title}</div>
               <div className="quickstart__text__desc">
                 <p dangerouslySetInnerHTML={{ __html: data.description }} />
-                {/* <span className="learn_more">Learn More →</span> */}
+                <a className="learn_more" href={data.link}>Learn More →</a>
               </div>
             </div>
             <div className="quickstart__img">

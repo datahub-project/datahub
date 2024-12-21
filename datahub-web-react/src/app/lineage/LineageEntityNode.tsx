@@ -21,8 +21,8 @@ import { EntityHealth } from '../entity/shared/containers/profile/header/EntityH
 import { EntityType } from '../../types.generated';
 import StructuredPropertyBadge, {
     MAX_PROP_BADGE_WIDTH,
-} from '../entityV2/shared/containers/profile/header/StructuredPropertyBadge';
-import { filterForAssetBadge } from '../entityV2/shared/containers/profile/header/utils';
+} from '../entity/shared/containers/profile/header/StructuredPropertyBadge';
+import { filterForAssetBadge } from '../entity/shared/containers/profile/header/utils';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -352,6 +352,32 @@ export default function LineageEntityNode({
                             entityPlatform={node.data.platform?.name}
                             canEditLineage={node.data.canEditLineage}
                         />
+                    </foreignObject>
+                )}
+                {hasAssetBadge && (
+                    <foreignObject
+                        x={-centerX - MAX_PROP_BADGE_WIDTH - 8}
+                        y={centerY - 15}
+                        width={MAX_PROP_BADGE_WIDTH}
+                        height={30}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <PropertyBadgeWrapper>
+                            <StructuredPropertyBadge structuredProperties={entityStructuredProps ?? undefined} />
+                        </PropertyBadgeWrapper>
+                    </foreignObject>
+                )}
+                {!hasAssetBadge && siblingHasAssetBadge && (
+                    <foreignObject
+                        x={-centerX - MAX_PROP_BADGE_WIDTH - 8}
+                        y={centerY - 15}
+                        width={MAX_PROP_BADGE_WIDTH}
+                        height={30}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <PropertyBadgeWrapper>
+                            <StructuredPropertyBadge structuredProperties={siblingStructuredProps ?? undefined} />
+                        </PropertyBadgeWrapper>
                     </foreignObject>
                 )}
                 {hasAssetBadge && (

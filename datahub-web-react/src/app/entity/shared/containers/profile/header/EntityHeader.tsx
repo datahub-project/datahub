@@ -1,6 +1,5 @@
 import React from 'react';
 import styled from 'styled-components/macro';
-import StructuredPropertyBadge from '@src/app/entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { useEntityData, useRefetch } from '../../../EntityContext';
 import EntityDropdown, { EntityMenuItems } from '../../../EntityDropdown/EntityDropdown';
 import PlatformContent from './PlatformContent';
@@ -21,6 +20,7 @@ import { useSubscriptionsEnabled } from '../../../../../settings/personal/notifi
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import EntityHeaderLoadingSection from './EntityHeaderLoadingSection';
 import { useIsEditableDatasetNameEnabled } from '../../../../../useAppConfig';
+import StructuredPropertyBadge from './StructuredPropertyBadge';
 
 const TitleWrapper = styled.div`
     display: flex;

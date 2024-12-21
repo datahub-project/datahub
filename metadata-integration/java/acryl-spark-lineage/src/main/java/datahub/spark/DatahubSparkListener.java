@@ -120,7 +120,9 @@ public class DatahubSparkListener extends SparkListener {
         boolean disableSslVerification =
             sparkConf.hasPath(SparkConfigParser.DISABLE_SSL_VERIFICATION_KEY)
                 && sparkConf.getBoolean(SparkConfigParser.DISABLE_SSL_VERIFICATION_KEY);
-
+        boolean disableChunkedEncoding =
+            sparkConf.hasPath(SparkConfigParser.REST_DISABLE_CHUNKED_ENCODING)
+                && sparkConf.getBoolean(SparkConfigParser.REST_DISABLE_CHUNKED_ENCODING);
         int retry_interval_in_sec =
             sparkConf.hasPath(SparkConfigParser.RETRY_INTERVAL_IN_SEC)
                 ? sparkConf.getInt(SparkConfigParser.RETRY_INTERVAL_IN_SEC)
@@ -150,6 +152,7 @@ public class DatahubSparkListener extends SparkListener {
                 .disableSslVerification(disableSslVerification)
                 .maxRetries(max_retries)
                 .retryIntervalSec(retry_interval_in_sec)
+                .disableChunkedEncoding(disableChunkedEncoding)
                 .build();
         return Optional.of(new RestDatahubEmitterConfig(restEmitterConf));
       case "kafka":
@@ -188,8 +191,12 @@ public class DatahubSparkListener extends SparkListener {
                   });
           kafkaEmitterConfig.producerConfig(kafkaConfig);
         }
-
-        return Optional.of(new KafkaDatahubEmitterConfig(kafkaEmitterConfig.build()));
+        if (sparkConf.hasPath(SparkConfigParser.KAFKA_MCP_TOPIC)) {
+          String mcpTopic = sparkConf.getString(SparkConfigParser.KAFKA_MCP_TOPIC);
+          return Optional.of(new KafkaDatahubEmitterConfig(kafkaEmitterConfig.build(), mcpTopic));
+        } else {
+          return Optional.of(new KafkaDatahubEmitterConfig(kafkaEmitterConfig.build()));
+        }
       case "file":
         log.info("File Emitter Configuration: File emitter will be used");
         FileEmitterConfig.FileEmitterConfigBuilder fileEmitterConfig = FileEmitterConfig.builder();
@@ -370,7 +377,8 @@ public class DatahubSparkListener extends SparkListener {
     String disabledFacets;
     if (openLineageConfig.getFacetsConfig() != null
         && openLineageConfig.getFacetsConfig().getDisabledFacets() != null) {
-      disabledFacets = String.join(";", openLineageConfig.getFacetsConfig().getDisabledFacets());
+      disabledFacets =
+          String.join(";", openLineageConfig.getFacetsConfig().getEffectiveDisabledFacets());
     } else {
       disabledFacets = "";
     }

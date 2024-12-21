@@ -1,13 +1,13 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
 import React from 'react';
 import { Entity as EntityInterface, EntityType, Exact, SearchResult } from '../../types.generated';
-import PreviewContext from '../entityV2/shared/PreviewContext';
 import { FetchedEntity } from '../lineage/types';
 import { SearchResultProvider } from '../search/context/SearchResultContext';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from './Entity';
 import { GLOSSARY_ENTITY_TYPES } from './shared/constants';
 import { EntitySidebarSection, GenericEntityProperties } from './shared/types';
 import { dictToQueryStringParams, getFineGrainedLineageWithSiblings, urlEncodeUrn } from './shared/utils';
+import PreviewContext from './shared/PreviewContext';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>): V {
     if (map.has(key)) {

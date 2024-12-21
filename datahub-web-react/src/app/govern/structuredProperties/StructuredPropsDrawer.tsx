@@ -199,6 +199,7 @@ const StructuredPropsDrawer = ({
             form.validateFields().then(() => {
                 const createInput = {
                     ...form.getFieldsValue(),
+                    qualifiedName: form.getFieldValue('qualifiedName') || undefined,
                     valueType: valueTypes.find((type) => type.value === form.getFieldValue('valueType'))?.urn,
                     allowedValues,
                     cardinality,

@@ -13,12 +13,9 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import (
-    DEFAULT_ENV,
-    DatasetSourceConfigMixin,
-    EnvConfigMixin,
-)
+from datahub.configuration.source_common import DatasetSourceConfigMixin, EnvConfigMixin
 from datahub.emitter.mce_builder import (
+    DEFAULT_ENV,
     dataset_urn_to_key,
     make_dashboard_urn,
     make_data_platform_urn,
@@ -404,7 +401,6 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
             columns = self.get_import_data_model_columns(model_id=model.model_id)
             for column in columns:
-
                 schema_field = SchemaFieldClass(
                     fieldPath=column.name,
                     type=self.get_schema_field_data_type(column),

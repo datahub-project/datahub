@@ -1,5 +1,6 @@
 import json
 import pathlib
+from typing import Any, Dict, Union
 
 import pytest
 from freezegun.api import freeze_time
@@ -15,7 +16,9 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.metadata.schema_classes import (
+    AuditStampClass,
     DatasetLineageTypeClass,
+    EdgeClass,
     FineGrainedLineageClass,
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
@@ -182,8 +185,66 @@ def test_basic_dashboard_patch_builder():
     ]
 
 
+@pytest.mark.parametrize(
+    "created_on,last_modified,expected_actor",
+    [
+        (1586847600000, 1586847600000, "urn:li:corpuser:datahub"),
+        (None, None, "urn:li:corpuser:datahub"),
+        (1586847600000, None, "urn:li:corpuser:datahub"),
+        (None, 1586847600000, "urn:li:corpuser:datahub"),
+    ],
+    ids=["both_timestamps", "no_timestamps", "only_created", "only_modified"],
+)
 @freeze_time("2020-04-14 07:00:00")
-def test_datajob_patch_builder():
+def test_datajob_patch_builder(created_on, last_modified, expected_actor):
+    def make_edge_or_urn(urn: str) -> Union[EdgeClass, str]:
+        if created_on or last_modified:
+            return EdgeClass(
+                destinationUrn=str(urn),
+                created=(
+                    AuditStampClass(
+                        time=created_on,
+                        actor=expected_actor,
+                    )
+                    if created_on
+                    else None
+                ),
+                lastModified=(
+                    AuditStampClass(
+                        time=last_modified,
+                        actor=expected_actor,
+                    )
+                    if last_modified
+                    else None
+                ),
+            )
+        return urn
+
+    def get_edge_expectation(urn: str) -> Dict[str, Any]:
+        if created_on or last_modified:
+            expected = {
+                "destinationUrn": str(urn),
+                "created": (
+                    AuditStampClass(
+                        time=created_on,
+                        actor=expected_actor,
+                    ).to_obj()
+                    if created_on
+                    else None
+                ),
+                "lastModified": (
+                    AuditStampClass(
+                        time=last_modified,
+                        actor=expected_actor,
+                    ).to_obj()
+                    if last_modified
+                    else None
+                ),
+            }
+            # filter out None values
+            return {k: v for k, v in expected.items() if v is not None}
+        return {"destinationUrn": str(urn)}
+
     flow_urn = make_data_flow_urn(
         orchestrator="nifi", flow_id="252C34e5af19-0192-1000-b248-b1abee565b5d"
     )
@@ -193,13 +254,19 @@ def test_datajob_patch_builder():
     patcher = DataJobPatchBuilder(job_urn)
 
     patcher.add_output_dataset(
-        "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder1,DEV)"
+        make_edge_or_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder1,DEV)"
+        )
     )
     patcher.add_output_dataset(
-        "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder3,DEV)"
+        make_edge_or_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder3,DEV)"
+        )
     )
     patcher.add_output_dataset(
-        "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)"
+        make_edge_or_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)"
+        )
     )
 
     assert patcher.build() == [
@@ -214,47 +281,23 @@ def test_datajob_patch_builder():
                         {
                             "op": "add",
                             "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket~1folder1,DEV)",
-                            "value": {
-                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder1,DEV)",
-                                "created": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
-                                "lastModified": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
-                            },
+                            "value": get_edge_expectation(
+                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder1,DEV)"
+                            ),
                         },
                         {
                             "op": "add",
                             "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket~1folder3,DEV)",
-                            "value": {
-                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder3,DEV)",
-                                "created": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
-                                "lastModified": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
-                            },
+                            "value": get_edge_expectation(
+                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder3,DEV)"
+                            ),
                         },
                         {
                             "op": "add",
                             "path": "/outputDatasetEdges/urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket~1folder2,DEV)",
-                            "value": {
-                                "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)",
-                                "created": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
-                                "lastModified": {
-                                    "time": 1586847600000,
-                                    "actor": "urn:li:corpuser:datahub",
-                                },
-                            },
+                            "value": get_edge_expectation(
+                                "urn:li:dataset:(urn:li:dataPlatform:s3,output-bucket/folder2,DEV)"
+                            ),
                         },
                     ]
                 ).encode("utf-8"),

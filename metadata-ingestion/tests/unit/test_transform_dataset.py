@@ -122,7 +122,7 @@ def make_generic_dataset_mcp(
 ) -> MetadataChangeProposalWrapper:
     return MetadataChangeProposalWrapper(
         entityUrn=entity_urn,
-        entityType=Urn.create_from_string(entity_urn).get_type(),
+        entityType=Urn.from_string(entity_urn).get_type(),
         aspectName=aspect_name,
         changeType="UPSERT",
         aspect=aspect,
@@ -138,7 +138,7 @@ def make_generic_container_mcp(
         aspect = models.StatusClass(removed=False)
     return MetadataChangeProposalWrapper(
         entityUrn=entity_urn,
-        entityType=Urn.create_from_string(entity_urn).get_type(),
+        entityType=Urn.from_string(entity_urn).get_type(),
         aspectName=aspect_name,
         changeType="UPSERT",
         aspect=aspect,
@@ -220,7 +220,7 @@ def make_dataset_with_properties() -> models.MetadataChangeEventClass:
     )
 
 
-def test_simple_dataset_ownership_transformation(mock_time):
+def test_dataset_ownership_transformation(mock_time):
     no_owner_aspect = make_generic_dataset()
 
     with_owner_aspect = make_dataset_with_owner()
@@ -254,7 +254,7 @@ def test_simple_dataset_ownership_transformation(mock_time):
         transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
     )
 
-    assert len(outputs) == len(inputs) + 1
+    assert len(outputs) == len(inputs) + 2
 
     # Check the first entry.
     first_ownership_aspect = builder.get_aspect_if_available(
@@ -287,11 +287,21 @@ def test_simple_dataset_ownership_transformation(mock_time):
         ]
     )
 
+    third_ownership_aspect = outputs[4].record.aspect
+    assert third_ownership_aspect
+    assert len(third_ownership_aspect.owners) == 2
+    assert all(
+        [
+            owner.type == models.OwnershipTypeClass.DATAOWNER and owner.typeUrn is None
+            for owner in second_ownership_aspect.owners
+        ]
+    )
+
     # Verify that the third entry is unchanged.
     assert inputs[2] == outputs[2].record
 
     # Verify that the last entry is EndOfStream
-    assert inputs[3] == outputs[4].record
+    assert inputs[-1] == outputs[-1].record
 
 
 def test_simple_dataset_ownership_with_type_transformation(mock_time):
@@ -1003,6 +1013,7 @@ def test_pattern_dataset_ownership_transformation(mock_time):
                 "rules": {
                     ".*example1.*": [builder.make_user_urn("person1")],
                     ".*example2.*": [builder.make_user_urn("person2")],
+                    ".*dag_abc.*": [builder.make_user_urn("person2")],
                 }
             },
             "ownership_type": "DATAOWNER",
@@ -1014,7 +1025,9 @@ def test_pattern_dataset_ownership_transformation(mock_time):
         transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
     )
 
-    assert len(outputs) == len(inputs) + 1  # additional MCP due to the no-owner MCE
+    assert (
+        len(outputs) == len(inputs) + 2
+    )  # additional MCP due to the no-owner MCE + datajob
 
     # Check the first entry.
     assert inputs[0] == outputs[0].record
@@ -1039,6 +1052,16 @@ def test_pattern_dataset_ownership_transformation(mock_time):
         [
             owner.type == models.OwnershipTypeClass.DATAOWNER
             for owner in second_ownership_aspect.owners
+        ]
+    )
+
+    third_ownership_aspect = outputs[4].record.aspect
+    assert third_ownership_aspect
+    assert len(third_ownership_aspect.owners) == 1
+    assert all(
+        [
+            owner.type == models.OwnershipTypeClass.DATAOWNER
+            for owner in third_ownership_aspect.owners
         ]
     )
 
@@ -1122,14 +1145,14 @@ def test_pattern_container_and_dataset_ownership_transformation(
     pipeline_context.graph.get_aspect = fake_get_aspect  # type: ignore
 
     # No owner aspect for the first dataset
-    no_owner_aspect = models.MetadataChangeEventClass(
+    no_owner_aspect_dataset = models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
             aspects=[models.StatusClass(removed=False)],
         ),
     )
     # Dataset with an existing owner
-    with_owner_aspect = models.MetadataChangeEventClass(
+    with_owner_aspect_dataset = models.MetadataChangeEventClass(
         proposedSnapshot=models.DatasetSnapshotClass(
             urn="urn:li:dataset:(urn:li:dataPlatform:bigquery,example2,PROD)",
             aspects=[
@@ -1148,8 +1171,7 @@ def test_pattern_container_and_dataset_ownership_transformation(
         ),
     )
 
-    # Not a dataset, should be ignored
-    not_a_dataset = models.MetadataChangeEventClass(
+    datajob = models.MetadataChangeEventClass(
         proposedSnapshot=models.DataJobSnapshotClass(
             urn="urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
             aspects=[
@@ -1163,9 +1185,9 @@ def test_pattern_container_and_dataset_ownership_transformation(
     )
 
     inputs = [
-        no_owner_aspect,
-        with_owner_aspect,
-        not_a_dataset,
+        no_owner_aspect_dataset,
+        with_owner_aspect_dataset,
+        datajob,
         EndOfStream(),
     ]
 
@@ -1176,6 +1198,7 @@ def test_pattern_container_and_dataset_ownership_transformation(
                 "rules": {
                     ".*example1.*": [builder.make_user_urn("person1")],
                     ".*example2.*": [builder.make_user_urn("person2")],
+                    ".*dag_abc.*": [builder.make_user_urn("person3")],
                 }
             },
             "ownership_type": "DATAOWNER",
@@ -1188,9 +1211,9 @@ def test_pattern_container_and_dataset_ownership_transformation(
         transformer.transform([RecordEnvelope(input, metadata={}) for input in inputs])
     )
 
-    assert len(outputs) == len(inputs) + 3
+    assert len(outputs) == len(inputs) + 4
 
-    # Check the first entry.
+    # Check that DatasetSnapshotClass has not changed
     assert inputs[0] == outputs[0].record
 
     # Check the ownership for the first dataset (example1)
@@ -1217,12 +1240,16 @@ def test_pattern_container_and_dataset_ownership_transformation(
         ]
     )
 
+    third_ownership_aspect = outputs[4].record.aspect
+    assert third_ownership_aspect
+    assert len(third_ownership_aspect.owners) == 1  # new for datajob
+
     # Check container ownerships
     for i in range(2):
-        container_ownership_aspect = outputs[i + 4].record.aspect
+        container_ownership_aspect = outputs[i + 5].record.aspect
         assert container_ownership_aspect
         ownership = json.loads(container_ownership_aspect.value.decode("utf-8"))
-        assert len(ownership) == 2
+        assert len(ownership) == 3
         assert ownership[0]["value"]["owner"] == builder.make_user_urn("person1")
         assert ownership[1]["value"]["owner"] == builder.make_user_urn("person2")
 

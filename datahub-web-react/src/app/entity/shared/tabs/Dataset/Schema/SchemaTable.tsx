@@ -1,5 +1,3 @@
-import { useGetStructuredPropColumns } from '@src/app/entityV2/shared/tabs/Dataset/Schema/utils/useGetStructuredPropColumns';
-import { useGetTableColumnProperties } from '@src/app/entityV2/shared/tabs/Dataset/Schema/utils/useGetTableColumnProperties';
 import { ColumnsType } from 'antd/es/table';
 import ResizeObserver from 'rc-resize-observer';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -32,6 +30,8 @@ import useExtractFieldTagsInfo from './utils/useExtractFieldTagsInfo';
 import useSchemaBlameRenderer from './utils/useSchemaBlameRenderer';
 import useTagsAndTermsRenderer from './utils/useTagsAndTermsRenderer';
 import useUsageStatsRenderer from './utils/useUsageStatsRenderer';
+import { useGetTableColumnProperties } from './useGetTableColumnProperties';
+import { useGetStructuredPropColumns } from './useGetStructuredPropColumns';
 
 const TableContainer = styled.div`
     overflow: inherit;
@@ -209,7 +209,7 @@ export default function SchemaTable({
     function getCount(fieldPath: any) {
         const data: any =
             usageStats?.aggregations?.fields &&
-            usageStats?.aggregations?.fields.find((field) => {
+            usageStats?.aggregations?.fields?.find((field) => {
                 return field?.fieldName === fieldPath;
             });
         return (data && data.count) ?? 0;

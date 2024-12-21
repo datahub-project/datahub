@@ -30,7 +30,7 @@ from great_expectations.core.expectation_validation_result import (
 )
 from great_expectations.core.id_dict import IDDict
 from great_expectations.core.run_identifier import RunIdentifier
-from great_expectations.data_context import DataContext, FileDataContext
+from great_expectations.data_context import FileDataContext
 from great_expectations.data_context.types.resource_identifiers import (
     ExpectationSuiteIdentifier,
     ValidationResultIdentifier,
@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="function")
-def ge_data_context(tmp_path: str) -> DataContext:
+def ge_data_context(tmp_path: str) -> FileDataContext:
     return FileDataContext.create(tmp_path)
 
 
@@ -233,7 +233,7 @@ def ge_validation_result_suite_id_pandas() -> ValidationResultIdentifier:
 @mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter.emit_mcp", autospec=True)
 def test_DataHubValidationAction_sqlalchemy(
     mock_emitter: mock.MagicMock,
-    ge_data_context: DataContext,
+    ge_data_context: FileDataContext,
     ge_validator_sqlalchemy: Validator,
     ge_validation_result_suite: ExpectationSuiteValidationResult,
     ge_validation_result_suite_id: ValidationResultIdentifier,
@@ -337,7 +337,7 @@ def test_DataHubValidationAction_sqlalchemy(
 @mock.patch("datahub.emitter.rest_emitter.DatahubRestEmitter.emit_mcp", autospec=True)
 def test_DataHubValidationAction_pandas(
     mock_emitter: mock.MagicMock,
-    ge_data_context: DataContext,
+    ge_data_context: FileDataContext,
     ge_validator_pandas: Validator,
     ge_validation_result_suite_pandas: ExpectationSuiteValidationResult,
     ge_validation_result_suite_id_pandas: ValidationResultIdentifier,
@@ -399,7 +399,7 @@ def test_DataHubValidationAction_pandas(
 
 
 def test_DataHubValidationAction_graceful_failure(
-    ge_data_context: DataContext,
+    ge_data_context: FileDataContext,
     ge_validator_sqlalchemy: Validator,
     ge_validation_result_suite: ExpectationSuiteValidationResult,
     ge_validation_result_suite_id: ValidationResultIdentifier,
@@ -418,7 +418,7 @@ def test_DataHubValidationAction_graceful_failure(
 
 
 def test_DataHubValidationAction_not_supported(
-    ge_data_context: DataContext,
+    ge_data_context: FileDataContext,
     ge_validator_spark: Validator,
     ge_validation_result_suite: ExpectationSuiteValidationResult,
     ge_validation_result_suite_id: ValidationResultIdentifier,

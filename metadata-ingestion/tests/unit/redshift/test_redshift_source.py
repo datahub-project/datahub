@@ -1,15 +1,15 @@
 from typing import Iterable
 
-from datahub.emitter.mcp import (
-    MetadataChangeProposalClass,
-    MetadataChangeProposalWrapper,
-)
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.redshift import RedshiftSource
 from datahub.ingestion.source.redshift.redshift_schema import RedshiftTable
-from datahub.metadata.schema_classes import MetadataChangeEventClass
+from datahub.metadata.schema_classes import (
+    MetadataChangeEventClass,
+    MetadataChangeProposalClass,
+)
 
 
 def redshift_source_setup(custom_props_flag: bool) -> Iterable[MetadataWorkUnit]:

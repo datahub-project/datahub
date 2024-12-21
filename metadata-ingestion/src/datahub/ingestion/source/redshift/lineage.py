@@ -894,7 +894,9 @@ class RedshiftLineageExtractor:
                 env=self.config.env,
             )
 
-            table_renames[new_urn] = TableRename(prev_urn, new_urn, query_text)
+            table_renames[new_urn] = TableRename(
+                prev_urn, new_urn, query_text, timestamp=rename_row.start_time
+            )
 
             # We want to generate lineage for the previous name too.
             all_tables[database][schema].add(prev_name)

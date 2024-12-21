@@ -395,7 +395,8 @@ public class StructuredPropertyUtils {
     if (settings.isIsHidden()) {
       if (settings.isShowInSearchFilters()
           || settings.isShowInAssetSummary()
-          || settings.isShowAsAssetBadge()) {
+          || settings.isShowAsAssetBadge()
+          || settings.isShowInColumnsTable()) {
         if (shouldThrow) {
           throw new IllegalArgumentException(INVALID_SETTINGS_MESSAGE);
         } else {

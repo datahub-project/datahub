@@ -2,9 +2,10 @@ import React from 'react';
 import styled from 'styled-components';
 import { Typography, Image } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import { Container, Entity } from '../../../../../../../types.generated';
+import { Container, Dataset, Entity } from '../../../../../../../types.generated';
 import { ANTD_GRAY } from '../../../../constants';
 import ContainerLink from './ContainerLink';
+import DatasetLink from './DatasetLink';
 import {
     StyledRightOutlined,
     ParentNodesWrapper as ParentContainersWrapper,
@@ -80,6 +81,7 @@ interface Props {
     parentEntities?: Entity[] | null;
     parentContainersRef: React.RefObject<HTMLDivElement>;
     areContainersTruncated: boolean;
+    parentDataset?: Dataset;
 }
 
 function PlatformContentView(props: Props) {
@@ -96,6 +98,7 @@ function PlatformContentView(props: Props) {
         parentContainers,
         parentContainersRef,
         areContainersTruncated,
+        parentDataset,
     } = props;
 
     const directParentContainer = parentContainers && parentContainers[0];
@@ -152,6 +155,12 @@ function PlatformContentView(props: Props) {
                 </ParentContainersWrapper>
                 {directParentContainer && <ContainerLink container={directParentContainer} />}
             </StyledTooltip>
+            {parentDataset && (
+                <span>
+                    <StyledRightOutlined data-testid="right-arrow" />
+                    <DatasetLink parentDataset={parentDataset} />
+                </span>
+            )}
             <ParentEntities parentEntities={parentEntities || []} numVisible={3} />
         </PlatformContentWrapper>
     );

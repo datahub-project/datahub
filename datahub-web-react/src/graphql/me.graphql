@@ -75,10 +75,10 @@ query getMe {
             manageGlobalAnnouncements
             createBusinessAttributes
             manageBusinessAttributes
-            manageDocumentationForms
-            viewDocumentationFormsPage
             manageStructuredProperties
             viewStructuredPropertiesPage
+            manageDocumentationForms
+            viewDocumentationFormsPage
             manageOrganizationDisplayPreferences
         }
     }

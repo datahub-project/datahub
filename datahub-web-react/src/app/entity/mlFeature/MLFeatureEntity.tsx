@@ -19,8 +19,8 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { getDataProduct } from '../shared/utils';
 import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
-import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 
 /**
  * Definition of the DataHub MLFeature entity.

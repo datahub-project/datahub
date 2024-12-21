@@ -12,8 +12,8 @@ import {
     mapResourceTypeToDisplayName,
 } from './policyUtils';
 import AvatarsGroup from '../AvatarsGroup';
-import { SpacedAvatarGroup } from '../../shared/avatar/SpaceAvatarGroup';
 import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from './constants';
+import { SpacedAvatarGroup } from '../../shared/avatar/SpaceAvatarGroup';
 
 type PrivilegeOptionType = {
     type?: string;

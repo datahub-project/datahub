@@ -53,19 +53,7 @@ from datahub.ingestion.source.dbt.dbt_tests import (
     make_assertion_from_test,
     make_assertion_result_from_test,
 )
-from datahub.ingestion.source.sql.sql_types import (
-    ATHENA_SQL_TYPES_MAP,
-    BIGQUERY_TYPES_MAP,
-    POSTGRES_TYPES_MAP,
-    SNOWFLAKE_TYPES_MAP,
-    SPARK_SQL_TYPES_MAP,
-    TRINO_SQL_TYPES_MAP,
-    VERTICA_SQL_TYPES_MAP,
-    resolve_athena_modified_type,
-    resolve_postgres_modified_type,
-    resolve_trino_modified_type,
-    resolve_vertica_modified_type,
-)
+from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
@@ -89,17 +77,11 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    BooleanTypeClass,
-    DateTypeClass,
     MySqlDDL,
     NullTypeClass,
-    NumberTypeClass,
-    RecordType,
     SchemaField,
     SchemaFieldDataType,
     SchemaMetadata,
-    StringTypeClass,
-    TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
@@ -117,9 +99,8 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.metadata.urns import DatasetUrn
-from datahub.sql_parsing.schema_resolver import SchemaResolver
+from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.sql_parsing.sqlglot_lineage import (
-    SchemaInfo,
     SqlParsingDebugInfo,
     SqlParsingResult,
     infer_output_schema,
@@ -805,28 +786,6 @@ def make_mapping_upstream_lineage(
     )
 
 
-# See https://github.com/fishtown-analytics/dbt/blob/master/core/dbt/adapters/sql/impl.py
-_field_type_mapping = {
-    "boolean": BooleanTypeClass,
-    "date": DateTypeClass,
-    "time": TimeTypeClass,
-    "numeric": NumberTypeClass,
-    "text": StringTypeClass,
-    "timestamp with time zone": DateTypeClass,
-    "timestamp without time zone": DateTypeClass,
-    "integer": NumberTypeClass,
-    "float8": NumberTypeClass,
-    "struct": RecordType,
-    **POSTGRES_TYPES_MAP,
-    **SNOWFLAKE_TYPES_MAP,
-    **BIGQUERY_TYPES_MAP,
-    **SPARK_SQL_TYPES_MAP,
-    **TRINO_SQL_TYPES_MAP,
-    **ATHENA_SQL_TYPES_MAP,
-    **VERTICA_SQL_TYPES_MAP,
-}
-
-
 def get_column_type(
     report: DBTSourceReport,
     dataset_name: str,
@@ -836,24 +795,10 @@ def get_column_type(
     """
     Maps known DBT types to datahub types
     """
-    TypeClass: Any = _field_type_mapping.get(column_type) if column_type else None
 
-    if TypeClass is None and column_type:
-        # resolve a modified type
-        if dbt_adapter == "trino":
-            TypeClass = resolve_trino_modified_type(column_type)
-        elif dbt_adapter == "athena":
-            TypeClass = resolve_athena_modified_type(column_type)
-        elif dbt_adapter == "postgres" or dbt_adapter == "redshift":
-            # Redshift uses a variant of Postgres, so we can use the same logic.
-            TypeClass = resolve_postgres_modified_type(column_type)
-        elif dbt_adapter == "vertica":
-            TypeClass = resolve_vertica_modified_type(column_type)
-        elif dbt_adapter == "snowflake":
-            # Snowflake types are uppercase, so we check that.
-            TypeClass = _field_type_mapping.get(column_type.upper())
+    TypeClass = resolve_sql_type(column_type, dbt_adapter)
 
-    # if still not found, report the warning
+    # if still not found, report a warning
     if TypeClass is None:
         if column_type:
             report.info(
@@ -862,9 +807,9 @@ def get_column_type(
                 context=f"{dataset_name} - {column_type}",
                 log=False,
             )
-        TypeClass = NullTypeClass
+        TypeClass = NullTypeClass()
 
-    return SchemaFieldDataType(type=TypeClass())
+    return SchemaFieldDataType(type=TypeClass)
 
 
 @platform_name("dbt")
@@ -1822,16 +1767,21 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                     logger.debug(
                         f"Owner after applying owner extraction pattern:'{self.config.owner_extraction_pattern}' is '{owner}'."
                     )
-            if self.config.strip_user_ids_from_email:
-                owner = owner.split("@")[0]
-                logger.debug(f"Owner (after stripping email):{owner}")
+            if isinstance(owner, list):
+                owners = owner
+            else:
+                owners = [owner]
+            for owner in owners:
+                if self.config.strip_user_ids_from_email:
+                    owner = owner.split("@")[0]
+                    logger.debug(f"Owner (after stripping email):{owner}")
 
-            owner_list.append(
-                OwnerClass(
-                    owner=mce_builder.make_user_urn(owner),
-                    type=OwnershipTypeClass.DATAOWNER,
+                owner_list.append(
+                    OwnerClass(
+                        owner=mce_builder.make_user_urn(owner),
+                        type=OwnershipTypeClass.DATAOWNER,
+                    )
                 )
-            )
 
         owner_list = sorted(owner_list, key=lambda x: x.owner)
         return owner_list

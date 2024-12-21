@@ -1,0 +1,24 @@
+# Unknown entity types become generic urns
+urn:li:abc:foo
+urn:li:abc:(foo,bar)
+urn:li:abc:(urn:li:dataPlatform:abc,def,prod)
+
+# A bunch of pretty normal urns
+urn:li:corpuser:foo
+urn:li:corpGroup:bar
+urn:li:dataset:(urn:li:dataPlatform:abc,def/ghi,prod)
+urn:li:dataFlow:(airflow,def,prod)
+urn:li:dataJob:(urn:li:dataFlow:(airflow,flow_id,prod),job_id)
+urn:li:tag:abc
+urn:li:chart:(looker,chart_name)
+urn:li:dashboard:(looker,dashboard_name)
+urn:li:dataProcessInstance:abc
+urn:li:domain:abc
+urn:li:notebook:(querybook,123)
+
+# Urns with colons and other special characters
+urn:li:tag:dbt:bar
+urn:li:tag::
+urn:li:dashboard:(looker,dashboards.thelook::customer_lookup)
+urn:li:dataPlatform:abc:def
+urn:li:corpuser:foo:bar@example.com

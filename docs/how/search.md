@@ -359,6 +359,33 @@ queryConfigurations:
       boost_mode: multiply
 ```
 
+Similar example to boost with `primary` AND `gold` instead of the previous OR condition.
+
+```yaml
+queryConfigurations:
+  - queryRegex: .*
+    
+    simpleQuery: true
+    prefixMatchQuery: true
+    exactMatchQuery: true
+
+    functionScore:
+      functions:
+
+        - filter:
+            bool:
+              filter:
+                - term:
+                    tags.keyword: urn:li:tag:primary
+                - term:
+                    tags.keyword: urn:li:tag:gold
+          weight: 3.0
+
+
+      score_mode: multiply
+      boost_mode: multiply
+```
+
 ##### Example 2: Preferred Data Platform
 
 Boost the `urn:li:dataPlatform:hive` platform.

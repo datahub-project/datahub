@@ -39,6 +39,8 @@ jobs:
             extraPythonRequirement: "great-expectations~=0.16.0 numpy~=1.26.0"
           - python-version: "3.11"
             extraPythonRequirement: "great-expectations~=0.17.0"
+          - python-version: "3.11"
+            extraPythonRequirement: "great-expectations~=0.18.0"
       fail-fast: false
     steps:
       - name: Set up JDK 17

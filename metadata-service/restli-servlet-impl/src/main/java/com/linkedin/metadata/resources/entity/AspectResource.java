@@ -39,7 +39,6 @@ import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
-import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.parseq.Task;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.internal.server.methods.AnyRecord;
@@ -286,13 +285,14 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
           boolean asyncBool)
   throws URISyntaxException {
     Authentication authentication = AuthenticationContext.getAuthentication();
+    String actorUrnStr = authentication.getActor().toUrnStr();
 
     Set<String> entityTypes = metadataChangeProposals.stream()
                                                      .map(MetadataChangeProposal::getEntityType)
                                                      .collect(Collectors.toSet());
 
     final OperationContext opContext = OperationContext.asSession(
-              systemOperationContext, RequestContext.builder().buildRestli(authentication.getActor().toUrnStr(), getContext(),
+              systemOperationContext, RequestContext.builder().buildRestli(actorUrnStr, getContext(),
                     ACTION_INGEST_PROPOSAL, entityTypes),
         _authorizer, authentication, true);
 
@@ -306,9 +306,8 @@ public class AspectResource extends CollectionResourceTaskTemplate<String, Versi
                  .map(ex -> String.format("HttpStatus: %s Urn: %s", ex.getSecond(), ex.getFirst().getEntityUrn()))
                  .collect(Collectors.joining(", "));
         throw new RestLiServiceException(
-                 HttpStatus.S_403_FORBIDDEN, "User is unauthorized to modify entity: " + errorMessages);
+                 HttpStatus.S_403_FORBIDDEN, "User " + actorUrnStr + " is unauthorized to modify entity: " + errorMessages);
     }
-    String actorUrnStr = authentication.getActor().toUrnStr();
     final AuditStamp auditStamp =
         new AuditStamp().setTime(_clock.millis()).setActor(Urn.createFromString(actorUrnStr));
 

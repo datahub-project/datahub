@@ -117,3 +117,9 @@ class PipelineConfig(ConfigModel):
         config = cls.parse_obj(resolved_dict)
         config._raw_dict = raw_dict
         return config
+
+    def get_raw_dict(self) -> Dict:
+        result = self._raw_dict
+        if result is None:
+            result = self.dict()
+        return result

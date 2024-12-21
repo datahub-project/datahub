@@ -26,22 +26,21 @@ import play.mvc.Http;
 public class SsoManager {
 
   private SsoProvider<?> _provider; // Only one active provider at a time.
-  private final Authentication
-      _authentication; // Authentication used to fetch SSO settings from GMS
-  private final String _ssoSettingsRequestUrl; // SSO settings request URL.
-  private final CloseableHttpClient _httpClient; // HTTP client for making requests to GMS.
-  private com.typesafe.config.Config _configs;
+  private final Authentication authentication; // Authentication used to fetch SSO settings from GMS
+  private final String ssoSettingsRequestUrl; // SSO settings request URL.
+  private final CloseableHttpClient httpClient; // HTTP client for making requests to GMS.
+  private com.typesafe.config.Config configs;
 
   public SsoManager(
       com.typesafe.config.Config configs,
       Authentication authentication,
       String ssoSettingsRequestUrl,
       CloseableHttpClient httpClient) {
-    _configs = configs;
-    _authentication = Objects.requireNonNull(authentication, "authentication cannot be null");
-    _ssoSettingsRequestUrl =
+    this.configs = configs;
+    this.authentication = Objects.requireNonNull(authentication, "authentication cannot be null");
+    this.ssoSettingsRequestUrl =
         Objects.requireNonNull(ssoSettingsRequestUrl, "ssoSettingsRequestUrl cannot be null");
-    _httpClient = Objects.requireNonNull(httpClient, "httpClient cannot be null");
+    this.httpClient = Objects.requireNonNull(httpClient, "httpClient cannot be null");
     _provider = null;
   }
 
@@ -52,6 +51,9 @@ public class SsoManager {
    * @return true if SSO logic is enabled, false otherwise.
    */
   public boolean isSsoEnabled() {
+    if (configs.hasPath("auth.oidc.enabled") && configs.getBoolean("auth.oidc.enabled")) {
+      return true;
+    }
     refreshSsoProvider();
     return _provider != null;
   }
@@ -66,7 +68,7 @@ public class SsoManager {
   }
 
   public void setConfigs(final com.typesafe.config.Config configs) {
-    _configs = configs;
+    this.configs = configs;
   }
 
   public void clearSsoProvider() {
@@ -87,19 +89,19 @@ public class SsoManager {
   public void initializeSsoProvider() {
     SsoConfigs ssoConfigs = null;
     try {
-      ssoConfigs = new SsoConfigs.Builder().from(_configs).build();
+      ssoConfigs = new SsoConfigs.Builder().from(configs).build();
     } catch (Exception e) {
       // Debug-level logging since this is expected to fail if SSO has not been configured.
-      log.debug(String.format("Missing SSO settings in static configs %s", _configs), e);
+      log.debug(String.format("Missing SSO settings in static configs %s", configs), e);
     }
 
     if (ssoConfigs != null && ssoConfigs.isOidcEnabled()) {
       try {
-        OidcConfigs oidcConfigs = new OidcConfigs.Builder().from(_configs).build();
+        OidcConfigs oidcConfigs = new OidcConfigs.Builder().from(configs).build();
         maybeUpdateOidcProvider(oidcConfigs);
       } catch (Exception e) {
         // Error-level logging since this is unexpected to fail if SSO has been configured.
-        log.error(String.format("Error building OidcConfigs from static configs %s", _configs), e);
+        log.error(String.format("Error building OidcConfigs from static configs %s", configs), e);
       }
     } else {
       // Clear the SSO Provider since no SSO is enabled.
@@ -132,7 +134,7 @@ public class SsoManager {
     if (ssoConfigs != null && ssoConfigs.isOidcEnabled()) {
       try {
         OidcConfigs oidcConfigs =
-            new OidcConfigs.Builder().from(_configs, ssoSettingsJsonStr).build();
+            new OidcConfigs.Builder().from(configs, ssoSettingsJsonStr).build();
         maybeUpdateOidcProvider(oidcConfigs);
       } catch (Exception e) {
         log.error(
@@ -166,15 +168,15 @@ public class SsoManager {
   private Optional<String> getDynamicSsoSettings() {
     CloseableHttpResponse response = null;
     try {
-      final HttpPost request = new HttpPost(_ssoSettingsRequestUrl);
+      final HttpPost request = new HttpPost(ssoSettingsRequestUrl);
 
       // Build JSON request to verify credentials for a native user.
       request.setEntity(new StringEntity(""));
 
       // Add authorization header with DataHub frontend system id and secret.
-      request.addHeader(Http.HeaderNames.AUTHORIZATION, _authentication.getCredentials());
+      request.addHeader(Http.HeaderNames.AUTHORIZATION, authentication.getCredentials());
 
-      response = _httpClient.execute(request);
+      response = httpClient.execute(request);
       final HttpEntity entity = response.getEntity();
       if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK && entity != null) {
         // Successfully received the SSO settings

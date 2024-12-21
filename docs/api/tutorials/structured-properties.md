@@ -8,7 +8,7 @@ import TabItem from '@theme/TabItem';
  Structured properties are a structured, named set of properties that can be attached to logical entities like Datasets, DataJobs, etc.
 Structured properties have values that are types. Conceptually, they are like “field definitions”.
 
-Learn more about structured properties in the [Structured Properties Feature Guide](../../../docs/features/feature-guides/properties.md).
+Learn more about structured properties in the [Structured Properties Feature Guide](../../../docs/features/feature-guides/properties/overview.md).
 
 
 ### Goal Of This Guide
@@ -66,7 +66,7 @@ mutation createStructuredProperty {
       qualifiedName:"retentionTime",
       displayName: "Retention Time",
       description: "Retention Time is used to figure out how long to retain records in a dataset",
-      valueType: "urn:li:dataType:number",
+      valueType: "urn:li:dataType:datahub.number",
       allowedValues: [
         {numberValue: 30, description: "30 days, usually reserved for datasets that are ephemeral and contain pii"},
         {numberValue: 90, description:"description: Use this for datasets that drive monthly reporting but contain pii"},

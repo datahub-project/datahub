@@ -1,0 +1,203 @@
+.lightSection {
+  background: #FAFAFA;
+}
+
+.darkSection {
+  background: white;
+}
+
+.ecosystem_section {
+  padding: 4vh 0;
+  padding-bottom: 6vh;
+  display: flex;
+  justify-content: center;
+
+  .ecosystem_section_content {
+    width: 70%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2rem 0rem;
+    text-align: left;
+
+    .ecosystem_section_upper_content {
+      padding-top: 1rem;
+      padding-left: 0; 
+      display: flex; 
+      justify-content: flex-start;
+
+      .ecosystem_section_heading {
+        line-height: 4rem;
+        font-family: Manrope;
+        font-family: Manrope;
+        font-size: 3.25rem;
+        font-style: normal;
+        font-weight: 500;
+        line-height: normal;
+        mix-blend-mode: luminosity;
+        width: 100%;
+      }
+    }
+
+    .ecosystem_section_lower_content {
+      margin-top: 48px;
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+
+      .itemWrappers {
+        display: flex;
+        flex-direction: column;
+        align-self: stretch; 
+
+        .itemWrapper {
+          display: flex;
+          padding: 4rem 0px;
+          width: 100%;
+          align-items: center;
+          justify-content: space-between;
+          flex-direction: row;
+          flex-wrap: nowrap;
+        }
+
+        .alternate {
+          .item {
+            margin-right: 2rem;
+            margin-left: 0;
+          }
+        }
+
+        .item {
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
+          padding: 0;
+          margin: 0;
+          margin-left: 4rem;
+          flex-grow: 1;
+          max-width: 520px;
+
+          .item__title {
+            font-family: Manrope;
+            font-size: 2.25rem;
+            font-style: normal;
+            font-weight: 500;
+            line-height: normal;
+            margin-bottom: 1rem;
+          }
+
+          .item__subtitle {
+            font-family: Manrope;
+            font-size: 1.25rem;
+            font-style: normal;
+            font-weight: 400;
+            line-height: normal;
+            color: #777E99;
+          }
+        }
+
+        .diagramItem {
+          display: flex;
+          overflow: hidden;
+          height: 400px;
+          min-width: 400px;
+          max-width: 400px;
+          justify-content: flex-end;
+          align-items: center;
+          border-radius: var(--number-scales-2s-20, 32px);
+          border: 0.5px solid #1890FF;
+          background: #FAFAFA;
+        }
+      }
+    }
+
+    .item, .diagramItem {
+      margin: 8px;
+    }
+  }
+}
+@media only screen and (max-width: 800px) {
+  .ecosystem_section {
+    padding: 1rem 0;
+    .ecosystem_section_content {
+      width: 90%;
+      min-width: 0;
+      height: auto !important;
+      padding-bottom: 48px;
+      padding-top: 48px;
+
+      .ecosystem_section_upper_content {
+        height: auto !important;
+
+        .ecosystem_section_heading {
+          font-size: 1.75rem;
+          line-height: 2.25rem;
+          font-weight: 600;
+          text-align: center;
+          width: 90%;
+          margin: auto;
+        }
+      }
+
+      .ecosystem_section_lower_content {
+        height: auto;
+        margin-top: 8px;
+
+        .diagramItem {
+          width: 100%;
+          height: auto;
+          border: none;
+        }
+        .itemWrappers {
+          .itemWrapper {
+            flex-direction: column-reverse;
+            &.alternate {
+              flex-direction: column;
+            }
+            width: 95vw;
+            padding: 2rem 0;
+            align-items: center; 
+            margin: auto;
+      
+          }
+      
+          .diagramItem {
+            height: auto;
+            width: 95vw;
+            aspect-ratio: 1;
+            min-width: auto;
+            margin: auto;
+          }
+      
+          .item {
+            text-align: center; 
+            padding : 1rem;
+            margin: 2rem 0!important;
+      
+            .item__title {
+              font-size: 1.5rem;
+            }
+            .item__subtitle {
+              font-size: 1rem;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+.darkDiagramItem {
+  background: linear-gradient(180deg, #F5EFF8 0%, #F1F4F4 100%);
+}
+
+.lightDiagramItem {
+  background: linear-gradient(37deg, rgba(238, 240, 242, 0.90) 2.81%, rgba(253, 249, 241, 0.90) 107.71%);
+}
+
+.diagramItem__img { 
+  overflow: hidden;
+  width: 100%;
+  height: auto;
+}

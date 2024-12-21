@@ -943,6 +943,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -1224,6 +1229,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -1792,6 +1802,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -2413,6 +2428,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -2929,6 +2949,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -3080,6 +3105,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -3608,6 +3638,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -4116,6 +4151,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -4591,6 +4631,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -5097,6 +5142,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -5489,6 +5539,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -5854,6 +5909,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -6249,6 +6309,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -6697,6 +6762,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -7115,6 +7185,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -7454,6 +7529,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -7821,6 +7901,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -8082,6 +8167,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -8530,6 +8620,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -8872,6 +8967,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -9241,6 +9341,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -9633,6 +9738,11 @@
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
                         }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 }
             ]
@@ -10081,6 +10191,11 @@
                             "actor": "urn:li:corpuser:unknown"
                         }
                     }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
                 }
             ]
         }
@@ -10268,6 +10383,7 @@
                             "urn:li:chart:(tableau,f4317efd-c3e6-6ace-8fe6-e71b590bbbcc)"
                         ],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1640200234000,
@@ -10279,6 +10395,11 @@
                             }
                         },
                         "dashboardUrl": "https://do-not-connect/#/site/acryl/views/EmailPerformancebyCampaign/EmailPerformancebyCampaign"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -10375,6 +10496,7 @@
                             "urn:li:chart:(tableau,8a6a269a-d6de-fae4-5050-513255b40ffc)"
                         ],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1639773866000,
@@ -10386,6 +10508,11 @@
                             }
                         },
                         "dashboardUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/dvdRentalDashboard"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -10480,6 +10607,7 @@
                         "description": "",
                         "charts": [],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1639773866000,
@@ -10491,6 +10619,11 @@
                             }
                         },
                         "dashboardUrl": "https://do-not-connect/#/site/acryl/views/dvdrental/Story1"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -10599,6 +10732,7 @@
                             "urn:li:chart:(tableau,f76d3570-23b8-f74b-d85c-cc5484c2079c)"
                         ],
                         "datasets": [],
+                        "dashboards": [],
                         "lastModified": {
                             "created": {
                                 "time": 1639768450000,
@@ -10610,6 +10744,11 @@
                             }
                         },
                         "dashboardUrl": "https://do-not-connect/#/site/acryl/views/ExecutiveDashboard/ExecutiveDashboard"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -11040,6 +11179,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -12900,7 +13044,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
                     "type": "TRANSFORMED"
                 },
                 {
@@ -12908,7 +13052,7 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,22b0b4c3-6b85-713d-a161-5a87fdd78f40,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:tableau,10c6297d-0dbd-44f1-b1ba-458bea446513,PROD)",
                     "type": "TRANSFORMED"
                 }
             ],
@@ -12997,6 +13141,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -13338,6 +13487,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -14253,6 +14407,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -15214,6 +15373,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -22089,6 +22253,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/prod/tableau/default/Executive Dashboard"
@@ -26206,6 +26375,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -31563,6 +31737,11 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/prod/tableau/default/Workbook published ds"
@@ -31904,6 +32083,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {
@@ -32673,6 +32857,11 @@
                 {
                     "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
                         "platform": "urn:li:dataPlatform:tableau"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": []
                     }
                 },
                 {

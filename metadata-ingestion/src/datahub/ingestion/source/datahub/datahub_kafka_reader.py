@@ -36,6 +36,7 @@ class DataHubKafkaReader(Closeable):
         self.connection_config = connection_config
         self.report = report
         self.group_id = f"{KAFKA_GROUP_PREFIX}-{ctx.pipeline_name}"
+        self.ctx = ctx
 
     def __enter__(self) -> "DataHubKafkaReader":
         self.consumer = DeserializingConsumer(
@@ -94,6 +95,10 @@ class DataHubKafkaReader(Closeable):
                     f"with audit stamp {datetime.fromtimestamp(mcl.created.time / 1000)}"
                 )
                 break
+
+            if mcl.aspectName and mcl.aspectName in self.config.exclude_aspects:
+                self.report.num_kafka_excluded_aspects += 1
+                continue
 
             # TODO: Consider storing state in kafka instead, via consumer.commit()
             yield mcl, PartitionOffset(partition=msg.partition(), offset=msg.offset())

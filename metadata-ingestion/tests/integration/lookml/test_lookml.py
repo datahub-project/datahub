@@ -1,8 +1,8 @@
 import logging
 import pathlib
-from typing import Any, List
+from typing import Any, List, Optional, Tuple
 from unittest import mock
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pydantic
 import pytest
@@ -12,21 +12,20 @@ from looker_sdk.sdk.api40.models import DBConnection
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import read_metadata_file
+from datahub.ingestion.source.looker.looker_dataclasses import LookerModel
 from datahub.ingestion.source.looker.looker_template_language import (
     SpecialVariable,
     load_and_preprocess_file,
     resolve_liquid_variable,
 )
-from datahub.ingestion.source.looker.lookml_source import (
-    LookerModel,
-    LookerRefinementResolver,
-    LookMLSourceConfig,
-)
+from datahub.ingestion.source.looker.lookml_config import LookMLSourceConfig
+from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
 from datahub.metadata.schema_classes import (
     DatasetSnapshotClass,
     MetadataChangeEventClass,
     UpstreamLineageClass,
 )
+from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.state_helpers import get_current_checkpoint_from_pipeline
 
@@ -64,7 +63,7 @@ def get_default_recipe(output_file_path, base_folder_path):
 
 @freeze_time(FROZEN_TIME)
 def test_lookml_ingest(pytestconfig, tmp_path, mock_time):
-    """Test backwards compatibility with previous form of config with new flags turned off"""
+    """Test backwards compatibility with a previous form of config with new flags turned off"""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
     mce_out_file = "expected_output.json"
 
@@ -833,7 +832,6 @@ def test_manifest_parser(pytestconfig: pytest.Config) -> None:
 
 @freeze_time(FROZEN_TIME)
 def test_duplicate_field_ingest(pytestconfig, tmp_path, mock_time):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
     mce_out_file = "duplicate_ingest_mces_output.json"
 
@@ -892,7 +890,7 @@ def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_t
 
 @freeze_time(FROZEN_TIME)
 def test_special_liquid_variables():
-    text: str = """
+    text: str = """{% assign source_table_variable = "source_table" | sql_quote | non_existing_filter_where_it_should_not_fail %}
         SELECT
           employee_id,
           employee_name,
@@ -906,7 +904,7 @@ def test_special_liquid_variables():
             'default_table' as source
           {% endif %},
           employee_income
-        FROM source_table
+        FROM {{ source_table_variable }}
     """
     input_liquid_variable: dict = {}
 
@@ -961,7 +959,7 @@ def test_special_liquid_variables():
     expected_text: str = (
         "\n        SELECT\n          employee_id,\n          employee_name,\n          \n            "
         "prod_core.data.r_metric_summary_v2\n          ,\n          employee_income\n        FROM "
-        "source_table\n    "
+        "'source_table'\n    "
     )
     assert actual_text == expected_text
 
@@ -1011,6 +1009,43 @@ def test_drop_hive(pytestconfig, tmp_path, mock_time):
     pipeline.raise_from_status(raise_warnings=True)
 
     golden_path = test_resources_dir / "drop_hive_dot_golden.json"
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=tmp_path / mce_out_file,
+        golden_path=golden_path,
+    )
+
+
+@freeze_time(FROZEN_TIME)
+def test_gms_schema_resolution(pytestconfig, tmp_path, mock_time):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/lookml"
+    mce_out_file = "drop_hive_dot.json"
+
+    new_recipe = get_default_recipe(
+        f"{tmp_path}/{mce_out_file}",
+        f"{test_resources_dir}/gms_schema_resolution",
+    )
+
+    new_recipe["source"]["config"]["connection_to_platform_map"] = {
+        "my_connection": "hive"
+    }
+
+    return_value: Tuple[str, Optional[SchemaInfo]] = (
+        "fake_dataset_urn",
+        {
+            "Id": "String",
+            "Name": "String",
+            "source": "String",
+        },
+    )
+
+    with patch.object(SchemaResolver, "resolve_urn", return_value=return_value):
+        pipeline = Pipeline.create(new_recipe)
+        pipeline.run()
+        pipeline.pretty_print_summary()
+        pipeline.raise_from_status(raise_warnings=True)
+
+    golden_path = test_resources_dir / "gms_schema_resolution_golden.json"
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / mce_out_file,

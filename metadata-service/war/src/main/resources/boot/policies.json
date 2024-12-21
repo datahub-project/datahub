@@ -528,6 +528,7 @@
         "GET_TIMELINE_PRIVILEGE",
         "ES_EXPLAIN_QUERY_PRIVILEGE",
         "VIEW_STRUCTURED_PROPERTIES_PAGE",
+        "ES_EXPLAIN_QUERY_PRIVILEGE",
         "VIEW_DOCUMENTATION_FORMS_PAGE"
       ],
       "displayName": "Readers - Metadata Policy",

@@ -2,7 +2,6 @@ import { useEntityData } from '@app/entity/shared/EntityContext';
 import merge from 'deepmerge';
 import { keyBy, unionBy, values } from 'lodash';
 import * as QueryString from 'query-string';
-import { downgradeV2FieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import { useLocation } from 'react-router-dom';
 import {
     Dataset,
@@ -17,6 +16,7 @@ import {
 } from '../../../types.generated';
 import { GenericEntityProperties } from './types';
 import { useIsShowSeparateSiblingsEnabled } from '../../useAppConfig';
+import { downgradeV2FieldPath } from '../dataset/profile/schema/utils/utils';
 
 export function stripSiblingsFromEntity(entity: any) {
     return {
@@ -365,6 +365,17 @@ function customMerge(isPrimary, key) {
         });
     };
 }
+
+export const getEntitySiblingData = <T>(baseEntity: T): Maybe<SiblingProperties> => {
+    if (!baseEntity) {
+        return null;
+    }
+    const baseEntityKey = Object.keys(baseEntity)[0];
+    const extractedBaseEntity = baseEntity[baseEntityKey];
+
+    // eslint-disable-next-line @typescript-eslint/dot-notation
+    return extractedBaseEntity?.['siblings'];
+};
 
 // should the entity's metadata win out against its siblings?
 export const shouldEntityBeTreatedAsPrimary = (extractedBaseEntity: {

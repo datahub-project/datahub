@@ -8,7 +8,7 @@ import { CustomAvatar } from '@src/app/shared/avatar';
 import { toLocalDateString, toRelativeTimeString } from '@src/app/shared/time/timeUtils';
 import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { GetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { useDeleteStructuredPropertyMutation } from '@src/graphql/structuredProperties.generated';
 import TableIcon from '@src/images/table-icon.svg?react';
@@ -24,10 +24,8 @@ import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import { Link } from 'react-router-dom';
-import { CardIcons } from '../Dashboard/Forms/styledComponents';
-import { removeFromPropertiesList } from './cacheUtils';
-import EmptyStructuredProperties from './EmptyStructuredProperties';
 import {
+    CardIcons,
     CreatedByContainer,
     DataContainer,
     IconContainer,
@@ -38,6 +36,8 @@ import {
     PropDescription,
     PropName,
 } from './styledComponents';
+import { removeFromPropertiesList } from './cacheUtils';
+import EmptyStructuredProperties from './EmptyStructuredProperties';
 import { getDisplayName } from './utils';
 
 interface Props {
@@ -63,7 +63,7 @@ const StructuredPropsTable = ({
     inputs,
     searchAcrossEntities,
 }: Props) => {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const client = useApolloClient();
     const me = useUserContext();
     const canEditProps = me.platformPrivileges?.manageStructuredProperties;
@@ -100,7 +100,7 @@ const StructuredPropsTable = ({
                     propertyType: deleteEntity.definition.valueType.urn,
                     appliesTo: deleteEntity.definition.entityTypes.map((type) => type.urn),
                     qualifiedName: deleteEntity.definition.qualifiedName,
-                    showInFilters: deleteEntity.definition.filterStatus,
+                    showInFilters: deleteEntity.settings?.showInSearchFilters,
                     allowedAssetTypes: deleteEntity.definition.typeQualifier?.allowedTypes?.map(
                         (allowedType) => allowedType.urn,
                     ),
