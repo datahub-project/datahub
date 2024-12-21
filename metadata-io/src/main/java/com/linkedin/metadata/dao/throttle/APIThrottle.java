@@ -3,6 +3,7 @@ package com.linkedin.metadata.dao.throttle;
 import static com.linkedin.metadata.dao.throttle.ThrottleType.MANUAL;
 import static com.linkedin.metadata.dao.throttle.ThrottleType.MCL_TIMESERIES_LAG;
 import static com.linkedin.metadata.dao.throttle.ThrottleType.MCL_VERSIONED_LAG;
+import static com.linkedin.metadata.userAgent.UserAgentUtils.UAA;
 
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -13,16 +14,9 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import nl.basjes.parse.useragent.UserAgent;
-import nl.basjes.parse.useragent.UserAgentAnalyzer;
 
 public class APIThrottle {
   private static final Set<String> AGENT_EXEMPTIONS = Set.of("Browser");
-  private static final UserAgentAnalyzer UAA =
-      UserAgentAnalyzer.newBuilder()
-          .hideMatcherLoadStats()
-          .withField(UserAgent.AGENT_CLASS)
-          .withCache(1000)
-          .build();
 
   private APIThrottle() {}
 
