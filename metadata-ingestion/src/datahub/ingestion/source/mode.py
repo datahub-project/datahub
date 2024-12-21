@@ -194,6 +194,9 @@ class HTTPError429(HTTPError):
     pass
 
 
+ModeRequestError = (HTTPError, JSONDecodeError)
+
+
 @dataclass
 class ModeSourceReport(StaleEntityRemovalSourceReport):
     filtered_spaces: LossyList[str] = dataclasses.field(default_factory=LossyList)
@@ -329,11 +332,11 @@ class ModeSource(StatefulIngestionSourceBase):
         # Test the connection
         try:
             self._get_request_json(f"{self.config.connect_uri}/api/verify")
-        except HTTPError as http_error:
+        except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Connect",
                 message="Unable to verify connection to mode.",
-                context=f"Error: {str(http_error)}",
+                context=f"Error: {str(e)}",
             )
 
         self.workspace_uri = f"{self.config.connect_uri}/api/{self.config.workspace}"
@@ -522,11 +525,11 @@ class ModeSource(StatefulIngestionSourceBase):
                 if self.config.owner_username_instead_of_email
                 else user_json.get("email")
             )
-        except HTTPError as http_error:
+        except ModeRequestError as e:
             self.report.report_warning(
                 title="Failed to retrieve Mode creator",
                 message=f"Unable to retrieve user for {href}",
-                context=f"Reason: {str(http_error)}",
+                context=f"Reason: {str(e)}",
             )
         return user
 
@@ -572,11 +575,11 @@ class ModeSource(StatefulIngestionSourceBase):
                     logging.debug(f"Skipping space {space_name} due to space pattern")
                     continue
                 space_info[s.get("token", "")] = s.get("name", "")
-        except HTTPError as http_error:
+        except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Spaces",
                 message="Unable to retrieve spaces / collections for workspace.",
-                context=f"Workspace: {self.workspace_uri}, Error: {str(http_error)}",
+                context=f"Workspace: {self.workspace_uri}, Error: {str(e)}",
             )
 
         return space_info
@@ -722,11 +725,11 @@ class ModeSource(StatefulIngestionSourceBase):
         try:
             ds_json = self._get_request_json(f"{self.workspace_uri}/data_sources")
             data_sources = ds_json.get("_embedded", {}).get("data_sources", [])
-        except HTTPError as http_error:
+        except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to retrieve Data Sources",
                 message="Unable to retrieve data sources from Mode.",
-                context=f"Error: {str(http_error)}",
+                context=f"Error: {str(e)}",
             )
 
         return data_sources
@@ -813,11 +816,11 @@ class ModeSource(StatefulIngestionSourceBase):
                 if definition.get("name", "") == definition_name:
                     return definition.get("source", "")
 
-        except HTTPError as http_error:
+        except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Definition",
                 message="Unable to retrieve definition from Mode.",
-                context=f"Definition Name: {definition_name}, Error: {str(http_error)}",
+                context=f"Definition Name: {definition_name}, Error: {str(e)}",
             )
         return None
 
@@ -1377,11 +1380,11 @@ class ModeSource(StatefulIngestionSourceBase):
                 f"{self.workspace_uri}/spaces/{space_token}/reports"
             )
             reports = reports_json.get("_embedded", {}).get("reports", {})
-        except HTTPError as http_error:
+        except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Reports for Space",
                 message="Unable to retrieve reports for space token.",
-                context=f"Space Token: {space_token}, Error: {str(http_error)}",
+                context=f"Space Token: {space_token}, Error: {str(e)}",
             )
         return reports
 
@@ -1395,11 +1398,11 @@ class ModeSource(StatefulIngestionSourceBase):
             url = f"{self.workspace_uri}/spaces/{space_token}/datasets"
             datasets_json = self._get_request_json(url)
             datasets = datasets_json.get("_embedded", {}).get("reports", [])
-        except HTTPError as http_error:
+        except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Datasets for Space",
                 message=f"Unable to retrieve datasets for space token {space_token}.",
-                context=f"Error: {str(http_error)}",
+                context=f"Error: {str(e)}",
             )
         return datasets
 
@@ -1411,11 +1414,11 @@ class ModeSource(StatefulIngestionSourceBase):
                 f"{self.workspace_uri}/reports/{report_token}/queries"
             )
             queries = queries_json.get("_embedded", {}).get("queries", {})
-        except HTTPError as http_error:
+        except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Queries",
                 message="Unable to retrieve queries for report token.",
-                context=f"Report Token: {report_token}, Error: {str(http_error)}",
+                context=f"Report Token: {report_token}, Error: {str(e)}",
             )
         return queries
 
@@ -1428,11 +1431,11 @@ class ModeSource(StatefulIngestionSourceBase):
                 f"{self.workspace_uri}/reports/{report_token}/runs/{report_run_id}/query_runs{query_run_id}"
             )
             queries = queries_json.get("_embedded", {}).get("queries", {})
-        except HTTPError as http_error:
+        except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Queries for Report",
                 message="Unable to retrieve queries for report token.",
-                context=f"Report Token:{report_token}, Error: {str(http_error)}",
+                context=f"Report Token:{report_token}, Error: {str(e)}",
             )
             return {}
         return queries
@@ -1446,13 +1449,13 @@ class ModeSource(StatefulIngestionSourceBase):
                 f"/queries/{query_token}/charts"
             )
             charts = charts_json.get("_embedded", {}).get("charts", {})
-        except HTTPError as http_error:
+        except ModeRequestError as e:
             self.report.report_failure(
                 title="Failed to Retrieve Charts",
                 message="Unable to retrieve charts from Mode.",
                 context=f"Report Token: {report_token}, "
                 f"Query token: {query_token}, "
-                f"Error: {str(http_error)}",
+                f"Error: {str(e)}",
             )
         return charts
 
@@ -1472,7 +1475,7 @@ class ModeSource(StatefulIngestionSourceBase):
                 response = self.session.get(
                     url, timeout=self.config.api_options.timeout
                 )
-                if response.status_code == 204:
+                if response.status_code == 204:  # No content, don't parse json
                     return {}
                 return response.json()
             except HTTPError as http_error:
@@ -1485,10 +1488,6 @@ class ModeSource(StatefulIngestionSourceBase):
                     raise HTTPError429
 
                 raise http_error
-            except JSONDecodeError as json_error:
-                raise HTTPError(
-                    f"{json_error.__class__.__name__}: {json_error}"
-                ) from json_error
 
         return get_request()
 
