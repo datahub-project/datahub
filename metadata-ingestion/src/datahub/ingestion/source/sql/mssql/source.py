@@ -1,6 +1,7 @@
 import logging
 import re
 import urllib.parse
+from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import pydantic
@@ -12,6 +13,11 @@ from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.exc import ProgrammingError, ResourceClosedError
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.emitter.mce_builder import (
+    make_tag_urn,
+    make_user_urn,
+    validate_ownership_type,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -51,8 +57,13 @@ from datahub.ingestion.source.sql.sql_config import (
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
+    GlobalTagsClass,
     NumberTypeClass,
+    OwnerClass,
+    OwnershipClass,
+    OwnershipTypeClass,
     StringTypeClass,
+    TagAssociationClass,
     UnionTypeClass,
 )
 from datahub.utilities.file_backed_collections import FileBackedList
@@ -64,6 +75,15 @@ register_custom_type(sqlalchemy.dialects.mssql.MONEY, NumberTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.SMALLMONEY, NumberTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.SQL_VARIANT, UnionTypeClass)
 register_custom_type(sqlalchemy.dialects.mssql.UNIQUEIDENTIFIER, StringTypeClass)
+
+
+class ExtendedPropertiesMapping(Enum):
+    TYPE_DESCRIPTION = "description"
+    TYPE_DOMAINS = "domains"
+    STRATEGY_OVERWRITE = "overwrite"
+    STRATEGY_APPEND = "append"
+    TYPE_TAG = "tag"
+    TYPE_OWNER = "owner"
 
 
 class SQLServerConfig(BasicSQLAlchemyConfig):
@@ -113,6 +133,13 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
         default=True,
         description="Enable lineage extraction for stored procedures",
     )
+    add_extended_properties: bool = Field(
+        default=False,
+        description="Enable reading extended properties from mssql",
+    )
+    map_extended_properties: Dict[str, Dict] = Field(
+        default={}, description="Mapping for extended properties from msqsl to datahub"
+    )
 
     @pydantic.validator("uri_args")
     def passwords_match(cls, v, values, **kwargs):
@@ -120,6 +147,29 @@ class SQLServerConfig(BasicSQLAlchemyConfig):
             raise ValueError("uri_args must contain a 'driver' option")
         elif not values["use_odbc"] and v:
             raise ValueError("uri_args is not supported when ODBC is disabled")
+        return v
+
+    @pydantic.validator("map_extended_properties")
+    def map_extended_properties_validator(cls, v, **kwargs):
+        for setting in v.values():
+            if setting.get("type") not in (
+                ExtendedPropertiesMapping.TYPE_DESCRIPTION.value,
+                ExtendedPropertiesMapping.TYPE_DOMAINS.value,
+                ExtendedPropertiesMapping.TYPE_OWNER.value,
+                ExtendedPropertiesMapping.TYPE_TAG.value,
+            ):
+                raise ValueError(
+                    f"Incorrect type {setting.get('type')} for map_extended_properties"
+                )
+            elif setting.get(
+                "strategy", ExtendedPropertiesMapping.STRATEGY_APPEND.value
+            ) not in (
+                ExtendedPropertiesMapping.STRATEGY_APPEND.value,
+                ExtendedPropertiesMapping.STRATEGY_OVERWRITE.value,
+            ):
+                raise ValueError(
+                    f"Incorrect strategy {setting.get('strategy')} for map_extended_properties"
+                )
         return v
 
     def get_sql_alchemy_url(
@@ -208,46 +258,149 @@ class SQLServerSource(SQLAlchemySource):
         # see https://stackoverflow.com/questions/5953330/how-do-i-map-the-id-in-sys-extended-properties-to-an-object-name
         # also see https://www.mssqltips.com/sqlservertip/5384/working-with-sql-server-extended-properties/
         table_metadata = conn.execute(
-            """
+            f"""
             SELECT
               SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
               T.NAME AS table_name,
-              EP.VALUE AS table_description
+              EP.VALUE AS table_description,
+              EP.NAME AS name
             FROM sys.tables AS T
             INNER JOIN sys.extended_properties AS EP
               ON EP.MAJOR_ID = T.[OBJECT_ID]
               AND EP.MINOR_ID = 0
-              AND EP.NAME = 'MS_Description'
               AND EP.CLASS = 1
+              AND EP.NAME in {self.get_extended_properties_name()}
             """
         )
+
+        _extended_properties = list()
         for row in table_metadata:
-            self.table_descriptions[
-                f"{db_name}.{row['schema_name']}.{row['table_name']}"
-            ] = row["table_description"]
+            if row["name"] == "MS_Description":
+                self.table_descriptions[
+                    f"{db_name}.{row['schema_name']}.{row['table_name']}"
+                ] = row["table_description"]
+            else:
+                _extended_properties.append(row)
+
+        if self.config.add_extended_properties:
+            for ep in _extended_properties:
+                setting = self.config.map_extended_properties[ep["name"]]
+                _key = f"{db_name}.{ep['schema_name']}.{ep['table_name']}"
+
+                match setting["type"]:
+                    case ExtendedPropertiesMapping.TYPE_DESCRIPTION.value:
+                        match setting["strategy"]:
+                            case ExtendedPropertiesMapping.STRATEGY_APPEND.value:
+                                self.table_descriptions[_key] = setting.get(
+                                    "delimiter", "\n ___ \n"
+                                ).join(
+                                    [
+                                        i
+                                        for i in [
+                                            self.table_descriptions.get(_key),
+                                            ep["table_description"],
+                                        ]
+                                        if i
+                                    ]
+                                )
+                            case _:
+                                self.table_descriptions[_key] = ep["table_description"]
+
+                    case ExtendedPropertiesMapping.TYPE_DOMAINS.value:
+                        self.table_domains[_key] = (
+                            ep["table_description"].split(",")[0].strip()
+                        )
+
+                    case ExtendedPropertiesMapping.TYPE_TAG.value:
+                        self.table_tags.setdefault(_key, {}).update(
+                            {
+                                ep["name"]: [
+                                    st.strip()
+                                    for st in ep["table_description"].split('"')
+                                    if st.strip() not in (",", "")
+                                ]
+                            }
+                        )
+
+                    case ExtendedPropertiesMapping.TYPE_OWNER.value:
+                        self.table_owners.setdefault(_key, {}).update(
+                            {
+                                ep["name"]: [
+                                    st.strip()
+                                    for st in ep["table_description"].split(",")
+                                    if st.strip()
+                                ]
+                            }
+                        )
 
     def _populate_column_descriptions(self, conn: Connection, db_name: str) -> None:
         column_metadata = conn.execute(
-            """
+            f"""
             SELECT
               SCHEMA_NAME(T.SCHEMA_ID) AS schema_name,
               T.NAME AS table_name,
-              C.NAME AS column_name ,
-              EP.VALUE AS column_description
+              C.NAME AS column_name,
+              EP.VALUE AS column_description,
+              EP.NAME AS name
             FROM sys.tables AS T
             INNER JOIN sys.all_columns AS C
               ON C.OBJECT_ID = T.[OBJECT_ID]
             INNER JOIN sys.extended_properties AS EP
               ON EP.MAJOR_ID = T.[OBJECT_ID]
               AND EP.MINOR_ID = C.COLUMN_ID
-              AND EP.NAME = 'MS_Description'
               AND EP.CLASS = 1
+              AND EP.NAME in {self.get_extended_properties_name()}
             """
         )
+        _extended_properties = list()
         for row in column_metadata:
-            self.column_descriptions[
-                f"{db_name}.{row['schema_name']}.{row['table_name']}.{row['column_name']}"
-            ] = row["column_description"]
+            if row["name"] == "MS_Description":
+                self.column_descriptions[
+                    f"{db_name}.{row['schema_name']}.{row['table_name']}.{row['column_name']}"
+                ] = row["column_description"]
+            else:
+                _extended_properties.append(row)
+
+        if self.config.add_extended_properties:
+            for ep in _extended_properties:
+                setting = self.config.map_extended_properties.get(ep["name"])
+                _key = f"{db_name}.{ep['schema_name']}.{ep['table_name']}.{ep['column_name']}"
+                if (
+                    setting
+                    and setting.get("type")
+                    == ExtendedPropertiesMapping.TYPE_DESCRIPTION.value
+                ):
+                    if (
+                        setting.get("strategy")
+                        == ExtendedPropertiesMapping.STRATEGY_APPEND.value
+                    ):
+                        self.column_descriptions[_key] = setting.get(
+                            "delimiter", "\n ___ \n"
+                        ).join(
+                            [
+                                i
+                                for i in [
+                                    self.column_descriptions.get(_key),
+                                    ep["column_description"],
+                                ]
+                                if i
+                            ]
+                        )
+                    else:
+                        self.column_descriptions[_key] = ep["column_description"]
+                elif (
+                    setting
+                    and setting.get("type") == ExtendedPropertiesMapping.TYPE_TAG.value
+                ):
+                    self.column_tags.setdefault(_key, {}).update(
+                        {
+                            ep["name"]: [
+                                st.strip()
+                                for st in ep["column_description"].split('"')
+                                if st.strip() not in (",", "")
+                            ]
+                        }
+                    )
 
     @classmethod
     def create(cls, config_dict: Dict, ctx: PipelineContext) -> "SQLServerSource":
@@ -765,3 +918,130 @@ class SQLServerSource(SQLAlchemySource):
             if self.config.convert_urns_to_lowercase
             else table_ref_str
         )
+
+    def get_extended_properties_name(self) -> str:
+        names = "','".join(
+            list(self.config.map_extended_properties.keys()) + ["MS_Description"]
+        )
+        return f"('{names}')"
+
+    def get_extra_tags(
+        self, inspector: Inspector, schema: str, table: str
+    ) -> Optional[Dict[str, List[str]]]:
+        result = {}
+        db_name = self.get_db_name(inspector)
+        _key = f"{db_name}.{schema}.{table}"
+        for k, v in self.column_tags.items():
+            if k.startswith(_key):
+                column = k.split(".")[-1]
+                for name, tags in v.items():
+                    setting = self.config.map_extended_properties.get(name)
+                    if (
+                        setting
+                        and setting.get("strategy")
+                        == ExtendedPropertiesMapping.STRATEGY_OVERWRITE.value
+                    ):
+                        result[column] = tags
+                    else:
+                        result.setdefault(column, []).extend(tags)
+        return result
+
+    def get_tags(self, key: str, dataset_urn: str) -> Optional[GlobalTagsClass]:
+        tags = self.table_tags.get(key)
+        if tags:
+            tags_ex: Optional[GlobalTagsClass] = (
+                self.ctx.graph.get_tags(entity_urn=dataset_urn)
+                if self.ctx.graph
+                else None
+            )
+            tags_to_add = [t.tag for t in tags_ex.tags] if tags_ex else []
+            for k, v in tags.items():
+                setting = self.config.map_extended_properties.get(k)
+                if (
+                    setting
+                    and setting.get("strategy")
+                    == ExtendedPropertiesMapping.STRATEGY_OVERWRITE.value
+                ):
+                    tags_to_add = [make_tag_urn(t) for t in v]
+                else:
+                    tags_to_add.extend([make_tag_urn(t) for t in v])
+            tags_to_add = list(set(tags_to_add))
+            if tags_to_add:
+                return GlobalTagsClass(
+                    tags=[TagAssociationClass(tag_to_add) for tag_to_add in tags_to_add]
+                )
+        return None
+
+    def get_owners(self, key: str, dataset_urn: str) -> Optional[OwnershipClass]:
+        owners_prop = self.table_owners.get(key)
+        if owners_prop:
+            own: Optional[List[str]] = (
+                self.ctx.graph.list_all_entity_urns("corpuser", 0, 10**10)
+                if self.ctx.graph
+                else None
+            )
+            all_owners_urn = set(own) if own else set()
+            owners: Dict[Union[str, OwnershipTypeClass], Dict[str, OwnerClass]] = dict()
+            ownership_ex: Optional[OwnershipClass] = (
+                self.ctx.graph.get_ownership(entity_urn=dataset_urn)
+                if self.ctx.graph
+                else None
+            )
+            if ownership_ex:
+                for owner in ownership_ex.owners:
+                    if owner.typeUrn:
+                        owner = OwnerClass(
+                            owner=owner.owner,
+                            type=owner.typeUrn.split("__")[-1].upper(),
+                        )
+                    owners.setdefault(owner.type, {}).update({owner.owner: owner})
+            for k, v in owners_prop.items():
+                setting = self.config.map_extended_properties[k]
+                ownership_type, ownership_type_urn = validate_ownership_type(
+                    setting["ownership_type"]
+                )
+                owner_urns = []
+                absent = []
+                for o in v:
+                    ownername, _ = o.split("@")
+                    owner_urn = make_user_urn(o)
+                    ownername_urn = make_user_urn(ownername)
+                    if owner_urn in all_owners_urn:
+                        owner_urns.append(owner_urn)
+                    elif ownername_urn in all_owners_urn:
+                        owner_urns.append(ownername_urn)
+                    else:
+                        absent.append(o)
+
+                if absent:
+                    logger.warning(
+                        f"Extracted owners do not exist in DataHub. Can not emit metadata: {absent}"
+                    )
+
+                owners_add = [
+                    OwnerClass(
+                        owner=owner, type=ownership_type, typeUrn=ownership_type_urn
+                    )
+                    for owner in owner_urns
+                ]
+
+                if (
+                    setting.get("strategy")
+                    == ExtendedPropertiesMapping.STRATEGY_OVERWRITE.value
+                ):
+                    owners[ownership_type[0]] = {
+                        owner.owner: owner for owner in owners_add
+                    }
+                else:
+                    owners.setdefault(ownership_type[0], {}).update(
+                        {owner.owner: owner for owner in owners_add}
+                    )
+            if owners:
+                return OwnershipClass(
+                    owners=[
+                        owner
+                        for owners_by_type in owners.values()
+                        for owner in owners_by_type.values()
+                    ]
+                )
+        return None
