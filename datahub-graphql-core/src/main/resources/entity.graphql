@@ -262,6 +262,13 @@ type Query {
     Fetch all Business Attributes
     """
     listBusinessAttributes(input: ListBusinessAttributesInput!): ListBusinessAttributesResult
+
+    """
+    List Dimension Names
+    """
+    listDimensionNames(
+        "Input required for listing custom dimension names"
+        input: ListDimensionNameInput!): ListDimensionNameResult!
 }
 
 """
@@ -948,6 +955,29 @@ type Mutation {
     Remove Business Attribute
     """
     removeBusinessAttribute(input: AddBusinessAttributeInput!): Boolean
+
+    """
+    Create a Dimension Name.
+    """
+    createDimensionName(
+        "Inputs required to create a new Query."
+        input: CreateDimensionNameInput!): DimensionNameEntity
+
+    """
+    Update an existing dimension Query.
+    """
+    updateDimensionName(
+        "The urn identifier for the custom dimension type to update."
+        urn: String!,
+        "Inputs required to update an existing Custom Dimension Name."
+        input: UpdateDimensionNameInput!): DimensionNameEntity
+
+    """
+    Delete a Dimension Name by urn.
+    """
+    deleteDimensionName(
+        "Urn of the Dimension Name to remove."
+        urn: String!, deleteReferences: Boolean): Boolean
 }
 
 """
@@ -1158,6 +1188,11 @@ enum EntityType {
     A Custom Ownership Type
     """
     CUSTOM_OWNERSHIP_TYPE
+
+    """
+    A Dimension Name
+    """
+    DIMENSION_NAME
 
     """
     A connection to an external source.
@@ -1758,6 +1793,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Structured properties about this Dataset
     """
     structuredProperties: StructuredProperties
+
+    """
+    Data about quality
+    """
+    dataQuality: DataQuality
 }
 
 type RoleAssociation {
@@ -12421,6 +12461,30 @@ input UpdateOwnershipTypeInput {
     description: String
 }
 
+input CreateDimensionNameInput {
+    """
+    The name of the Custom Dimension Name
+    """
+    name: String!
+
+    """
+    The description of the Custom Dimension Name
+    """
+    description: String!
+}
+
+input UpdateDimensionNameInput {
+    """
+    The name of the Custom Dimension Name
+    """
+    name: String
+
+    """
+    The description of the Custom Dimension Name
+    """
+    description: String
+}
+
 """
 A standardized type of a user
 """
@@ -12803,4 +12867,110 @@ type CronSchedule {
     Timezone in which the cron interval applies, e.g. America/Los_Angeles
     """
     timezone: String!
+}
+
+"""
+Properties about an individual Custom Dimension Type.
+"""
+type DimensionNameInfo {
+
+    """
+    The name of the Dimension
+    """
+    name: String!
+
+    """
+    The description of the Dimension
+    """
+    description: String
+
+    """
+    An Audit Stamp corresponding to the creation of this resource
+    """
+    created: AuditStamp
+
+    """
+    An Audit Stamp corresponding to the update of this resource
+    """
+    lastModified: AuditStamp
+}
+
+"""
+A single Dimension Name entity
+"""
+type DimensionNameEntity implements Entity {
+    """
+    A primary key associated with the dimension name type.
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Information about the Dimension name
+    """
+    info: DimensionNameInfo
+
+    """
+    Status of the Dimension
+    """
+    status: Status
+
+    """
+    Granular API for querying edges extending from the Dimension Name
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+Input required for listing custom dimension name entities
+"""
+input ListDimensionNameInput {
+    """
+    The starting offset of the result set returned, default is 0
+    """
+    start: Int
+
+    """
+    The maximum number of Custom Dimension Name to be returned in the result set, default is 20
+    """
+    count: Int
+
+    """
+    Optional search query
+    """
+    query: String
+
+    """
+    Optional Facet filters to apply to the result set
+    """
+    filters: [FacetFilterInput!]
+}
+
+"""
+Results when listing dimension types.
+"""
+type ListDimensionNameResult {
+    """
+    The starting offset of the result set
+    """
+    start: Int!
+
+    """
+    The number of results to be returned
+    """
+    count: Int!
+
+    """
+    The total number of results in the result set
+    """
+    total: Int!
+
+    """
+    The Custom Dimension Name themselves
+    """
+    dimensionNames: [DimensionNameEntity!]!
 }

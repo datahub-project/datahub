@@ -1,0 +1,57 @@
+namespace com.linkedin.dataquality
+
+import com.linkedin.common.AuditStamp
+
+/**
+ * Information about an Dimension type
+ */
+@Aspect = {
+  "name": "dimensionTypeInfo"
+}
+record DimensionTypeInfo {
+
+  /**
+   * Display name of the Dimension Type
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0
+  }
+  name: string
+
+  /**
+   * Description of the Dimension Type
+   */
+  description: optional string
+
+   /**
+    * Audit stamp capturing the time and actor who created the Dimension Type.
+    */
+   @Searchable = {
+     "/time": {
+        "fieldType": "DATETIME",
+        "fieldName": "createdAt"
+     },
+     "/actor": {
+       "fieldType": "URN",
+       "fieldName": "createdBy"
+     }
+   }
+   created: AuditStamp
+
+   /**
+    * Audit stamp capturing the time and actor who last modified the Dimension Type.
+    */
+   @Searchable = {
+     "/time": {
+        "fieldType": "DATETIME",
+        "fieldName": "lastModifiedAt"
+     }
+     "/actor": {
+       "fieldType": "URN",
+       "fieldName": "lastModifiedBy"
+     }
+   }
+   lastModified: AuditStamp
+}
