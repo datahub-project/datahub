@@ -73,7 +73,7 @@ mutation createStructuredProperty {
         {numberValue: 365, description:"Use this for non-sensitive data that can be retained for longer"}
       ],
       cardinality: SINGLE,
-      entityTypes: ["urn:li:entityType:dataset", "urn:li:entityType:dataFlow"],
+      entityTypes: ["urn:li:entityType:datahub.dataset", "urn:li:entityType:datahub.dataFlow"],
     }
   ) {
     urn

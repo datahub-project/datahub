@@ -59,6 +59,6 @@ public class SystemRestliEntityClient extends RestliEntityClient implements Syst
       @Nonnull Set<Urn> urns,
       @Nullable Set<String> aspectNames)
       throws RemoteInvocationException, URISyntaxException {
-    return super.batchGetV2(opContext, entityName, urns, aspectNames);
+    return super.batchGetV2(opContext, entityName, urns, aspectNames, false);
   }
 }

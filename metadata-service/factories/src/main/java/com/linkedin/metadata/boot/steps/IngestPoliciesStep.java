@@ -225,7 +225,7 @@ public class IngestPoliciesStep implements BootstrapStep {
                 new AuditStamp()
                     .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
                     .setTime(System.currentTimeMillis()),
-                systemOperationContext.getRetrieverContext().get())
+                systemOperationContext.getRetrieverContext())
             .build(),
         false);
   }

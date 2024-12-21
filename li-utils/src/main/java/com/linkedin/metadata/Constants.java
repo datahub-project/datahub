@@ -409,6 +409,8 @@ public class Constants {
   /** User Status */
   public static final String CORP_USER_STATUS_ACTIVE = "ACTIVE";
 
+  public static final String CORP_USER_STATUS_SUSPENDED = "SUSPENDED";
+
   /** Task Runs */
   public static final String DATA_PROCESS_INSTANCE_ENTITY_NAME = "dataProcessInstance";
 

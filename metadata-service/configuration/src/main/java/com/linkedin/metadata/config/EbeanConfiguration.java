@@ -23,6 +23,7 @@ public class EbeanConfiguration {
   private boolean autoCreateDdl;
   private boolean postgresUseIamAuth;
   private LockingConfiguration locking;
+  private String batchGetMethod;
 
   public static final EbeanConfiguration testDefault =
       EbeanConfiguration.builder().locking(LockingConfiguration.testDefault).build();

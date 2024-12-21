@@ -1,40 +1,104 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
-# But First, Semantics: Upsert versus Patch
+# Emitting Patch Updates to DataHub
 
 ## Why Would You Use Patch
 
-By default, most of the SDK tutorials and API-s involve applying full upserts at the aspect level. This means that typically, when you want to change one field within an aspect without modifying others, you need to do a read-modify-write to not overwrite existing fields.
-To support these scenarios, DataHub supports PATCH based operations so that targeted changes to single fields or values within arrays of fields are possible without impacting other existing metadata.
+By default, most of the SDK tutorials and APIs involve applying full upserts at the aspect level, e.g. replacing the aspect entirely. 
+This means that when you want to change even a single field within an aspect without modifying others, you need to do a read-modify-write to avoid overwriting existing fields.
+To support these scenarios, DataHub supports `PATCH` operations to perform targeted changes for individual fields or values within arrays of fields are possible without impacting other existing metadata.
 
 :::note
 
-Currently, PATCH support is only available for a selected set of aspects, so before pinning your hopes on using PATCH as a way to make modifications to aspect values, confirm whether your aspect supports PATCH semantics. The complete list of Aspects that are supported are maintained [here](https://github.com/datahub-project/datahub/blob/9588440549f3d99965085e97b214a7dabc181ed2/entity-registry/src/main/java/com/linkedin/metadata/models/registry/template/AspectTemplateEngine.java#L24). In the near future, we do have plans to automatically support PATCH semantics for aspects by default.
+Currently, PATCH support is only available for a selected set of aspects, so before pinning your hopes on using PATCH as a way to make modifications to aspect values, confirm whether your aspect supports PATCH semantics. The complete list of Aspects that are supported are maintained [here](https://github.com/datahub-project/datahub/blob/9588440549f3d99965085e97b214a7dabc181ed2/entity-registry/src/main/java/com/linkedin/metadata/models/registry/template/AspectTemplateEngine.java#L24). 
 
 :::
 
-## How To Use Patch
+## How To Use Patches
 
-Examples for using Patch are sprinkled throughout the API guides.
 Here's how to find the appropriate classes for the language for your choice.
 
-
 <Tabs>
+<TabItem value="Python" label="Python SDK" default>
+
+The Python Patch builders are entity-oriented and located in the [metadata-ingestion](https://github.com/datahub-project/datahub/tree/9588440549f3d99965085e97b214a7dabc181ed2/metadata-ingestion/src/datahub/specific) module and located in the `datahub.specific` module. 
+Patch builder helper classes exist for 
+
+- [Datasets](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/dataset.py)
+- [Charts](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/chart.py)
+- [Dashboards](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/dashboard.py)
+- [Data Jobs (Tasks)](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/datajob.py)
+- [Data Products](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/src/datahub/specific/dataproduct.py)
+
+And we are gladly accepting contributions for Containers, Data Flows (Pipelines), Tags, Glossary Terms, Domains, and ML Models.
+
+### Add & Remove Owners for Dataset
+
+To add & remove specific owners for a dataset:
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_add_owner_patch.py show_path_as_comment }}
+```
+
+### Add & Remove Tags for Dataset
+
+To add & remove specific tags for a dataset:
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_add_tag_patch.py show_path_as_comment }}
+```
+
+And for a specific schema field within the Dataset:
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_field_add_tag_patch.py show_path_as_comment }}
+```
+
+### Add & Remove Glossary Terms for Dataset
+
+To add & remove specific glossary terms for a dataset:
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_add_glossary_term_patch.py show_path_as_comment }}
+```
+
+And for a specific schema field within the Dataset:
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_field_add_glossary_term_patch.py show_path_as_comment }}
+```
+
+### Add & Remove Structured Properties for Dataset
+
+To add & remove structured properties for a dataset:
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_add_structured_properties_patch.py show_path_as_comment }}
+```
+
+### Add & Remove Upstream Lineage for Dataset
+
+To add & remove a lineage edge connecting a dataset to it's upstream or input at both the dataset and schema field level:
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_add_upstream_lineage_patch.py show_path_as_comment }}
+```
+
+### Add & Remove Read-Only Custom Properties for Dataset
+
+To add & remove specific custom properties for a dataset: 
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_add_remove_custom_properties_patch.py show_path_as_comment }}
+```
+
+</TabItem>
 <TabItem value="Java" label="Java SDK">
 
 The Java Patch builders are aspect-oriented and located in the [datahub-client](https://github.com/datahub-project/datahub/tree/master/metadata-integration/java/datahub-client/src/main/java/datahub/client/patch) module under the `datahub.client.patch` namespace.
 
-Here are a few illustrative examples using the Java Patch builders:
-
-
-### Add Custom Properties
-
-```java
-{{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesAdd.java show_path_as_comment }}
-```
-
-### Add and Remove Custom Properties
+### Add & Remove Read-Only Custom Properties
 
 ```java
 {{ inline /metadata-integration/java/examples/src/main/java/io/datahubproject/examples/DatasetCustomPropertiesAddRemove.java show_path_as_comment }}
@@ -47,23 +111,10 @@ Here are a few illustrative examples using the Java Patch builders:
 ```
 
 </TabItem>
-<TabItem value="Python" label="Python SDK" default>
-
-The Python Patch builders are entity-oriented and located in the [metadata-ingestion](https://github.com/datahub-project/datahub/tree/9588440549f3d99965085e97b214a7dabc181ed2/metadata-ingestion/src/datahub/specific) module and located in the `datahub.specific` module.
-
-Here are a few illustrative examples using the Python Patch builders:
-
-### Add Properties to Dataset
-
-```python
-{{ inline /metadata-ingestion/examples/library/dataset_add_properties.py show_path_as_comment }}
-```
-
-</TabItem>
 </Tabs>
 
 
-## How Patch works
+## Advanced: How Patch works
 
 To understand how patching works, it's important to understand a bit about our [models](../what/aspect.md). Entities are comprised of Aspects
 which can be reasoned about as JSON representations of the object models. To be able to patch these we utilize [JsonPatch](https://jsonpatch.com/). The components of a JSON Patch are the path, operation, and value.
@@ -73,9 +124,6 @@ which can be reasoned about as JSON representations of the object models. To be 
 The JSON path refers to a value within the schema. This can be a single field or can be an entire object reference depending on what the path is.
 For our patches we are primarily targeting single fields or even single array elements within a field. To be able to target array elements by id, we go through a translation process
 of the schema to transform arrays into maps. This allows a path to reference a particular array element by key rather than by index, for example a specific tag urn being added to a dataset.
-This is important to note that for some fields in our schema that are arrays which do not necessarily restrict uniqueness, this puts a uniqueness constraint on the key.
-The key for objects stored in arrays is determined manually by examining the schema and a long term goal is to make these keys annotation driven to reduce the amount of code needed to support
-additional aspects to be patched. There is a generic patch endpoint, but it requires any array field keys to be specified at request time, putting a lot of burden on the API user.
 
 #### Examples
 
@@ -87,8 +135,7 @@ Breakdown:
 * `/upstreams` -> References the upstreams field of the UpstreamLineage aspect, this is an array of Upstream objects where the key is the Urn
 * `/urn:...` -> The dataset to be targeted by the operation
 
-
-A patch path for targeting a fine grained lineage upstream:
+A patch path for targeting a fine-grained lineage upstream:
 
 `/fineGrainedLineages/TRANSFORM/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD),foo)/urn:li:query:queryId/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created_upstream,PROD),bar)`
 
@@ -117,7 +164,6 @@ using adds, but generally the most useful use case for patch is to add elements 
 #### Remove
 
 Remove operations require the path specified to be present, or an error will be thrown, otherwise they operate as one would expect. The specified path will be removed from the aspect.
-
 
 ### Value
 
