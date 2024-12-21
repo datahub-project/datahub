@@ -85,8 +85,6 @@ query getDatasetAssertionsWithMonitors($urn: String!) {
         }
         privileges {
             ...entityPrivileges
-            canEditMonitors
-            canEditSqlAssertionMonitors
         }
     }
 }

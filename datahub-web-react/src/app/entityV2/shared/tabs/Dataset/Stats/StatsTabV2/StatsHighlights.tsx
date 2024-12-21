@@ -6,14 +6,6 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-interface Props {
-    rowCount?: number;
-    columnCount?: number;
-    queryCount?: number;
-    users?: Array<Maybe<UserUsageCounts>>;
-    scrollToColumnStats: () => void;
-}
-
 const StatsContainer = styled.div`
     display: flex;
     padding: 12px 0;
@@ -38,7 +30,16 @@ const VerticalDivider = styled(Divider)`
 
 const CARD_WIDTH = '225px';
 
-const StatsHighlights = ({ rowCount, columnCount, queryCount, users, scrollToColumnStats }: Props) => {
+interface Props {
+    rowCount?: number;
+    columnCount?: number;
+    queryCount?: number;
+    users?: Array<Maybe<UserUsageCounts>>;
+    scrollToColumnStats: () => void;
+    hasColumnStats?: boolean;
+}
+
+const StatsHighlights = ({ rowCount, columnCount, queryCount, users, scrollToColumnStats, hasColumnStats }: Props) => {
     const ViewButton = () => {
         return (
             <Button variant="text" icon="ArrowDownward">
@@ -68,9 +69,9 @@ const StatsHighlights = ({ rowCount, columnCount, queryCount, users, scrollToCol
                         <Card
                             title={columnCount?.toString() || ''}
                             subTitle={pluralize(columnCount || 0, 'Column')}
-                            button={<ViewButton />}
+                            button={hasColumnStats ? <ViewButton /> : undefined}
                             width={CARD_WIDTH}
-                            onClick={scrollToColumnStats}
+                            onClick={hasColumnStats ? scrollToColumnStats : undefined}
                             isEmpty={columnCount === undefined}
                         />
                     </StatCards>

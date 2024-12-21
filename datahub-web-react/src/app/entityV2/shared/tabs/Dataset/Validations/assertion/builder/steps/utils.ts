@@ -1,7 +1,21 @@
+import { AssertionActionType, AssertionType } from '@src/types.generated';
 import { Form } from 'antd';
 import { useState } from 'react';
-import { AssertionActionType, AssertionType } from '../../../../../../../../../types.generated';
+import {
+    DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE,
+    DEFAULT_DATASET_SQL_ASSERTION_PARAMETERS_STATE,
+    DEFAULT_DATASET_SQL_ASSERTION_STATE,
+    DEFAULT_DATASET_VOLUME_ASSERTION_STATE,
+} from '../constants';
 import { AssertionMonitorBuilderState } from '../types';
+import { getDefaultDatasetFreshnessAssertionParametersState } from '../utils';
+import {
+    getDefaultDatasetFieldAssertionParametersState,
+    getDefaultDatasetFieldAssertionState,
+    getDefaultDatasetSchemaAssertionParametersState,
+    getDefaultDatasetSchemaAssertionState,
+} from './field/utils';
+import { getDefaultDatasetVolumeAssertionParametersState } from './volume/utils';
 
 export const toggleRaiseIncidentState = (state: AssertionMonitorBuilderState, newValue: boolean) => {
     let newFailureActions = state?.assertion?.actions?.onFailure || [];
@@ -110,3 +124,66 @@ export const useTestAssertionModal = () => {
         hideTestAssertionModal: () => setTestAssertionModalVisible(false),
     };
 };
+
+export default function getInitBuilderStateByAssertionType(
+    state: AssertionMonitorBuilderState,
+    type: AssertionType,
+    connectionForEntityExists: boolean,
+    monitorsConnectionForEntityExists: boolean,
+): AssertionMonitorBuilderState {
+    switch (type) {
+        case AssertionType.Freshness:
+            return {
+                ...state,
+                assertion: {
+                    type,
+                    freshnessAssertion: DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE,
+                },
+                parameters: getDefaultDatasetFreshnessAssertionParametersState(
+                    state.platformUrn as string,
+                    monitorsConnectionForEntityExists,
+                ),
+            };
+        case AssertionType.Volume:
+            return {
+                ...state,
+                assertion: {
+                    type,
+                    volumeAssertion: DEFAULT_DATASET_VOLUME_ASSERTION_STATE,
+                },
+                parameters: getDefaultDatasetVolumeAssertionParametersState(
+                    state.platformUrn as string,
+                    monitorsConnectionForEntityExists,
+                ),
+            };
+        case AssertionType.Sql:
+            return {
+                ...state,
+                assertion: {
+                    type,
+                    sqlAssertion: DEFAULT_DATASET_SQL_ASSERTION_STATE,
+                },
+                parameters: DEFAULT_DATASET_SQL_ASSERTION_PARAMETERS_STATE,
+            };
+        case AssertionType.Field:
+            return {
+                ...state,
+                assertion: {
+                    type,
+                    fieldAssertion: getDefaultDatasetFieldAssertionState(connectionForEntityExists),
+                },
+                parameters: getDefaultDatasetFieldAssertionParametersState(connectionForEntityExists),
+            };
+        case AssertionType.DataSchema:
+            return {
+                ...state,
+                assertion: {
+                    type,
+                    schemaAssertion: getDefaultDatasetSchemaAssertionState(),
+                },
+                parameters: getDefaultDatasetSchemaAssertionParametersState(),
+            };
+        default:
+            return state;
+    }
+}

@@ -13,6 +13,9 @@ import {
 import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
 import { DATE_TYPE_URN } from '@src/app/shared/constants';
 import { BookmarkSimple, Globe } from '@phosphor-icons/react';
+import styled from 'styled-components';
+import { STRUCTURED_PROPERTY_FILTER } from '@src/app/searchV2/filters/field/fields';
+import React, { useLayoutEffect, useState } from 'react';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
     CONTAINER_FILTER_NAME,
@@ -30,9 +33,6 @@ import {
     UNIT_SEPARATOR,
 } from '../utils/constants';
 
-import { STRUCTURED_PROPERTY_FILTER } from '@src/app/searchV2/filters/field/fields';
-import React, { useLayoutEffect, useState } from 'react';
-import styled from 'styled-components';
 import {
     AggregationMetadata,
     DataPlatform,

@@ -26,6 +26,7 @@ plugins = {
         "scipy<=1.14.1",
         "pyarrow<=18.0.0",
     },
+    "datahub-metadata-sharing": {}, # No custom deps (yet)
     "acryl-cs-issues": {"zenpy", "openai", "jinja2", "slack-sdk"},
 }
 
@@ -40,6 +41,7 @@ dev_requirements = {
             "datahub-reporting-extract-sql",
             "datahub-lineage-features",
             "datahub-usage-feature-reporting",
+            "datahub-metadata-sharing",
             "acryl-cs-issues",
         ]
         for dependency in plugins[plugin]
@@ -63,6 +65,7 @@ setup(
                 "datahub-reporting-extract-sql = acryl_datahub_cloud.datahub_reporting.extract_sql:DataHubReportingExtractSQLSource",
                 "datahub-lineage-features = acryl_datahub_cloud.lineage_features.source:DataHubLineageFeaturesSource",
                 "datahub-usage-reporting = acryl_datahub_cloud.datahub_usage_reporting.usage_feature_reporter:DataHubUsageFeatureReportingSource",
+                "datahub-metadata-sharing = acryl_datahub_cloud.datahub_metadata_sharing.metadata_sharing_source:DataHubMetadataSharingSource",
                 "acryl-cs-issues = acryl_datahub_cloud.acryl_cs_issues.source:AcrylCSIssuesSource",
             ],
         },

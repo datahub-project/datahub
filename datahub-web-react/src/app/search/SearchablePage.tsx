@@ -3,6 +3,7 @@ import { useHistory, useLocation } from 'react-router';
 import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
 import { useTheme } from 'styled-components';
+import { Helmet } from 'react-helmet-async';
 import { SearchHeader } from './SearchHeader';
 import { useEntityRegistry } from '../useEntityRegistry';
 import { EntityType, FacetFilterInput } from '../../types.generated';
@@ -19,6 +20,7 @@ import { useQuickFiltersContext } from '../../providers/QuickFiltersContext';
 import { useUserContext } from '../context/useUserContext';
 import { useSelectedSortOption } from './context/SearchContext';
 import { HALF_SECOND_IN_MS } from '../entity/shared/tabs/Dataset/Queries/utils/constants';
+import { useBrowserTitle } from '../shared/BrowserTabTitleContext';
 
 const styles = {
     children: {
@@ -166,6 +168,9 @@ export const SearchablePage = ({ onSearch, onAutoComplete, children }: Props) =>
                 authenticatedUserPictureLink={user?.editableProperties?.pictureLink}
                 entityRegistry={entityRegistry}
             />
+            <Helmet>
+                <title>{title}</title>
+            </Helmet>
             <div style={styles.children}>{children}</div>
         </>
     );

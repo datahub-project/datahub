@@ -1921,6 +1921,11 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     Cached, potentially stale information about the entity's lineage.
     """
     lineageFeatures: LineageFeatures
+
+    """
+    Statistics about how this Dataset has been operated on
+    """
+    operationsStats(input: OperationsStatsInput): OperationsQueryResult
 }
 
 type RoleAssociation {
@@ -7087,6 +7092,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     Cached, potentially stale information about the entity's lineage.
     """
     lineageFeatures: LineageFeatures
+
+    """
+    Data Transform Logic associated with the Data Job
+    """
+    dataTransformLogic: DataTransformLogic
 }
 
 """
@@ -7307,6 +7317,26 @@ type DataJobInputOutput {
     The upstream and downstream columns are from datasets.
     """
     fineGrainedLineages: [FineGrainedLineage!]
+}
+
+"""
+Information about a transformation applied to data assets
+"""
+type DataTransform {
+  """
+  The transformation may be defined by a query statement
+  """
+  queryStatement: QueryStatement
+}
+
+"""
+Information about transformations applied to data assets
+"""
+type DataTransformLogic {
+  """
+  List of transformations applied
+  """
+  transforms: [DataTransform!]!
 }
 
 """

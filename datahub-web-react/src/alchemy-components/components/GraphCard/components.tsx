@@ -37,3 +37,10 @@ export const EmptyMessageContainer = styled.div`
     transform: translate(-50%, -50%);
     position: absolute;
 `;
+
+export const LoaderContainer = styled.div<{ $height: string }>`
+    display: flex;
+    width: 100%;
+    height: ${(props) => props.$height};
+    min-height: 200px;
+`;

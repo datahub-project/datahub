@@ -322,7 +322,8 @@ export default function DefaultPreviewCard({
                             parentEntities={parentEntities}
                             parentContainersRef={contentRef}
                             areContainersTruncated={isContentTruncated}
-                        parentDataset={parentDataset}/>
+                            parentDataset={parentDataset}
+                        />
                         {previewEnum === 'BULK_VERIFY' && onClick && (
                             <BulkVerifyViewLink id={FORM_CHECK_RESPONSES_ID} onClick={() => onClick({ urn, type })}>
                                 View Responses <ArrowRightOutlined />

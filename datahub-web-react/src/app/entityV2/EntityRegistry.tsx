@@ -322,6 +322,11 @@ export default class EntityRegistry {
         );
     }
 
+    getCustomCardUrlPath(type: EntityType): string | undefined {
+        const entity = validatedGet(type, this.entityTypeToEntity, DefaultEntity);
+        return entity.getCustomCardUrlPath?.() as string | undefined;
+    }
+
     getTypeFromGraphName(name: string): EntityType | undefined {
         return this.graphNameToEntityType.get(name);
     }

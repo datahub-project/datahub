@@ -3,6 +3,7 @@ export type GraphCardProps = {
     subTitle?: string | React.ReactNode;
     loading?: boolean;
     graphHeight?: string;
+    width?: string;
     renderGraph: () => React.ReactNode;
     renderControls?: () => React.ReactNode;
     isEmpty?: boolean;

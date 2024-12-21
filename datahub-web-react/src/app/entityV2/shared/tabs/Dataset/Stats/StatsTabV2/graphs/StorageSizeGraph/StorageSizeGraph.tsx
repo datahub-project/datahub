@@ -41,6 +41,7 @@ export default function StorageSizeGraph({ urn }: RowCountGraphProps) {
                         values={rangeType ? [rangeType] : []}
                         onUpdate={(values) => setRangeType(values[0])}
                         showClear={false}
+                        width="full"
                     />
                 </>
             )}

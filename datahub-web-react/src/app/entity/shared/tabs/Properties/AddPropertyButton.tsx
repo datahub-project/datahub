@@ -3,7 +3,7 @@ import { colors, Icon, Input as InputComponent, Text } from '@src/alchemy-compon
 import { useUserContext } from '@src/app/context/useUserContext';
 import { REDESIGN_COLORS } from '@src/app/entityV2/shared/constants';
 import { getEntityTypesPropertyFilter, getNotHiddenPropertyFilter } from '@src/app/govern/structuredProperties/utils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useIsThemeV2 } from '@src/app/useIsThemeV2';
 import { PageRoutes } from '@src/conf/Global';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
@@ -82,7 +82,7 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
     const { entityData, entityType } = useEntityData();
     const isThemeV2 = useIsThemeV2();
     const me = useUserContext();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
 
     const inputs = {

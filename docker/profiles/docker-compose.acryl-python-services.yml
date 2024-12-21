@@ -79,6 +79,13 @@ services:
     depends_on:
       datahub-gms-debug:
         condition: service_healthy
+  datahub-integrations-quickstart-debug-postgres-dev:
+    <<: *datahub-integrations-service-dev
+    profiles:
+      - debug-postgres
+    depends_on:
+      datahub-gms-debug-postgres:
+        condition: service_healthy
   datahub-integrations-quickstart-debug-consumers:
     <<: *datahub-integrations-service-dev
     profiles:
@@ -118,6 +125,13 @@ services:
       - debug
     depends_on:
       datahub-gms-debug:
+        condition: service_healthy
+  datahub-executor-quickstart-debug-postgres-dev:
+    <<: *datahub-executor-dev
+    profiles:
+      - debug-postgres
+    depends_on:
+      datahub-gms-debug-postgres:
         condition: service_healthy
   datahub-executor-quickstart-debug-consumers:
     <<: *datahub-executor-dev

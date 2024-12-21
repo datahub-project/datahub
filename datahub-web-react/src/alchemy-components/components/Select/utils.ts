@@ -107,6 +107,7 @@ export const getSelectStyle = (props: SelectStyleProps) => {
         cursor: isDisabled || isReadOnly ? 'not-allowed' : 'pointer',
         backgroundColor: isDisabled ? colors.gray[1500] : 'initial',
         boxShadow: '0px 1px 2px 0px rgba(33, 23, 95, 0.07)',
+        textWrap: 'nowrap',
 
         '&::placeholder': {
             color: colors.gray[1900],

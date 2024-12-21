@@ -24,16 +24,8 @@ export default function useTagsAndTermsRenderer(
     };
 
     const tagAndTermRender = (tags: GlobalTags, record: SchemaField) => {
-        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find(
-            (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
-        );
-
-        const businessAttributeTags =
-            record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.tags
-                ?.tags || [];
-        const businessAttributeTerms =
-            record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties
-                ?.glossaryTerms?.terms || [];
+        const { uneditableTerms, editableTerms, proposedTerms } = extractFieldGlossaryTermsInfo(record);
+        const { uneditableTags, editableTags, proposedTags } = extractFieldTagsInfo(record, tags);
 
         return (
             <TagTermGroup

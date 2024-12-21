@@ -1,10 +1,11 @@
 import { Table, Text } from '@components';
 import { groupByFieldPath } from '@src/app/entityV2/dataset/profile/schema/utils/utils';
 import { DatasetFieldProfile } from '@src/types.generated';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
 import SchemaFieldDrawer from '../../Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
 import { useGetEntityWithSchema } from '../../Schema/useGetEntitySchema';
+import useKeyboardControls from '../../Schema/useKeyboardControls';
 import { decimalToPercentStr } from '../../Schema/utils/statsUtil';
 import { useGetColumnStatsColumns } from './useGetColumnStatsColumns';
 import { isPresent } from './utils';
@@ -59,6 +60,46 @@ const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
         setExpandedDrawerFieldPath,
     });
 
+    const { selectPreviousField, selectNextField } = useKeyboardControls(
+        rows,
+        expandedDrawerFieldPath,
+        setExpandedDrawerFieldPath,
+    );
+
+    const rowRefs = useRef<HTMLTableRowElement[]>([]);
+    const headerRef = useRef<HTMLTableSectionElement | null>(null);
+
+    useEffect(() => {
+        if (expandedDrawerFieldPath) {
+            const selectedIndex = rows.findIndex((row) => row.fieldPath === expandedDrawerFieldPath);
+            const row = rowRefs.current[selectedIndex];
+            const header = headerRef.current;
+
+            // To bring the selected row into view
+            if (selectedIndex !== -1 && row) {
+                row.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest',
+                });
+            }
+            // To bring the row hidden behind the fixed header into view fully
+            setTimeout(() => {
+                if (row && header) {
+                    const rowRect = row.getBoundingClientRect();
+                    const headerRect = header.getBoundingClientRect();
+                    const rowTop = rowRect.top;
+                    const headerBottom = headerRect.bottom;
+                    const scrollContainer = row.closest('table')?.parentElement;
+
+                    if (scrollContainer && rowTop < headerBottom) {
+                        const scrollAmount = headerBottom - rowTop;
+                        scrollContainer.scrollTop -= scrollAmount;
+                    }
+                }
+            }, 100);
+        }
+    }, [expandedDrawerFieldPath, rows]);
+
     if (filteredData.length === 0) {
         return (
             <EmptyContainer>
@@ -69,9 +110,26 @@ const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
         );
     }
 
+    const getRowClassName = (record) => {
+        return expandedDrawerFieldPath === record.column ? 'selected-row' : '';
+    };
+
+    const onRowClick = (record) => {
+        setExpandedDrawerFieldPath(expandedDrawerFieldPath === record.column ? null : record.column);
+    };
+
     return (
         <>
-            <Table columns={columnStatsColumns} data={filteredData} isScrollable />
+            <Table
+                columns={columnStatsColumns}
+                data={filteredData}
+                isScrollable
+                maxHeight="475px"
+                onRowClick={onRowClick}
+                rowClassName={getRowClassName}
+                rowRefs={rowRefs}
+                headerRef={headerRef}
+            />
             {!!fields && (
                 <SchemaFieldDrawer
                     schemaFields={fields}
@@ -80,6 +138,8 @@ const ColumnStatsTable = ({ columnStats, searchQuery }: Props) => {
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                     displayedRows={rows}
                     defaultSelectedTabName="Statistics"
+                    selectPreviousField={selectPreviousField}
+                    selectNextField={selectNextField}
                 />
             )}
         </>

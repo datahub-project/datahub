@@ -12,7 +12,7 @@ import {
     parseColumnRef,
     setDefault,
 } from '@app/lineageV2/common';
-import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from '@app/lineageV2/lineageUtils';
+import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
 import { FineGrainedOperation } from '@app/sharedV2/EntitySidebarContext';
 import { EntityType } from '@types';
 

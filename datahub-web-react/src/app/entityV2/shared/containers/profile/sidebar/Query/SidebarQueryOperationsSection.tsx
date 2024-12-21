@@ -1,8 +1,9 @@
 import React, { useContext } from 'react';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import styled from 'styled-components';
-import { SidebarSection } from '../SidebarSection';
 import EntitySidebarContext, { FineGrainedOperation } from '../../../../../../sharedV2/EntitySidebarContext';
 import { REDESIGN_COLORS } from '../../../../constants';
+import { SidebarSection } from '../SidebarSection';
 
 export default function SidebarQueryOperationsSection() {
     const { fineGrainedOperations } = useContext(EntitySidebarContext);
@@ -60,6 +61,18 @@ const HeaderColumn = styled.th`
 
 const TextColumn = styled.td`
     text-wrap: wrap;
+    font-family: 'Roboto Mono', monospace;
+`;
+
+const PreviewSyntax = styled(SyntaxHighlighter)`
+    max-width: 100%;
+    max-height: 150px;
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 1) 80%, rgba(255, 0, 0, 0.5) 85%, rgba(255, 0, 0, 0) 90%);
+
+    span {
+        font-family: 'Roboto Mono', monospace;
+    }
 `;
 
 function SidebarQueryOperation({ operation }: { operation: FineGrainedOperation }) {
@@ -68,7 +81,9 @@ function SidebarQueryOperation({ operation }: { operation: FineGrainedOperation 
             {operation.transformOperation && (
                 <Section key="logic">
                     <SectionHeader>LOGIC</SectionHeader>
-                    {operation.transformOperation}
+                    <PreviewSyntax language="sql" showLineNumbers wrapLines lineNumberStyle={{ display: 'none' }}>
+                        {operation.transformOperation}
+                    </PreviewSyntax>
                 </Section>
             )}
             {operation.inputColumns?.length && (

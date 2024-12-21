@@ -174,6 +174,7 @@ import com.linkedin.datahub.graphql.resolvers.dataproduct.CreateDataProductResol
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DeleteDataProductResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.ListDataProductAssetsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.UpdateDataProductResolver;
+import com.linkedin.datahub.graphql.resolvers.dataset.DatasetOperationsStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetStatsSummaryResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.DatasetUsageStatsResolver;
 import com.linkedin.datahub.graphql.resolvers.dataset.IsAssignedToMeResolver;
@@ -301,6 +302,7 @@ import com.linkedin.datahub.graphql.resolvers.test.ListTestsResolver;
 import com.linkedin.datahub.graphql.resolvers.timeline.GetSchemaBlameResolver;
 import com.linkedin.datahub.graphql.resolvers.timeline.GetSchemaVersionListResolver;
 import com.linkedin.datahub.graphql.resolvers.timeline.GetTimelineResolver;
+import com.linkedin.datahub.graphql.resolvers.timeseries.TimeseriesCapabilitiesResolver;
 import com.linkedin.datahub.graphql.resolvers.type.AspectInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.EntityInterfaceTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.type.HyperParameterValueTypeResolver;
@@ -870,7 +872,9 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(CONNECTIONS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(ASSERTIONS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(INCIDENTS_SCHEMA_FILE))
-        .addSchema(fileBasedSchema(CONTRACTS_SCHEMA_FILE));
+        .addSchema(fileBasedSchema(CONTRACTS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(OPERATIONS_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(TIMESERIES_SCHEMA_FILE));
 
     for (GmsGraphQLPlugin plugin : this.graphQLPlugins) {
       List<String> pluginSchemaFiles = plugin.getSchemaFiles();
@@ -1734,6 +1738,11 @@ public class GmsGraphQLEngine {
                                 .setField(OPERATION_EVENT_TIME_FIELD_NAME)
                                 .setOrder(SortOrder.DESCENDING)))
                     .dataFetcher("usageStats", new DatasetUsageStatsResolver(this.usageClient))
+                    .dataFetcher(
+                        "operationsStats",
+                        new DatasetOperationsStatsResolver(timeseriesAspectService))
+                    .dataFetcher(
+                        "timeseriesCapabilities", new TimeseriesCapabilitiesResolver(entityClient))
                     // .dataFetcher("statsSummary", new
                     // DatasetStatsSummaryResolver(this.usageClient)) // statsSummary was modified
                     .dataFetcher(

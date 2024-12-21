@@ -22,6 +22,7 @@ export const SelectBase = styled.div<SelectStyleProps>(({ isDisabled, isReadOnly
     minHeight: '42px',
     alignItems: 'center',
     overflow: 'auto',
+    textWrapMode: 'nowrap',
     backgroundColor: isDisabled ? colors.gray[1500] : colors.white,
     width: width === 'full' ? '100%' : `max-content`,
 }));
@@ -32,7 +33,7 @@ export const SelectLabelContainer = styled.div({
     gap: spacing.xsm,
     lineHeight: typography.lineHeights.none,
     alignItems: 'center',
-    width: '100%',
+    maxWidth: 'calc(100% - 54px)',
 });
 
 /**
@@ -180,7 +181,7 @@ export const LabelsWrapper = styled.div({
     flexWrap: 'wrap',
     gap: spacing.xxsm,
     maxHeight: '150px',
-    maxWidth: 'calc(100% - 54px)',
+    maxWidth: '100%',
 });
 
 export const OptionLabel = styled.label<{
@@ -221,6 +222,7 @@ export const StyledCancelButton = styled(Button)({
 });
 
 export const StyledIcon = styled(Icon)({
+    flexShrink: 0,
     color: colors.gray[1800],
 });
 

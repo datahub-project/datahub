@@ -1,4 +1,6 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
+import { Entity, EntityType } from '@src/types.generated';
+import { getSchemaFieldParentLink } from '@src/app/entity/schemaField/utils';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import { Typography } from 'antd';
@@ -70,6 +72,11 @@ interface Props {
 export default function StructuredPropertyValue({ value, isRichText, filterText, truncateText, isFieldColumn }: Props) {
     const entityRegistry = useEntityRegistry();
 
+    const getEntityLink = (entity: Entity) =>
+        entity.type === EntityType.SchemaField
+            ? getSchemaFieldParentLink(entity.urn)
+            : entityRegistry.getEntityUrl(entity.type, entity.urn);
+
     return (
         <ValueText>
             {value.entity ? (
@@ -80,11 +87,7 @@ export default function StructuredPropertyValue({ value, isRichText, filterText,
                     <EntityName ellipsis={{ tooltip: true }}>
                         {entityRegistry.getDisplayName(value.entity.type, value.entity)}
                     </EntityName>
-                    <Typography.Link
-                        href={entityRegistry.getEntityUrl(value.entity.type, value.entity.urn)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
+                    <Typography.Link href={getEntityLink(value.entity)} target="_blank" rel="noopener noreferrer">
                         <StyledIcon component={ExternalLink} />
                     </Typography.Link>
                 </EntityWrapper>

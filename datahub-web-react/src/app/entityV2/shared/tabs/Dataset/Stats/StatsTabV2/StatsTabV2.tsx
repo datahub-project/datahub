@@ -1,12 +1,12 @@
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
+import EntitySidebarContext from '@src/app/sharedV2/EntitySidebarContext';
 import { GetDatasetQuery, useGetLastMonthUsageAggregationsQuery } from '@src/graphql/dataset.generated';
 import { UsageQueryResult } from '@src/types.generated';
-import React, { useRef } from 'react';
+import React, { useContext, useEffect, useRef } from 'react';
 import styled from 'styled-components';
+import ColumnStatsV2 from './ColumnStatsV2';
 import HistoricalStats from './HistoricalStats';
 import StatsHighlights from './StatsHighlights';
-import ColumnStatsV2 from './ColumnStatsV2';
-import StorageSizeGraph from './graphs/StorageSizeGraph/StorageSizeGraph';
 
 const TabContainer = styled.div`
     padding: 16px 24px;
@@ -17,6 +17,7 @@ const TabContainer = styled.div`
 
 const StatsTabV2 = () => {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const { isClosed, setSidebarClosed } = useContext(EntitySidebarContext);
 
     const { data: usageStatsData } = useGetLastMonthUsageAggregationsQuery({
         variables: { urn: baseEntity?.dataset?.urn as string },
@@ -42,6 +43,14 @@ const StatsTabV2 = () => {
     };
 
     const users = usageStats?.aggregations?.users;
+    const queryCountBuckets = usageStats?.buckets;
+    const columnStats = (latestProfile && latestProfile.fieldProfiles) || [];
+    const hasColumnStats = columnStats?.length > 0;
+
+    useEffect(() => {
+        if (!isClosed) setSidebarClosed(true);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <TabContainer>
@@ -51,12 +60,18 @@ const StatsTabV2 = () => {
                 queryCount={queryCountLast30Days || totalSqlQueries || undefined}
                 users={users || undefined}
                 scrollToColumnStats={scrollToColumnStats}
+                hasColumnStats={hasColumnStats}
             />
-            <HistoricalStats users={users || undefined} />
-            <StorageSizeGraph urn={baseEntity?.dataset?.urn} />
-            <div ref={columnStatsSectionRef}>
-                <ColumnStatsV2 columnStats={(latestProfile && latestProfile.fieldProfiles) || []} />
-            </div>
+            <HistoricalStats
+                users={users || undefined}
+                queryCountBuckets={queryCountBuckets || undefined}
+                urn={baseEntity?.dataset?.urn}
+            />
+            {hasColumnStats && (
+                <div ref={columnStatsSectionRef}>
+                    <ColumnStatsV2 columnStats={columnStats} />
+                </div>
+            )}
         </TabContainer>
     );
 };

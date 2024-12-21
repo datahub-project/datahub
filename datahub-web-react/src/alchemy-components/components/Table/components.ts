@@ -4,14 +4,15 @@ import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import styled from 'styled-components';
 
 export const TableContainer = styled.div<{ isScrollable?: boolean; maxHeight?: string; isBorderless?: boolean }>(
-    ({ maxHeight, isBorderless }) => ({
+    ({ isScrollable, maxHeight, isBorderless }) => ({
         borderRadius: isBorderless ? radius.none : radius.lg,
         border: isBorderless ? borders.none : `1px solid ${colors.gray[1400]}`,
-        overflow: 'hidden',
+        overflow: isScrollable ? 'auto' : 'hidden',
         width: '100%',
         maxHeight: maxHeight || '100%',
-        '&:hover': {
-            overflow: 'auto',
+
+        '& .selected-row': {
+            background: `${colors.gray[100]} !important`,
         },
     }),
 );
@@ -50,20 +51,22 @@ export const HeaderContainer = styled.div<{ alignment?: AlignmentOptions }>(({ a
     justifyContent: alignment,
 }));
 
-export const TableRow = styled.tr<{ canExpand?: boolean }>(({ canExpand }) => ({
-    background: canExpand ? '#EBECF0' : 'transparent',
-    cursor: 'pointer',
-    '&:last-child': {
-        '& td': {
-            borderBottom: 'none',
+export const TableRow = styled.tr<{ canExpand?: boolean; isRowClickable?: boolean }>(
+    ({ canExpand, isRowClickable }) => ({
+        background: canExpand ? colors.gray[100] : 'transparent',
+        cursor: isRowClickable ? 'pointer' : 'normal',
+        '&:last-child': {
+            '& td': {
+                borderBottom: 'none',
+            },
         },
-    },
 
-    '& td:first-child': {
-        fontWeight: typography.fontWeights.medium,
-        color: colors.gray[600],
-    },
-}));
+        '& td:first-child': {
+            fontWeight: typography.fontWeights.medium,
+            color: colors.gray[600],
+        },
+    }),
+);
 
 export const TableCell = styled.td<{
     width?: string;
@@ -78,8 +81,7 @@ export const TableCell = styled.td<{
     fontWeight: typography.fontWeights.normal,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
-    whiteSpace: 'normal',
-    wordBreak: 'break-word',
+    whiteSpace: 'nowrap',
     maxWidth: width || 'unset',
     textAlign: alignment || 'left',
 }));

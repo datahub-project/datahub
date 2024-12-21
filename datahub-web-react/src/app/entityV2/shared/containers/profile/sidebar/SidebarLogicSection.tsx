@@ -1,17 +1,18 @@
-import React, { useContext, useMemo, useState } from 'react';
-import styled from 'styled-components/macro';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { Button, Modal } from 'antd';
-import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
 import CopyQuery from '@src/app/entity/shared/tabs/Dataset/Queries/CopyQuery';
+import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
+import { GetDataJobQuery } from '@src/graphql/dataJob.generated';
+import { Button, Modal } from 'antd';
+import React, { useContext, useMemo, useState } from 'react';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import styled from 'styled-components/macro';
 import { GetDatasetQuery } from '../../../../../../graphql/dataset.generated';
-import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
 import { EntityType, QueryEntity } from '../../../../../../types.generated';
-import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
-import { SidebarSection } from './SidebarSection';
+import { useBaseEntity } from '../../../../../entity/shared/EntityContext';
 import { DBT_URN } from '../../../../../ingest/source/builder/constants';
+import EntitySidebarContext from '../../../../../sharedV2/EntitySidebarContext';
 import { ViewTab } from '../../../tabs/Dataset/View/ViewDefinitionTab';
+import { SidebarSection } from './SidebarSection';
 
 const PreviewSyntax = styled(SyntaxHighlighter)`
     max-width: 100%;
@@ -45,6 +46,16 @@ export function SidebarDatasetViewDefinitionSection() {
     return <SidebarLogicSection title="View Definition" statement={statement} externalUrl={externalUrl} />;
 }
 
+export function SidebarDataJobTransformationLogicSection() {
+    const baseEntity = useBaseEntity<GetDataJobQuery>();
+    const statement = baseEntity?.dataJob?.dataTransformLogic?.transforms?.[0]?.queryStatement?.value;
+    const entityRegistry = useEntityRegistry();
+    const externalUrl = entityRegistry.getEntityUrl(EntityType.DataJob, baseEntity?.dataJob?.urn || '');
+    if (!statement) return null;
+
+    return <SidebarLogicSection title="Logic" statement={statement} externalUrl={externalUrl} />;
+}
+
 export function SidebarQueryLogicSection() {
     const baseEntity = useBaseEntity<{ entity: QueryEntity }>();
     const statement = baseEntity?.entity?.properties?.statement?.value;
@@ -75,7 +86,8 @@ interface HelperProps {
     externalUrl: string;
 }
 
-function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl }: HelperProps) {
+// exported for testing only
+export function SidebarLogicSection({ title, statement, highlightedStrings, externalUrl }: HelperProps) {
     const [showFullContentModal, setShowFullContentModal] = useState(false);
     const isEmbeddedProfile = useIsEmbeddedProfile();
 

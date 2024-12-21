@@ -23,6 +23,7 @@ import AcrylAssertionListStatusDot from './AcrylAssertionListStatusDot';
 const StyledAssertionNameContainer = styled.div`
     display: flex;
     align-items: center;
+    white-space: normal;
 `;
 
 const Result = styled.div`

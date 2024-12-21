@@ -29,9 +29,9 @@ dependencies = [
   "celery[redis,sqs]==5.4.0",
   "kombu==5.4.0",              # Note: 5.4.1 silently breaks
   "watchdog==3.0.0",
-  "acryl-executor==0.1.5",
+  "acryl-executor==0.1.6",
   "acryl-datahub-actions==0.1.4",
-  "pycurl==7.45.3",
+  "pycurl==7.45.3"
 ]
 
 [project.optional-dependencies]

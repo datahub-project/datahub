@@ -15,7 +15,6 @@ import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
-import java.util.Optional;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

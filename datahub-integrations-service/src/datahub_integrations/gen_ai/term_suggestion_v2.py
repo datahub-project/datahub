@@ -274,6 +274,18 @@ async def get_term_recommendations_for_column_splits(
     return table_terms, column_terms, raw_llm_response
 
 
+def get_entity_info_for_term_suggestion(
+    graph: DataHubGraph, table_urn: str
+) -> tuple[dict, dict]:
+    entity = graph.get_entity_semityped(table_urn)
+    extracted_entity_info = extract_metadata_for_urn(entity, table_urn, graph)
+    table_info, column_info = transform_table_info_for_llm(extracted_entity_info)
+    table_info_filtered, column_info_filtered = filter_table_information(
+        table_info, column_info
+    )
+    return table_info_filtered, column_info_filtered
+
+
 def get_term_recommendations(
     table_urn: str,
     graph_client: DataHubGraph,
@@ -284,11 +296,8 @@ def get_term_recommendations(
     Dict[str, List[TermSuggestionBundle]] | None,
     str,
 ]:
-    entity = graph_client.get_entity_semityped(table_urn)
-    extracted_entity_info = extract_metadata_for_urn(entity, table_urn, graph_client)
-    table_info, column_info = transform_table_info_for_llm(extracted_entity_info)
-    table_info_filtered, column_info_filtered = filter_table_information(
-        table_info, column_info
+    table_info_filtered, column_info_filtered = get_entity_info_for_term_suggestion(
+        graph_client, table_urn
     )
     column_splits = split_list_in_equal_parts(
         list(column_info_filtered.keys()), limit=COLUMN_SPLIT_LENGTH

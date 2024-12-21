@@ -204,6 +204,16 @@ query listUsers($input: ListUsersInput!) {
     }
 }
 
+query getUsers($urns: [String!]!) {
+    entities(urns: $urns) {
+        ... on CorpUser {
+            urn
+            type
+            ...userFields
+        }
+    }
+}
+
 fragment userFields on CorpUser {
     username
     properties {

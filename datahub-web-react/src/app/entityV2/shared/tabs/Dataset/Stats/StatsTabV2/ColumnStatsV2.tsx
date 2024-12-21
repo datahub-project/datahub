@@ -21,8 +21,6 @@ const ColumnStatsV2 = ({ columnStats }: Props) => {
         setSearchQuery(value);
     };
 
-    if (columnStats.length === 0) return null;
-
     return (
         <ColumnStatsContainer>
             <PageTitle

@@ -24,6 +24,7 @@ export const tableDefaults: TableProps<any> = {
     isLoading: false,
     isScrollable: false,
     maxHeight: '100%',
+    isBorderless: false,
 };
 
 export const Table = <T,>({
@@ -34,17 +35,20 @@ export const Table = <T,>({
     isScrollable = tableDefaults.isScrollable,
     maxHeight = tableDefaults.maxHeight,
     expandable,
-    isBorderless,
+    isBorderless = tableDefaults.isBorderless,
     onRowClick,
     onExpand,
     rowClassName,
     handleSortColumnChange = undefined,
+    rowRefs,
+    headerRef,
     ...props
 }: TableProps<T>) => {
     const [sortColumn, setSortColumn] = useState<string | null>(null);
     const [sortOrder, setSortOrder] = useState<SortingState>(SortingState.ORIGINAL);
 
     const sortedData = getSortedData(columns, data, sortColumn, sortOrder);
+    const isRowClickable = !!onRowClick;
 
     useEffect(() => {
         if (handleSortColumnChange && sortOrder && sortColumn) {
@@ -67,7 +71,7 @@ export const Table = <T,>({
             <BaseTable {...props}>
                 {/* Render the table header if enabled */}
                 {showHeader && (
-                    <TableHeader>
+                    <TableHeader ref={headerRef}>
                         <tr>
                             {/* Map through columns to create header cells */}
                             {columns.map((column, index) => (
@@ -133,6 +137,13 @@ export const Table = <T,>({
                                         onRowClick?.(row); // Handle row click
                                     }}
                                     className={rowClassName?.(row)} // Add row-specific class
+                                    ref={(el) => {
+                                        if (rowRefs && el) {
+                                            const currentRefs = rowRefs.current;
+                                            currentRefs[index] = el;
+                                        }
+                                    }}
+                                    isRowClickable={isRowClickable}
                                 >
                                     {/* Render each cell in the row */}
 
@@ -171,7 +182,7 @@ export const Table = <T,>({
                                 </TableRow>
                                 {/* Render expanded content if row is expanded */}
                                 {isExpanded && expandable?.expandedRowRender && (
-                                    <TableRow>
+                                    <TableRow isRowClickable={isRowClickable}>
                                         <TableCell
                                             colSpan={columns.length + (expandable?.expandIconPosition ? 1 : 0)}
                                             style={{ padding: 0 }}

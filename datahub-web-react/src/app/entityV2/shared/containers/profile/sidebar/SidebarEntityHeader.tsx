@@ -32,6 +32,7 @@ const EntityDetailsContainer = styled.div`
 const NameWrapper = styled.div`
     display: flex;
     gap: 6px;
+    align-items: center;
 
     font-size: 16px;
 `;

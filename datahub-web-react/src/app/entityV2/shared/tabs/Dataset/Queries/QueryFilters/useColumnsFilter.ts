@@ -1,11 +1,9 @@
 import { useEffect, useMemo } from 'react';
+import { getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
 import { useEntityData } from '../../../../../../entity/shared/EntityContext';
 import { EntityType, FacetFilterInput, QuerySource } from '../../../../../../../types.generated';
 import { useAggregateAcrossEntitiesQuery } from '../../../../../../../graphql/search.generated';
-import {
-    getSourceUrnFromSchemaFieldUrn,
-    getV1FieldPathFromSchemaFieldUrn,
-} from '../../../../../../lineageV2/lineageUtils';
+import { getV1FieldPathFromSchemaFieldUrn } from '../../../../../../lineageV2/lineageUtils';
 import { getAndFilters } from '../utils/filterQueries';
 
 interface Props {

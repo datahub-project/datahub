@@ -610,6 +610,9 @@ fragment dataJobFields on DataJob {
     assetOrigin {
         ...originFields
     }
+    dataTransformLogic {
+        ...dataTransformLogicFields
+    }
 }
 
 fragment dashboardFields on Dashboard {
@@ -1651,6 +1654,9 @@ fragment entityDisplayNameFields on Entity {
             qualifiedName
         }
     }
+    ... on SchemaFieldEntity {
+        fieldPath
+    }
 }
 
 fragment entityPlatformFields on Entity {
@@ -2107,6 +2113,8 @@ fragment entityPrivileges on EntityPrivileges {
     canManageChildren
     canEditProperties
     canShareEntity
+    canEditMonitors
+    canEditSqlAssertionMonitors
 }
 
 fragment shareResultFields on ShareResult {
@@ -2286,6 +2294,15 @@ fragment notes on EntityWithRelationships {
                     }
                 }
             }
+        }
+    }
+}
+
+fragment dataTransformLogicFields on DataTransformLogic {
+    transforms {
+        queryStatement {
+            value
+            language
         }
     }
 }

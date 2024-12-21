@@ -141,6 +141,7 @@ public class Constants {
   public static final String ASSERTIONS_SUMMARY_ASPECT_NAME = "assertionsSummary";
   public static final String SHARE_ASPECT_NAME = "share";
   public static final String VERSION_PROPERTIES_ASPECT_NAME = "versionProperties";
+  public static final String DATA_TRANSFORM_LOGIC_ASPECT_NAME = "dataTransformLogic";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -175,6 +176,8 @@ public class Constants {
   public static final String EDITABLE_SCHEMA_METADATA_ASPECT_NAME = "editableSchemaMetadata";
   public static final String VIEW_PROPERTIES_ASPECT_NAME = "viewProperties";
   public static final String DATASET_PROFILE_ASPECT_NAME = "datasetProfile";
+  public static final String DATASET_USAGE_STATISTICS_ASPECT_NAME = "datasetUsageStatistics";
+  public static final String DATASET_OPERATION_ASPECT_NAME = "operation";
 
   public static final String STRUCTURED_PROPERTIES_ASPECT_NAME = "structuredProperties";
   public static final String FORMS_ASPECT_NAME = "forms";
@@ -427,6 +430,9 @@ public class Constants {
   public static final String GLOBAL_SETTINGS_ENTITY_NAME = "globalSettings";
   public static final String GLOBAL_SETTINGS_INFO_ASPECT_NAME = "globalSettingsInfo";
   public static final Urn GLOBAL_SETTINGS_URN = Urn.createFromTuple(GLOBAL_SETTINGS_ENTITY_NAME, 0);
+
+  // Timeseries
+  public static final String ES_FIELD_TIMESTAMP = "timestampMillis";
 
   /* SaaS-Only */
 

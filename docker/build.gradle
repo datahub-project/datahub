@@ -20,6 +20,7 @@ ext {
     ]
 
     python_services_modules = [
+            // Saas only
             ':datahub-integrations-service',
             ':datahub-executor',
     ]
@@ -64,7 +65,7 @@ ext {
                     profile: 'quickstart-backend',
                     modules: backend_profile_modules + [':docker:datahub-ingestion'],
                     additionalEnv: [
-                            'DATAHUB_ACTIONS_IMAGE': 'acryldata/datahub-ingestion',
+                            'DATAHUB_ACTIONS_IMAGE': '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion',
                             'ACTIONS_VERSION': "v${version}-slim",
                             'ACTIONS_EXTRA_PACKAGES': 'acryl-datahub-actions[executor] acryl-datahub-actions',
                             'ACTIONS_CONFIG': 'https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml',

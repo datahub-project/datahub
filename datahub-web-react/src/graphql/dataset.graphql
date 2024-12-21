@@ -257,6 +257,52 @@ query getLastMonthUsageAggregations($urn: String!) {
                     count
                 }
             }
+            buckets {
+                bucket
+                metrics {
+                    totalSqlQueries
+                }
+            }
+        }
+    }
+}
+
+query getTimeRangeUsageAggregations($urn: String!, $timeRange: TimeRange!) {
+    dataset(urn: $urn) {
+        usageStats(range: $timeRange) {
+            aggregations {
+                uniqueUserCount
+                totalSqlQueries
+                users {
+                    user {
+                        urn
+                        type
+                        username
+                        properties {
+                            displayName
+                            firstName
+                            lastName
+                            fullName
+                        }
+                        editableProperties {
+                            displayName
+                            pictureLink
+                        }
+                    }
+                    count
+                    userEmail
+                }
+                fields {
+                    fieldName
+                    count
+                }
+            }
+            buckets {
+                bucket
+                metrics {
+                    totalSqlQueries
+                }
+            }
         }
     }
 }
@@ -410,6 +456,16 @@ fragment getRoles on Access {
             }
             urn
             isAssignedToMe
+        }
+    }
+}
+
+query getOperations($urn: String!, $limit: Int, $startTime: Long, $endTime: Long, $filters: FilterInput) {
+    dataset(urn: $urn) {
+        operations(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime, filter: $filters) {
+            timestampMillis
+            operationType
+            actor
         }
     }
 }

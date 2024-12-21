@@ -1,26 +1,12 @@
 import React from 'react';
-
+import { useAppConfig } from '@src/app/useAppConfig';
+import { AssertionType, EntityType } from '@src/types.generated';
 import styled from 'styled-components';
-
-import { AssertionTypeOption } from './AssertionTypeOption';
-import { AssertionBuilderStep, StepProps } from '../types';
 import { getAssertionTypesForEntityType, useConnectionForEntityExists } from '../../../acrylUtils';
-import { AssertionType, EntityType } from '../../../../../../../../../types.generated';
-import {
-    DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE,
-    DEFAULT_DATASET_SQL_ASSERTION_PARAMETERS_STATE,
-    DEFAULT_DATASET_SQL_ASSERTION_STATE,
-    DEFAULT_DATASET_VOLUME_ASSERTION_STATE,
-} from '../constants';
-import { getDefaultDatasetFreshnessAssertionParametersState, isEntityEligibleForAssertionMonitoring } from '../utils';
-import { getDefaultDatasetVolumeAssertionParametersState } from './volume/utils';
-import {
-    getDefaultDatasetFieldAssertionParametersState,
-    getDefaultDatasetFieldAssertionState,
-    getDefaultDatasetSchemaAssertionParametersState,
-    getDefaultDatasetSchemaAssertionState,
-} from './field/utils';
-import { useAppConfig } from '../../../../../../../../useAppConfig';
+import { AssertionBuilderStep, StepProps } from '../types';
+import { isEntityEligibleForAssertionMonitoring } from '../utils';
+import { AssertionTypeOption } from './AssertionTypeOption';
+import getInitBuilderStateByAssertionType from './utils';
 
 const Step = styled.div`
     height: 100%;
@@ -59,61 +45,14 @@ export const SelectTypeStep = ({ state, updateState, goTo }: StepProps) => {
         .filter((type) => type.type !== AssertionType.DataSchema || isSchemaAssertionEnabled);
 
     const selectAssertionType = (type: AssertionType) => {
-        let newState = { ...state };
-
         // Init the default fields per assertion type.
-        if (type === AssertionType.Freshness) {
-            newState = {
-                ...newState,
-                assertion: {
-                    type,
-                    freshnessAssertion: DEFAULT_DATASET_FRESHNESS_ASSERTION_STATE,
-                },
-                parameters: getDefaultDatasetFreshnessAssertionParametersState(
-                    state.platformUrn as string,
-                    monitorsConnectionForEntityExists,
-                ),
-            };
-        } else if (type === AssertionType.Volume) {
-            newState = {
-                ...newState,
-                assertion: {
-                    type,
-                    volumeAssertion: DEFAULT_DATASET_VOLUME_ASSERTION_STATE,
-                },
-                parameters: getDefaultDatasetVolumeAssertionParametersState(
-                    state.platformUrn as string,
-                    monitorsConnectionForEntityExists,
-                ),
-            };
-        } else if (type === AssertionType.Sql) {
-            newState = {
-                ...newState,
-                assertion: {
-                    type,
-                    sqlAssertion: DEFAULT_DATASET_SQL_ASSERTION_STATE,
-                },
-                parameters: DEFAULT_DATASET_SQL_ASSERTION_PARAMETERS_STATE,
-            };
-        } else if (type === AssertionType.Field) {
-            newState = {
-                ...newState,
-                assertion: {
-                    type,
-                    fieldAssertion: getDefaultDatasetFieldAssertionState(connectionForEntityExists),
-                },
-                parameters: getDefaultDatasetFieldAssertionParametersState(connectionForEntityExists),
-            };
-        } else if (type === AssertionType.DataSchema) {
-            newState = {
-                ...newState,
-                assertion: {
-                    type,
-                    schemaAssertion: getDefaultDatasetSchemaAssertionState(),
-                },
-                parameters: getDefaultDatasetSchemaAssertionParametersState(),
-            };
-        }
+        const newState = getInitBuilderStateByAssertionType(
+            state,
+            type,
+            connectionForEntityExists,
+            monitorsConnectionForEntityExists,
+        );
+        updateState({ ...newState });
 
         console.log(newState);
 

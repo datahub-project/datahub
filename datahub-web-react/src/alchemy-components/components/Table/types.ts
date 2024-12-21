@@ -25,6 +25,8 @@ export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
     rowClassName?: (record: T) => string;
     onExpand?: (record: T) => void;
     handleSortColumnChange?: ({ sortColumn, sortOrder }: { sortColumn: string; sortOrder: SortingState }) => void;
+    rowRefs?: React.MutableRefObject<HTMLTableRowElement[]>;
+    headerRef?: React.RefObject<HTMLTableSectionElement>;
 }
 
 export interface ExpandableProps<T> {

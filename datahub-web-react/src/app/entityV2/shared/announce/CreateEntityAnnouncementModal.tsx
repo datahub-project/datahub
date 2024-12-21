@@ -147,7 +147,7 @@ export default function CreateEntityAnnouncementModal({
             variables: {
                 input: {
                     urn: editData?.urn || '',
-                    postType: PostType.HomePageAnnouncement,
+                    postType: PostType.EntityAnnouncement,
                     content: {
                         contentType: PostContentType.Text,
                         title: form.getFieldValue(noteTitle),

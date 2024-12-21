@@ -28,6 +28,7 @@ const ValueContainer = styled.div`
 
 const BadgeContainer = styled.div`
     max-width: ${MAX_PROP_BADGE_WIDTH}px;
+    display: flex;
 `;
 
 interface Props {

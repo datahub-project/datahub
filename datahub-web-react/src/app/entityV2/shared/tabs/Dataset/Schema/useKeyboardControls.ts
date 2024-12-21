@@ -5,8 +5,8 @@ export default function useKeyboardControls(
     rows: ExtendedSchemaFields[],
     selectedRowFieldPath: string | null,
     setSelectedRowFieldPath: (fieldPath: string | null) => void,
-    expandedRows: Set<string>,
-    setExpandedRows: (expandedRows: React.SetStateAction<Set<string>>) => void,
+    expandedRows?: Set<string>,
+    setExpandedRows?: (expandedRows: React.SetStateAction<Set<string>>) => void,
     tableDiv?: {
         scrollTo: (y: number) => void;
         scrollToIndex: (idx: number) => void;
@@ -41,16 +41,16 @@ export default function useKeyboardControls(
 
     const expandCurrentField = useCallback(() => {
         if (index !== undefined && index !== -1) {
-            if (selectedRow.children && !expandedRows.has(selectedRow.fieldPath)) {
-                setExpandedRows((previousRows) => new Set(previousRows.add(rows[index].fieldPath)));
+            if (selectedRow.children && !expandedRows?.has(selectedRow.fieldPath)) {
+                setExpandedRows?.((previousRows) => new Set(previousRows.add(rows[index].fieldPath)));
             }
         }
     }, [index, rows, expandedRows, setExpandedRows, selectedRow]);
 
     const collapseCurrentField = useCallback(() => {
         if (index !== undefined && index !== -1) {
-            if (selectedRow.children && expandedRows.has(selectedRow.fieldPath)) {
-                setExpandedRows((previousRows) => {
+            if (selectedRow.children && expandedRows?.has(selectedRow.fieldPath)) {
+                setExpandedRows?.((previousRows) => {
                     previousRows.delete(rows[index].fieldPath);
                     return new Set(previousRows);
                 });

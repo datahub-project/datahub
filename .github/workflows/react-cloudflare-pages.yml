@@ -52,7 +52,7 @@ jobs:
         run: |
           ./gradlew :datahub-web-react:build -x test -x check --parallel
         env:
-          NODE_OPTIONS: "--max-old-space-size=3072"
+          NODE_OPTIONS: "--max-old-space-size=4096"
       - name: Publish
         if: ${{ needs.setup.outputs.frontend_change == 'true' }}
         uses: cloudflare/pages-action@1

@@ -164,36 +164,6 @@ type StructuredPropertySettings {
 }
 
 """
-Settings specific to a structured property entity
-"""
-type StructuredPropertySettings {
-    """
-    Whether or not this asset should be hidden in the main application
-    """
-    isHidden: Boolean!
-
-    """
-    Whether or not this asset should be displayed as a search filter
-    """
-    showInSearchFilters: Boolean!
-
-    """
-    Whether or not this asset should be displayed in the asset sidebar
-    """
-    showInAssetSummary: Boolean!
-
-    """
-    Whether or not this asset should be displayed as an asset badge on other asset's headers
-    """
-    showAsAssetBadge: Boolean!
-
-    """
-    Whether or not this asset should be displayed as a column in the schema field table in a Dataset's "Columns" tab.
-    """
-    showInColumnsTable: Boolean!
-}
-
-"""
 An entry for an allowed value for a structured property
 """
 type AllowedValue {
