@@ -2,11 +2,10 @@ import dataclasses
 import logging
 import re
 import time
-from json import JSONDecodeError
-
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
+from json import JSONDecodeError
 from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import dateutil.parser as dp
