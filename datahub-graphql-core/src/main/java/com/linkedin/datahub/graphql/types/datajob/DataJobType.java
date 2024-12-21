@@ -79,7 +79,8 @@ public class DataJobType
           BROWSE_PATHS_V2_ASPECT_NAME,
           SUB_TYPES_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
-          FORMS_ASPECT_NAME);
+          FORMS_ASPECT_NAME,
+          DATA_TRANSFORM_LOGIC_ASPECT_NAME);
   private static final Set<String> FACET_FIELDS = ImmutableSet.of("flow");
   private final EntityClient _entityClient;
 

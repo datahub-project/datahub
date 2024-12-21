@@ -127,6 +127,7 @@ public class Constants {
   public static final String EMBED_ASPECT_NAME = "embed";
   public static final String INCIDENTS_SUMMARY_ASPECT_NAME = "incidentsSummary";
   public static final String DOCUMENTATION_ASPECT_NAME = "documentation";
+  public static final String DATA_TRANSFORM_LOGIC_ASPECT_NAME = "dataTransformLogic";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
