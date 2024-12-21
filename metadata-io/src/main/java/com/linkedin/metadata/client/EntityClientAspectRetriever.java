@@ -57,6 +57,25 @@ public class EntityClientAspectRetriever implements CachingAspectRetriever {
   }
 
   @Nonnull
+  public Map<Urn, Boolean> entityExists(Set<Urn> urns) {
+    if (urns.isEmpty()) {
+      return Map.of();
+    } else {
+      return urns.stream()
+          .collect(
+              Collectors.toMap(
+                  urn -> urn,
+                  urn -> {
+                    try {
+                      return entityClient.exists(systemOperationContext, urn);
+                    } catch (RemoteInvocationException e) {
+                      throw new RuntimeException(e);
+                    }
+                  }));
+    }
+  }
+
+  @Nonnull
   @Override
   public Map<Urn, Map<String, SystemAspect>> getLatestSystemAspects(
       Map<Urn, Set<String>> urnAspectNames) {

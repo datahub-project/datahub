@@ -1,11 +1,14 @@
 package io.datahubproject.openapi.v3;
 
+import static com.linkedin.metadata.Constants.VERSION_PROPERTIES_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
 import static io.datahubproject.openapi.util.ReflectionCache.toUpperFirst;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.github.fge.processing.ProcessingUtil;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.data.avro.SchemaTranslator;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -64,7 +67,8 @@ public class OpenAPIV3Generator {
   private static final String ASPECTS = "Aspects";
   private static final String ENTITIES = "Entities";
 
-  public static OpenAPI generateOpenApiSpec(EntityRegistry entityRegistry) {
+  public static OpenAPI generateOpenApiSpec(
+      EntityRegistry entityRegistry, ConfigurationProvider configurationProvider) {
     final Set<String> aspectNames = entityRegistry.getAspectSpecs().keySet();
     final Set<String> entityNames =
         entityRegistry.getEntitySpecs().values().stream()
@@ -125,22 +129,25 @@ public class OpenAPIV3Generator {
                   buildAspectRefResponseSchema(upperAspectName));
             });
 
+    List<EntitySpec> definedEntitySpecs =
+        entityRegistry.getEntitySpecs().values().stream()
+            .filter(entitySpec -> definitionNames.contains(entitySpec.getName()))
+            .sorted(Comparator.comparing(EntitySpec::getName))
+            .collect(Collectors.toList());
     // --> Entity components
-    entityRegistry.getEntitySpecs().values().stream()
-        .filter(e -> aspectNames.contains(e.getKeyAspectName()))
-        .forEach(
-            e -> {
-              final String entityName = toUpperFirst(e.getName());
-              components.addSchemas(
-                  entityName + ENTITY_REQUEST_SUFFIX, buildEntitySchema(e, aspectNames, false));
-              components.addSchemas(
-                  entityName + ENTITY_RESPONSE_SUFFIX, buildEntitySchema(e, aspectNames, true));
-              components.addSchemas(
-                  "Scroll" + entityName + ENTITY_RESPONSE_SUFFIX, buildEntityScrollSchema(e));
-              components.addSchemas(
-                  "BatchGet" + entityName + ENTITY_REQUEST_SUFFIX,
-                  buildEntityBatchGetRequestSchema(e, aspectNames));
-            });
+    definedEntitySpecs.forEach(
+        e -> {
+          final String entityName = toUpperFirst(e.getName());
+          components.addSchemas(
+              entityName + ENTITY_REQUEST_SUFFIX, buildEntitySchema(e, aspectNames, false));
+          components.addSchemas(
+              entityName + ENTITY_RESPONSE_SUFFIX, buildEntitySchema(e, aspectNames, true));
+          components.addSchemas(
+              "Scroll" + entityName + ENTITY_RESPONSE_SUFFIX, buildEntityScrollSchema(e));
+          components.addSchemas(
+              "BatchGet" + entityName + ENTITY_REQUEST_SUFFIX,
+              buildEntityBatchGetRequestSchema(e, aspectNames));
+        });
 
     components.addSchemas("SortOrder", new Schema()._enum(List.of("ASCENDING", "DESCENDING")));
     // TODO: Correct handling of SystemMetadata and AuditStamp
@@ -151,14 +158,12 @@ public class OpenAPIV3Generator {
     // Parameters
 
     // --> Entity Parameters
-    entityRegistry.getEntitySpecs().values().stream()
-        .filter(e -> definitionNames.contains(e.getKeyAspectName()))
-        .forEach(
-            e -> {
-              final String parameterName = toUpperFirst(e.getName()) + ASPECTS;
-              components.addParameters(
-                  parameterName + MODEL_VERSION, buildParameterSchema(e, definitionNames));
-            });
+    definedEntitySpecs.forEach(
+        e -> {
+          final String parameterName = toUpperFirst(e.getName()) + ASPECTS;
+          components.addParameters(
+              parameterName + MODEL_VERSION, buildParameterSchema(e, definitionNames));
+        });
 
     addExtraParameters(components);
 
@@ -169,39 +174,56 @@ public class OpenAPIV3Generator {
     paths.addPathItem("/v3/entity/scroll", buildGenericListEntitiesPath());
 
     // --> Entity Paths
-    entityRegistry.getEntitySpecs().values().stream()
-        .filter(e -> definitionNames.contains(e.getName()))
-        .sorted(Comparator.comparing(EntitySpec::getName))
-        .forEach(
-            e -> {
-              paths.addPathItem(
-                  String.format("/v3/entity/%s", e.getName().toLowerCase()),
-                  buildListEntityPath(e));
-              paths.addPathItem(
-                  String.format("/v3/entity/%s/batchGet", e.getName().toLowerCase()),
-                  buildBatchGetEntityPath(e));
-              paths.addPathItem(
-                  String.format("/v3/entity/%s/{urn}", e.getName().toLowerCase()),
-                  buildSingleEntityPath(e));
-            });
+    definedEntitySpecs.forEach(
+        e -> {
+          paths.addPathItem(
+              String.format("/v3/entity/%s", e.getName().toLowerCase()), buildListEntityPath(e));
+          paths.addPathItem(
+              String.format("/v3/entity/%s/batchGet", e.getName().toLowerCase()),
+              buildBatchGetEntityPath(e));
+          paths.addPathItem(
+              String.format("/v3/entity/%s/{urn}", e.getName().toLowerCase()),
+              buildSingleEntityPath(e));
+        });
 
     // --> Aspect Paths
-    entityRegistry.getEntitySpecs().values().stream()
-        .filter(e -> definitionNames.contains(e.getName()))
-        .sorted(Comparator.comparing(EntitySpec::getName))
-        .forEach(
-            e -> {
-              e.getAspectSpecs().stream()
-                  .filter(a -> definitionNames.contains(a.getName()))
-                  .sorted(Comparator.comparing(AspectSpec::getName))
-                  .forEach(
-                      a ->
-                          paths.addPathItem(
-                              String.format(
-                                  "/v3/entity/%s/{urn}/%s",
-                                  e.getName().toLowerCase(), a.getName().toLowerCase()),
-                              buildSingleEntityAspectPath(e, a)));
-            });
+    definedEntitySpecs.forEach(
+            e -> e.getAspectSpecs().stream()
+                .filter(a -> definitionNames.contains(a.getName()))
+                .sorted(Comparator.comparing(AspectSpec::getName))
+                .forEach(
+                    a ->
+                        paths.addPathItem(
+                            String.format(
+                                "/v3/entity/%s/{urn}/%s",
+                                e.getName().toLowerCase(), a.getName().toLowerCase()),
+                            buildSingleEntityAspectPath(e, a))));
+    definedEntitySpecs.forEach(
+        e ->
+            e.getAspectSpecs().stream()
+                .filter(a -> definitionNames.contains(a.getName()))
+                .sorted(Comparator.comparing(AspectSpec::getName))
+                .forEach(
+                    a ->
+                        paths.addPathItem(
+                            String.format(
+                                "/v3/entity/%s/{urn}/%s",
+                                e.getName().toLowerCase(), a.getName().toLowerCase()),
+                            buildSingleEntityAspectPath(
+                                e, a.getName(), a.getPegasusSchema().getName()))));
+
+    // --> Link & Unlink APIs
+    if (configurationProvider.getFeatureFlags().isEntityVersioning()) {
+      definedEntitySpecs.stream()
+          .filter(entitySpec -> VERSION_SET_ENTITY_NAME.equals(entitySpec.getName()))
+          .forEach(
+              entitySpec -> {
+                paths.addPathItem(
+                    "/v3/entity/versioning/{versionSetUrn}/relationship/versionOf/{entityUrn}",
+                    buildVersioningRelationshipPath());
+              });
+    }
+
     return new OpenAPI().openapi("3.0.1").info(info).paths(paths).components(components);
   }
 
@@ -1197,5 +1219,116 @@ public class OpenAPIV3Generator {
         .delete(deleteOperation)
         .post(postOperation)
         .patch(patchOperation);
+  }
+
+  private static Schema buildVersionPropertiesRequestSchema() {
+    return new Schema<>()
+        .type(TYPE_OBJECT)
+        .description("Properties for creating a version relationship")
+        .properties(
+            Map.of(
+                "comment",
+                    new Schema<>()
+                        .type(TYPE_STRING)
+                        .description("Comment about the version")
+                        .nullable(true),
+                "label",
+                    new Schema<>()
+                        .type(TYPE_STRING)
+                        .description("Label for the version")
+                        .nullable(true),
+                "sourceCreationTimestamp",
+                    new Schema<>()
+                        .type(TYPE_INTEGER)
+                        .description("Timestamp when version was created in source system")
+                        .nullable(true),
+                "sourceCreator",
+                    new Schema<>()
+                        .type(TYPE_STRING)
+                        .description("Creator of version in source system")
+                        .nullable(true)));
+  }
+
+  private static PathItem buildVersioningRelationshipPath() {
+    final PathItem result = new PathItem();
+
+    // Common parameters for path
+    final List<Parameter> parameters =
+        List.of(
+            new Parameter()
+                .in(NAME_PATH)
+                .name("versionSetUrn")
+                .description("The Version Set URN to unlink from")
+                .required(true)
+                .schema(new Schema().type(TYPE_STRING)),
+            new Parameter()
+                .in(NAME_PATH)
+                .name("entityUrn")
+                .description("The Entity URN to be unlinked")
+                .required(true)
+                .schema(new Schema().type(TYPE_STRING)));
+
+    // Success response for DELETE
+    final ApiResponse successDeleteResponse =
+        new ApiResponse()
+            .description("Successfully unlinked entity from version set")
+            .content(new Content().addMediaType("application/json", new MediaType()));
+
+    // DELETE operation
+    final Operation deleteOperation =
+        new Operation()
+            .summary("Unlink an entity from a version set")
+            .description("Removes the version relationship between an entity and a version set")
+            .tags(List.of("Version Relationships"))
+            .parameters(parameters)
+            .responses(
+                new ApiResponses()
+                    .addApiResponse("200", successDeleteResponse)
+                    .addApiResponse(
+                        "404", new ApiResponse().description("Version Set or Entity not found")));
+
+    // Success response for POST
+    final ApiResponse successPostResponse =
+        new ApiResponse()
+            .description("Successfully linked entity to version set")
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType()
+                            .schema(
+                                new Schema<>()
+                                    .$ref(
+                                        String.format(
+                                            "#/components/schemas/%s%s",
+                                            toUpperFirst(VERSION_PROPERTIES_ASPECT_NAME),
+                                            ASPECT_RESPONSE_SUFFIX)))));
+
+    // Request body for POST
+    final RequestBody requestBody =
+        new RequestBody()
+            .description("Version properties for the link operation")
+            .required(true)
+            .content(
+                new Content()
+                    .addMediaType(
+                        "application/json",
+                        new MediaType().schema(buildVersionPropertiesRequestSchema())));
+
+    // POST operation
+    final Operation postOperation =
+        new Operation()
+            .summary("Link an entity to a version set")
+            .description("Creates a version relationship between an entity and a version set")
+            .tags(List.of("Version Relationships"))
+            .parameters(parameters)
+            .requestBody(requestBody)
+            .responses(
+                new ApiResponses()
+                    .addApiResponse("201", successPostResponse)
+                    .addApiResponse(
+                        "404", new ApiResponse().description("Version Set or Entity not found")));
+
+    return result.delete(deleteOperation).post(postOperation);
   }
 }
