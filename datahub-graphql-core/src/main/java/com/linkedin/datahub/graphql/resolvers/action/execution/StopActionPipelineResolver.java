@@ -66,7 +66,8 @@ public class StopActionPipelineResolver implements DataFetcher<CompletableFuture
                             _entityClient.getLatestAspectObject(
                                 context.getOperationContext(),
                                 actionPipelineUrn,
-                                "dataHubActionInfo");
+                                "dataHubActionInfo",
+                                false);
                         if (rawAspect == null) {
                           throw new DataHubGraphQLException(
                               String.format(

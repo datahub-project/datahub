@@ -5,6 +5,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntityArray;
 import java.util.List;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -39,5 +40,24 @@ public interface SearchRetriever {
     urnSort.setField("urn");
     urnSort.setOrder(SortOrder.ASCENDING);
     return scroll(entities, filters, scrollId, count, ImmutableList.of(urnSort));
+  }
+
+  SearchRetriever EMPTY = new EmptySearchRetriever();
+
+  class EmptySearchRetriever implements SearchRetriever {
+
+    @Override
+    public ScrollResult scroll(
+        @Nonnull List<String> entities,
+        @Nullable Filter filters,
+        @Nullable String scrollId,
+        int count,
+        List<SortCriterion> sortCriteria) {
+      ScrollResult empty = new ScrollResult();
+      empty.setEntities(new SearchEntityArray());
+      empty.setNumEntities(0);
+      empty.setPageSize(0);
+      return empty;
+    }
   }
 }

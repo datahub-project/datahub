@@ -103,7 +103,7 @@ public class ApplicationTest extends WithBrowser {
   private Thread oauthServerThread;
   private CompletableFuture<Void> oauthServerStarted;
   // Start SaaS only
-  private MockWebServer _integrationsServer;
+  private MockWebServer integrationsServer;
   // End SaaS only
 
   private MockWebServer gmsServer;
@@ -116,18 +116,18 @@ public class ApplicationTest extends WithBrowser {
   @BeforeAll
   public void init() throws IOException {
     /* Start Saas Only */
-    _integrationsServer = new MockWebServer();
-    _integrationsServer.enqueue(
+    integrationsServer = new MockWebServer();
+    integrationsServer.enqueue(
         new MockResponse().setBody(String.format("{\"proxyResponse\":\"%s\"}", "test")));
-    _integrationsServer.start(integrationsServerPort());
+    integrationsServer.start(integrationsServerPort());
     /* End Saas Only */
-    _gmsServer = new MockWebServer();
-    _gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
-    _gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
-    _gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
-    _gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
-    _gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
-    _gmsServer.enqueue(
+    gmsServer = new MockWebServer();
+    gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
+    gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
+    gmsServer.enqueue(new MockResponse().setResponseCode(404)); // dynamic settings - not tested
+    gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
+    gmsServer.enqueue(new MockResponse().setBody(String.format("{\"value\":\"%s\"}", TEST_USER)));
+    gmsServer.enqueue(
         new MockResponse().setBody(String.format("{\"accessToken\":\"%s\"}", TEST_TOKEN)));
     gmsServer.start(gmsServerPort());
 
@@ -143,6 +143,12 @@ public class ApplicationTest extends WithBrowser {
 
   @AfterAll
   public void shutdown() throws IOException {
+    // Start SaaS only
+    if (integrationsServer != null) {
+      logger.info("Shutdown Mock Integrations Server");
+      integrationsServer.shutdown();
+    }
+    // End SaaS only
     if (gmsServer != null) {
       logger.info("Shutdown Mock GMS");
       gmsServer.shutdown();
@@ -164,7 +170,7 @@ public class ApplicationTest extends WithBrowser {
     }
   }
 
-  private void startMockOauthServer() {
+  private void startMockOauthServer() throws IOException {
     // Configure HEAD responses
     Route[] routes =
         new Route[] {
@@ -268,12 +274,6 @@ public class ApplicationTest extends WithBrowser {
     } catch (Exception e) {
       throw new RuntimeException("Failed to connect to MockOAuth2Server", e);
     }
-    // Start SaaS only
-    if (_integrationsServer != null) {
-      _integrationsServer.shutdown();
-    }
-    // End SaaS only
-    stopServer();
   }
 
   @Test

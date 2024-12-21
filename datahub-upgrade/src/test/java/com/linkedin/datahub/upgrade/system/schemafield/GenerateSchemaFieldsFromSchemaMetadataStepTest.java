@@ -41,7 +41,7 @@ public class GenerateSchemaFieldsFromSchemaMetadataStepTest {
     step =
         new GenerateSchemaFieldsFromSchemaMetadataStep(
             mockOpContext, mockEntityService, mockAspectDao, 10, 100, 1000);
-    when(mockOpContext.getRetrieverContext()).thenReturn(Optional.of(mockRetrieverContext));
+    when(mockOpContext.getRetrieverContext()).thenReturn(mockRetrieverContext);
   }
 
   /** Test to verify the correct step ID is returned. */

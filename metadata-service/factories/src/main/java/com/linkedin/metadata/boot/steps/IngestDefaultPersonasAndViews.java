@@ -149,7 +149,7 @@ public class IngestDefaultPersonasAndViews implements BootstrapStep {
                 new AuditStamp()
                     .setActor(Urn.createFromString(SYSTEM_ACTOR))
                     .setTime(System.currentTimeMillis()),
-                systemOperationContext.getRetrieverContext().get())
+                systemOperationContext.getRetrieverContext())
             .build(),
         false);
 
@@ -233,7 +233,7 @@ public class IngestDefaultPersonasAndViews implements BootstrapStep {
                 new AuditStamp()
                     .setActor(Urn.createFromString(SYSTEM_ACTOR))
                     .setTime(System.currentTimeMillis()),
-                systemOperationContext.getRetrieverContext().get())
+                systemOperationContext.getRetrieverContext())
             .build(),
         false);
 

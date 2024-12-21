@@ -323,6 +323,7 @@ ipykernel==6.17.1
     #   notebook
 ipython==8.21.0
     # via
+    #   acryl-datahub
     #   great-expectations
     #   ipykernel
     #   ipywidgets
@@ -474,8 +475,6 @@ nest-asyncio==1.6.0
     #   nbclassic
     #   nbclient
     #   notebook
-networkx==3.4.2
-    # via sqllineage
 notebook==6.5.7
     # via great-expectations
 notebook-shim==0.2.4
@@ -703,6 +702,7 @@ referencing==0.35.1
 requests==2.32.3
     # via
     #   acryl-datahub
+    #   confluent-kafka
     #   databricks-sdk
     #   databricks-sql-connector
     #   dataflows-tabulator
@@ -818,16 +818,12 @@ sqlalchemy-redshift==0.8.14
     # via acryl-datahub
 sqlalchemy-stubs==0.4
     # via acryl-executor
-sqlglot==25.26.0
+sqlglot==25.32.1
     # via acryl-datahub
-sqlglotrs==0.2.12
+sqlglotrs==0.3.0
     # via sqlglot
-sqllineage==1.3.8
-    # via acryl-datahub
 sqlparse==0.4.4
-    # via
-    #   acryl-datahub
-    #   sqllineage
+    # via acryl-datahub
 srsly==2.4.8
     # via
     #   confection
@@ -846,8 +842,6 @@ tabulate==0.9.0
     # via acryl-datahub
 tenacity==8.5.0
     # via acryl-datahub-executor
-termcolor==2.5.0
-    # via acryl-datahub
 terminado==0.18.1
     # via
     #   jupyter-server

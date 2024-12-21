@@ -208,7 +208,6 @@ public class OwnershipTypesStep implements UpgradeStep {
     Map<Urn, Map<String, Aspect>> existing =
         systemOpContext
             .getRetrieverContext()
-            .get()
             .getAspectRetriever()
             .getLatestAspectObjects(
                 searchBatch.stream().map(SearchEntity::getEntity).collect(Collectors.toSet()),
@@ -235,7 +234,7 @@ public class OwnershipTypesStep implements UpgradeStep {
     log.debug(String.format("Reingesting ownership for %s urns", mcps.size()));
     AspectsBatch batch =
         AspectsBatchImpl.builder()
-            .mcps(mcps, auditStamp, systemOpContext.getRetrieverContext().get())
+            .mcps(mcps, auditStamp, systemOpContext.getRetrieverContext())
             .build();
 
     entityService.ingestProposal(systemOpContext, batch, false);

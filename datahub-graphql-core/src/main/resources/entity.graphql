@@ -10595,11 +10595,13 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
 
 type MLModelGroupProperties {
 
-description: String
+    description: String
 
     createdAt: Long
 
     version: VersionTag
+
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -10838,6 +10840,8 @@ type MLFeatureProperties {
     version: VersionTag
 
     sources: [Dataset]
+
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -10989,13 +10993,15 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
 
 type MLPrimaryKeyProperties {
 
-description: String
+    description: String
 
     dataType: MLFeatureDataType
 
     version: VersionTag
 
     sources: [Dataset]
+
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -11187,7 +11193,7 @@ type MLModelGroupEditableProperties {
 
 type MLFeatureTableProperties {
 
-description: String
+    description: String
 
     mlFeatures: [MLFeature]
 

@@ -143,7 +143,7 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
     if (!queryUrns.isEmpty()) {
 
       scrollGraph(
-          opContext.getRetrieverContext().get().getGraphRetriever(),
+          opContext.getRetrieverContext().getGraphRetriever(),
           queryUrns,
           relationshipTypes,
           relationshipDirection,

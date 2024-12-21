@@ -87,7 +87,7 @@ public class EntityVersioningServiceTest {
                     .build(),
             null,
             opContext ->
-                ((EntityServiceAspectRetriever) opContext.getAspectRetrieverOpt().get())
+                ((EntityServiceAspectRetriever) opContext.getAspectRetriever())
                     .setSystemOperationContext(opContext),
             null);
     ;

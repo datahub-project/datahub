@@ -61,7 +61,8 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
   @Nonnull
   @WithSpan
   public Task<EntityResponse> get(
-      @Nonnull String urnStr, @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames)
+      @Nonnull String urnStr, @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
+      @QueryParam(PARAM_ALWAYS_INCLUDE_KEY_ASPECT) @Optional @Nullable Boolean alwaysIncludeKeyAspect)
       throws URISyntaxException {
     log.debug("GET V2 {}", urnStr);
     final Urn urn = Urn.createFromString(urnStr);
@@ -87,7 +88,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
                   ? opContext.getEntityAspectNames(entityName)
                   : new HashSet<>(Arrays.asList(aspectNames));
           try {
-            return _entityService.getEntityV2(opContext, entityName, urn, projectedAspects);
+            return _entityService.getEntityV2(opContext, entityName, urn, projectedAspects, alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(
@@ -103,7 +104,8 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
   @WithSpan
   public Task<Map<Urn, EntityResponse>> batchGet(
       @Nonnull Set<String> urnStrs,
-      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames)
+      @QueryParam(PARAM_ASPECTS) @Optional @Nullable String[] aspectNames,
+      @QueryParam(PARAM_ALWAYS_INCLUDE_KEY_ASPECT) @Optional @Nullable Boolean alwaysIncludeKeyAspect)
       throws URISyntaxException {
     log.debug("BATCH GET V2 {}", urnStrs.toString());
     final Set<Urn> urns = new HashSet<>();
@@ -135,7 +137,7 @@ public class EntityV2Resource extends CollectionResourceTaskTemplate<String, Ent
                   ? opContext.getEntityAspectNames(entityName)
                   : new HashSet<>(Arrays.asList(aspectNames));
           try {
-            return _entityService.getEntitiesV2(opContext, entityName, urns, projectedAspects);
+            return _entityService.getEntitiesV2(opContext, entityName, urns, projectedAspects, alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(

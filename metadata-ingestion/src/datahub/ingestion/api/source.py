@@ -184,6 +184,7 @@ class StructuredLogs(Report):
 
 @dataclass
 class SourceReport(Report):
+    event_not_produced_warn: bool = True
     events_produced: int = 0
     events_produced_per_sec: int = 0
 

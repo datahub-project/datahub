@@ -125,7 +125,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
       final DateRange trailingMonthDateRange = dateUtil.getTrailingMonthDateRange();
       final List<String> columns = ImmutableList.of("Name", "Title", "Email");
 
-      final String topUsersTitle = "Top Users";
+      final String topUsersTitle = "Top Users (Last 30 Days)";
       final List<Row> topUserRows =
           _analyticsService.getTopNTableChart(
               _analyticsService.getUsageIndexName(),
@@ -198,7 +198,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
   private AnalyticsChart getNewUsersChart(OperationContext opContext) {
     try {
       final List<String> columns = ImmutableList.of("Name", "Title", "Email");
-      final String newUsersTitle = "New Users";
+      final String newUsersTitle = "Active Users (Last 30 Days)";
       final SearchResult result = searchForNewUsers(opContext);
       final List<Row> newUserRows = new ArrayList<>();
       for (SearchEntity entity : result.getEntities()) {

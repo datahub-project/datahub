@@ -16,7 +16,7 @@ import com.linkedin.data.ByteString;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
@@ -56,7 +56,7 @@ import org.testng.annotations.Test;
 
 public class AspectsBatchImplTest {
   private EntityRegistry testRegistry;
-  private AspectRetriever mockAspectRetriever;
+  private CachingAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
 
   @BeforeTest
@@ -75,12 +75,12 @@ public class AspectsBatchImplTest {
 
   @BeforeMethod
   public void setup() {
-    this.mockAspectRetriever = mock(AspectRetriever.class);
+    this.mockAspectRetriever = mock(CachingAspectRetriever.class);
     when(this.mockAspectRetriever.getEntityRegistry()).thenReturn(testRegistry);
     this.retrieverContext =
         RetrieverContext.builder()
             .searchRetriever(mock(SearchRetriever.class))
-            .aspectRetriever(mockAspectRetriever)
+            .cachingAspectRetriever(mockAspectRetriever)
             .graphRetriever(mock(GraphRetriever.class))
             .build();
   }

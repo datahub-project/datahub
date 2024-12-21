@@ -677,14 +677,14 @@ public class EntityController
                             GenericRecordUtils.JSON,
                             aspectSpec));
 
-            items.add(builder.build(opContext.getRetrieverContext().get().getAspectRetriever()));
+            items.add(builder.build(opContext.getRetrieverContext().getAspectRetriever()));
           }
         }
       }
     }
     return AspectsBatchImpl.builder()
         .items(items)
-        .retrieverContext(opContext.getRetrieverContext().get())
+        .retrieverContext(opContext.getRetrieverContext())
         .build();
   }
 

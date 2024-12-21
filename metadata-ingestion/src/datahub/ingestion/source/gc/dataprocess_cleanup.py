@@ -98,6 +98,9 @@ query getDataJobRuns($dataJobUrn: String!, $start: Int!, $count: Int!) {
 
 
 class DataProcessCleanupConfig(ConfigModel):
+    enabled: bool = Field(
+        default=True, description="Whether to do data process cleanup."
+    )
     retention_days: Optional[int] = Field(
         10,
         description="Number of days to retain metadata in DataHub",
@@ -371,17 +374,26 @@ class DataProcessCleanup:
         previous_scroll_id: Optional[str] = None
 
         while True:
-            result = self.ctx.graph.execute_graphql(
-                DATAFLOW_QUERY,
-                {
-                    "query": "*",
-                    "scrollId": scroll_id if scroll_id else None,
-                    "batchSize": self.config.batch_size,
-                },
-            )
+            result = None
+            try:
+                result = self.ctx.graph.execute_graphql(
+                    DATAFLOW_QUERY,
+                    {
+                        "query": "*",
+                        "scrollId": scroll_id if scroll_id else None,
+                        "batchSize": self.config.batch_size,
+                    },
+                )
+            except Exception as e:
+                self.report.failure(
+                    f"While trying to get dataflows with {scroll_id}", exc=e
+                )
+                break
+
             scrollAcrossEntities = result.get("scrollAcrossEntities")
             if not scrollAcrossEntities:
                 raise ValueError("Missing scrollAcrossEntities in response")
+            logger.info(f"Got {scrollAcrossEntities.get('count')} DataFlow entities")
 
             scroll_id = scrollAcrossEntities.get("nextScrollId")
             for flow in scrollAcrossEntities.get("searchResults"):
@@ -398,6 +410,8 @@ class DataProcessCleanup:
             previous_scroll_id = scroll_id
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        if not self.config.enabled:
+            return []
         assert self.ctx.graph
 
         dataFlows: Dict[str, DataFlowEntity] = {}
@@ -411,14 +425,20 @@ class DataProcessCleanup:
         deleted_jobs: int = 0
 
         while True:
-            result = self.ctx.graph.execute_graphql(
-                DATAJOB_QUERY,
-                {
-                    "query": "*",
-                    "scrollId": scroll_id if scroll_id else None,
-                    "batchSize": self.config.batch_size,
-                },
-            )
+            try:
+                result = self.ctx.graph.execute_graphql(
+                    DATAJOB_QUERY,
+                    {
+                        "query": "*",
+                        "scrollId": scroll_id if scroll_id else None,
+                        "batchSize": self.config.batch_size,
+                    },
+                )
+            except Exception as e:
+                self.report.failure(
+                    f"While trying to get data jobs with {scroll_id}", exc=e
+                )
+                break
             scrollAcrossEntities = result.get("scrollAcrossEntities")
             if not scrollAcrossEntities:
                 raise ValueError("Missing scrollAcrossEntities in response")

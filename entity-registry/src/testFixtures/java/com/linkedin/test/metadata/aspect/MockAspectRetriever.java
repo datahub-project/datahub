@@ -5,7 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.SystemMetadata;
@@ -24,7 +24,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.mockito.Mockito;
 
-public class MockAspectRetriever implements AspectRetriever {
+public class MockAspectRetriever implements CachingAspectRetriever {
   private final Map<Urn, Map<String, Aspect>> data;
   private final Map<Urn, Map<String, SystemAspect>> systemData = new HashMap<>();
   @Getter @Setter private EntityRegistry entityRegistry;

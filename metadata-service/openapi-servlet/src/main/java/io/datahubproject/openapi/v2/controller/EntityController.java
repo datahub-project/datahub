@@ -203,7 +203,7 @@ public class EntityController
                       objectMapper.writeValueAsString(aspect.getValue().get("systemMetadata"))));
             }
 
-            items.add(builder.build(opContext.getAspectRetrieverOpt().get()));
+            items.add(builder.build(opContext.getAspectRetriever()));
           }
         }
       }
@@ -211,7 +211,7 @@ public class EntityController
 
     return AspectsBatchImpl.builder()
         .items(items)
-        .retrieverContext(opContext.getRetrieverContext().get())
+        .retrieverContext(opContext.getRetrieverContext())
         .build();
   }
 

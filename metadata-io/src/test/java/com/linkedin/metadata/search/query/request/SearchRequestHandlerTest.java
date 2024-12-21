@@ -668,6 +668,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         TestOperationContexts.systemContextNoSearchAuthorization(
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
+                .cachingAspectRetriever(TestOperationContexts.emptyActiveUsersAspectRetriever(null))
                 .graphRetriever(mock(GraphRetriever.class))
                 .searchRetriever(mock(SearchRetriever.class))
                 .build());

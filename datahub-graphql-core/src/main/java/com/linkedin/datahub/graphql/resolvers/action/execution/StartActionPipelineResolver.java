@@ -68,7 +68,8 @@ public class StartActionPipelineResolver implements DataFetcher<CompletableFutur
                               _entityClient.getLatestAspectObject(
                                   context.getOperationContext(),
                                   actionPipelineUrn,
-                                  "dataHubActionInfo");
+                                  "dataHubActionInfo",
+                                  false);
                           if (rawAspect == null) {
                             throw new DataHubGraphQLException(
                                 String.format(
