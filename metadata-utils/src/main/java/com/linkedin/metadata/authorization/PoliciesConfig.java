@@ -733,10 +733,25 @@ public class PoliciesConfig {
   // ERModelRelationship Privileges
   public static final ResourcePrivileges ER_MODEL_RELATIONSHIP_PRIVILEGES =
       ResourcePrivileges.of(
-          "erModelRelationship",
-          "ERModelRelationship",
-          "update privileges for ermodelrelations",
+          "ER Model Relationships",
+          "",
+          "Privileges for ER Model Relationships",
           COMMON_ENTITY_PRIVILEGES);
+
+  public static final ResourcePrivileges ML_FEATURE_PRIVILEGES =
+          ResourcePrivileges.of(
+                  "mlFeature",
+                  "ML Feature",
+                  "ML Features ingested to DataHub.",
+                  COMMON_ENTITY_PRIVILEGES);
+
+  public static final ResourcePrivileges ML_MODEL_PRIVILEGES =
+          ResourcePrivileges.of(
+                  "mlModel",
+                  "ML Model",
+                  "ML Models ingested to DataHub.",
+                  COMMON_ENTITY_PRIVILEGES);
+
   public static final ResourcePrivileges BUSINESS_ATTRIBUTE_PRIVILEGES =
       ResourcePrivileges.of(
           "businessAttribute",
@@ -767,7 +782,9 @@ public class PoliciesConfig {
           DATA_PRODUCT_PRIVILEGES,
           ER_MODEL_RELATIONSHIP_PRIVILEGES,
           BUSINESS_ATTRIBUTE_PRIVILEGES,
-          STRUCTURED_PROPERTIES_PRIVILEGES);
+          STRUCTURED_PROPERTIES_PRIVILEGES,
+          ML_FEATURE_PRIVILEGES,
+          ML_MODEL_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

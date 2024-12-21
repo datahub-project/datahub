@@ -378,3 +378,41 @@ extend type Chart {
     """
     count: Int): EntityIncidentsResult
 }
+
+extend type MLModel {
+  """
+  Incidents associated with the ML Model
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState,
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int,
+    """
+    Optional start offset, defaults to 20.
+    """
+    count: Int): EntityIncidentsResult
+}
+
+extend type MLFeature {
+  """
+  Incidents associated with the ML Feature
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState,
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int,
+    """
+    Optional start offset, defaults to 20.
+    """
+    count: Int): EntityIncidentsResult
+}
