@@ -18,12 +18,16 @@ ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
 
 @runtime_checkable
 class HasUrn(Protocol):
+    __slots__ = ()
+
     @property
     def urn(self) -> Urn:
         ...
 
 
 class Entity(HasUrn):
+    __slots__ = ("_urn", "_prev_aspects", "_aspects")
+
     def __init__(self, /, urn: Urn):
         # This method is not meant for direct usage.
         if type(self) is Entity:
@@ -66,6 +70,8 @@ class Entity(HasUrn):
 
 
 class HasSubtype(Entity):
+    __slots__ = ()
+
     @property
     def subtype(self) -> Optional[str]:
         subtypes = self._get_aspect(models.SubTypesClass)
@@ -90,6 +96,8 @@ OwnersInputType: TypeAlias = List[OwnerInputType]
 
 
 class HasOwnership(Entity):
+    __slots__ = ()
+
     @staticmethod
     def _parse_owner_class(owner: OwnerInputType) -> models.OwnerClass:
         # TODO: better support for custom ownership types?
