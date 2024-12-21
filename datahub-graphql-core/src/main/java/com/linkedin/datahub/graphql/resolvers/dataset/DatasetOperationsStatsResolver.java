@@ -6,6 +6,7 @@ import com.linkedin.common.WindowDuration;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.OperationsQueryResult;
@@ -47,6 +48,14 @@ public class DatasetOperationsStatsResolver
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
+            if (!AuthorizationUtils.isViewDatasetOperationsAuthorized(context, resourceUrn)) {
+              log.debug(
+                  "User {} is not authorized to view operation information for dataset {}",
+                  context.getActorUrn(),
+                  resourceUrn);
+              // don't cause loading the whole dataset to fail
+              return new OperationsQueryResult();
+            }
             com.linkedin.operations.OperationsQueryResult result =
                 OperationsServiceUtil.queryRange(
                     context.getOperationContext(),

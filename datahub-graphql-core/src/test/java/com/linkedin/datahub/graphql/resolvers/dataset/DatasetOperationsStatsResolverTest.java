@@ -1,5 +1,6 @@
 package com.linkedin.datahub.graphql.resolvers.dataset;
 
+import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -44,8 +45,7 @@ public class DatasetOperationsStatsResolverTest {
 
     // Execute resolver
     DatasetOperationsStatsResolver resolver = new DatasetOperationsStatsResolver(mockService);
-    QueryContext mockContext = Mockito.mock(QueryContext.class);
-    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    QueryContext mockContext = getMockAllowContext();
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
@@ -73,6 +73,28 @@ public class DatasetOperationsStatsResolverTest {
   }
 
   @Test
+  public void testGetUnauthorized() throws Exception {
+    TimeseriesAspectService mockService = initMockTimeseriesService();
+
+    // Execute resolver
+    DatasetOperationsStatsResolver resolver = new DatasetOperationsStatsResolver(mockService);
+    QueryContext mockContext = Mockito.mock(QueryContext.class);
+    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    OperationsQueryResult result = resolver.get(mockEnv).get();
+
+    // When the user doesn't have permission, return empty results instead of throwing on the whole
+    // dataset
+    Assert.assertNull(result.getAggregations());
+    Assert.assertNull(result.getBuckets());
+  }
+
+  @Test
   public void testGetException() throws Exception {
     TimeseriesAspectService mockService = mock(TimeseriesAspectService.class);
     when(mockService.getAggregatedStats(
@@ -86,8 +108,7 @@ public class DatasetOperationsStatsResolverTest {
 
     // Execute resolver
     DatasetOperationsStatsResolver resolver = new DatasetOperationsStatsResolver(mockService);
-    QueryContext mockContext = Mockito.mock(QueryContext.class);
-    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    QueryContext mockContext = getMockAllowContext();
 
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getSource()).thenReturn(TEST_SOURCE);
