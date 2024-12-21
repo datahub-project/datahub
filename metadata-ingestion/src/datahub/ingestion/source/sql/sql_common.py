@@ -28,6 +28,7 @@ from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.sql import sqltypes as types
 from sqlalchemy.types import TypeDecorator, TypeEngine
 
+from datahub.api.entities.dataset.dataset import Dataset
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -79,7 +80,12 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import StatusClass
-from datahub.metadata.com.linkedin.pegasus2avro.dataset import UpstreamLineage
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
+    FineGrainedLineage,
+    FineGrainedLineageDownstreamType,
+    FineGrainedLineageUpstreamType,
+    UpstreamLineage,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import DatasetSnapshot
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
@@ -760,16 +766,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
-        if self.config.include_table_location_lineage and location_urn:
-            external_upstream_table = UpstreamClass(
-                dataset=location_urn,
-                type=DatasetLineageTypeClass.COPY,
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_snapshot.urn,
-                aspect=UpstreamLineage(upstreams=[external_upstream_table]),
-            ).as_workunit()
-
         extra_tags = self.get_extra_tags(inspector, schema, table)
         pk_constraints: dict = inspector.get_pk_constraint(table, schema)
         partitions: Optional[List[str]] = self.get_partitions(inspector, schema, table)
@@ -782,6 +778,24 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             tags=extra_tags,
             partition_keys=partitions,
         )
+
+        if self.config.include_table_location_lineage and location_urn:
+            external_upstream_table = UpstreamClass(
+                dataset=location_urn,
+                type=DatasetLineageTypeClass.COPY,
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=dataset_snapshot.urn,
+                aspect=UpstreamLineage(
+                    upstreams=[external_upstream_table],
+                    fineGrainedLineages=self.get_fine_grained_lineages(
+                        dataset_urn=dataset_snapshot.urn,
+                        upstream_dataset_urn=location_urn,
+                        schema_fields=schema_fields,
+                    ),
+                ),
+            ).as_workunit()
+
         schema_metadata = get_schema_metadata(
             self.report,
             dataset_name,
@@ -954,6 +968,35 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             )
             foreign_keys = []
         return foreign_keys
+
+    def get_fine_grained_lineages(
+        self,
+        dataset_urn: str,
+        upstream_dataset_urn: str,
+        schema_fields: List[SchemaField],
+    ) -> Optional[List[FineGrainedLineage]]:
+        def simplify_field_path(field_path):
+            return Dataset._simplify_field_path(field_path)
+
+        fine_grained_lineages: List[FineGrainedLineage] = []
+        for schema_field in schema_fields:
+            field_path_v1 = simplify_field_path(schema_field.fieldPath)
+            fine_grained_lineages.append(
+                FineGrainedLineage(
+                    downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                    downstreams=[make_schema_field_urn(dataset_urn, field_path_v1)],
+                    upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                    upstreams=[
+                        make_schema_field_urn(
+                            upstream_dataset_urn,
+                            simplify_field_path(schema_field.fieldPath),
+                        )
+                    ],
+                )
+            )
+        if fine_grained_lineages:
+            return fine_grained_lineages
+        return None
 
     def get_schema_fields(
         self,
