@@ -25,6 +25,8 @@ class DatasetUpdater:
 
 
 class Dataset(HasSubtype, HasOwnership, Entity):
+    __slots__ = ()
+
     @classmethod
     def get_urn_type(cls) -> Type[Urn]:
         return DatasetUrn
@@ -96,12 +98,20 @@ if __name__ == "__main__":
     d = Dataset(
         platform="bigquery",
         name="test",
+        subtype="Table",
     )
     assert isinstance(d, HasUrn)
     print(d.urn)
 
+    assert d.subtype == "Table"
+
     with pytest.raises(AttributeError):
-        d.owners = []  # TODO: make this throw a nicer error
+        # TODO: make this throw a nicer error
+        d.owners = []  # type: ignore
 
     d.set_owners(["my_user", "other_user", ("third_user", "BUSINESS_OWNER")])
     print(d.owners)
+
+    with pytest.raises(AttributeError):
+        # ensure that all the slots are set, and so no extra attributes are allowed
+        d.extra = {}  # type: ignore
