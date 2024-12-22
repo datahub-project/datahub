@@ -458,7 +458,7 @@ def by_filter(
 
     delete_by_urn = len(urns) == 1
     # Print out a summary of the urns to be deleted and confirm with the user.
-    if delete_by_urn:
+    if not delete_by_urn:
         urns_by_type: Dict[str, List[str]] = {}
         for urn in urns:
             entity_type = guess_entity_type(urn)
