@@ -266,6 +266,9 @@ def undo_by_filter(
     help="Urn of the entity to delete, for single entity deletion",
 )
 @click.option(
+    "--urn-file", required=True, help="Absolute path of file with urns to be deleted"
+)
+@click.option(
     "-a",
     "--aspect",
     # This option is inconsistent with rest of CLI but kept for backward compatibility
@@ -353,6 +356,7 @@ def undo_by_filter(
 @telemetry.with_telemetry()
 def by_filter(
     urn: Optional[str],
+    urn_file: Optional[str],
     aspect: Optional[str],
     force: bool,
     soft: bool,
@@ -373,6 +377,7 @@ def by_filter(
     # Validate the cli arguments.
     _validate_user_urn_and_filters(
         urn=urn,
+        urn_file=urn_file,
         entity_type=entity_type,
         platform=platform,
         env=env,
@@ -407,11 +412,27 @@ def by_filter(
     logger.info(f"Using {graph}")
 
     # Determine which urns to delete.
-    delete_by_urn = bool(urn) and not recursive
     if urn:
         urns = [urn]
-
-        if recursive:
+    elif urn_file:
+        with open(urn_file, "r") as r:
+            urns = []
+            for line in r.readlines():
+                urn = line.strip().strip('"')
+                urns.append(urn)
+    else:
+        urns = list(
+            graph.get_urns_by_filter(
+                entity_types=[entity_type] if entity_type else None,
+                platform=platform,
+                env=env,
+                query=query,
+                status=soft_delete_filter,
+                batch_size=batch_size,
+            )
+        )
+    if recursive:
+        for urn in urns:
             # Add children urns to the list.
             if guess_entity_type(urn) == "dataPlatformInstance":
                 urns.extend(
@@ -429,25 +450,15 @@ def by_filter(
                         batch_size=batch_size,
                     )
                 )
-    else:
-        urns = list(
-            graph.get_urns_by_filter(
-                entity_types=[entity_type] if entity_type else None,
-                platform=platform,
-                env=env,
-                query=query,
-                status=soft_delete_filter,
-                batch_size=batch_size,
-            )
+    if len(urns) == 0:
+        click.echo(
+            "Found no urns to delete. Maybe you want to change your filters to be something different?"
         )
-        if len(urns) == 0:
-            click.echo(
-                "Found no urns to delete. Maybe you want to change your filters to be something different?"
-            )
-            return
+        return
 
+    delete_by_urn = len(urns) == 1
     # Print out a summary of the urns to be deleted and confirm with the user.
-    if not delete_by_urn:
+    if delete_by_urn:
         urns_by_type: Dict[str, List[str]] = {}
         for urn in urns:
             entity_type = guess_entity_type(urn)
@@ -537,6 +548,7 @@ def _delete_urns_parallel(
 
 def _validate_user_urn_and_filters(
     urn: Optional[str],
+    urn_file: Optional[str],
     entity_type: Optional[str],
     platform: Optional[str],
     env: Optional[str],
@@ -549,9 +561,9 @@ def _validate_user_urn_and_filters(
             raise click.UsageError(
                 "You cannot provide both an urn and a filter rule (entity-type / platform / env / query)."
             )
-    elif not urn and not (entity_type or platform or env or query):
+    elif not urn and not urn_file and not (entity_type or platform or env or query):
         raise click.UsageError(
-            "You must provide either an urn or at least one filter (entity-type / platform / env / query) in order to delete entities."
+            "You must provide either an urn or urn file path or at least one filter (entity-type / platform / env / query) in order to delete entities."
         )
     elif query:
         logger.warning(
