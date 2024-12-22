@@ -7,9 +7,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
 )
-from datahub.emitter.mcp_builder import DatabaseKey
 from datahub.metadata.schema_classes import (
-    ContainerClass,
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
@@ -213,18 +211,6 @@ class MSSQLDataJob:
         )
 
     @property
-    def as_container_aspect(self) -> ContainerClass:
-        databaseKey = DatabaseKey(
-            platform=self.entity.flow.orchestrator,
-            instance=self.entity.flow.platform_instance
-            if self.entity.flow.platform_instance
-            else None,
-            env=self.entity.flow.env,
-            database=self.entity.flow.db,
-        )
-        return ContainerClass(container=databaseKey.as_urn())
-
-    @property
     def as_maybe_platform_instance_aspect(self) -> Optional[DataPlatformInstanceClass]:
         if self.entity.flow.platform_instance:
             return DataPlatformInstanceClass(
@@ -270,18 +256,6 @@ class MSSQLDataFlow:
             customProperties=self.flow_properties,
             externalUrl=self.external_url,
         )
-
-    @property
-    def as_container_aspect(self) -> ContainerClass:
-        databaseKey = DatabaseKey(
-            platform=self.entity.orchestrator,
-            instance=self.entity.platform_instance
-            if self.entity.platform_instance
-            else None,
-            env=self.entity.env,
-            database=self.entity.db,
-        )
-        return ContainerClass(container=databaseKey.as_urn())
 
     @property
     def as_maybe_platform_instance_aspect(self) -> Optional[DataPlatformInstanceClass]:

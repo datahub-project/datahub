@@ -106,43 +106,6 @@
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(mssql,Weekly Demo Data Backup,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:a327c3b1f5aadd4524158aeb5121be63"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(mssql,Weekly Demo Data Backup,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:a327c3b1f5aadd4524158aeb5121be63",
-                    "urn": "urn:li:container:a327c3b1f5aadd4524158aeb5121be63"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,Weekly Demo Data Backup,PROD),Weekly Demo Data Backup)",
     "changeType": "UPSERT",
@@ -150,11 +113,11 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "job_id": "ab960f9d-30f3-4ced-b558-4f9b6671b6dd",
+                "job_id": "4130c37d-146c-43da-a671-dd9a413a44b3",
                 "job_name": "Weekly Demo Data Backup",
                 "description": "No description available.",
-                "date_created": "2024-12-20 15:15:24.483000",
-                "date_modified": "2024-12-20 15:15:24.653000",
+                "date_created": "2024-11-22 12:58:03.260000",
+                "date_modified": "2024-11-22 12:58:03.440000",
                 "step_id": "1",
                 "step_name": "Set database to read only",
                 "subsystem": "TSQL",
@@ -177,49 +140,12 @@
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,Weekly Demo Data Backup,PROD),Weekly Demo Data Backup)",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:a327c3b1f5aadd4524158aeb5121be63"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,Weekly Demo Data Backup,PROD),Weekly Demo Data Backup)",
-    "changeType": "UPSERT",
     "aspectName": "dataJobInputOutput",
     "aspect": {
         "json": {
             "inputDatasets": [],
             "outputDatasets": [],
             "inputDatajobs": []
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,Weekly Demo Data Backup,PROD),Weekly Demo Data Backup)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:a327c3b1f5aadd4524158aeb5121be63",
-                    "urn": "urn:li:container:a327c3b1f5aadd4524158aeb5121be63"
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -2177,8 +2103,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "is_view": "True",
-                            "view_definition": "CREATE VIEW Foo.PersonsView AS SELECT * FROM Foo.Persons;\n"
+                            "view_definition": "CREATE VIEW Foo.PersonsView AS SELECT * FROM Foo.Persons;\n",
+                            "is_view": "True"
                         },
                         "name": "PersonsView",
                         "tags": []
@@ -2344,43 +2270,6 @@
     }
 },
 {
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(mssql,DemoData.Foo.stored_procedures,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:a327c3b1f5aadd4524158aeb5121be63"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataFlow",
-    "entityUrn": "urn:li:dataFlow:(mssql,DemoData.Foo.stored_procedures,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:a327c3b1f5aadd4524158aeb5121be63",
-                    "urn": "urn:li:container:a327c3b1f5aadd4524158aeb5121be63"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
     "entityType": "dataJob",
     "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,DemoData.Foo.stored_procedures,PROD),Proc.With.SpecialChar)",
     "changeType": "UPSERT",
@@ -2393,51 +2282,14 @@
                 "code": "CREATE PROCEDURE [Foo].[Proc.With.SpecialChar] @ID INT\nAS\n    SELECT @ID AS ThatDB;\n",
                 "input parameters": "['@ID']",
                 "parameter @ID": "{'type': 'int'}",
-                "date_created": "2024-12-20 15:15:24.290000",
-                "date_modified": "2024-12-20 15:15:24.290000"
+                "date_created": "2024-11-22 12:58:03.137000",
+                "date_modified": "2024-11-22 12:58:03.137000"
             },
             "externalUrl": "",
             "name": "DemoData.Foo.Proc.With.SpecialChar",
             "type": {
                 "string": "MSSQL_STORED_PROCEDURE"
             }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,DemoData.Foo.stored_procedures,PROD),Proc.With.SpecialChar)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:a327c3b1f5aadd4524158aeb5121be63"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,DemoData.Foo.stored_procedures,PROD),Proc.With.SpecialChar)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:a327c3b1f5aadd4524158aeb5121be63",
-                    "urn": "urn:li:container:a327c3b1f5aadd4524158aeb5121be63"
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -2458,51 +2310,14 @@
                 "depending_on_procedure": "{}",
                 "code": "CREATE PROCEDURE [Foo].[NewProc]\n    AS\n    BEGIN\n        --insert into items table from salesreason table\n        insert into Foo.Items (ID, ItemName)\n        SELECT TempID, Name\n        FROM Foo.SalesReason;\n\n\n       IF OBJECT_ID('Foo.age_dist', 'U') IS NULL\n       BEGIN\n            -- Create and populate if table doesn't exist\n            SELECT Age, COUNT(*) as Count\n            INTO Foo.age_dist\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n        ELSE\n        BEGIN\n            -- Update existing table\n            TRUNCATE TABLE Foo.age_dist;\n\n            INSERT INTO Foo.age_dist (Age, Count)\n            SELECT Age, COUNT(*) as Count\n            FROM Foo.Persons\n            GROUP BY Age\n        END\n\n        SELECT ID, Age INTO #TEMPTABLE FROM NewData.FooNew.PersonsNew\n        \n        UPDATE DemoData.Foo.Persons\n        SET Age = t.Age\n        FROM DemoData.Foo.Persons p\n        JOIN #TEMPTABLE t ON p.ID = t.ID\n\n    END\n",
                 "input parameters": "[]",
-                "date_created": "2024-12-20 15:15:24.300000",
-                "date_modified": "2024-12-20 15:15:24.300000"
+                "date_created": "2024-11-22 12:58:03.140000",
+                "date_modified": "2024-11-22 12:58:03.140000"
             },
             "externalUrl": "",
             "name": "DemoData.Foo.NewProc",
             "type": {
                 "string": "MSSQL_STORED_PROCEDURE"
             }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,DemoData.Foo.stored_procedures,PROD),NewProc)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:a327c3b1f5aadd4524158aeb5121be63"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "mssql-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataJob",
-    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(mssql,DemoData.Foo.stored_procedures,PROD),NewProc)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:a327c3b1f5aadd4524158aeb5121be63",
-                    "urn": "urn:li:container:a327c3b1f5aadd4524158aeb5121be63"
-                }
-            ]
         }
     },
     "systemMetadata": {
@@ -4612,8 +4427,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "is_view": "True",
-                            "view_definition": "CREATE VIEW FooNew.View1 AS\nSELECT LastName, FirstName\nFROM FooNew.PersonsNew\nWHERE Age > 18\n"
+                            "view_definition": "CREATE VIEW FooNew.View1 AS\nSELECT LastName, FirstName\nFROM FooNew.PersonsNew\nWHERE Age > 18\n",
+                            "is_view": "True"
                         },
                         "name": "View1",
                         "tags": []
