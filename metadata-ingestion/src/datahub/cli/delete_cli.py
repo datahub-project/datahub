@@ -382,7 +382,6 @@ def by_filter(
         platform=platform,
         env=env,
         query=query,
-        recursive=recursive,
     )
     soft_delete_filter = _validate_user_soft_delete_flags(
         soft=soft, aspect=aspect, only_soft_deleted=only_soft_deleted
@@ -432,6 +431,7 @@ def by_filter(
             )
         )
     if recursive:
+        _validate_recursive_delete(urns)
         for urn in urns:
             # Add children urns to the list.
             if guess_entity_type(urn) == "dataPlatformInstance":
@@ -553,7 +553,6 @@ def _validate_user_urn_and_filters(
     platform: Optional[str],
     env: Optional[str],
     query: Optional[str],
-    recursive: bool,
 ) -> None:
     # Check urn / filters options.
     if urn:
@@ -574,20 +573,17 @@ def _validate_user_urn_and_filters(
             f"Using --env without other filters will delete all metadata in the {env} environment. Please use with caution."
         )
 
-    # Check recursive flag.
-    if recursive:
-        if not urn:
-            raise click.UsageError(
-                "The --recursive flag can only be used with a single urn."
+
+def _validate_recursive_delete(urns: List[str]) -> None:
+    for urn in urns:
+        if guess_entity_type(urn) in _RECURSIVE_DELETE_TYPES:
+            logger.warning(
+                f"This will only delete {urn}. Use --recursive to delete all contained entities."
             )
-        elif guess_entity_type(urn) not in _RECURSIVE_DELETE_TYPES:
+        else:
             raise click.UsageError(
                 f"The --recursive flag can only be used with these entity types: {_RECURSIVE_DELETE_TYPES}."
             )
-    elif urn and guess_entity_type(urn) in _RECURSIVE_DELETE_TYPES:
-        logger.warning(
-            f"This will only delete {urn}. Use --recursive to delete all contained entities."
-        )
 
 
 def _validate_user_soft_delete_flags(
