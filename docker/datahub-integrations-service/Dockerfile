@@ -4,7 +4,6 @@ ARG BASE_IMAGE=acryldata/datahub-ingestion
 ARG DOCKER_VERSION=head-slim
 # ARG DEBIAN_REPO_URL=https://deb.debian.org/debian
 # ARG PIP_MIRROR_URL=https://pypi.python.org/simple
-ARG RELEASE_VERSION
 
 FROM powerman/dockerize:0.19 AS dockerize-binary
 
@@ -57,7 +56,6 @@ ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 COPY --chown=datahub:datahub ./datahub-integrations-service /datahub-integrations-service
 COPY --chown=datahub:datahub ./metadata-ingestion /metadata-ingestion
 
-ARG RELEASE_VERSION=1!0.0.0.dev0
 WORKDIR /datahub-integrations-service
 
 USER datahub

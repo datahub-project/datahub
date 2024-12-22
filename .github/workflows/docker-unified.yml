@@ -87,6 +87,7 @@ jobs:
           echo "python_release_version=$(get_python_docker_release_v)" >> "$GITHUB_OUTPUT"
           echo "branch_name=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}" >> "$GITHUB_OUTPUT"
           echo "repository_name=${GITHUB_REPOSITORY#*/}" >> "$GITHUB_OUTPUT"
+          echo_tags
       - name: Check whether docker login is possible
         id: docker-login
         env:
@@ -1434,6 +1435,12 @@ jobs:
         if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' && needs.datahub_ingestion_slim_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
+      - name: Update versions
+        run: |
+          sed -i 's/__version__ = "0.0.0.dev0"/__version__ = "${{ needs.setup.outputs.python_release_version }}"/g' ./datahub-integrations-service/src/datahub_integrations/__init__.py
+          sed -i 's/version = "0.0.0.dev0"/version = "${{ needs.setup.outputs.python_release_version }}"/g' ./datahub-integrations-service/pyproject.toml
+          cat ./datahub-integrations-service/src/datahub_integrations/__init__.py
+          cat ./datahub-integrations-service/pyproject.toml
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -1443,7 +1450,6 @@ jobs:
           build-args: |
             BASE_IMAGE=${{ env.DATAHUB_INGESTION_IMAGE }}
             DOCKER_VERSION=${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
-            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
           image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
@@ -1538,6 +1544,12 @@ jobs:
       - uses: gradle/actions/setup-gradle@v3
       - name: Build acryl-cloud codegen
         run: ./gradlew :metadata-ingestion-modules:acryl-cloud:codegen
+      - name: Update versions
+        run: |
+          sed -i 's/__version__ = "0.0.0.dev0"/__version__ = "${{ needs.setup.outputs.python_release_version }}"/g' ./datahub-executor/src/datahub_executor/__init__.py
+          sed -i 's/version = "0.0.0.dev0"/version = "${{ needs.setup.outputs.python_release_version }}"/g' ./datahub-executor/pyproject.toml
+          cat ./datahub-executor/src/datahub_executor/__init__.py
+          cat ./datahub-executor/pyproject.toml
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:

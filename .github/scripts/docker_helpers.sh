@@ -23,8 +23,14 @@ function get_tag_full {
     echo $(echo ${GITHUB_REF} | sed -e "s,refs/heads/${MAIN_BRANCH},${MAIN_BRANCH_TAG}-full,g" -e 's,refs/tags/\(.*\),\1-full,g' -e 's,refs/pull/\([0-9]*\).*,pr\1-full,g')
 }
 
-function get_python_docker_release_v {
-    echo $(echo ${GITHUB_REF} | sed -e "s,refs/heads/${MAIN_BRANCH},1!0.0.0+docker.${SHORT_SHA},g" -e 's,refs/tags/v\(.*\),1!\1+docker,g' -e 's,refs/pull/\([0-9]*\).*,1!0.0.0+docker.pr\1,g')
+# "refs/pull/4788/merge"         -> turn into 1!0.0.0+docker.pr4788
+# "refs/tags/v0.3.7.7-aseemtest" -> turn into 0.3.7.7
+function get_python_docker_release_v() {
+    echo "$(echo "${GITHUB_REF}" | \
+        sed -e "s,refs/heads/${MAIN_BRANCH},1!0.0.0+docker.${SHORT_SHA},g" \
+            -e 's,refs/tags/v\(.*\),1!\1+docker,g' \
+            -e 's,refs/pull/\([0-9]*\).*,1!0.0.0+docker.pr\1,g' \
+            -e 's,1!\([0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\).*+docker.*,\1,g')"
 }
 
 function get_unique_tag {
@@ -45,4 +51,17 @@ function get_platforms_based_on_branch {
     else
         echo "linux/amd64"
     fi
+}
+
+function echo_tags {
+    echo "short_sha=${SHORT_SHA}"
+    echo "tag=$(get_tag)"
+    echo "slim_tag=$(get_tag_slim)"
+    echo "full_tag=$(get_tag_full)"
+    echo "unique_tag=$(get_unique_tag)"
+    echo "unique_slim_tag=$(get_unique_tag_slim)"
+    echo "unique_full_tag=$(get_unique_tag_full)"
+    echo "python_release_version=$(get_python_docker_release_v)"
+    echo "branch_name=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/}}"
+    echo "repository_name=${GITHUB_REPOSITORY#*/}"
 }

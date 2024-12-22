@@ -22,13 +22,8 @@ RUN chmod a+x /health_status
 
 WORKDIR /datahub-executor
 
-ARG RELEASE_VERSION
 ARG DOCKER_VERSION
-
-RUN sed -i.bak "s/__version__ = \"1!0.0.0.dev0\"/__version__ = \"$(echo $RELEASE_VERSION|sed 's/+/-/'|sed '1 s/-/+/')\"/" src/datahub_executor/__init__.py && \
-    sed -i.bak "s/version = \"1!0.0.0.dev0\"/version = \"$(echo $RELEASE_VERSION|sed 's/+/-/'|sed '1 s/-/+/')\"/" pyproject.toml && \
-    cat src/datahub_executor/__init__.py && \
-    chown -R datahub /metadata-ingestion /datahub-executor /acryl-cloud
+RUN chown -R datahub /metadata-ingestion /datahub-executor /acryl-cloud
 
 ARG PIP_MIRROR_URL
 RUN if [ "${PIP_MIRROR_URL}" != "null" ] ; then pip config set global.index-url ${PIP_MIRROR_URL} ; fi
