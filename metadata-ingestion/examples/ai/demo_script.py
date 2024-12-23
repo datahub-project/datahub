@@ -67,7 +67,6 @@ class Container:
 def create_model(
     model_name: str,
     model_group_urn: str,
-    data_process_instance_urn: str,
     tags: List[str],
     version_aliases: List[str],
     index: int,
@@ -82,7 +81,6 @@ def create_model(
         description=model_description,
         version=models.VersionTagClass(versionTag=f"{index}"),
         groups=[str(model_group_urn)],
-        trainingJobs=[str(data_process_instance_urn)],
         date=created_at,
         lastModified=created_at,
         createdBy=f"user_{index}",
@@ -93,7 +91,7 @@ def create_model(
             for alias in version_aliases
         ],
         tags=tags,
-        trainingMetrics=training_metrics,
+        # trainingMetrics=training_metrics,
         hyperParams=hyper_params,
     )
 
@@ -131,7 +129,7 @@ def generate_pipeline(
                 platform=str(DataPlatformUrn.create_from_id("mlflow")),
                 id="airline_forecast_experiment",
             ),
-            subtype="Experiment",
+            subtype="ML Experiment",
             name="Airline Forecast Experiment",
             description="Experiment for forecasting airline passengers",
         )
@@ -229,7 +227,7 @@ def generate_pipeline(
                 container_key=experiment.key, id=run_id
             )
 
-            data_process_instance.subtype = "Training Run"
+            data_process_instance.subtype = "ML Training Run"
             data_process_instance.inlets = [DatasetUrn.from_string(input_dataset.urn)]
 
             output_dataset = Dataset(
@@ -299,6 +297,17 @@ def generate_pipeline(
             yield MetadataChangeProposalWrapper(
                 entityUrn=str(data_process_instance.urn),
                 aspect=dpi_props,
+            )
+
+            dpi_output_model = models.DataProcessInstanceOutputClass(
+                name="model",
+                description="Trained model",
+        
+            )
+
+            yield MetadataChangeProposalWrapper(
+                entityUrn=str(data_process_instance.urn),
+                aspect=dpi_output_model,
             )
 
             # Generate start and end events

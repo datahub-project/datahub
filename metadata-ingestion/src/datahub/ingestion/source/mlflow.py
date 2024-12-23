@@ -44,6 +44,7 @@ from datahub.metadata.schema_classes import (
     MetadataChangeProposalClass,
     MLTrainingRunPropertiesClass,
     DataProcessInstanceRunResultClass,
+    DataProcessInstanceOutputClass,
 )
 from datahub.metadata.urns import DatasetUrn, DataPlatformUrn, MlModelUrn, MlModelGroupUrn, DataProcessInstanceUrn, DataPlatformInstanceUrn
 from datahub.api.entities.dataprocess.dataprocess_instance import (
@@ -314,7 +315,7 @@ class MLflowSource(Source):
                 entityUrn=str(data_process_instance.urn),
                 aspect=DataProcessInstancePropertiesClass(
                     name=run.info.run_name or run.info.run_id,
-                    created=TimeStampClass(
+                    created=AuditStampClass(
                         time=created_time,
                         actor=created_actor,
                     ),
@@ -323,6 +324,20 @@ class MLflowSource(Source):
                 ),
             ).as_workunit()
         )
+
+        # get model from run
+        model_versions = self.get_mlflow_model_versions_from_run(run.info.run_id)
+        model_version_urn = self._make_ml_model_urn(model_versions[0])
+        model_version_urn = "urn:li:dataset:(urn:li:dataPlatform:mlflow,sk-learn-random-forest-reg_1,PROD)"
+        if model_versions:
+            workunits.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=str(data_process_instance.urn),
+                    aspect=DataProcessInstanceOutputClass(
+                        outputs=[model_version_urn]
+                    ),
+                ).as_workunit()
+            )
 
         metrics = self._get_run_metrics(run)
         hyperparams = self._get_run_params(run)
@@ -354,19 +369,7 @@ class MLflowSource(Source):
         )  # TODO: this should be SUCCESS, SKIPPED, FAILURE, UP_FOR_RETRY
         duration_millis = run.info.end_time - run.info.start_time
 
-        # start event
-        if run.info.start_time:
-            workunits.append(
-                MetadataChangeProposalWrapper(
-                    entityUrn=str(data_process_instance.urn),
-                    aspect=DataProcessInstanceRunEventClass(
-                        status=DataProcessRunStatusClass.STARTED,
-                        timestampMillis=run.info.start_time,
-                    ),
-                ).as_workunit()
-            )
 
-        # end event
         if run.info.end_time:
             workunits.append(
                 MetadataChangeProposalWrapper(
@@ -382,6 +385,28 @@ class MLflowSource(Source):
                     ),
                 ).as_workunit()
             )
+
+        workunits.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=str(data_process_instance.urn),
+                aspect=DataPlatformInstanceClass(
+                    platform=str(DataPlatformUrn.create_from_id("mlflow"))
+                ),
+            ).as_workunit()
+        )
+
+        workunits.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=str(data_process_instance.urn),
+                aspect=DataProcessInstancePropertiesClass(  # Changed from RunEventClass
+                    name=run.info.run_name or run.info.run_id,
+                    created=AuditStampClass(
+                        time=created_time,
+                        actor=created_actor,
+                    )
+                ),
+            ).as_workunit()
+        )
 
         workunits.append(
             MetadataChangeProposalWrapper(
@@ -486,6 +511,16 @@ class MLflowSource(Source):
         )
         return model_versions
 
+    def get_mlflow_model_versions_from_run(self, run_id):
+        filter_string = f"run_id = '{run_id}'"
+
+        model_versions: Iterable[ModelVersion] = self._traverse_mlflow_search_func(
+            search_func=self.client.search_model_versions,
+            filter_string=filter_string,
+        )
+
+        return list(model_versions)
+
     def _get_mlflow_run(self, model_version: ModelVersion) -> Union[None, Run]:
         if model_version.run_id:
             run = self.client.get_run(model_version.run_id)
@@ -521,6 +556,7 @@ class MLflowSource(Source):
             hyperparams = self._get_run_params(run)
             training_metrics = self._get_run_metrics(run)
 <<<<<<< HEAD
+<<<<<<< HEAD
 
             # Create proper relationship with the run
 
@@ -542,10 +578,11 @@ class MLflowSource(Source):
                 str(builder.make_data_process_instance_urn(run.info.run_id))
             ]
 >>>>>>> ce98bb8d2 (fix linting)
+=======
+>>>>>>> 985f0ba8f (update models)
         else:
             hyperparams = None
             training_metrics = None
-            training_jobs = None
 
         created_time = model_version.creation_timestamp
         created_actor = (
@@ -569,7 +606,6 @@ class MLflowSource(Source):
             version=VersionTagClass(versionTag=str(model_version.version)),
             hyperParams=hyperparams,
             trainingMetrics=training_metrics,
-            trainingJobs=training_jobs,
             tags=list(model_version.tags.keys()),
             groups=[str(ml_model_group_urn)],
         )

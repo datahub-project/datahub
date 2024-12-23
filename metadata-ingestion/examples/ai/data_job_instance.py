@@ -117,7 +117,7 @@ def generate_pipeline(
     # data_process_instance = DataProcessInstance.from_datajob(
     #     datajob=data_job, id="training_2024_01_01"
     # )
-    data_process_instance.subtype = "Training Run"
+    data_process_instance.subtype = "ML Training Run"
     data_process_instance.inlets = [DatasetUrn.from_string(dataset_1.urn)]
     data_process_instance.outlets = [DatasetUrn.from_string(dataset_2.urn)]
 
