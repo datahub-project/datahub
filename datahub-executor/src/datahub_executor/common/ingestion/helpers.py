@@ -215,7 +215,9 @@ def handle_ingestion_signal_requests(
     ingestion_executor: ReportingExecutor,
 ) -> bool:
     ingestion_exec_ids = []
-    if ingestion_executor.task_futures and hasattr(ingestion_executor.task_futures, 'keys'):
+    if ingestion_executor.task_futures and hasattr(
+        ingestion_executor.task_futures, "keys"
+    ):
         for exec_id in ingestion_executor.task_futures.keys():
             task_future = ingestion_executor.task_futures[exec_id]
             if not task_future.done():

@@ -180,7 +180,6 @@ class DataHubFormReportingData(FormData):
     def form_assigned_date(
         self, search_row: DataHubDatasetSearchRow
     ) -> Dict[str, date]:
-
         form_assigned_dates: Dict[str, date] = {}
         forms = self.graph.get_aspect(search_row.urn, FormsClass)
         if not forms:

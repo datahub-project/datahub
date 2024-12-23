@@ -100,7 +100,6 @@ class AcrylCSIssuesSource(Source):
     def _provision_platform(
         self, platform: str, logo_url: str, graph: DataHubGraph
     ) -> None:
-
         platform_urn = make_data_platform_urn(platform)
         if not graph.exists(platform_urn):
             platform_info = DataPlatformInfoClass(
