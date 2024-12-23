@@ -2,7 +2,6 @@ from datetime import datetime
 from typing import Dict, Optional, Type
 
 import pytest
-from typing_extensions import assert_type
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import DEFAULT_ENV, make_ts_millis, parse_ts_millis
@@ -184,33 +183,34 @@ def graph_get_dataset(self: DataHubGraph, urn: UrnOrStr) -> Dataset:
     aspects = self.get_entity_semityped(str(urn))
 
     # TODO get the right entity type subclass
+    # TODO: save the timestamp so we can use If-Unmodified-Since on the updates
     return Dataset._new_from_graph(urn, aspects)
 
 
 def graph_create(self: DataHubGraph, dataset: Dataset) -> None:
-    # x
     mcps = []
 
-    # TODO: if we put this first, we can use a create change type?
+    # By putting this first, we can ensure that the request fails if the entity already exists?
+    # TODO: actually validate that this works.
     mcps.append(
         MetadataChangeProposalWrapper(
             entityUrn=str(dataset.urn),
             aspect=dataset.urn.to_key_aspect(),
+            changeType=models.ChangeTypeClass.CREATE_ENTITY,
         )
     )
 
     for aspect in dataset._aspects.values():
-        assert_type(aspect, models._Aspect)
+        assert isinstance(aspect, models._Aspect)
         mcps.append(
             MetadataChangeProposalWrapper(
                 entityUrn=str(dataset.urn),
                 aspect=aspect,
+                changeType=models.ChangeTypeClass.CREATE,
             )
         )
 
-    # TODO use a create-only change type?
-
-    pass
+    self.emit_mcps(mcps)
 
 
 if __name__ == "__main__":
