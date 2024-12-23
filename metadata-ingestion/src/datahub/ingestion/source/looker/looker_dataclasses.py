@@ -186,13 +186,13 @@ class LookerModel:
                 f"traversal_path={traversal_path}, included_files = {included_files}, seen_so_far: {seen_so_far}"
             )
             if "*" not in inc and not included_files:
-                reporter.report_failure(
+                reporter.warning(
                     title="Error Resolving Include",
                     message=f"Cannot resolve include {inc}",
                     context=f"Path: {path}",
                 )
             elif not included_files:
-                reporter.report_failure(
+                reporter.warning(
                     title="Error Resolving Include",
                     message=f"Did not resolve anything for wildcard include {inc}",
                     context=f"Path: {path}",
