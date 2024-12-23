@@ -10,9 +10,9 @@ export const filterQueries = (filterText, queries: Query[]) => {
     const lowerFilterText = filterText.toLowerCase();
     return queries.filter((query) => {
         return (
-            query.title?.toLowerCase().includes(lowerFilterText) ||
-            query.description?.toLowerCase().includes(lowerFilterText) ||
-            query.query?.toLowerCase().includes(lowerFilterText)
+            query.title?.toLowerCase()?.includes(lowerFilterText) ||
+            query.description?.toLowerCase()?.includes(lowerFilterText) ||
+            query.query?.toLowerCase()?.includes(lowerFilterText)
         );
     });
 };
