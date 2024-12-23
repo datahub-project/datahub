@@ -520,7 +520,7 @@ class SnowflakeV2Source(
 
             schema_resolver = self.aggregator._schema_resolver
 
-            queries_extractor: SnowflakeQueriesExtractor = SnowflakeQueriesExtractor(
+            queries_extractor = SnowflakeQueriesExtractor(
                 connection=self.connection,
                 config=SnowflakeQueriesExtractorConfig(
                     window=self.config,
@@ -553,6 +553,8 @@ class SnowflakeV2Source(
                     discovered_views=discovered_views,
                 )
 
+            # This would emit view and external table ddl lineage
+            # as well as query lineage via lineage_extractor
             for mcp in self.aggregator.gen_metadata():
                 yield mcp.as_workunit()
 
