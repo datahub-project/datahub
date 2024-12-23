@@ -51,6 +51,18 @@ record MLModelGroupProperties includes CustomProperties {
   lastModified: optional TimeStamp
 
   /**
+   * List of jobs (if any) used to train the model group. Visible in Lineage.
+   */
+  @Relationship = {
+    "/*": {
+      "name": "TrainedBy",
+      "entityTypes": [ "dataJob" ],
+      "isLineage": true
+    }
+  }
+  trainingJobs: optional array[Urn]
+
+  /**
    * Version of the MLModelGroup
    */
   version: optional VersionTag

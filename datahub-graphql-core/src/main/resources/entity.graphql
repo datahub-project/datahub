@@ -14,11 +14,6 @@ Root type used for fetching DataHub Metadata
 Coming soon listEntity queries for listing all entities of a given type
 """
 type Query {
-  _empty: String
-}
-
-
-extend type Query {
     """
     Fetch a Data Platform by primary key (urn)
     """
@@ -9501,18 +9496,6 @@ type AuditStamp {
     actor: String
 }
 
-type TimeStamp {
-  """
-  When did the event occur
-  """
-  time: Long!
-  
-  """
-  The actor involved in the event
-  """
-  actor: String
-}
-
 """
 Input for creating a new group
 """
@@ -9874,12 +9857,12 @@ type MLModelGroupProperties {
     """
     When this model group was created
     """
-    created: TimeStamp
+    created: AuditStamp
 
     """
     When this model group was last modified
     """
-    lastModified: TimeStamp
+    lastModified: AuditStamp
 
     """
     Version identifier for this model group
@@ -10077,7 +10060,7 @@ type MLModelProperties {
     """
     When the model was last modified
     """
-    lastModified: TimeStamp
+    lastModified: AuditStamp
 
     """
     Version identifier for this model
@@ -10132,7 +10115,7 @@ type MLModelProperties {
     """
     When this model was created
     """
-    created: TimeStamp
+    created: AuditStamp
 
     """
     Deprecated timestamp for model creation
