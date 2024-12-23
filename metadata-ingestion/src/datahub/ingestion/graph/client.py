@@ -188,9 +188,12 @@ class DataHubGraph(DatahubRestEmitter):
                 retry_max_times=emitter._retry_max_times,
                 extra_headers=emitter._session.headers,
                 disable_ssl_verification=emitter._session.verify is False,
-                # TODO: Support these headers.
-                # ca_certificate_path=emitter._ca_certificate_path,
-                # client_certificate_path=emitter._client_certificate_path,
+                ca_certificate_path=(
+                    emitter._session.verify
+                    if isinstance(emitter._session.verify, str)
+                    else None
+                ),
+                client_certificate_path=emitter._session.cert,
             )
         )
 
