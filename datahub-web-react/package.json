@@ -106,10 +106,11 @@
         "yamljs": "^0.3.0"
     },
     "scripts": {
+        "preenv": "export NODE_OPTIONS='--max-old-space-size=5120 --openssl-legacy-provider'",
         "analyze": "source-map-explorer 'dist/assets/*.js'",
         "start": "yarn run generate && vite",
         "ec2-dev": "yarn run generate && CI=true;export CI;vite",
-        "build": "yarn run generate && NODE_OPTIONS='--max-old-space-size=5120 --openssl-legacy-provider' CI=false vite build",
+        "build": "yarn run generate && CI=false vite build",
         "test": "vitest run --coverage",
         "generate": "graphql-codegen --config codegen.yml",
         "lint": "eslint . --ext .ts,.tsx --quiet && yarn format-check && yarn type-check",
@@ -119,7 +120,7 @@
         "type-check": "tsc --noEmit",
         "type-watch": "tsc -w --noEmit",
         "storybook": "storybook dev -p 6006",
-        "build-storybook": "NODE_OPTIONS='--max-old-space-size=5120 --openssl-legacy-provider' storybook build"
+        "build-storybook": "storybook build"
     },
     "lint-staged": {
         "*/**/*.{js,jsx,ts,tsx,json}": [

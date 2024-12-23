@@ -119,8 +119,6 @@ jobs:
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |
           ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel
-        env:
-          NODE_OPTIONS: "--max-old-space-size=5120"
       - name: Gradle build (and test) for integrations-service
         if: ${{  matrix.command == 'integrations-service' && needs.setup.outputs.backend_change == 'true' }}
         run: |
