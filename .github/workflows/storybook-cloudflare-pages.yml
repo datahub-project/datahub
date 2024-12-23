@@ -51,7 +51,7 @@ jobs:
           yarn install
           yarn build-storybook
         env:
-          NODE_OPTIONS: "--max-old-space-size=4096"
+          NODE_OPTIONS: "--max-old-space-size=5120"
       - name: Publish
         uses: cloudflare/pages-action@1
         with:

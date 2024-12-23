@@ -120,7 +120,7 @@ jobs:
         run: |
           ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel
         env:
-          NODE_OPTIONS: "--max-old-space-size=4096"
+          NODE_OPTIONS: "--max-old-space-size=5120"
       - name: Gradle build (and test) for integrations-service
         if: ${{  matrix.command == 'integrations-service' && needs.setup.outputs.backend_change == 'true' }}
         run: |
