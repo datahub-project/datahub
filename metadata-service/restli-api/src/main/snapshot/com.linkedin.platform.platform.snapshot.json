@@ -3981,6 +3981,17 @@
                   "doc" : "Properties associated with a ML Model",
                   "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
                   "fields" : [ {
+                    "name" : "name",
+                    "type" : "string",
+                    "doc" : "Display name of the MLModel",
+                    "optional" : true,
+                    "Searchable" : {
+                      "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
+                      "fieldType" : "WORD_GRAM",
+                      "queryByDefault" : true
+                    }
+                  }, {
                     "name" : "description",
                     "type" : "string",
                     "doc" : "Documentation of the MLModel",
@@ -3993,6 +4004,17 @@
                     "name" : "date",
                     "type" : "com.linkedin.common.Time",
                     "doc" : "Date when the MLModel was developed",
+                    "optional" : true,
+                    "deprecated" : true
+                  }, {
+                    "name" : "created",
+                    "type" : "com.linkedin.common.TimeStamp",
+                    "doc" : "Audit stamp containing who created this and when",
+                    "optional" : true
+                  }, {
+                    "name" : "lastModified",
+                    "type" : "com.linkedin.common.TimeStamp",
+                    "doc" : "Date when the MLModel was last modified",
                     "optional" : true
                   }, {
                     "name" : "version",
@@ -4978,6 +5000,17 @@
                   "doc" : "Properties associated with an ML Model Group",
                   "include" : [ "com.linkedin.common.CustomProperties" ],
                   "fields" : [ {
+                    "name" : "name",
+                    "type" : "string",
+                    "doc" : "Display name of the MLModelGroup",
+                    "optional" : true,
+                    "Searchable" : {
+                      "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
+                      "fieldType" : "WORD_GRAM",
+                      "queryByDefault" : true
+                    }
+                  }, {
                     "name" : "description",
                     "type" : "string",
                     "doc" : "Documentation of the MLModelGroup",
@@ -4990,6 +5023,17 @@
                     "name" : "createdAt",
                     "type" : "com.linkedin.common.Time",
                     "doc" : "Date when the MLModelGroup was developed",
+                    "optional" : true,
+                    "deprecated" : true
+                  }, {
+                    "name" : "created",
+                    "type" : "com.linkedin.common.TimeStamp",
+                    "doc" : "Time and Actor who created the MLModelGroup",
+                    "optional" : true
+                  }, {
+                    "name" : "lastModified",
+                    "type" : "com.linkedin.common.TimeStamp",
+                    "doc" : "Date when the MLModelGroup was last modified",
                     "optional" : true
                   }, {
                     "name" : "version",
