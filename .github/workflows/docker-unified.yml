@@ -35,6 +35,16 @@ env:
   DATAHUB_INGESTION_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-ingestion'
   DATAHUB_INTEGRATIONS_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-integrations-service'
   DATAHUB_EXECUTOR_IMAGE: '795586375822.dkr.ecr.us-west-2.amazonaws.com/datahub-executor'
+  ACRYLIO_DOCKER_GMS_IMAGE: 'acrylio/acryl-gms'
+  ACRYLIO_DOCKER_FRONTEND_IMAGE: 'acrylio/acryl-frontend'
+  ACRYLIO_DOCKER_MAE_CONSUMER_IMAGE: 'acrylio/acryl-mae-consumer'
+  ACRYLIO_DOCKER_MCE_CONSUMER_IMAGE: 'acrylio/acryl-mce-consumer'
+  ACRYLIO_DOCKER_KAFKA_SETUP_IMAGE: 'acrylio/acryl-kafka-setup'
+  ACRYLIO_DOCKER_ELASTIC_SETUP_IMAGE: 'acrylio/acryl-elasticsearch-setup'
+  ACRYLIO_DOCKER_MYSQL_SETUP_IMAGE: 'acrylio/acryl-mysql-setup'
+  ACRYLIO_DOCKER_UPGRADE_IMAGE: 'acrylio/acryl-upgrade'
+  ACRYLIO_DOCKER_INTEGRATIONS_IMAGE: 'acrylio/acryl-integrations-service'
+  ACRYLIO_DOCKER_EXECUTOR_IMAGE: 'acrylio/acryl-executor'
 
 permissions:
   contents: read
@@ -52,6 +62,7 @@ jobs:
       unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
       docker-login: ${{ steps.docker-login.outputs.docker-login }}
       publish: ${{ steps.publish.outputs.publish }}
+      acrylio_publish: ${{ steps.acrylio-publish.outputs.acrylio-publish }} # publish to private dockerhub
       pr-publish: ${{ steps.pr-publish.outputs.publish }}
       python_release_version: ${{ steps.tag.outputs.python_release_version }}
       branch_name: ${{ steps.tag.outputs.branch_name }}
@@ -95,6 +106,17 @@ jobs:
         run: |
           echo "Enable Docker Login: ${{ env.ENABLE_DOCKER_LOGIN }}"
           echo "docker-login=${{ env.ENABLE_DOCKER_LOGIN }}" >> "$GITHUB_OUTPUT"
+      - name: Check whether acrylio DockerHub enabled
+        id: acrylio-publish
+        env:
+          ENABLE_ACRYLIO_PUBLISH: >-
+            ${{
+               github.event_name != 'pull_request'
+               && ( secrets.ACRYLIO_DOCKER_USERNAME != '' && secrets.ACRYLIO_DOCKER_PASSWORD != '' )
+            }}
+        run: |
+          echo "Enable acrylio publish: ${{ env.ENABLE_ACRYLIO_PUBLISH }}"
+          echo "acrylio-publish=${{ env.ENABLE_ACRYLIO_PUBLISH }}" >> "$GITHUB_OUTPUT"
       - name: Check whether publishing enabled
         id: publish
         env:
@@ -183,6 +205,19 @@ jobs:
           context: .
           file: ./docker/datahub-gms/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
+      - name: Build and push acrylio DockerHub
+        if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.ACRYLIO_DOCKER_GMS_IMAGE }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+          context: .
+          file: ./docker/datahub-gms/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
   gms_scan:
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -259,6 +294,19 @@ jobs:
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+          context: .
+          file: ./docker/datahub-mae-consumer/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+      - name: Build and push acrylio DockerHub
+        if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.ACRYLIO_DOCKER_MAE_CONSUMER_IMAGE }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
           context: .
           file: ./docker/datahub-mae-consumer/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -341,6 +389,19 @@ jobs:
           context: .
           file: ./docker/datahub-mce-consumer/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
+      - name: Build and push acrylio DockerHub
+        if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.ACRYLIO_DOCKER_MCE_CONSUMER_IMAGE }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+          context: .
+          file: ./docker/datahub-mce-consumer/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
   mce_consumer_scan:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -417,6 +478,19 @@ jobs:
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+          context: .
+          file: ./docker/datahub-upgrade/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+      - name: Build and push acrylio DockerHub
+        if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.ACRYLIO_DOCKER_UPGRADE_IMAGE }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
           context: .
           file: ./docker/datahub-upgrade/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -501,6 +575,19 @@ jobs:
           context: .
           file: ./docker/datahub-frontend/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
+      - name: Build and push acrylio DockerHub
+        if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.ACRYLIO_DOCKER_FRONTEND_IMAGE }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+          context: .
+          file: ./docker/datahub-frontend/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
   frontend_scan:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
     runs-on: ubuntu-latest
@@ -558,6 +645,19 @@ jobs:
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+          context: .
+          file: ./docker/kafka-setup/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+      - name: Build and push acrylio DockerHub
+        if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.ACRYLIO_DOCKER_KAFKA_SETUP_IMAGE }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
           context: .
           file: ./docker/kafka-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -621,6 +721,19 @@ jobs:
           context: .
           file: ./docker/mysql-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
+      - name: Build and push acrylio DockerHub
+        if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.ACRYLIO_DOCKER_MYSQL_SETUP_IMAGE }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+          context: .
+          file: ./docker/mysql-setup/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
   mysql_setup_scan:
     permissions:
       contents: read # for actions/checkout to fetch code
@@ -678,6 +791,19 @@ jobs:
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+          context: .
+          file: ./docker/elasticsearch-setup/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+      - name: Build and push acrylio DockerHub
+        if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          images: |
+            ${{ env.ACRYLIO_DOCKER_ELASTIC_SETUP_IMAGE }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
           context: .
           file: ./docker/elasticsearch-setup/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
@@ -1443,6 +1569,25 @@ jobs:
           file: ./docker/datahub-integrations-service/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
           depot-project: ${{ vars.DEPOT_PROJECT_ID }}
+      - name: Build and push acrylio DockerHub
+        if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          target: final
+          images: |
+            ${{ env.ACRYLIO_DOCKER_INTEGRATIONS_IMAGE }}
+          build-args: |
+            BASE_IMAGE=${{ env.DATAHUB_INGESTION_IMAGE }}
+            DOCKER_VERSION=${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
+            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+          context: .
+          file: ./docker/datahub-integrations-service/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+          depot-project: ${{ vars.DEPOT_PROJECT_ID }}
       - name: Compute DataHub Integrations Service Tag
         id: tag
         run: echo "tag=${{ needs.setup.outputs.integrations_service_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}" >> $GITHUB_OUTPUT
@@ -1549,6 +1694,25 @@ jobs:
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
           publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+          context: .
+          file: ./docker/datahub-executor/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+          depot-project: ${{ vars.DEPOT_PROJECT_ID }}
+      - name: Build and push acrylio DockerHub
+        if: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
+        uses: ./.github/actions/docker-custom-build-and-push
+        with:
+          target: final
+          images: |
+            ${{ env.ACRYLIO_DOCKER_EXECUTOR_IMAGE }}
+          build-args: |
+            BASE_IMAGE=${{ env.DATAHUB_INGESTION_IMAGE }}
+            DOCKER_VERSION=${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
+            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
+          image_tag: ${{ needs.setup.outputs.tag }}
+          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
           context: .
           file: ./docker/datahub-executor/Dockerfile
           platforms: linux/amd64,linux/arm64/v8
