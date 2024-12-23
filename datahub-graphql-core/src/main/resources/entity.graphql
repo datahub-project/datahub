@@ -12938,7 +12938,7 @@ type DataProcessInstanceProperties {
     """
     When this process instance was created
     """
-    created: TimeStamp
+    created: AuditStamp
 
     """
     Additional custom properties specific to this process instance

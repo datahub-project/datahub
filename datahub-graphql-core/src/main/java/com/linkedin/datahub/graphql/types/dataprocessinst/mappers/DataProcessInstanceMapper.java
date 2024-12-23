@@ -15,7 +15,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.SubTypesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
-import com.linkedin.datahub.graphql.types.common.mappers.TimeStampMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.AuditStampMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLHyperParamMapper;
 import com.linkedin.datahub.graphql.types.mlmodel.mappers.MLMetricMapper;
@@ -144,7 +144,9 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
           CustomPropertiesMapper.map(
               dataProcessInstanceProperties.getCustomProperties(), entityUrn));
     }
-    properties.setCreated(TimeStampMapper.map(context, dataProcessInstanceProperties.getCreated()));
+    if (dataProcessInstanceProperties.hasCreated()) {
+      dpi.setCreated(AuditStampMapper.map(context, dataProcessInstanceProperties.getCreated()));
+    }
     dpi.setProperties(properties);
   }
 }
