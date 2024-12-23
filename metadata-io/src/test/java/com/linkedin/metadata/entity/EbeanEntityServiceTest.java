@@ -18,7 +18,6 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.AspectGenerationUtils;
 import com.linkedin.metadata.Constants;
-import io.datahubproject.test.util.EbeanTestUtils;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
