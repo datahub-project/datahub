@@ -1213,7 +1213,7 @@ jobs:
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
       - name: Download DataHub Integrations image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.datahub_integrations_service_build.outputs.needs_artifact_download == 'true' && needs.datahub_integrations_service_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_INTEGRATIONS_IMAGE }}:${{ needs.datahub_integrations_service_build.outputs.tag }}
@@ -1431,7 +1431,7 @@ jobs:
       - name: Build codegen
         run: ./gradlew :datahub-integrations-service:codegenPython
       - name: Download datahub-ingestion-slim image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' && needs.datahub_ingestion_slim_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
@@ -1474,7 +1474,7 @@ jobs:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: actions/checkout@v3
       - name: Download image Integrations Service Image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_INTEGRATIONS_IMAGE }}:${{ needs.datahub_integrations_service_build.outputs.tag }}
@@ -1516,7 +1516,7 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Download datahub-ingestion-slim image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' && needs.datahub_ingestion_slim_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
@@ -1581,7 +1581,7 @@ jobs:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: actions/checkout@v3
       - name: Download image Monitors Service Image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_EXECUTOR_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
