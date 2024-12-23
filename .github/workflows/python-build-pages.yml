@@ -48,10 +48,8 @@ jobs:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
-      - name: Install LDAP development libraries
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libldap2-dev libsasl2-dev
+      - name: Install Python dependencies
+        run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Build Python wheel site
         run: |
           ./gradlew :python-build:buildSite
