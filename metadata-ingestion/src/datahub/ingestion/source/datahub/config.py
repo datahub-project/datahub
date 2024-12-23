@@ -14,6 +14,17 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 DEFAULT_DATABASE_TABLE_NAME = "metadata_aspect_v2"
 DEFAULT_KAFKA_TOPIC_NAME = "MetadataChangeLog_Timeseries_v1"
 DEFAULT_DATABASE_BATCH_SIZE = 10_000
+DEFAULT_EXCLUDE_ASPECTS = {
+    "dataHubIngestionSourceKey",
+    "dataHubIngestionSourceInfo",
+    "datahubIngestionRunSummary",
+    "datahubIngestionCheckpoint",
+    "dataHubSecretKey",
+    "dataHubSecretValue",
+    "globalSettingsKey",
+    "globalSettingsInfo",
+    "testResults",
+}
 
 
 class DataHubSourceConfig(StatefulIngestionConfigBase):
@@ -44,7 +55,7 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
     )
 
     exclude_aspects: Set[str] = Field(
-        default_factory=set,
+        default=DEFAULT_EXCLUDE_ASPECTS,
         description="Set of aspect names to exclude from ingestion",
     )
 
