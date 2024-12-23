@@ -2,6 +2,7 @@ import React, { ReactNode, useState } from 'react';
 import { Divider, Tooltip, Typography } from 'antd';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { capitalize } from 'lodash';
 
 import {
     GlobalTags,
@@ -37,8 +38,9 @@ import { DataProductLink } from '../shared/tags/DataProductLink';
 import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
 import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
 import { getUniqueOwners } from './utils';
-import StructuredPropertyBadge from '../entity/shared/containers/profile/header/StructuredPropertyBadge';
-import { usePreviewData } from '../entity/shared/PreviewContext';
+import { toRelativeTimeString, formatDetailedDuration, toLocalDateTimeString, formatDuration } from '../shared/time/timeUtils';
+import { Pill } from '../../alchemy-components/components/Pills';
+import { Popover } from '../../alchemy-components/components/Popover';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -68,7 +70,6 @@ const TitleContainer = styled.div`
 const EntityTitleContainer = styled.div`
     display: flex;
     align-items: center;
-    gap: 8px;
 `;
 
 const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
@@ -78,6 +79,7 @@ const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
     }
 
     &&& {
+        margin-right 8px;
         font-size: ${(props) => props.$titleSizePx || 16}px;
         font-weight: 600;
         vertical-align: middle;
@@ -159,6 +161,35 @@ const UserListTitle = styled(Typography.Text)`
     padding-right: 12px;
 `;
 
+const StatContainer = styled.div`;
+    display: flex;
+    margin-top: 40px;
+    height: 25px;
+    padding-left: 20px;
+    color: #5F6685;
+    width: 150px;
+`;
+
+const popoverStyles = {
+    overlayInnerStyle: {
+        borderRadius: '10px',
+    },
+    overlayStyle: {
+        margin: '5px'
+    },
+    contentStyle: {
+        color: '#5F6685',
+        fontSize: '0.8rem'
+    },
+    titleStyle: {
+        color: '#5F6685',
+        borderBottom: 'none',
+        fontSize: '0.8rem',
+        fontWeight: '600',
+    }
+};
+
+
 interface Props {
     name: string;
     urn: string;
@@ -200,6 +231,9 @@ interface Props {
     paths?: EntityPath[];
     health?: Health[];
     parentDataset?: Dataset;
+    startTime?: number | null;
+    duration?: number | null;
+    status?: string | null;
 }
 
 export default function DefaultPreviewCard({
@@ -243,11 +277,14 @@ export default function DefaultPreviewCard({
     paths,
     health,
     parentDataset,
-}: Props) {
+    startTime,
+    duration,
+    status,
+}: // and now we get these new optional props for data process instance
+Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
     const { entityData } = useEntityData();
-    const previewData = usePreviewData();
     const insightViews: Array<ReactNode> = [
         ...(insights?.map((insight) => (
             <>
@@ -270,8 +307,15 @@ export default function DefaultPreviewCard({
         event.stopPropagation();
     };
 
-    const shouldShowRightColumn = (topUsers && topUsers.length > 0) || (owners && owners.length > 0);
+    const statusPillColor = (status === 'SUCCESS') ? 'green' : 'red';
+
+
+    // we will want to show a right column if we have the data process instance data (update var below)
+    const shouldShowRightColumn = (topUsers && topUsers.length > 0) || (owners && owners.length > 0) || startTime || duration || status;
     const uniqueOwners = getUniqueOwners(owners);
+
+    
+
 
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
@@ -308,7 +352,6 @@ export default function DefaultPreviewCard({
                             <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} />
                         )}
                         {health && health.length > 0 ? <EntityHealth baseUrl={url} health={health} /> : null}
-                        <StructuredPropertyBadge structuredProperties={previewData?.structuredProperties} />
                         {externalUrl && (
                             <ExternalUrlButton
                                 externalUrl={externalUrl}
@@ -379,7 +422,41 @@ export default function DefaultPreviewCard({
                 )}
             </LeftColumn>
             {shouldShowRightColumn && (
+                
                 <RightColumn key="right-column">
+                    {startTime && (
+                        <Popover 
+                            content={<div style={popoverStyles.contentStyle}>{toLocalDateTimeString(startTime)}</div>}
+                            title={<div style={popoverStyles.titleStyle}>Start Time</div>}
+                            trigger="hover"
+                            overlayInnerStyle={popoverStyles.overlayInnerStyle}
+                            overlayStyle={popoverStyles.overlayStyle}
+                        >
+                            <StatContainer>
+                                {toRelativeTimeString(startTime)}
+                            </StatContainer>
+                        </Popover>
+                    )}
+                    {duration && (
+                        <Popover 
+                            content={<div style={popoverStyles.contentStyle}>{formatDetailedDuration(duration)}</div>}
+                            title={<div style={popoverStyles.titleStyle}>Duration</div>}
+                            trigger="hover"
+                            overlayInnerStyle={popoverStyles.overlayInnerStyle}
+                            overlayStyle={popoverStyles.overlayStyle}
+                        >
+                            <StatContainer>
+                                {formatDuration(duration)}
+                            </StatContainer>
+                        </Popover>
+                    )}
+                    {status && (
+                        <>
+                            <StatContainer>
+                                <Pill label={capitalize(status)} colorScheme={statusPillColor} />
+                            </StatContainer>
+                        </>
+                    )}
                     {topUsers && topUsers?.length > 0 && (
                         <>
                             <UserListContainer>

@@ -933,6 +933,9 @@ fragment searchResultsWithoutSchemaField on Entity {
     ... on StructuredPropertyEntity {
         ...structuredPropertyFields
     }
+    ... on DataProcessInstance {
+        ...dataProcessInstanceFields
+    }
 }
 
 fragment searchResultFields on Entity {

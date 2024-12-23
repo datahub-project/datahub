@@ -860,8 +860,17 @@ fragment nonRecursiveMLModel on MLModel {
         ...ownershipFields
     }
     properties {
+        name
         description
         date
+        created {
+            time
+            actor
+        }
+        lastModified {
+            time
+            actor
+        }
         externalUrl
         version
         type
@@ -954,6 +963,10 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
     }
     properties {
         description
+        created {
+            time
+            actor
+        }
     }
     browsePathV2 {
         ...browsePathV2Fields
