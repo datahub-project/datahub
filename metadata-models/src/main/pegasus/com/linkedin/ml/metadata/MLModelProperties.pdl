@@ -122,7 +122,7 @@ record MLModelProperties includes CustomProperties, ExternalReference {
   @Relationship = {
     "/*": {
       "name": "TrainedBy",
-      "entityTypes": [ "dataJob" ],
+      "entityTypes": [ "dataJob", "dataProcessInstance" ],
       "isLineage": true
     }
   }
