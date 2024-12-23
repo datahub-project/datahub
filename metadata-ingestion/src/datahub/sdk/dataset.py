@@ -2,9 +2,11 @@ from datetime import datetime
 from typing import Dict, Optional, Type
 
 import pytest
+from typing_extensions import assert_type
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import DEFAULT_ENV, make_ts_millis, parse_ts_millis
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import DatasetUrn, Urn
 from datahub.sdk._shared import (
@@ -173,16 +175,42 @@ class Dataset(HasSubtype, HasOwnership, Entity):
         self._ensure_dataset_props().lastModified = _make_time_stamp(last_modified)
 
 
-def graph_get_dataset(graph: DataHubGraph, urn: UrnOrStr) -> Dataset:
+def graph_get_dataset(self: DataHubGraph, urn: UrnOrStr) -> Dataset:
     if not isinstance(urn, Urn):
         urn = Urn.from_string(urn)
 
     assert isinstance(urn, DatasetUrn)
 
-    aspects = graph.get_entity_semityped(str(urn))
+    aspects = self.get_entity_semityped(str(urn))
 
     # TODO get the right entity type subclass
     return Dataset._new_from_graph(urn, aspects)
+
+
+def graph_create(self: DataHubGraph, dataset: Dataset) -> None:
+    # x
+    mcps = []
+
+    # TODO: if we put this first, we can use a create change type?
+    mcps.append(
+        MetadataChangeProposalWrapper(
+            entityUrn=str(dataset.urn),
+            aspect=dataset.urn.to_key_aspect(),
+        )
+    )
+
+    for aspect in dataset._aspects.values():
+        assert_type(aspect, models._Aspect)
+        mcps.append(
+            MetadataChangeProposalWrapper(
+                entityUrn=str(dataset.urn),
+                aspect=aspect,
+            )
+        )
+
+    # TODO use a create-only change type?
+
+    pass
 
 
 if __name__ == "__main__":
