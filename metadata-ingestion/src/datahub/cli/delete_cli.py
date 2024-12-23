@@ -266,7 +266,7 @@ def undo_by_filter(
     help="Urn of the entity to delete, for single entity deletion",
 )
 @click.option(
-    "--urn-file", required=True, help="Absolute path of file with urns to be deleted"
+    "--urn-file", required=True, help="Absolute path of file with urns (one per line) to be deleted"
 )
 @click.option(
     "-a",
