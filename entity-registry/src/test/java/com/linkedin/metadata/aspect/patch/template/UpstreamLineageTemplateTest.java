@@ -221,6 +221,7 @@ public class UpstreamLineageTemplateTest {
 
     JsonPatch removePatch = removeOperations.build();
     UpstreamLineage finalResult = upstreamLineageTemplate.applyPatch(result4, removePatch);
+
     assertEquals(finalResult, upstreamLineageTemplate.getDefault());
   }
 
@@ -336,5 +337,40 @@ public class UpstreamLineageTemplateTest {
     assertEquals(
         result.getFineGrainedLineages().get(0).getUpstreams().get(0).toString(),
         unescapedUpstreamUrn);
+  }
+
+  @Test
+  public void testPatchRemoveWithFields() throws JsonProcessingException {
+
+    String downstreamUrn =
+        "/fineGrainedLineages/CREATE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,~1tmp~1test.parquet,PROD),c1)";
+    String upstreamUrn =
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c1)";
+    String upstreamUrn2 =
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c2)";
+
+    String lineagePath1 = downstreamUrn + "/NONE/" + upstreamUrn;
+    String lineagePath2 = downstreamUrn + "/NONE/" + upstreamUrn2;
+
+    UpstreamLineageTemplate upstreamLineageTemplate = new UpstreamLineageTemplate();
+    UpstreamLineage upstreamLineage = upstreamLineageTemplate.getDefault();
+    JsonPatchBuilder jsonPatchBuilder = Json.createPatchBuilder();
+
+    JsonObjectBuilder fineGrainedLineageNode = Json.createObjectBuilder();
+    JsonValue upstreamConfidenceScore = Json.createValue(1.0f);
+    fineGrainedLineageNode.add("confidenceScore", upstreamConfidenceScore);
+
+    jsonPatchBuilder.add(lineagePath1, fineGrainedLineageNode.build());
+    jsonPatchBuilder.add(lineagePath2, fineGrainedLineageNode.build());
+
+    // Initial population test
+    UpstreamLineage result =
+        upstreamLineageTemplate.applyPatch(upstreamLineage, jsonPatchBuilder.build());
+    assertEquals(
+        result.getFineGrainedLineages().get(0).getUpstreams().get(0).toString(), upstreamUrn);
+    assertEquals(
+        result.getFineGrainedLineages().get(0).getUpstreams().get(1).toString(), upstreamUrn2);
+
+    assertEquals(result.getFineGrainedLineages().get(0).getUpstreams().size(), 2);
   }
 }

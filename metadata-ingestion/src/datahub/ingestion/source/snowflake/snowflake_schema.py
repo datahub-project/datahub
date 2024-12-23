@@ -267,6 +267,22 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return snowflake_schemas
 
     @serialized_lru_cache(maxsize=1)
+    def get_secure_view_definitions(self) -> Dict[str, Dict[str, Dict[str, str]]]:
+        secure_view_definitions: Dict[str, Dict[str, Dict[str, str]]] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict())
+        )
+        cur = self.connection.query(SnowflakeQuery.get_secure_view_definitions())
+        for view in cur:
+            db_name = view["TABLE_CATALOG"]
+            schema_name = view["TABLE_SCHEMA"]
+            view_name = view["TABLE_NAME"]
+            secure_view_definitions[db_name][schema_name][view_name] = view[
+                "VIEW_DEFINITION"
+            ]
+
+        return secure_view_definitions
+
+    @serialized_lru_cache(maxsize=1)
     def get_tables_for_database(
         self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:

@@ -83,6 +83,7 @@ def test_looker_ingest(pytestconfig, tmp_path, mock_time):
     with mock.patch("looker_sdk.init40") as mock_sdk:
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard(mocked_client)
+        mocked_client.run_inline_query.side_effect = side_effect_query_inline
         setup_mock_explore(mocked_client)
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
@@ -319,6 +320,7 @@ def setup_mock_look(mocked_client):
     mocked_client.all_looks.return_value = [
         Look(
             id="1",
+            user_id="1",
             title="Outer Look",
             description="I am not part of any Dashboard",
             query_id="1",
@@ -327,6 +329,7 @@ def setup_mock_look(mocked_client):
         Look(
             id="2",
             title="Personal Look",
+            user_id="2",
             description="I am not part of any Dashboard and in personal folder",
             query_id="2",
             folder=FolderBase(
@@ -561,6 +564,20 @@ def setup_mock_user(mocked_client):
     mocked_client.user.side_effect = get_user
 
 
+def setup_mock_all_user(mocked_client):
+    def all_users(
+        fields: Optional[str] = None,
+        transport_options: Optional[transport.TransportOptions] = None,
+    ) -> List[User]:
+        return [
+            User(id="1", email="test-1@looker.com"),
+            User(id="2", email="test-2@looker.com"),
+            User(id="3", email="test-3@looker.com"),
+        ]
+
+    mocked_client.all_users.side_effect = all_users
+
+
 def side_effect_query_inline(
     result_format: str, body: WriteQuery, transport_options: Optional[TransportOptions]
 ) -> str:
@@ -714,6 +731,7 @@ def test_looker_ingest_usage_history(pytestconfig, tmp_path, mock_time):
         mocked_client.run_inline_query.side_effect = side_effect_query_inline
         setup_mock_explore(mocked_client)
         setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"
 
@@ -946,6 +964,8 @@ def ingest_independent_looks(
         mock_sdk.return_value = mocked_client
         setup_mock_dashboard(mocked_client)
         setup_mock_explore(mocked_client)
+        setup_mock_user(mocked_client)
+        setup_mock_all_user(mocked_client)
         setup_mock_look(mocked_client)
 
         test_resources_dir = pytestconfig.rootpath / "tests/integration/looker"

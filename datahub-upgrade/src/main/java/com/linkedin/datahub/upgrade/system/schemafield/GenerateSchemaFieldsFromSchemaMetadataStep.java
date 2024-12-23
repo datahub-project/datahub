@@ -168,13 +168,13 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
 
                   AspectsBatch aspectsBatch =
                       AspectsBatchImpl.builder()
-                          .retrieverContext(opContext.getRetrieverContext().get())
+                          .retrieverContext(opContext.getRetrieverContext())
                           .items(
                               batch
                                   .flatMap(
                                       ebeanAspectV2 ->
                                           EntityUtils.toSystemAspectFromEbeanAspects(
-                                              opContext.getRetrieverContext().get(),
+                                              opContext.getRetrieverContext(),
                                               Set.of(ebeanAspectV2))
                                               .stream())
                                   .map(
@@ -189,11 +189,7 @@ public class GenerateSchemaFieldsFromSchemaMetadataStep implements UpgradeStep {
                                               .auditStamp(systemAspect.getAuditStamp())
                                               .systemMetadata(
                                                   withAppSource(systemAspect.getSystemMetadata()))
-                                              .build(
-                                                  opContext
-                                                      .getRetrieverContext()
-                                                      .get()
-                                                      .getAspectRetriever()))
+                                              .build(opContext.getAspectRetriever()))
                                   .collect(Collectors.toList()))
                           .build();
 

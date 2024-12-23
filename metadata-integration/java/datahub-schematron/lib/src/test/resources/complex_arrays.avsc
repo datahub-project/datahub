@@ -1,0 +1,87 @@
+{
+  "type": "record",
+  "name": "ArrayType",
+  "fields": [
+    {
+      "name": "arrayOfString",
+      "type": {
+        "type": "array",
+        "items": "string"
+      }
+    },
+    {
+      "name": "arrayOfMap",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "map",
+          "values": "string"
+        }
+      }
+    },
+    {
+      "name": "arrayOfRecord",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "record",
+          "name": "ComplexType",
+          "fields": [
+            {
+              "name": "field1",
+              "type": "string"
+            },
+            {
+              "name": "field2",
+              "type": "int"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "arrayOfArray",
+      "type": {
+        "type": "array",
+        "items": {
+          "type": "array",
+          "items": "string"
+        }
+      }
+    },
+    {
+      "name": "arrayOfUnion",
+      "type": {
+        "type": "array",
+        "items": ["string", "int", "boolean"]
+      }
+    },
+    {
+      "name": "arrayOfNullableString",
+      "type": {
+        "type": "array",
+        "items": ["null", "string"]
+      }
+    },
+    {
+      "name": "arrayOfNullableRecord",
+      "type": {
+        "type": "array",
+        "items": ["null", {
+          "type": "record",
+          "name": "ComplexTypeNullable",
+          "fields": [
+            {
+              "name": "field1",
+              "type": "string"
+            },
+            {
+              "name": "field2",
+              "type": "int"
+            }
+          ]
+        }]
+      }
+    }
+  ]
+}

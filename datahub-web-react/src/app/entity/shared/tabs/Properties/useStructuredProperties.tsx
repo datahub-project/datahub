@@ -122,10 +122,10 @@ export function identifyAndAddParentRows(rows?: Array<PropertyRow>): Array<Prope
         // that would tell us to nest. If the count is not equal, we should nest the child properties.
         for (let index = 0; index < substrings.length; index++) {
             const token = substrings[index];
-            const currentCount = qualifiedNames.filter((name) => name.startsWith(token)).length;
+            const currentCount = qualifiedNames.filter((name) => name.startsWith(`${token}.`)).length;
 
-            // If we're at the beginning of the path and there is no nesting, break
-            if (index === 0 && currentCount === 1) {
+            // If there's only one child, don't nest it
+            if (currentCount === 1) {
                 break;
             }
 

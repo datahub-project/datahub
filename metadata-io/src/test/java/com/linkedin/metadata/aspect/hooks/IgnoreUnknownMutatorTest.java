@@ -16,7 +16,8 @@ import com.linkedin.data.ByteString;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.entity.SearchRetriever;
@@ -28,7 +29,6 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import io.datahubproject.metadata.context.RetrieverContext;
-import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -53,17 +53,17 @@ public class IgnoreUnknownMutatorTest {
   private static final Urn TEST_DATASET_URN =
       UrnUtils.getUrn(
           "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)");
-  private AspectRetriever mockAspectRetriever;
+  private CachingAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
 
   @BeforeMethod
   public void setup() {
-    mockAspectRetriever = mock(AspectRetriever.class);
+    mockAspectRetriever = mock(CachingAspectRetriever.class);
     retrieverContext =
         RetrieverContext.builder()
             .searchRetriever(mock(SearchRetriever.class))
-            .aspectRetriever(mockAspectRetriever)
-            .graphRetriever(TestOperationContexts.emptyGraphRetriever)
+            .cachingAspectRetriever(mockAspectRetriever)
+            .graphRetriever(GraphRetriever.EMPTY)
             .build();
   }
 

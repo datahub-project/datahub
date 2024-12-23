@@ -18,6 +18,7 @@ from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
     SnowflakeV2Config,
 )
+from datahub.ingestion.source.snowflake.snowflake_lineage_v2 import UpstreamLineageEdge
 from datahub.ingestion.source.snowflake.snowflake_query import (
     SnowflakeQuery,
     create_deny_regex_sql_filter,
@@ -664,3 +665,26 @@ def test_create_snowsight_base_url_ap_northeast_1():
 
 def test_snowflake_utils() -> None:
     assert_doctest(datahub.ingestion.source.snowflake.snowflake_utils)
+
+
+def test_snowflake_query_result_parsing():
+    db_row = {
+        "DOWNSTREAM_TABLE_NAME": "db.schema.downstream_table",
+        "DOWNSTREAM_TABLE_DOMAIN": "Table",
+        "UPSTREAM_TABLES": [
+            {
+                "query_id": "01b92f61-0611-c826-000d-0103cf9b5db7",
+                "upstream_object_domain": "Table",
+                "upstream_object_name": "db.schema.upstream_table",
+            }
+        ],
+        "UPSTREAM_COLUMNS": [{}],
+        "QUERIES": [
+            {
+                "query_id": "01b92f61-0611-c826-000d-0103cf9b5db7",
+                "query_text": "Query test",
+                "start_time": "2022-12-01 19:56:34",
+            }
+        ],
+    }
+    assert UpstreamLineageEdge.parse_obj(db_row)

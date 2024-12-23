@@ -153,7 +153,8 @@ const DisplayPreferences = ({
                                 clickable={false}
                             />
                             &nbsp;is already being shown on asset previews, but only one property is allowed at a time.
-                            Do you want to replace the current property? This will hide PropVal on all asset previews.
+                            Do you want to replace the current property? This will hide {getDisplayName(badgeProperty)}{' '}
+                            on all asset previews.
                         </p>
                     }
                 />
