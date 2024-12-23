@@ -1199,12 +1199,12 @@ class TableauSiteSource:
                 retry_on_auth_error=False,
                 retries_remaining=retries_remaining - 1,
             )
-            
+
         except InternalServerError as ise:
             # In some cases Tableau Server returns 504 error, which is a timeout error, so it worths to retry.
             if ise.code == 504:
                 if retries_remaining <= 0:
-                    raise
+                    raise ise
                 return self.get_connection_object_page(
                     query=query,
                     connection_type=connection_type,
@@ -1214,6 +1214,8 @@ class TableauSiteSource:
                     retry_on_auth_error=False,
                     retries_remaining=retries_remaining - 1,
                 )
+            else:
+                raise ise
 
         except OSError:
             # In tableauseverclient 0.26 (which was yanked and released in 0.28 on 2023-10-04),
