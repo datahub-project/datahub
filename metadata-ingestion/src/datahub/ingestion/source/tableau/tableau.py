@@ -618,6 +618,12 @@ class DatabaseTable:
                 self.parsed_columns = parsed_columns
 
 
+@dataclass
+class SiteIdContentUrl:
+    site_id: str
+    site_content_url: str
+
+
 class TableauSourceReport(StaleEntityRemovalSourceReport):
     get_all_datasources_query_failed: bool = False
     num_get_datasource_query_failures: int = 0
@@ -770,7 +776,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         config=self.config,
                         ctx=self.ctx,
                         site=site,
-                        site_id=site.id,
                         report=self.report,
                         server=self.server,
                         platform=self.platform,
@@ -789,7 +794,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 site_source = TableauSiteSource(
                     config=self.config,
                     ctx=self.ctx,
-                    site=site,
+                    site=site
+                    if site
+                    else SiteIdContentUrl(
+                        site_id=self.server.site_id, site_content_url=self.config.site
+                    ),
                     site_id=self.server.site_id,
                     report=self.report,
                     server=self.server,
@@ -823,8 +832,7 @@ class TableauSiteSource:
         self,
         config: TableauConfig,
         ctx: PipelineContext,
-        site: Optional[SiteItem],
-        site_id: Optional[str],
+        site: Union[SiteItem, SiteIdContentUrl],
         report: TableauSourceReport,
         server: Server,
         platform: str,
@@ -835,13 +843,18 @@ class TableauSiteSource:
         self.ctx: PipelineContext = ctx
         self.platform = platform
 
-        self.site: Optional[SiteItem] = site
-        if site_id is not None:
-            self.site_id: str = site_id
+        self.site: Optional[SiteItem] = None
+        if isinstance(site, SiteItem):
+            self.site = site
+            assert site.id is not None, "Site ID is required"
+            self.site_id = site.id
+            self.site_content_url = site.content_url
+        elif isinstance(site, SiteIdContentUrl):
+            self.site = None
+            self.site_id = site.site_id
+            self.site_content_url = site.site_content_url
         else:
-            assert self.site is not None, "site or site_id is required"
-            assert self.site.id is not None, "site_id is required when site is provided"
-            self.site_id = self.site.id
+            raise AssertionError("site or site id+content_url pair is required")
 
         self.database_tables: Dict[str, DatabaseTable] = {}
         self.tableau_stat_registry: Dict[str, UsageStat] = {}
@@ -895,10 +908,21 @@ class TableauSiteSource:
         # datasets also have the env in the browse path
         return f"/{self.config.env.lower()}{self.no_env_browse_prefix}"
 
-    def _re_authenticate(self):
-        # Sign-in again may not be enough because Tableau sometimes caches invalid sessions
-        # so we need to recreate the Tableau Server object
-        self.server = self.config.make_tableau_client(self.site_id)
+    def _re_authenticate(self) -> None:
+        if self.site_content_url:
+            assert self.site_content_url is not None, "Site Content URL is required"
+            self.report.info(
+                message="Re-authenticating to Tableau",
+                context=f"site='{self.site_content_url}'",
+            )
+            # Sign-in again may not be enough because Tableau sometimes caches invalid sessions
+            # so we need to recreate the Tableau Server object
+            self.server = self.config.make_tableau_client(self.site_content_url)
+        else:
+            self.report.warning(
+                message="Site Content URL is not set. Unable to re-authenticate.",
+                context=f"site_id={self.site_id}, site={self.site}",
+            )
 
     @property
     def site_content_url(self) -> Optional[str]:
