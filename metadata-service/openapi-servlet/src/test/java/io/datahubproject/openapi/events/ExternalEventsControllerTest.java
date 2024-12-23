@@ -49,7 +49,7 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
   public void setUp() {
     MockitoAnnotations.initMocks(this);
     when(authentication.getActor()).thenReturn(actor);
-    when(actor.toUrnStr()).thenReturn("urn:li:user:example");
+    when(actor.toUrnStr()).thenReturn("urn:li:corpuser:example");
     AuthenticationContext.setAuthentication(authentication);
     MockitoAnnotations.initMocks(this);
 
@@ -62,7 +62,8 @@ public class ExternalEventsControllerTest extends AbstractTestNGSpringContextTes
   static class TestConfig {
     @Bean("systemOperationContext")
     public OperationContext systemOperationContext() {
-      return TestOperationContexts.systemContextNoSearchAuthorization();
+      return TestOperationContexts.systemContextNoSearchAuthorization(
+          TestOperationContexts.emptyActiveUsersAspectRetriever(null));
     }
   }
 
