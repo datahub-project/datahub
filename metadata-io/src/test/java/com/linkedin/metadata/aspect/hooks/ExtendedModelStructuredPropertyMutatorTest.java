@@ -17,6 +17,7 @@ import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.config.structuredProperties.extensions.ExtendedModelValidationConfiguration;
@@ -72,7 +73,7 @@ public class ExtendedModelStructuredPropertyMutatorTest {
         RetrieverContext.builder()
             .searchRetriever(mock(SearchRetriever.class))
             .aspectRetriever(mockAspectRetriever)
-            .graphRetriever(TestOperationContexts.emptyGraphRetriever)
+            .graphRetriever(GraphRetriever.EMPTY)
             .build();
   }
 

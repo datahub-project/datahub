@@ -15,6 +15,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
@@ -82,7 +83,7 @@ public class EntityVersioningServiceTest {
             () ->
                 RetrieverContext.builder()
                     .aspectRetriever(mockAspectRetriever)
-                    .graphRetriever(TestOperationContexts.emptyGraphRetriever)
+                    .graphRetriever(GraphRetriever.EMPTY)
                     .searchRetriever(mockSearchRetriever)
                     .build(),
             null,
