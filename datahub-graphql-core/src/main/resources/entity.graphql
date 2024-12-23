@@ -9868,7 +9868,10 @@ type MLModelGroupProperties {
     Version identifier for this model group
     """
     version: VersionTag
-    
+
+    """
+    Custom key-value properties for the model group
+    """
     customProperties: [CustomPropertiesEntry!]
 
     """
