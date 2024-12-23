@@ -2,6 +2,17 @@ query getMLModelGroup($urn: String!) {
     mlModelGroup(urn: $urn) {
         urn
         type
+        properties {
+            description
+            created {
+                time
+                actor
+            }
+            lastModified {
+                time 
+                actor
+            }
+        }
         ...nonRecursiveMLModelGroupFields
         incoming: relationships(
             input: {
