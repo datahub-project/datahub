@@ -706,12 +706,10 @@ public class OpenLineageToDataHub {
       OpenLineage.RunEvent event) throws URISyntaxException {
     DataProcessInstanceProperties dpiProperties = new DataProcessInstanceProperties();
     dpiProperties.setName(event.getRun().getRunId().toString());
-    AuditStamp auditStamp = new AuditStamp();
+    TimeStamp timeStamp = new TimeStamp();
     if (event.getEventTime() != null) {
-      auditStamp.setTime(event.getEventTime().toInstant().toEpochMilli());
+      dpiProperties.setCreated(timeStamp.setTime(event.getEventTime().toInstant().toEpochMilli()));
     }
-    auditStamp.setActor(Urn.createFromString(URN_LI_CORPUSER_DATAHUB));
-    dpiProperties.setCreated(auditStamp);
     return dpiProperties;
   }
 

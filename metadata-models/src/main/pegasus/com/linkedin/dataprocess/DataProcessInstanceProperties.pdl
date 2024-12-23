@@ -1,6 +1,6 @@
 namespace com.linkedin.dataprocess
 
-import com.linkedin.common.AuditStamp
+import com.linkedin.common.TimeStamp
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
 import com.linkedin.common.Urn
@@ -50,6 +50,5 @@ record DataProcessInstanceProperties includes CustomProperties, ExternalReferenc
       "fieldName": "created"
     }
   }
-  created: AuditStamp
-
+  created: TimeStamp
 }
