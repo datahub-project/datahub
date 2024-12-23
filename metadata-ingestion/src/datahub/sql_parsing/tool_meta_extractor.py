@@ -40,7 +40,7 @@ def _get_last_line(query: str) -> str:
 class ToolMetaExtractorReport(Report):
     num_queries_meta_extracted: Dict[str, int] = field(default_factory=int_top_k_dict)
     failures: List[str] = field(default_factory=list)
-    looker_mapping_missing = False
+    looker_user_mapping_missing: Optional[bool] = None
 
 
 class ToolMetaExtractor:
