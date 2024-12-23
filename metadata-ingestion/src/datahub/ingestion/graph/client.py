@@ -190,7 +190,7 @@ class DataHubGraph(DatahubRestEmitter):
                 disable_ssl_verification=emitter._session.verify is False,
                 ca_certificate_path=(
                     emitter._session.verify
-                    if not isinstance(emitter._session.verify, bool)
+                    if isinstance(emitter._session.verify, str)
                     else None
                 ),
                 client_certificate_path=emitter._session.cert,
