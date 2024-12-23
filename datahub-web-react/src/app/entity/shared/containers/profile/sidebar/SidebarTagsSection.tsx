@@ -50,7 +50,9 @@ export const SidebarTagsSection = ({ properties, readOnly }: Props) => {
                     fontSize={12}
                 />
             </span>
-            <StyledDivider />
+            {canAddTerm && (
+	    <>
+	    <StyledDivider />
             <span id={ENTITY_PROFILE_GLOSSARY_TERMS_ID}>
                 <SidebarHeader title="Glossary Terms" />
                 <TagTermGroup
@@ -69,6 +71,8 @@ export const SidebarTagsSection = ({ properties, readOnly }: Props) => {
                     fontSize={12}
                 />
             </span>
+	    </>
+	)}
         </div>
     );
 };

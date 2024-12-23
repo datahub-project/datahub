@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.Deprecation;
 import com.linkedin.common.Forms;
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.Urn;
@@ -23,6 +24,7 @@ import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -93,6 +95,9 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
                 StructuredPropertiesMapper.map(
                     context, new StructuredProperties(dataMap), entityUrn))));
     mappingHelper.mapToResult(
+        GLOBAL_TAGS_ASPECT_NAME,
+        (dataset, dataMap) -> mapGlobalTags(context, dataset, dataMap, entityUrn));
+    mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
@@ -123,5 +128,16 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
       @Nonnull DataMap dataMap) {
     final Domains domains = new Domains(dataMap);
     glossaryTerm.setDomain(DomainAssociationMapper.map(context, domains, glossaryTerm.getUrn()));
+  }
+
+  private static void mapGlobalTags(
+      @Nullable final QueryContext context,
+      @Nonnull GlossaryTerm glossaryTerm,
+      @Nonnull DataMap dataMap,
+      @Nonnull final Urn entityUrn) {
+    com.linkedin.datahub.graphql.generated.GlobalTags globalTags =
+        GlobalTagsMapper.map(context, new GlobalTags(dataMap), entityUrn);
+    glossaryTerm.setGlobalTags(globalTags);
+    glossaryTerm.setTags(globalTags);
   }
 }
