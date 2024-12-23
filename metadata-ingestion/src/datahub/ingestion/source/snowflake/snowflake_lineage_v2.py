@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Collection, Iterable, List, Optional, Set, Tuple, Type
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, Field, validator
 
 from datahub.configuration.datetimes import parse_absolute_time
 from datahub.ingestion.api.closeable import Closeable
@@ -72,8 +72,8 @@ class ColumnUpstreamJob(BaseModel):
 
 
 class ColumnUpstreamLineage(BaseModel):
-    column_name: str
-    upstreams: List[ColumnUpstreamJob]
+    column_name: Optional[str]
+    upstreams: List[ColumnUpstreamJob] = Field(default_factory=list)
 
 
 class UpstreamTableNode(BaseModel):
