@@ -110,7 +110,7 @@ class ToolMetaExtractor:
         )
 
         if len(platform_resources) == 0:
-            report.looker_mapping_missing = True
+            report.looker_user_mapping_missing = True
         elif len(platform_resources) > 1:
             report.failures.append(
                 "Looker user metadata extraction failed. Found more than one looker user id mappings."
