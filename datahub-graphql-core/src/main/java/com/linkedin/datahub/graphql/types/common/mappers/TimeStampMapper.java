@@ -1,7 +1,7 @@
 package com.linkedin.datahub.graphql.types.common.mappers;
 
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.TimeStamp;
+import com.linkedin.datahub.graphql.generated.AuditStamp;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -16,9 +16,9 @@ public class TimeStampMapper implements ModelMapper<com.linkedin.common.TimeStam
   }
 
   @Override
-  public TimeStamp apply(
+  public AuditStamp apply(
       @Nullable QueryContext context, @Nonnull final com.linkedin.common.TimeStamp timestamp) {
-    final TimeStamp result = new TimeStamp();
+    final AuditStamp result = new AuditStamp();
     result.setTime(timestamp.getTime());
     if (timestamp.hasActor()) {
       result.setActor(timestamp.getActor().toString());
