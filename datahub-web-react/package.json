@@ -90,7 +90,7 @@
         "analyze": "source-map-explorer 'dist/assets/*.js'",
         "start": "yarn run generate && vite",
         "ec2-dev": "yarn run generate && CI=true;export CI;vite",
-        "build": "yarn run generate && NODE_OPTIONS='--max-old-space-size=4096 --openssl-legacy-provider' CI=false vite build",
+        "build": "yarn run generate && NODE_OPTIONS='--max-old-space-size=5072 --openssl-legacy-provider' CI=false vite build",
         "test": "vitest run --coverage",
         "generate": "graphql-codegen --config codegen.yml",
         "lint": "eslint . --ext .ts,.tsx --quiet && yarn format-check && yarn type-check",
