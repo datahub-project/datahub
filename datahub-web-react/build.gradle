@@ -92,6 +92,10 @@ task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'lint-fix']
 }
 
+task yarnBuildStoryBook(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
+  args = ['run', 'build-storybook']
+}
+
 task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'build']
 

@@ -93,8 +93,10 @@ export default defineConfig(({ mode }) => {
             // reporters: ['verbose'],
             coverage: {
                 enabled: true,
-				provider: 'v8',reporter: ['text', 'json', 'html'],
-                include: ['src/**/*'],reportsDirectory: '../build/coverage-reports/datahub-web-react/',
+				provider: 'v8',
+				reporter: ['text', 'json', 'html'],
+                include: ['src/**/*'],
+                reportsDirectory: '../build/coverage-reports/datahub-web-react/',
                 exclude: [],
             },
         },
