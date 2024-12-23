@@ -72,7 +72,7 @@ class MockResponse:
 class MockResponseJson(MockResponse):
     def __init__(
         self,
-        status_code=200,
+        status_code: int = 200,
         *,
         json_empty_list: Sequence[str] = (),
         json_error_list: Sequence[str] = (),

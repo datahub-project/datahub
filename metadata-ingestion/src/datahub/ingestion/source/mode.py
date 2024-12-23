@@ -16,7 +16,6 @@ import tenacity
 import yaml
 from liquid import Template, Undefined
 from pydantic import Field, validator
-from requests import Response
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import ConnectionError
 from requests.models import HTTPBasicAuth, HTTPError
