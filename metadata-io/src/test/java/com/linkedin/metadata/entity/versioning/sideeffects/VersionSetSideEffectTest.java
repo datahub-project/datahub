@@ -85,7 +85,7 @@ public class VersionSetSideEffectTest {
     retrieverContext =
         RetrieverContext.builder()
             .searchRetriever(mock(SearchRetriever.class))
-            .aspectRetriever(mockAspectRetriever)
+            .cachingAspectRetriever(mockAspectRetriever)
             .graphRetriever(graphRetriever)
             .build();
 

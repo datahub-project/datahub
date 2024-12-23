@@ -392,7 +392,9 @@ public class AggregationQueryBuilderTest {
                 "structuredProperties.ab.fgh.ten",
                 "structuredProperties._versioned.hello.00000000000001.string"));
     Assert.assertEquals(
-        aggs.size(), 3); // has two one filter (_entityType) both get mapped to _index
+        aggs.size(),
+        4); // has two default filters (_entityType, _entityType␞typeNames) both get mapped to
+    // _index
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())

@@ -83,6 +83,9 @@ public class EntityVersioningServiceTest {
             () ->
                 RetrieverContext.builder()
                     .aspectRetriever(mockAspectRetriever)
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(
+                            () -> testEntityRegistry))
                     .graphRetriever(GraphRetriever.EMPTY)
                     .searchRetriever(mockSearchRetriever)
                     .build(),

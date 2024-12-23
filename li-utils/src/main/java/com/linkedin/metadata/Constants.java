@@ -601,6 +601,8 @@ public class Constants {
           put(
               "businessAttribute",
               ImmutableList.of("businessAttributeRef", "businessAttributeRef.urn"));
+          put("origin", ImmutableList.of("origin", "env"));
+          put("env", ImmutableList.of("env", "origin"));
         }
       };
 
