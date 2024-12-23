@@ -89,9 +89,10 @@
     "scripts": {
         "analyze": "source-map-explorer 'dist/assets/*.js'",
         "start": "yarn run generate && vite",
-        "ec2-dev": "yarn run generate && CI=true;export CI;vite",
-        "build": "yarn run generate && NODE_OPTIONS='--max-old-space-size=4096 --openssl-legacy-provider' CI=false vite build",
-        "test": "vitest",
+        "ec2-dev": "yarn run generate && CI=true vite",
+        "build": "yarn run generate && CI=false NODE_OPTIONS='--max-old-space-size=5120 --openssl-legacy-provider' vite build",
+        "test": "NODE_OPTIONS='--max-old-space-size=5120 --openssl-legacy-provider' vitest",
+        "test-coverage": "yarn test run --coverage",
         "generate": "graphql-codegen --config codegen.yml",
         "lint": "eslint . --ext .ts,.tsx --quiet && yarn format-check && yarn type-check",
         "lint-fix": "eslint '*/**/*.{ts,tsx}' --quiet --fix && yarn format",
@@ -100,7 +101,7 @@
         "type-check": "tsc --noEmit",
         "type-watch": "tsc -w --noEmit",
         "storybook": "storybook dev -p 6006",
-        "build-storybook": "storybook build"
+        "build-storybook": "NODE_OPTIONS='--max-old-space-size=5120 --openssl-legacy-provider' storybook build"
     },
     "browserslist": {
         "production": [
