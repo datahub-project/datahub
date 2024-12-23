@@ -33,7 +33,6 @@ from datahub.metadata.schema_classes import (
     VersionTagClass,
     DataProcessInstanceRunEventClass,
     DataProcessInstancePropertiesClass,
-    DataProcessInstanceRelationshipsClass,
     ContainerPropertiesClass,
     AuditStampClass,
     TimeStampClass,
@@ -208,28 +207,18 @@ class MLflowSource(Source):
         experiment_custom_props["artifacts_location"] = experiment.artifact_location
         return experiment_custom_props
 
-<<<<<<< HEAD
-    def _get_experiment_container_workunit(self, experiment: Experiment) -> List[MetadataWorkUnit]:
-        experiment = Container(
-=======
     def _get_experiment_container_workunit(
         self, experiment: Experiment
     ) -> List[MetadataWorkUnit]:
         experiment_container = Container(
->>>>>>> ce98bb8d2 (fix linting)
             key=ContainerKeyWithId(
                 platform=str(DataPlatformUrn.create_from_id("mlflow")),
                 id=experiment.name
             ),
             subtype="ML Experiment",
             name=experiment.name,
-<<<<<<< HEAD
-            description=experiment.tags.get('mlflow.note.content')
-        )
-=======
             description=experiment.tags.get("mlflow.note.content"),
         )  # TODO: this generates a urn as guid, should we change this to use experiment.id?
->>>>>>> ce98bb8d2 (fix linting)
 
         print("experiment.key.id:", experiment.key.id) # this should be same as container key as urn
         print("experiment.key.as_urn(): ", experiment.key.as_urn())
@@ -264,18 +253,8 @@ class MLflowSource(Source):
                 type="FAILURE", nativeResultType="mlflow"
             )
         else:
-<<<<<<< HEAD
-            return DataProcessInstanceRunResultClass(type="SKIPPED", nativeResultType="mlflow")
-
-    def _get_run_workunits(self, experiment: Experiment, run: Run) -> List[MetadataWorkUnit]:
-        # TODO: this does not map to the correct experiment
-        experiment_key = ContainerKeyWithId(
-                platform=str(DataPlatformUrn.create_from_id("mlflow")),
-                id=experiment.name
-=======
             return DataProcessInstanceRunResultClass(
                 type="SKIPPED", nativeResultType="mlflow"
->>>>>>> ce98bb8d2 (fix linting)
             )
 
     def _get_run_workunits(
@@ -286,22 +265,8 @@ class MLflowSource(Source):
         )
 
         data_process_instance = DataProcessInstance.from_container(
-<<<<<<< HEAD
-            container_key=experiment_key,
-            id=run.info.run_name
-        )
-
-
-        print("dpi id", run.info.run_name)
-        print("experiment_key.id:", experiment_key.id)
-        print("run id", run.info.run_id)
-        print("data_proceess_instance.urn:", str(data_process_instance.urn))
-        print("--------------------")
-
-=======
             container_key=experiment_key, id=run.info.run_name
         )  # TODO: this generates a urn as guid, should we change this to use run.info.run_id?
->>>>>>> ce98bb8d2 (fix linting)
         workunits = []
 
         run_custom_props = self._get_run_custom_properties(run)
@@ -341,16 +306,6 @@ class MLflowSource(Source):
 
         metrics = self._get_run_metrics(run)
         hyperparams = self._get_run_params(run)
-
-<<<<<<< HEAD
-        workunits.append(MetadataChangeProposalWrapper(
-            entityUrn=str(data_process_instance.urn),
-            aspect=MLTrainingRunPropertiesClass(
-                hyperParams=hyperparams,
-                trainingMetrics=metrics,
-                outputUrls=[run.info.artifact_uri],
-                )
-=======
         workunits.append(
             MetadataChangeProposalWrapper(
                 entityUrn=str(data_process_instance.urn),
@@ -360,7 +315,6 @@ class MLflowSource(Source):
                     outputUrls=[run.info.artifact_uri],
                     id=run.info.run_id,
                 ),
->>>>>>> ce98bb8d2 (fix linting)
             ).as_workunit()
         )
 
@@ -555,31 +509,6 @@ class MLflowSource(Source):
             # Use the same metrics and hyperparams from the run
             hyperparams = self._get_run_params(run)
             training_metrics = self._get_run_metrics(run)
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-            # Create proper relationship with the run
-
-            # get experiment name from experiment id
-            experiment_id = run.info.experiment_id
-            experiment = self.client.get_experiment(experiment_id)
-            experiment_key = ContainerKeyWithId(
-                platform=str(DataPlatformUrn.create_from_id("mlflow")),
-                id=experiment.name
-            )
-
-            data_process_instance = DataProcessInstance.from_container(
-                container_key=experiment_key,
-                id=run.info.run_name
-            )
-            training_jobs = [str(data_process_instance.urn)]
-=======
-            training_jobs = [
-                str(builder.make_data_process_instance_urn(run.info.run_id))
-            ]
->>>>>>> ce98bb8d2 (fix linting)
-=======
->>>>>>> 985f0ba8f (update models)
         else:
             hyperparams = None
             training_metrics = None
