@@ -32,7 +32,7 @@ public interface CachingAspectRetriever extends AspectRetriever {
     @Nonnull
     @Override
     public Map<Urn, Boolean> entityExists(Set<Urn> urns) {
-      return Map.of();
+      return Collections.emptyMap();
     }
 
     @Nonnull
