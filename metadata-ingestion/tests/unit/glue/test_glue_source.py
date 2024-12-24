@@ -325,9 +325,10 @@ def test_get_databases_filters_by_catalog():
         expected = [flights_database, test_database, empty_database]
         actual = all_catalogs_source.get_all_databases()
         assert format_databases(actual) == format_databases(expected)
+        assert all_catalogs_source.report.databases.dropped_entities.as_obj() == []
 
     catalog_id = "123412341234"
-    single_catalog_source = GlueSource(
+    single_catalog_source: GlueSource = GlueSource(
         config=GlueSourceConfig(catalog_id=catalog_id, aws_region="us-west-2"),
         ctx=PipelineContext(run_id="glue-source-test"),
     )
@@ -339,6 +340,9 @@ def test_get_databases_filters_by_catalog():
         expected = [flights_database, test_database]
         actual = single_catalog_source.get_all_databases()
         assert format_databases(actual) == format_databases(expected)
+        assert single_catalog_source.report.databases.dropped_entities.as_obj() == [
+            "empty-database"
+        ]
 
 
 @freeze_time(FROZEN_TIME)

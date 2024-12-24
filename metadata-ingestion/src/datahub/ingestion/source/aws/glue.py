@@ -220,7 +220,7 @@ class GlueSourceConfig(
 class GlueSourceReport(StaleEntityRemovalSourceReport):
     tables_scanned = 0
     filtered: List[str] = dataclass_field(default_factory=list)
-    databases = EntityFilterReport.field(type="database")
+    databases: EntityFilterReport = EntityFilterReport.field(type="database")
 
     num_job_script_location_missing: int = 0
     num_job_script_location_invalid: int = 0
