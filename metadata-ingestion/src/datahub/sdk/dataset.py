@@ -3,13 +3,14 @@ from enum import Enum
 from typing import Dict, List, Optional, Tuple, Type, Union
 
 import pytest
-from typing_extensions import TypeAlias
+from typing_extensions import TypeAlias, assert_never
 
 import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import first_non_null
 from datahub.emitter.mce_builder import DEFAULT_ENV, make_ts_millis, parse_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.urns import DatasetUrn, Urn
 from datahub.sdk._shared import (
     Entity,
@@ -114,6 +115,9 @@ class Dataset(HasSubtype, HasOwnership, Entity):
             edit_mode = _DEFAULT_EDIT_MODE
         self._edit_mode = edit_mode
 
+        if schema is not None:
+            self.set_schema(schema)
+
         if description is not None:
             self.set_description(description)
         if display_name is not None:
@@ -133,9 +137,6 @@ class Dataset(HasSubtype, HasOwnership, Entity):
             self.set_subtype(subtype)
         if owners is not None:
             self.set_owners(owners)
-
-        if schema is not None:
-            self.set_schema(schema)
 
     @property
     def urn(self) -> DatasetUrn:
@@ -228,12 +229,59 @@ class Dataset(HasSubtype, HasOwnership, Entity):
             return {}
         return {field.fieldPath: field for field in schema_metadata.fields}
 
+    def _parse_schema_field_input(
+        self, schema_field_input: SchemaFieldInputType
+    ) -> models.SchemaFieldClass:
+        if isinstance(schema_field_input, models.SchemaFieldClass):
+            return schema_field_input
+        elif isinstance(schema_field_input, tuple):
+            # Support (name, type) and (name, type, description) forms
+            if len(schema_field_input) == 2:
+                name, field_type = schema_field_input
+                description = None
+            elif len(schema_field_input) == 3:
+                name, field_type, description = schema_field_input
+            else:
+                assert_never(schema_field_input)
+            return models.SchemaFieldClass(
+                fieldPath=name,
+                type=models.SchemaFieldDataTypeClass(
+                    resolve_sql_type(
+                        field_type,
+                        platform=self.urn.get_data_platform_urn().platform_name,
+                    )
+                    or models.NullTypeClass()
+                ),
+                nativeDataType=field_type,
+                description=description,
+            )
+        elif isinstance(schema_field_input, str):
+            # TODO: Not sure this branch makes sense - we should probably just require types?
+            return models.SchemaFieldClass(
+                fieldPath=schema_field_input,
+                type=models.SchemaFieldDataTypeClass(models.NullTypeClass()),
+                nativeDataType="unknown",
+                description=None,
+            )
+        else:
+            assert_never(schema_field_input)
+
     def set_schema(self, schema: SchemaFieldsInputType) -> None:
         if isinstance(schema, models.SchemaMetadataClass):
             self._set_aspect(schema)
         else:
-            # self._set_aspect(models.SchemaMetadataClass(fields=schema))
-            raise NotImplementedError("TODO")
+            parsed_schema = [self._parse_schema_field_input(field) for field in schema]
+            self._set_aspect(
+                models.SchemaMetadataClass(
+                    fields=parsed_schema,
+                    # The rest of these fields are not used, and so we can set them to dummy/default values.
+                    schemaName="",
+                    platform=self.urn.platform,
+                    version=0,
+                    hash="",
+                    platformSchema=models.SchemalessClass(),
+                )
+            )
 
 
 def graph_get_dataset(self: DataHubGraph, urn: UrnOrStr) -> Dataset:
@@ -280,11 +328,14 @@ if __name__ == "__main__":
         platform="bigquery",
         name="test",
         subtype="Table",
+        schema=[("field1", "string"), ("field2", "int64")],
     )
     assert isinstance(d, HasUrn)
     print(d.urn)
 
     assert d.subtype == "Table"
+
+    print(d.schema)
 
     with pytest.raises(AttributeError):
         # TODO: make this throw a nicer error
