@@ -1,8 +1,9 @@
 from datetime import datetime
 from enum import Enum
-from typing import Dict, Optional, Type
+from typing import Dict, List, Optional, Tuple, Type, Union
 
 import pytest
+from typing_extensions import TypeAlias
 
 import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import first_non_null
@@ -49,6 +50,16 @@ class DatasetEditMode(Enum):
 _DEFAULT_EDIT_MODE = DatasetEditMode.UI
 # TODO: Add default edit attribution for basic props e.g. tags/terms/owners/etc?
 
+SchemaFieldInputType: TypeAlias = Union[
+    str,
+    Tuple[str, str],  # (name, type)
+    Tuple[str, str, str],  # (name, type, description)
+    models.SchemaFieldClass,
+]
+SchemaFieldsInputType: TypeAlias = (
+    List[SchemaFieldInputType] | models.SchemaMetadataClass
+)
+
 
 class Dataset(HasSubtype, HasOwnership, Entity):
     __slots__ = ("_edit_mode",)
@@ -83,6 +94,7 @@ class Dataset(HasSubtype, HasOwnership, Entity):
         # structured_properties
         # TODO container / browse path generation?
         # Dataset-specific aspects.
+        schema: Optional[SchemaFieldsInputType] = None,
         # TODO: schema -> how do we make this feel nice
         # TODO: lineage?
     ):
@@ -121,6 +133,9 @@ class Dataset(HasSubtype, HasOwnership, Entity):
             self.set_subtype(subtype)
         if owners is not None:
             self.set_owners(owners)
+
+        if schema is not None:
+            self.set_schema(schema)
 
     @property
     def urn(self) -> DatasetUrn:
@@ -204,6 +219,21 @@ class Dataset(HasSubtype, HasOwnership, Entity):
 
     def set_last_modified(self, last_modified: datetime) -> None:
         self._ensure_dataset_props().lastModified = _make_time_stamp(last_modified)
+
+    @property
+    def schema(self) -> Dict[str, models.SchemaFieldClass]:
+        schema_metadata = self._get_aspect(models.SchemaMetadataClass)
+        if schema_metadata is None:
+            # TODO throw instead?
+            return {}
+        return {field.fieldPath: field for field in schema_metadata.fields}
+
+    def set_schema(self, schema: SchemaFieldsInputType) -> None:
+        if isinstance(schema, models.SchemaMetadataClass):
+            self._set_aspect(schema)
+        else:
+            # self._set_aspect(models.SchemaMetadataClass(fields=schema))
+            raise NotImplementedError("TODO")
 
 
 def graph_get_dataset(self: DataHubGraph, urn: UrnOrStr) -> Dataset:
