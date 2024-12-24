@@ -1,8 +1,6 @@
 import datetime
 import json
-import logging
 import re
-import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union, cast
 from unittest import mock
@@ -31,30 +29,21 @@ pytestmark = pytest.mark.integration_batch_2
 FROZEN_TIME = "2022-02-03 07:00:00"
 
 
-def enable_logging():
-    # set logging to console
-    logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
-    logging.getLogger().setLevel(logging.DEBUG)
-
-
-class MsalClient:
-    call_num = 0
-    token: Dict[str, Any] = {
-        "access_token": "dummy",
-    }
-
-    @staticmethod
-    def acquire_token_for_client(*args, **kwargs):
-        MsalClient.call_num += 1
-        return MsalClient.token
-
-    @staticmethod
-    def reset():
-        MsalClient.call_num = 0
-
-
 def mock_msal_cca(*args, **kwargs):
-    return MsalClient()
+    class MsalClient:
+        call_num = 0
+        token: Dict[str, Any] = {
+            "access_token": "dummy",
+        }
+
+        @staticmethod
+        def acquire_token_for_client(*args, **kwargs):
+            MsalClient.call_num += 1
+            return MsalClient.token
+
+        @staticmethod
+        def reset():
+            MsalClient.call_num = 0
 
 
 def scan_init_response(request, context):
@@ -154,8 +143,6 @@ def test_powerbi_ingest(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-    enable_logging()
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
@@ -199,8 +186,6 @@ def test_powerbi_workspace_type_filter(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-    enable_logging()
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(
@@ -260,8 +245,6 @@ def test_powerbi_ingest_patch_disabled(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-    enable_logging()
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
@@ -327,8 +310,6 @@ def test_powerbi_platform_instance_ingest(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-    enable_logging()
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
@@ -515,8 +496,6 @@ def test_extract_reports(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-    enable_logging()
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
@@ -561,8 +540,6 @@ def test_extract_lineage(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-    enable_logging()
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
@@ -660,8 +637,6 @@ def test_admin_access_is_not_allowed(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-    enable_logging()
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(
@@ -723,8 +698,6 @@ def test_workspace_container(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-    enable_logging()
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
 
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
@@ -772,8 +745,6 @@ def test_access_token_expiry_with_long_expiry(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-    enable_logging()
-
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     pipeline = Pipeline.create(
@@ -814,8 +785,6 @@ def test_access_token_expiry_with_short_expiry(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-    enable_logging()
-
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
     pipeline = Pipeline.create(
@@ -940,8 +909,6 @@ def test_dataset_type_mapping_error(
 def test_server_to_platform_map(
     mock_msal, pytestconfig, tmp_path, mock_time, requests_mock
 ):
-    enable_logging()
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/powerbi"
     new_config: dict = {
         **default_source_config(),
@@ -1416,8 +1383,6 @@ def test_powerbi_cross_workspace_reference_info_message(
     mock_time: datetime.datetime,
     requests_mock: Any,
 ) -> None:
-    enable_logging()
-
     register_mock_api(
         pytestconfig=pytestconfig,
         request_mock=requests_mock,
@@ -1495,8 +1460,6 @@ def common_app_ingest(
     output_mcp_path: str,
     override_config: dict = {},
 ) -> Pipeline:
-    enable_logging()
-
     register_mock_api(
         pytestconfig=pytestconfig,
         request_mock=requests_mock,
