@@ -82,6 +82,7 @@ from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
     QUERIES_EXTRACTION,
+    VIEW_PARSING,
 )
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -103,7 +104,7 @@ logger: logging.Logger = logging.getLogger(__name__)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(
     SourceCapability.LINEAGE_COARSE,
-    "Enabled by default, can be disabled via configuration `include_table_lineage` and `include_view_lineage`",
+    "Enabled by default, can be disabled via configuration `include_table_lineage`",
 )
 @capability(
     SourceCapability.LINEAGE_FINE,
@@ -512,15 +513,14 @@ class SnowflakeV2Source(
         discovered_datasets = discovered_tables + discovered_views
 
         if self.config.use_queries_v2:
-            self.report.set_ingestion_stage("*", "View Parsing")
-            assert self.aggregator is not None
+            self.report.set_ingestion_stage("*", VIEW_PARSING)
             yield from auto_workunit(self.aggregator.gen_metadata())
 
             self.report.set_ingestion_stage("*", QUERIES_EXTRACTION)
 
             schema_resolver = self.aggregator._schema_resolver
 
-            queries_extractor: SnowflakeQueriesExtractor = SnowflakeQueriesExtractor(
+            queries_extractor = SnowflakeQueriesExtractor(
                 connection=self.connection,
                 config=SnowflakeQueriesExtractorConfig(
                     window=self.config,
@@ -546,12 +546,20 @@ class SnowflakeV2Source(
             queries_extractor.close()
 
         else:
-            if self.config.include_table_lineage and self.lineage_extractor:
+            if self.lineage_extractor:
                 self.report.set_ingestion_stage("*", LINEAGE_EXTRACTION)
-                yield from self.lineage_extractor.get_workunits(
+                self.lineage_extractor.add_time_based_lineage_to_aggregator(
                     discovered_tables=discovered_tables,
                     discovered_views=discovered_views,
                 )
+
+            # This would emit view and external table ddl lineage
+            # as well as query lineage via lineage_extractor
+            for mcp in self.aggregator.gen_metadata():
+                yield mcp.as_workunit()
+
+            if self.lineage_extractor:
+                self.lineage_extractor.update_state()
 
             if (
                 self.config.include_usage_stats or self.config.include_operational_stats

@@ -35,7 +35,10 @@ from tableauserverclient import (
     SiteItem,
     TableauAuth,
 )
-from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
+from tableauserverclient.server.endpoint.exceptions import (
+    InternalServerError,
+    NonXMLResponseError,
+)
 from urllib3 import Retry
 
 import datahub.emitter.mce_builder as builder
@@ -618,6 +621,12 @@ class DatabaseTable:
                 self.parsed_columns = parsed_columns
 
 
+@dataclass
+class SiteIdContentUrl:
+    site_id: str
+    site_content_url: str
+
+
 class TableauSourceReport(StaleEntityRemovalSourceReport):
     get_all_datasources_query_failed: bool = False
     num_get_datasource_query_failures: int = 0
@@ -770,7 +779,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         config=self.config,
                         ctx=self.ctx,
                         site=site,
-                        site_id=site.id,
                         report=self.report,
                         server=self.server,
                         platform=self.platform,
@@ -789,8 +797,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 site_source = TableauSiteSource(
                     config=self.config,
                     ctx=self.ctx,
-                    site=site,
-                    site_id=self.server.site_id,
+                    site=site
+                    if site
+                    else SiteIdContentUrl(
+                        site_id=self.server.site_id, site_content_url=self.config.site
+                    ),
                     report=self.report,
                     server=self.server,
                     platform=self.platform,
@@ -823,8 +834,7 @@ class TableauSiteSource:
         self,
         config: TableauConfig,
         ctx: PipelineContext,
-        site: Optional[SiteItem],
-        site_id: Optional[str],
+        site: Union[SiteItem, SiteIdContentUrl],
         report: TableauSourceReport,
         server: Server,
         platform: str,
@@ -835,13 +845,18 @@ class TableauSiteSource:
         self.ctx: PipelineContext = ctx
         self.platform = platform
 
-        self.site: Optional[SiteItem] = site
-        if site_id is not None:
-            self.site_id: str = site_id
+        self.site: Optional[SiteItem] = None
+        if isinstance(site, SiteItem):
+            self.site = site
+            assert site.id is not None, "Site ID is required"
+            self.site_id = site.id
+            self.site_content_url = site.content_url
+        elif isinstance(site, SiteIdContentUrl):
+            self.site = None
+            self.site_id = site.site_id
+            self.site_content_url = site.site_content_url
         else:
-            assert self.site is not None, "site or site_id is required"
-            assert self.site.id is not None, "site_id is required when site is provided"
-            self.site_id = self.site.id
+            raise AssertionError("site or site id+content_url pair is required")
 
         self.database_tables: Dict[str, DatabaseTable] = {}
         self.tableau_stat_registry: Dict[str, UsageStat] = {}
@@ -895,16 +910,14 @@ class TableauSiteSource:
         # datasets also have the env in the browse path
         return f"/{self.config.env.lower()}{self.no_env_browse_prefix}"
 
-    def _re_authenticate(self):
+    def _re_authenticate(self) -> None:
+        self.report.info(
+            message="Re-authenticating to Tableau",
+            context=f"site='{self.site_content_url}'",
+        )
         # Sign-in again may not be enough because Tableau sometimes caches invalid sessions
         # so we need to recreate the Tableau Server object
-        self.server = self.config.make_tableau_client(self.site_id)
-
-    @property
-    def site_content_url(self) -> Optional[str]:
-        if self.site and self.site.content_url:
-            return self.site.content_url
-        return None
+        self.server = self.config.make_tableau_client(self.site_content_url)
 
     def _populate_usage_stat_registry(self) -> None:
         if self.server is None:
@@ -1196,6 +1209,24 @@ class TableauSiteSource:
                 retry_on_auth_error=False,
                 retries_remaining=retries_remaining - 1,
             )
+
+        except InternalServerError as ise:
+            # In some cases Tableau Server returns 504 error, which is a timeout error, so it worths to retry.
+            if ise.code == 504:
+                if retries_remaining <= 0:
+                    raise ise
+                return self.get_connection_object_page(
+                    query=query,
+                    connection_type=connection_type,
+                    query_filter=query_filter,
+                    fetch_size=fetch_size,
+                    current_cursor=current_cursor,
+                    retry_on_auth_error=False,
+                    retries_remaining=retries_remaining - 1,
+                )
+            else:
+                raise ise
+
         except OSError:
             # In tableauseverclient 0.26 (which was yanked and released in 0.28 on 2023-10-04),
             # the request logic was changed to use threads.
