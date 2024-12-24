@@ -68,6 +68,18 @@ export default defineConfig(({ mode }) => {
         envPrefix: 'REACT_APP_',
         build: {
             outDir: 'dist',
+            target: 'esnext',
+            minify: 'esbuild',
+            rollupOptions: {
+                output: {
+                    manualChunks: {
+                        'react-vendor': ['react', 'react-dom', 'react-router-dom'],
+                        'apollo': ['@apollo/client'],
+                        'antd': ['antd', '@ant-design/icons'],
+                    }
+                }
+            },
+            reportCompressedSize: false,
         },
         server: {
             open: false,
