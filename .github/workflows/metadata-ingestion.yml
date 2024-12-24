@@ -26,8 +26,8 @@ concurrency:
 jobs:
   metadata-ingestion:
     runs-on: ubuntu-latest
+    timeout-minutes: 40
     env:
-      SPARK_VERSION: 3.5.3
       DATAHUB_TELEMETRY_ENABLED: false
       # TODO: Enable this once the test is fixed.
       # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
@@ -61,16 +61,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "pip"
       - uses: actions/cache@v4
         with:
           path: |
             ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('**/requirements.txt') }}
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: "pip"
       - name: Install dependencies
         run: ./metadata-ingestion/scripts/install_deps.sh
       - name: Install package
@@ -88,9 +83,9 @@ jobs:
           df -hl
           docker image ls
           docker system df
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
-          name: Test Results (metadata ingestion ${{ matrix.python-version }})
+          name: Test Results (metadata ingestion ${{ matrix.python-version }} ${{ matrix.command }})
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
@@ -98,20 +93,20 @@ jobs:
             !**/binary/**
       - name: Upload coverage to Codecov
         if: ${{ always() && matrix.python-version == '3.10' }}
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: .
+          directory: ./build/coverage-reports/
           fail_ci_if_error: false
           flags: pytest-${{ matrix.command }}
-          name: pytest-${{ matrix.command }}
+          name: pytest-${{ matrix.python-version }}-${{ matrix.command }}
           verbose: true
 
   event-file:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Event File
           path: ${{ github.event_path }}

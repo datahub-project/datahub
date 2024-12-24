@@ -88,8 +88,7 @@ class LookerFieldContext:
         for upstream_field_match in re.finditer(r"\${TABLE}\.[\"]*([\.\w]+)", sql):
             matched_field = upstream_field_match.group(1)
             # Remove quotes from field names
-            matched_field = matched_field.replace('"', "").replace("`", "").lower()
-            column_names.append(matched_field)
+            column_names.append(matched_field.replace('"', "").replace("`", "").lower())
 
         return column_names
 
@@ -320,7 +319,6 @@ class LookerViewContext:
         self,
         field: str,
     ) -> Optional[Any]:
-
         # According to Looker's inheritance rules, we need to merge the fields(i.e. dimensions, measures and
         # dimension_groups) from both the child and parent.
         if field in [DIMENSIONS, DIMENSION_GROUPS, MEASURES]:
@@ -345,7 +343,6 @@ class LookerViewContext:
         return self.get_including_extends(field="sql_table_name")
 
     def _is_dot_sql_table_name_present(self) -> bool:
-
         sql_table_name: Optional[str] = self._get_sql_table_name_field()
 
         if sql_table_name is None:

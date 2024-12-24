@@ -4,6 +4,8 @@ plugins {
   id 'io.ebean' version "${ebeanVersion}" // Use the latest version from global build.gradle
 }
 
+apply from: '../gradle/coverage/java-coverage.gradle'
+
 configurations {
   enhance
 }
@@ -140,6 +142,8 @@ test {
   }
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
+
+  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
 }
 
 ebean {

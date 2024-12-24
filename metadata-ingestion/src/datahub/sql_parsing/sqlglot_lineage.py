@@ -1,10 +1,11 @@
+from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
+
 import dataclasses
 import functools
-import itertools
 import logging
 import traceback
 from collections import defaultdict
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, TypeVar, Union
 
 import pydantic.dataclasses
 import sqlglot
@@ -14,6 +15,8 @@ import sqlglot.optimizer
 import sqlglot.optimizer.annotate_types
 import sqlglot.optimizer.optimizer
 import sqlglot.optimizer.qualify
+import sqlglot.optimizer.qualify_columns
+import sqlglot.optimizer.unnest_subqueries
 
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.ingestion.graph.client import DataHubGraph
@@ -52,6 +55,8 @@ from datahub.utilities.cooperative_timeout import (
     cooperative_timeout,
 )
 
+assert SQLGLOT_PATCHED
+
 logger = logging.getLogger(__name__)
 
 Urn = str
@@ -61,26 +66,33 @@ SQL_LINEAGE_TIMEOUT_ENABLED = get_boolean_env_variable(
     "SQL_LINEAGE_TIMEOUT_ENABLED", True
 )
 SQL_LINEAGE_TIMEOUT_SECONDS = 10
+SQL_PARSER_TRACE = get_boolean_env_variable("DATAHUB_SQL_PARSER_TRACE", False)
 
 
-RULES_BEFORE_TYPE_ANNOTATION: tuple = tuple(
-    filter(
-        lambda func: func.__name__
-        not in {
-            # Skip pushdown_predicates because it sometimes throws exceptions, and we
-            # don't actually need it for anything.
-            "pushdown_predicates",
-            # Skip normalize because it can sometimes be expensive.
-            "normalize",
-        },
-        itertools.takewhile(
-            lambda func: func != sqlglot.optimizer.annotate_types.annotate_types,
-            sqlglot.optimizer.optimizer.RULES,
-        ),
-    )
+# These rules are a subset of the rules in sqlglot.optimizer.optimizer.RULES.
+# If there's a change in their rules, we probably need to re-evaluate our list as well.
+assert len(sqlglot.optimizer.optimizer.RULES) == 14
+
+_OPTIMIZE_RULES = (
+    sqlglot.optimizer.optimizer.qualify,
+    # We need to enable this in order for annotate types to work.
+    sqlglot.optimizer.optimizer.pushdown_projections,
+    # sqlglot.optimizer.optimizer.normalize,  # causes perf issues
+    sqlglot.optimizer.optimizer.unnest_subqueries,
+    # sqlglot.optimizer.optimizer.pushdown_predicates,  # causes perf issues
+    # sqlglot.optimizer.optimizer.optimize_joins,
+    # sqlglot.optimizer.optimizer.eliminate_subqueries,
+    # sqlglot.optimizer.optimizer.merge_subqueries,
+    # sqlglot.optimizer.optimizer.eliminate_joins,
+    # sqlglot.optimizer.optimizer.eliminate_ctes,
+    sqlglot.optimizer.optimizer.quote_identifiers,
+    # These three are run separately or not run at all.
+    # sqlglot.optimizer.optimizer.annotate_types,
+    # sqlglot.optimizer.canonicalize.canonicalize,
+    # sqlglot.optimizer.simplify.simplify,
 )
-# Quick check that the rules were loaded correctly.
-assert 0 < len(RULES_BEFORE_TYPE_ANNOTATION) < len(sqlglot.optimizer.optimizer.RULES)
+
+_DEBUG_TYPE_ANNOTATIONS = False
 
 
 class _ColumnRef(_FrozenModel):
@@ -354,10 +366,11 @@ def _prepare_query_columns(
 
             return node
 
-        # logger.debug(
-        #     "Prior to case normalization sql %s",
-        #     statement.sql(pretty=True, dialect=dialect),
-        # )
+        if SQL_PARSER_TRACE:
+            logger.debug(
+                "Prior to case normalization sql %s",
+                statement.sql(pretty=True, dialect=dialect),
+            )
         statement = statement.transform(_sqlglot_force_column_normalizer, copy=False)
         # logger.debug(
         #     "Sql after casing normalization %s",
@@ -385,11 +398,12 @@ def _prepare_query_columns(
                 schema=sqlglot_db_schema,
                 qualify_columns=True,
                 validate_qualify_columns=False,
+                allow_partial_qualification=True,
                 identify=True,
                 # sqlglot calls the db -> schema -> table hierarchy "catalog", "db", "table".
                 catalog=default_db,
                 db=default_schema,
-                rules=RULES_BEFORE_TYPE_ANNOTATION,
+                rules=_OPTIMIZE_RULES,
             )
         except (sqlglot.errors.OptimizeError, ValueError) as e:
             raise SqlUnderstandingError(
@@ -408,6 +422,10 @@ def _prepare_query_columns(
         except (sqlglot.errors.OptimizeError, sqlglot.errors.ParseError) as e:
             # This is not a fatal error, so we can continue.
             logger.debug("sqlglot failed to annotate or parse types: %s", e)
+        if _DEBUG_TYPE_ANNOTATIONS and logger.isEnabledFor(logging.DEBUG):
+            logger.debug(
+                "Type annotated sql %s", statement.sql(pretty=True, dialect=dialect)
+            )
 
     return statement, _ColumnResolver(
         sqlglot_db_schema=sqlglot_db_schema,
@@ -546,7 +564,7 @@ def _select_statement_cll(  # noqa: C901
                 )
             )
 
-        # TODO: Also extract referenced columns (aka auxillary / non-SELECT lineage)
+        # TODO: Also extract referenced columns (aka auxiliary / non-SELECT lineage)
     except (sqlglot.errors.OptimizeError, ValueError, IndexError) as e:
         raise SqlUnderstandingError(
             f"sqlglot failed to compute some lineage: {e}"
@@ -656,7 +674,9 @@ def _get_direct_raw_col_upstreams(
             # Parse the column name out of the node name.
             # Sqlglot calls .sql(), so we have to do the inverse.
             normalized_col = sqlglot.parse_one(node.name).this.name
-            if node.subfield:
+            if hasattr(node, "subfield") and node.subfield:
+                # The hasattr check is necessary, since it lets us be compatible with
+                # sqlglot versions that don't have the subfield attribute.
                 normalized_col = f"{normalized_col}.{node.subfield}"
 
             direct_raw_col_upstreams.add(
@@ -855,6 +875,49 @@ def _translate_internal_column_lineage(
     )
 
 
+_StrOrNone = TypeVar("_StrOrNone", str, Optional[str])
+
+
+def _normalize_db_or_schema(
+    db_or_schema: _StrOrNone,
+    dialect: sqlglot.Dialect,
+) -> _StrOrNone:
+    if db_or_schema is None:
+        return None
+
+    # In snowflake, table identifiers must be uppercased to match sqlglot's behavior.
+    if is_dialect_instance(dialect, "snowflake"):
+        return db_or_schema.upper()
+
+    # In mssql, table identifiers must be lowercased.
+    elif is_dialect_instance(dialect, "mssql"):
+        return db_or_schema.lower()
+
+    return db_or_schema
+
+
+def _simplify_select_into(statement: sqlglot.exp.Expression) -> sqlglot.exp.Expression:
+    """
+    Check if the expression is a SELECT INTO statement. If so, converts it into a CTAS.
+    Other expressions are returned as-is.
+    """
+
+    if not (isinstance(statement, sqlglot.exp.Select) and statement.args.get("into")):
+        return statement
+
+    # Convert from SELECT <cols> INTO <out> <expr>
+    # to CREATE TABLE <out> AS SELECT <cols> <expr>
+    into_expr: sqlglot.exp.Into = statement.args["into"].pop()
+    into_table = into_expr.this
+
+    create = sqlglot.exp.Create(
+        this=into_table,
+        kind="TABLE",
+        expression=statement,
+    )
+    return create
+
+
 def _sqlglot_lineage_inner(
     sql: sqlglot.exp.ExpOrStr,
     schema_resolver: SchemaResolverInterface,
@@ -862,18 +925,14 @@ def _sqlglot_lineage_inner(
     default_schema: Optional[str] = None,
     default_dialect: Optional[str] = None,
 ) -> SqlParsingResult:
-
     if not default_dialect:
         dialect = get_dialect(schema_resolver.platform)
     else:
         dialect = get_dialect(default_dialect)
 
-    if is_dialect_instance(dialect, "snowflake"):
-        # in snowflake, table identifiers must be uppercased to match sqlglot's behavior.
-        if default_db:
-            default_db = default_db.upper()
-        if default_schema:
-            default_schema = default_schema.upper()
+    default_db = _normalize_db_or_schema(default_db, dialect)
+    default_schema = _normalize_db_or_schema(default_schema, dialect)
+
     if is_dialect_instance(dialect, "redshift") and not default_schema:
         # On Redshift, there's no "USE SCHEMA <schema>" command. The default schema
         # is public, and "current schema" is the one at the front of the search path.
@@ -886,11 +945,22 @@ def _sqlglot_lineage_inner(
     logger.debug("Parsing lineage from sql statement: %s", sql)
     statement = parse_statement(sql, dialect=dialect)
 
+    if isinstance(statement, sqlglot.exp.Command):
+        # For unsupported syntax, sqlglot will usually fallback to parsing as a Command.
+        # This is effectively a parsing error, and we won't get any lineage from it.
+        # See https://github.com/tobymao/sqlglot/commit/3a13fdf4e597a2f0a3f9fc126a129183fe98262f
+        # and https://github.com/tobymao/sqlglot/pull/2874
+        raise UnsupportedStatementTypeError(
+            f"Got unsupported syntax for statement: {sql}"
+        )
+
     original_statement, statement = statement, statement.copy()
     # logger.debug(
     #     "Formatted sql statement: %s",
     #     original_statement.sql(pretty=True, dialect=dialect),
     # )
+
+    statement = _simplify_select_into(statement)
 
     # Make sure the tables are resolved with the default db / schema.
     # This only works for Unionable statements. For other types of statements,
@@ -905,6 +975,7 @@ def _sqlglot_lineage_inner(
         # At this stage we only want to qualify the table names. The columns will be dealt with later.
         qualify_columns=False,
         validate_qualify_columns=False,
+        allow_partial_qualification=True,
         # Only insert quotes where necessary.
         identify=False,
     )
@@ -953,6 +1024,14 @@ def _sqlglot_lineage_inner(
     logger.debug(
         f"Resolved {total_schemas_resolved} of {total_tables_discovered} table schemas"
     )
+    if SQL_PARSER_TRACE:
+        for qualified_table, schema_info in table_name_schema_mapping.items():
+            logger.debug(
+                "Table name %s resolved to %s with schema %s",
+                qualified_table,
+                table_name_urn_mapping[qualified_table],
+                schema_info,
+            )
 
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     try:
@@ -1112,6 +1191,45 @@ def sqlglot_lineage(
         )
 
 
+@functools.lru_cache(maxsize=128)
+def create_and_cache_schema_resolver(
+    platform: str,
+    env: str,
+    graph: Optional[DataHubGraph] = None,
+    platform_instance: Optional[str] = None,
+    schema_aware: bool = True,
+) -> SchemaResolver:
+    return create_schema_resolver(
+        platform=platform,
+        env=env,
+        graph=graph,
+        platform_instance=platform_instance,
+        schema_aware=schema_aware,
+    )
+
+
+def create_schema_resolver(
+    platform: str,
+    env: str,
+    graph: Optional[DataHubGraph] = None,
+    platform_instance: Optional[str] = None,
+    schema_aware: bool = True,
+) -> SchemaResolver:
+    if graph and schema_aware:
+        return graph._make_schema_resolver(
+            platform=platform,
+            platform_instance=platform_instance,
+            env=env,
+        )
+
+    return SchemaResolver(
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+        graph=None,
+    )
+
+
 def create_lineage_sql_parsed_result(
     query: str,
     default_db: Optional[str],
@@ -1122,21 +1240,17 @@ def create_lineage_sql_parsed_result(
     graph: Optional[DataHubGraph] = None,
     schema_aware: bool = True,
 ) -> SqlParsingResult:
+    schema_resolver = create_schema_resolver(
+        platform=platform,
+        platform_instance=platform_instance,
+        env=env,
+        schema_aware=schema_aware,
+        graph=graph,
+    )
+
+    needs_close: bool = True
     if graph and schema_aware:
         needs_close = False
-        schema_resolver = graph._make_schema_resolver(
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
-        )
-    else:
-        needs_close = True
-        schema_resolver = SchemaResolver(
-            platform=platform,
-            platform_instance=platform_instance,
-            env=env,
-            graph=None,
-        )
 
     try:
         return sqlglot_lineage(
@@ -1174,13 +1288,19 @@ def infer_output_schema(result: SqlParsingResult) -> Optional[List[SchemaFieldCl
 def view_definition_lineage_helper(
     result: SqlParsingResult, view_urn: str
 ) -> SqlParsingResult:
-    if result.query_type is QueryType.SELECT:
+    if result.query_type is QueryType.SELECT or (
+        result.out_tables and result.out_tables != [view_urn]
+    ):
         # Some platforms (e.g. postgres) store only <select statement> from view definition
         # `create view V as <select statement>` . For such view definitions, `result.out_tables` and
         # `result.column_lineage[].downstream` are empty in `sqlglot_lineage` response, whereas upstream
         # details and downstream column details are extracted correctly.
         # Here, we inject view V's urn in `result.out_tables` and `result.column_lineage[].downstream`
         # to get complete lineage result.
+
+        # Some platforms(e.g. mssql) may have slightly different view name in view definition than
+        # actual view name used elsewhere. Therefore we overwrite downstream table for such cases as well.
+
         result.out_tables = [view_urn]
         if result.column_lineage:
             for col_result in result.column_lineage:

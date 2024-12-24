@@ -3,7 +3,6 @@ from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Optional, Set, cast
 
 import datahub.emitter.mce_builder as builder
-from datahub.configuration.source_common import ALL_ENV_TYPES
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -114,7 +113,7 @@ class DataFlow:
 
     def _get_env(self) -> Optional[str]:
         env: Optional[str] = None
-        if self.env and self.env.upper() in ALL_ENV_TYPES:
+        if self.env and self.env.upper() in builder.ALL_ENV_TYPES:
             env = self.env.upper()
         else:
             logger.debug(

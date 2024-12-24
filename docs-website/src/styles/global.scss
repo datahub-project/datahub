@@ -31,7 +31,7 @@
   --ifm-navbar-item-padding-horizontal: 1rem;
 
   /* Announcement Bar */
-  --docusaurus-announcement-bar-height: 60px !important;
+  --docusaurus-announcement-bar-height: 48px !important;
 
   /* Rule */
   --ifm-hr-border-width: 1px 0 0 0;
@@ -116,21 +116,34 @@ div[class^="announcementBar"] {
     >div {
       display: flex;
       align-items: center;
+      > div {
+        @media (max-width: 580px) {
+            display: none;
+          }
+      }
+      a>span {
+        @media (max-width: 580px) {
+          display: none;
+        }
+      }
 
       >p {
         text-align: left;
         line-height: 1.1rem;
         margin: 0;
 
-        >span {
-          @media (max-width: 780px) {
-            display: none;
-          }
+        @media (max-width: 580px) {
+          font-size: .9rem;
         }
+        // >span {
+        //   @media (max-width: 780px) {
+        //     display: none;
+        //   }
+        // }
 
-        @media (max-width: 480px) {
-          display: none;
-        }
+        // @media (max-width: 480px) {
+        //   display: none;
+        // }
       }
     }
 
@@ -141,8 +154,9 @@ div[class^="announcementBar"] {
     }
 
     a {
-      color: var(--ifm-button-color);
+      color: #EFB300;
       text-decoration: none;
+      font-size: 1rem
     }
   }
 }

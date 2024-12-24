@@ -48,7 +48,7 @@ public class CacheConfig {
     return Caffeine.newBuilder()
         .initialCapacity(100)
         .maximumSize(cacheMaxSize)
-        .expireAfterAccess(cacheTtlSeconds, TimeUnit.SECONDS)
+        .expireAfterWrite(cacheTtlSeconds, TimeUnit.SECONDS)
         .recordStats();
   }
 
@@ -86,10 +86,7 @@ public class CacheConfig {
   @Bean
   @ConditionalOnProperty(name = "searchService.cacheImplementation", havingValue = "hazelcast")
   public MapConfig defaultMapConfig() {
-    // TODO: This setting is equivalent to expireAfterAccess, refreshes timer after a get, put,
-    // containsKey etc.
-    //       is this behavior what we actually desire? Should we change it now?
-    MapConfig mapConfig = new MapConfig().setMaxIdleSeconds(cacheTtlSeconds);
+    MapConfig mapConfig = new MapConfig().setTimeToLiveSeconds(cacheTtlSeconds);
 
     EvictionConfig evictionConfig =
         new EvictionConfig()

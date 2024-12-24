@@ -32,6 +32,7 @@ from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
     make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
     make_tag_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -50,7 +51,6 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.glossary.classification_mixin import (
     SAMPLE_SIZE_MULTIPLIER,
     ClassificationHandler,
-    ClassificationReportMixin,
 )
 from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import (
@@ -58,6 +58,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
     downgrade_schema_from_v2,
@@ -73,7 +74,6 @@ from datahub.ingestion.source.sql.sqlalchemy_data_reader import (
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
-    StaleEntityRemovalSourceReport,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -117,9 +117,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
 )
 from datahub.telemetry import telemetry
 from datahub.utilities.file_backed_collections import FileBackedDict
-from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.sqlalchemy_query_combiner import SQLAlchemyQueryCombinerReport
 from datahub.utilities.sqlalchemy_type_converter import (
     get_native_data_type_for_sqlalchemy_type,
 )
@@ -131,43 +129,6 @@ if TYPE_CHECKING:
     )
 
 logger: logging.Logger = logging.getLogger(__name__)
-
-
-@dataclass
-class SQLSourceReport(StaleEntityRemovalSourceReport, ClassificationReportMixin):
-    tables_scanned: int = 0
-    views_scanned: int = 0
-    entities_profiled: int = 0
-    filtered: LossyList[str] = field(default_factory=LossyList)
-
-    query_combiner: Optional[SQLAlchemyQueryCombinerReport] = None
-
-    num_view_definitions_parsed: int = 0
-    num_view_definitions_failed_parsing: int = 0
-    num_view_definitions_failed_column_parsing: int = 0
-    view_definitions_parsing_failures: LossyList[str] = field(default_factory=LossyList)
-
-    def report_entity_scanned(self, name: str, ent_type: str = "table") -> None:
-        """
-        Entity could be a view or a table
-        """
-        if ent_type == "table":
-            self.tables_scanned += 1
-        elif ent_type == "view":
-            self.views_scanned += 1
-        else:
-            raise KeyError(f"Unknown entity {ent_type}.")
-
-    def report_entity_profiled(self, name: str) -> None:
-        self.entities_profiled += 1
-
-    def report_dropped(self, ent_name: str) -> None:
-        self.filtered.append(ent_name)
-
-    def report_from_query_combiner(
-        self, query_combiner_report: SQLAlchemyQueryCombinerReport
-    ) -> None:
-        self.query_combiner = query_combiner_report
 
 
 class SqlWorkUnit(MetadataWorkUnit):
@@ -351,7 +312,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     def __init__(self, config: SQLCommonConfig, ctx: PipelineContext, platform: str):
         super().__init__(config, ctx)
-        self.config = config
+        self.config: SQLCommonConfig = config
         self.platform = platform
         self.report: SQLSourceReport = SQLSourceReport()
         self.profile_metadata_info: ProfileMetadata = ProfileMetadata()
@@ -391,6 +352,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             platform_instance=self.config.platform_instance,
             env=self.config.env,
         )
+        self.discovered_datasets: Set[str] = set()
         self._view_definition_cache: MutableMapping[str, str]
         if self.config.use_file_backed_cache:
             self._view_definition_cache = FileBackedDict[str]()
@@ -620,6 +582,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             generate_operations=False,
         )
         for dataset_name in self._view_definition_cache.keys():
+            # TODO: Ensure that the lineage generated from the view definition
+            # matches the dataset_name.
             view_definition = self._view_definition_cache[dataset_name]
             result = self._run_sql_parser(
                 dataset_name,
@@ -669,7 +633,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         )
 
         source_fields = [
-            f"urn:li:schemaField:({dataset_urn},{f})"
+            make_schema_field_urn(dataset_urn, f)
             for f in fk_dict["constrained_columns"]
         ]
         foreign_dataset = make_dataset_urn_with_platform_instance(
@@ -679,7 +643,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             env=self.config.env,
         )
         foreign_fields = [
-            f"urn:li:schemaField:({foreign_dataset},{f})"
+            make_schema_field_urn(foreign_dataset, f)
             for f in fk_dict["referred_columns"]
         ]
 
@@ -830,8 +794,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         self._classify(dataset_name, schema, table, data_reader, schema_metadata)
 
         dataset_snapshot.aspects.append(schema_metadata)
-        if self.config.include_view_lineage:
+        if self._save_schema_to_resolver():
             self.schema_resolver.add_schema_metadata(dataset_urn, schema_metadata)
+            self.discovered_datasets.add(dataset_name)
         db_name = self.get_db_name(inspector)
 
         yield from self.add_table_to_schema_container(
@@ -1096,6 +1061,20 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 exc=e,
             )
 
+    def _get_view_definition(self, inspector: Inspector, schema: str, view: str) -> str:
+        try:
+            view_definition = inspector.get_view_definition(view, schema)
+            if view_definition is None:
+                view_definition = ""
+            else:
+                # Some dialects return a TextClause instead of a raw string,
+                # so we need to convert them to a string.
+                view_definition = str(view_definition)
+        except NotImplementedError:
+            view_definition = ""
+
+        return view_definition
+
     def _process_view(
         self,
         dataset_name: str,
@@ -1114,7 +1093,10 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             columns = inspector.get_columns(view, schema)
         except KeyError:
             # For certain types of views, we are unable to fetch the list of columns.
-            self.warn(logger, dataset_name, "unable to get schema for this view")
+            self.report.warning(
+                message="Unable to get schema for a view",
+                context=f"{dataset_name}",
+            )
             schema_metadata = None
         else:
             schema_fields = self.get_schema_fields(dataset_name, columns, inspector)
@@ -1125,21 +1107,15 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 columns,
                 canonical_schema=schema_fields,
             )
-            if self.config.include_view_lineage:
+            if self._save_schema_to_resolver():
                 self.schema_resolver.add_schema_metadata(dataset_urn, schema_metadata)
+                self.discovered_datasets.add(dataset_name)
+
         description, properties, _ = self.get_table_properties(inspector, schema, view)
-        try:
-            view_definition = inspector.get_view_definition(view, schema)
-            if view_definition is None:
-                view_definition = ""
-            else:
-                # Some dialects return a TextClause instead of a raw string,
-                # so we need to convert them to a string.
-                view_definition = str(view_definition)
-        except NotImplementedError:
-            view_definition = ""
-        properties["view_definition"] = view_definition
         properties["is_view"] = "True"
+
+        view_definition = self._get_view_definition(inspector, schema, view)
+        properties["view_definition"] = view_definition
         if view_definition and self.config.include_view_lineage:
             self._view_definition_cache[dataset_name] = view_definition
 
@@ -1171,15 +1147,14 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             entityUrn=dataset_urn,
             aspect=SubTypesClass(typeNames=[DatasetSubTypes.VIEW]),
         ).as_workunit()
-        if "view_definition" in properties:
-            view_definition_string = properties["view_definition"]
-            view_properties_aspect = ViewPropertiesClass(
-                materialized=False, viewLanguage="SQL", viewLogic=view_definition_string
-            )
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=view_properties_aspect,
-            ).as_workunit()
+
+        view_properties_aspect = ViewPropertiesClass(
+            materialized=False, viewLanguage="SQL", viewLogic=view_definition
+        )
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=view_properties_aspect,
+        ).as_workunit()
 
         if self.config.domain and self.domain_registry:
             yield from get_domain_wu(
@@ -1188,6 +1163,11 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 domain_config=sql_config.domain,
                 domain_registry=self.domain_registry,
             )
+
+    def _save_schema_to_resolver(self):
+        return self.config.include_view_lineage or (
+            hasattr(self.config, "include_lineage") and self.config.include_lineage
+        )
 
     def _run_sql_parser(
         self, view_identifier: str, query: str, schema_resolver: SchemaResolver
@@ -1228,6 +1208,8 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             )
         else:
             self.report.num_view_definitions_parsed += 1
+            if raw_lineage.out_tables != [view_urn]:
+                self.report.num_view_definitions_view_urn_mismatch += 1
         return view_definition_lineage_helper(raw_lineage, view_urn)
 
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
@@ -1273,17 +1255,22 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def is_dataset_eligible_for_profiling(
         self,
         dataset_name: str,
-        sql_config: SQLCommonConfig,
+        schema: str,
         inspector: Inspector,
         profile_candidates: Optional[List[str]],
     ) -> bool:
-        return (
-            sql_config.table_pattern.allowed(dataset_name)
-            and sql_config.profile_pattern.allowed(dataset_name)
-        ) and (
-            profile_candidates is None
-            or (profile_candidates is not None and dataset_name in profile_candidates)
-        )
+        if not (
+            self.config.table_pattern.allowed(dataset_name)
+            and self.config.profile_pattern.allowed(dataset_name)
+        ):
+            self.report.profiling_skipped_table_profile_pattern[schema] += 1
+            return False
+
+        if profile_candidates is not None and dataset_name not in profile_candidates:
+            self.report.profiling_skipped_other[schema] += 1
+            return False
+
+        return True
 
     def loop_profiler_requests(
         self,
@@ -1298,7 +1285,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         if (
             sql_config.profiling.profile_if_updated_since_days is not None
             or sql_config.profiling.profile_table_size_limit is not None
-            or sql_config.profiling.profile_table_row_limit is None
+            or sql_config.profiling.profile_table_row_limit is not None
         ):
             try:
                 threshold_time: Optional[datetime.datetime] = None
@@ -1319,8 +1306,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                 schema=schema, entity=table, inspector=inspector
             )
             if not self.is_dataset_eligible_for_profiling(
-                dataset_name, sql_config, inspector, profile_candidates
+                dataset_name, schema, inspector, profile_candidates
             ):
+                self.report.num_tables_not_eligible_profiling[schema] += 1
                 if self.config.profiling.report_dropped_profiles:
                     self.report.report_dropped(f"profile of {dataset_name}")
                 continue

@@ -1,14 +1,9 @@
 package com.datahub.util.validator;
 
-import com.linkedin.common.urn.Urn;
-import com.linkedin.data.DataList;
-import com.linkedin.data.DataMap;
 import com.linkedin.data.schema.RecordDataSchema;
 import com.linkedin.data.schema.UnionDataSchema;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
-import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
@@ -63,8 +58,6 @@ public class RelationshipValidator {
                   "Relationship '%s' contains a field '%s' that makes use of a disallowed type '%s'.",
                   className, field.getName(), field.getType().getType());
             });
-
-    validatePairings(schema);
   }
 
   /**
@@ -107,61 +100,6 @@ public class RelationshipValidator {
       ValidationUtils.invalidSchema(
           "Relationship '%s' must be a union containing only record type members",
           relationshipClassName);
-    }
-  }
-
-  private static void validatePairings(@Nonnull RecordDataSchema schema) {
-
-    final String className = schema.getBindingName();
-
-    Map<String, Object> properties = schema.getProperties();
-    if (!properties.containsKey("pairings")) {
-      ValidationUtils.invalidSchema(
-          "Relationship '%s' must contain a 'pairings' property", className);
-    }
-
-    DataList pairings = (DataList) properties.get("pairings");
-    Set<Pair> registeredPairs = new HashSet<>();
-    pairings.stream()
-        .forEach(
-            obj -> {
-              DataMap map = (DataMap) obj;
-              if (!map.containsKey("source") || !map.containsKey("destination")) {
-                ValidationUtils.invalidSchema(
-                    "Relationship '%s' contains an invalid 'pairings' item. "
-                        + "Each item must contain a 'source' and 'destination' properties.",
-                    className);
-              }
-
-              String sourceUrn = map.getString("source");
-              if (!isValidUrnClass(sourceUrn)) {
-                ValidationUtils.invalidSchema(
-                    "Relationship '%s' contains an invalid item in 'pairings'. %s is not a valid URN class name.",
-                    className, sourceUrn);
-              }
-
-              String destinationUrn = map.getString("destination");
-              if (!isValidUrnClass(destinationUrn)) {
-                ValidationUtils.invalidSchema(
-                    "Relationship '%s' contains an invalid item in 'pairings'. %s is not a valid URN class name.",
-                    className, destinationUrn);
-              }
-
-              Pair pair = new Pair(sourceUrn, destinationUrn);
-              if (registeredPairs.contains(pair)) {
-                ValidationUtils.invalidSchema(
-                    "Relationship '%s' contains a repeated 'pairings' item (%s, %s)",
-                    className, sourceUrn, destinationUrn);
-              }
-              registeredPairs.add(pair);
-            });
-  }
-
-  private static boolean isValidUrnClass(String className) {
-    try {
-      return Urn.class.isAssignableFrom(Class.forName(className));
-    } catch (ClassNotFoundException e) {
-      throw new RuntimeException(e);
     }
   }
 }

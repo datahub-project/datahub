@@ -13,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.ByteString;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
+import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -53,8 +54,15 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -103,18 +111,29 @@ public class ElasticSearchTimeseriesAspectService
   private final RestHighLevelClient searchClient;
   private final ESAggregatedStatsDAO esAggregatedStatsDAO;
   private final QueryFilterRewriteChain queryFilterRewriteChain;
+  private final ExecutorService queryPool;
 
   public ElasticSearchTimeseriesAspectService(
       @Nonnull RestHighLevelClient searchClient,
       @Nonnull TimeseriesAspectIndexBuilders indexBuilders,
       @Nonnull ESBulkProcessor bulkProcessor,
       int numRetries,
-      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain) {
+      @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
+      @Nonnull TimeseriesAspectServiceConfig timeseriesAspectServiceConfig) {
     this.indexBuilders = indexBuilders;
     this.searchClient = searchClient;
     this.bulkProcessor = bulkProcessor;
     this.numRetries = numRetries;
     this.queryFilterRewriteChain = queryFilterRewriteChain;
+    this.queryPool =
+        new ThreadPoolExecutor(
+            timeseriesAspectServiceConfig.getQuery().getConcurrency(), // core threads
+            timeseriesAspectServiceConfig.getQuery().getConcurrency(), // max threads
+            timeseriesAspectServiceConfig.getQuery().getKeepAlive(),
+            TimeUnit.SECONDS, // thread keep-alive time
+            new ArrayBlockingQueue<>(
+                timeseriesAspectServiceConfig.getQuery().getQueueSize()), // fixed size queue
+            new ThreadPoolExecutor.CallerRunsPolicy());
 
     esAggregatedStatsDAO = new ESAggregatedStatsDAO(searchClient, queryFilterRewriteChain);
   }
@@ -398,6 +417,69 @@ public class ElasticSearchTimeseriesAspectService
     return Arrays.stream(hits.getHits())
         .map(ElasticSearchTimeseriesAspectService::parseDocument)
         .collect(Collectors.toList());
+  }
+
+  @Nonnull
+  @Override
+  public Map<Urn, Map<String, EnvelopedAspect>> getLatestTimeseriesAspectValues(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<String> aspectNames,
+      @Nullable Map<String, Long> endTimeMillis) {
+    Map<Urn, List<Future<Pair<String, EnvelopedAspect>>>> futures =
+        urns.stream()
+            .map(
+                urn -> {
+                  List<Future<Pair<String, EnvelopedAspect>>> aspectFutures =
+                      aspectNames.stream()
+                          .map(
+                              aspectName ->
+                                  queryPool.submit(
+                                      () -> {
+                                        List<EnvelopedAspect> oneResultList =
+                                            getAspectValues(
+                                                opContext,
+                                                urn,
+                                                urn.getEntityType(),
+                                                aspectName,
+                                                null,
+                                                endTimeMillis == null
+                                                    ? null
+                                                    : endTimeMillis.get(aspectName),
+                                                1,
+                                                null,
+                                                null);
+                                        return !oneResultList.isEmpty()
+                                            ? Pair.of(aspectName, oneResultList.get(0))
+                                            : null;
+                                      }))
+                          .collect(Collectors.toList());
+
+                  return Map.entry(urn, aspectFutures);
+                })
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    return futures.entrySet().stream()
+        .map(
+            e ->
+                Map.entry(
+                    e.getKey(),
+                    e.getValue().stream()
+                        .map(
+                            f -> {
+                              try {
+                                return f.get();
+                              } catch (InterruptedException | ExecutionException ex) {
+                                throw new RuntimeException(ex);
+                              }
+                            })
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList())))
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                e ->
+                    e.getValue().stream().collect(Collectors.toMap(Pair::getKey, Pair::getValue))));
   }
 
   @Override

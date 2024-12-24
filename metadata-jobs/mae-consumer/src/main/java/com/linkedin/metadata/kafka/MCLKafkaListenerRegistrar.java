@@ -1,5 +1,7 @@
 package com.linkedin.metadata.kafka;
 
+import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCL_EVENT_CONSUMER_NAME;
+
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.mxe.Topics;
@@ -39,7 +41,7 @@ public class MCLKafkaListenerRegistrar implements InitializingBean {
   @Autowired private KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
 
   @Autowired
-  @Qualifier("kafkaEventConsumer")
+  @Qualifier(MCL_EVENT_CONSUMER_NAME)
   private KafkaListenerContainerFactory<?> kafkaListenerContainerFactory;
 
   @Value("${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}")

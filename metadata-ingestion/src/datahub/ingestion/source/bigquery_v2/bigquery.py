@@ -65,9 +65,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 # We can't use close as it is not called if the ingestion is not successful
 def cleanup(config: BigQueryV2Config) -> None:
     if config._credentials_path is not None:
-        logger.debug(
-            f"Deleting temporary credential file at {config._credentials_path}"
-        )
         os.unlink(config._credentials_path)
 
 
@@ -97,6 +94,10 @@ def cleanup(config: BigQueryV2Config) -> None:
     SourceCapability.CLASSIFICATION,
     "Optionally enabled via `classification.enabled`",
     supported=True,
+)
+@capability(
+    SourceCapability.PARTITION_SUPPORT,
+    "Enabled by default, partition keys and clustering keys are supported.",
 )
 class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, ctx: PipelineContext, config: BigQueryV2Config):
@@ -188,6 +189,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.sql_parser_schema_resolver,
             self.profiler,
             self.identifiers,
+            self.ctx.graph,
         )
 
         self.add_config_to_report()
@@ -274,7 +276,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
             self.report.set_ingestion_stage("*", QUERIES_EXTRACTION)
 
-            queries_extractor = BigQueryQueriesExtractor(
+            with BigQueryQueriesExtractor(
                 connection=self.config.get_bigquery_client(),
                 schema_api=self.bq_schema_extractor.schema_api,
                 config=BigQueryQueriesExtractorConfig(
@@ -284,15 +286,17 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     include_usage_statistics=self.config.include_usage_statistics,
                     include_operations=self.config.usage.include_operational_stats,
                     top_n_queries=self.config.usage.top_n_queries,
+                    region_qualifiers=self.config.region_qualifiers,
                 ),
                 structured_report=self.report,
                 filters=self.filters,
                 identifiers=self.identifiers,
                 schema_resolver=self.sql_parser_schema_resolver,
                 discovered_tables=self.bq_schema_extractor.table_refs,
-            )
-            self.report.queries_extractor = queries_extractor.report
-            yield from queries_extractor.get_workunits_internal()
+            ) as queries_extractor:
+                self.report.queries_extractor = queries_extractor.report
+                yield from queries_extractor.get_workunits_internal()
+
         else:
             if self.config.include_usage_statistics:
                 yield from self.usage_extractor.get_usage_workunits(
@@ -307,6 +311,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     self.bq_schema_extractor.snapshot_refs_by_project,
                     self.bq_schema_extractor.snapshots_by_ref,
                     self.bq_schema_extractor.table_refs,
+                )
+
+        # Lineage BQ to GCS
+        if (
+            self.config.include_table_lineage
+            and self.bq_schema_extractor.external_tables
+        ):
+            for dataset_urn, table in self.bq_schema_extractor.external_tables.items():
+                yield from self.lineage_extractor.gen_lineage_workunits_for_external_table(
+                    dataset_urn, table.ddl, graph=self.ctx.graph
                 )
 
     def get_report(self) -> BigQueryV2Report:

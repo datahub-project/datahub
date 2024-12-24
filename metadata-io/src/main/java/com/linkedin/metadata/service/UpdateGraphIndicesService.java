@@ -34,6 +34,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -56,6 +57,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class UpdateGraphIndicesService implements SearchIndicesService {
   private static final String DOWNSTREAM_OF = "DownstreamOf";
+  private static final String GRAPH_DIFF_MODE_REMOVE_METRIC = "diff_remove_edge";
+  private static final String GRAPH_DIFF_MODE_ADD_METRIC = "diff_add_edge";
+  private static final String GRAPH_DIFF_MODE_UPDATE_METRIC = "diff_update_edge";
 
   public static UpdateGraphIndicesService withService(GraphService graphService) {
     return new UpdateGraphIndicesService(graphService);
@@ -90,8 +94,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
   public void handleChangeEvent(
       @Nonnull OperationContext opContext, @Nonnull final MetadataChangeLog event) {
     try {
-      MCLItemImpl mclItem =
-          MCLItemImpl.builder().build(event, opContext.getAspectRetrieverOpt().get());
+      MCLItemImpl mclItem = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
 
       if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
         handleUpdateChangeEvent(opContext, mclItem);
@@ -186,7 +189,10 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
               urn.getEntityType(), event.getAspectName()));
     }
 
-    RecordTemplate aspect = event.getRecordTemplate();
+    final RecordTemplate aspect =
+        event.getPreviousRecordTemplate() != null
+            ? event.getPreviousRecordTemplate()
+            : event.getRecordTemplate();
     Boolean isDeletingKey = event.getAspectName().equals(entitySpec.getKeyAspectName());
 
     if (!aspectSpec.isTimeseries()) {
@@ -276,8 +282,8 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
       @Nonnull final RecordTemplate aspect,
       @Nonnull final MetadataChangeLog event,
       final boolean isNewAspectVersion) {
-    final List<Edge> edgesToAdd = new ArrayList<>();
-    final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded = new HashMap<>();
+    final List<Edge> edges = new ArrayList<>();
+    final HashMap<Urn, Set<String>> urnToRelationshipTypes = new HashMap<>();
 
     // we need to manually set schemaField <-> schemaField edges for fineGrainedLineage and
     // inputFields
@@ -285,36 +291,28 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     if (aspectSpec.getName().equals(Constants.UPSTREAM_LINEAGE_ASPECT_NAME)) {
       UpstreamLineage upstreamLineage = new UpstreamLineage(aspect.data());
       updateFineGrainedEdgesAndRelationships(
-          urn,
-          upstreamLineage.getFineGrainedLineages(),
-          edgesToAdd,
-          urnToRelationshipTypesBeingAdded);
+          urn, upstreamLineage.getFineGrainedLineages(), edges, urnToRelationshipTypes);
     } else if (aspectSpec.getName().equals(Constants.INPUT_FIELDS_ASPECT_NAME)) {
       final InputFields inputFields = new InputFields(aspect.data());
-      updateInputFieldEdgesAndRelationships(
-          urn, inputFields, edgesToAdd, urnToRelationshipTypesBeingAdded);
+      updateInputFieldEdgesAndRelationships(urn, inputFields, edges, urnToRelationshipTypes);
     } else if (aspectSpec.getName().equals(Constants.DATA_JOB_INPUT_OUTPUT_ASPECT_NAME)) {
       DataJobInputOutput dataJobInputOutput = new DataJobInputOutput(aspect.data());
       updateFineGrainedEdgesAndRelationships(
-          urn,
-          dataJobInputOutput.getFineGrainedLineages(),
-          edgesToAdd,
-          urnToRelationshipTypesBeingAdded);
+          urn, dataJobInputOutput.getFineGrainedLineages(), edges, urnToRelationshipTypes);
     }
 
     Map<RelationshipFieldSpec, List<Object>> extractedFields =
-        FieldExtractor.extractFields(aspect, aspectSpec.getRelationshipFieldSpecs());
+        FieldExtractor.extractFields(aspect, aspectSpec.getRelationshipFieldSpecs(), true);
 
     for (Map.Entry<RelationshipFieldSpec, List<Object>> entry : extractedFields.entrySet()) {
-      Set<String> relationshipTypes =
-          urnToRelationshipTypesBeingAdded.getOrDefault(urn, new HashSet<>());
+      Set<String> relationshipTypes = urnToRelationshipTypes.getOrDefault(urn, new HashSet<>());
       relationshipTypes.add(entry.getKey().getRelationshipName());
-      urnToRelationshipTypesBeingAdded.put(urn, relationshipTypes);
+      urnToRelationshipTypes.put(urn, relationshipTypes);
       final List<Edge> newEdges =
           GraphIndexUtils.extractGraphEdges(entry, aspect, urn, event, isNewAspectVersion);
-      edgesToAdd.addAll(newEdges);
+      edges.addAll(newEdges);
     }
-    return Pair.of(edgesToAdd, urnToRelationshipTypesBeingAdded);
+    return Pair.of(edges, urnToRelationshipTypes);
   }
 
   /** Process snapshot and update graph index */
@@ -382,21 +380,26 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     final List<Edge> mergedEdges = getMergedEdges(oldEdgeSet, newEdgeSet);
 
     // Remove any old edges that no longer exist first
-    if (subtractiveDifference.size() > 0) {
+    if (!subtractiveDifference.isEmpty()) {
       log.debug("Removing edges: {}", subtractiveDifference);
       subtractiveDifference.forEach(graphService::removeEdge);
+      MetricUtils.counter(this.getClass(), GRAPH_DIFF_MODE_REMOVE_METRIC)
+          .inc(subtractiveDifference.size());
     }
 
     // Then add new edges
-    if (additiveDifference.size() > 0) {
+    if (!additiveDifference.isEmpty()) {
       log.debug("Adding edges: {}", additiveDifference);
       additiveDifference.forEach(graphService::addEdge);
+      MetricUtils.counter(this.getClass(), GRAPH_DIFF_MODE_ADD_METRIC)
+          .inc(additiveDifference.size());
     }
 
     // Then update existing edges
-    if (mergedEdges.size() > 0) {
+    if (!mergedEdges.isEmpty()) {
       log.debug("Updating edges: {}", mergedEdges);
       mergedEdges.forEach(graphService::upsertEdge);
+      MetricUtils.counter(this.getClass(), GRAPH_DIFF_MODE_UPDATE_METRIC).inc(mergedEdges.size());
     }
   }
 
@@ -424,7 +427,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
       @Nonnull final OperationContext opContext,
       @Nonnull final Urn urn,
       @Nonnull final AspectSpec aspectSpec,
-      @Nonnull final RecordTemplate aspect,
+      @Nullable final RecordTemplate aspect,
       @Nonnull final Boolean isKeyAspect,
       @Nonnull final MetadataChangeLog event) {
     if (isKeyAspect) {
@@ -432,21 +435,28 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
       return;
     }
 
-    Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
-        getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect, event, true);
+    if (aspect != null) {
+      Pair<List<Edge>, HashMap<Urn, Set<String>>> edgeAndRelationTypes =
+          getEdgesAndRelationshipTypesFromAspect(urn, aspectSpec, aspect, event, true);
 
-    final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingAdded =
-        edgeAndRelationTypes.getSecond();
-    if (urnToRelationshipTypesBeingAdded.size() > 0) {
-      for (Map.Entry<Urn, Set<String>> entry : urnToRelationshipTypesBeingAdded.entrySet()) {
-        graphService.removeEdgesFromNode(
-            opContext,
-            entry.getKey(),
-            new ArrayList<>(entry.getValue()),
-            createRelationshipFilter(
-                new Filter().setOr(new ConjunctiveCriterionArray()),
-                RelationshipDirection.OUTGOING));
+      final HashMap<Urn, Set<String>> urnToRelationshipTypesBeingRemoved =
+          edgeAndRelationTypes.getSecond();
+      if (!urnToRelationshipTypesBeingRemoved.isEmpty()) {
+        for (Map.Entry<Urn, Set<String>> entry : urnToRelationshipTypesBeingRemoved.entrySet()) {
+          graphService.removeEdgesFromNode(
+              opContext,
+              entry.getKey(),
+              new ArrayList<>(entry.getValue()),
+              createRelationshipFilter(
+                  new Filter().setOr(new ConjunctiveCriterionArray()),
+                  RelationshipDirection.OUTGOING));
+        }
       }
+    } else {
+      log.warn(
+          "Insufficient information to perform graph delete. Missing deleted aspect {} for entity {}",
+          aspectSpec.getName(),
+          urn);
     }
   }
 }

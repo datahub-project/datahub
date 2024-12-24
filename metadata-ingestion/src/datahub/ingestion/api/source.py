@@ -37,6 +37,7 @@ from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source_helpers import (
     auto_browse_path_v2,
     auto_fix_duplicate_schema_field_paths,
+    auto_fix_empty_field_paths,
     auto_lowercase_urns,
     auto_materialize_referenced_tags_terms,
     auto_status_aspect,
@@ -183,6 +184,7 @@ class StructuredLogs(Report):
 
 @dataclass
 class SourceReport(Report):
+    event_not_produced_warn: bool = True
     events_produced: int = 0
     events_produced_per_sec: int = 0
 
@@ -444,6 +446,7 @@ class Source(Closeable, metaclass=ABCMeta):
             partial(
                 auto_fix_duplicate_schema_field_paths, platform=self._infer_platform()
             ),
+            partial(auto_fix_empty_field_paths, platform=self._infer_platform()),
             browse_path_processor,
             partial(auto_workunit_reporter, self.get_report()),
             auto_patch_last_modified,
@@ -490,11 +493,15 @@ class Source(Closeable, metaclass=ABCMeta):
 
     def _infer_platform(self) -> Optional[str]:
         config = self.get_config()
-        return (
+        platform = (
             getattr(config, "platform_name", None)
             or getattr(self, "platform", None)
             or getattr(config, "platform", None)
         )
+        if platform is None and hasattr(self, "get_platform_id"):
+            platform = type(self).get_platform_id()
+
+        return platform
 
     def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
         config = self.get_config()

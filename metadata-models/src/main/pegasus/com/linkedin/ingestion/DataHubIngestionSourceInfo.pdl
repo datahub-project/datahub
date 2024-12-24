@@ -21,6 +21,9 @@ record DataHubIngestionSourceInfo {
   /**
    * The type of the source itself, e.g. mysql, bigquery, bigquery-usage. Should match the recipe.
    */
+  @Searchable = {
+   "fieldType": "TEXT_PARTIAL"
+  }
   type: string
 
   /**
@@ -50,6 +53,9 @@ record DataHubIngestionSourceInfo {
      /**
       * The id of the executor to use to execute the ingestion run
       */
+      @Searchable = {
+         "fieldName": "sourceExecutorId"
+      }
       executorId: optional string
 
      /**

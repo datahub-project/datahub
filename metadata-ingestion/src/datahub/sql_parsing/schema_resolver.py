@@ -13,7 +13,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from datahub.metadata.urns import DataPlatformUrn
-from datahub.sql_parsing._models import _TableName
+from datahub.sql_parsing._models import _TableName as _TableName  # noqa: I250
 from datahub.sql_parsing.sql_parsing_common import PLATFORMS_WITH_CASE_SENSITIVE_TABLES
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedDict
 from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
@@ -90,7 +90,9 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             )[0][0]
         )
 
-    def get_urn_for_table(self, table: _TableName, lower: bool = False) -> str:
+    def get_urn_for_table(
+        self, table: _TableName, lower: bool = False, mixed: bool = False
+    ) -> str:
         # TODO: Validate that this is the correct 2/3 layer hierarchy for the platform.
 
         table_name = ".".join(
@@ -101,7 +103,10 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
 
         if lower:
             table_name = table_name.lower()
-            platform_instance = platform_instance.lower() if platform_instance else None
+            if not mixed:
+                platform_instance = (
+                    platform_instance.lower() if platform_instance else None
+                )
 
         if self.platform == "bigquery":
             # Normalize shard numbers and other BigQuery weirdness.
@@ -118,6 +123,13 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
         )
         return urn
 
+    def resolve_urn(self, urn: str) -> Tuple[str, Optional[SchemaInfo]]:
+        schema_info = self._resolve_schema_info(urn)
+        if schema_info:
+            return urn, schema_info
+
+        return urn, None
+
     def resolve_table(self, table: _TableName) -> Tuple[str, Optional[SchemaInfo]]:
         urn = self.get_urn_for_table(table)
 
@@ -130,6 +142,20 @@ class SchemaResolver(Closeable, SchemaResolverInterface):
             schema_info = self._resolve_schema_info(urn_lower)
             if schema_info:
                 return urn_lower, schema_info
+
+        # Our treatment of platform instances when lowercasing urns
+        # is inconsistent. In some places (e.g. Snowflake), we lowercase
+        # the table names but not the platform instance. In other places
+        # (e.g. Databricks), we lowercase everything because it happens
+        # via the automatic lowercasing helper.
+        # See https://github.com/datahub-project/datahub/pull/8928.
+        # While we have this sort of inconsistency, we should also
+        # check the mixed case urn, as a last resort.
+        urn_mixed = self.get_urn_for_table(table, lower=True, mixed=True)
+        if urn_mixed not in {urn, urn_lower}:
+            schema_info = self._resolve_schema_info(urn_mixed)
+            if schema_info:
+                return urn_mixed, schema_info
 
         if self._prefers_urn_lower():
             return urn_lower, None
@@ -274,3 +300,19 @@ def _convert_schema_field_list_to_info(
 
 def _convert_schema_aspect_to_info(schema_metadata: SchemaMetadataClass) -> SchemaInfo:
     return _convert_schema_field_list_to_info(schema_metadata.fields)
+
+
+def match_columns_to_schema(
+    schema_info: SchemaInfo, input_columns: List[str]
+) -> List[str]:
+    column_from_gms: List[str] = list(schema_info.keys())  # list() to silent lint
+
+    gms_column_map: Dict[str, str] = {
+        column.lower(): column for column in column_from_gms
+    }
+
+    output_columns: List[str] = [
+        gms_column_map.get(column.lower(), column) for column in input_columns
+    ]
+
+    return output_columns

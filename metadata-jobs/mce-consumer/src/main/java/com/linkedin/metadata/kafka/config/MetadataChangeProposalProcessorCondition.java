@@ -9,7 +9,8 @@ public class MetadataChangeProposalProcessorCondition implements Condition {
   @Override
   public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
     Environment env = context.getEnvironment();
-    return "true".equals(env.getProperty("MCE_CONSUMER_ENABLED"))
-        || "true".equals(env.getProperty("MCP_CONSUMER_ENABLED"));
+    return ("true".equals(env.getProperty("MCE_CONSUMER_ENABLED"))
+            || "true".equals(env.getProperty("MCP_CONSUMER_ENABLED")))
+        && !Boolean.parseBoolean(env.getProperty("MCP_CONSUMER_BATCH_ENABLED"));
   }
 }

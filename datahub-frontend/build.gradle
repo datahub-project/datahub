@@ -4,12 +4,26 @@ plugins {
   id 'org.gradle.playframework'
 }
 
-apply from: "../gradle/versioning/versioning.gradle"
+apply from: '../gradle/versioning/versioning.gradle'
 apply from: './play.gradle'
+apply from: '../gradle/coverage/java-coverage.gradle'
 
 ext {
   docker_repo = 'datahub-frontend-react'
   docker_dir = 'datahub-frontend'
+}
+
+java {
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(jdkVersion(project))
+  }
+}
+
+test {
+  jacoco {
+    // jacoco instrumentation is failing when dealing with code of this dependency, excluding it.
+    excludes = ["com/gargoylesoftware/**"]
+  }
 }
 
 model {

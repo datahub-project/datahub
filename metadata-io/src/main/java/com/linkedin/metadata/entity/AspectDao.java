@@ -43,7 +43,7 @@ public interface AspectDao {
 
   @Nonnull
   Map<EntityAspectIdentifier, EntityAspect> batchGet(
-      @Nonnull final Set<EntityAspectIdentifier> keys);
+      @Nonnull final Set<EntityAspectIdentifier> keys, boolean forUpdate);
 
   @Nonnull
   List<EntityAspect> getAspectsInRange(

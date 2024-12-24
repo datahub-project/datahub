@@ -26,7 +26,6 @@ This feature is enabled by default in Open Source DataHub.
 | Column-Level Docs Propagation   | ✔️           | ✔️             |
 | Asset-Level Docs Propagation    | ✔️           | ✔️             |
 | Downstream Lineage + Siblings   | ✔️           | ✔️             |
-| Propagation Rollback (Undo)     | ❌           | ✔️             |
 | Historical Backfilling          | ❌           | ✔️             |
 
 ## Enabling Documentation Propagation
@@ -94,27 +93,6 @@ and then click "Initialize".
 
 This one-time step will kick off the back-filling process for existing descriptions. If you only want to begin propagating
 descriptions going forward, you can skip this step. 
-
-## Rolling Back Propagated Descriptions (DataHub Cloud Only)
-
-In DataHub Cloud, you can rollback all descriptions that have been propagated historically.
-
-This feature allows you to "clean up" or "undo" any accidental propagation that may have occurred automatically, in the case
-that you no longer want propagated descriptions to be visible. 
-
-To do this, navigate to the Automation you created in Step 3 above, click the 3-dot "More" menu
-
-<p align="left">
-  <img width="15%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-more-menu.png"/>
-</p>
-
-and then click "Rollback".
-
-<p align="left">
-  <img width="15%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/automation/saas/automation-rollback.png"/>
-</p>
-
-This one-time step will remove all propagated tags and glossary terms from Snowflake. To simply stop propagating new tags, you can disable the automation.
 
 ## Viewing Propagated Descriptions
 

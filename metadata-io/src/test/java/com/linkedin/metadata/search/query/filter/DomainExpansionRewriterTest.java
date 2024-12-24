@@ -13,13 +13,14 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.config.search.QueryFilterRewriterConfiguration;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
@@ -39,7 +40,8 @@ import org.opensearch.index.query.TermsQueryBuilder;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class DomainExpansionRewriterTest {
+public class DomainExpansionRewriterTest
+    extends BaseQueryFilterRewriterTest<DomainExpansionRewriter> {
   private static final String FIELD_NAME = "domains.keyword";
   private final String grandParentUrn = "urn:li:domain:grand";
   private final String parentUrn = "urn:li:domain:foo";
@@ -53,7 +55,7 @@ public class DomainExpansionRewriterTest {
   @BeforeMethod
   public void init() {
     EntityRegistry entityRegistry = new TestEntityRegistry();
-    AspectRetriever mockAspectRetriever = mock(AspectRetriever.class);
+    CachingAspectRetriever mockAspectRetriever = mock(CachingAspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
 
     mockGraphRetriever = spy(GraphRetriever.class);
@@ -70,19 +72,46 @@ public class DomainExpansionRewriterTest {
             () ->
                 io.datahubproject.metadata.context.RetrieverContext.builder()
                     .aspectRetriever(mockAspectRetriever)
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(() -> entityRegistry))
                     .graphRetriever(mockGraphRetriever)
-                    .searchRetriever(TestOperationContexts.emptySearchRetriever)
+                    .searchRetriever(SearchRetriever.EMPTY)
                     .build(),
+            null,
             null,
             null);
   }
 
+  @Override
+  OperationContext getOpContext() {
+    return opContext;
+  }
+
+  @Override
+  DomainExpansionRewriter getTestRewriter() {
+    return DomainExpansionRewriter.builder()
+        .config(QueryFilterRewriterConfiguration.ExpansionRewriterConfiguration.DEFAULT)
+        .build();
+  }
+
+  @Override
+  String getTargetField() {
+    return FIELD_NAME;
+  }
+
+  @Override
+  String getTargetFieldValue() {
+    return parentUrn;
+  }
+
+  @Override
+  Condition getTargetCondition() {
+    return Condition.DESCENDANTS_INCL;
+  }
+
   @Test
   public void testTermsQueryRewrite() {
-    DomainExpansionRewriter test =
-        DomainExpansionRewriter.builder()
-            .config(QueryFilterRewriterConfiguration.ExpansionRewriterConfiguration.DEFAULT)
-            .build();
+    DomainExpansionRewriter test = getTestRewriter();
 
     TermsQueryBuilder notTheFieldQuery = QueryBuilders.termsQuery("notTheField", parentUrn);
     assertEquals(

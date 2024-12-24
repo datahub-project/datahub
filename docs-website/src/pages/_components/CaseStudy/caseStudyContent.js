@@ -10,6 +10,16 @@ const caseStudyData = [
     link: "https://datahubproject.io/adoption-stories/#netflix",
   },
   {
+    title: "A Solid Foundation For Data and AI",
+    description:
+      "How Apple built a solid foundation for observability, governance, and data sharing with DataHub.",
+    tag: "Technology",
+    backgroundImage:
+      "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Aerial_view_of_Apple_Park_dllu.jpg/2560px-Aerial_view_of_Apple_Park_dllu.jpg",
+    image: "/img/logos/companies/apple_text.png",
+    link: "https://datahubproject.io/adoption-stories/#apple",
+  },
+  {
     title: "Scaling Data Governance",
     description:
       "How VISA Uses DataHub to Scale Data Governance.",

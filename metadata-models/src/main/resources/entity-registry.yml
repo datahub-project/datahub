@@ -116,6 +116,10 @@ entities:
       - dataProcessInstanceRunEvent
       - status
       - testResults
+      - dataPlatformInstance
+      - subTypes
+      - container
+      - mlTrainingRunProperties
   - name: chart
     category: core
     keyAspect: chartKey
@@ -237,6 +241,7 @@ entities:
       - dataPlatformInstance
       - subTypes
       - ownership
+      - deprecation
       - container
       - globalTags
       - glossaryTerms
@@ -248,6 +253,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - access
   - name: tag
     category: core
     keyAspect: tagKey
@@ -600,6 +606,7 @@ entities:
     keyAspect: structuredPropertyKey
     aspects:
       - propertyDefinition
+      - structuredPropertySettings
       - institutionalMemory
       - status
   - name: form
@@ -673,6 +680,12 @@ plugins:
       supportedEntityAspectNames:
         - entityName: '*'
           aspectName: '*'
+    - className: 'com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator'
+      enabled: true
+      spring:
+        enabled: true
+      packageScan:
+        - com.linkedin.gms.factory.plugins
   mcpSideEffects:
     - className: 'com.linkedin.metadata.structuredproperties.hooks.PropertyDefinitionDeleteSideEffect'
       packageScan:

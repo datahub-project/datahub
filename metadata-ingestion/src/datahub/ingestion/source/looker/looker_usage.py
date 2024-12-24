@@ -14,7 +14,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tupl
 
 from looker_sdk.sdk.api40.models import Dashboard, LookWithQuery
 
-from datahub.emitter.mce_builder import Aspect, AspectAbstract
+from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.looker import looker_common
 from datahub.ingestion.source.looker.looker_common import (
@@ -40,7 +40,9 @@ from datahub.metadata.schema_classes import (
     DashboardUsageStatisticsClass,
     DashboardUserUsageCountsClass,
     TimeWindowSizeClass,
+    _Aspect as AspectAbstract,
 )
+from datahub.utilities.lossy_collections import LossySet
 
 logger = logging.getLogger(__name__)
 
@@ -169,7 +171,7 @@ class BaseStatGenerator(ABC):
         self.config = config
         self.looker_models = looker_models
         # Later it will help to find out for what are the looker entities from query result
-        self.id_vs_model: Dict[str, ModelForUsage] = {
+        self.id_to_model: Dict[str, ModelForUsage] = {
             self.get_id(looker_object): looker_object for looker_object in looker_models
         }
         self.post_filter = len(self.looker_models) > 100
@@ -224,6 +226,10 @@ class BaseStatGenerator(ABC):
     def get_id_from_row(self, row: dict) -> str:
         pass
 
+    @abstractmethod
+    def report_skip_set(self) -> LossySet[str]:
+        pass
+
     def create_mcp(
         self, model: ModelForUsage, aspect: Aspect
     ) -> MetadataChangeProposalWrapper:
@@ -257,20 +263,11 @@ class BaseStatGenerator(ABC):
 
         return entity_stat_aspect
 
-    def _process_absolute_aspect(self) -> List[Tuple[ModelForUsage, AspectAbstract]]:
-        aspects: List[Tuple[ModelForUsage, AspectAbstract]] = []
-        for looker_object in self.looker_models:
-            aspects.append(
-                (looker_object, self.to_entity_absolute_stat_aspect(looker_object))
-            )
-
-        return aspects
-
     def _fill_user_stat_aspect(
         self,
         entity_usage_stat: Dict[Tuple[str, str], Aspect],
         user_wise_rows: List[Dict],
-    ) -> Iterable[Tuple[ModelForUsage, Aspect]]:
+    ) -> Iterable[Tuple[str, Aspect]]:
         logger.debug("Entering fill user stat aspect")
 
         # We first resolve all the users using a threadpool to warm up the cache
@@ -299,7 +296,7 @@ class BaseStatGenerator(ABC):
 
         for row in user_wise_rows:
             # Confirm looker object was given for stat generation
-            looker_object = self.id_vs_model.get(self.get_id_from_row(row))
+            looker_object = self.id_to_model.get(self.get_id_from_row(row))
             if looker_object is None:
                 logger.warning(
                     "Looker object with id({}) was not register with stat generator".format(
@@ -337,7 +334,7 @@ class BaseStatGenerator(ABC):
         logger.debug("Starting to yield answers for user-wise counts")
 
         for (id, _), aspect in entity_usage_stat.items():
-            yield self.id_vs_model[id], aspect
+            yield id, aspect
 
     def _execute_query(self, query: LookerQuery, query_name: str) -> List[Dict]:
         rows = []
@@ -356,7 +353,7 @@ class BaseStatGenerator(ABC):
             )
             if self.post_filter:
                 logger.debug("post filtering")
-                rows = [r for r in rows if self.get_id_from_row(r) in self.id_vs_model]
+                rows = [r for r in rows if self.get_id_from_row(r) in self.id_to_model]
                 logger.debug("Filtered down to %d rows", len(rows))
         except Exception as e:
             logger.warning(f"Failed to execute {query_name} query: {e}")
@@ -377,7 +374,8 @@ class BaseStatGenerator(ABC):
             return
 
         # yield absolute stat for looker entities
-        for looker_object, aspect in self._process_absolute_aspect():  # type: ignore
+        for looker_object in self.looker_models:
+            aspect = self.to_entity_absolute_stat_aspect(looker_object)
             yield self.create_mcp(looker_object, aspect)
 
         # Execute query and process the raw json which contains stat information
@@ -398,10 +396,13 @@ class BaseStatGenerator(ABC):
         )
         user_wise_rows = self._execute_query(user_wise_query_with_filters, "user_query")
         # yield absolute stat for entity
-        for looker_object, aspect in self._fill_user_stat_aspect(
+        for object_id, aspect in self._fill_user_stat_aspect(
             entity_usage_stat, user_wise_rows
         ):
-            yield self.create_mcp(looker_object, aspect)
+            if object_id in self.id_to_model:
+                yield self.create_mcp(self.id_to_model[object_id], aspect)
+            else:
+                self.report_skip_set().add(object_id)
 
 
 class DashboardStatGenerator(BaseStatGenerator):
@@ -423,6 +424,9 @@ class DashboardStatGenerator(BaseStatGenerator):
 
     def get_stats_generator_name(self) -> str:
         return "DashboardStats"
+
+    def report_skip_set(self) -> LossySet[str]:
+        return self.report.dashboards_skipped_for_usage
 
     def get_filter(self) -> Dict[ViewField, str]:
         return {
@@ -539,6 +543,9 @@ class LookStatGenerator(BaseStatGenerator):
 
     def get_stats_generator_name(self) -> str:
         return "ChartStats"
+
+    def report_skip_set(self) -> LossySet[str]:
+        return self.report.charts_skipped_for_usage
 
     def get_filter(self) -> Dict[ViewField, str]:
         return {

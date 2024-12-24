@@ -8,7 +8,7 @@ import TabItem from '@theme/TabItem';
  Structured properties are a structured, named set of properties that can be attached to logical entities like Datasets, DataJobs, etc.
 Structured properties have values that are types. Conceptually, they are like “field definitions”.
 
-Learn more about structured properties in the [Structured Properties Feature Guide](../../../docs/features/feature-guides/properties.md).
+Learn more about structured properties in the [Structured Properties Feature Guide](../../../docs/features/feature-guides/properties/overview.md).
 
 
 ### Goal Of This Guide
@@ -66,14 +66,14 @@ mutation createStructuredProperty {
       qualifiedName:"retentionTime",
       displayName: "Retention Time",
       description: "Retention Time is used to figure out how long to retain records in a dataset",
-      valueType: "urn:li:dataType:number",
+      valueType: "urn:li:dataType:datahub.number",
       allowedValues: [
         {numberValue: 30, description: "30 days, usually reserved for datasets that are ephemeral and contain pii"},
         {numberValue: 90, description:"description: Use this for datasets that drive monthly reporting but contain pii"},
         {numberValue: 365, description:"Use this for non-sensitive data that can be retained for longer"}
       ],
       cardinality: SINGLE,
-      entityTypes: ["urn:li:entityType:dataset", "urn:li:entityType:dataFlow"],
+      entityTypes: ["urn:li:entityType:datahub.dataset", "urn:li:entityType:datahub.dataFlow"],
     }
   ) {
     urn
@@ -531,6 +531,50 @@ Or you can run the following command to view the properties associated with the 
 ```commandline
 datahub dataset get --urn {urn}
 ```
+
+## Read Structured Properties From a Dataset
+
+For reading all structured properties from a dataset:
+
+<Tabs>
+<TabItem value="graphql" label="GraphQL" default>
+
+```graphql
+query getDataset {
+  dataset(urn: "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.ecommerce.customer,PROD)") {
+    structuredProperties {
+      properties {
+        structuredProperty {
+          urn
+          type
+          definition {
+            displayName
+            description
+            allowedValues {
+              description
+            }
+          }
+        }
+        values {
+          ... on StringValue {
+            stringValue
+          }
+          ... on NumberValue {
+            numberValue
+          }
+        }
+        valueEntities {
+          urn
+          type
+        }
+      }
+    }
+  }
+}
+```
+
+</TabItem>  
+</Tabs>
 
 ## Remove Structured Properties From a Dataset
 

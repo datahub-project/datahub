@@ -14,16 +14,12 @@ from datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_pro
 )
 
 # 0. Common client configs.
-datahub_client_configs: Dict[str, Any] = {
-    "full": {
-        "server": "http://localhost:8080",
-        "token": "dummy_test_tok",
-        "timeout_sec": 10,
-        "extra_headers": {},
-        "max_threads": 10,
-    },
-    "simple": {},
-    "default": {},
+datahub_client_full_config = {
+    "server": "http://localhost:8080",
+    "token": "dummy_test_tok",
+    "timeout_sec": 10,
+    "extra_headers": {},
+    "max_threads": 10,
 }
 
 
@@ -41,7 +37,7 @@ checkpointing_provider_config_test_params: Dict[
     "checkpointing_valid_full_config": (
         DatahubIngestionStateProviderConfig,
         {
-            "datahub_api": datahub_client_configs["full"],
+            "datahub_api": datahub_client_full_config,
         },
         DatahubIngestionStateProviderConfig(
             # This test verifies that the max_threads arg is ignored.
@@ -57,27 +53,14 @@ checkpointing_provider_config_test_params: Dict[
         ),
         False,
     ),
-    # Simple config
-    "checkpointing_valid_simple_config": (
-        DatahubIngestionStateProviderConfig,
-        {
-            "datahub_api": datahub_client_configs["simple"],
-        },
-        DatahubIngestionStateProviderConfig(
-            datahub_api=DatahubClientConfig(
-                server="http://localhost:8080",
-            ),
-        ),
-        False,
-    ),
     # Default
     "checkpointing_default": (
         DatahubIngestionStateProviderConfig,
         {
-            "datahub_api": datahub_client_configs["default"],
+            "datahub_api": None,
         },
         DatahubIngestionStateProviderConfig(
-            datahub_api=DatahubClientConfig(),
+            datahub_api=None,
         ),
         False,
     ),
@@ -102,7 +85,7 @@ stateful_ingestion_config_test_params: Dict[
             "max_checkpoint_state_size": 1024,
             "state_provider": {
                 "type": "datahub",
-                "config": datahub_client_configs["full"],
+                "config": datahub_client_full_config,
             },
             "ignore_old_state": True,
             "ignore_new_state": True,
@@ -114,7 +97,7 @@ stateful_ingestion_config_test_params: Dict[
             ignore_new_state=True,
             state_provider=DynamicTypedStateProviderConfig(
                 type="datahub",
-                config=datahub_client_configs["full"],
+                config=datahub_client_full_config,
             ),
         ),
         False,

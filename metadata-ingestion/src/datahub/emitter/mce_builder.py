@@ -13,6 +13,7 @@ from typing import (
     Any,
     List,
     Optional,
+    Set,
     Tuple,
     Type,
     TypeVar,
@@ -24,7 +25,6 @@ from typing import (
 import typing_inspect
 from avrogen.dict_wrapper import DictWrapper
 
-from datahub.configuration.source_common import DEFAULT_ENV
 from datahub.emitter.enum_helpers import get_enum_options
 from datahub.metadata.schema_classes import (
     AssertionKeyClass,
@@ -35,6 +35,7 @@ from datahub.metadata.schema_classes import (
     DatasetKeyClass,
     DatasetLineageTypeClass,
     DatasetSnapshotClass,
+    FabricTypeClass,
     GlobalTagsClass,
     GlossaryTermAssociationClass,
     GlossaryTermsClass as GlossaryTerms,
@@ -55,6 +56,9 @@ from datahub.utilities.urn_encoder import UrnEncoder
 
 logger = logging.getLogger(__name__)
 Aspect = TypeVar("Aspect", bound=AspectAbstract)
+
+DEFAULT_ENV = FabricTypeClass.PROD
+ALL_ENV_TYPES: Set[str] = set(get_enum_options(FabricTypeClass))
 
 DEFAULT_FLOW_CLUSTER = "prod"
 UNKNOWN_USER = "urn:li:corpuser:unknown"
@@ -163,11 +167,15 @@ def dataset_key_to_urn(key: DatasetKeyClass) -> str:
 
 
 def make_container_urn(guid: Union[str, "DatahubKey"]) -> str:
-    from datahub.emitter.mcp_builder import DatahubKey
+    if isinstance(guid, str) and guid.startswith("urn:li:container"):
+        return guid
+    else:
+        from datahub.emitter.mcp_builder import DatahubKey
 
-    if isinstance(guid, DatahubKey):
-        guid = guid.guid()
-    return f"urn:li:container:{guid}"
+        if isinstance(guid, DatahubKey):
+            guid = guid.guid()
+
+        return f"urn:li:container:{guid}"
 
 
 def container_urn_to_key(guid: str) -> Optional[ContainerKeyClass]:

@@ -9,7 +9,6 @@ logger: logging.Logger = logging.getLogger(__name__)
 class PerfTimer(AbstractContextManager):
     """
     A context manager that gives easy access to elapsed time for performance measurement.
-
     """
 
     def __init__(self) -> None:

@@ -30,8 +30,11 @@ public class SparkConfigParser {
   public static final String GMS_AUTH_TOKEN = "rest.token";
   public static final String FILE_EMITTER_FILE_NAME = "file.filename";
   public static final String DISABLE_SSL_VERIFICATION_KEY = "rest.disable_ssl_verification";
+  public static final String REST_DISABLE_CHUNKED_ENCODING = "rest.disable_chunked_encoding";
+
   public static final String MAX_RETRIES = "rest.max_retries";
   public static final String RETRY_INTERVAL_IN_SEC = "rest.retry_interval_in_sec";
+  public static final String KAFKA_MCP_TOPIC = "kafka.mcp_topic";
   public static final String KAFKA_EMITTER_BOOTSTRAP = "kafka.bootstrap";
   public static final String KAFKA_EMITTER_SCHEMA_REGISTRY_URL = "kafka.schema_registry_url";
   public static final String KAFKA_EMITTER_SCHEMA_REGISTRY_CONFIG = "kafka.schema_registry_config";

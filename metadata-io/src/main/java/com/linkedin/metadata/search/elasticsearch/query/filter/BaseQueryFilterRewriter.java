@@ -110,11 +110,8 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
     mustNotQueryBuilders.forEach(expandedQueryBuilder::mustNot);
     expandedQueryBuilder.queryName(boolQueryBuilder.queryName());
     expandedQueryBuilder.adjustPureNegative(boolQueryBuilder.adjustPureNegative());
+    expandedQueryBuilder.minimumShouldMatch(boolQueryBuilder.minimumShouldMatch());
     expandedQueryBuilder.boost(boolQueryBuilder.boost());
-
-    if (!expandedQueryBuilder.should().isEmpty()) {
-      expandedQueryBuilder.minimumShouldMatch(1);
-    }
 
     return expandedQueryBuilder;
   }
@@ -146,7 +143,7 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
     if (!queryUrns.isEmpty()) {
 
       scrollGraph(
-          opContext.getRetrieverContext().get().getGraphRetriever(),
+          opContext.getRetrieverContext().getGraphRetriever(),
           queryUrns,
           relationshipTypes,
           relationshipDirection,

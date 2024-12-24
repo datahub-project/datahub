@@ -16,7 +16,6 @@ from tests.performance.helpers import workunit_sink
 
 
 def run_test():
-
     with mock.patch("snowflake.connector.connect") as mock_connect:
         sf_connection = mock.MagicMock()
         sf_cursor = mock.MagicMock()

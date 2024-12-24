@@ -1,3 +1,4 @@
+import contextlib
 import dataclasses
 import functools
 import json
@@ -17,6 +18,7 @@ from datahub.configuration.time_window_config import (
     BaseTimeWindowConfig,
     BucketDuration,
 )
+from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source import Source, SourceReport
@@ -50,6 +52,8 @@ from datahub.sql_parsing.sql_parsing_aggregator import (
     PreparsedQuery,
     SqlAggregatorReport,
     SqlParsingAggregator,
+    TableRename,
+    TableSwap,
 )
 from datahub.sql_parsing.sql_parsing_common import QueryType
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -114,6 +118,8 @@ class SnowflakeQueriesExtractorReport(Report):
     audit_log_load_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_aggregator: Optional[SqlAggregatorReport] = None
 
+    num_ddl_queries_dropped: int = 0
+
 
 @dataclass
 class SnowflakeQueriesSourceReport(SourceReport):
@@ -121,7 +127,7 @@ class SnowflakeQueriesSourceReport(SourceReport):
     queries_extractor: Optional[SnowflakeQueriesExtractorReport] = None
 
 
-class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
+class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
     def __init__(
         self,
         connection: SnowflakeConnection,
@@ -143,28 +149,33 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
 
         self._structured_report = structured_report
 
-        self.aggregator = SqlParsingAggregator(
-            platform=self.identifiers.platform,
-            platform_instance=self.identifiers.identifier_config.platform_instance,
-            env=self.identifiers.identifier_config.env,
-            schema_resolver=schema_resolver,
-            graph=graph,
-            eager_graph_load=False,
-            generate_lineage=self.config.include_lineage,
-            generate_queries=self.config.include_queries,
-            generate_usage_statistics=self.config.include_usage_statistics,
-            generate_query_usage_statistics=self.config.include_query_usage_statistics,
-            usage_config=BaseUsageConfig(
-                bucket_duration=self.config.window.bucket_duration,
-                start_time=self.config.window.start_time,
-                end_time=self.config.window.end_time,
-                user_email_pattern=self.config.user_email_pattern,
-                # TODO make the rest of the fields configurable
-            ),
-            generate_operations=self.config.include_operations,
-            is_temp_table=self.is_temp_table,
-            is_allowed_table=self.is_allowed_table,
-            format_queries=False,
+        # The exit stack helps ensure that we close all the resources we open.
+        self._exit_stack = contextlib.ExitStack()
+
+        self.aggregator: SqlParsingAggregator = self._exit_stack.enter_context(
+            SqlParsingAggregator(
+                platform=self.identifiers.platform,
+                platform_instance=self.identifiers.identifier_config.platform_instance,
+                env=self.identifiers.identifier_config.env,
+                schema_resolver=schema_resolver,
+                graph=graph,
+                eager_graph_load=False,
+                generate_lineage=self.config.include_lineage,
+                generate_queries=self.config.include_queries,
+                generate_usage_statistics=self.config.include_usage_statistics,
+                generate_query_usage_statistics=self.config.include_query_usage_statistics,
+                usage_config=BaseUsageConfig(
+                    bucket_duration=self.config.window.bucket_duration,
+                    start_time=self.config.window.start_time,
+                    end_time=self.config.window.end_time,
+                    user_email_pattern=self.config.user_email_pattern,
+                    # TODO make the rest of the fields configurable
+                ),
+                generate_operations=self.config.include_operations,
+                is_temp_table=self.is_temp_table,
+                is_allowed_table=self.is_allowed_table,
+                format_queries=False,
+            )
         )
         self.report.sql_aggregator = self.aggregator.report
 
@@ -218,7 +229,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
         audit_log_file = self.local_temp_path / "audit_log.sqlite"
         use_cached_audit_log = audit_log_file.exists()
 
-        queries: FileBackedList[Union[KnownLineageMapping, PreparsedQuery]]
+        queries: FileBackedList[
+            Union[KnownLineageMapping, PreparsedQuery, TableRename, TableSwap]
+        ]
         if use_cached_audit_log:
             logger.info("Using cached audit log")
             shared_connection = ConnectionWrapper(audit_log_file)
@@ -228,14 +241,11 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
 
             shared_connection = ConnectionWrapper(audit_log_file)
             queries = FileBackedList(shared_connection)
-            entry: Union[KnownLineageMapping, PreparsedQuery]
+            entry: Union[KnownLineageMapping, PreparsedQuery, TableRename, TableSwap]
 
             with self.report.copy_history_fetch_timer:
                 for entry in self.fetch_copy_history():
                     queries.append(entry)
-
-            # TODO: Add "show external tables" lineage to the main schema extractor.
-            # Because it's not a time-based thing, it doesn't really make sense in the snowflake-queries extractor.
 
             with self.report.query_log_fetch_timer:
                 for entry in self.fetch_query_log():
@@ -248,6 +258,10 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
                 self.aggregator.add(query)
 
         yield from auto_workunit(self.aggregator.gen_metadata())
+        if not use_cached_audit_log:
+            queries.close()
+            shared_connection.close()
+            audit_log_file.unlink(missing_ok=True)
 
     def fetch_copy_history(self) -> Iterable[KnownLineageMapping]:
         # Derived from _populate_external_lineage_from_copy_history.
@@ -285,7 +299,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
 
     def fetch_query_log(
         self,
-    ) -> Iterable[PreparsedQuery]:
+    ) -> Iterable[Union[PreparsedQuery, TableRename, TableSwap]]:
         query_log_query = _build_enriched_query_log_query(
             start_time=self.config.window.start_time,
             end_time=self.config.window.end_time,
@@ -313,12 +327,16 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
                         exc=e,
                     )
                 else:
-                    yield entry
+                    if entry:
+                        yield entry
 
-    def _parse_audit_log_row(self, row: Dict[str, Any]) -> PreparsedQuery:
+    def _parse_audit_log_row(
+        self, row: Dict[str, Any]
+    ) -> Optional[Union[TableRename, TableSwap, PreparsedQuery]]:
         json_fields = {
             "DIRECT_OBJECTS_ACCESSED",
             "OBJECTS_MODIFIED",
+            "OBJECT_MODIFIED_BY_DDL",
         }
 
         res = {}
@@ -330,7 +348,26 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
 
         direct_objects_accessed = res["direct_objects_accessed"]
         objects_modified = res["objects_modified"]
+        object_modified_by_ddl = res["object_modified_by_ddl"]
 
+        if object_modified_by_ddl and not objects_modified:
+            known_ddl_entry: Optional[Union[TableRename, TableSwap]] = None
+            with self.structured_reporter.report_exc(
+                "Error fetching ddl lineage from Snowflake"
+            ):
+                known_ddl_entry = self.parse_ddl_query(
+                    res["query_text"],
+                    res["session_id"],
+                    res["query_start_time"],
+                    object_modified_by_ddl,
+                )
+            if known_ddl_entry:
+                return known_ddl_entry
+            elif direct_objects_accessed:
+                # Unknown ddl relevant for usage. We want to continue execution here
+                pass
+            else:
+                return None
         upstreams = []
         column_usage = {}
 
@@ -426,6 +463,53 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin):
         )
         return entry
 
+    def parse_ddl_query(
+        self,
+        query: str,
+        session_id: str,
+        timestamp: datetime,
+        object_modified_by_ddl: dict,
+    ) -> Optional[Union[TableRename, TableSwap]]:
+        timestamp = timestamp.astimezone(timezone.utc)
+        if object_modified_by_ddl[
+            "operationType"
+        ] == "ALTER" and object_modified_by_ddl["properties"].get("swapTargetName"):
+            urn1 = self.identifiers.gen_dataset_urn(
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    object_modified_by_ddl["objectName"]
+                )
+            )
+
+            urn2 = self.identifiers.gen_dataset_urn(
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    object_modified_by_ddl["properties"]["swapTargetName"]["value"]
+                )
+            )
+
+            return TableSwap(urn1, urn2, query, session_id, timestamp)
+        elif object_modified_by_ddl[
+            "operationType"
+        ] == "RENAME_TABLE" and object_modified_by_ddl["properties"].get("objectName"):
+            original_un = self.identifiers.gen_dataset_urn(
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    object_modified_by_ddl["objectName"]
+                )
+            )
+
+            new_urn = self.identifiers.gen_dataset_urn(
+                self.identifiers.get_dataset_identifier_from_qualified_name(
+                    object_modified_by_ddl["properties"]["objectName"]["value"]
+                )
+            )
+
+            return TableRename(original_un, new_urn, query, session_id, timestamp)
+        else:
+            self.report.num_ddl_queries_dropped += 1
+            return None
+
+    def close(self) -> None:
+        self._exit_stack.close()
+
 
 class SnowflakeQueriesSource(Source):
     def __init__(self, ctx: PipelineContext, config: SnowflakeQueriesSourceConfig):
@@ -467,6 +551,10 @@ class SnowflakeQueriesSource(Source):
 
     def get_report(self) -> SnowflakeQueriesSourceReport:
         return self.report
+
+    def close(self) -> None:
+        self.connection.close()
+        self.queries_extractor.close()
 
 
 # Make sure we don't try to generate too much info for a single query.
@@ -524,6 +612,7 @@ fingerprinted_queries as (
         user_name,
         direct_objects_accessed,
         objects_modified,
+        object_modified_by_ddl
     FROM
         snowflake.account_usage.access_history
     WHERE
@@ -545,8 +634,9 @@ fingerprinted_queries as (
         ) as direct_objects_accessed,
         -- TODO: Drop the columns.baseSources subfield.
         FILTER(objects_modified, o -> o:objectDomain IN {SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER}) as objects_modified,
+        case when object_modified_by_ddl:objectDomain IN {SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER} then object_modified_by_ddl else null end as object_modified_by_ddl
     FROM raw_access_history
-    WHERE ( array_size(direct_objects_accessed) > 0 or array_size(objects_modified) > 0 )
+    WHERE ( array_size(direct_objects_accessed) > 0 or array_size(objects_modified) > 0 or object_modified_by_ddl is not null )
 )
 , query_access_history AS (
     SELECT
@@ -568,6 +658,7 @@ fingerprinted_queries as (
         q.role_name AS "ROLE_NAME",
         a.direct_objects_accessed,
         a.objects_modified,
+        a.object_modified_by_ddl
     FROM deduplicated_queries q
     JOIN filtered_access_history a USING (query_id)
 )

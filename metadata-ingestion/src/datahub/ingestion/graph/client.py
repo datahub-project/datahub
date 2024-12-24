@@ -33,7 +33,9 @@ from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.config import (  # noqa: I250; TODO: Remove this alias
+    DatahubClientConfig as DatahubClientConfig,
+)
 from datahub.ingestion.graph.connections import (
     connections_gql,
     get_id_from_connection_urn,
@@ -65,6 +67,7 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
+from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import Urn, guess_entity_type
@@ -185,9 +188,12 @@ class DataHubGraph(DatahubRestEmitter):
                 retry_max_times=emitter._retry_max_times,
                 extra_headers=emitter._session.headers,
                 disable_ssl_verification=emitter._session.verify is False,
-                # TODO: Support these headers.
-                # ca_certificate_path=emitter._ca_certificate_path,
-                # client_certificate_path=emitter._client_certificate_path,
+                ca_certificate_path=(
+                    emitter._session.verify
+                    if isinstance(emitter._session.verify, str)
+                    else None
+                ),
+                client_certificate_path=emitter._session.cert,
             )
         )
 
@@ -351,6 +357,7 @@ class DataHubGraph(DatahubRestEmitter):
     def get_glossary_terms(self, entity_urn: str) -> Optional[GlossaryTermsClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=GlossaryTermsClass)
 
+    @functools.lru_cache(maxsize=1)
     def get_domain(self, entity_urn: str) -> Optional[DomainsClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=DomainsClass)
 
@@ -559,8 +566,10 @@ class DataHubGraph(DatahubRestEmitter):
             post_json_obj = post_json_transform(aspect_json)
             aspect_value = aspect_type.from_obj(post_json_obj["value"])
 
-            system_metadata_raw = post_json_obj["systemMetadata"]
-            system_metadata = SystemMetadataClass.from_obj(system_metadata_raw)
+            system_metadata_raw = post_json_obj.get("systemMetadata")
+            system_metadata = None
+            if system_metadata_raw:
+                system_metadata = SystemMetadataClass.from_obj(system_metadata_raw)
 
             mcpw = MetadataChangeProposalWrapper(
                 entityUrn=entity_urn,
@@ -590,7 +599,7 @@ class DataHubGraph(DatahubRestEmitter):
             not be present in the dictionary. The entity's key aspect will always be present.
         """
 
-        mcps = self.get_entity_as_mcps(entity_urn, aspects)
+        mcps = self.get_entity_as_mcps(entity_urn, aspects=aspects)
 
         result: AspectBag = {}
         for mcp in mcps:
@@ -1238,14 +1247,29 @@ class DataHubGraph(DatahubRestEmitter):
         Args:
             urn: The urn of the entity to soft-delete.
         """
+        self.set_soft_delete_status(
+            urn=urn, run_id=run_id, deletion_timestamp=deletion_timestamp, delete=True
+        )
 
+    def set_soft_delete_status(
+        self,
+        urn: str,
+        delete: bool,
+        run_id: str = _GRAPH_DUMMY_RUN_ID,
+        deletion_timestamp: Optional[int] = None,
+    ) -> None:
+        """Change status of soft-delete an entity by urn.
+
+        Args:
+            urn: The urn of the entity to soft-delete.
+        """
         assert urn
 
         deletion_timestamp = deletion_timestamp or int(time.time() * 1000)
         self.emit(
             MetadataChangeProposalWrapper(
                 entityUrn=urn,
-                aspect=StatusClass(removed=True),
+                aspect=StatusClass(removed=delete),
                 systemMetadata=SystemMetadataClass(
                     runId=run_id, lastObserved=deletion_timestamp
                 ),
@@ -1799,4 +1823,5 @@ def get_default_graph() -> DataHubGraph:
     graph_config = config_utils.load_client_config()
     graph = DataHubGraph(graph_config)
     graph.test_connection()
+    telemetry_instance.set_context(server=graph)
     return graph

@@ -5,6 +5,7 @@ import static org.mockito.Mockito.*;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.NumericNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.metadata.config.TimeseriesAspectServiceConfig;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -44,7 +45,8 @@ public class TimeseriesAspectServiceUnitTest {
           _timeseriesAspectIndexBuilders,
           _bulkProcessor,
           0,
-          QueryFilterRewriteChain.EMPTY);
+          QueryFilterRewriteChain.EMPTY,
+          TimeseriesAspectServiceConfig.builder().build());
   private final OperationContext opContext =
       TestOperationContexts.systemContextNoSearchAuthorization(_indexConvention);
 

@@ -70,6 +70,9 @@ public class MapperUtils {
         aggregationFacets.stream()
             .map(facet -> facet.equals("entity") || facet.contains("_entityType"))
             .collect(Collectors.toList());
+    if (aggregationMetadata.getEntity() != null) {
+      facetMetadata.setEntity(UrnToEntityMapper.map(context, aggregationMetadata.getEntity()));
+    }
     facetMetadata.setField(aggregationMetadata.getName());
     facetMetadata.setDisplayName(
         Optional.ofNullable(aggregationMetadata.getDisplayName())

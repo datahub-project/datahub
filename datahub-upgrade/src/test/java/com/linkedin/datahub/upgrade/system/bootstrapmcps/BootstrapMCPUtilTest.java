@@ -4,6 +4,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.UrnUtils;
@@ -17,6 +18,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.List;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Listeners;
 import org.testng.annotations.Test;
 import uk.org.webcompere.systemstubs.environment.EnvironmentVariables;
@@ -28,9 +30,16 @@ public class BootstrapMCPUtilTest {
   static final OperationContext OP_CONTEXT =
       TestOperationContexts.systemContextNoSearchAuthorization();
   private static final String DATAHUB_TEST_VALUES_ENV = "DATAHUB_TEST_VALUES_ENV";
+  private static final String DATAHUB_TEST_REVISION_ENV = "DATAHUB_TEST_REVISION_ENV";
   private static final AuditStamp TEST_AUDIT_STAMP = AuditStampUtils.createDefaultAuditStamp();
 
   @SystemStub private EnvironmentVariables environmentVariables;
+
+  @BeforeMethod
+  private void resetEnvironment() {
+    environmentVariables.remove(DATAHUB_TEST_VALUES_ENV);
+    environmentVariables.remove(DATAHUB_TEST_REVISION_ENV);
+  }
 
   @Test
   public void testResolveYamlConf() throws IOException {
@@ -51,9 +60,28 @@ public class BootstrapMCPUtilTest {
   }
 
   @Test
-  public void testResolveMCPTemplateDefaults() throws IOException {
-    environmentVariables.remove(DATAHUB_TEST_VALUES_ENV);
+  public void testResolveYamlConfOverride() throws IOException {
+    environmentVariables.set(DATAHUB_TEST_REVISION_ENV, "{\"version\":\"2024110600\"}");
 
+    BootstrapMCPConfigFile initConfig =
+        BootstrapMCPUtil.resolveYamlConf(
+            OP_CONTEXT, "bootstrapmcp/test.yaml", BootstrapMCPConfigFile.class);
+    assertEquals(initConfig.getBootstrap().getTemplates().size(), 1);
+
+    BootstrapMCPConfigFile.MCPTemplate template =
+        initConfig.getBootstrap().getTemplates().get(0).withOverride(new ObjectMapper());
+    assertEquals(template.getName(), "datahub-test");
+    assertEquals(template.getVersion(), "2024110600");
+    assertFalse(template.isForce());
+    assertFalse(template.isBlocking());
+    assertTrue(template.isAsync());
+    assertFalse(template.isOptional());
+    assertEquals(template.getMcps_location(), "bootstrapmcp/datahub-test-mcp.yaml");
+    assertEquals(template.getValues_env(), "DATAHUB_TEST_VALUES_ENV");
+  }
+
+  @Test
+  public void testResolveMCPTemplateDefaults() throws IOException {
     BootstrapMCPConfigFile.MCPTemplate template =
         BootstrapMCPUtil.resolveYamlConf(
                 OP_CONTEXT, "bootstrapmcp/test.yaml", BootstrapMCPConfigFile.class)
@@ -186,8 +214,6 @@ public class BootstrapMCPUtilTest {
 
   @Test
   public void testMCPBatch() throws IOException {
-    environmentVariables.remove(DATAHUB_TEST_VALUES_ENV);
-
     BootstrapMCPConfigFile.MCPTemplate template =
         BootstrapMCPUtil.resolveYamlConf(
                 OP_CONTEXT, "bootstrapmcp/test.yaml", BootstrapMCPConfigFile.class)
@@ -219,6 +245,6 @@ public class BootstrapMCPUtilTest {
         OP_CONTEXT
             .getObjectMapper()
             .readTree(
-                "{\"source\":{\"type\":\"datahub-gc\",\"config\":{\"cleanup_expired_tokens\":false,\"truncate_indices\":true,\"dataprocess_cleanup\":{\"retention_days\":10,\"delete_empty_data_jobs\":true,\"delete_empty_data_flows\":true,\"hard_delete_entities\":false,\"keep_last_n\":5},\"soft_deleted_entities_cleanup\":{\"retention_days\":10}}}}"));
+                "{\"source\":{\"type\":\"datahub-gc\",\"config\":{\"cleanup_expired_tokens\":false,\"truncate_indices\":true,\"dataprocess_cleanup\":{\"retention_days\":10,\"delete_empty_data_jobs\":true,\"delete_empty_data_flows\":true,\"hard_delete_entities\":false,\"keep_last_n\":5},\"soft_deleted_entities_cleanup\":{\"retention_days\":10},\"execution_request_cleanup\":{\"keep_history_min_count\":10,\"keep_history_max_count\":1000,\"keep_history_max_days\":30,\"batch_read_size\":100,\"enabled\":false}}}}"));
   }
 }

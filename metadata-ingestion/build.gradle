@@ -2,6 +2,8 @@ plugins {
   id 'base'
 }
 
+apply from: "../gradle/coverage/python-coverage.gradle"
+
 ext {
   python_executable = 'python3'
   venv_name = 'venv'
@@ -9,10 +11,6 @@ ext {
 
 if (!project.hasProperty("extra_pip_requirements")) {
     ext.extra_pip_requirements = ""
-}
-
-def get_coverage_arg(test_name) {
-  return "--cov-report xml:coverage_${test_name}.xml "
 }
 
 task checkPythonVersion(type: Exec) {
@@ -25,20 +23,12 @@ task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
-    "${python_executable} -m venv ${venv_name} && " +
-    "${venv_name}/bin/python -m pip install --upgrade pip uv wheel 'setuptools>=63.0.0' && " +
+    "${python_executable} -m venv ${venv_name} && set -x && " +
+    "${venv_name}/bin/python -m pip install --upgrade uv && " +
     "touch ${sentinel_file}"
 }
 
-task runPreFlightScript(type: Exec, dependsOn: environmentSetup) {
-  def sentinel_file = ".preflight_sentinel"
-  outputs.file(sentinel_file)
-  commandLine 'bash', '-c',
-    "scripts/datahub_preflight.sh && " +
-    "touch ${sentinel_file}"
-}
-
-task installPackageOnly(type: Exec, dependsOn: runPreFlightScript) {
+task installPackageOnly(type: Exec, dependsOn: environmentSetup) {
   def sentinel_file = "${venv_name}/.build_install_package_only_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
@@ -142,7 +132,7 @@ task testQuick(type: Exec, dependsOn: [installDev, ':metadata-models:generateJso
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
   outputs.dir("${venv_name}")
-  def cvg_arg = get_coverage_arg("quick")
+  def cvg_arg = get_coverage_args("quick")
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "pytest ${cvg_arg} tests/unit --random-order --durations=20 -m 'not integration' -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
@@ -174,19 +164,19 @@ task testSingle(dependsOn: [installDevTest]) {
 }
 
 task testIntegrationBatch0(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_arg("intBatch0")
+  def cvg_arg = get_coverage_args("intBatch0")
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "pytest ${cvg_arg} --durations=50 -m 'integration_batch_0' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch0.xml"
 }
 task testIntegrationBatch1(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_arg("intBatch1")
+  def cvg_arg = get_coverage_args("intBatch1")
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "pytest ${cvg_arg} --durations=50 -m 'integration_batch_1' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch1.xml"
 }
 task testIntegrationBatch2(type: Exec, dependsOn: [installDevTest]) {
-  def cvg_arg = get_coverage_arg("intBatch2")
+  def cvg_arg = get_coverage_args("intBatch2")
   commandLine 'bash', '-c',
     "source ${venv_name}/bin/activate && set -x && " +
     "pytest ${cvg_arg} --durations=20 -m 'integration_batch_2' -vv --continue-on-collection-errors --junit-xml=junit.integrationbatch2.xml"

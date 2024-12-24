@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import styles from "./community.module.scss";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 
-const TARGET_COUNT = 11535;
+const TARGET_COUNT = 12219;
 const INCREMENT = 1;
 
 const Community = () => {

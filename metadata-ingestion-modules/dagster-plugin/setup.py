@@ -13,14 +13,6 @@ def get_long_description():
     return pathlib.Path(os.path.join(root, "README.md")).read_text()
 
 
-rest_common = {"requests", "requests_file"}
-
-sqlglot_lib = {
-    # Using an Acryl fork of sqlglot.
-    # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "acryl-sqlglot[rs]==24.0.1.dev7",
-}
-
 _version: str = package_metadata["__version__"]
 _self_pin = (
     f"=={_version}"
@@ -32,11 +24,7 @@ base_requirements = {
     # Actual dependencies.
     "dagster >= 1.3.3",
     "dagit >= 1.3.3",
-    *rest_common,
-    # Ignoring the dependency below because it causes issues with the vercel built wheel install
-    # f"acryl-datahub[datahub-rest]{_self_pin}",
-    "acryl-datahub[datahub-rest]",
-    *sqlglot_lib,
+    f"acryl-datahub[datahub-rest,sql-parser]{_self_pin}",
 }
 
 mypy_stubs = {
@@ -132,7 +120,7 @@ setuptools.setup(
     ],
     # Package info.
     zip_safe=False,
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     package_dir={"": "src"},
     packages=setuptools.find_namespace_packages(where="./src"),
     entry_points=entry_points,

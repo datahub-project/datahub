@@ -118,6 +118,12 @@ searchService:
       pageSize: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_PAGE_SIZE:100}
       limit: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_LIMIT:100}
 
+timeseriesAspectService:
+  query:
+    concurrency: ${TIMESERIES_ASPECT_SERVICE_QUERY_CONCURRENCY:10} # parallel threads
+    queueSize: ${TIMESERIES_ASPECT_SERVICE_QUERY)QUEUE_SIZE:500}
+    threadKeepAlive: ${TIMESERIES_ASPECT_SERVICE_QUERY_THREAD_KEEP_ALIVE:60}
+
 configEntityRegistry:
   path: ${ENTITY_REGISTRY_CONFIG_PATH:../../metadata-models/src/main/resources/entity-registry.yml}
   # Priority is given to the `path` setting above (outside jar)
@@ -158,8 +164,9 @@ ebean:
   waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
   postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
+  batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
   locking:
-    enabled: ${EBEAN_LOCKING_ENABLED:true}
+    enabled: ${EBEAN_LOCKING_ENABLED:false}
     durationSeconds: ${EBEAN_LOCKING_DURATION_SECONDS:60}
     maximumLocks: ${EBEAN_LOCKING_MAXIMUM_LOCKS:20000}
 
@@ -289,6 +296,13 @@ kafka:
     maxPartitionFetchBytes: ${KAFKA_CONSUMER_MAX_PARTITION_FETCH_BYTES:5242880} # the max bytes consumed per partition
     stopOnDeserializationError: ${KAFKA_CONSUMER_STOP_ON_DESERIALIZATION_ERROR:true} # Stops kafka listener container on deserialization error, allows user to fix problems before moving past problematic offset. If false will log and move forward past the offset
     healthCheckEnabled: ${KAFKA_CONSUMER_HEALTH_CHECK_ENABLED:true} # Sets the health indicator to down when a message listener container has stopped due to a deserialization failure, will force consumer apps to restart through k8s and docker-compose health mechanisms
+    mcp:
+      autoOffsetReset: ${KAFKA_CONSUMER_MCP_AUTO_OFFSET_RESET:earliest}
+    mcl:
+      autoOffsetReset: ${KAFKA_CONSUMER_MCL_AUTO_OFFSET_RESET:earliest}
+    pe:
+      autoOffsetReset: ${KAFKA_CONSUMER_PE_AUTO_OFFSET_RESET:latest}
+
   schemaRegistry:
     type: ${SCHEMA_REGISTRY_TYPE:KAFKA} # INTERNAL or KAFKA or AWS_GLUE
     url: ${KAFKA_SCHEMAREGISTRY_URL:http://localhost:8081}
@@ -372,6 +386,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_BROWSE_PATHS_V2_BATCH_SIZE:5000}
     reprocess:
       enabled: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:false}
+  ingestionIndices:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_BATCH_SIZE:5000}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_DELAY_MS:1000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_INGESTION_INDICES_CLL_LIMIT:0}
   policyFields:
     enabled: ${BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_ENABLED:true}
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_POLICY_FIELDS_BATCH_SIZE:5000}
@@ -405,6 +424,11 @@ systemUpdate:
     batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_EDGE_STATUS_BATCH_SIZE:1000}
     delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_EDGE_STATUS_DELAY_MS:5000}
     limit: ${BOOTSTRAP_SYSTEM_UPDATE_EDGE_STATUS_LIMIT:0}
+  propertyDefinitions:
+    enabled: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_ENABLED:true}
+    batchSize: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_BATCH_SIZE:500}
+    delayMs: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_DELAY_MS:1000}
+    limit: ${BOOTSTRAP_SYSTEM_UPDATE_PROPERTY_DEFINITIONS_CLL_LIMIT:0}
       
 structuredProperties:
   enabled: ${ENABLE_STRUCTURED_PROPERTIES_HOOK:true} # applies structured properties mappings
@@ -435,8 +459,10 @@ featureFlags:
   schemaFieldEntityFetchEnabled: ${SCHEMA_FIELD_ENTITY_FETCH_ENABLED:true} # Enables fetching for schema field entities from the database when we hydrate them on schema fields
   businessAttributeEntityEnabled: ${BUSINESS_ATTRIBUTE_ENTITY_ENABLED:false} # Enables business attribute entity which can be associated with field of dataset
   dataContractsEnabled: ${DATA_CONTRACTS_ENABLED:true} # Enables the Data Contracts feature (Tab) in the UI
+  alternateMCPValidation: ${ALTERNATE_MCP_VALIDATION:false} # Enables alternate MCP validation flow
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
+  showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
 
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
@@ -451,10 +477,19 @@ entityClient:
   java:
     get:
       batchSize: ${ENTITY_CLIENT_JAVA_GET_BATCH_SIZE:375} # matches EbeanAspectDao batch size
+    ingest:
+      batchSize: ${ENTITY_CLIENT_JAVA_INGEST_BATCH_SIZE:375}
   restli:
     get:
       batchSize: ${ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE:100} # limited to prevent exceeding restli URI size limit
       batchConcurrency: ${ENTITY_CLIENT_RESTLI_GET_BATCH_CONCURRENCY:2} # parallel threads
+      batchQueueSize: ${ENTITY_CLIENT_RESTLI_GET_BATCH_QUEUE_SIZE:500}
+      batchThreadKeepAlive: ${ENTITY_CLIENT_RESTLI_GET_BATCH_THREAD_KEEP_ALIVE:60}
+    ingest:
+      batchSize: ${ENTITY_CLIENT_RESTLI_INGEST_BATCH_SIZE:50} # limited to prevent exceeding restli timeouts
+      batchConcurrency: ${ENTITY_CLIENT_RESTLI_INGEST_BATCH_CONCURRENCY:2} # parallel threads
+      batchQueueSize: ${ENTITY_CLIENT_RESTLI_INGEST_BATCH_QUEUE_SIZE:500}
+      batchThreadKeepAlive: ${ENTITY_CLIENT_RESTLI_INGEST_BATCH_THREAD_KEEP_ALIVE:60}
 
 usageClient:
   retryInterval: ${USAGE_CLIENT_RETRY_INTERVAL:2}
@@ -488,12 +523,12 @@ cache:
       entityAspectTTLSeconds:
         # cache user aspects for 20s
         corpuser:
-          corpUserKey: 20
+          corpUserKey: 300 # 5 min
           corpUserInfo: 20
           corpUserEditableInfo: 20
-          corpUserStatus: 20
+          corpUserStatus: 300 # 5 min
           globalTags: 20
-          status: 20
+          status: 300 # 5 min
           corpUserCredentials: 20
           corpUserSettings: 20
           roleMembership: 20
@@ -527,7 +562,7 @@ springdoc.api-docs.groups.enabled: true
 
 forms:
   hook:
-    enabled: { $FORMS_HOOK_ENABLED:true }
+    enabled: ${FORMS_HOOK_ENABLED:true}
     consumerGroupSuffix: ${FORMS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 businessAttribute:
@@ -539,6 +574,8 @@ businessAttribute:
 metadataChangeProposal:
   validation:
     ignoreUnknown: ${MCP_VALIDATION_IGNORE_UNKNOWN:true}
+    extensions:
+      enabled: ${MCP_VALIDATION_EXTENSIONS_ENABLED:false}
   sideEffects:
     schemaField:
       enabled: ${MCP_SIDE_EFFECTS_SCHEMA_FIELD_ENABLED:false}

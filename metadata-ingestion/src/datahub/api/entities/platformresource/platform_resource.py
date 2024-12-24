@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Union
+from typing import Callable, Dict, Iterable, List, Optional, Tuple, Type, Union, cast
 
 from avrogen.dict_wrapper import DictWrapper
 from pydantic import BaseModel
@@ -14,7 +14,19 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import DatahubKey
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.urns import PlatformResourceUrn
+from datahub.metadata.urns import (
+    DataPlatformInstanceUrn,
+    DataPlatformUrn,
+    PlatformResourceUrn,
+    Urn,
+)
+from datahub.utilities.openapi_utils import OpenAPIGraphClient
+from datahub.utilities.search_utils import (
+    ElasticDocumentQuery,
+    ElasticsearchQueryBuilder,
+    LogicalOperator,
+    SearchField,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,54 +81,60 @@ class PlatformResourceInfo(BaseModel):
         )
 
 
-class OpenAPIGraphClient:
+class UrnSearchField(SearchField):
+    """
+    A search field that supports URN values.
+    TODO: Move this to search_utils after we make this more generic.
+    """
 
-    ENTITY_KEY_ASPECT_MAP = {
-        aspect_type.ASPECT_INFO.get("keyForEntity"): name
-        for name, aspect_type in models.ASPECT_NAME_MAP.items()
-        if aspect_type.ASPECT_INFO.get("keyForEntity")
-    }
+    def __init__(self, field_name: str, urn_value_extractor: Callable[[str], Urn]):
+        self.urn_value_extractor = urn_value_extractor
+        super().__init__(field_name)
 
-    def __init__(self, graph: DataHubGraph):
-        self.graph = graph
-        self.openapi_base = graph._gms_server.rstrip("/") + "/openapi/v3"
+    def get_search_value(self, value: str) -> str:
+        return str(self.urn_value_extractor(value))
 
-    def scroll_urns_by_filter(
-        self,
-        entity_type: str,
-        extra_or_filters: List[Dict[str, str]],
-    ) -> Iterable[str]:
-        """
-        Scroll through all urns that match the given filters
-        """
 
-        key_aspect = self.ENTITY_KEY_ASPECT_MAP.get(entity_type)
-        assert key_aspect, f"No key aspect found for entity type {entity_type}"
+class PlatformResourceSearchField(SearchField):
+    def __init__(self, field_name: str):
+        super().__init__(field_name)
 
-        count = 1000
-        query = " OR ".join(
-            [f"{filter['field']}:{filter['value']}" for filter in extra_or_filters]
+    @classmethod
+    def from_search_field(
+        cls, search_field: SearchField
+    ) -> "PlatformResourceSearchField":
+        # pretends to be a class method, but just returns the input
+        return search_field  # type: ignore
+
+
+class PlatformResourceSearchFields:
+    PRIMARY_KEY = PlatformResourceSearchField("primaryKey")
+    RESOURCE_TYPE = PlatformResourceSearchField("resourceType")
+    SECONDARY_KEYS = PlatformResourceSearchField("secondaryKeys")
+    PLATFORM = PlatformResourceSearchField.from_search_field(
+        UrnSearchField(
+            field_name="platform.keyword",
+            urn_value_extractor=DataPlatformUrn.create_from_id,
         )
-        scroll_id = None
-        while True:
-            response = self.graph._get_generic(
-                self.openapi_base + f"/entity/{entity_type.lower()}",
-                params={
-                    "systemMetadata": "false",
-                    "includeSoftDelete": "false",
-                    "skipCache": "false",
-                    "aspects": [key_aspect],
-                    "scrollId": scroll_id,
-                    "count": count,
-                    "query": query,
-                },
-            )
-            entities = response.get("entities", [])
-            scroll_id = response.get("scrollId")
-            for entity in entities:
-                yield entity["urn"]
-            if not scroll_id:
-                break
+    )
+    PLATFORM_INSTANCE = PlatformResourceSearchField.from_search_field(
+        UrnSearchField(
+            field_name="platformInstance.keyword",
+            urn_value_extractor=DataPlatformInstanceUrn.from_string,
+        )
+    )
+
+
+class ElasticPlatformResourceQuery(ElasticDocumentQuery[PlatformResourceSearchField]):
+    def __init__(self):
+        super().__init__()
+
+    @classmethod
+    def create_from(
+        cls: Type["ElasticPlatformResourceQuery"],
+        *args: Tuple[Union[str, PlatformResourceSearchField], str],
+    ) -> "ElasticPlatformResourceQuery":
+        return cast(ElasticPlatformResourceQuery, super().create_from(*args))
 
 
 class PlatformResource(BaseModel):
@@ -130,6 +148,12 @@ class PlatformResource(BaseModel):
         cls,
         key: PlatformResourceKey,
     ) -> "PlatformResource":
+        """
+        Creates a PlatformResource object with the removed status set to True.
+        Removed PlatformResource objects are used to soft-delete resources from
+        the graph.
+        To hard-delete a resource, use the delete method.
+        """
         return cls(
             id=key.id,
             removed=True,
@@ -186,10 +210,17 @@ class PlatformResource(BaseModel):
     def from_datahub(
         cls, graph_client: DataHubGraph, key: Union[PlatformResourceKey, str]
     ) -> Optional["PlatformResource"]:
+        """
+        Fetches a PlatformResource from the graph given a key.
+        Key can be either a PlatformResourceKey object or an urn string.
+        Returns None if the resource is not found.
+        """
         if isinstance(key, PlatformResourceKey):
             urn = PlatformResourceUrn(id=key.id)
         else:
             urn = PlatformResourceUrn.from_string(key)
+        if not graph_client.exists(str(urn)):
+            return None
         platform_resource = graph_client.get_entity_semityped(str(urn))
         return cls(
             id=urn.id,
@@ -216,28 +247,38 @@ class PlatformResource(BaseModel):
 
     @staticmethod
     def search_by_key(
-        graph_client: DataHubGraph, key: str, primary: bool = True
+        graph_client: DataHubGraph,
+        key: str,
+        primary: bool = True,
+        is_exact: bool = True,
     ) -> Iterable["PlatformResource"]:
-        extra_or_filters = []
-        extra_or_filters.append(
-            {
-                "field": "primaryKey",
-                "condition": "EQUAL",
-                "value": key,
-            }
+        """
+        Searches for PlatformResource entities by primary or secondary key.
+
+        :param graph_client: DataHubGraph client
+        :param key: The key to search for
+        :param primary: Whether to search for primary only or expand the search
+            to secondary keys (default: True)
+        :param is_exact: Whether to search for an exact match (default: True)
+        :return: An iterable of PlatformResource objects
+        """
+
+        elastic_platform_resource_group = (
+            ElasticPlatformResourceQuery.create_from()
+            .group(LogicalOperator.OR)
+            .add_field_match(
+                PlatformResourceSearchFields.PRIMARY_KEY, key, is_exact=is_exact
+            )
         )
         if not primary:  # we expand the search to secondary keys
-            extra_or_filters.append(
-                {
-                    "field": "secondaryKeys",
-                    "condition": "EQUAL",
-                    "value": key,
-                }
+            elastic_platform_resource_group.add_field_match(
+                PlatformResourceSearchFields.SECONDARY_KEYS, key, is_exact=is_exact
             )
+        query = elastic_platform_resource_group.end()
         openapi_client = OpenAPIGraphClient(graph_client)
         for urn in openapi_client.scroll_urns_by_filter(
             entity_type="platformResource",
-            extra_or_filters=extra_or_filters,
+            query=query,
         ):
             platform_resource = PlatformResource.from_datahub(graph_client, urn)
             if platform_resource:
@@ -245,3 +286,21 @@ class PlatformResource(BaseModel):
 
     def delete(self, graph_client: DataHubGraph, hard: bool = True) -> None:
         graph_client.delete_entity(str(PlatformResourceUrn(self.id)), hard=hard)
+
+    @staticmethod
+    def search_by_filters(
+        graph_client: DataHubGraph,
+        query: Union[
+            ElasticPlatformResourceQuery,
+            ElasticDocumentQuery,
+            ElasticsearchQueryBuilder,
+        ],
+    ) -> Iterable["PlatformResource"]:
+        openapi_client = OpenAPIGraphClient(graph_client)
+        for urn in openapi_client.scroll_urns_by_filter(
+            entity_type="platformResource",
+            query=query,
+        ):
+            platform_resource = PlatformResource.from_datahub(graph_client, urn)
+            if platform_resource:
+                yield platform_resource

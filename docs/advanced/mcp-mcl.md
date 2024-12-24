@@ -14,6 +14,18 @@ To mitigate these downsides, we are committed to providing cross-language client
 
 Ultimately, we intend to realize a state in which the Entities and Aspect schemas can be altered without requiring generated code and without maintaining a single mega-model schema (looking at you, Snapshot.pdl). The intention is that changes to the metadata model become even easier than they are today.
 
+### Synchronous Ingestion Architecture
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced/mcp-mcl/sync-ingestion.svg"/>
+</p>
+
+### Asynchronous Ingestion Architecture
+
+<p align="center">
+  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/advanced/mcp-mcl/async-ingestion.svg"/>
+</p>
+
 ## Modeling
 
 A Metadata Change Proposal is defined (in PDL) as follows
@@ -205,4 +217,7 @@ Another form of conditional writes which considers the existence of an aspect or
 `CREATE` - Create the aspect if it doesn't already exist.
 
 `CREATE_ENTITY` - Create the aspect if no aspects exist for the entity.
+
+By default, a validation exception is thrown if the `CREATE`/`CREATE_ENTITY` constraint is violated. If the write operation
+should be dropped without considering it an exception, then add the following header: `If-None-Match: *` to the MCP.
 

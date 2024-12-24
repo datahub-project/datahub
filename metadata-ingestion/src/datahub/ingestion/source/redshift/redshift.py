@@ -222,6 +222,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     ```
     """
 
+    # TODO: Replace with standardized types in sql_types.py
     REDSHIFT_FIELD_TYPE_MAPPINGS: Dict[
         str,
         Type[
@@ -436,7 +437,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def _extract_metadata(
         self, connection: redshift_connector.Connection, database: str
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-
         yield from self.gen_database_container(
             database=database,
         )
@@ -451,24 +451,23 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         )
 
         if self.config.use_lineage_v2:
-            lineage_extractor = RedshiftSqlLineageV2(
+            with RedshiftSqlLineageV2(
                 config=self.config,
                 report=self.report,
                 context=self.ctx,
                 database=database,
                 redundant_run_skip_handler=self.redundant_lineage_run_skip_handler,
-            )
+            ) as lineage_extractor:
+                yield from lineage_extractor.aggregator.register_schemas_from_stream(
+                    self.process_schemas(connection, database)
+                )
 
-            yield from lineage_extractor.aggregator.register_schemas_from_stream(
-                self.process_schemas(connection, database)
-            )
-
-            self.report.report_ingestion_stage_start(LINEAGE_EXTRACTION)
-            yield from self.extract_lineage_v2(
-                connection=connection,
-                database=database,
-                lineage_extractor=lineage_extractor,
-            )
+                self.report.report_ingestion_stage_start(LINEAGE_EXTRACTION)
+                yield from self.extract_lineage_v2(
+                    connection=connection,
+                    database=database,
+                    lineage_extractor=lineage_extractor,
+                )
 
             all_tables = self.get_all_tables()
         else:
@@ -832,6 +831,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             customProperties=custom_properties,
         )
         if self.config.patch_custom_properties:
+            # TODO: use auto_incremental_properties workunit processor instead
+            # Deprecate use of patch_custom_properties
             patch_builder = create_dataset_props_patch_builder(
                 dataset_urn, dataset_properties
             )

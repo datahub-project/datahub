@@ -106,17 +106,17 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
 
   @Override
   public void appendRunId(
-      @Nonnull OperationContext opContext,
-      @Nonnull String entityName,
-      @Nonnull Urn urn,
-      @Nullable String runId) {
+      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable String runId) {
     final String docId = indexBuilders.getIndexConvention().getEntityDocumentId(urn);
 
-    log.info(
-        "Appending run id for entity name: {}, doc id: {}, run id: {}", entityName, docId, runId);
+    log.debug(
+        "Appending run id for entity name: {}, doc id: {}, run id: {}",
+        urn.getEntityType(),
+        docId,
+        runId);
     esWriteDAO.applyScriptUpdate(
         opContext,
-        entityName,
+        urn.getEntityType(),
         docId,
         /*
           Script used to apply updates to the runId field of the index.

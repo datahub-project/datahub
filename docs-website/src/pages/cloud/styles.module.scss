@@ -24,14 +24,14 @@
   background-color: #1890ff;
   div {
     color: white;
-    font-size: 1rem;
+    font-size: 1.5rem;
     font-weight: 400;
     opacity: .9;
   }
   a {
     cursor: pointer;
     color: white;
-    font-size: 1.2rem;
+    font-size: 1.75rem;
     font-weight: 600;
   }
 }
@@ -86,9 +86,23 @@
 @media screen and (max-width: 999px) {
   .bookButton, .productTourButton {
     display: block;
+    width: 100%;
+    margin-left: 0!important;
   }
 
   .productTourButton {
+    text-align: center!important;
+  }
+
+
+  .hideOnMobile {
+    display: none;
+  }
+
+  .formContainer {
+    display: none; 
+  }
+  .hero__title, .hero__subtitle {
     text-align: center!important;
   }
 }

@@ -20,6 +20,7 @@ import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.config.search.QueryFilterRewriterConfiguration;
+import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
@@ -39,7 +40,8 @@ import org.opensearch.index.query.TermsQueryBuilder;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
-public class ContainerExpansionRewriterTest {
+public class ContainerExpansionRewriterTest
+    extends BaseQueryFilterRewriterTest<ContainerExpansionRewriter> {
   private static final String FIELD_NAME = "container.keyword";
   private final String grandParentUrn = "urn:li:container:grand";
   private final String parentUrn = "urn:li:container:foo";
@@ -70,19 +72,46 @@ public class ContainerExpansionRewriterTest {
             () ->
                 io.datahubproject.metadata.context.RetrieverContext.builder()
                     .aspectRetriever(mockAspectRetriever)
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(() -> entityRegistry))
                     .graphRetriever(mockGraphRetriever)
-                    .searchRetriever(TestOperationContexts.emptySearchRetriever)
+                    .searchRetriever(SearchRetriever.EMPTY)
                     .build(),
+            null,
             null,
             null);
   }
 
+  @Override
+  OperationContext getOpContext() {
+    return opContext;
+  }
+
+  @Override
+  ContainerExpansionRewriter getTestRewriter() {
+    return ContainerExpansionRewriter.builder()
+        .config(QueryFilterRewriterConfiguration.ExpansionRewriterConfiguration.DEFAULT)
+        .build();
+  }
+
+  @Override
+  String getTargetField() {
+    return FIELD_NAME;
+  }
+
+  @Override
+  String getTargetFieldValue() {
+    return childUrn;
+  }
+
+  @Override
+  Condition getTargetCondition() {
+    return Condition.ANCESTORS_INCL;
+  }
+
   @Test
   public void testTermsQueryRewrite() {
-    ContainerExpansionRewriter test =
-        ContainerExpansionRewriter.builder()
-            .config(QueryFilterRewriterConfiguration.ExpansionRewriterConfiguration.DEFAULT)
-            .build();
+    ContainerExpansionRewriter test = getTestRewriter();
 
     TermsQueryBuilder notTheFieldQuery = QueryBuilders.termsQuery("notTheField", childUrn);
     assertEquals(

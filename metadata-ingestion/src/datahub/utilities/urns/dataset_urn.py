@@ -1,1 +1,3 @@
-from datahub.metadata.urns import DatasetUrn  # noqa: F401
+from datahub.metadata.urns import DatasetUrn
+
+__all__ = ["DatasetUrn"]

@@ -202,12 +202,22 @@ fragment embedFields on Embed {
     renderUrl
 }
 
+fragment resolvedActorFields on ResolvedActor {
+    ... on CorpUser {
+        urn
+        ...entityDisplayNameFields
+    }
+    ... on CorpGroup {
+        urn
+        ...entityDisplayNameFields
+    }
+}
+
 fragment institutionalMemoryFields on InstitutionalMemory {
     elements {
         url
-        author {
-            urn
-            username
+        actor {
+            ...resolvedActorFields
         }
         description
         created {
@@ -579,6 +589,11 @@ fragment nonRecursiveMLFeature on MLFeature {
             }
         }
     }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
 }
 
 fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
@@ -649,6 +664,11 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
             }
         }
     }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
 }
 
 fragment nonRecursiveMLFeatureTable on MLFeatureTable {
@@ -704,6 +724,11 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     }
     browsePathV2 {
         ...browsePathV2Fields
+    }
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
     }
 }
 
@@ -1000,6 +1025,7 @@ fragment entityContainer on Container {
 
 fragment parentContainerFields on Container {
     urn
+    type
     properties {
         name
     }
@@ -1214,6 +1240,12 @@ fragment entityDisplayNameFields on Entity {
     ... on DataPlatformInstance {
         instanceId
     }
+    ... on StructuredPropertyEntity {
+        definition {
+            displayName
+            qualifiedName
+        }
+    }
 }
 
 fragment ermodelrelationPropertiesFields on ERModelRelationshipProperties {
@@ -1267,12 +1299,16 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
         cardinality
         immutable
         valueType {
+            urn
+            type
             info {
                 type
                 displayName
             }
         }
         entityTypes {
+            urn
+            type
             info {
                 type
             }
@@ -1299,6 +1335,35 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
             }
             description
         }
+        created {
+            time
+            actor {
+                urn
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+                ...entityDisplayNameFields
+            }
+        }
+        lastModified {
+            time
+            actor {
+                urn
+                editableProperties {
+                    displayName
+                    pictureLink
+                }
+                ...entityDisplayNameFields
+            }
+        }
+    }
+    settings {
+        isHidden
+        showInSearchFilters
+        showAsAssetBadge
+        showInAssetSummary
+        showInColumnsTable
     }
 }
 
@@ -1320,6 +1385,7 @@ fragment structuredPropertiesFields on StructuredPropertiesEntry {
         type
         ...entityDisplayNameFields
     }
+    associatedUrn
 }
 
 fragment autoRenderAspectFields on RawAspect {

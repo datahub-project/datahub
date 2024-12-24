@@ -18,7 +18,6 @@ from pydantic import Field, validator
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import ConnectionError
 from requests.models import HTTPBasicAuth, HTTPError
-from sqllineage.runner import LineageRunner
 from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
 
 import datahub.emitter.mce_builder as builder
@@ -99,6 +98,7 @@ from datahub.metadata.schema_classes import (
     TagPropertiesClass,
     UpstreamClass,
     UpstreamLineageClass,
+    ViewPropertiesClass,
 )
 from datahub.metadata.urns import QueryUrn
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -820,28 +820,6 @@ class ModeSource(StatefulIngestionSourceBase):
             )
         return None
 
-    @lru_cache(maxsize=None)
-    def _get_source_from_query(self, raw_query: str) -> set:
-        query = self._replace_definitions(raw_query)
-        parser = LineageRunner(query)
-        source_paths = set()
-        try:
-            for table in parser.source_tables:
-                sources = str(table).split(".")
-                source_schema, source_table = sources[-2], sources[-1]
-                if source_schema == "<default>":
-                    source_schema = str(self.config.default_schema)
-
-                source_paths.add(f"{source_schema}.{source_table}")
-        except Exception as e:
-            self.report.report_failure(
-                title="Failed to Extract Lineage From Query",
-                message="Unable to retrieve lineage from Mode query.",
-                context=f"Query: {raw_query}, Error: {str(e)}",
-            )
-
-        return source_paths
-
     def _get_datasource_urn(
         self,
         platform: str,
@@ -953,16 +931,13 @@ class ModeSource(StatefulIngestionSourceBase):
 
         dataset_props = DatasetPropertiesClass(
             name=report_info.get("name") if is_mode_dataset else query_data.get("name"),
-            description=f"""### Source Code
-``` sql
-{query_data.get("raw_query")}
-```
-            """,
+            description=None,
             externalUrl=externalUrl,
             customProperties=self.get_custom_props_from_dict(
                 query_data,
                 [
-                    "id" "created_at",
+                    "id",
+                    "created_at",
                     "updated_at",
                     "last_run_id",
                     "data_source_id",
@@ -972,13 +947,22 @@ class ModeSource(StatefulIngestionSourceBase):
                 ],
             ),
         )
-
         yield (
             MetadataChangeProposalWrapper(
                 entityUrn=query_urn,
                 aspect=dataset_props,
             ).as_workunit()
         )
+
+        if raw_query := query_data.get("raw_query"):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=query_urn,
+                aspect=ViewPropertiesClass(
+                    viewLogic=raw_query,
+                    viewLanguage=QueryLanguageClass.SQL,
+                    materialized=False,
+                ),
+            ).as_workunit()
 
         if is_mode_dataset:
             space_container_key = self.gen_space_key(space_token)

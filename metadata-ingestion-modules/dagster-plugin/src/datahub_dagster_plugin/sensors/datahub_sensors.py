@@ -1,5 +1,6 @@
 import os
 import traceback
+import warnings
 from collections import defaultdict
 from types import ModuleType
 from typing import Dict, List, NamedTuple, Optional, Sequence, Set, Tuple, Union
@@ -27,10 +28,15 @@ from dagster._core.definitions.asset_selection import CoercibleToAssetSelection
 from dagster._core.definitions.multi_asset_sensor_definition import (
     AssetMaterializationFunctionReturn,
 )
-from dagster._core.definitions.sensor_definition import (
-    DefaultSensorStatus,
-    RawSensorEvaluationFunctionReturn,
-)
+from dagster._core.definitions.sensor_definition import DefaultSensorStatus
+
+# This SensorReturnTypesUnion is from Dagster 1.9.1+ and is not available in older versions
+# of Dagster. We need to import it conditionally to avoid breaking compatibility with older
+try:
+    from dagster._core.definitions.sensor_definition import SensorReturnTypesUnion
+except ImportError:
+    from dagster._core.definitions.sensor_definition import RawSensorEvaluationFunctionReturn as SensorReturnTypesUnion  # type: ignore
+
 from dagster._core.definitions.target import ExecutableDefinition
 from dagster._core.definitions.unresolved_asset_job_definition import (
     UnresolvedAssetJobDefinition,
@@ -38,15 +44,18 @@ from dagster._core.definitions.unresolved_asset_job_definition import (
 from dagster._core.events import DagsterEventType, HandledOutputData, LoadedInputData
 from dagster._core.execution.stats import RunStepKeyStatsSnapshot
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.ingestion.graph.client import DataHubGraph
+from datahub.ingestion.graph.client import DatahubClientConfig, DataHubGraph
 from datahub.metadata.schema_classes import SubTypesClass
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     create_lineage_sql_parsed_result,
 )
 from datahub.utilities.urns.dataset_urn import DatasetUrn
+from datahub.utilities.urns.error import InvalidUrnError
 
 from datahub_dagster_plugin.client.dagster_generator import (
+    DATAHUB_ASSET_GROUP_NAME_CACHE,
+    Constant,
     DagsterEnvironment,
     DagsterGenerator,
     DatahubDagsterSourceConfig,
@@ -182,7 +191,17 @@ class DatahubSensors:
         if config:
             self.config = config
         else:
-            self.config = DatahubDagsterSourceConfig()
+            # This is a temporary warning for backwards compatibility. Eventually, we'll remove this
+            # branch and make the config required.
+            warnings.warn(
+                "Using the default DataHub client config is deprecated. Pass in a config object explicitly.",
+                stacklevel=2,
+            )
+            self.config = DatahubDagsterSourceConfig(
+                datahub_client_config=DatahubClientConfig(
+                    server=Constant.DEFAULT_DATAHUB_REST_URL
+                )
+            )
         self.graph = DataHubGraph(
             self.config.datahub_client_config,
         )
@@ -256,7 +275,6 @@ class DatahubSensors:
                 module = code_pointer.module
             else:
                 context.log.error("Unable to get Module")
-                return None
 
         dagster_environment = DagsterEnvironment(
             is_cloud=os.getenv("DAGSTER_CLOUD_IS_BRANCH_DEPLOYMENT", None) is not None,
@@ -314,100 +332,188 @@ class DatahubSensors:
         dataset_inputs: Dict[str, Set[DatasetUrn]],
         dataset_outputs: Dict[str, Set[DatasetUrn]],
     ) -> None:
-        if (
-            log.dagster_event
+        if not self._is_valid_asset_materialization(log):
+            return
+
+        asset_materialization = log.asset_materialization
+        if asset_materialization is None:
+            return
+
+        asset_key = asset_materialization.asset_key.path
+        asset_downstream_urn = self._get_asset_downstream_urn(
+            log, context, dagster_generator, list(asset_key)
+        )
+
+        if not asset_downstream_urn:
+            return
+
+        properties = {
+            key: str(value) for (key, value) in asset_materialization.metadata.items()
+        }
+        upstreams, downstreams = self._process_lineage(
+            context=context,
+            dagster_generator=dagster_generator,
+            log=log,
+            asset_downstream_urn=asset_downstream_urn,
+        )
+
+        self._emit_or_connect_asset(
+            context,
+            dagster_generator,
+            log,
+            list(asset_key),
+            properties,
+            upstreams,
+            downstreams,
+            dataset_inputs,
+            dataset_outputs,
+        )
+
+    def _is_valid_asset_materialization(self, log: EventLogEntry) -> bool:
+        return (
+            log.dagster_event is not None
             and log.dagster_event.event_type == DagsterEventType.ASSET_MATERIALIZATION
+            and log.step_key is not None
+            and log.asset_materialization is not None
+        )
+
+    def _get_asset_downstream_urn(
+        self,
+        log: EventLogEntry,
+        context: RunStatusSensorContext,
+        dagster_generator: DagsterGenerator,
+        asset_key: List[str],
+    ) -> Optional[DatasetUrn]:
+        materialization = log.asset_materialization
+        if materialization is None:
+            return None
+
+        asset_downstream_urn: Optional[DatasetUrn] = None
+
+        if materialization.metadata.get("datahub_urn") and isinstance(
+            materialization.metadata.get("datahub_urn"), TextMetadataValue
         ):
-            assert log.step_key
-
-            materialization = log.asset_materialization
-            if not materialization:
-                return
-
-            properties = {
-                key: str(value) for (key, value) in materialization.metadata.items()
-            }
-            asset_key = materialization.asset_key.path
-
-            asset_downstream_urn: Optional[DatasetUrn] = None
-            # If DataHub Urn is set then we prefer that as downstream urn
-            if materialization.metadata.get("datahub_urn") and isinstance(
-                materialization.metadata.get("datahub_urn"), TextMetadataValue
-            ):
-                try:
-                    asset_downstream_urn = DatasetUrn.from_string(
-                        str(materialization.metadata["datahub_urn"].text)
-                    )
-                    context.log.info(
-                        f"asset_downstream_urn from metadata datahub_urn: {asset_downstream_urn}"
-                    )
-                except Exception as e:
-                    context.log.error(f"Error in parsing datahub_urn: {e}")
-
-            if not asset_downstream_urn:
-                asset_downstream_urn = (
-                    dagster_generator.asset_keys_to_dataset_urn_converter(asset_key)
+            try:
+                asset_downstream_urn = DatasetUrn.from_string(
+                    str(materialization.metadata["datahub_urn"].text)
                 )
                 context.log.info(
-                    f"asset_downstream_urn from asset keys: {asset_downstream_urn}"
+                    f"asset_downstream_urn from metadata datahub_urn: {asset_downstream_urn}"
                 )
+            except Exception as e:
+                context.log.error(f"Error in parsing datahub_urn: {e}")
 
-            if asset_downstream_urn:
-                context.log.info(f"asset_downstream_urn: {asset_downstream_urn}")
+        if not asset_downstream_urn:
+            asset_downstream_urn = (
+                dagster_generator.asset_keys_to_dataset_urn_converter(asset_key)
+            )
+            context.log.info(
+                f"asset_downstream_urn from asset keys: {asset_downstream_urn}"
+            )
 
-                downstreams = {asset_downstream_urn.urn()}
-                context.log.info(f"downstreams: {downstreams}")
-                upstreams: Set[str] = set()
-                if self.config.enable_asset_query_metadata_parsing:
-                    try:
-                        if (
-                            materialization
-                            and materialization.metadata
-                            and materialization.metadata.get("Query")
-                            and isinstance(
-                                materialization.metadata.get("Query"), TextMetadataValue
+        return asset_downstream_urn
+
+    def _process_lineage(
+        self,
+        context: RunStatusSensorContext,
+        dagster_generator: DagsterGenerator,
+        log: EventLogEntry,
+        asset_downstream_urn: DatasetUrn,
+    ) -> Tuple[Set[str], Set[str]]:
+        downstreams = {asset_downstream_urn.urn()}
+        upstreams: Set[str] = set()
+
+        if (
+            log.asset_materialization
+            and self.config.enable_asset_query_metadata_parsing
+        ):
+            try:
+                query_metadata = log.asset_materialization.metadata.get("Query")
+                if isinstance(query_metadata, TextMetadataValue):
+                    lineage = self.parse_sql(
+                        context=context,
+                        sql_query=str(query_metadata.text),
+                        env=asset_downstream_urn.env,
+                        platform=asset_downstream_urn.platform.replace(
+                            "urn:li:dataPlatform:", ""
+                        ),
+                    )
+                    if lineage and lineage.downstreams:
+                        if self.config.emit_queries:
+                            dagster_generator.gen_query_aspect(
+                                graph=self.graph,
+                                platform=asset_downstream_urn.platform,
+                                query_subject_urns=lineage.upstreams
+                                + lineage.downstreams,
+                                query=str(query_metadata.text),
                             )
-                        ):
-                            query_metadata = materialization.metadata.get("Query")
-                            assert query_metadata
-                            lineage = self.parse_sql(
-                                context=context,
-                                sql_query=str(query_metadata.text),
-                                env=asset_downstream_urn.env,
-                                platform=asset_downstream_urn.platform.replace(
-                                    "urn:li:dataPlatform:", ""
-                                ),
-                            )
-                            # To make sure we don't process select queries check if downstream is present
-                            if lineage and lineage.downstreams:
-                                downstreams = downstreams.union(
-                                    set(lineage.downstreams)
-                                )
-                                upstreams = upstreams.union(set(lineage.upstreams))
-                                context.log.info(
-                                    f"Upstreams: {upstreams} Downstreams: {downstreams}"
-                                )
-                            else:
-                                context.log.info(
-                                    f"Lineage not found for {query_metadata.text}"
-                                )
-                        else:
-                            context.log.info("Query not found in metadata")
-                    except Exception as e:
-                        context.log.info(f"Error in processing asset logs: {e}")
+                        downstreams = downstreams.union(set(lineage.downstreams))
+                        upstreams = upstreams.union(set(lineage.upstreams))
+                        context.log.info(
+                            f"Upstreams: {upstreams} Downstreams: {downstreams}"
+                        )
+                    else:
+                        context.log.info(f"Lineage not found for {query_metadata.text}")
+                else:
+                    context.log.info("Query not found in metadata")
+            except Exception as e:
+                context.log.exception(f"Error in processing asset logs: {e}")
 
-                # Emitting asset with upstreams and downstreams
-                dataset_urn = dagster_generator.emit_asset(
-                    self.graph,
-                    asset_key,
-                    materialization.description,
-                    properties,
-                    downstreams=downstreams,
-                    upstreams=upstreams,
-                    materialize_dependencies=self.config.materialize_dependencies,
-                )
+        return upstreams, downstreams
 
+    def _emit_or_connect_asset(
+        self,
+        context: RunStatusSensorContext,
+        dagster_generator: DagsterGenerator,
+        log: EventLogEntry,
+        asset_key: List[str],
+        properties: Dict[str, str],
+        upstreams: Set[str],
+        downstreams: Set[str],
+        dataset_inputs: Dict[str, Set[DatasetUrn]],
+        dataset_outputs: Dict[str, Set[DatasetUrn]],
+    ) -> None:
+        if self.config.emit_assets:
+            context.log.info("Emitting asset metadata...")
+            dataset_urn = dagster_generator.emit_asset(
+                self.graph,
+                asset_key,
+                log.asset_materialization.description
+                if log.asset_materialization
+                else None,
+                properties,
+                downstreams=downstreams,
+                upstreams=upstreams,
+                materialize_dependencies=self.config.materialize_dependencies,
+            )
+            if log.step_key:
                 dataset_outputs[log.step_key].add(dataset_urn)
+        else:
+            context.log.info(
+                "Not emitting assets but connecting materialized dataset to DataJobs"
+            )
+            if log.step_key:
+                dataset_outputs[log.step_key] = dataset_outputs[log.step_key].union(
+                    [DatasetUrn.from_string(d) for d in downstreams]
+                )
+
+                dataset_upstreams: List[DatasetUrn] = []
+
+                for u in upstreams:
+                    try:
+                        dataset_upstreams.append(DatasetUrn.from_string(u))
+                    except InvalidUrnError as e:
+                        context.log.error(
+                            f"Error in parsing upstream dataset urn: {e}", exc_info=True
+                        )
+                        continue
+
+                dataset_inputs[log.step_key] = dataset_inputs[log.step_key].union(
+                    dataset_upstreams
+                )
+                context.log.info(
+                    f"Dataset Inputs: {dataset_inputs[log.step_key]} Dataset Outputs: {dataset_outputs[log.step_key]}"
+                )
 
     def process_asset_observation(
         self,
@@ -581,14 +687,14 @@ class DatahubSensors:
             dagster_environment=dagster_environment,
         )
 
-        context.log.info("Emitting asset metadata...")
+        context.log.info(
+            f"Updating asset group name cache... {DATAHUB_ASSET_GROUP_NAME_CACHE}"
+        )
         dagster_generator.update_asset_group_name_cache(context)
 
         return SkipReason("Asset metadata processed")
 
-    def _emit_metadata(
-        self, context: RunStatusSensorContext
-    ) -> RawSensorEvaluationFunctionReturn:
+    def _emit_metadata(self, context: RunStatusSensorContext) -> SensorReturnTypesUnion:
         """
         Function to emit metadata for datahub rest.
         """
@@ -669,10 +775,21 @@ class DatahubSensors:
                 platform_instance=self.config.platform_instance,
             )
 
+            if (
+                dataflow.name
+                and dataflow.name.startswith("__ASSET_JOB")
+                and dataflow.name.split("__")
+            ):
+                dagster_generator.generate_browse_path(
+                    dataflow.name.split("__"), urn=dataflow.urn, graph=self.graph
+                )
+                dataflow.name = dataflow.name.split("__")[-1]
+
             dataflow.emit(self.graph)
             if self.config.debug_mode:
                 for mcp in dataflow.generate_mcp():
-                    context.log.debug(f"Emitted MCP: {mcp}")
+                    if self.config.debug_mode:
+                        context.log.debug(f"Emitted MCP: {mcp}")
 
             # Emit dagster job run which get mapped with datahub data process instance entity
             dagster_generator.emit_job_run(
@@ -708,6 +825,16 @@ class DatahubSensors:
                     output_datasets=dataset_outputs,
                     input_datasets=dataset_inputs,
                 )
+
+                if (
+                    datajob.name
+                    and datajob.name.startswith("__ASSET_JOB")
+                    and datajob.name.split("__")
+                ):
+                    dagster_generator.generate_browse_path(
+                        datajob.name.split("__"), urn=datajob.urn, graph=self.graph
+                    )
+                    datajob.name = datajob.name.split("__")[-1]
 
                 datajob.emit(self.graph)
 

@@ -14,7 +14,11 @@ import avro.schema
 import click
 
 from datahub.configuration.common import ConfigEnum, PermissiveConfigModel
-from datahub.emitter.mce_builder import make_data_platform_urn, make_dataset_urn
+from datahub.emitter.mce_builder import (
+    make_data_platform_urn,
+    make_dataset_urn,
+    make_schema_field_urn,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
@@ -442,10 +446,10 @@ def generate_stitched_record(
                                 name=relnship_name,
                                 foreignDataset=foreign_dataset_urn,
                                 foreignFields=[
-                                    f"urn:li:schemaField:({foreign_dataset_urn}, urn)"
+                                    make_schema_field_urn(foreign_dataset_urn, "urn")
                                 ],
                                 sourceFields=[
-                                    f"urn:li:schemaField:({source_dataset_urn},{f_field.fieldPath})"
+                                    make_schema_field_urn(source_dataset_urn, f_field.fieldPath)
                                 ],
                             )
                             foreign_keys.append(fkey)

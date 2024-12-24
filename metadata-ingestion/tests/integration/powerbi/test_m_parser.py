@@ -1,12 +1,16 @@
 import logging
 import sys
+import time
 from typing import List, Tuple
+from unittest.mock import MagicMock, patch
 
 import pytest
 from lark import Tree
 
+import datahub.ingestion.source.powerbi.m_query.data_classes
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
@@ -15,8 +19,11 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser, resolver, tree_function
-from datahub.ingestion.source.powerbi.m_query.resolver import DataPlatformTable, Lineage
+from datahub.ingestion.source.powerbi.m_query import parser, tree_function
+from datahub.ingestion.source.powerbi.m_query.data_classes import (
+    DataPlatformTable,
+    Lineage,
+)
 
 pytestmark = pytest.mark.integration_batch_2
 
@@ -51,7 +58,38 @@ M_QUERIES = [
     'let\n Source = DatabricksMultiCloud.Catalogs("abc.cloud.databricks.com", "/sql/gh2cfe3fe1d4c7cd", [Catalog="data_analysis", Database="summary", EnableAutomaticProxyDiscovery=null]),\n vips_data_summary_dev = Source{[Item="vips_data",Schema="summary",Catalog="data_analysis"]}[Data],\n #"Changed Type" = Table.TransformColumnTypes(vips_data_summary_dev,{{"vipstartDate", type date}, {"enteredDate", type datetime}, {"estDraftDate", type datetime}, {"estPublDate", type datetime}})\nin\n #"Changed Type"',
     'let\n Source = Value.NativeQuery(Snowflake.Databases("0DD93C6BD5A6.snowflakecomputing.com","sales_analytics_warehouse_prod",[Role="sales_analytics_member_ad"]){[Name="ORDERING"]}[Data], "SELECT#(lf) DISTINCT#(lf) T5.PRESENTMENT_START_DATE#(lf),T5.PRESENTMENT_END_DATE#(lf),T5.DISPLAY_NAME#(lf),T5.NAME#(tab)#(lf),T5.PROMO_DISPLAY_NAME#(lf),T5.REGION#(lf),T5.ID#(lf),T5.WALKOUT#(lf),T6.DEAL_ID#(lf),T6.TYPE#(lf),T5.FREE_PERIOD#(lf),T6.PRICE_MODIFICATION#(lf)#(lf)FROM#(lf)#(lf)(#(lf)    SELECT #(lf) T1.NAME#(lf),DATE(T1.CREATED_AT) as CREATED_AT#(lf),T1.PROMO_CODE#(lf),T1.STATUS#(lf),DATE(T1.UPDATED_AT) as UPDATED_AT#(lf),T1.ID#(lf),T1.DISPLAY_NAME as PROMO_DISPLAY_NAME#(lf),T4.*#(lf)FROM#(lf)(SELECT#(lf) DISTINCT#(lf) NAME#(lf),CREATED_AT#(lf),PROMO_CODE#(lf),STATUS#(lf),UPDATED_AT#(lf),ID#(lf),DISPLAY_NAME#(lf) FROM RAW.PROMOTIONS#(lf)#(lf)) T1#(lf)INNER JOIN#(lf)#(lf) (#(lf)    SELECT #(lf) T3.PRODUCT_STATUS#(lf),T3.CODE#(lf),T3.REGION#(lf),T3.DISPLAY_ORDER_SEQUENCE#(lf),T3.PRODUCT_LINE_ID#(lf),T3.DISPLAY_NAME#(lf),T3.PRODUCT_TYPE#(lf),T3.ID as PROD_TBL_ID#(lf),T3.NAME as PROD_TBL_NAME#(lf),DATE(T2.PRESENTMENT_END_DATE) as PRESENTMENT_END_DATE#(lf),T2.PRICE_COMMITMENT_PERIOD#(lf),T2.NAME as SEAL_TBL_NAME#(lf),DATE(T2.CREATED_AT) as SEAL_TBL_CREATED_AT#(lf),T2.DESCRIPTION#(lf),T2.FREE_PERIOD#(lf),T2.WALKOUT#(lf),T2.PRODUCT_CAT_ID#(lf),T2.PROMOTION_ID#(lf),DATE(T2.PRESENTMENT_START_DATE) as PRESENTMENT_START_DATE#(lf),YEAR(T2.PRESENTMENT_START_DATE) as DEAL_YEAR_START#(lf),MONTH(T2.PRESENTMENT_START_DATE) as DEAL_MONTH_START#(lf),T2.DEAL_TYPE#(lf),DATE(T2.UPDATED_AT) as SEAL_TBL_UPDATED_AT#(lf),T2.ID as SEAL_TBL_ID#(lf),T2.STATUS as SEAL_TBL_STATUS#(lf)FROM#(lf)(SELECT#(lf) DISTINCT#(lf) PRODUCT_STATUS#(lf),CODE#(lf),REGION#(lf),DISPLAY_ORDER_SEQUENCE#(lf),PRODUCT_LINE_ID#(lf),DISPLAY_NAME#(lf),PRODUCT_TYPE#(lf),ID #(lf),NAME #(lf) FROM#(lf) RAW.PRODUCTS#(lf)#(lf)) T3#(lf)INNER JOIN#(lf)(#(lf)    SELECT#(lf)    DISTINCT#(lf)    PRESENTMENT_END_DATE#(lf),PRICE_COMMITMENT_PERIOD#(lf),NAME#(lf),CREATED_AT#(lf),DESCRIPTION#(lf),FREE_PERIOD#(lf),WALKOUT#(lf),PRODUCT_CAT_ID#(lf),PROMOTION_ID#(lf),PRESENTMENT_START_DATE#(lf),DEAL_TYPE#(lf),UPDATED_AT#(lf),ID#(lf),STATUS#(lf)    FROM#(lf)    RAW.DEALS#(lf)#(lf)) T2#(lf)ON#(lf)T3.ID   =   T2.PRODUCT_CAT_ID   #(lf)WHERE#(lf)T2.PRESENTMENT_START_DATE >= \'2015-01-01\'#(lf)AND#(lf)T2.STATUS = \'active\'#(lf)#(lf))T4#(lf)ON#(lf)T1.ID   =   T4.PROMOTION_ID#(lf))T5#(lf)INNER JOIN#(lf)RAW.PRICE_MODIFICATIONS T6#(lf)ON#(lf)T5.SEAL_TBL_ID  =   T6.DEAL_ID", null, [EnableFolding=true]) \n in \n Source',
     'let\n Source = Databricks.Catalogs(#"hostname",#"http_path", null),\n edp_prod_Database = Source{[Name=#"catalog",Kind="Database"]}[Data],\n gold_Schema = edp_prod_Database{[Name=#"schema",Kind="Schema"]}[Data],\n pet_view = gold_Schema{[Name="pet_list",Kind="View"]}[Data],\n #"Filtered Rows" = Table.SelectRows(pet_view, each true),\n #"Removed Columns" = Table.RemoveColumns(#"Filtered Rows",{"created_timestmp"})\nin\n #"Removed Columns"',
+    'let\n    Source = Value.NativeQuery(Snowflake.Databases("0DD93C6BD5A6.snowflakecomputing.com","sales_analytics_warehouse_prod",[Role="sales_analytics_member_ad"]){[Name="SL_OPERATIONS"]}[Data], "select SALE_NO AS ""\x1b[4mSaleNo\x1b[0m""#(lf)        ,CODE AS ""Code""#(lf)        ,ENDDATE AS ""end_date""#(lf) from SL_OPERATIONS.SALE.REPORTS#(lf)  where ENDDATE > \'2024-02-03\'", null, [EnableFolding=true]),\n    #"selected Row" = Table.SelectRows(Source)\nin\n    #"selected Row"',
+    'let\n    Source = Value.NativeQuery(DatabricksMultiCloud.Catalogs("foo.com", "/sql/1.0/warehouses/423423ew", [Catalog="sales_db", Database=null, EnableAutomaticProxyDiscovery=null]){[Name="sales_db",Kind="Database"]}[Data], "select * from public.slae_history#(lf)where creation_timestamp  >= getDate(-3)", null, [EnableFolding=true]),\n    #"NewTable" = Table.TransformColumn(Source,{{"creation_timestamp", type date}})\nin\n    #"NewTable"',
+    'let Source = Snowflake.Databases("example.snowflakecomputing.com","WAREHOUSE_NAME",[Role="CUSTOM_ROLE"]), DB_Source = Source{[Name="DATABASE_NAME",Kind="Database"]}[Data], SCHEMA_Source = DB_Source{[Name="SCHEMA_NAME",Kind="Schema"]}[Data], TABLE_Source = SCHEMA_Source{[Name="TABLE_NAME",Kind="View"]}[Data], #"Split Column by Time" = Table.SplitColumn(Table.TransformColumnTypes(TABLE_Source, {{"TIMESTAMP_COLUMN", type text}}, "en-GB"), "TIMESTAMP_COLUMN", Splitter.SplitTextByDelimiter(" ", QuoteStyle.Csv), {"TIMESTAMP_COLUMN.1", "TIMESTAMP_COLUMN.2"}), #"Added Custom" = Table.AddColumn(#"Split Column by Time", "SOB", each ([ENDTIME] - [STARTTIME]) * 60 * 60 * 24) in #"Added Custom"',
+    'let\n    Source = Sql.Database("AUPRDWHDB", "COMMOPSDB", [Query="DROP TABLE IF EXISTS #KKR;#(lf)Select#(lf)*,#(lf)concat((UPPER(REPLACE(SALES_SPECIALIST,\'-\',\'\'))),#(lf)LEFT(CAST(INVOICE_DATE AS DATE),4)+LEFT(RIGHT(CAST(INVOICE_DATE AS DATE),5),2)) AS AGENT_KEY,#(lf)CASE#(lf)    WHEN CLASS = \'Software\' and (NOT(PRODUCT in (\'ADV\', \'Adv\') and left(ACCOUNT_ID,2)=\'10\') #(lf)    or V_ENTERPRISE_INVOICED_REVENUE.TYPE = \'Manual Adjustment\') THEN INVOICE_AMOUNT#(lf)    WHEN V_ENTERPRISE_INVOICED_REVENUE.TYPE IN (\'Recurring\',\'0\') THEN INVOICE_AMOUNT#(lf)    ELSE 0#(lf)END as SOFTWARE_INV#(lf)#(lf)from V_ENTERPRISE_INVOICED_REVENUE", CommandTimeout=#duration(0, 1, 30, 0)]),\n    #"Added Conditional Column" = Table.AddColumn(Source, "Services", each if [CLASS] = "Services" then [INVOICE_AMOUNT] else 0),\n    #"Added Custom" = Table.AddColumn(#"Added Conditional Column", "Advanced New Sites", each if [PRODUCT] = "ADV"\nor [PRODUCT] = "Adv"\nthen [NEW_SITE]\nelse 0)\nin\n    #"Added Custom"',
+    "LOAD_DATA(SOURCE)",
 ]
+
+
+def get_data_platform_tables_with_dummy_table(
+    q: str,
+) -> List[datahub.ingestion.source.powerbi.m_query.data_classes.Lineage]:
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    config.enable_advance_lineage_sql_construct = True
+
+    return parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
 
 
 def get_default_instances(
@@ -727,7 +765,9 @@ def test_sqlglot_parser():
         }
     )
 
-    lineage: List[resolver.Lineage] = parser.get_upstream_tables(
+    lineage: List[
+        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+    ] = parser.get_upstream_tables(
         table,
         reporter,
         ctx=ctx,
@@ -772,21 +812,15 @@ def test_sqlglot_parser():
 
 
 def test_databricks_multi_cloud():
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        expression=M_QUERIES[25],
-        name="category",
-        full_name="dev.public.category",
-    )
-    reporter = PowerBiDashboardSourceReport()
+    q = M_QUERIES[25]
 
-    ctx, config, platform_instance_resolver = get_default_instances()
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
+    lineage: List[
+        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+    ] = get_data_platform_tables_with_dummy_table(q=q)
+
+    assert len(lineage) == 1
+
+    data_platform_tables = lineage[0].upstreams
 
     assert len(data_platform_tables) == 1
 
@@ -797,21 +831,15 @@ def test_databricks_multi_cloud():
 
 
 def test_databricks_catalog_pattern_1():
-    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
-        expression=M_QUERIES[26],
-        name="category",
-        full_name="dev.public.category",
-    )
-    reporter = PowerBiDashboardSourceReport()
+    q = M_QUERIES[26]
 
-    ctx, config, platform_instance_resolver = get_default_instances()
-    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
-        table,
-        reporter,
-        ctx=ctx,
-        config=config,
-        platform_instance_resolver=platform_instance_resolver,
-    )[0].upstreams
+    lineage: List[
+        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+    ] = get_data_platform_tables_with_dummy_table(q=q)
+
+    assert len(lineage) == 1
+
+    data_platform_tables = lineage[0].upstreams
 
     assert len(data_platform_tables) == 1
 
@@ -876,7 +904,9 @@ def test_sqlglot_parser_2():
         }
     )
 
-    lineage: List[resolver.Lineage] = parser.get_upstream_tables(
+    lineage: List[
+        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+    ] = parser.get_upstream_tables(
         table,
         reporter,
         ctx=ctx,
@@ -928,4 +958,252 @@ def test_databricks_regular_case_with_view():
     assert (
         data_platform_tables[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:databricks,cat.public.pet_list,PROD)"
+    )
+
+
+@pytest.mark.integration
+def test_snowflake_double_double_quotes():
+    q = M_QUERIES[30]
+
+    lineage: List[
+        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+    ] = get_data_platform_tables_with_dummy_table(q=q)
+
+    assert len(lineage) == 1
+
+    data_platform_tables = lineage[0].upstreams
+
+    assert len(data_platform_tables) == 1
+
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,sl_operations.sale.reports,PROD)"
+    )
+
+
+def test_databricks_multicloud():
+    q = M_QUERIES[31]
+
+    lineage: List[
+        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+    ] = get_data_platform_tables_with_dummy_table(q=q)
+
+    assert len(lineage) == 1
+
+    data_platform_tables = lineage[0].upstreams
+
+    assert len(data_platform_tables) == 1
+
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:databricks,sales_db.public.slae_history,PROD)"
+    )
+
+
+def test_snowflake_multi_function_call():
+    q = M_QUERIES[32]
+
+    lineage: List[
+        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+    ] = get_data_platform_tables_with_dummy_table(q=q)
+
+    assert len(lineage) == 1
+
+    data_platform_tables = lineage[0].upstreams
+
+    assert len(data_platform_tables) == 1
+
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,database_name.schema_name.table_name,PROD)"
+    )
+
+
+def test_mssql_drop_with_select():
+    q = M_QUERIES[33]
+
+    lineage: List[
+        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+    ] = get_data_platform_tables_with_dummy_table(q=q)
+
+    assert len(lineage) == 1
+
+    data_platform_tables = lineage[0].upstreams
+
+    assert len(data_platform_tables) == 1
+
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mssql,commopsdb.dbo.v_enterprise_invoiced_revenue,PROD)"
+    )
+
+
+def test_unsupported_data_platform():
+    q = M_QUERIES[34]
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    config.enable_advance_lineage_sql_construct = True
+
+    assert (
+        parser.get_upstream_tables(
+            table,
+            reporter,
+            ctx=ctx,
+            config=config,
+            platform_instance_resolver=platform_instance_resolver,
+        )
+        == []
+    )
+
+    info_entries: dict = reporter._structured_logs._entries.get(
+        StructuredLogLevel.INFO, {}
+    )  # type :ignore
+
+    is_entry_present: bool = False
+    for key, entry in info_entries.items():
+        if entry.title == "Non-Data Platform Expression":
+            is_entry_present = True
+            break
+
+    assert (
+        is_entry_present
+    ), 'Info message "Non-Data Platform Expression" should be present in reporter'
+
+
+def test_empty_string_in_m_query():
+    # TRIM(TRIM(TRIM(AGENT_NAME, '\"\"'), '+'), '\\'') is in Query
+    q = "let\n  Source = Value.NativeQuery(Snowflake.Databases(\"bu10758.ap-unknown-2.fakecomputing.com\",\"operations_analytics_warehouse_prod\",[Role=\"OPERATIONS_ANALYTICS_MEMBER\"]){[Name=\"OPERATIONS_ANALYTICS\"]}[Data], \"select #(lf)UPPER(REPLACE(AGENT_NAME,'-','')) AS CLIENT_DIRECTOR,#(lf)TRIM(TRIM(TRIM(AGENT_NAME, '\"\"'), '+'), '\\'') AS TRIM_AGENT_NAME,#(lf)TIER,#(lf)UPPER(MANAGER),#(lf)TEAM_TYPE,#(lf)DATE_TARGET,#(lf)MONTHID,#(lf)TARGET_TEAM,#(lf)SELLER_EMAIL,#(lf)concat((UPPER(REPLACE(AGENT_NAME,'-',''))), MONTHID) as AGENT_KEY,#(lf)UNIT_TARGET AS SME_Quota,#(lf)AMV_TARGET AS Revenue_Quota,#(lf)SERVICE_QUOTA,#(lf)BL_TARGET,#(lf)SOFTWARE_QUOTA as Software_Quota#(lf)#(lf)from OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT_TARGETS inner join OPERATIONS_ANALYTICS.TRANSFORMED_PROD.V_SME_UNIT #(lf)#(lf)where YEAR_TARGET >= 2022#(lf)and TEAM_TYPE = 'Accounting'#(lf)and TARGET_TEAM = 'Enterprise'#(lf)AND TIER = 'Client Director'\", null, [EnableFolding=true])\nin\n    Source"
+
+    lineage: List[
+        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+    ] = get_data_platform_tables_with_dummy_table(q=q)
+
+    assert len(lineage) == 1
+
+    data_platform_tables = lineage[0].upstreams
+
+    assert len(data_platform_tables) == 2
+
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,operations_analytics.transformed_prod.v_sme_unit,PROD)"
+    )
+    assert (
+        data_platform_tables[1].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,operations_analytics.transformed_prod.v_sme_unit_targets,PROD)"
+    )
+
+
+def test_double_quotes_in_alias():
+    # SELECT CAST(sales_date AS DATE) AS \"\"Date\"\" in query
+    q = 'let \n Source = Sql.Database("abc.com", "DB", [Query="SELECT CAST(sales_date AS DATE) AS ""Date"",#(lf) SUM(cshintrpret) / 60.0      AS ""Total Order All Items"",#(lf)#(tab)#(tab)#(tab)  SUM(cshintrpret) / 60.0 - LAG(SUM(cshintrpret) / 60.0, 1) OVER (ORDER BY CAST(sales_date AS DATE)) AS ""Total minute difference"",#(lf)#(tab)#(tab)#(tab)  SUM(sale_price)  / 60.0 - LAG(SUM(sale_price)  / 60.0, 1) OVER (ORDER BY CAST(sales_date AS DATE)) AS ""Normal minute difference""#(lf)        FROM   [DB].[dbo].[sales_t]#(lf)        WHERE  sales_date >= GETDATE() - 365#(lf)        GROUP  BY CAST(sales_date AS DATE),#(lf)#(tab)#(tab)CAST(sales_date AS TIME);"]) \n in \n Source'
+
+    lineage: List[
+        datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+    ] = get_data_platform_tables_with_dummy_table(q=q)
+
+    assert len(lineage) == 1
+
+    data_platform_tables = lineage[0].upstreams
+
+    assert len(data_platform_tables) == 1
+
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:mssql,db.dbo.sales_t,PROD)"
+    )
+
+
+@patch("datahub.ingestion.source.powerbi.m_query.parser.get_lark_parser")
+def test_m_query_timeout(mock_get_lark_parser):
+    q = 'let\n    Source = Value.NativeQuery(Snowflake.Databases("0DD93C6BD5A6.snowflakecomputing.com","sales_analytics_warehouse_prod",[Role="sales_analytics_member_ad"]){[Name="SL_OPERATIONS"]}[Data], "select SALE_NO AS ""\x1b[4mSaleNo\x1b[0m""#(lf)        ,CODE AS ""Code""#(lf)        ,ENDDATE AS ""end_date""#(lf) from SL_OPERATIONS.SALE.REPORTS#(lf)  where ENDDATE > \'2024-02-03\'", null, [EnableFolding=true]),\n    #"selected Row" = Table.SelectRows(Source)\nin\n    #"selected Row"'
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="virtual_order_table",
+        full_name="OrderDataSet.virtual_order_table",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    config.enable_advance_lineage_sql_construct = True
+
+    config.m_query_parse_timeout = 1
+
+    mock_lark_instance = MagicMock()
+
+    mock_get_lark_parser.return_value = mock_lark_instance
+    # sleep for 5 seconds to trigger timeout
+    mock_lark_instance.parse.side_effect = lambda expression: time.sleep(5)
+
+    parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    warn_entries: dict = reporter._structured_logs._entries.get(
+        StructuredLogLevel.WARN, {}
+    )  # type :ignore
+
+    is_entry_present: bool = False
+    for key, entry in warn_entries.items():
+        if entry.title == "M-Query Parsing Timeout":
+            is_entry_present = True
+            break
+
+    assert (
+        is_entry_present
+    ), 'Warning message "M-Query Parsing Timeout" should be present in reporter'
+
+
+def test_comments_in_m_query():
+    q: str = 'let\n    Source = Snowflake.Databases("xaa48144.snowflakecomputing.com", "COMPUTE_WH", [Role="ACCOUNTADMIN"]),\n    SNOWFLAKE_SAMPLE_DATA_Database = Source{[Name="SNOWFLAKE_SAMPLE_DATA", Kind="Database"]}[Data],\n    TPCDS_SF100TCL_Schema = SNOWFLAKE_SAMPLE_DATA_Database{[Name="TPCDS_SF100TCL", Kind="Schema"]}[Data],\n    ITEM_Table = TPCDS_SF100TCL_Schema{[Name="ITEM", Kind="Table"]}[Data],\n    \n    // Group by I_BRAND and calculate the count\n    BrandCountsTable = Table.Group(ITEM_Table, {"I_BRAND"}, {{"BrandCount", each Table.RowCount(_), Int64.Type}})\nin\n    BrandCountsTable'
+
+    table: powerbi_data_classes.Table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=q,
+        name="pet_price_index",
+        full_name="datalake.sandbox_pet.pet_price_index",
+    )
+
+    reporter = PowerBiDashboardSourceReport()
+
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    data_platform_tables: List[DataPlatformTable] = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+        parameters={
+            "hostname": "xyz.databricks.com",
+            "http_path": "/sql/1.0/warehouses/abc",
+            "catalog": "cat",
+            "schema": "public",
+        },
+    )[0].upstreams
+
+    assert len(data_platform_tables) == 1
+    assert (
+        data_platform_tables[0].urn
+        == "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpcds_sf100tcl.item,PROD)"
     )

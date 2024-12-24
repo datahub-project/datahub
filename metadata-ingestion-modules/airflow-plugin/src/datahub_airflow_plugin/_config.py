@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING, Optional
 
 import datahub.emitter.mce_builder as builder
 from airflow.configuration import conf
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from pydantic.fields import Field
 
 if TYPE_CHECKING:
     from datahub_airflow_plugin.hooks.datahub import DatahubGenericHook
@@ -56,6 +57,11 @@ class DatahubLineageConfig(ConfigModel):
     # Makes extraction of jinja-templated fields more accurate.
     render_templates: bool = True
 
+    dag_filter_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="regex patterns for DAGs to ingest",
+    )
+
     log_level: Optional[str] = None
     debug_emitter: bool = False
 
@@ -93,6 +99,9 @@ def get_lineage_config() -> DatahubLineageConfig:
     datajob_url_link = conf.get(
         "datahub", "datajob_url_link", fallback=DatajobUrl.TASKINSTANCE.value
     )
+    dag_filter_pattern = AllowDenyPattern.parse_raw(
+        conf.get("datahub", "dag_filter_str", fallback='{"allow": [".*"]}')
+    )
 
     return DatahubLineageConfig(
         enabled=enabled,
@@ -109,4 +118,5 @@ def get_lineage_config() -> DatahubLineageConfig:
         disable_openlineage_plugin=disable_openlineage_plugin,
         datajob_url_link=datajob_url_link,
         render_templates=render_templates,
+        dag_filter_pattern=dag_filter_pattern,
     )

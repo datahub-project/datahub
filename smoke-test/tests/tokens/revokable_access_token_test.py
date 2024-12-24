@@ -9,17 +9,14 @@ from tests.utils import (
     wait_for_writes_to_sync,
 )
 
+from .token_utils import listUsers, removeUser
+
 pytestmark = pytest.mark.no_cypress_suite1
 
 # Disable telemetry
 os.environ["DATAHUB_TELEMETRY_ENABLED"] = "false"
 
 (admin_user, admin_pass) = get_admin_credentials()
-
-
-@pytest.fixture(autouse=True)
-def setup(auth_session):
-    wait_for_writes_to_sync()
 
 
 @pytest.fixture()
@@ -494,46 +491,4 @@ def getAccessTokenMetadata(session, token):
     response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
     response.raise_for_status()
 
-    return response.json()
-
-
-def removeUser(session, urn):
-    # Remove user
-    json = {
-        "query": """mutation removeUser($urn: String!) {
-            removeUser(urn: $urn)
-        }""",
-        "variables": {"urn": urn},
-    }
-
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-
-    response.raise_for_status()
-    return response.json()
-
-
-def listUsers(session):
-    input = {
-        "start": "0",
-        "count": "20",
-    }
-
-    # list users
-    json = {
-        "query": """query listUsers($input: ListUsersInput!) {
-            listUsers(input: $input) {
-              start
-              count
-              total
-              users {
-                username
-              }
-            }
-        }""",
-        "variables": {"input": input},
-    }
-
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
-
-    response.raise_for_status()
     return response.json()

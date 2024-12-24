@@ -84,8 +84,21 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
       final DateTime end,
       final String title,
       final DateInterval interval) {
-    final DateRange dateRange =
-        new DateRange(String.valueOf(beginning.getMillis()), String.valueOf(end.getMillis()));
+
+    final DateRange dateRange;
+
+    // adjust month to show 1st of month rather than last day of previous month
+    if (interval == DateInterval.MONTH) {
+      dateRange =
+          new DateRange(
+              String.valueOf(beginning.plusDays(1).getMillis()), // Shift start by 1 day
+              String.valueOf(end.plusDays(1).getMillis()) // Shift end by 1 day
+              );
+    } else {
+      // week display starting Sundays
+      dateRange =
+          new DateRange(String.valueOf(beginning.getMillis()), String.valueOf(end.getMillis()));
+    }
 
     final List<NamedLine> timeSeriesLines =
         _analyticsService.getTimeseriesChart(
@@ -96,6 +109,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
             ImmutableMap.of(),
             Collections.emptyMap(),
             Optional.of("browserId"));
+
     return TimeSeriesChart.builder()
         .setTitle(title)
         .setDateRange(dateRange)
@@ -111,7 +125,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
       final DateRange trailingMonthDateRange = dateUtil.getTrailingMonthDateRange();
       final List<String> columns = ImmutableList.of("Name", "Title", "Email");
 
-      final String topUsersTitle = "Top Users";
+      final String topUsersTitle = "Top Users (Last 30 Days)";
       final List<Row> topUserRows =
           _analyticsService.getTopNTableChart(
               _analyticsService.getUsageIndexName(),
@@ -184,7 +198,7 @@ public final class GetChartsResolver implements DataFetcher<List<AnalyticsChartG
   private AnalyticsChart getNewUsersChart(OperationContext opContext) {
     try {
       final List<String> columns = ImmutableList.of("Name", "Title", "Email");
-      final String newUsersTitle = "New Users";
+      final String newUsersTitle = "Active Users (Last 30 Days)";
       final SearchResult result = searchForNewUsers(opContext);
       final List<Row> newUserRows = new ArrayList<>();
       for (SearchEntity entity : result.getEntities()) {

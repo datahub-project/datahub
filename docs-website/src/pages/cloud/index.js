@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Layout from "@theme/Layout";
 import Link from "@docusaurus/Link";
 import useDocusaurusContext from "@docusaurus/useDocusaurusContext";
@@ -10,14 +10,26 @@ import UnifiedTabs from "./UnifiedTabs";
 import FeatureCards from "./FeatureCards";
 import Hero from "./Hero";
 import DemoForm from "./DemoForm";
+import ServiceBell from "@servicebell/widget";
+import DemoFormModal from "./DemoFormModal";
+
+const SERVICE_BELL_ID = "00892146e5bc46d98d55ecc2b2fa67e2";
 
 function Home() {
   const context = useDocusaurusContext();
   const { siteConfig = {} } = context;
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleOpenModal = () => setIsModalOpen(true);
+  const handleCloseModal = () => setIsModalOpen(false);
   if (siteConfig.customFields.isSaas) {
     window.location.replace("/docs");
   }
+
+  useEffect(() => {
+    ServiceBell("init", SERVICE_BELL_ID, { hidden: false });
+  }, []);
 
   return !siteConfig.customFields.isSaas ? (
     <Layout
@@ -28,7 +40,7 @@ function Home() {
       <div className={clsx(styles.bgSection)}>
         <UnifiedTabs />
       </div>
-      <FeatureCards/>
+      <FeatureCards />
       <div className={clsx(styles.bgSection)}>
         <Section>
           <Enterprise />
@@ -41,25 +53,33 @@ function Home() {
       <div className={clsx("hero", styles.hero)}>
         <div className="container" style={{ paddingTop: '12vh', paddingBottom: '12vh' }}>
           <div className="row row__padded">
-            <div  className={clsx(styles.col, styles.hero__cta, "col col--7")}>
-              <h1 className={styles.hero__title}>Start your free trial<br/>today.</h1>
-              <div className={clsx(styles.hero__subtitle)}>Unify Discovery, Observability and Governance<br/>for data and AI.</div>
+            <div className={clsx(styles.col, styles.hero__cta, "col col--7")}>
+              <h1 className={styles.hero__title}>Start with DataHub Cloud<br />today.</h1>
+              <div className={clsx(styles.hero__subtitle)}>
+                Unify Discovery, Observability and Governance<br />for data and AI.
+              </div>
               <div>
-                <Link className={clsx(styles.button, styles.bookButton, "button button--primary button--lg")} to="https://www.acryldata.io/datahub-sign-up?utm_source=datahub&utm_medium=referral&utm_campaign=acryl_signup">
+                <button
+                  className={clsx(styles.button, styles.bookButton, "button button--primary button--lg")}
+                  onClick={handleOpenModal}
+                >
                   Book Demo
-                </Link>
+                </button>
                 <Link className={clsx(styles.button, styles.productTourButton, "button button--secondary button--lg")} to="https://www.acryldata.io/tour">
                   Live Product Tour →
                 </Link>
               </div>
               <div className="hero__subtitle" />
             </div>
-            <div className={clsx(styles.col, "col col--5")}>
-               <DemoForm formId="footerForm"/>
+            <div className={clsx(styles.col, "col col--5", styles.hideOnMobile)}>
+              <DemoForm formId="footerForm" />
             </div>
           </div>
         </div>
       </div>
+      {isModalOpen && (
+        <DemoFormModal formId="footerFormMobile" handleCloseModal={handleCloseModal} />
+      )}
     </Layout>
   ) : null;
 }

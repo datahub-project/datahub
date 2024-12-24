@@ -5,10 +5,6 @@ import com.linkedin.common.Urn
 /**
  * For unit tests
  */
-@pairings = [ {
-  "destination" : "com.linkedin.common.urn.Urn",
-  "source" : "com.linkedin.common.urn.Urn"
-} ]
 record RelationshipFoo {
 
   /**

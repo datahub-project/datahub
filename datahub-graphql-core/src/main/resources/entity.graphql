@@ -262,7 +262,15 @@ type Query {
     Fetch all Business Attributes
     """
     listBusinessAttributes(input: ListBusinessAttributesInput!): ListBusinessAttributesResult
+
+    """
+    Fetch a Data Process Instance by primary key (urn)
+    """
+    dataProcessInstance(urn: String!): DataProcessInstance
+
+
 }
+
 
 """
 An ERModelRelationship is a high-level abstraction that dictates what datasets fields are erModelRelationshiped.
@@ -645,7 +653,7 @@ type Mutation {
     updateERModelRelationship(
         "The urn of the ERModelRelationship to update"
         urn: String!,
-        "Input required to updat an existing DataHub View"
+        "Input required to update an existing DataHub View"
         input: ERModelRelationshipUpdateInput!): Boolean
 
     """
@@ -795,7 +803,7 @@ type Mutation {
     updateView(
       "The urn of the View to update"
       urn: String!,
-      "Input required to updat an existing DataHub View"
+      "Input required to update an existing DataHub View"
       input: UpdateViewInput!): DataHubView
 
     """
@@ -2838,6 +2846,11 @@ type Container implements Entity {
     exists: Boolean
 
     """
+	The Roles and the properties to access the container
+	"""
+	access: Access
+
+    """
     Experimental API.
     For fetching extra entities that do not have custom UI code yet
     """
@@ -3000,8 +3013,14 @@ type InstitutionalMemoryMetadata {
 
     """
     The author of this metadata
+    Deprecated! Use actor instead for users or groups.
     """
-    author: CorpUser!
+    author: CorpUser! @deprecated(reason: "Use `actor`")
+
+    """
+    The author of this metadata
+    """
+    actor: ResolvedActor!
 
     """
     An AuditStamp corresponding to the creation of this resource
@@ -3827,7 +3846,14 @@ enum CorpUserStatus {
   A User that has been provisioned and logged in
   """
   ACTIVE
+
+  """
+  A user that has been suspended
+  """
+  SUSPENDED
 }
+
+union ResolvedActor = CorpUser | CorpGroup
 
 """
 A DataHub User entity, which represents a Person on the Metadata Entity Graph
@@ -9814,13 +9840,45 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
     privileges: EntityPrivileges
 }
 
+"""
+Properties describing a group of related ML models
+"""
 type MLModelGroupProperties {
+    """
+    Display name of the model group
+    """
+    name: String
 
-description: String
+    """
+    Detailed description of the model group's purpose and contents
+    """
+    description: String
 
-    createdAt: Long
+    """
+    When this model group was created
+    """
+    created: AuditStamp
 
+    """
+    When this model group was last modified
+    """
+    lastModified: AuditStamp
+
+    """
+    Version identifier for this model group
+    """
     version: VersionTag
+
+    """
+    Custom key-value properties for the model group
+    """
+    customProperties: [CustomPropertiesEntry!]
+
+    """
+    Deprecated creation timestamp
+    @deprecated Use the 'created' field instead
+    """
+    createdAt: Long @deprecated(reason: "Use `created` instead")
 }
 
 """
@@ -9970,40 +10028,103 @@ description: String
 }
 
 type MLMetric {
+    """
+    Name of the metric (e.g. accuracy, precision, recall)
+    """
     name: String
 
+    """
+    Description of what this metric measures
+    """
     description: String
 
+    """
+    The computed value of the metric
+    """
     value: String
 
+    """
+    Timestamp when this metric was recorded
+    """
     createdAt: Long
 }
 
 type MLModelProperties {
+    """
+    The display name of the model used in the UI
+    """
+    name: String!
 
+    """
+    Detailed description of the model's purpose and characteristics
+    """
     description: String
 
-    date: Long
+    """
+    When the model was last modified
+    """
+    lastModified: AuditStamp
 
+    """
+    Version identifier for this model
+    """
     version: String
 
+    """
+    The type/category of ML model (e.g. classification, regression)
+    """
     type: String
 
+    """
+    Mapping of hyperparameter configurations
+    """
     hyperParameters: HyperParameterMap
 
-    hyperParams:  [MLHyperParam]
+    """
+    List of hyperparameter settings used to train this model
+    """
+    hyperParams: [MLHyperParam]
 
+    """
+    Performance metrics from model training
+    """
     trainingMetrics: [MLMetric]
 
+    """
+    Names of ML features used by this model
+    """
     mlFeatures: [String!]
 
+    """
+    Tags for categorizing and searching models
+    """
     tags: [String!]
 
+    """
+    Model groups this model belongs to
+    """
     groups: [MLModelGroup]
 
+    """
+    Additional custom properties specific to this model
+    """
     customProperties: [CustomPropertiesEntry!]
 
+    """
+    URL to view this model in external system
+    """
     externalUrl: String
+
+    """
+    When this model was created
+    """
+    created: AuditStamp
+
+    """
+    Deprecated timestamp for model creation
+    @deprecated Use 'created' field instead
+    """
+    date: Long @deprecated(reason: "Use `created` instead")
 }
 
 type MLFeatureProperties {
@@ -10015,6 +10136,8 @@ type MLFeatureProperties {
     version: VersionTag
 
     sources: [Dataset]
+
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -10151,13 +10274,15 @@ type MLPrimaryKey implements EntityWithRelationships & Entity {
 
 type MLPrimaryKeyProperties {
 
-description: String
+    description: String
 
     dataType: MLFeatureDataType
 
     version: VersionTag
 
     sources: [Dataset]
+
+    customProperties: [CustomPropertiesEntry!]
 }
 
 """
@@ -10334,7 +10459,7 @@ type MLModelGroupEditableProperties {
 
 type MLFeatureTableProperties {
 
-description: String
+    description: String
 
     mlFeatures: [MLFeature]
 
@@ -12779,4 +12904,93 @@ type CronSchedule {
     Timezone in which the cron interval applies, e.g. America/Los_Angeles
     """
     timezone: String!
+}
+
+
+"""
+Properties describing a data process instance's execution metadata
+"""
+type DataProcessInstanceProperties {
+    """
+    The display name of this process instance
+    """
+    name: String!
+
+    """
+    URL to view this process instance in the external system
+    """
+    externalUrl: String
+
+    """
+    When this process instance was created
+    """
+    created: AuditStamp
+
+    """
+    Additional custom properties specific to this process instance
+    """
+    customProperties: [CustomPropertiesEntry!]
+}
+
+"""
+Properties specific to an ML model training run instance
+"""
+type MLTrainingRunProperties {
+    """
+    Unique identifier for this training run
+    """
+    id: String
+
+    """
+    List of URLs to access training run outputs (e.g. model artifacts, logs)
+    """
+    outputUrls: [String]
+    
+    """
+    Hyperparameters used in this training run
+    """
+    hyperParams: [MLHyperParam]
+
+    """
+    Performance metrics recorded during this training run
+    """
+    trainingMetrics: [MLMetric]
+}
+
+extend type DataProcessInstance {
+
+    """
+    Additional read only properties associated with the Data Job
+    """
+    properties: DataProcessInstanceProperties
+
+    """
+    The specific instance of the data platform that this entity belongs to
+    """
+    dataPlatformInstance: DataPlatformInstance
+
+    """
+    Sub Types that this entity implements
+    """
+    subTypes: SubTypes
+
+    """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
+    Standardized platform urn where the data process instance is defined
+    """
+    platform: DataPlatform!
+
+    """
+    Recursively get the lineage of containers for this entity
+    """
+    parentContainers: ParentContainersResult
+
+    """
+    Additional properties when subtype is Training Run
+    """
+    mlTrainingRunProperties: MLTrainingRunProperties
 }

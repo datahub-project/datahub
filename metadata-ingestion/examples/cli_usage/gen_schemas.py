@@ -28,7 +28,6 @@ class CorpGroupFile(BaseModel):
 
 
 with open("user/user.dhub.yaml_schema.json", "w") as fp:
-
     fp.write(json.dumps(CorpUserFile.schema(), indent=4))
 
 with open("group/group.dhub.yaml_schema.json", "w") as fp:

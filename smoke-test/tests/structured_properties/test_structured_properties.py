@@ -165,13 +165,13 @@ def get_property_from_entity(
     return None
 
 
-def to_es_name(property_name=None, namespace=default_namespace, qualified_name=None):
+def to_es_filter_name(
+    property_name=None, namespace=default_namespace, qualified_name=None
+):
     if property_name:
-        namespace_field = namespace.replace(".", "_")
-        return f"structuredProperties.{namespace_field}_{property_name}"
+        return f"structuredProperties.{namespace}.{property_name}"
     else:
-        escaped_qualified_name = qualified_name.replace(".", "_")
-        return f"structuredProperties.{escaped_qualified_name}"
+        return f"structuredProperties.{qualified_name}"
 
 
 # @tenacity.retry(
@@ -371,6 +371,24 @@ def test_structured_property_schema_field(ingest_cleanup_data, graph_client):
             raise e
 
 
+def test_structured_properties_yaml_load_with_bad_entity_type(
+    ingest_cleanup_data, graph_client
+):
+    try:
+        StructuredProperties.create(
+            "tests/structured_properties/bad_entity_type.yaml",
+            graph=graph_client,
+        )
+        raise AssertionError(
+            "Should not be able to create structured properties with bad entity type"
+        )
+    except Exception as e:
+        if "urn:li:entityType:dataset is not a valid entity type urn" in str(e):
+            pass
+        else:
+            raise e
+
+
 def test_dataset_yaml_loader(ingest_cleanup_data, graph_client):
     StructuredProperties.create(
         "tests/structured_properties/test_structured_properties.yaml",
@@ -446,7 +464,7 @@ def test_structured_property_search(
         graph_client.get_urns_by_filter(
             extraFilters=[
                 {
-                    "field": to_es_name(dataset_property_name),
+                    "field": to_es_filter_name(dataset_property_name),
                     "negated": "false",
                     "condition": "EXISTS",
                 }
@@ -475,7 +493,7 @@ def test_structured_property_search(
             entity_types=["tag"],
             extraFilters=[
                 {
-                    "field": to_es_name(
+                    "field": to_es_filter_name(
                         field_property_name, namespace="io.datahubproject.test"
                     ),
                     "negated": "false",
@@ -492,7 +510,7 @@ def test_structured_property_search(
             entity_types=["dataset", "tag"],
             extraFilters=[
                 {
-                    "field": to_es_name(dataset_property_name),
+                    "field": to_es_filter_name(dataset_property_name),
                     "negated": "false",
                     "condition": "EXISTS",
                 }
@@ -690,7 +708,7 @@ def test_dataset_structured_property_soft_delete_search_filter_validation(
         graph_client.get_urns_by_filter(
             extraFilters=[
                 {
-                    "field": to_es_name(dataset_property_name),
+                    "field": to_es_filter_name(property_name=dataset_property_name),
                     "negated": "false",
                     "condition": "EXISTS",
                 }
@@ -710,7 +728,7 @@ def test_dataset_structured_property_soft_delete_search_filter_validation(
             graph_client.get_urns_by_filter(
                 extraFilters=[
                     {
-                        "field": to_es_name(dataset_property_name),
+                        "field": to_es_filter_name(property_name=dataset_property_name),
                         "negated": "false",
                         "condition": "EXISTS",
                     }
@@ -779,7 +797,7 @@ def test_dataset_structured_property_delete(ingest_cleanup_data, graph_client, c
             graph_client.get_urns_by_filter(
                 extraFilters=[
                     {
-                        "field": to_es_name(qualified_name=qualified_name),
+                        "field": to_es_filter_name(qualified_name=qualified_name),
                         "negated": "false",
                         "condition": "EXISTS",
                     }

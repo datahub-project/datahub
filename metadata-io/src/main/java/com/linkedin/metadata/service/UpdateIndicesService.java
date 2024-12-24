@@ -26,6 +26,7 @@ import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -60,6 +61,9 @@ public class UpdateIndicesService implements SearchIndicesService {
   @Getter private final boolean structuredPropertiesHookEnabled;
 
   @Getter private final boolean structuredPropertiesWriteEnabled;
+
+  private static final String DOCUMENT_TRANSFORM_FAILED_METRIC = "document_transform_failed";
+  private static final String SEARCH_DIFF_MODE_SKIPPED_METRIC = "search_diff_no_changes_detected";
 
   private static final Set<ChangeType> UPDATE_CHANGE_TYPES =
       ImmutableSet.of(
@@ -117,11 +121,10 @@ public class UpdateIndicesService implements SearchIndicesService {
   public void handleChangeEvent(
       @Nonnull OperationContext opContext, @Nonnull final MetadataChangeLog event) {
     try {
-      MCLItemImpl batch =
-          MCLItemImpl.builder().build(event, opContext.getAspectRetrieverOpt().get());
+      MCLItemImpl batch = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
 
       Stream<MCLItem> sideEffects =
-          AspectsBatch.applyMCLSideEffects(List.of(batch), opContext.getRetrieverContext().get());
+          AspectsBatch.applyMCLSideEffects(List.of(batch), opContext.getRetrieverContext());
 
       for (MCLItem mclItem :
           Stream.concat(Stream.of(batch), sideEffects).collect(Collectors.toList())) {
@@ -176,8 +179,12 @@ public class UpdateIndicesService implements SearchIndicesService {
       updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
     }
 
-    // Step 1. Handle StructuredProperties Index Mapping changes
-    updateIndexMappings(urn, entitySpec, aspectSpec, aspect, previousAspect);
+    try {
+      // Step 1. Handle StructuredProperties Index Mapping changes
+      updateIndexMappings(urn, entitySpec, aspectSpec, aspect, previousAspect);
+    } catch (Exception e) {
+      log.error("Issue with updating index mappings for structured property change", e);
+    }
 
     // Step 2. For all aspects, attempt to update Search
     updateSearchService(opContext, event);
@@ -188,7 +195,8 @@ public class UpdateIndicesService implements SearchIndicesService {
       EntitySpec entitySpec,
       AspectSpec aspectSpec,
       RecordTemplate newValue,
-      RecordTemplate oldValue) {
+      RecordTemplate oldValue)
+      throws CloneNotSupportedException {
     if (structuredPropertiesHookEnabled
         && STRUCTURED_PROPERTY_ENTITY_NAME.equals(entitySpec.getName())
         && STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectSpec.getName())) {
@@ -201,7 +209,7 @@ public class UpdateIndicesService implements SearchIndicesService {
               .orElse(new UrnArray());
 
       StructuredPropertyDefinition newDefinition =
-          new StructuredPropertyDefinition(newValue.data());
+          new StructuredPropertyDefinition(newValue.data().copy());
       newDefinition.getEntityTypes().removeAll(oldEntityTypes);
 
       if (newDefinition.getEntityTypes().size() > 0) {
@@ -283,11 +291,13 @@ public class UpdateIndicesService implements SearchIndicesService {
                           event.getAuditStamp()));
     } catch (Exception e) {
       log.error(
-          "Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
+          "Error in getting documents for urn: {} from aspect: {}", urn, aspectSpec.getName(), e);
+      MetricUtils.counter(this.getClass(), DOCUMENT_TRANSFORM_FAILED_METRIC).inc();
       return;
     }
 
-    if (!searchDocument.isPresent()) {
+    if (searchDocument.isEmpty()) {
+      log.info("Search document for urn: {} aspect: {} was empty", urn, aspect);
       return;
     }
 
@@ -304,15 +314,22 @@ public class UpdateIndicesService implements SearchIndicesService {
                   opContext, urn, previousAspect, aspectSpec, false);
         } catch (Exception e) {
           log.error(
-              "Error in getting documents from previous aspect state: {} for aspect {}, continuing without diffing.",
-              e,
-              aspectSpec.getName());
+              "Error in getting documents from previous aspect state for urn: {} for aspect {}, continuing without diffing.",
+              urn,
+              aspectSpec.getName(),
+              e);
+          MetricUtils.counter(this.getClass(), DOCUMENT_TRANSFORM_FAILED_METRIC).inc();
         }
       }
 
       if (previousSearchDocument.isPresent()) {
         if (searchDocument.get().toString().equals(previousSearchDocument.get().toString())) {
           // No changes to search document, skip writing no-op update
+          log.info(
+              "No changes detected for search document for urn: {} aspect: {}",
+              urn,
+              aspectSpec.getName());
+          MetricUtils.counter(this.getClass(), SEARCH_DIFF_MODE_SKIPPED_METRIC).inc();
           return;
         }
       }

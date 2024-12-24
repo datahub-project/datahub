@@ -5,6 +5,7 @@ plugins {
 }
 
 apply from: "../gradle/versioning/versioning.gradle"
+apply from: "../gradle/coverage/java-coverage.gradle"
 
 ext {
   docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
@@ -59,7 +60,7 @@ dependencies {
   // mock internal schema registry
   implementation externalDependency.kafkaAvroSerde
   implementation externalDependency.kafkaAvroSerializer
-  implementation "org.apache.kafka:kafka_2.12:3.7.1"
+  implementation "org.apache.kafka:kafka_2.13:3.7.2"
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok

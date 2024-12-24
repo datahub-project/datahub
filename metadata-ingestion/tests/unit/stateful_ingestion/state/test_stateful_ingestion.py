@@ -10,7 +10,8 @@ from pydantic import Field
 
 from datahub.api.entities.dataprocess.dataprocess_instance import DataProcessInstance
 from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
+from datahub.configuration.source_common import DatasetSourceConfigMixin
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport

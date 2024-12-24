@@ -1,15 +1,21 @@
 package com.linkedin.metadata.search;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultV2;
+import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.opensearch.action.explain.ExplainResponse;
@@ -59,15 +65,10 @@ public interface EntitySearchService {
   /**
    * Appends a run id to the list for a certain document
    *
-   * @param entityName name of the entity
    * @param urn the urn of the user
    * @param runId the ID of the run
    */
-  void appendRunId(
-      @Nonnull OperationContext opContext,
-      @Nonnull String entityName,
-      @Nonnull Urn urn,
-      @Nullable String runId);
+  void appendRunId(@Nonnull OperationContext opContext, @Nonnull Urn urn, @Nullable String runId);
 
   /**
    * Gets a list of documents that match given search request. The results are aggregated and
@@ -329,4 +330,41 @@ public interface EntitySearchService {
    * @return convent
    */
   IndexConvention getIndexConvention();
+
+  default void appendRunId(
+      @Nonnull final OperationContext opContext, @Nonnull List<IngestResult> results) {
+
+    // Only updates with runId
+    Map<Pair<Urn, String>, Set<BatchItem>> urnRunIdToBatchItem =
+        results.stream()
+            .filter(Objects::nonNull)
+            .filter(
+                result -> result.getUrn() != null && (result.isProcessedMCL() || result.isUpdate()))
+            .filter(
+                result ->
+                    result.getRequest() != null
+                        && result.getRequest().getSystemMetadata() != null
+                        && result.getRequest().getSystemMetadata().hasRunId())
+            .map(
+                result ->
+                    Map.entry(
+                        Pair.of(
+                            result.getUrn(), result.getRequest().getSystemMetadata().getRunId()),
+                        result))
+            .collect(
+                Collectors.groupingBy(
+                    Map.Entry::getKey,
+                    Collectors.mapping(e -> e.getValue().getRequest(), Collectors.toSet())));
+
+    // Only update if not key aspect (document doesn't exist)
+    urnRunIdToBatchItem.entrySet().stream()
+        .filter(
+            entry ->
+                entry.getValue().stream()
+                    .noneMatch(
+                        item ->
+                            item.getEntitySpec().getKeyAspectName().equals(item.getAspectName())))
+        .forEach(
+            entry -> appendRunId(opContext, entry.getKey().getKey(), entry.getKey().getValue()));
+  }
 }

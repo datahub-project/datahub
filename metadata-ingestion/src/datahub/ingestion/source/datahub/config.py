@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, Set
 
 from pydantic import Field, root_validator
 
@@ -14,6 +14,17 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 DEFAULT_DATABASE_TABLE_NAME = "metadata_aspect_v2"
 DEFAULT_KAFKA_TOPIC_NAME = "MetadataChangeLog_Timeseries_v1"
 DEFAULT_DATABASE_BATCH_SIZE = 10_000
+DEFAULT_EXCLUDE_ASPECTS = {
+    "dataHubIngestionSourceKey",
+    "dataHubIngestionSourceInfo",
+    "datahubIngestionRunSummary",
+    "datahubIngestionCheckpoint",
+    "dataHubSecretKey",
+    "dataHubSecretValue",
+    "globalSettingsKey",
+    "globalSettingsInfo",
+    "testResults",
+}
 
 
 class DataHubSourceConfig(StatefulIngestionConfigBase):
@@ -33,6 +44,19 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
             "If enabled, include all versions of each aspect. "
             "Otherwise, only include the latest version of each aspect. "
         ),
+    )
+
+    include_soft_deleted_entities: bool = Field(
+        default=True,
+        description=(
+            "If enabled, include entities that have been soft deleted. "
+            "Otherwise, include all entities regardless of removal status. "
+        ),
+    )
+
+    exclude_aspects: Set[str] = Field(
+        default=DEFAULT_EXCLUDE_ASPECTS,
+        description="Set of aspect names to exclude from ingestion",
     )
 
     database_query_batch_size: int = Field(

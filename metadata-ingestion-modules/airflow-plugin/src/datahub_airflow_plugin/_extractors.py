@@ -50,7 +50,6 @@ class ExtractorManager(OLExtractorManager):
             "BigQueryOperator",
             "BigQueryExecuteQueryOperator",
             # Athena also does something similar.
-            "AthenaOperator",
             "AWSAthenaOperator",
             # Additional types that OL doesn't support. This is only necessary because
             # on older versions of Airflow, these operators don't inherit from SQLExecuteQueryOperator.
@@ -58,6 +57,8 @@ class ExtractorManager(OLExtractorManager):
         ]
         for operator in _sql_operator_overrides:
             self.task_to_extractor.extractors[operator] = GenericSqlExtractor
+
+        self.task_to_extractor.extractors["AthenaOperator"] = AthenaOperatorExtractor
 
         self.task_to_extractor.extractors[
             "BigQueryInsertJobOperator"
@@ -273,6 +274,27 @@ class BigQueryInsertJobOperatorExtractor(BaseExtractor):
             platform="bigquery",
             default_database=operator.project_id,
             default_schema=None,
+        )
+
+
+class AthenaOperatorExtractor(BaseExtractor):
+    def extract(self) -> Optional[TaskMetadata]:
+        from airflow.providers.amazon.aws.operators.athena import (
+            AthenaOperator,  # type: ignore
+        )
+
+        operator: "AthenaOperator" = self.operator
+        sql = operator.query
+        if not sql:
+            self.log.warning("No query found in AthenaOperator")
+            return None
+
+        return _parse_sql_into_task_metadata(
+            self,
+            sql,
+            platform="athena",
+            default_database=None,
+            default_schema=self.operator.database,
         )
 
 

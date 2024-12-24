@@ -25,8 +25,10 @@ import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.net.URISyntaxException;
@@ -65,6 +67,7 @@ public class AspectResourceTest {
     aspectResource.setEntityService(entityService);
     opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     aspectResource.setSystemOperationContext(opContext);
+    aspectResource.setEntitySearchService(mock(EntitySearchService.class));
     entityRegistry = opContext.getEntityRegistry();
   }
 
@@ -97,7 +100,7 @@ public class AspectResourceTest {
             .recordTemplate(mcp.getAspect())
             .auditStamp(new AuditStamp())
             .metadataChangeProposal(mcp)
-            .build(opContext.getAspectRetrieverOpt().get());
+            .build(opContext.getAspectRetriever());
     when(aspectDao.runInTransactionWithRetry(any(), any(), anyInt()))
         .thenReturn(
             List.of(List.of(
@@ -135,5 +138,32 @@ public class AspectResourceTest {
     verify(producer, times(5))
         .produceMetadataChangeLog(eq(urn), any(AspectSpec.class), any(MetadataChangeLog.class));
     verifyNoMoreInteractions(producer);
+  }
+
+  @Test
+  public void testNoValidateAsync() throws URISyntaxException {
+    OperationContext noValidateOpContext = TestOperationContexts.systemContextNoValidate();
+    aspectResource.setSystemOperationContext(noValidateOpContext);
+    reset(producer, aspectDao);
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    Urn urn = new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD);
+    mcp.setEntityUrn(urn);
+    GenericAspect properties = GenericRecordUtils.serializeAspect(new DatasetProperties().setName("name"));
+    mcp.setAspect(GenericRecordUtils.serializeAspect(properties));
+    mcp.setAspectName("notAnAspect");
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setSystemMetadata(new SystemMetadata());
+
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    Actor actor = new Actor(ActorType.USER, "user");
+    when(mockAuthentication.getActor()).thenReturn(actor);
+    aspectResource.ingestProposal(mcp, "true");
+    verify(producer, times(1)).produceMetadataChangeProposal(urn, mcp);
+    verifyNoMoreInteractions(producer);
+    verifyNoMoreInteractions(aspectDao);
+    reset(producer, aspectDao);
+    aspectResource.setSystemOperationContext(opContext);
   }
 }

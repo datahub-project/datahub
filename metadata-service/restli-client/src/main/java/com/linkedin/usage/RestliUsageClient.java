@@ -5,6 +5,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.WindowDuration;
 import com.linkedin.common.client.BaseClient;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.config.cache.client.UsageClientCacheConfig;
 import com.linkedin.parseq.retry.backoff.BackoffPolicy;
 import com.linkedin.r2.RemoteInvocationException;
@@ -26,7 +27,9 @@ public class RestliUsageClient extends BaseClient implements UsageClient {
       @Nonnull final BackoffPolicy backoffPolicy,
       int retryCount,
       UsageClientCacheConfig cacheConfig) {
-    super(restliClient, backoffPolicy, retryCount);
+    super(
+        restliClient,
+        EntityClientConfig.builder().backoffPolicy(backoffPolicy).retryCount(retryCount).build());
     this.operationContextMap = Caffeine.newBuilder().maximumSize(500).build();
     this.usageClientCache =
         UsageClientCache.builder()

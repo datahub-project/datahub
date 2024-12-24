@@ -100,7 +100,7 @@ public class ESUtils {
   // top-level properties
   // to field level properties
   public static final Map<String, List<String>> FIELDS_TO_EXPANDED_FIELDS_LIST =
-      new HashMap<String, List<String>>() {
+      new HashMap<>() {
         {
           put("tags", ImmutableList.of("tags", "fieldTags", "editedFieldTags"));
           put(
@@ -117,6 +117,8 @@ public class ESUtils {
           put(
               "businessAttribute",
               ImmutableList.of("businessAttributeRef", "businessAttributeRef.urn"));
+          put("origin", ImmutableList.of("origin", "env"));
+          put("env", ImmutableList.of("env", "origin"));
         }
       };
 
@@ -446,9 +448,20 @@ public class ESUtils {
                             urnDefinition.getFirst(), urnDefinition.getSecond()))
             .orElse(filterField);
 
+    return replaceSuffix(fieldName);
+  }
+
+  /**
+   * Strip subfields from filter field
+   *
+   * @param fieldName name of the field
+   * @return normalized field name without subfields
+   */
+  @Nonnull
+  public static String replaceSuffix(@Nonnull final String fieldName) {
     for (String subfield : SUBFIELDS) {
       String SUFFIX = "." + subfield;
-      if (filterField.endsWith(SUFFIX)) {
+      if (fieldName.endsWith(SUFFIX)) {
         return fieldName.replace(SUFFIX, "");
       }
     }
@@ -708,7 +721,8 @@ public class ESUtils {
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull AspectRetriever aspectRetriever,
       boolean enableCaseInsensitiveSearch) {
-    Set<String> fieldTypes = getFieldTypes(searchableFieldTypes, fieldName, aspectRetriever);
+    Set<String> fieldTypes =
+        getFieldTypes(searchableFieldTypes, fieldName, criterion, aspectRetriever);
     if (fieldTypes.size() > 1) {
       log.warn(
           "Multiple field types for field name {}, determining best fit for set: {}",
@@ -751,12 +765,16 @@ public class ESUtils {
   private static Set<String> getFieldTypes(
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFields,
       String fieldName,
+      @Nonnull final Criterion criterion,
       @Nullable AspectRetriever aspectRetriever) {
 
     final Set<String> finalFieldTypes;
     if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+      // use criterion field here for structured props since fieldName has dots replaced with
+      // underscores
       finalFieldTypes =
-          StructuredPropertyUtils.toElasticsearchFieldType(fieldName, aspectRetriever);
+          StructuredPropertyUtils.toElasticsearchFieldType(
+              replaceSuffix(criterion.getField()), aspectRetriever);
     } else {
       Set<SearchableAnnotation.FieldType> fieldTypes =
           searchableFields.getOrDefault(fieldName.split("\\.")[0], Collections.emptySet());
@@ -780,7 +798,8 @@ public class ESUtils {
       Condition condition,
       boolean isTimeseries,
       AspectRetriever aspectRetriever) {
-    Set<String> fieldTypes = getFieldTypes(searchableFieldTypes, fieldName, aspectRetriever);
+    Set<String> fieldTypes =
+        getFieldTypes(searchableFieldTypes, fieldName, criterion, aspectRetriever);
 
     // Determine criterion value, range query only accepts single value so take first value in
     // values if multiple

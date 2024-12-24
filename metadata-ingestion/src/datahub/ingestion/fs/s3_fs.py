@@ -32,7 +32,6 @@ class S3Path:
 
 
 class S3ListIterator(Iterator):
-
     MAX_KEYS = 1000
 
     def __init__(

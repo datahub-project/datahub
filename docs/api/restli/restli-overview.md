@@ -1156,7 +1156,7 @@ curl -X POST 'http://localhost:8080/entities?action=search' \
             "and": [
                {
                   "field": "title",
-                  "value": "Baz Chart 1",
+                  "values": ["Baz Chart 1"],
                   "condition": "EQUAL"
                }
             ]   
@@ -1261,7 +1261,7 @@ curl -X POST 'http://localhost:8080/entities?action=autocomplete' \
             "and": [
                {
                 "field": "tool",
-                "value": "looker",
+                "values": ["looker"],
                 "condition": "EQUAL"
                }
             ]   

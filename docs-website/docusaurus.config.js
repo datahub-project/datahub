@@ -65,6 +65,14 @@ module.exports = {
     //     isCloseable: false,
     //   },
     // }),
+    announcementBar: {
+          id: "announcement-3",
+          content:
+            '<div style="display: flex; justify-content: center; align-items: center;width: 100%;"><!--img src="/img/acryl-logo-white-mark.svg" / --><!--div style="font-size: .8rem; font-weight: 600; background-color: white; color: #111; padding: 0px 8px; border-radius: 4px; margin-right:12px;">NEW</div--><p>Watch Metadata & AI Summit sessions on-demand.</p><a href="https://www.youtube.com/@DataHubProject/videos" target="_blank" class="button">Watch Now<span> →</span></a></div>',
+          backgroundColor: "#111",
+          textColor: "#ffffff",
+          isCloseable: false,
+        },
     colorMode: {
       // Only support light mode.
       defaultMode: 'light',
@@ -80,7 +88,26 @@ module.exports = {
       },
       items: [
         {
-          to: "cloud/",
+          type: "dropdown",
+          label: "Solutions",
+          position: "right",
+          items: [
+            {
+              to: "/solutions/discovery",
+              label: "Discovery",
+            },
+            {
+              to: "/solutions/observability",
+              label: "Observability",
+            },
+            {
+              to: "/solutions/governance",
+              label: "Governance",
+            },
+          ]
+        },
+        {
+          to: "/cloud",
           activeBasePath: "cloud",
           label: "Cloud",
           position: "right",
@@ -172,7 +199,7 @@ module.exports = {
                 opacity: 0.8;
               }
             </style>
-            <div class='cloud-cta button button--primary' alt='try-datahub-cloud' style='font-weight: 700;'>Try DataHub Cloud Free</div>
+            <div class='cloud-cta button button--primary' alt='try-datahub-cloud' style='font-weight: 700;'>Get DataHub Cloud</div>
           `,
           position: "right",
         }

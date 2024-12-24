@@ -24,8 +24,8 @@ _self_pin = (
 
 base_requirements = {
     f"acryl-datahub[datahub-rest]{_self_pin}",
-    # Actual dependencies.
-    "apache-airflow >= 2.0.2",
+    # We require Airflow 2.3.x, since we need the new DAG listener API.
+    "apache-airflow>=2.3.0",
 }
 
 plugins: Dict[str, Set[str]] = {
@@ -44,12 +44,13 @@ plugins: Dict[str, Set[str]] = {
         # We remain restrictive on the versions allowed here to prevent
         # us from being broken by backwards-incompatible changes in the
         # underlying package.
-        "openlineage-airflow>=1.2.0,<=1.18.0",
+        "openlineage-airflow>=1.2.0,<=1.25.0",
     },
 }
 
-# Include datahub-rest in the base requirements.
+# Require some plugins by default.
 base_requirements.update(plugins["datahub-rest"])
+base_requirements.update(plugins["plugin-v2"])
 
 
 mypy_stubs = {
@@ -96,7 +97,7 @@ integration_test_requirements = {
     *plugins["datahub-kafka"],
     f"acryl-datahub[testing-utils]{_self_pin}",
     # Extra requirements for loading our test dags.
-    "apache-airflow[snowflake]>=2.0.2",
+    "apache-airflow[snowflake,amazon]>=2.0.2",
     # A collection of issues we've encountered:
     # - Connexion's new version breaks Airflow:
     #   See https://github.com/apache/airflow/issues/35234.
@@ -109,6 +110,11 @@ integration_test_requirements = {
     "apache-airflow-providers-sqlite",
 }
 per_version_test_requirements = {
+    "test-airflow23": {
+        "pendulum<3.0",
+        "Flask-Session<0.6.0",
+        "connexion<3.0",
+    },
     "test-airflow24": {
         "pendulum<3.0",
         "Flask-Session<0.6.0",

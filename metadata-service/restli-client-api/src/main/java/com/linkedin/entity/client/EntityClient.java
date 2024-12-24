@@ -36,6 +36,7 @@ import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -44,12 +45,34 @@ import javax.annotation.Nullable;
 // Consider renaming this to datahub client.
 public interface EntityClient {
 
+  /**
+   * This version follows the legacy behavior of returning key aspects regardless of whether they
+   * exist
+   *
+   * @param opContext operation context
+   * @param entityName entity type
+   * @param urn urn id for the entity
+   * @param aspectNames set of aspects
+   * @return requested entity/aspects
+   */
+  @Deprecated
+  @Nullable
+  default EntityResponse getV2(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull final Urn urn,
+      @Nullable final Set<String> aspectNames)
+      throws RemoteInvocationException, URISyntaxException {
+    return getV2(opContext, entityName, urn, aspectNames, true);
+  }
+
   @Nullable
   EntityResponse getV2(
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Urn urn,
-      @Nullable final Set<String> aspectNames)
+      @Nullable final Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException;
 
   @Nonnull
@@ -57,12 +80,34 @@ public interface EntityClient {
   Entity get(@Nonnull OperationContext opContext, @Nonnull final Urn urn)
       throws RemoteInvocationException;
 
+  /**
+   * This version follows the legacy behavior of returning key aspects regardless of whether they
+   * exist
+   *
+   * @param opContext operation context
+   * @param entityName entity type
+   * @param urns urn ids for the entities
+   * @param aspectNames set of aspects
+   * @return requested entity/aspects
+   */
+  @Deprecated
+  @Nonnull
+  default Map<Urn, EntityResponse> batchGetV2(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull final Set<Urn> urns,
+      @Nullable final Set<String> aspectNames)
+      throws RemoteInvocationException, URISyntaxException {
+    return batchGetV2(opContext, entityName, urns, aspectNames, true);
+  }
+
   @Nonnull
   Map<Urn, EntityResponse> batchGetV2(
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Set<Urn> urns,
-      @Nullable final Set<String> aspectNames)
+      @Nullable final Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException;
 
   @Nonnull
@@ -523,12 +568,16 @@ public interface EntityClient {
    *
    * @return the urn string ingested
    */
+  @Nullable
   default String ingestProposal(
       @Nonnull OperationContext opContext,
       @Nonnull final MetadataChangeProposal metadataChangeProposal,
       final boolean async)
       throws RemoteInvocationException {
-    return batchIngestProposals(opContext, List.of(metadataChangeProposal), async).get(0);
+    return batchIngestProposals(opContext, List.of(metadataChangeProposal), async).stream()
+        .filter(Objects::nonNull)
+        .findFirst()
+        .orElse(null);
   }
 
   @Deprecated
@@ -584,27 +633,38 @@ public interface EntityClient {
 
   @Nullable
   default Aspect getLatestAspectObject(
-      @Nonnull OperationContext opContext, @Nonnull Urn urn, @Nonnull String aspectName)
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull String aspectName,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
-    return getLatestAspects(opContext, Set.of(urn), Set.of(aspectName))
+    return getLatestAspects(opContext, Set.of(urn), Set.of(aspectName), alwaysIncludeKeyAspect)
         .getOrDefault(urn, Map.of())
         .get(aspectName);
   }
 
   @Nonnull
   default Map<Urn, Map<String, Aspect>> getLatestAspects(
-      @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
-    return entityResponseToAspectMap(batchGetV2(opContext, entityName, urns, aspectNames));
+    return entityResponseToAspectMap(
+        batchGetV2(opContext, entityName, urns, aspectNames, alwaysIncludeKeyAspect));
   }
 
   @Nonnull
   default Map<Urn, Map<String, SystemAspect>> getLatestSystemAspect(
-      @Nonnull OperationContext opContext, @Nonnull Set<Urn> urns, @Nonnull Set<String> aspectNames)
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     String entityName = urns.stream().findFirst().map(Urn::getEntityType).get();
     return entityResponseToSystemAspectMap(
-        batchGetV2(opContext, entityName, urns, aspectNames), opContext.getEntityRegistry());
+        batchGetV2(opContext, entityName, urns, aspectNames, alwaysIncludeKeyAspect),
+        opContext.getEntityRegistry());
   }
 }

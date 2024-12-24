@@ -9,7 +9,7 @@ export function EducationStepsProvider({ children }: { children: React.ReactNode
     const userUrn = useUserContext()?.user?.urn;
     const stepIds = getStepIds(userUrn || '');
     const { data } = useBatchGetStepStatesQuery({ skip: !userUrn, variables: { input: { ids: stepIds } } });
-    const results = data?.batchGetStepStates.results;
+    const results = data?.batchGetStepStates?.results;
     const [educationSteps, setEducationSteps] = useState<StepStateResult[] | null>(results || null);
     const [educationStepIdsAllowlist, setEducationStepIdsAllowlist] = useState<Set<string>>(
         new Set(getInitialAllowListIds()),

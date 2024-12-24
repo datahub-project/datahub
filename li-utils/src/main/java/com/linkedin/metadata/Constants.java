@@ -10,6 +10,7 @@ public class Constants {
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_HEADER_NAME = "X-DataHub-Delegated-For";
   public static final String INTERNAL_DELEGATED_FOR_ACTOR_TYPE = "X-DataHub-Delegated-For-";
 
+  public static final String URN_LI_PREFIX = "urn:li:";
   public static final String DATAHUB_ACTOR = "urn:li:corpuser:datahub"; // Super user.
   public static final String SYSTEM_ACTOR =
       "urn:li:corpuser:__datahub_system"; // DataHub internal service principal.
@@ -50,6 +51,7 @@ public class Constants {
   // App sources
   public static final String UI_SOURCE = "ui";
   public static final String SYSTEM_UPDATE_SOURCE = "systemUpdate";
+  public static final String METADATA_TESTS_SOURCE = "metadataTests";
 
   /** Entities */
   public static final String CORP_USER_ENTITY_NAME = "corpuser";
@@ -105,6 +107,8 @@ public class Constants {
   /** Aspects */
   // Common
   public static final String OWNERSHIP_ASPECT_NAME = "ownership";
+
+  public static final String TIMESTAMP_MILLIS = "timestampMillis";
 
   public static final String INSTITUTIONAL_MEMORY_ASPECT_NAME = "institutionalMemory";
   public static final String DATA_PLATFORM_INSTANCE_ASPECT_NAME = "dataPlatformInstance";
@@ -277,7 +281,7 @@ public class Constants {
 
   // ExternalRoleMetadata
   public static final String ROLE_ENTITY_NAME = "role";
-  public static final String ACCESS_DATASET_ASPECT_NAME = "access";
+  public static final String ACCESS_ASPECT_NAME = "access";
   public static final String ROLE_KEY = "roleKey";
   public static final String ROLE_PROPERTIES_ASPECT_NAME = "roleProperties";
   public static final String ROLE_ACTORS_ASPECT_NAME = "actors";
@@ -319,6 +323,13 @@ public class Constants {
   public static final String EXECUTION_REQUEST_INPUT_ASPECT_NAME = "dataHubExecutionRequestInput";
   public static final String EXECUTION_REQUEST_SIGNAL_ASPECT_NAME = "dataHubExecutionRequestSignal";
   public static final String EXECUTION_REQUEST_RESULT_ASPECT_NAME = "dataHubExecutionRequestResult";
+  public static final String EXECUTION_REQUEST_STATUS_RUNNING = "RUNNING";
+  public static final String EXECUTION_REQUEST_STATUS_FAILURE = "FAILURE";
+  public static final String EXECUTION_REQUEST_STATUS_SUCCESS = "SUCCESS";
+  public static final String EXECUTION_REQUEST_STATUS_TIMEOUT = "TIMEOUT";
+  public static final String EXECUTION_REQUEST_STATUS_CANCELLED = "CANCELLED";
+  public static final String EXECUTION_REQUEST_STATUS_ABORTED = "ABORTED";
+  public static final String EXECUTION_REQUEST_STATUS_DUPLICATE = "DUPLICATE";
 
   // DataHub Access Token
   public static final String ACCESS_TOKEN_KEY_ASPECT_NAME = "dataHubAccessTokenKey";
@@ -354,6 +365,8 @@ public class Constants {
   // Structured Property
   public static final String STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME = "propertyDefinition";
   public static final String STRUCTURED_PROPERTY_KEY_ASPECT_NAME = "structuredPropertyKey";
+  public static final String STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME =
+      "structuredPropertySettings";
 
   // Form
   public static final String FORM_INFO_ASPECT_NAME = "formInfo";
@@ -395,6 +408,8 @@ public class Constants {
 
   /** User Status */
   public static final String CORP_USER_STATUS_ACTIVE = "ACTIVE";
+
+  public static final String CORP_USER_STATUS_SUSPENDED = "SUSPENDED";
 
   /** Task Runs */
   public static final String DATA_PROCESS_INSTANCE_ENTITY_NAME = "dataProcessInstance";
@@ -450,6 +465,14 @@ public class Constants {
 
   // DAO
   public static final long LATEST_VERSION = 0;
+
+  // Logging MDC
+  public static final String MDC_ENTITY_URN = "entityUrn";
+  public static final String MDC_ASPECT_NAME = "aspectName";
+  public static final String MDC_ENTITY_TYPE = "entityType";
+  public static final String MDC_CHANGE_TYPE = "changeType";
+
+  public static final String RESTLI_SUCCESS = "success";
 
   private Constants() {}
 }

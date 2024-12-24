@@ -17,15 +17,16 @@ from typing import (
     Union,
 )
 
+import pytest
+
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.sink.file import write_metadata_file
 from datahub.metadata.schema_classes import MetadataChangeEventClass
+from datahub.metadata.urns import Urn
 from datahub.testing.compare_metadata_json import (
     assert_metadata_files_equal,
     load_json_file,
 )
-from datahub.utilities.urns.urn import Urn
-from tests.test_helpers.type_helpers import PytestConfig
 
 logger = logging.getLogger(__name__)
 
@@ -77,11 +78,12 @@ def clean_nones(value):
 
 
 def check_golden_file(
-    pytestconfig: PytestConfig,
+    pytestconfig: pytest.Config,
     output_path: Union[str, os.PathLike],
     golden_path: Union[str, os.PathLike],
     ignore_paths: Sequence[str] = (),
     ignore_paths_v2: Sequence[str] = (),
+    ignore_order: bool = True,
 ) -> None:
     update_golden = pytestconfig.getoption("--update-golden-files")
     copy_output = pytestconfig.getoption("--copy-output-files")
@@ -92,14 +94,16 @@ def check_golden_file(
         copy_output=copy_output,
         ignore_paths=ignore_paths,
         ignore_paths_v2=ignore_paths_v2,
+        ignore_order=ignore_order,
     )
 
 
 def check_goldens_stream(
-    pytestconfig: PytestConfig,
+    pytestconfig: pytest.Config,
     outputs: List,
     golden_path: Union[str, os.PathLike],
     ignore_paths: Sequence[str] = (),
+    ignore_order: bool = True,
 ) -> None:
     with tempfile.NamedTemporaryFile() as f:
         write_metadata_file(pathlib.Path(f.name), outputs)
@@ -109,6 +113,7 @@ def check_goldens_stream(
             output_path=f.name,
             golden_path=golden_path,
             ignore_paths=ignore_paths,
+            ignore_order=ignore_order,
         )
 
 
@@ -318,7 +323,7 @@ def assert_entity_mce_aspect(
 ) -> int:
     # TODO: Replace with read_metadata_file()
     test_output = load_json_file(file)
-    entity_type = Urn.create_from_string(entity_urn).get_type()
+    entity_type = Urn.from_string(entity_urn).get_type()
     assert isinstance(test_output, list)
     # mce urns
     mces: List[MetadataChangeEventClass] = [
@@ -341,7 +346,7 @@ def assert_entity_mcp_aspect(
 ) -> int:
     # TODO: Replace with read_metadata_file()
     test_output = load_json_file(file)
-    entity_type = Urn.create_from_string(entity_urn).get_type()
+    entity_type = Urn.from_string(entity_urn).get_type()
     assert isinstance(test_output, list)
     # mcps that match entity_urn
     mcps: List[MetadataChangeProposalWrapper] = [

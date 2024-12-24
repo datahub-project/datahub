@@ -8,9 +8,11 @@ import pathlib
 import random
 import signal
 import subprocess
+import textwrap
 import time
 from typing import Any, Iterator, Sequence
 
+import packaging.version
 import pytest
 import requests
 import tenacity
@@ -19,6 +21,7 @@ from datahub.ingestion.sink.file import write_metadata_file
 from datahub.testing.compare_metadata_json import assert_metadata_files_equal
 
 from datahub_airflow_plugin._airflow_shims import (
+    AIRFLOW_VERSION,
     HAS_AIRFLOW_DAG_LISTENER_API,
     HAS_AIRFLOW_LISTENER_API,
     HAS_AIRFLOW_STANDALONE_CMD,
@@ -32,6 +35,8 @@ IS_LOCAL = os.environ.get("CI", "false") == "false"
 
 DAGS_FOLDER = pathlib.Path(__file__).parent / "dags"
 GOLDENS_FOLDER = pathlib.Path(__file__).parent / "goldens"
+
+DAG_TO_SKIP_INGESTION = "dag_to_skip"
 
 
 @dataclasses.dataclass
@@ -108,6 +113,66 @@ def _wait_for_dag_finish(
         raise NotReadyError(f"DAG has not finished yet: {dag_run['state']}")
 
 
+@tenacity.retry(
+    reraise=True,
+    wait=tenacity.wait_fixed(1),
+    stop=tenacity.stop_after_delay(90),
+    retry=tenacity.retry_if_exception_type(NotReadyError),
+)
+def _wait_for_dag_to_load(airflow_instance: AirflowInstance, dag_id: str) -> None:
+    print("Checking if DAG was loaded")
+    res = airflow_instance.session.get(
+        url=f"{airflow_instance.airflow_url}/api/v1/dags",
+        timeout=5,
+    )
+    res.raise_for_status()
+
+    if len(list(filter(lambda x: x["dag_id"] == dag_id, res.json()["dags"]))) == 0:
+        raise NotReadyError("DAG was not loaded yet")
+
+
+def _dump_dag_logs(airflow_instance: AirflowInstance, dag_id: str) -> None:
+    # Get the dag run info
+    res = airflow_instance.session.get(
+        f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns", timeout=5
+    )
+    res.raise_for_status()
+    dag_run = res.json()["dag_runs"][0]
+    dag_run_id = dag_run["dag_run_id"]
+
+    # List the tasks in the dag run
+    res = airflow_instance.session.get(
+        f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}/taskInstances",
+        timeout=5,
+    )
+    res.raise_for_status()
+    task_instances = res.json()["task_instances"]
+
+    # Sort tasks by start_date to maintain execution order
+    task_instances.sort(key=lambda x: x["start_date"] or "")
+
+    print(f"\nTask execution order for DAG {dag_id}:")
+    for task in task_instances:
+        task_id = task["task_id"]
+        state = task["state"]
+        try_number = task.get("try_number", 1)
+
+        task_header = f"Task: {task_id} (State: {state}; Try: {try_number})"
+
+        # Get logs for the task's latest try number
+        try:
+            res = airflow_instance.session.get(
+                f"{airflow_instance.airflow_url}/api/v1/dags/{dag_id}/dagRuns/{dag_run_id}"
+                f"/taskInstances/{task_id}/logs/{try_number}",
+                params={"full_content": "true"},
+                timeout=5,
+            )
+            res.raise_for_status()
+            print(f"\n=== {task_header} ===\n{textwrap.indent(res.text, '    ')}")
+        except Exception as e:
+            print(f"Failed to fetch logs for {task_header}: {e}")
+
+
 @contextlib.contextmanager
 def _run_airflow(
     tmp_path: pathlib.Path,
@@ -140,6 +205,7 @@ def _run_airflow(
         # Configure the datahub plugin and have it write the MCPs to a file.
         "AIRFLOW__CORE__LAZY_LOAD_PLUGINS": "False" if is_v1 else "True",
         "AIRFLOW__DATAHUB__CONN_ID": datahub_connection_name,
+        "AIRFLOW__DATAHUB__DAG_FILTER_STR": f'{{ "deny": ["{DAG_TO_SKIP_INGESTION}"] }}',
         f"AIRFLOW_CONN_{datahub_connection_name.upper()}": Connection(
             conn_id="datahub_file_default",
             conn_type="datahub-file",
@@ -160,6 +226,15 @@ def _run_airflow(
                 "insecure_mode": "true",
             },
         ).get_uri(),
+        "AIRFLOW_CONN_MY_AWS": Connection(
+            conn_id="my_aws",
+            conn_type="aws",
+            extra={
+                "region_name": "us-east-1",
+                "aws_access_key_id": "AKIAIOSFODNN7EXAMPLE",
+                "aws_secret_access_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+            },
+        ).get_uri(),
         "AIRFLOW_CONN_MY_SQLITE": Connection(
             conn_id="my_sqlite",
             conn_type="sqlite",
@@ -169,6 +244,7 @@ def _run_airflow(
         # Note that we could also disable the RUN_IN_THREAD entirely,
         # but I want to minimize the difference between CI and prod.
         "DATAHUB_AIRFLOW_PLUGIN_RUN_IN_THREAD_TIMEOUT": "30",
+        "DATAHUB_AIRFLOW_PLUGIN_USE_V1_PLUGIN": "true" if is_v1 else "false",
         # Convenience settings.
         "AIRFLOW__DATAHUB__LOG_LEVEL": "DEBUG",
         "AIRFLOW__DATAHUB__DEBUG_EMITTER": "True",
@@ -276,17 +352,18 @@ class DagTestCase:
 test_cases = [
     DagTestCase("simple_dag"),
     DagTestCase("basic_iolets"),
+    DagTestCase("dag_to_skip", v2_only=True),
     DagTestCase("snowflake_operator", success=False, v2_only=True),
     DagTestCase("sqlite_operator", v2_only=True),
     DagTestCase("custom_operator_dag", v2_only=True),
     DagTestCase("datahub_emitter_operator_jinja_template_dag", v2_only=True),
+    DagTestCase("athena_operator", v2_only=True),
 ]
 
 
 @pytest.mark.parametrize(
     ["golden_filename", "test_case", "is_v1"],
     [
-        # On Airflow <= 2.2, test plugin v1.
         *[
             pytest.param(
                 f"v1_{test_case.dag_id}",
@@ -294,8 +371,8 @@ test_cases = [
                 True,
                 id=f"v1_{test_case.dag_id}",
                 marks=pytest.mark.skipif(
-                    HAS_AIRFLOW_LISTENER_API,
-                    reason="Not testing plugin v1 on newer Airflow versions",
+                    AIRFLOW_VERSION >= packaging.version.parse("2.4.0"),
+                    reason="We only test the v1 plugin on Airflow 2.3",
                 ),
             )
             for test_case in test_cases
@@ -316,10 +393,18 @@ test_cases = [
                     if HAS_AIRFLOW_DAG_LISTENER_API
                     else f"v2_{test_case.dag_id}_no_dag_listener"
                 ),
-                marks=pytest.mark.skipif(
-                    not HAS_AIRFLOW_LISTENER_API,
-                    reason="Cannot test plugin v2 without the Airflow plugin listener API",
-                ),
+                marks=[
+                    pytest.mark.skipif(
+                        not HAS_AIRFLOW_LISTENER_API,
+                        reason="Cannot test plugin v2 without the Airflow plugin listener API",
+                    ),
+                    pytest.mark.skipif(
+                        AIRFLOW_VERSION < packaging.version.parse("2.4.0"),
+                        reason="We skip testing the v2 plugin on Airflow 2.3 because it causes flakiness in the custom properties. "
+                        "Ideally we'd just fix these, but given that Airflow 2.3 is EOL and likely going to be deprecated "
+                        "soon anyways, it's not worth the effort.",
+                    ),
+                ],
             )
             for test_case in test_cases
         ],
@@ -351,6 +436,7 @@ def test_airflow_plugin(
         tmp_path, dags_folder=DAGS_FOLDER, is_v1=is_v1
     ) as airflow_instance:
         print(f"Running DAG {dag_id}...")
+        _wait_for_dag_to_load(airflow_instance, dag_id)
         subprocess.check_call(
             [
                 "airflow",
@@ -373,20 +459,29 @@ def test_airflow_plugin(
         print("Sleeping for a few seconds to let the plugin finish...")
         time.sleep(10)
 
-    _sanitize_output_file(airflow_instance.metadata_file)
+        try:
+            _dump_dag_logs(airflow_instance, dag_id)
+        except Exception as e:
+            print(f"Failed to dump DAG logs: {e}")
 
-    check_golden_file(
-        pytestconfig=pytestconfig,
-        output_path=airflow_instance.metadata_file,
-        golden_path=golden_path,
-        ignore_paths=[
-            # TODO: If we switched to Git urls, maybe we could get this to work consistently.
-            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['datahub_sql_parser_error'\]",
-            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['openlineage_.*'\]",
-            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['log_url'\]",
-            r"root\[\d+\]\['aspect'\]\['json'\]\['externalUrl'\]",
-        ],
-    )
+    if dag_id == DAG_TO_SKIP_INGESTION:
+        # Verify that no MCPs were generated.
+        assert not os.path.exists(airflow_instance.metadata_file)
+    else:
+        _sanitize_output_file(airflow_instance.metadata_file)
+
+        check_golden_file(
+            pytestconfig=pytestconfig,
+            output_path=airflow_instance.metadata_file,
+            golden_path=golden_path,
+            ignore_paths=[
+                # TODO: If we switched to Git urls, maybe we could get this to work consistently.
+                r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['datahub_sql_parser_error'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['openlineage_.*'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['log_url'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['externalUrl'\]",
+            ],
+        )
 
 
 def _sanitize_output_file(output_path: pathlib.Path) -> None:

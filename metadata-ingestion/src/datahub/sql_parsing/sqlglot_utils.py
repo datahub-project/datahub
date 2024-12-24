@@ -1,3 +1,5 @@
+from datahub.sql_parsing._sqlglot_patch import SQLGLOT_PATCHED
+
 import functools
 import hashlib
 import logging
@@ -7,6 +9,8 @@ from typing import Dict, Iterable, Optional, Tuple, Union
 import sqlglot
 import sqlglot.errors
 import sqlglot.optimizer.eliminate_ctes
+
+assert SQLGLOT_PATCHED
 
 logger = logging.getLogger(__name__)
 DialectOrStr = Union[sqlglot.Dialect, str]
@@ -35,6 +39,9 @@ def _get_dialect_str(platform: str) -> str:
         # let the fuzzy resolution logic handle it.
         # MariaDB is a fork of MySQL, so we reuse the same dialect.
         return "mysql, normalization_strategy = lowercase"
+    # Dremio is based upon drill. Not 100% compatibility
+    elif platform == "dremio":
+        return "drill"
     else:
         return platform
 
@@ -54,7 +61,7 @@ def is_dialect_instance(
     else:
         platforms = list(platforms)
 
-    dialects = [sqlglot.Dialect.get_or_raise(platform) for platform in platforms]
+    dialects = [get_dialect(platform) for platform in platforms]
 
     if any(isinstance(dialect, dialect_class.__class__) for dialect_class in dialects):
         return True
@@ -114,7 +121,7 @@ _BASIC_NORMALIZATION_RULES = {
     # Remove /* */ comments.
     re.compile(r"/\*.*?\*/", re.DOTALL): "",
     # Remove -- comments.
-    re.compile(r"--.*$"): "",
+    re.compile(r"--.*$", re.MULTILINE): "",
     # Replace all runs of whitespace with a single space.
     re.compile(r"\s+"): " ",
     # Remove leading and trailing whitespace and trailing semicolons.
@@ -124,10 +131,16 @@ _BASIC_NORMALIZATION_RULES = {
     # Replace anything that looks like a string with a placeholder.
     re.compile(r"'[^']*'"): "?",
     # Replace sequences of IN/VALUES with a single placeholder.
-    re.compile(r"\b(IN|VALUES)\s*\(\?(?:, \?)*\)", re.IGNORECASE): r"\1 (?)",
+    # The r" ?" makes it more robust to uneven spacing.
+    re.compile(r"\b(IN|VALUES)\s*\( ?\?(?:, ?\?)* ?\)", re.IGNORECASE): r"\1 (?)",
     # Normalize parenthesis spacing.
     re.compile(r"\( "): "(",
     re.compile(r" \)"): ")",
+    # Fix up spaces before commas in column lists.
+    # e.g. "col1 , col2" -> "col1, col2"
+    # e.g. "col1,col2" -> "col1, col2"
+    re.compile(r"\b ,"): ",",
+    re.compile(r"\b,\b"): ", ",
 }
 _TABLE_NAME_NORMALIZATION_RULES = {
     # Replace UUID-like strings with a placeholder (both - and _ variants).

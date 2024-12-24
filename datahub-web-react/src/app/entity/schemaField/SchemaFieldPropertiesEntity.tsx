@@ -1,9 +1,10 @@
 import * as React from 'react';
 import { PicCenterOutlined } from '@ant-design/icons';
-import { EntityType, SchemaFieldEntity, SearchResult } from '../../../types.generated';
+import { Dataset, EntityType, SchemaFieldEntity, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { Preview } from './preview/Preview';
+import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 
 export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
     type: EntityType = EntityType.SchemaField;
@@ -18,24 +19,48 @@ export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
 
     isLineageEnabled = () => false;
 
+    getParentDataset = (parent) => {
+        return {
+            urn: parent?.urn,
+            name: parent?.name,
+            type: parent?.type,
+            platform: parent?.platfrom,
+            properties: parent?.properties,
+        } as Dataset;
+    };
+
     // Currently unused.
     getAutoCompleteFieldName = () => 'schemaField';
 
     // Currently unused.
     getPathName = () => 'schemaField';
 
-    // Currently unused.
-    getEntityName = () => 'schemaField';
+    getEntityName = () => 'Column';
 
-    // Currently unused.
-    getCollectionName = () => 'schemaFields';
+    getCollectionName = () => 'Columns';
 
     // Currently unused.
     renderProfile = (_: string) => <></>;
 
-    renderPreview = (previewType: PreviewType, data: SchemaFieldEntity) => (
-        <Preview previewType={previewType} datasetUrn={data.parent.urn} name={data.fieldPath} />
-    );
+    getGraphName = () => 'schemaField';
+
+    renderPreview = (previewType: PreviewType, data: SchemaFieldEntity) => {
+        const parent = data.parent as Dataset;
+        return (
+            <Preview
+                previewType={previewType}
+                datasetUrn={data.parent.urn}
+                name={data.fieldPath}
+                parentContainers={parent?.parentContainers}
+                platformName={
+                    parent?.platform?.properties?.displayName || capitalizeFirstLetterOnly(parent?.platform?.name)
+                }
+                platformLogo={parent?.platform?.properties?.logoUrl || ''}
+                platformInstanceId={parent?.dataPlatformInstance?.instanceId}
+                parentDataset={this.getParentDataset(parent)}
+            />
+        );
+    };
 
     renderSearch = (result: SearchResult) => this.renderPreview(PreviewType.SEARCH, result.entity as SchemaFieldEntity);
 

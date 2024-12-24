@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Collection, Iterable, List, Optional, Set, Tuple, Type
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, Field, validator
 
 from datahub.configuration.datetimes import parse_absolute_time
 from datahub.ingestion.api.closeable import Closeable
@@ -31,14 +31,16 @@ from datahub.ingestion.source.state.redundant_run_skip_handler import (
 )
 from datahub.metadata.schema_classes import DatasetLineageTypeClass, UpstreamClass
 from datahub.sql_parsing.sql_parsing_aggregator import (
-    ColumnLineageInfo,
-    ColumnRef,
     KnownLineageMapping,
     KnownQueryLineageInfo,
     SqlParsingAggregator,
     UrnStr,
 )
-from datahub.sql_parsing.sqlglot_lineage import DownstreamColumnRef
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
+)
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.time import ts_millis_to_datetime
 
@@ -70,8 +72,8 @@ class ColumnUpstreamJob(BaseModel):
 
 
 class ColumnUpstreamLineage(BaseModel):
-    column_name: str
-    upstreams: List[ColumnUpstreamJob]
+    column_name: Optional[str]
+    upstreams: List[ColumnUpstreamJob] = Field(default_factory=list)
 
 
 class UpstreamTableNode(BaseModel):
@@ -234,7 +236,6 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
     def get_known_query_lineage(
         self, query: Query, dataset_name: str, db_row: UpstreamLineageEdge
     ) -> Optional[KnownQueryLineageInfo]:
-
         if not db_row.UPSTREAM_TABLES:
             return None
 
@@ -264,64 +265,17 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
         with PerfTimer() as timer:
             self.report.num_external_table_edges_scanned = 0
 
-            for (
-                known_lineage_mapping
-            ) in self._populate_external_lineage_from_copy_history(discovered_tables):
-                self.sql_aggregator.add(known_lineage_mapping)
-            logger.info(
-                "Done populating external lineage from copy history. "
-                f"Found {self.report.num_external_table_edges_scanned} external lineage edges so far."
-            )
-
-            for (
-                known_lineage_mapping
-            ) in self._populate_external_lineage_from_show_query(discovered_tables):
-                self.sql_aggregator.add(known_lineage_mapping)
-
-            logger.info(
-                "Done populating external lineage from show external tables. "
-                f"Found {self.report.num_external_table_edges_scanned} external lineage edges so far."
-            )
+            for entry in self._get_copy_history_lineage(discovered_tables):
+                self.sql_aggregator.add(entry)
+            logger.info("Done populating external lineage from copy history. ")
 
             self.report.external_lineage_queries_secs = timer.elapsed_seconds()
-
-    # Handles the case for explicitly created external tables.
-    # NOTE: Snowflake does not log this information to the access_history table.
-    def _populate_external_lineage_from_show_query(
-        self, discovered_tables: List[str]
-    ) -> Iterable[KnownLineageMapping]:
-        external_tables_query: str = SnowflakeQuery.show_external_tables()
-        try:
-            for db_row in self.connection.query(external_tables_query):
-                key = self.identifiers.get_dataset_identifier(
-                    db_row["name"], db_row["schema_name"], db_row["database_name"]
-                )
-
-                if key not in discovered_tables:
-                    continue
-                if db_row["location"].startswith("s3://"):
-                    yield KnownLineageMapping(
-                        upstream_urn=make_s3_urn_for_lineage(
-                            db_row["location"], self.config.env
-                        ),
-                        downstream_urn=self.identifiers.gen_dataset_urn(key),
-                    )
-                    self.report.num_external_table_edges_scanned += 1
-
-                self.report.num_external_table_edges_scanned += 1
-        except Exception as e:
-            logger.debug(e, exc_info=e)
-            self.structured_reporter.warning(
-                "Error populating external table lineage from Snowflake",
-                exc=e,
-            )
-            self.report_status(EXTERNAL_LINEAGE, False)
 
     # Handles the case where a table is populated from an external stage/s3 location via copy.
     # Eg: copy into category_english from @external_s3_stage;
     # Eg: copy into category_english from 's3://acryl-snow-demo-olist/olist_raw_data/category_english'credentials=(aws_key_id='...' aws_secret_key='...')  pattern='.*.csv';
     # NOTE: Snowflake does not log this information to the access_history table.
-    def _populate_external_lineage_from_copy_history(
+    def _get_copy_history_lineage(
         self, discovered_tables: List[str]
     ) -> Iterable[KnownLineageMapping]:
         query: str = SnowflakeQuery.copy_lineage_history(
@@ -412,9 +366,14 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             return UpstreamLineageEdge.parse_obj(db_row)
         except Exception as e:
             self.report.num_upstream_lineage_edge_parsing_failed += 1
+            upstream_tables = db_row.get("UPSTREAM_TABLES")
+            downstream_table = db_row.get("DOWNSTREAM_TABLE_NAME")
             self.structured_reporter.warning(
                 "Failed to parse lineage edge",
-                context=db_row.get("DOWNSTREAM_TABLE_NAME") or None,
+                # Tricky: sometimes the full row data is too large, and so the context
+                # message gets truncated. By pulling out the upstreams and downstream
+                # list, we can at least get the important fields if truncation does occur.
+                context=f"Upstreams: {upstream_tables} Downstream: {downstream_table} Full row: {db_row}",
                 exc=e,
             )
             return None

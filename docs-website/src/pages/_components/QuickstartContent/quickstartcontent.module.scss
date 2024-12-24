@@ -129,7 +129,7 @@
 
     .quickstart__content {
       display: flex;
-      margin-bottom: 3rem;
+      margin-bottom: 6rem;
       width: 100%;
 
       .quickstart__text {
@@ -193,6 +193,11 @@
           .learn_more {
             color: #1890FF;
             font-weight: 500;
+
+            &:hover {
+              text-decoration: none !important;
+              opacity: 0.8;
+            }
           }
         }
       }

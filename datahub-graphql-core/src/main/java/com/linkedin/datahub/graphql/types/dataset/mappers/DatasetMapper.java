@@ -166,14 +166,15 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
         (dataset, dataMap) ->
             dataset.setBrowsePathV2(BrowsePathsV2Mapper.map(context, new BrowsePathsV2(dataMap))));
     mappingHelper.mapToResult(
-        ACCESS_DATASET_ASPECT_NAME,
+        ACCESS_ASPECT_NAME,
         ((dataset, dataMap) ->
             dataset.setAccess(AccessMapper.map(new Access(dataMap), entityUrn))));
     mappingHelper.mapToResult(
         STRUCTURED_PROPERTIES_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setStructuredProperties(
-                StructuredPropertiesMapper.map(context, new StructuredProperties(dataMap)))));
+                StructuredPropertiesMapper.map(
+                    context, new StructuredProperties(dataMap), entityUrn))));
     mappingHelper.mapToResult(
         FORMS_ASPECT_NAME,
         ((dataset, dataMap) ->

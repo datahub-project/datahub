@@ -125,9 +125,10 @@ information like tokens.
   configurations under `Spark Config`.
 
     ```text
-    spark.extraListeners                datahub.spark.DatahubSparkListener
-    spark.datahub.rest.server           http://localhost:8080
-    spark.datahub.databricks.cluster    cluster-name<any preferred cluster identifier>
+    spark.extraListeners                    datahub.spark.DatahubSparkListener
+    spark.datahub.rest.server               http://localhost:8080
+    spark.datahub.stage_metadata_coalescing true
+    spark.datahub.databricks.cluster        cluster-name<any preferred cluster identifier>
     ```
 
 - Click the **Init Scripts** tab. Set cluster init script as `dbfs:/datahub/init.sh`.
@@ -165,6 +166,7 @@ information like tokens.
 | spark.datahub.rest.server                              |          | http://localhost:8080 | Datahub server url  eg:<http://localhost:8080>                                                                                                                                            |
 | spark.datahub.rest.token                               |          |                       | Authentication token.                                                                                                                                                                     |
 | spark.datahub.rest.disable_ssl_verification            |          | false                 | Disable SSL certificate validation. Caution: Only use this if you know what you are doing!                                                                                                |
+| spark.datahub.rest.disable_chunked_encoding            |          | false                 | Disable Chunked Transfer Encoding. In some environment chunked encoding causes issues. With this config option it can be disabled.                                                        ||
 | spark.datahub.rest.max_retries                         |          | 0                     | Number of times a request retried if failed                                                                                                                                               |
 | spark.datahub.rest.retry_interval                      |          | 10                    | Number of seconds to wait between retries                                                                                                                                                 |
 | spark.datahub.file.filename                            |          |                       | The file where metadata will be written if file emitter is set                                                                                                                            |
@@ -184,7 +186,7 @@ information like tokens.
 | spark.datahub.platform.s3.path_spec_list               |          |                       | List of pathspec per platform                                                                                                                                                             |
 | spark.datahub.metadata.dataset.include_schema_metadata | false    |                       | Emit dataset schema metadata based on the spark execution. It is recommended to get schema information from platform specific DataHub sources  as this is less reliable                   |
 | spark.datahub.flow_name                                |          |                       | If it is set it will be used as the DataFlow name otherwise it uses spark app name as flow_name                                                                                           |
-| spark.datahub.partition_regexp_pattern                 |          |                       | Strip partition part from the path if path end matches with the specified regexp. Example `year=.*/month=.*/day=.*`                                                                       |
+| spark.datahub.file_partition_regexp                    |          |                       | Strip partition part from the path if path end matches with the specified regexp. Example `year=.*/month=.*/day=.*`                                                                       |
 | spark.datahub.tags                                     |          |                       | Comma separated list of tags to attach to the DataFlow                                                                                                                                    |
 | spark.datahub.domains                                  |          |                       | Comma separated list of domain urns to attach to the DataFlow                                                                                                                             |
 | spark.datahub.stage_metadata_coalescing                |          |                       | Normally it coalesces and sends metadata at the onApplicationEnd event which is never called on Databricks or on Glue. You should enable this on Databricks if you want coalesced run.    |

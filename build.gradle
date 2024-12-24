@@ -34,6 +34,7 @@ buildscript {
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.57.0'
   ext.mavenVersion = '3.6.3'
+  ext.versionGradle = '8.11.1'
   ext.springVersion = '6.1.13'
   ext.springBootVersion = '3.2.9'
   ext.springKafkaVersion = '3.1.6'
@@ -45,7 +46,10 @@ buildscript {
   ext.elasticsearchVersion = '2.11.1' // ES 7.10, Opensearch 1.x, 2.x
   ext.jacksonVersion = '2.15.3'
   ext.jettyVersion = '11.0.21'
+  // see also datahub-frontend/play.gradle
   ext.playVersion = '2.8.22'
+  ext.playScalaVersion = '2.13'
+  ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
   ext.log4jVersion = '2.23.1'
   ext.slf4jVersion = '1.7.36'
   ext.logbackClassic = '1.4.14'
@@ -54,7 +58,7 @@ buildscript {
   ext.hazelcastVersion = '5.3.6'
   ext.ebeanVersion = '15.5.2'
   ext.googleJavaFormatVersion = '1.18.1'
-  ext.openLineageVersion = '1.19.0'
+  ext.openLineageVersion = '1.25.0'
   ext.logbackClassicJava8 = '1.2.12'
 
   ext.docker_registry = 'acryldata'
@@ -75,7 +79,7 @@ buildscript {
 
 plugins {
   id 'com.gorylenko.gradle-git-properties' version '2.4.1'
-  id 'com.github.johnrengelman.shadow' version '8.1.1' apply false
+  id 'com.gradleup.shadow' version '8.3.5' apply false
   id 'com.palantir.docker' version '0.35.0' apply false
   id 'com.avast.gradle.docker-compose' version '0.17.6'
   id "com.diffplug.spotless" version "6.23.3"
@@ -103,12 +107,19 @@ project.ext.spec = [
 ]
 
 project.ext.externalDependency = [
-    'akkaHttp': 'com.typesafe.akka:akka-http-core_2.12:10.2.10',
+    'akkaHttp': "com.typesafe.akka:akka-http-core_$playScalaVersion:10.2.10", // max version due to licensing
+    'akkaActor': "com.typesafe.akka:akka-actor_$playScalaVersion:$akkaVersion",
+    'akkaStream': "com.typesafe.akka:akka-stream_$playScalaVersion:$akkaVersion",
+    'akkaActorTyped': "com.typesafe.akka:akka-actor-typed_$playScalaVersion:$akkaVersion",
+    'akkaSlf4j': "com.typesafe.akka:akka-slf4j_$playScalaVersion:$akkaVersion",
+    'akkaJackson': "com.typesafe.akka:akka-serialization-jackson_$playScalaVersion:$akkaVersion",
+    'akkaParsing': "com.typesafe.akka:akka-parsing_$playScalaVersion:$akkaVersion",
+    'akkaProtobuf': "com.typesafe.akka:akka-protobuf-v3_$playScalaVersion:$akkaVersion",
     'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
     'antlr4': 'org.antlr:antlr4:4.9.3',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
-    'avro': 'org.apache.avro:avro:1.11.3',
-    'avroCompiler': 'org.apache.avro:avro-compiler:1.11.3',
+    'avro': 'org.apache.avro:avro:1.11.4',
+    'avroCompiler': 'org.apache.avro:avro-compiler:1.11.4',
     'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.17',
     'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.0.3',
     'awsS3': 'software.amazon.awssdk:s3:2.26.21',
@@ -212,18 +223,18 @@ project.ext.externalDependency = [
     'parquet': 'org.apache.parquet:parquet-avro:1.12.3',
     'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.13.1',
     'picocli': 'info.picocli:picocli:4.5.0',
-    'playCache': "com.typesafe.play:play-cache_2.12:$playVersion",
-    'playCaffeineCache': "com.typesafe.play:play-caffeine-cache_2.12:$playVersion",
-    'playWs': 'com.typesafe.play:play-ahc-ws-standalone_2.12:2.1.10',
-    'playDocs': "com.typesafe.play:play-docs_2.12:$playVersion",
-    'playGuice': "com.typesafe.play:play-guice_2.12:$playVersion",
-    'playJavaJdbc': "com.typesafe.play:play-java-jdbc_2.12:$playVersion",
-    'playAkkaHttpServer': "com.typesafe.play:play-akka-http-server_2.12:$playVersion",
-    'playServer': "com.typesafe.play:play-server_2.12:$playVersion",
-    'playTest': "com.typesafe.play:play-test_2.12:$playVersion",
-    'playFilters': "com.typesafe.play:filters-helpers_2.12:$playVersion",
-    'pac4j': 'org.pac4j:pac4j-oidc:4.5.8',
-    'playPac4j': 'org.pac4j:play-pac4j_2.12:9.0.2',
+    'playCache': "com.typesafe.play:play-cache_$playScalaVersion:$playVersion",
+    'playCaffeineCache': "com.typesafe.play:play-caffeine-cache_$playScalaVersion:$playVersion",
+    'playWs': "com.typesafe.play:play-ahc-ws-standalone_$playScalaVersion:2.1.10",
+    'playDocs': "com.typesafe.play:play-docs_$playScalaVersion:$playVersion",
+    'playGuice': "com.typesafe.play:play-guice_$playScalaVersion:$playVersion",
+    'playJavaJdbc': "com.typesafe.play:play-java-jdbc_$playScalaVersion:$playVersion",
+    'playAkkaHttpServer': "com.typesafe.play:play-akka-http-server_$playScalaVersion:$playVersion",
+    'playServer': "com.typesafe.play:play-server_$playScalaVersion:$playVersion",
+    'playTest': "com.typesafe.play:play-test_$playScalaVersion:$playVersion",
+    'playFilters': "com.typesafe.play:filters-helpers_$playScalaVersion:$playVersion",
+    'pac4j': 'org.pac4j:pac4j-oidc:6.0.6',
+    'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:12.0.0-PLAY2.8",
     'postgresql': 'org.postgresql:postgresql:42.3.9',
     'protobuf': 'com.google.protobuf:protobuf-java:3.25.5',
     'grpcProtobuf': 'io.grpc:grpc-protobuf:1.53.0',
@@ -348,6 +359,7 @@ allprojects {
       }
     }
   }
+
 }
 
 configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
@@ -361,6 +373,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "org.slf4j", module: "slf4j-nop"
     exclude group: "org.slf4j", module: "slf4j-ext"
+    exclude group: "org.codehaus.jackson", module: "jackson-mapper-asl"
 
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
@@ -391,13 +404,14 @@ subprojects {
       implementation externalDependency.annotationApi
       constraints {
         implementation("com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion")
-        implementation('io.netty:netty-all:4.1.114.Final')
+        implementation('io.netty:netty-all:4.1.115.Final')
         implementation('org.apache.commons:commons-compress:1.27.1')
         implementation('org.apache.velocity:velocity-engine-core:2.4')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
         implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
         implementation(externalDependency.commonsIo)
+        implementation(externalDependency.protobuf)
       }
     }
 
@@ -406,6 +420,8 @@ subprojects {
         googleJavaFormat()
         target project.fileTree(project.projectDir) {
           include 'src/**/*.java'
+          include 'app/**/*.java'
+          include 'test/**/*.java'
           exclude 'src/**/resources/'
           exclude 'src/**/generated/'
           exclude 'src/**/mainGeneratedDataTemplate/'
@@ -484,4 +500,9 @@ subprojects {
       }
     }
   }
+}
+
+wrapper {
+  gradleVersion = project.versionGradle
+  distributionType = Wrapper.DistributionType.ALL
 }

@@ -77,7 +77,7 @@ export default function NameColumn({ propertyRow, filterText }: Props) {
                     ) : (
                         <span />
                     )}
-                    {structuredProperty?.definition.allowedValues && (
+                    {structuredProperty?.definition?.allowedValues && (
                         <CardinalityLabel structuredProperty={structuredProperty} />
                     )}
                 </NameLabelWrapper>

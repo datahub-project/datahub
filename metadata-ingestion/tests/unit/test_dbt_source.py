@@ -1,4 +1,3 @@
-import doctest
 from datetime import timedelta
 from typing import Dict, List, Union
 from unittest import mock
@@ -10,6 +9,7 @@ from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.dbt import dbt_cloud
 from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig
+from datahub.ingestion.source.dbt.dbt_common import DBTNode
 from datahub.ingestion.source.dbt.dbt_core import (
     DBTCoreConfig,
     DBTCoreSource,
@@ -21,6 +21,7 @@ from datahub.metadata.schema_classes import (
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
 )
+from datahub.testing.doctest import assert_doctest
 
 
 def create_owners_list_from_urn_list(
@@ -253,6 +254,47 @@ def test_dbt_config_prefer_sql_parser_lineage():
     assert config.prefer_sql_parser_lineage is True
 
 
+def test_dbt_prefer_sql_parser_lineage_no_self_reference():
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.parse_obj(
+        {
+            **create_base_dbt_config(),
+            "skip_sources_in_lineage": True,
+            "prefer_sql_parser_lineage": True,
+        }
+    )
+    source: DBTCoreSource = DBTCoreSource(config, ctx, "dbt")
+    all_nodes_map = {
+        "model1": DBTNode(
+            name="model1",
+            database=None,
+            schema=None,
+            alias=None,
+            comment="",
+            description="",
+            language=None,
+            raw_code=None,
+            dbt_adapter="postgres",
+            dbt_name="model1",
+            dbt_file_path=None,
+            dbt_package_name=None,
+            node_type="model",
+            materialization="table",
+            max_loaded_at=None,
+            catalog_type=None,
+            missing_from_catalog=False,
+            owner=None,
+            compiled_code="SELECT d FROM results WHERE d > (SELECT MAX(d) FROM model1)",
+        ),
+    }
+    source._infer_schemas_and_update_cll(all_nodes_map)
+    upstream_lineage = source._create_lineage_aspect_for_dbt_node(
+        all_nodes_map["model1"], all_nodes_map
+    )
+    assert upstream_lineage is not None
+    assert len(upstream_lineage.upstreams) == 1
+
+
 def test_dbt_s3_config():
     # test missing aws config
     config_dict: dict = {
@@ -400,7 +442,7 @@ def test_dbt_cloud_config_with_defined_metadata_endpoint():
 
 
 def test_infer_metadata_endpoint() -> None:
-    assert doctest.testmod(dbt_cloud, raise_on_error=True).attempted > 0
+    assert_doctest(dbt_cloud)
 
 
 def test_dbt_time_parsing() -> None:

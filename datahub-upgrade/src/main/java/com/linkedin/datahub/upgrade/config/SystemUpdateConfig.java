@@ -13,6 +13,7 @@ import com.linkedin.gms.factory.kafka.DataHubKafkaProducerFactory;
 import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
 import com.linkedin.metadata.dao.producer.KafkaHealthChecker;
@@ -29,6 +30,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
+import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import java.util.List;
 import javax.annotation.Nonnull;
@@ -161,7 +163,8 @@ public class SystemUpdateConfig {
       @Nonnull final GraphService graphService,
       @Nonnull final SearchService searchService,
       @Qualifier("baseElasticSearchComponents")
-          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components) {
+          BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
+      @Nonnull final ConfigurationProvider configurationProvider) {
 
     EntityServiceAspectRetriever entityServiceAspectRetriever =
         EntityServiceAspectRetriever.builder()
@@ -184,8 +187,13 @@ public class SystemUpdateConfig {
             components.getIndexConvention(),
             RetrieverContext.builder()
                 .aspectRetriever(entityServiceAspectRetriever)
+                .cachingAspectRetriever(CachingAspectRetriever.EMPTY)
                 .graphRetriever(systemGraphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
+                .build(),
+            ValidationContext.builder()
+                .alternateValidation(
+                    configurationProvider.getFeatureFlags().isAlternateMCPValidation())
                 .build());
 
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);

@@ -1,0 +1,60 @@
+{
+  "type": "record",
+  "name": "UnionType",
+  "fields": [
+    {
+      "name": "fieldUnionNullablePrimitives",
+      "type": [
+        "null",
+        "string",
+        "int",
+        "boolean"
+      ]
+    },
+    {
+      "name": "fieldUnionComplexTypes",
+      "type": [
+        "null",
+        {
+          "type": "record",
+          "name": "NestedRecord",
+          "fields": [
+            {
+              "name": "nestedField1",
+              "type": "string"
+            },
+            {
+              "name": "nestedField2",
+              "type": "int"
+            }
+          ]
+        },
+        {
+          "type": "map",
+          "values": "string"
+        }
+      ]
+    },
+    {
+      "name": "fieldUnionPrimitiveAndComplex",
+      "type": [
+        "null",
+        "string",
+        {
+          "type": "record",
+          "name": "ComplexTypeRecord",
+          "fields": [
+            {
+              "name": "complexField1",
+              "type": "string"
+            },
+            {
+              "name": "complexField2",
+              "type": "int"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
