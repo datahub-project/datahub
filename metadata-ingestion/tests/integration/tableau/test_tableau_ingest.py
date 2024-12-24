@@ -1313,7 +1313,7 @@ def test_permission_warning(pytestconfig, tmp_path, mock_datahub_graph):
                 platform="tableau",
                 config=mock.MagicMock(),
                 ctx=mock.MagicMock(),
-                site=mock.MagicMock(),
+                site=mock.MagicMock(spec=SiteItem, id="Site1", content_url="site1"),
                 server=mock_sdk.return_value,
                 report=reporter,
             )
@@ -1370,7 +1370,7 @@ def test_extract_project_hierarchy(extract_project_hierarchy, allowed_projects):
         config=config,
         ctx=context,
         platform="tableau",
-        site=SiteItem(name="Site 1", content_url="site1"),
+        site=mock.MagicMock(spec=SiteItem, id="Site1", content_url="site1"),
         report=TableauSourceReport(),
         server=Server("https://test-tableau-server.com"),
     )
