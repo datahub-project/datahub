@@ -799,7 +799,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     else SiteIdContentUrl(
                         site_id=self.server.site_id, site_content_url=self.config.site
                     ),
-                    site_id=self.server.site_id,
                     report=self.report,
                     server=self.server,
                     platform=self.platform,
