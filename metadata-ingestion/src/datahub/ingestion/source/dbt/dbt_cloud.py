@@ -62,7 +62,7 @@ class DBTCloudConfig(DBTCommonConfig):
         description="The ID of the run to ingest metadata from. If not specified, we'll default to the latest run.",
     )
 
-    external_url_mode: Literal["explore", "develop"] = Field(
+    external_url_mode: Literal["explore", "ide"] = Field(
         default="explore",
         description='Where should the "View in dbt" link point to - either the "Explore" UI or the dbt Cloud IDE',
     )
