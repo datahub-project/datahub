@@ -45,6 +45,8 @@ def mock_msal_cca(*args, **kwargs):
         def reset():
             MsalClient.call_num = 0
 
+    return MsalClient()
+
 
 def scan_init_response(request, context):
     # Request mock is passing POST input in the form of workspaces=<workspace_id>
