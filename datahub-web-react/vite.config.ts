@@ -70,16 +70,9 @@ export default defineConfig(({ mode }) => {
             outDir: 'dist',
             target: 'esnext',
             minify: 'esbuild',
-            rollupOptions: {
-                output: {
-                    manualChunks: {
-                        'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-                        'apollo': ['@apollo/client'],
-                        'antd': ['antd', '@ant-design/icons'],
-                    }
-                }
-            },
             reportCompressedSize: false,
+            // Limit number of worker threads to reduce CPU pressure
+            workers: 2, // default is number of CPU cores
         },
         server: {
             open: false,
