@@ -2970,7 +2970,7 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-24T23:08:43.220130+00:00",
+                        "end_time": "2024-12-24T23:46:13.673905+00:00",
                         "start_time": "2024-12-23T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
@@ -4230,7 +4230,7 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-24T23:08:42.688541+00:00",
+                        "end_time": "2024-12-24T23:46:13.141916+00:00",
                         "start_time": "2024-12-23T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
@@ -6950,15 +6950,15 @@
                     "title": "Exclude Aspects",
                     "description": "Set of aspect names to exclude from ingestion",
                     "default": [
-                        "dataHubIngestionSourceInfo",
-                        "dataHubIngestionSourceKey",
-                        "datahubIngestionRunSummary",
                         "globalSettingsKey",
-                        "datahubIngestionCheckpoint",
-                        "dataHubSecretKey",
+                        "dataHubIngestionSourceInfo",
                         "dataHubSecretValue",
-                        "globalSettingsInfo",
-                        "testResults"
+                        "dataHubSecretKey",
+                        "datahubIngestionCheckpoint",
+                        "testResults",
+                        "datahubIngestionRunSummary",
+                        "dataHubIngestionSourceKey",
+                        "globalSettingsInfo"
                     ],
                     "type": "array",
                     "items": {
@@ -11232,7 +11232,7 @@
                     "description": "Usage related configs",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-24T23:08:26.928147+00:00",
+                        "end_time": "2024-12-24T23:45:57.442613+00:00",
                         "start_time": "2024-12-23T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
@@ -14817,7 +14817,7 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-24T23:08:32.805361+00:00",
+                        "end_time": "2024-12-24T23:46:03.231731+00:00",
                         "start_time": "2024-12-23T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
@@ -15151,6 +15151,16 @@
                     "title": "Run Id",
                     "description": "The ID of the run to ingest metadata from. If not specified, we'll default to the latest run.",
                     "type": "integer"
+                },
+                "external_url_mode": {
+                    "title": "External Url Mode",
+                    "description": "Where should the \"View in dbt\" link point to - either the \"Explore\" UI or the dbt Cloud IDE",
+                    "default": "explore",
+                    "enum": [
+                        "explore",
+                        "develop"
+                    ],
+                    "type": "string"
                 }
             },
             "required": [
