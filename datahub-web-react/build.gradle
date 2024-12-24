@@ -79,7 +79,7 @@ task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
 
 task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   // Explicitly runs in non-watch mode.
-  args = ['run', 'test', 'run']
+  args = ['run', project.hasProperty('withCoverage') ? 'test-coverage' : 'test', 'run']
 }
 
 task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
