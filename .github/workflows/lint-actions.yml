@@ -8,7 +8,7 @@ on:
       - "**"
 jobs:
   actionlint:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     steps:
       - uses: acryldata/sane-checkout-action@v3
       - uses: reviewdog/action-actionlint@v1

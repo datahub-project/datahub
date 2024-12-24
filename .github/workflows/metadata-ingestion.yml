@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   metadata-ingestion:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     timeout-minutes: 40
     env:
       SPARK_VERSION: 3.3.2
@@ -107,7 +107,7 @@ jobs:
           verbose: true
 
   event-file:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     steps:
       - name: Upload
         uses: actions/upload-artifact@v3

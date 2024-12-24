@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   setup:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
@@ -32,7 +32,7 @@ jobs:
         id: ci-optimize
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     permissions:
       contents: read
       deployments: write

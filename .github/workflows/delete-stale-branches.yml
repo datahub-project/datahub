@@ -11,7 +11,7 @@ permissions:
 jobs:
   remove-stale-branches:
     name: Remove Stale Branches
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     steps:
       - uses: fpicalausa/remove-stale-branches@v2.1.2
         with:

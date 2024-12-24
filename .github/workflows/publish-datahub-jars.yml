@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   check-secret:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     outputs:
       publish-enabled: ${{ steps.publish-enabled.outputs.publish }}
     steps:
@@ -31,7 +31,7 @@ jobs:
           echo "publish=${{ env.SIGNING_KEY != '' }}" >> $GITHUB_OUTPUT
   setup:
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     steps:
@@ -44,7 +44,7 @@ jobs:
           TAG=$(echo ${GITHUB_REF} | sed -e 's,refs/tags/v,,g')
           echo "tag=$TAG" >> $GITHUB_OUTPUT
   publish:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     permissions:
       id-token: write
       contents: read
