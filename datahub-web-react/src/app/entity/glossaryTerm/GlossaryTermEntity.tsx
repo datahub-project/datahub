@@ -125,11 +125,11 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         {
             component: SidebarOwnerSection,
         },
-	{
+        {
             component: SidebarTagsSection,
             properties: {
                 hasTags: true,
-		hasTerms: false,
+                hasTerms: false,
             },
         },
         {
@@ -164,7 +164,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
                 domain={data.domain?.domain}
-		globalTags={data.globalTags}
+                globalTags={data.globalTags}
             />
         );
     };
@@ -190,7 +190,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             EntityCapabilityType.OWNERS,
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
-	    EntityCapabilityType.TAGS
+            EntityCapabilityType.TAGS,
         ]);
     };
 

@@ -102,11 +102,11 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
         {
             component: SidebarOwnerSection,
         },
-	{
+        {
             component: SidebarTagsSection,
             properties: {
                 hasTags: true,
-		hasTerms: false,
+                hasTerms: false,
             },
         },
         {
@@ -136,7 +136,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                 name={this.displayName(data)}
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
-		globalTags={data.globalTags}
+                globalTags={data.globalTags}
             />
         );
     };
@@ -158,7 +158,7 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             EntityCapabilityType.OWNERS,
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
-	    EntityCapabilityType.TAGS
+            EntityCapabilityType.TAGS,
         ]);
     };
 
