@@ -68,6 +68,12 @@ class Entity(HasUrn):
     def _set_aspect(self, value: AspectTypeVar, /) -> None:
         self._aspects[value.ASPECT_NAME] = value  # type: ignore
 
+    def _setdefault_aspect(self, default_aspect: AspectTypeVar, /) -> AspectTypeVar:
+        # Similar semantics to dict.setdefault.
+        if self._get_aspect(default_aspect.ASPECT_NAME) is None:
+            self._set_aspect(default_aspect)
+        return self._get_aspect(default_aspect.ASPECT_NAME)
+
 
 class HasSubtype(Entity):
     __slots__ = ()
