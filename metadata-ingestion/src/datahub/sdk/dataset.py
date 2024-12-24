@@ -46,6 +46,10 @@ class DatasetEditMode(Enum):
     INGESTION = "INGESTION"
 
 
+_DEFAULT_EDIT_MODE = DatasetEditMode.UI
+# TODO: Add default edit attribution for basic props e.g. tags/terms/owners/etc?
+
+
 class Dataset(HasSubtype, HasOwnership, Entity):
     __slots__ = ("_edit_mode",)
 
@@ -95,7 +99,7 @@ class Dataset(HasSubtype, HasOwnership, Entity):
             pass
 
         if edit_mode is None:
-            edit_mode = DatasetEditMode.UI
+            edit_mode = _DEFAULT_EDIT_MODE
         self._edit_mode = edit_mode
 
         if description is not None:
