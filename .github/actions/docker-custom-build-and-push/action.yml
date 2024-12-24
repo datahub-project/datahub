@@ -11,6 +11,12 @@ inputs:
   publish:
     required: true
     description: "Set to true to actually publish the image to Docker Hub"
+  dockerhub-username:
+    required: false
+    description: "Login to DockerHub"
+  dockerhub-password:
+    required: false
+    description: "Login to DockerHub"
 
   context:
     description: "Same as docker/build-push-action"
@@ -122,6 +128,12 @@ runs:
         registry: 795586375822.dkr.ecr.us-west-2.amazonaws.com
         username: ${{ inputs.username }}
         password: ${{ inputs.password }}
+    - name: Login to Docker Hub
+      uses: docker/login-action@v3
+      if: ${{ inputs.publish == 'true' && inputs.dockerhub-username != '' && inputs.dockerhub-password != '' }}
+      with:
+        username: ${{ inputs.dockerhub-username }}
+        password: ${{ inputs.dockerhub-password }}
 
     # Depot variant.
     - name: Build and Push Multi-Platform image

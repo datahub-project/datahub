@@ -111,7 +111,7 @@ jobs:
         env:
           ENABLE_ACRYLIO_PUBLISH: >-
             ${{
-               github.event_name != 'pull_request'
+               github.event_name == 'release'
                && ( secrets.ACRYLIO_DOCKER_USERNAME != '' && secrets.ACRYLIO_DOCKER_PASSWORD != '' )
             }}
         run: |
@@ -212,8 +212,10 @@ jobs:
           images: |
             ${{ env.ACRYLIO_DOCKER_GMS_IMAGE }}
           image_tag: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          dockerhub-username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          dockerhub-password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
           context: .
           file: ./docker/datahub-gms/Dockerfile
@@ -304,8 +306,10 @@ jobs:
           images: |
             ${{ env.ACRYLIO_DOCKER_MAE_CONSUMER_IMAGE }}
           image_tag: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          dockerhub-username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          dockerhub-password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
           context: .
           file: ./docker/datahub-mae-consumer/Dockerfile
@@ -396,8 +400,10 @@ jobs:
           images: |
             ${{ env.ACRYLIO_DOCKER_MCE_CONSUMER_IMAGE }}
           image_tag: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          dockerhub-username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          dockerhub-password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
           context: .
           file: ./docker/datahub-mce-consumer/Dockerfile
@@ -488,8 +494,10 @@ jobs:
           images: |
             ${{ env.ACRYLIO_DOCKER_UPGRADE_IMAGE }}
           image_tag: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          dockerhub-username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          dockerhub-password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
           context: .
           file: ./docker/datahub-upgrade/Dockerfile
@@ -582,8 +590,10 @@ jobs:
           images: |
             ${{ env.ACRYLIO_DOCKER_FRONTEND_IMAGE }}
           image_tag: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          dockerhub-username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          dockerhub-password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
           context: .
           file: ./docker/datahub-frontend/Dockerfile
@@ -655,8 +665,10 @@ jobs:
           images: |
             ${{ env.ACRYLIO_DOCKER_KAFKA_SETUP_IMAGE }}
           image_tag: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          dockerhub-username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          dockerhub-password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
           context: .
           file: ./docker/kafka-setup/Dockerfile
@@ -728,8 +740,10 @@ jobs:
           images: |
             ${{ env.ACRYLIO_DOCKER_MYSQL_SETUP_IMAGE }}
           image_tag: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          dockerhub-username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          dockerhub-password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
           context: .
           file: ./docker/mysql-setup/Dockerfile
@@ -801,8 +815,10 @@ jobs:
           images: |
             ${{ env.ACRYLIO_DOCKER_ELASTIC_SETUP_IMAGE }}
           image_tag: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          dockerhub-username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          dockerhub-password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
           context: .
           file: ./docker/elasticsearch-setup/Dockerfile
@@ -1581,8 +1597,10 @@ jobs:
             DOCKER_VERSION=${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
           image_tag: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          dockerhub-username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          dockerhub-password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
           context: .
           file: ./docker/datahub-integrations-service/Dockerfile
@@ -1710,8 +1728,10 @@ jobs:
             DOCKER_VERSION=${{ needs.datahub_ingestion_slim_build.outputs.tag || 'head-slim' }}
             RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}
           image_tag: ${{ needs.setup.outputs.tag }}
-          username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
-          password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
+          username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
+          password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
+          dockerhub-username: ${{ secrets.ACRYLIO_DOCKER_USERNAME }}
+          dockerhub-password: ${{ secrets.ACRYLIO_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.acrylio_publish == 'true' }}
           context: .
           file: ./docker/datahub-executor/Dockerfile
