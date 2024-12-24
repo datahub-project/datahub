@@ -371,7 +371,7 @@ export default class NodeBuilder {
                         console.debug(`MISSING RELATIVES: ${id}`);
                     }
                     const relativesY = relatives
-                        .map((p) => this.nodeInformation[p].y)
+                        .map((p) => this.nodeInformation[p]?.y)
                         .filter((y): y is number => y !== undefined);
                     nodeY = relativesY.length ? relativesY.reduce((a, b) => a + b) / relativesY.length : 0;
                     if (mini && !this.transformationChildren.get(id)?.size) {

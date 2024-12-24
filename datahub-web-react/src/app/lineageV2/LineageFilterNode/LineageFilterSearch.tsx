@@ -50,7 +50,7 @@ export default function LineageFilterSearch({ data, numMatches, setNumMatches }:
 
     useDebounce(() => setSearchQuery(inputValue), 300, [inputValue]);
     useEffect(() => {
-        const filters = nodes.get(parent)?.filters?.[direction];
+        const filters = nodes.get(parent)?.filters[direction];
         if (filters && searchQuery.length < 3 && oldSearchQuery?.length >= 3) {
             filters.searchUrns = undefined;
             setNumMatches(0);
@@ -87,7 +87,7 @@ export default function LineageFilterSearch({ data, numMatches, setNumMatches }:
         },
         onCompleted: (queryData) => {
             setNumMatches(queryData.searchAcrossLineage?.total || 0);
-            const filters = nodes.get(parent)?.filters?.[direction];
+            const filters = nodes.get(parent)?.filters[direction];
             if (filters) {
                 filters.searchUrns = new Set(
                     queryData.searchAcrossLineage?.searchResults?.map((result) => result.entity.urn),
