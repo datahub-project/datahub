@@ -72,7 +72,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/
           fail_ci_if_error: false
-          flags: prefect,prefect-${{ matrix.extra_pip_extras }}
+          flags: all,prefect,prefect-${{ matrix.extra_pip_extras }}
           name: pytest-prefect-${{ matrix.python-version }}
           verbose: true
 

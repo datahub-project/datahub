@@ -71,7 +71,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/
           fail_ci_if_error: false
-          flags: dagster-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}
+          flags: all,dagster,dagster-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}
           name: pytest-dagster
           verbose: true
 
