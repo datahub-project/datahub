@@ -70,9 +70,10 @@ class Entity(HasUrn):
 
     def _setdefault_aspect(self, default_aspect: AspectTypeVar, /) -> AspectTypeVar:
         # Similar semantics to dict.setdefault.
-        if self._get_aspect(default_aspect.ASPECT_NAME) is None:
-            self._set_aspect(default_aspect)
-        return self._get_aspect(default_aspect.ASPECT_NAME)
+        if existing_aspect := self._get_aspect(type(default_aspect)):
+            return existing_aspect
+        self._set_aspect(default_aspect)
+        return default_aspect
 
 
 class HasSubtype(Entity):
