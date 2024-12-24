@@ -257,17 +257,6 @@ def test_options_contain_connect_args():
     assert connect_args is not None
 
 
-def test_snowflake_config_with_view_lineage_no_table_lineage_throws_error():
-    config_dict = default_config_dict.copy()
-    config_dict["include_view_lineage"] = True
-    config_dict["include_table_lineage"] = False
-    with pytest.raises(
-        ValidationError,
-        match="include_table_lineage must be True for include_view_lineage to be set",
-    ):
-        SnowflakeV2Config.parse_obj(config_dict)
-
-
 def test_snowflake_config_with_column_lineage_no_table_lineage_throws_error():
     config_dict = default_config_dict.copy()
     config_dict["include_column_lineage"] = True
@@ -665,6 +654,18 @@ def test_create_snowsight_base_url_ap_northeast_1():
 
 def test_snowflake_utils() -> None:
     assert_doctest(datahub.ingestion.source.snowflake.snowflake_utils)
+
+
+def test_using_removed_fields_causes_no_error() -> None:
+    assert SnowflakeV2Config.parse_obj(
+        {
+            "account_id": "test",
+            "username": "snowflake",
+            "password": "snowflake",
+            "include_view_lineage": "true",
+            "include_view_column_lineage": "true",
+        }
+    )
 
 
 def test_snowflake_query_result_parsing():
