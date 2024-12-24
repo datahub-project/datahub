@@ -247,9 +247,6 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                 for entry in self.fetch_copy_history():
                     queries.append(entry)
 
-            # TODO: Add "show external tables" lineage to the main schema extractor.
-            # Because it's not a time-based thing, it doesn't really make sense in the snowflake-queries extractor.
-
             with self.report.query_log_fetch_timer:
                 for entry in self.fetch_query_log():
                     queries.append(entry)
