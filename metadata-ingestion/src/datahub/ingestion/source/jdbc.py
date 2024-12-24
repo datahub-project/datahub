@@ -88,7 +88,7 @@ JDBC_TYPE_MAP = {
     "LONGVARBINARY": BytesTypeClass,
     "DATE": DateTypeClass,
     "TIME": TimeTypeClass,
-    "TIMESTAMP": TimeStampClass,
+    "TIMESTAMP": TimeTypeClass,
     # Additional types
     "CLOB": StringTypeClass,
     "NCLOB": StringTypeClass,
@@ -813,6 +813,15 @@ class JDBCSource(StatefulIngestionSourceBase):
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=schema_metadata
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SubTypesClass(
+                typeNames=[
+                    table_type.title()
+                ]
+            )
         ).as_workunit()
 
         # For views, get view definition
