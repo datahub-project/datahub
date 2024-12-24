@@ -99,6 +99,7 @@ from datahub.metadata.schema_classes import (
     TagPropertiesClass,
     UpstreamClass,
     UpstreamLineageClass,
+    ViewPropertiesClass,
 )
 from datahub.metadata.urns import QueryUrn
 from datahub.sql_parsing.sqlglot_lineage import (
@@ -934,16 +935,13 @@ class ModeSource(StatefulIngestionSourceBase):
 
         dataset_props = DatasetPropertiesClass(
             name=report_info.get("name") if is_mode_dataset else query_data.get("name"),
-            description=f"""### Source Code
-``` sql
-{query_data.get("raw_query")}
-```
-            """,
+            description=None,
             externalUrl=externalUrl,
             customProperties=self.get_custom_props_from_dict(
                 query_data,
                 [
-                    "id" "created_at",
+                    "id",
+                    "created_at",
                     "updated_at",
                     "last_run_id",
                     "data_source_id",
@@ -953,13 +951,22 @@ class ModeSource(StatefulIngestionSourceBase):
                 ],
             ),
         )
-
         yield (
             MetadataChangeProposalWrapper(
                 entityUrn=query_urn,
                 aspect=dataset_props,
             ).as_workunit()
         )
+
+        if raw_query := query_data.get("raw_query"):
+            yield MetadataChangeProposalWrapper(
+                entityUrn=query_urn,
+                aspect=ViewPropertiesClass(
+                    viewLogic=raw_query,
+                    viewLanguage=QueryLanguageClass.SQL,
+                    materialized=False,
+                ),
+            ).as_workunit()
 
         if is_mode_dataset:
             space_container_key = self.gen_space_key(space_token)
