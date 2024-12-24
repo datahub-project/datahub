@@ -26,6 +26,7 @@ from datahub.ingestion.api.source import TestConnectionReport
 from datahub.ingestion.run.pipeline import Pipeline, PipelineContext
 from datahub.ingestion.source.tableau import tableau_constant as c
 from datahub.ingestion.source.tableau.tableau import (
+    SiteIdContentUrl,
     TableauConfig,
     TableauProject,
     TableauSiteSource,
@@ -1008,8 +1009,7 @@ def test_tableau_unsupported_csql():
         config=config,
         ctx=context,
         platform="tableau",
-        site=SiteItem(name="Site 1", content_url="site1"),
-        site_id="site1",
+        site=SiteIdContentUrl(site_id="id1", site_content_url="site1"),
         report=TableauSourceReport(),
         server=Server("https://test-tableau-server.com"),
     )
@@ -1313,8 +1313,7 @@ def test_permission_warning(pytestconfig, tmp_path, mock_datahub_graph):
                 platform="tableau",
                 config=mock.MagicMock(),
                 ctx=mock.MagicMock(),
-                site=mock.MagicMock(),
-                site_id=None,
+                site=mock.MagicMock(spec=SiteItem, id="Site1", content_url="site1"),
                 server=mock_sdk.return_value,
                 report=reporter,
             )
@@ -1371,8 +1370,7 @@ def test_extract_project_hierarchy(extract_project_hierarchy, allowed_projects):
         config=config,
         ctx=context,
         platform="tableau",
-        site=SiteItem(name="Site 1", content_url="site1"),
-        site_id="site1",
+        site=mock.MagicMock(spec=SiteItem, id="Site1", content_url="site1"),
         report=TableauSourceReport(),
         server=Server("https://test-tableau-server.com"),
     )
