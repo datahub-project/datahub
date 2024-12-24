@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 from json import JSONDecodeError
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Literal, Optional, Tuple
 from urllib.parse import urlparse
 
 import dateutil.parser
@@ -60,6 +60,11 @@ class DBTCloudConfig(DBTCommonConfig):
     run_id: Optional[int] = Field(
         None,
         description="The ID of the run to ingest metadata from. If not specified, we'll default to the latest run.",
+    )
+
+    external_url_mode: Literal["explore", "develop"] = Field(
+        default="explore",
+        description='Where should the "View in dbt" link point to - either the "Explore" UI or the dbt Cloud IDE',
     )
 
     @root_validator(pre=True)
@@ -527,5 +532,7 @@ class DBTCloudSource(DBTSourceBase, TestableSource):
         )
 
     def get_external_url(self, node: DBTNode) -> Optional[str]:
-        # TODO: Once dbt Cloud supports deep linking to specific files, we can use that.
-        return f"{self.config.access_url}/develop/{self.config.account_id}/projects/{self.config.project_id}"
+        if self.config.external_url_mode == "explore":
+            return f"{self.config.access_url}/explore/{self.config.account_id}/projects/{self.config.project_id}/environments/production/details/{node.dbt_name}"
+        else:
+            return f"{self.config.access_url}/develop/{self.config.account_id}/projects/{self.config.project_id}"
