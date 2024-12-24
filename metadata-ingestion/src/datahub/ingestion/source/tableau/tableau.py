@@ -910,7 +910,9 @@ class TableauSiteSource:
     def _re_authenticate(self) -> None:
         if self.site_content_url:
             assert self.site_content_url is not None, "Site Content URL is required"
-            self.report.info(f"Re-authenticating to Tableau site='{self.site_content_url}'")
+            self.report.info(
+                f"Re-authenticating to Tableau site='{self.site_content_url}'"
+            )
             # Sign-in again may not be enough because Tableau sometimes caches invalid sessions
             # so we need to recreate the Tableau Server object
             self.server = self.config.make_tableau_client(self.site_content_url)
