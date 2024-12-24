@@ -255,4 +255,4 @@ def test_mode_ingest_json_failure(pytestconfig, tmp_path):
         error_dict: StructuredLogEntry
         _level, error_dict = exec_error.value.args[1].warnings[0]
         error = next(iter(error_dict.context))
-        assert "JSONDecodeError" in error
+        assert "Expecting property name enclosed in double quotes" in error
