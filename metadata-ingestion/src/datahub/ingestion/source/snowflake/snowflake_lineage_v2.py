@@ -4,11 +4,10 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Collection, Iterable, List, Optional, Set, Tuple, Type
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, Field, validator
 
 from datahub.configuration.datetimes import parse_absolute_time
 from datahub.ingestion.api.closeable import Closeable
-from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.snowflake.constants import (
     LINEAGE_PERMISSION_ERROR,
@@ -72,8 +71,8 @@ class ColumnUpstreamJob(BaseModel):
 
 
 class ColumnUpstreamLineage(BaseModel):
-    column_name: str
-    upstreams: List[ColumnUpstreamJob]
+    column_name: Optional[str]
+    upstreams: List[ColumnUpstreamJob] = Field(default_factory=list)
 
 
 class UpstreamTableNode(BaseModel):
@@ -163,11 +162,11 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
                 self.config.end_time,
             )
 
-    def get_workunits(
+    def add_time_based_lineage_to_aggregator(
         self,
         discovered_tables: List[str],
         discovered_views: List[str],
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> None:
         if not self._should_ingest_lineage():
             return
 
@@ -177,9 +176,7 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
         # snowflake view/table -> snowflake table
         self.populate_table_upstreams(discovered_tables)
 
-        for mcp in self.sql_aggregator.gen_metadata():
-            yield mcp.as_workunit()
-
+    def update_state(self):
         if self.redundant_run_skip_handler:
             # Update the checkpoint state for this run.
             self.redundant_run_skip_handler.update_state(
@@ -337,10 +334,6 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
             start_time_millis=int(self.start_time.timestamp() * 1000),
             end_time_millis=int(self.end_time.timestamp() * 1000),
             upstreams_deny_pattern=self.config.temporary_tables_pattern,
-            # The self.config.include_view_lineage setting is about fetching upstreams of views.
-            # We always generate lineage pointing at views from tables, even if self.config.include_view_lineage is False.
-            # TODO: Remove this `include_view_lineage` flag, since it's effectively dead code.
-            include_view_lineage=True,
             include_column_lineage=self.config.include_column_lineage,
         )
         try:

@@ -131,7 +131,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
             "add",
-            path=f"/assets/{asset_urn}",
+            path=f"/assets/{self.quote(asset_urn)}",
             value=DataProductAssociation(destinationUrn=asset_urn),
         )
         return self
@@ -140,7 +140,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
             "remove",
-            path=f"/assets/{asset_urn}",
+            path=f"/assets/{self.quote(asset_urn)}",
             value={},
         )
         return self

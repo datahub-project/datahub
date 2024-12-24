@@ -171,25 +171,12 @@ class SnowflakeConfig(
         default=True,
         description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
     )
-    include_view_lineage: bool = pydantic.Field(
-        default=True,
-        description="If enabled, populates the snowflake view->table and table->view lineages. Requires appropriate grants given to the role, and include_table_lineage to be True. view->table lineage requires Snowflake Enterprise Edition or above.",
-    )
+
+    _include_view_lineage = pydantic_removed_field("include_view_lineage")
+    _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
 
     ignore_start_time_lineage: bool = False
     upstream_lineage_in_report: bool = False
-
-    @pydantic.root_validator(skip_on_failure=True)
-    def validate_include_view_lineage(cls, values):
-        if (
-            "include_table_lineage" in values
-            and not values.get("include_table_lineage")
-            and values.get("include_view_lineage")
-        ):
-            raise ValueError(
-                "include_table_lineage must be True for include_view_lineage to be set."
-            )
-        return values
 
 
 class SnowflakeV2Config(
@@ -228,11 +215,6 @@ class SnowflakeV2Config(
     include_column_lineage: bool = Field(
         default=True,
         description="Populates table->table and view->table column lineage. Requires appropriate grants given to the role and the Snowflake Enterprise Edition or above.",
-    )
-
-    include_view_column_lineage: bool = Field(
-        default=True,
-        description="Populates view->view and table->view column lineage using DataHub's sql parser.",
     )
 
     use_queries_v2: bool = Field(
@@ -355,10 +337,6 @@ class SnowflakeV2Config(
         return SnowflakeConnectionConfig.get_sql_alchemy_url(
             self, database=database, username=username, password=password, role=role
         )
-
-    @property
-    def parse_view_ddl(self) -> bool:
-        return self.include_view_column_lineage
 
     @validator("shares")
     def validate_shares(

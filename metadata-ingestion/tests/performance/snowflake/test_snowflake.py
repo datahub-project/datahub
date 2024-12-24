@@ -37,7 +37,6 @@ def run_test():
             password="TST_PWD",
             include_technical_schema=False,
             include_table_lineage=True,
-            include_view_lineage=True,
             include_usage_stats=True,
             include_operational_stats=True,
             start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(tzinfo=timezone.utc),
