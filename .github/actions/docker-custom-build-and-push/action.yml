@@ -97,10 +97,11 @@ runs:
         cache-to: |
           type=inline
     - name: Upload image locally for testing (if not publishing)
-      uses: ishworkh/docker-image-artifact-upload@v1
+      uses: ishworkh/container-image-artifact-upload@v2.0.0
       if: ${{ inputs.publish != 'true' }}
       with:
         image: ${{ steps.single_tag.outputs.SINGLE_TAG }}
+        retention_days: "2"
 
     # Code for building multi-platform images and pushing to Docker Hub.
     - name: Set up QEMU
