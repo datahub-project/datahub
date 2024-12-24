@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   setup:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     outputs:
       publish: ${{ steps.publish.outputs.publish }}
     steps:
@@ -27,7 +27,7 @@ jobs:
           echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
           echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
   metadata-ingestion-docgen:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     needs: setup
     steps:
       - name: Set up JDK 17

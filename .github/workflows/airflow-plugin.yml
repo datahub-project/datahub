@@ -25,7 +25,7 @@ concurrency:
 
 jobs:
   airflow-plugin:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     env:
       DATAHUB_TELEMETRY_ENABLED: false
     strategy:
@@ -89,7 +89,7 @@ jobs:
           verbose: true
 
   event-file:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     steps:
       - name: Upload
         uses: actions/upload-artifact@v4

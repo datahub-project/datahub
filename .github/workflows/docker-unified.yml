@@ -52,7 +52,7 @@ permissions:
 
 jobs:
   setup:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       slim_tag: ${{ steps.tag.outputs.slim_tag }}
@@ -169,7 +169,7 @@ jobs:
 
   gms_build:
     name: Build and Push DataHub GMS Docker Image
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     needs: setup
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
@@ -227,7 +227,7 @@ jobs:
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan GMS images for vulnerabilities"
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     needs: [setup, gms_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
@@ -263,7 +263,7 @@ jobs:
 
   mae_consumer_build:
     name: Build and Push DataHub MAE Consumer Docker Image
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     needs: setup
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
@@ -317,7 +317,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
   mae_consumer_scan:
     name: "[Monitoring] Scan MAE consumer images for vulnerabilities"
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     needs: [setup, mae_consumer_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
@@ -357,7 +357,7 @@ jobs:
 
   mce_consumer_build:
     name: Build and Push DataHub MCE Consumer Docker Image
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     needs: setup
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
@@ -411,7 +411,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
   mce_consumer_scan:
     name: "[Monitoring] Scan MCE consumer images for vulnerabilities"
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     needs: [setup, mce_consumer_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
@@ -451,7 +451,7 @@ jobs:
 
   datahub_upgrade_build:
     name: Build and Push DataHub Upgrade Docker Image
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     needs: setup
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
@@ -505,7 +505,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
   datahub_upgrade_scan:
     name: "[Monitoring] Scan DataHub Upgrade images for vulnerabilities"
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     needs: [setup, datahub_upgrade_build]
     if: ${{ needs.setup.outputs.backend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
@@ -598,7 +598,7 @@ jobs:
           platforms: linux/amd64,linux/arm64/v8
   frontend_scan:
     name: "[Monitoring] Scan Frontend images for vulnerabilities"
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     needs: [setup, frontend_build]
     if: ${{ needs.setup.outputs.frontend_change == 'true' || needs.setup.outputs.publish == 'true' }}
     permissions:
@@ -638,7 +638,7 @@ jobs:
 
   kafka_setup_build:
     name: Build and Push DataHub Kafka Setup Docker Image
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     needs: setup
     if: ${{ needs.setup.outputs.kafka_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
@@ -682,7 +682,7 @@ jobs:
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Kafka Setup images for vulnerabilities"
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     needs: [ setup, kafka_setup_build ]
     if: ${{ needs.setup.outputs.kafka_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
@@ -718,7 +718,7 @@ jobs:
 
   mysql_setup_build:
     name: Build and Push DataHub MySQL Setup Docker Image
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     needs: setup
     if: ${{ needs.setup.outputs.mysql_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
@@ -762,7 +762,7 @@ jobs:
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan MySQL Setup images for vulnerabilities"
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     needs: [ setup, mysql_setup_build ]
     if: ${{ needs.setup.outputs.mysql_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true') }}
     steps:
@@ -798,7 +798,7 @@ jobs:
 
   elasticsearch_setup_build:
     name: Build and Push DataHub Elasticsearch Setup Docker Image
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     needs: setup
     if: ${{ needs.setup.outputs.elasticsearch_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
@@ -842,7 +842,7 @@ jobs:
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan ElasticSearch setup images for vulnerabilities"
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     needs: [ setup, elasticsearch_setup_build ]
     if: ${{ needs.setup.outputs.elasticsearch_setup_change == 'true' || (needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
@@ -878,7 +878,7 @@ jobs:
 
   datahub_ingestion_base_build:
     name: Build and Push DataHub Ingestion (Base) Docker Image
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     needs: setup
@@ -911,7 +911,7 @@ jobs:
         run: echo "tag=${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}" >> "$GITHUB_OUTPUT"
   datahub_ingestion_base_slim_build:
     name: Build and Push DataHub Ingestion (Base-Slim) Docker Image
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     needs: [setup, datahub_ingestion_base_build]
@@ -960,7 +960,7 @@ jobs:
         run: echo "tag=${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}" >> "$GITHUB_OUTPUT"
   datahub_ingestion_base_full_build:
     name: Build and Push DataHub Ingestion (Base-Full) Docker Image
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
     needs: [setup, datahub_ingestion_base_build]
@@ -1009,7 +1009,7 @@ jobs:
 
   datahub_ingestion_slim_build:
     name: Build and Push DataHub Ingestion Docker Images
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ needs.setup.outputs.ingestion_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
@@ -1078,7 +1078,7 @@ jobs:
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Datahub Ingestion Slim images for vulnerabilities"
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     needs: [setup, datahub_ingestion_slim_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' }}
     steps:
@@ -1115,7 +1115,7 @@ jobs:
 
   datahub_ingestion_full_build:
     name: Build and Push DataHub Ingestion (Full) Docker Images
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ needs.setup.outputs.ingestion_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) }}
@@ -1182,7 +1182,7 @@ jobs:
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Datahub Ingestion images for vulnerabilities"
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     needs: [setup, datahub_ingestion_full_build]
     if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
     steps:
@@ -1218,7 +1218,7 @@ jobs:
           sarif_file: "trivy-results.sarif"
 
   smoke_test_matrix:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     needs: setup
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
@@ -1258,7 +1258,7 @@ jobs:
 
   smoke_test:
     name: Run Smoke Tests
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     needs:
       [
         setup,
@@ -1512,7 +1512,7 @@ jobs:
           retention-days: 5
   sync_deployments:
     name: Sync ArgoCD deployments
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     needs:
       [
         setup,
@@ -1544,7 +1544,7 @@ jobs:
   #################
   datahub_integrations_service_build:
     name: Build and Push DataHub Integrations Service Docker Images
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       needs_artifact_download: ${{ needs.setup.outputs.integrations_service_change == 'true' && ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true') }}
@@ -1628,7 +1628,7 @@ jobs:
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Datahub Integrations Service images for vulnerabilities"
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     needs: [setup, datahub_integrations_service_build]
     if: ${{ needs.setup.outputs.integrations_service_change == 'true' || ( needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
@@ -1665,7 +1665,7 @@ jobs:
           sarif_file: "trivy-results.sarif"
   datahub_executor_build:
     name: Build and Push DataHub Executor Docker Images
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     needs: [setup, datahub_ingestion_slim_build]
     if: ${{ needs.setup.outputs.datahub_executor_change == 'true' || ( needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
@@ -1756,7 +1756,7 @@ jobs:
       security-events: write # for github/codeql-action/upload-sarif to upload SARIF results
       actions: read # only required for a private repository by github/codeql-action/upload-sarif to get the Action run status
     name: "[Monitoring] Scan Datahub Monitors Service images for vulnerabilities"
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     needs: [setup, datahub_executor_build]
     if: ${{ needs.setup.outputs.datahub_executor_change == 'true' || ( needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:

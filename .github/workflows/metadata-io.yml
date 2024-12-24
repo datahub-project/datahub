@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   setup:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     outputs:
       frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
       ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' }}
@@ -46,7 +46,7 @@ jobs:
       - uses: ./.github/actions/ci-optimization
         id: ci-optimize
   build:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     timeout-minutes: 60
     needs: setup
     steps:
@@ -94,7 +94,7 @@ jobs:
           verbose: true
 
   event-file:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     steps:
       - name: Upload
         uses: actions/upload-artifact@v3

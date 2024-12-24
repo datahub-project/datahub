@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   code-freeze-check:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     steps:
       # Controlled through this secret https://github.com/acryldata/datahub-fork/settings/secrets/actions/SAAS_CODE_FREEZE_IN_PLACE
       # set to 0 to stop code freeze

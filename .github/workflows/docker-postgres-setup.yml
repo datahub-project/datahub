@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   setup:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       publish: ${{ steps.publish.outputs.publish }}
@@ -42,7 +42,7 @@ jobs:
           echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
   push_to_registries:
     name: Build and Push Docker Image to Docker Hub
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     needs: setup
     steps:
       - name: Check out the repo

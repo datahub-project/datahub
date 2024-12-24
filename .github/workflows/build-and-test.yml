@@ -22,7 +22,7 @@ concurrency:
 
 jobs:
   setup:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     outputs:
       frontend_change: ${{ steps.ci-optimize.outputs.frontend-change == 'true' }}
       ingestion_change: ${{ steps.ci-optimize.outputs.ingestion-change == 'true' }}
@@ -56,7 +56,7 @@ jobs:
           # We only need the timezone variation for frontend tests.
           - command: "frontend"
             timezone: "America/New_York"
-    runs-on: ${{ matrix.command == 'frontend' && 'depot-ubuntu-22.04-4' || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.command == 'frontend' && 'depot-ubuntu-22.04-4' || 'depot-ubuntu-22.04' }}
     timeout-minutes: 60
     needs: setup
     steps:
@@ -154,7 +154,7 @@ jobs:
           verbose: true
 
   quickstart-compose-validation:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     needs: setup
     if: ${{ needs.setup.outputs.docker_change == 'true' }}
     steps:
@@ -167,7 +167,7 @@ jobs:
         run: ./docker/quickstart/generate_and_compare.sh
 
   event-file:
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04-small
     steps:
       - name: Upload
         uses: actions/upload-artifact@v3

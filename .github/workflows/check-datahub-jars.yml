@@ -25,7 +25,7 @@ jobs:
       fail-fast: false
       matrix:
         command: ["datahub-client", "datahub-protobuf", "spark-lineage"]
-    runs-on: ubuntu-latest
+    runs-on: depot-ubuntu-22.04
     steps:
       - uses: acryldata/sane-checkout-action@v3
       - uses: actions/setup-python@v5
