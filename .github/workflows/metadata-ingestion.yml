@@ -101,7 +101,7 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/
           fail_ci_if_error: false
-          flags: pytest-${{ matrix.command }}
+          flags: all,pytest-${{ matrix.command }}
           name: pytest-${{ matrix.python-version }}-${{ matrix.command }}
           verbose: true
 

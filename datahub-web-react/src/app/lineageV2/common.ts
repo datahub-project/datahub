@@ -50,7 +50,7 @@ export interface LineageEntity extends NodeBase {
     entity?: FetchedEntityV2;
     rawEntity?: Entity; // TODO: Don't store this -- waste of memory? Currently used for manual lineage modal
     fetchStatus: Record<LineageDirection, FetchStatus>;
-    filters?: Record<LineageDirection, Filters>;
+    filters: Record<LineageDirection, Filters>;
 }
 
 export const LINEAGE_FILTER_TYPE = 'lineage-filter';

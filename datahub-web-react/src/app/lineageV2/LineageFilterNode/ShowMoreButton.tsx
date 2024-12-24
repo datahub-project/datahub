@@ -70,7 +70,7 @@ export function ShowMoreButton({ data, numMatches }: Props) {
 
     const setPagination = useCallback(
         (value: number) => {
-            const filters = nodes.get(parent)?.filters?.[direction];
+            const filters = nodes.get(parent)?.filters[direction];
             if (filters?.limit) {
                 // To zoom in on newly added nodes on click, uncomment below and pass into setDisplayVersion
                 // Should match useProcessData.applyFilters logic

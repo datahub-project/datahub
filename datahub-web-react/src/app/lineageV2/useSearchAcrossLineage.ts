@@ -257,11 +257,18 @@ export function setEntityNodeDefault(
     nodes: NodeContext['nodes'],
 ): LineageEntity {
     const node = setDefault(nodes, urn, entityNodeDefault(urn, type, direction));
-    if (node.direction && node.direction !== direction) {
+    if (node.direction && node.direction !== direction && !node.inCycle) {
         // Node is both upstream and downstream
         node.inCycle = true;
+        if (node.fetchStatus[direction] === FetchStatus.UNNEEDED) {
+            node.fetchStatus[direction] = FetchStatus.UNFETCHED;
+        }
     }
     return node;
+}
+
+function defaultLineageFilter(): Filters {
+    return { limit: LINEAGE_FILTER_PAGINATION, facetFilters: new Map() };
 }
 
 export function entityNodeDefault(urn: string, type: EntityType, direction: LineageDirection): LineageEntity {
@@ -281,11 +288,9 @@ export function entityNodeDefault(urn: string, type: EntityType, direction: Line
             [otherDirection]: FetchStatus.UNNEEDED,
         } as Record<LineageDirection, FetchStatus>,
         filters: {
-            [direction]: {
-                limit: LINEAGE_FILTER_PAGINATION,
-                facetFilters: new Map(),
-            },
-        } as Record<LineageDirection, Filters>,
+            [LineageDirection.Upstream]: defaultLineageFilter(),
+            [LineageDirection.Downstream]: defaultLineageFilter(),
+        },
     };
 }
 
@@ -311,6 +316,10 @@ export function addQueryNodes(
             fetchStatus: {
                 [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
                 [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
+            },
+            filters: {
+                [LineageDirection.Upstream]: defaultLineageFilter(),
+                [LineageDirection.Downstream]: defaultLineageFilter(),
             },
         });
         edges.set(getEdgeId(path[i - 1].urn, path[i + 1].urn, direction), {
