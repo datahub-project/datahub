@@ -338,7 +338,7 @@ if __name__ == "__main__":
     print(d.schema)
 
     with pytest.raises(AttributeError):
-        # TODO: make this throw a nicer error
+        # TODO: make this throw a nicer error e.g. reference set_owners
         d.owners = []  # type: ignore
 
     d.set_owners(["my_user", "other_user", ("third_user", "BUSINESS_OWNER")])
@@ -346,4 +346,4 @@ if __name__ == "__main__":
 
     with pytest.raises(AttributeError):
         # ensure that all the slots are set, and so no extra attributes are allowed
-        d.extra = {}  # type: ignore
+        d._extra_field = {}  # type: ignore
