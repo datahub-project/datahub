@@ -1,9 +1,11 @@
 from datetime import datetime
+from enum import Enum
 from typing import Dict, Optional, Type
 
 import pytest
 
 import datahub.metadata.schema_classes as models
+from datahub.cli.cli_utils import first_non_null
 from datahub.emitter.mce_builder import DEFAULT_ENV, make_ts_millis, parse_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
@@ -16,6 +18,7 @@ from datahub.sdk._shared import (
     OwnersInputType,
     UrnOrStr,
 )
+from datahub.sdk.errors import SdkUsageError
 from datahub.specific.dataset import DatasetPatchBuilder
 
 
@@ -38,8 +41,13 @@ def _parse_time_stamp(ts: Optional[models.TimeStampClass]) -> Optional[datetime]
     return parse_ts_millis(ts.time)
 
 
+class DatasetEditMode(Enum):
+    UI = "UI"
+    INGESTION = "INGESTION"
+
+
 class Dataset(HasSubtype, HasOwnership, Entity):
-    __slots__ = ()
+    __slots__ = ("_edit_mode",)
 
     @classmethod
     def get_urn_type(cls) -> Type[Urn]:
@@ -53,6 +61,7 @@ class Dataset(HasSubtype, HasOwnership, Entity):
         name: str,
         platform_instance: Optional[str] = None,
         env: str = DEFAULT_ENV,
+        edit_mode: Optional[DatasetEditMode] = None,
         # TODO have an urn-based variant? probably not, since we need to know the raw platform instance
         # Dataset properties.
         description: Optional[str] = None,
@@ -85,7 +94,10 @@ class Dataset(HasSubtype, HasOwnership, Entity):
             # TODO: force create dataPlatformInstance aspect
             pass
 
-        self._ensure_dataset_props()
+        if edit_mode is None:
+            edit_mode = DatasetEditMode.UI
+        self._edit_mode = edit_mode
+
         if description is not None:
             self.set_description(description)
         if display_name is not None:
@@ -118,18 +130,34 @@ class Dataset(HasSubtype, HasOwnership, Entity):
         return None
 
     def _ensure_dataset_props(self) -> models.DatasetPropertiesClass:
-        dataset_props = self._get_aspect(models.DatasetPropertiesClass)
-        if dataset_props is None:
-            dataset_props = models.DatasetPropertiesClass()
-            self._set_aspect(dataset_props)
-        return dataset_props
+        return self._setdefault_aspect(models.DatasetPropertiesClass())
+
+    def _ensure_editable_props(self) -> models.EditableDatasetPropertiesClass:
+        # Note that most of the fields in this aspect are not used.
+        # The only one that's relevant for us is the description.
+        return self._setdefault_aspect(models.EditableDatasetPropertiesClass())
 
     @property
     def description(self) -> Optional[str]:
-        return self._ensure_dataset_props().description
+        return first_non_null(
+            [
+                self._ensure_editable_props().description,
+                self._ensure_dataset_props().description,
+            ]
+        )
 
     def set_description(self, description: str) -> None:
-        self._ensure_dataset_props().description = description
+        if self._edit_mode == DatasetEditMode.INGESTION:
+            editable_props = self._get_aspect(models.EditableDatasetPropertiesClass)
+            if editable_props is not None and editable_props.description is not None:
+                # TODO does this make sense?
+                raise SdkUsageError(
+                    "In ingestion mode, setting the description will be hidden by UI-based edits."
+                )
+
+            self._ensure_dataset_props().description = description
+        else:
+            self._ensure_editable_props().description = description
 
     @property
     def display_name(self) -> Optional[str]:
