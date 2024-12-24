@@ -57,6 +57,7 @@ jobs:
       tag: ${{ steps.tag.outputs.tag }}
       slim_tag: ${{ steps.tag.outputs.slim_tag }}
       full_tag: ${{ steps.tag.outputs.full_tag }}
+      short_sha: ${{ steps.tag.outputs.short_sha }} # needed for auto-deploy
       unique_tag: ${{ steps.tag.outputs.unique_tag }}
       unique_slim_tag: ${{ steps.tag.outputs.unique_slim_tag }}
       unique_full_tag: ${{ steps.tag.outputs.unique_full_tag }}
@@ -544,7 +545,7 @@ jobs:
 
   frontend_build:
     name: Build and Push DataHub Frontend Docker Image
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-m
     needs: setup
     if: ${{ needs.setup.outputs.frontend_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true'}}
     steps:
@@ -1633,7 +1634,7 @@ jobs:
     if: ${{ needs.setup.outputs.integrations_service_change == 'true' || ( needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Download image Integrations Service Image
         uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
@@ -1761,7 +1762,7 @@ jobs:
     if: ${{ needs.setup.outputs.datahub_executor_change == 'true' || ( needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' ) }}
     steps:
       - name: Checkout # adding checkout step just to make trivy upload happy
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Download image Monitors Service Image
         uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}

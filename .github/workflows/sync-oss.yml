@@ -13,7 +13,7 @@ jobs:
   create-pr:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           # We need to fetch the full history so that merges work correctly.
           fetch-depth: 0

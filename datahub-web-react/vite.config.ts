@@ -72,7 +72,7 @@ export default defineConfig(({ mode }) => {
             minify: 'esbuild',
             reportCompressedSize: false,
             // Limit number of worker threads to reduce CPU pressure
-            workers: 2, // default is number of CPU cores
+            workers: 3, // default is number of CPU cores
         },
         server: {
             open: false,
