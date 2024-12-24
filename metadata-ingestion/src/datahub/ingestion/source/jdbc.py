@@ -316,7 +316,7 @@ class JDBCSource(StatefulIngestionSourceBase):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:
             with self._get_connection() as conn:
-                metadata = conn.getMetaData()
+                metadata = conn.jconn.getMetaData()
 
                 # Extract database container
                 yield from self._extract_database_metadata(metadata)
@@ -352,7 +352,7 @@ class JDBCSource(StatefulIngestionSourceBase):
             key = ".".join(path) + "." + name if name else ".".join(path)
 
         return JDBCContainerKey(
-            platform=self.platform,
+            platform=make_data_platform_urn(self.platform),
             instance=self.platform_instance,
             env=str(self.env),
             key=key,
@@ -370,18 +370,30 @@ class JDBCSource(StatefulIngestionSourceBase):
                     url = self.config.connection.uri
                     props = self._get_connection_properties()
 
+                    # Add JVM args for Arrow Flight JDBC
+                    jvm_args = [
+                        '-Xmx1g',  # Max heap size
+                        '--add-opens=java.base/java.nio=ALL-UNNAMED',
+                        '--add-opens=java.base/java.lang=ALL-UNNAMED',
+                        '--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED'
+                    ]
+
+                    os.environ['_JAVA_OPTIONS'] = ' '.join(jvm_args)
+
                     self._connection = jaydebeapi.connect(
                         self.config.driver.driver_class,
                         url,
                         props,
                         driver_path
                     )
-                return self._connection
+                    return self._connection
             except Exception as e:
                 if attempt == max_retries - 1:
                     raise Exception(f"Failed to create connection after {max_retries} attempts: {str(e)}")
                 logger.warning(f"Connection attempt {attempt + 1} failed, retrying in {retry_delay}s: {str(e)}")
                 time.sleep(retry_delay)
+
+        raise Exception("Failed to establish connection after all retries")
 
     def _get_driver_path(self) -> str:
         """Get JDBC driver path with improved error handling"""
@@ -400,42 +412,63 @@ class JDBCSource(StatefulIngestionSourceBase):
         raise ValueError("Either driver_path or maven_coordinates must be specified")
 
     def _download_driver_from_maven(self) -> str:
-        """Download driver from Maven with improved caching"""
+        """Download driver from Maven with improved error handling and path management"""
         coords = self.config.driver.maven_coordinates
         driver_dir = Path.home() / ".datahub" / "drivers"
         driver_dir.mkdir(parents=True, exist_ok=True)
+
+        # Parse Maven coordinates
+        try:
+            group_id, artifact_id, version = coords.split(":")
+        except ValueError:
+            raise ValueError(f"Invalid Maven coordinates: {coords}. Format should be groupId:artifactId:version")
 
         # Create hash of coordinates for cache key
         coords_hash = hashlib.sha256(coords.encode()).hexdigest()[:12]
         cache_path = driver_dir / f"driver-{coords_hash}.jar"
 
         if cache_path.exists():
+            logger.info(f"Using cached driver from {cache_path}")
             return str(cache_path)
 
-        maven_cmd = [
-            "mvn",
-            "dependency:get",
-            f"-Dartifact={coords}",
-            "-DremoteRepositories=https://repo1.maven.org/maven2/",
-            f"-DoutputDirectory={driver_dir}"
-        ]
+        # Create a temporary directory for download
+        with tempfile.TemporaryDirectory() as temp_dir:
+            maven_cmd = [
+                "mvn",
+                "dependency:copy",
+                f"-Dartifact={coords}",
+                f"-DoutputDirectory={temp_dir}",
+                "-Dmdep.stripVersion=true",
+                "-q"  # Quiet mode
+            ]
 
-        try:
-            result = subprocess.run(
-                maven_cmd,
-                check=True,
-                capture_output=True,
-                text=True
-            )
-        except subprocess.CalledProcessError as e:
-            raise Exception(f"Maven download failed: {e.stderr}")
+            try:
+                logger.info(f"Downloading driver for {coords}")
+                result = subprocess.run(
+                    maven_cmd,
+                    check=True,
+                    capture_output=True,
+                    text=True
+                )
 
-        # Move downloaded artifact to cache location
-        artifact_id, version = coords.split(":")[1:3]
-        downloaded_path = driver_dir / f"{artifact_id}-{version}.jar"
-        downloaded_path.rename(cache_path)
+                # The file will be named artifactId.jar due to stripVersion=true
+                downloaded_path = Path(temp_dir) / f"{artifact_id}.jar"
 
-        return str(cache_path)
+                if not downloaded_path.exists():
+                    raise FileNotFoundError(f"Maven download succeeded but file not found at {downloaded_path}")
+
+                # Copy to cache location
+                import shutil
+                shutil.copy2(downloaded_path, cache_path)
+                logger.info(f"Driver downloaded and cached at {cache_path}")
+
+                return str(cache_path)
+
+            except subprocess.CalledProcessError as e:
+                error_msg = e.stderr if e.stderr else e.stdout
+                raise Exception(f"Maven download failed: {error_msg}")
+            except Exception as e:
+                raise Exception(f"Failed to download driver: {str(e)}")
 
     def _get_connection_properties(self) -> Dict[str, str]:
         """Get connection properties with improved SSL handling"""
@@ -508,7 +541,7 @@ class JDBCSource(StatefulIngestionSourceBase):
             container_key = self.get_container_key(database_name, None)
 
             yield MetadataChangeProposalWrapper(
-                entityUrn=container_key.get_urn(),
+                entityUrn=container_key.as_urn(),
                 aspect=ContainerPropertiesClass(
                     name=database_name,
                     customProperties=props,
@@ -518,21 +551,21 @@ class JDBCSource(StatefulIngestionSourceBase):
 
             # Add subtype
             yield MetadataChangeProposalWrapper(
-                entityUrn=container_key.get_urn(),
+                entityUrn=container_key.as_urn(),
                 aspect=SubTypesClass(typeNames=["Database"])
             ).as_workunit()
 
             # Add status
             yield MetadataChangeProposalWrapper(
-                entityUrn=container_key.get_urn(),
+                entityUrn=container_key.as_urn(),
                 aspect=StatusClass(removed=False)
             ).as_workunit()
 
             # Add platform instance
             yield MetadataChangeProposalWrapper(
-                entityUrn=container_key.get_urn(),
+                entityUrn=container_key.as_urn(),
                 aspect=DataPlatformInstanceClass(
-                    platform=self.platform
+                    platform=make_data_platform_urn(self.platform)
                 )
             ).as_workunit()
 
@@ -564,15 +597,15 @@ class JDBCSource(StatefulIngestionSourceBase):
 
                         # Link schema to database
                         yield MetadataChangeProposalWrapper(
-                            entityUrn=schema_container_key.get_urn(),
+                            entityUrn=schema_container_key.as_urn(),
                             aspect=ContainerClass(
-                                container=database_container_key.get_urn()
+                                container=database_container_key.as_urn()
                             )
                         ).as_workunit()
 
                         # Add schema properties
                         yield MetadataChangeProposalWrapper(
-                            entityUrn=schema_container_key.get_urn(),
+                            entityUrn=schema_container_key.as_urn(),
                             aspect=ContainerPropertiesClass(
                                 name=schema_name,
                                 description=f"Schema {schema_name}",
@@ -584,13 +617,13 @@ class JDBCSource(StatefulIngestionSourceBase):
 
                         # Add subtype
                         yield MetadataChangeProposalWrapper(
-                            entityUrn=schema_container_key.get_urn(),
+                            entityUrn=schema_container_key.as_urn(),
                             aspect=SubTypesClass(typeNames=["Schema"])
                         ).as_workunit()
 
                         # Add status
                         yield MetadataChangeProposalWrapper(
-                            entityUrn=schema_container_key.get_urn(),
+                            entityUrn=schema_container_key.as_urn(),
                             aspect=StatusClass(removed=False)
                         ).as_workunit()
 
@@ -682,7 +715,7 @@ class JDBCSource(StatefulIngestionSourceBase):
         """Extract metadata for a table/view with improved type handling"""
         full_name = f"{schema}.{table}"
         dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=self.platform,
+            platform=make_data_platform_urn(self.platform),
             name=full_name,
             platform_instance=self.platform_instance,
             env=self.env,
@@ -890,15 +923,15 @@ class JDBCSource(StatefulIngestionSourceBase):
                         # Add to schema container
                         schema_container_key = self.get_container_key(schema_name, [database_name])
                         yield MetadataChangeProposalWrapper(
-                            entityUrn=container_key.get_urn(),
+                            entityUrn=container_key.as_urn(),
                             aspect=ContainerClass(
-                                container=schema_container_key.get_urn()
+                                container=schema_container_key.as_urn()
                             )
                         ).as_workunit()
 
                         # Add properties
                         yield MetadataChangeProposalWrapper(
-                            entityUrn=container_key.get_urn(),
+                            entityUrn=container_key.as_urn(),
                             aspect=ContainerPropertiesClass(
                                 name=proc_name,
                                 description=remarks if remarks else None,
@@ -910,7 +943,7 @@ class JDBCSource(StatefulIngestionSourceBase):
 
                         # Add subtype
                         yield MetadataChangeProposalWrapper(
-                            entityUrn=container_key.get_urn(),
+                            entityUrn=container_key.as_urn(),
                             aspect=SubTypesClass(typeNames=["StoredProcedure"])
                         ).as_workunit()
 
