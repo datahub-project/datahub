@@ -31,19 +31,18 @@ FROZEN_TIME = "2022-02-03 07:00:00"
 
 def mock_msal_cca(*args, **kwargs):
     class MsalClient:
-        call_num = 0
-        token: Dict[str, Any] = {
-            "access_token": "dummy",
-        }
+        def __init__(self):
+            self.call_num = 0
+            self.token: Dict[str, Any] = {
+                "access_token": "dummy",
+            }
 
-        @staticmethod
-        def acquire_token_for_client(*args, **kwargs):
-            MsalClient.call_num += 1
-            return MsalClient.token
+        def acquire_token_for_client(self, *args, **kwargs):
+            self.call_num += 1
+            return self.token
 
-        @staticmethod
-        def reset():
-            MsalClient.call_num = 0
+        def reset(self):
+            self.call_num = 0
 
     return MsalClient()
 
@@ -739,9 +738,7 @@ def test_workspace_container(
     )
 
 
-@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_access_token_expiry_with_long_expiry(
-    mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
     mock_time: datetime.datetime,
@@ -749,39 +746,40 @@ def test_access_token_expiry_with_long_expiry(
 ) -> None:
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
-    pipeline = Pipeline.create(
-        {
-            "run_id": "powerbi-test",
-            "source": {
-                "type": "powerbi",
-                "config": {
-                    **default_source_config(),
+    mock_msal = mock_msal_cca()
+
+    with mock.patch("msal.ConfidentialClientApplication", return_value=mock_msal):
+        pipeline = Pipeline.create(
+            {
+                "run_id": "powerbi-test",
+                "source": {
+                    "type": "powerbi",
+                    "config": {
+                        **default_source_config(),
+                    },
                 },
-            },
-            "sink": {
-                "type": "file",
-                "config": {
-                    "filename": f"{tmp_path}/powerbi_access_token_mces.json",
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/powerbi_access_token_mces.json",
+                    },
                 },
-            },
-        }
-    )
+            }
+        )
 
     # for long expiry, the token should only be requested once.
-    MsalClient.token = {
+    mock_msal.token = {
         "access_token": "dummy2",
         "expires_in": 3600,
     }
+    mock_msal.reset()
 
-    MsalClient.reset()
     pipeline.run()
     # We expect the token to be requested twice (once for AdminApiResolver and one for RegularApiResolver)
-    assert MsalClient.call_num == 2
+    assert mock_msal.call_num == 2
 
 
-@mock.patch("msal.ConfidentialClientApplication", side_effect=mock_msal_cca)
 def test_access_token_expiry_with_short_expiry(
-    mock_msal: MagicMock,
     pytestconfig: pytest.Config,
     tmp_path: str,
     mock_time: datetime.datetime,
@@ -789,31 +787,35 @@ def test_access_token_expiry_with_short_expiry(
 ) -> None:
     register_mock_api(pytestconfig=pytestconfig, request_mock=requests_mock)
 
-    pipeline = Pipeline.create(
-        {
-            "run_id": "powerbi-test",
-            "source": {
-                "type": "powerbi",
-                "config": {
-                    **default_source_config(),
+    mock_msal = mock_msal_cca()
+    with mock.patch("msal.ConfidentialClientApplication", return_value=mock_msal):
+        pipeline = Pipeline.create(
+            {
+                "run_id": "powerbi-test",
+                "source": {
+                    "type": "powerbi",
+                    "config": {
+                        **default_source_config(),
+                    },
                 },
-            },
-            "sink": {
-                "type": "file",
-                "config": {
-                    "filename": f"{tmp_path}/powerbi_access_token_mces.json",
+                "sink": {
+                    "type": "file",
+                    "config": {
+                        "filename": f"{tmp_path}/powerbi_access_token_mces.json",
+                    },
                 },
-            },
-        }
-    )
+            }
+        )
 
     # for short expiry, the token should be requested when expires.
-    MsalClient.token = {
+    mock_msal.token = {
         "access_token": "dummy",
         "expires_in": 0,
     }
+    mock_msal.reset()
+
     pipeline.run()
-    assert MsalClient.call_num > 2
+    assert mock_msal.call_num > 2
 
 
 def dataset_type_mapping_set_to_all_platform(pipeline: Pipeline) -> None:
