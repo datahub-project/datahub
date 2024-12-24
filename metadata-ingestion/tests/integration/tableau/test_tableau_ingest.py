@@ -1010,7 +1010,6 @@ def test_tableau_unsupported_csql():
         ctx=context,
         platform="tableau",
         site=SiteIdContentUrl(site_id="id1", site_content_url="site1"),
-        site_id="site1",
         report=TableauSourceReport(),
         server=Server("https://test-tableau-server.com"),
     )

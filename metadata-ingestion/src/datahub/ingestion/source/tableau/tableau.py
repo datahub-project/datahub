@@ -911,25 +911,13 @@ class TableauSiteSource:
         return f"/{self.config.env.lower()}{self.no_env_browse_prefix}"
 
     def _re_authenticate(self) -> None:
-        if self.site_content_url:
-            assert self.site_content_url is not None, "Site Content URL is required"
-            self.report.info(
-                f"Re-authenticating to Tableau site='{self.site_content_url}'"
-            )
-            # Sign-in again may not be enough because Tableau sometimes caches invalid sessions
-            # so we need to recreate the Tableau Server object
-            self.server = self.config.make_tableau_client(self.site_content_url)
-        else:
-            self.report.warning(
-                message="Site Content URL is not set. Unable to re-authenticate.",
-                context=f"site_id={self.site_id}, site={self.site}",
-            )
-
-    @property
-    def site_content_url(self) -> Optional[str]:
-        if self.site and self.site.content_url:
-            return self.site.content_url
-        return None
+        self.report.info(
+            message="Re-authenticating to Tableau",
+            context=f"site='{self.site_content_url}'",
+        )
+        # Sign-in again may not be enough because Tableau sometimes caches invalid sessions
+        # so we need to recreate the Tableau Server object
+        self.server = self.config.make_tableau_client(self.site_content_url)
 
     def _populate_usage_stat_registry(self) -> None:
         if self.server is None:
