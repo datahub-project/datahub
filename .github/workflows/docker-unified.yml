@@ -545,7 +545,7 @@ jobs:
 
   frontend_build:
     name: Build and Push DataHub Frontend Docker Image
-    runs-on: ubuntu-latest-m
+    runs-on: depot-ubuntu-22.04-4
     needs: setup
     if: ${{ needs.setup.outputs.frontend_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true'}}
     steps:

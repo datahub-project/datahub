@@ -56,7 +56,7 @@ jobs:
           # We only need the timezone variation for frontend tests.
           - command: "frontend"
             timezone: "America/New_York"
-    runs-on: ${{ matrix.command == 'frontend' && 'ubuntu-latest-m' || 'ubuntu-latest' }}
+    runs-on: ${{ matrix.command == 'frontend' && 'depot-ubuntu-22.04-4' || 'ubuntu-latest' }}
     timeout-minutes: 60
     needs: setup
     steps:
