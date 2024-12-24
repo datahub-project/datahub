@@ -6,6 +6,7 @@ import com.linkedin.common.Time
 import com.linkedin.common.VersionTag
 import com.linkedin.common.CustomProperties
 import com.linkedin.common.ExternalReference
+import com.linkedin.common.TimeStamp
 
 /**
  * Properties associated with a ML Model
@@ -14,6 +15,18 @@ import com.linkedin.common.ExternalReference
   "name": "mlModelProperties"
 }
 record MLModelProperties includes CustomProperties, ExternalReference {
+
+  /**
+   * Display name of the MLModel
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "queryByDefault": true,
+  }
+  name: optional string
+
 
   /**
    * Documentation of the MLModel
@@ -27,7 +40,18 @@ record MLModelProperties includes CustomProperties, ExternalReference {
   /**
    * Date when the MLModel was developed
    */
+  @deprecated
   date: optional Time
+
+  /**
+   * Audit stamp containing who created this and when
+   */
+  created: optional TimeStamp
+
+  /**
+   * Date when the MLModel was last modified
+   */
+  lastModified: optional TimeStamp
 
   /**
    * Version of the MLModel
@@ -93,12 +117,12 @@ record MLModelProperties includes CustomProperties, ExternalReference {
   deployments: optional array[Urn]
 
   /**
-   * List of jobs (if any) used to train the model
+   * List of jobs (if any) used to train the model. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.
    */
   @Relationship = {
     "/*": {
       "name": "TrainedBy",
-      "entityTypes": [ "dataJob" ],
+      "entityTypes": [ "dataJob", "dataProcessInstance" ],
       "isLineage": true
     }
   }
