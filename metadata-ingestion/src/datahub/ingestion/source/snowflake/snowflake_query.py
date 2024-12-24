@@ -956,4 +956,8 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 AND METRIC_NAME ilike '{pattern}' escape '{escape_pattern}'
                 ORDER BY MEASUREMENT_TIME ASC;
 
-"""
+            """
+
+    @staticmethod
+    def get_all_users() -> str:
+        return """SELECT name as "NAME", email as "EMAIL" FROM SNOWFLAKE.ACCOUNT_USAGE.USERS"""
