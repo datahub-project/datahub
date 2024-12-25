@@ -60,10 +60,14 @@ _exception_type_mapping = {
 }
 
 for exception_type, status_code in _exception_type_mapping.items():
-
-    @app.exception_handler(exception_type)
-    def handle_exception(request: fastapi.Request, exc: Exception) -> Response:
-        return JSONResponse(status_code=status_code, content={"message": str(exc)})
+    # Tricky: passing the status code as a kwarg in the lambda ensures that it is
+    # captured at the time of the loop, not at the time of the call.
+    app.add_exception_handler(
+        exception_type,
+        lambda request, exc, status_code=status_code: JSONResponse(
+            status_code=status_code, content={"message": str(exc)}
+        ),
+    )
 
 
 @app.get("/ping")
