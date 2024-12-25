@@ -1,3 +1,4 @@
+import builtins
 import glob
 import html
 import json
@@ -6,6 +7,7 @@ import os
 import re
 import sys
 import textwrap
+from functools import lru_cache
 from importlib.metadata import metadata, requires
 from typing import Any, Dict, Iterable, List, Optional
 
@@ -33,13 +35,20 @@ def _truncate_default_value(value: str) -> str:
     return value
 
 
-def _format_path_component(path: str) -> str:
+def _format_path_component(path: str, union_data_type_prefix: Optional[str]) -> str:
     """
     Given a path like 'a.b.c', adds css tags to the components.
     """
     path_components = path.rsplit(".", maxsplit=1)
     if len(path_components) == 1:
         return f'<span className="path-main">{path_components[0]}</span>'
+
+    # split_path: List[str] = path_components[0].split(".")
+    #
+    # if union_data_type_prefix is not None:
+    #     split_path.insert(1, f"[{union_data_type_prefix}]")
+    #
+    # path_components[0] = ".".join(split_path)
 
     return (
         f'<span className="path-prefix">{path_components[0]}.</span>'
@@ -69,6 +78,60 @@ def _format_default_line(default_value: str, has_desc_above: bool) -> str:
     value_elem = f'<span className="default-value">{escaped_value}</span>'
     return f'<div className="default-line {"default-line-with-docs" if has_desc_above else ""}">Default: {value_elem}</div>'
 
+@lru_cache(maxsize=1)
+def get_built_in_types() -> List[str]:
+    return [name for name, obj in vars(builtins).items() if isinstance(obj, type)]
+
+
+def find_union_data_type_prefix(field_path: str) -> Optional[str]:
+    """
+    Return data-type of union field that can be used as a prefix to a field in generated documentation.
+    For example, consider below field paths
+
+    1. [version=2.0].[type=UnityCatalogSourceConfig].[type=union].[type=UnityCatalogGEProfilerConfig].profiling
+        Here suffix would be None as profiling itself is a root element
+
+    2. [version=2.0].[type=UnityCatalogSourceConfig].[type=union].[type=UnityCatalogGEProfilerConfig].profiling.[type=boolean].enabled
+        Here suffix type would be `UnityCatalogGEProfilerConfig` and in the documentation this field can be rendered as
+        `profiling.[UnityCatalogGEProfilerConfig].enabled`
+
+    3. [version=2.0].[type=UnityCatalogSourceConfig].[type=union].[type=UnityCatalogAnalyzeProfilerConfig].profiling.[type=string].warehouse_id
+        Here suffix would be `UnityCatalogAnalyzeProfilerConfig` and in the documentation this field can be rendered as
+        `profiling.[UnityCatalogAnalyzeProfilerConfig].warehouse_id`
+
+    field_path must meet below conditions to generate a suffix.
+    Let's consider we split the field_path on "." and stored it in items
+    1. The third item should be `[type=union]`
+    2. The fourth item should be `[type=<ComplexDataType>]'. <ComplexDataType> is any type not in basic datatype of Python
+    3. And the length of `items` list should be >=7, This condition will avoid generating a prefix data-type for root field.
+    """
+
+    # Regex pattern to split only on '.' outside square brackets
+    pattern = r'\.(?![^\[]*\])'
+    items = re.split(pattern, field_path)
+
+    if len(items) < 7:
+        return None
+
+    if items[2] != "[type=union]":
+        return None
+
+    pattern = r'^\[type=(.*?)\]$'
+    match = re.match(pattern, items[3])
+    if not match:
+        return None
+
+    # All conditions have been satisfied.
+    complex_data_type = match.group(1)
+
+    suffix_data_type: Optional[str] = None
+
+    # Check the final condition this complex_data_type should be complex
+    if complex_data_type not in get_built_in_types():
+        suffix_data_type = complex_data_type
+
+    return suffix_data_type
+
 
 class FieldRow(BaseModel):
     path: str
@@ -80,6 +143,7 @@ class FieldRow(BaseModel):
     description: str
     inner_fields: List["FieldRow"] = Field(default_factory=list)
     discriminated_type: Optional[str] = None
+    union_data_type_prefix: Optional[str] = None
 
     class Component(BaseModel):
         type: str
@@ -178,6 +242,13 @@ class FieldRow(BaseModel):
 
         field_path = ".".join(path_components)
 
+        union_data_type_prefix = find_union_data_type_prefix(schema_field.fieldPath)
+
+        if union_data_type_prefix:
+            split_path: List[str] = field_path.split(".")
+            split_path.insert(1, f"[{union_data_type_prefix}]")
+            field_path = ".".join(split_path)
+
         return FieldRow(
             path=field_path,
             parent=parent,
@@ -188,6 +259,7 @@ class FieldRow(BaseModel):
             description=schema_field.description,
             inner_fields=[],
             discriminated_type=schema_field.nativeDataType,
+            union_data_type_prefix=union_data_type_prefix,
         )
 
     def get_checkbox(self) -> str:
@@ -220,7 +292,7 @@ class FieldRow(BaseModel):
         )  # descriptions with newlines in them break markdown rendering
 
         md_line = (
-            f'| <div className="path-line">{_format_path_component(self.path)}'
+            f'| <div className="path-line">{_format_path_component(self.path, self.union_data_type_prefix)}'
             f"{self.get_checkbox()}</div>"
             f' <div className="type-name-line">{_format_type_name(type_name)}</div> '
             f"| {description} "
@@ -353,7 +425,7 @@ def priority_value(path: str) -> str:
     return "A"
 
 
-def gen_md_table_from_struct(schema_dict: Dict[str, Any]) -> List[str]:
+def gen_md_table_from_struct(plugin_name: str, schema_dict: Dict[str, Any]) -> List[str]:
     from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
 
     # we don't want default field values to be injected into the description of the field
@@ -363,6 +435,7 @@ def gen_md_table_from_struct(schema_dict: Dict[str, Any]) -> List[str]:
 
     field_tree = FieldTree(field=None)
     for field in schema_fields:
+
         row: FieldRow = FieldRow.from_schema_field(field)
         field_tree.add_field(row)
 
@@ -696,7 +769,10 @@ def generate(
                     source_config_class.schema_json(indent=2) or "",
                 )
 
-                table_md = gen_md_table_from_struct(source_config_class.schema())
+                if plugin_name != "unity-catalog":
+                    continue
+
+                table_md = gen_md_table_from_struct(plugin_name, source_config_class.schema())
                 create_or_update(
                     source_documentation,
                     [platform_id, "plugins", plugin_name, "source_doc"],
