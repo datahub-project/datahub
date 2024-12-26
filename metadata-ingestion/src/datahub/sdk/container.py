@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, List, Optional, Type
+from typing import Any, Dict, List, Optional, Type
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import ALL_ENV_TYPES
@@ -98,6 +98,10 @@ class Container(HasSubtype, HasOwnership, Entity):
         # TODO: handle domain
         # if domain_urn is not None:
         #     self.set_domain_urn(domain_urn)
+
+    @classmethod
+    def _init_dummy_args(cls) -> dict[str, Any]:
+        return {"display_name": "__dummy_value__"}
 
     def _ensure_container_props(
         self, *, name: Optional[str] = None
