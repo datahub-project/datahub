@@ -17,6 +17,7 @@ from datahub_executor.common.constants import (
 from datahub_executor.common.discovery.discovery import DatahubExecutorDiscovery
 from datahub_executor.common.ingestion.helpers import (
     extract_execution_request,
+    extract_execution_request_weight,
     handle_ingestion_signal_requests,
     setup_ingestion_executor,
 )
@@ -142,9 +143,7 @@ class IngestionAction(Action):
             executor_id is None or executor_id == self.embedded_worker_id
         ):
             STATS_INGESTION_HANDLER_REQUESTS.labels(executor_id, "true").inc()
-            # submit will block if queue size > worker_count
-            self.tp.submit(self._apply_ingestion_request, orig_event)
-            logger.info("started task ingestion_request on a local thread")
+            self._apply_ingestion_request(orig_event)
         else:
             STATS_INGESTION_HANDLER_REQUESTS.labels(executor_id, "false").inc()
             task = apply_remote_ingestion_request(orig_event, aspect_dict["executorId"])
@@ -153,7 +152,14 @@ class IngestionAction(Action):
     def _apply_ingestion_request(self, orig_event: MetadataChangeLogClass) -> None:
         execution_request = extract_execution_request(orig_event, self.graph)
         if execution_request:
-            self.ingestion_executor.execute(execution_request)
+            weight = extract_execution_request_weight(execution_request)
+            logger.info(
+                f"Starting ingestion task {execution_request.exec_id} on a local thread with weight = {weight}"
+            )
+
+            self.tp.submit_weighted(
+                weight, self.ingestion_executor.execute, execution_request
+            )
 
     def _signal_thread_worker(self) -> None:
         if self.embedded_worker_enabled:

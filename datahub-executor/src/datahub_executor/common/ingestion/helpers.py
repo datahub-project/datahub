@@ -157,6 +157,17 @@ def extract_execution_request(
     return execution_request
 
 
+def extract_execution_request_weight(
+    execution_request: ExecutionRequest,
+) -> Optional[float]:
+    try:
+        extra_vars = json.loads(execution_request.args.get("extra_env_vars", "{}"))
+        weight_str = extra_vars.get("EXECUTOR_TASK_WEIGHT", None)
+        return float(weight_str)
+    except Exception:
+        return None
+
+
 def exec_id_to_urn(exec_id: str) -> str:
     return f"urn:li:{DATAHUB_EXECUTION_REQUEST_ENTITY_NAME}:{exec_id}"
 

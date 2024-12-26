@@ -21,7 +21,7 @@ acryl-datahub-classify==0.0.11
     # via
     #   -r requirements.txt
     #   acryl-datahub
-acryl-executor==0.1.6
+acryl-executor==0.1.7
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)

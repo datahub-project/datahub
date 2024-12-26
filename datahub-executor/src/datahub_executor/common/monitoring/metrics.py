@@ -164,6 +164,16 @@ STATS_THREAD_POOL_ACTIVE_WORKERS = Gauge(
     "Number of active worker threads in a thread pool",
     ["thread_pool_name"],
 )
+STATS_THREAD_POOL_ACTIVE_WEIGHT = Gauge(
+    "datahub_executor_thread_pool_active_weight",
+    "Total weight of all active tasks executing in the thread pool",
+    ["thread_pool_name"],
+)
+STATS_THREAD_POOL_MAX_WEIGHT = Gauge(
+    "datahub_executor_thread_pool_max_weight",
+    "Max weight of all tasks in the thread pool",
+    ["thread_pool_name"],
+)
 
 
 STATS_ASSERTION_EXECUTOR_EVALUATE_REQUESTS = Summary(

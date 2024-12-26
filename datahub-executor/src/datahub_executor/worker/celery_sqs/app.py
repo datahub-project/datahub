@@ -16,6 +16,7 @@ from datahub_executor.common.discovery.discovery import DatahubExecutorDiscovery
 from datahub_executor.common.helpers import create_datahub_graph
 from datahub_executor.common.ingestion.helpers import (
     extract_execution_request,
+    extract_execution_request_weight,
     handle_ingestion_signal_requests,
     setup_ingestion_executor,
 )
@@ -205,7 +206,15 @@ def ingestion_request(event: MetadataChangeLogClass) -> None:
         global ingestion_executor
         if ingestion_executor and tp:
             submitted_at = time.time()
-            tp.submit(safe_execute_ingestion, execution_request, submitted_at)
+            weight = extract_execution_request_weight(execution_request)
+
+            logger.info(
+                f"Starting ingestion task {execution_request.exec_id} with weight = {weight}"
+            )
+
+            tp.submit_weighted(
+                weight, safe_execute_ingestion, execution_request, submitted_at
+            )
 
             # Do not delete message if visibility timeout exceeded -- another worker will handle it after it's re-enqueued.
             if is_visibility_timeout_exceeded(submitted_at):
