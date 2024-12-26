@@ -25,7 +25,8 @@ from datahub.specific.dataset import DatasetPatchBuilder
 
 
 class DatasetUpdater:
-    # basically a clone of the DatasetPatchBuilder, but with a few more methods
+    # basically a clone of the DatasetPatchBuilder, but with a few more methods?
+    # TODO: need to build this one out more
 
     DatasetPatchBuilder
     pass
@@ -311,4 +312,16 @@ def graph_create(self: DataHubGraph, dataset: Dataset) -> None:
             )
         )
 
+    self.emit_mcps(mcps)
+
+
+def graph_update(
+    self: DataHubGraph, dataset: DatasetPatchBuilder, *, check_exists: bool = True
+) -> None:
+    if check_exists and not self.exists(dataset.urn):
+        raise SdkUsageError(
+            f"Dataset {dataset.urn} does not exist, and hence cannot be updated."
+        )
+
+    mcps = dataset.build()
     self.emit_mcps(mcps)
