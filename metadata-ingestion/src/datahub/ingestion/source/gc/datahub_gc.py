@@ -34,6 +34,7 @@ from datahub.ingestion.source.gc.soft_deleted_entity_cleanup import (
     SoftDeletedEntitiesCleanupConfig,
     SoftDeletedEntitiesReport,
 )
+from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 
 logger = logging.getLogger(__name__)
 
@@ -86,6 +87,7 @@ class DataHubGcSourceReport(
     DataProcessCleanupReport,
     SoftDeletedEntitiesReport,
     DatahubExecutionRequestCleanupReport,
+    IngestionStageReport,
 ):
     expired_tokens_revoked: int = 0
 
@@ -139,31 +141,38 @@ class DataHubGcSource(Source):
     ) -> Iterable[MetadataWorkUnit]:
         if self.config.cleanup_expired_tokens:
             try:
+                self.report.report_ingestion_stage_start("Expired Token Cleanup")
                 self.revoke_expired_tokens()
             except Exception as e:
                 self.report.failure("While trying to cleanup expired token ", exc=e)
         if self.config.truncate_indices:
             try:
+                self.report.report_ingestion_stage_start("Truncate Indices")
                 self.truncate_indices()
             except Exception as e:
                 self.report.failure("While trying to truncate indices ", exc=e)
         if self.config.soft_deleted_entities_cleanup.enabled:
             try:
+                self.report.report_ingestion_stage_start(
+                    "Soft Deleted Entities Cleanup"
+                )
                 self.soft_deleted_entities_cleanup.cleanup_soft_deleted_entities()
             except Exception as e:
                 self.report.failure(
                     "While trying to cleanup soft deleted entities ", exc=e
                 )
-        if self.config.execution_request_cleanup.enabled:
-            try:
-                self.execution_request_cleanup.run()
-            except Exception as e:
-                self.report.failure("While trying to cleanup execution request ", exc=e)
         if self.config.dataprocess_cleanup.enabled:
             try:
+                self.report.report_ingestion_stage_start("Data Process Cleanup")
                 yield from self.dataprocess_cleanup.get_workunits_internal()
             except Exception as e:
                 self.report.failure("While trying to cleanup data process ", exc=e)
+        if self.config.execution_request_cleanup.enabled:
+            try:
+                self.report.report_ingestion_stage_start("Execution request Cleanup")
+                self.execution_request_cleanup.run()
+            except Exception as e:
+                self.report.failure("While trying to cleanup execution request ", exc=e)
         yield from []
 
     def truncate_indices(self) -> None:
@@ -281,6 +290,8 @@ class DataHubGcSource(Source):
             list_access_tokens = expired_tokens_res.get("listAccessTokens", {})
             tokens = list_access_tokens.get("tokens", [])
             total = list_access_tokens.get("total", 0)
+            if tokens == []:
+                break
             for token in tokens:
                 self.report.expired_tokens_revoked += 1
                 token_id = token["id"]
