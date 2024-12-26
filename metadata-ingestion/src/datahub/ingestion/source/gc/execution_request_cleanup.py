@@ -140,7 +140,7 @@ class DatahubExecutionRequestCleanup:
             if self._reached_runtime_limit():
                 break
             if self.report.ergc_read_errors >= self.config.max_read_errors:
-                logger.error(
+                self.report.failure(
                     f"ergc({self.instance_id}): too many read errors, aborting."
                 )
                 break

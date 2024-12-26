@@ -173,6 +173,8 @@ class DataHubGcSource(Source):
                 self.execution_request_cleanup.run()
             except Exception as e:
                 self.report.failure("While trying to cleanup execution request ", exc=e)
+        # Otherwise last stage's duration does not get calculated.
+        self.report.report_ingestion_stage_start("End")
         yield from []
 
     def truncate_indices(self) -> None:
