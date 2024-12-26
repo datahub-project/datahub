@@ -467,7 +467,7 @@ const getFormattedExpectedTextForVolumeAssertion = (run: AssertionRunEvent): str
 const getFormattedExpectedTextForFieldValuesAssertion = (
     fieldAssertionInfo: FieldAssertionInfo,
 ): string | undefined => {
-    const maybeColumnPath = fieldAssertionInfo.fieldValuesAssertion?.field.path;
+    const maybeColumnPath = fieldAssertionInfo.fieldValuesAssertion?.field?.path;
     const fieldDescription = maybeColumnPath ? `${maybeColumnPath}` : `Column value`;
     const valueExpectationText = getFormattedExpectedResultTextForValueAssertion(
         `Row is valid if ${fieldDescription}`,
@@ -488,7 +488,7 @@ const getFormattedExpectedTextForFieldValuesAssertion = (
 const getFormattedExpectedTextForFieldMetricsAssertion = (
     fieldAssertionInfo: FieldAssertionInfo,
 ): string | undefined => {
-    const maybeColumnPath = fieldAssertionInfo.fieldMetricAssertion?.field.path;
+    const maybeColumnPath = fieldAssertionInfo.fieldMetricAssertion?.field?.path;
     let metricDescription: string = maybeColumnPath ? `Metric of ${maybeColumnPath}` : 'Column metric';
 
     if (fieldAssertionInfo.fieldMetricAssertion?.metric) {

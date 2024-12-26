@@ -112,7 +112,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
                     icon: WarningOutlined,
                     component: IncidentTab,
                     getDynamicName: (_, mlFeature, loading) => {
-                        const activeIncidentCount = mlFeature?.mlFeature?.activeIncidents.total;
+                        const activeIncidentCount = mlFeature?.mlFeature?.activeIncidents?.total;
                         return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
                     },
                 },

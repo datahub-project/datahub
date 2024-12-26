@@ -285,7 +285,7 @@ export default function TagTermGroup({
             })}
             {proposedGlossaryTerms?.map((actionRequest) => {
                 const urn = actionRequest.params?.glossaryTermProposal?.glossaryTerm?.urn;
-                const parentNodes = actionRequest.params?.glossaryTermProposal?.glossaryTerm.parentNodes;
+                const parentNodes = actionRequest.params?.glossaryTermProposal?.glossaryTerm?.parentNodes;
                 const lastParentNode = parentNodes && parentNodes.count > 0 && parentNodes.nodes[parentNodes.count - 1];
                 const proposedTermColor = lastParentNode
                     ? lastParentNode.displayProperties?.colorHex || generateColorFromPalette(lastParentNode.urn)

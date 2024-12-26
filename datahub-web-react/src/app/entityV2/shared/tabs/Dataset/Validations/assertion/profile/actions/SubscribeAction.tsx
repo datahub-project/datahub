@@ -59,7 +59,7 @@ export const SubscribeAction = ({ assertion, refetch }: Props) => {
 
     const entityName = entityData?.name || '';
 
-    const isAssetLevelAssertionSubscription = subscription?.entityChangeTypes.some(
+    const isAssetLevelAssertionSubscription = subscription?.entityChangeTypes?.some(
         checkIsAssetLevelAssertionSubscription,
     );
     const isSubscribedToThisAssertionSpecifically = subscription?.entityChangeTypes.some((changeType) =>

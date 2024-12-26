@@ -487,7 +487,7 @@ export function tryGetExpectedRangeFromFailThreshold(
     const highType: AssertionRangeEndType = 'inclusive';
     let high: number | undefined;
 
-    const thresholdType = fieldValuesAssertion?.failThreshold.type;
+    const thresholdType = fieldValuesAssertion?.failThreshold?.type;
     switch (thresholdType) {
         case FieldValuesFailThresholdType.Count:
             high = parseMaybeStringAsFloatOrDefault(fieldValuesAssertion?.failThreshold.value);

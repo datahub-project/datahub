@@ -56,7 +56,7 @@ export const FreshnessResultChart = ({ data, timeRange, chartDimensions, renderH
     );
     const maybeMountedDataPointFillColor = mountedDataPoint && getFillColor(mountedDataPoint.result.type);
     const maybeMountedDataPointDatasetUpdateDate: number | undefined = useMemo(() => {
-        const result = mountedDataPoint?.relatedRunEvent.result;
+        const result = mountedDataPoint?.relatedRunEvent?.result;
         if (!result || result.type === AssertionResultType.Error) return undefined;
         const maybeUpdatedTs = tryGetActualUpdatedTimestampFromAssertionResult(result);
         return maybeUpdatedTs;

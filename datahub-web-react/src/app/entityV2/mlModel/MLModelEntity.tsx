@@ -120,7 +120,7 @@ export class MLModelEntity implements Entity<MlModel> {
                     icon: WarningOutlined,
                     component: IncidentTab,
                     getDynamicName: (_, mlModel, loading) => {
-                        const activeIncidentCount = mlModel?.mlModel?.activeIncidents.total;
+                        const activeIncidentCount = mlModel?.mlModel?.activeIncidents?.total;
                         return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
                     },
                 },

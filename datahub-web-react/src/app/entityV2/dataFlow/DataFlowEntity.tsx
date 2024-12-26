@@ -113,7 +113,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     icon: WarningOutlined,
                     component: IncidentTab,
                     getDynamicName: (_, dataFlow, loading) => {
-                        const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents.total;
+                        const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents?.total;
                         return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
                     },
                 },

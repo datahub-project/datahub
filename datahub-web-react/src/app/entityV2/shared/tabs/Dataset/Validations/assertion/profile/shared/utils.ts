@@ -14,6 +14,6 @@ export const toReadableLocalDateTimeString = (timeMs: number) => {
 
 export const tryGetScheduleFromMonitor = (monitor?: Monitor): CronSchedule | undefined => {
     return monitor?.info?.assertionMonitor?.assertions?.length
-        ? monitor?.info?.assertionMonitor?.assertions[0].schedule
+        ? monitor?.info?.assertionMonitor?.assertions[0]?.schedule
         : undefined;
 };

@@ -379,7 +379,7 @@ export default function SchemaTable({
             );
             if (indexToScrollTo >= 0) {
                 setShouldScrollToSelectedRow?.(false);
-                vtRef?.current.scrollToIndex(indexToScrollTo);
+                vtRef?.current?.scrollToIndex(indexToScrollTo);
             }
         }
         /* eslint-disable-next-line react-hooks/exhaustive-deps */
@@ -398,7 +398,7 @@ export default function SchemaTable({
         if (record?.depth < 2) className += ` level-${record?.depth}`;
         else className += ' level-n';
 
-        const path: string = record?.fieldPath.toString();
+        const path: string = record?.fieldPath?.toString();
 
         expandedRows.forEach((row) => {
             if (path.startsWith(`${row}.`)) {

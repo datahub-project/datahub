@@ -146,7 +146,7 @@ export class DataJobEntity implements Entity<DataJob> {
                     icon: WarningOutlined,
                     component: IncidentTab,
                     getDynamicName: (_, dataJob, loading) => {
-                        const activeIncidentCount = dataJob?.dataJob?.activeIncidents.total;
+                        const activeIncidentCount = dataJob?.dataJob?.activeIncidents?.total;
                         return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
                     },
                 },

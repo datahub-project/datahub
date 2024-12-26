@@ -40,8 +40,8 @@ export default function generateUseDownloadSearchAcrossLineageSearchResultsHook(
         return {
             searchResults: (data?.scrollAcrossLineage && {
                 ...data?.scrollAcrossLineage,
-                nextScrollId: data?.scrollAcrossLineage.nextScrollId,
-                searchResults: data?.scrollAcrossLineage.searchResults,
+                nextScrollId: data?.scrollAcrossLineage?.nextScrollId,
+                searchResults: data?.scrollAcrossLineage?.searchResults,
             }) as DownloadSearchResults,
             loading,
             error,

@@ -69,7 +69,7 @@ export const Preferences = () => {
 
     const authenticatedUser = useGetAuthenticatedUser();
     const canManageOrganizationDisplayPreferences =
-        authenticatedUser?.platformPrivileges.manageOrganizationDisplayPreferences;
+        authenticatedUser?.platformPrivileges?.manageOrganizationDisplayPreferences;
 
     return (
         <Page>
