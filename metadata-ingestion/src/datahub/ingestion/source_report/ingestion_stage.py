@@ -42,4 +42,5 @@ class IngestionStageReport:
             self._timer = PerfTimer()
 
         self.ingestion_stage = f"{stage} at {datetime.now(timezone.utc)}"
+        logger.info(f"Stage started: {self.ingestion_stage}")
         self._timer.start()
