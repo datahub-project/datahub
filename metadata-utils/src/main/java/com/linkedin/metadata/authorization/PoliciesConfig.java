@@ -749,6 +749,14 @@ public class PoliciesConfig {
               EDIT_ENTITY_TAGS_PRIVILEGE,
               EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE));
 
+  // Version Set privileges
+  public static final ResourcePrivileges VERSION_SET_PRIVILEGES =
+      ResourcePrivileges.of(
+          "versionSet",
+          "Version Set",
+          "A logical collection of versioned entities.",
+          COMMON_ENTITY_PRIVILEGES);
+
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -767,7 +775,8 @@ public class PoliciesConfig {
           DATA_PRODUCT_PRIVILEGES,
           ER_MODEL_RELATIONSHIP_PRIVILEGES,
           BUSINESS_ATTRIBUTE_PRIVILEGES,
-          STRUCTURED_PROPERTIES_PRIVILEGES);
+          STRUCTURED_PROPERTIES_PRIVILEGES,
+          VERSION_SET_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

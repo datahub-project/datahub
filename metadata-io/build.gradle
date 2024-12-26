@@ -71,6 +71,7 @@ dependencies {
   testImplementation project(':datahub-graphql-core')
   testImplementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
   testImplementation project(':metadata-service:auth-impl')
+  testImplementation project(':li-utils')
   testImplementation externalDependency.testng
   testImplementation externalDependency.h2
   testImplementation externalDependency.mysqlConnector
