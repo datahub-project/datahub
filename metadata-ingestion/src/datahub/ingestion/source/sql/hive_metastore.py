@@ -822,6 +822,15 @@ class HiveMetastoreSource(SQLAlchemySource):
                 aspect=view_properties_aspect,
             ).as_workunit()
 
+            if (
+                dataset.view_definition
+                and self.config.mode in [HiveMetastoreConfigMode.hive]
+                and self.config.include_view_lineage
+            ):
+                self.aggregator.add_view_definition(
+                    view_urn=dataset_urn,
+                    view_definition=dataset.view_definition,
+                )
             if self.config.domain:
                 assert self.domain_registry
                 yield from get_domain_wu(
