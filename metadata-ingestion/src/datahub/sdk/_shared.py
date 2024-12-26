@@ -1,4 +1,5 @@
 import abc
+from datetime import datetime
 from typing import List, Optional, Protocol, Tuple, Type, Union, runtime_checkable
 
 from typing_extensions import Self, TypeAlias
@@ -6,7 +7,9 @@ from typing_extensions import Self, TypeAlias
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import (
     Aspect as AspectTypeVar,
+    make_ts_millis,
     make_user_urn,
+    parse_ts_millis,
     validate_ownership_type,
 )
 from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn, OwnershipTypeUrn, Urn
@@ -14,6 +17,18 @@ from datahub.sdk.errors import SdkUsageError
 
 UrnOrStr: TypeAlias = Union[Urn, str]
 ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
+
+
+def make_time_stamp(ts: Optional[datetime]) -> Optional[models.TimeStampClass]:
+    if ts is None:
+        return None
+    return models.TimeStampClass(time=make_ts_millis(ts))
+
+
+def parse_time_stamp(ts: Optional[models.TimeStampClass]) -> Optional[datetime]:
+    if ts is None:
+        return None
+    return parse_ts_millis(ts.time)
 
 
 @runtime_checkable

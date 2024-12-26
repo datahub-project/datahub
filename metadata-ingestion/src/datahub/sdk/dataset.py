@@ -2,12 +2,11 @@ from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional, Tuple, Type, Union
 
-import pytest
 from typing_extensions import TypeAlias, assert_never
 
 import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import first_non_null
-from datahub.emitter.mce_builder import DEFAULT_ENV, make_ts_millis, parse_ts_millis
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
@@ -16,9 +15,10 @@ from datahub.sdk._shared import (
     Entity,
     HasOwnership,
     HasSubtype,
-    HasUrn,
     OwnersInputType,
     UrnOrStr,
+    make_time_stamp,
+    parse_time_stamp,
 )
 from datahub.sdk.errors import SdkUsageError
 from datahub.specific.dataset import DatasetPatchBuilder
@@ -29,18 +29,6 @@ class DatasetUpdater:
 
     DatasetPatchBuilder
     pass
-
-
-def _make_time_stamp(ts: Optional[datetime]) -> Optional[models.TimeStampClass]:
-    if ts is None:
-        return None
-    return models.TimeStampClass(time=make_ts_millis(ts))
-
-
-def _parse_time_stamp(ts: Optional[models.TimeStampClass]) -> Optional[datetime]:
-    if ts is None:
-        return None
-    return parse_ts_millis(ts.time)
 
 
 class DatasetEditMode(Enum):
@@ -107,9 +95,12 @@ class Dataset(HasSubtype, HasOwnership, Entity):
         )
         super().__init__(urn)
 
-        if platform_instance is not None:
-            # TODO: force create dataPlatformInstance aspect
-            pass
+        self._set_aspect(
+            models.DataPlatformInstanceClass(
+                platform=urn.platform,
+                instance=platform_instance,
+            )
+        )
 
         if edit_mode is None:
             edit_mode = _DEFAULT_EDIT_MODE
@@ -209,17 +200,17 @@ class Dataset(HasSubtype, HasOwnership, Entity):
 
     @property
     def created(self) -> Optional[datetime]:
-        return _parse_time_stamp(self._ensure_dataset_props().created)
+        return parse_time_stamp(self._ensure_dataset_props().created)
 
     def set_created(self, created: datetime) -> None:
-        self._ensure_dataset_props().created = _make_time_stamp(created)
+        self._ensure_dataset_props().created = make_time_stamp(created)
 
     @property
     def last_modified(self) -> Optional[datetime]:
-        return _parse_time_stamp(self._ensure_dataset_props().lastModified)
+        return parse_time_stamp(self._ensure_dataset_props().lastModified)
 
     def set_last_modified(self, last_modified: datetime) -> None:
-        self._ensure_dataset_props().lastModified = _make_time_stamp(last_modified)
+        self._ensure_dataset_props().lastModified = make_time_stamp(last_modified)
 
     @property
     def schema(self) -> Dict[str, models.SchemaFieldClass]:
@@ -321,29 +312,3 @@ def graph_create(self: DataHubGraph, dataset: Dataset) -> None:
         )
 
     self.emit_mcps(mcps)
-
-
-if __name__ == "__main__":
-    d = Dataset(
-        platform="bigquery",
-        name="test",
-        subtype="Table",
-        schema=[("field1", "string"), ("field2", "int64")],
-    )
-    assert isinstance(d, HasUrn)
-    print(d.urn)
-
-    assert d.subtype == "Table"
-
-    print(d.schema)
-
-    with pytest.raises(AttributeError):
-        # TODO: make this throw a nicer error e.g. reference set_owners
-        d.owners = []  # type: ignore
-
-    d.set_owners(["my_user", "other_user", ("third_user", "BUSINESS_OWNER")])
-    print(d.owners)
-
-    with pytest.raises(AttributeError):
-        # ensure that all the slots are set, and so no extra attributes are allowed
-        d._extra_field = {}  # type: ignore
