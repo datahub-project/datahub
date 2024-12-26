@@ -105,6 +105,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     ViewPropertiesClass,
 )
+from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.telemetry import telemetry
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -1348,6 +1349,9 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         return dict(
             schema=schema, table=table, partition=partition, custom_sql=custom_sql
         )
+
+    def get_schema_resolver(self) -> SchemaResolver:
+        return self.aggregator._schema_resolver
 
     def get_report(self):
         return self.report

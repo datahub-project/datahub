@@ -724,7 +724,7 @@ class SQLServerSource(SQLAlchemySource):
             ):
                 yield from auto_workunit(
                     generate_procedure_lineage(
-                        schema_resolver=self.schema_resolver,
+                        schema_resolver=self.get_schema_resolver(),
                         procedure=procedure,
                         procedure_job_urn=MSSQLDataJob(entity=procedure).urn,
                         is_temp_table=self.is_temp_table,
