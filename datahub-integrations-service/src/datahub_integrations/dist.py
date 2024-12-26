@@ -16,19 +16,28 @@ from datahub_integrations.dispatch.runner import SubprocessRunner
 external_router = fastapi.APIRouter()
 
 
-@external_router.get("/vercel/{subdomain}/{path:path}")
-async def acryl_datahub_wheel(subdomain: str, path: str) -> fastapi.responses.Response:
-    # e.g. docs-website-py39pwtsy-acryldata for https://docs-website-py39pwtsy-acryldata.vercel.app/
-
-    vercel_url = f"https://{subdomain}.vercel.app/{path}"
-    logger.debug(f"Making request to {vercel_url}")
-
+async def _serve_external_wheel(url: str) -> fastapi.responses.Response:
+    logger.debug(f"Making request to {url}")
     async with aiohttp.ClientSession() as session:
-        async with session.get(vercel_url) as response:
+        async with session.get(url) as response:
             return fastapi.responses.Response(
                 content=await response.read(),
                 media_type="application/octet-stream",
             )
+
+
+@external_router.get("/vercel/{subdomain}/{path:path}")
+async def vercel_wheel(subdomain: str, path: str) -> fastapi.responses.Response:
+    # e.g. docs-website-py39pwtsy-acryldata for https://docs-website-py39pwtsy-acryldata.vercel.app/
+    vercel_url = f"https://{subdomain}.vercel.app/{path}"
+    return await _serve_external_wheel(vercel_url)
+
+
+@external_router.get("/cf-pages/{subdomain}/{path:path}")
+async def cf_pages_wheel(subdomain: str, path: str) -> fastapi.responses.Response:
+    # e.g. dc0584b7.datahub-wheels for https://dc0584b7.datahub-wheels.pages.dev/
+    wheel_url = f"https://{subdomain}.pages.dev/{path}"
+    return await _serve_external_wheel(wheel_url)
 
 
 def _get_expected_integrations_filename() -> str:
