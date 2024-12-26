@@ -190,7 +190,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                     icon: WarningOutlined,
                     component: IncidentTab,
                     getDynamicName: (_, dashboard, loading) => {
-                        const activeIncidentCount = dashboard?.dashboard?.activeIncidents.total;
+                        const activeIncidentCount = dashboard?.dashboard?.activeIncidents?.total;
                         return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
                     },
                 },

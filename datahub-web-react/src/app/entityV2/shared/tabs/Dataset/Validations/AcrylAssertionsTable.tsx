@@ -132,7 +132,7 @@ export const AcrylAssertionsTable = ({
             assertion.runEvents.runEvents[0].result?.externalUrl,
         assertion,
         monitor:
-            (assertion as any).monitor?.relationships?.length && (assertion as any).monitor?.relationships[0].entity,
+            (assertion as any).monitor?.relationships?.length && (assertion as any).monitor?.relationships[0]?.entity,
     }));
 
     const assertionsTableCols = [

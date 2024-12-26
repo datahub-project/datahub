@@ -86,9 +86,9 @@ export const SettingsPage = () => {
     const providedPath = splitPathName[1];
     const activePath = subRoutes.includes(providedPath) ? providedPath : DEFAULT_PATH.path.replace('/', '');
 
-    const isViewsEnabled = config?.viewsConfig.enabled;
-    const isPoliciesEnabled = config?.policiesConfig.enabled;
-    const isIdentityManagementEnabled = config?.identityManagementConfig.enabled;
+    const isViewsEnabled = config?.viewsConfig?.enabled;
+    const isPoliciesEnabled = config?.policiesConfig?.enabled;
+    const isIdentityManagementEnabled = config?.identityManagementConfig?.enabled;
     const { readOnlyModeEnabled } = config.featureFlags;
 
     const showViews = isViewsEnabled || false;

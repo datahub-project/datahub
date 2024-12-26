@@ -180,7 +180,7 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inp
                 <LeftContainer>
                     {hasHistory && <BackButton onGoBack={() => setOpenNewInstance(false)} />}
                     <Header>
-                        <HeaderTitle> {isEditForm ? selectedInstance?.details.name : 'Add a Connection'}</HeaderTitle>
+                        <HeaderTitle> {isEditForm ? selectedInstance?.details?.name : 'Add a Connection'}</HeaderTitle>
                         <HeaderSubtext>
                             {isEditForm ? 'Edit connection' : 'Manage Integrations with other Acryl instances'}
                         </HeaderSubtext>
@@ -194,7 +194,7 @@ const NewInstanceForm = ({ setOpenNewInstance, isEditForm, selectedInstance, inp
                 onFinish={isEditForm ? updateInstance : addInstance}
                 initialValues={
                     isEditForm
-                        ? { name: selectedInstance?.details.name, url: instanceURL, token: showToken(initialToken, 5) }
+                        ? { name: selectedInstance?.details?.name, url: instanceURL, token: showToken(initialToken, 5) }
                         : {}
                 }
             >

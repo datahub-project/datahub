@@ -116,10 +116,10 @@ export function NavLinksMenu(props: Props) {
     const [showHelpMenu, setShowHelpMenu] = useState(false);
 
     // Flags to show/hide menu items
-    const isAnalyticsEnabled = config?.analyticsConfig.enabled;
-    const isIngestionEnabled = config?.managedIngestionConfig.enabled;
-    const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
-    const isTestsEnabled = config?.testsConfig.enabled;
+    const isAnalyticsEnabled = config?.analyticsConfig?.enabled;
+    const isIngestionEnabled = config?.managedIngestionConfig?.enabled;
+    const isActionRequestsEnabled = config?.actionRequestsConfig?.enabled;
+    const isTestsEnabled = config?.testsConfig?.enabled;
     const { showFormAnalytics, formCreationEnabled } = config.featureFlags;
 
     const showSettings = true;

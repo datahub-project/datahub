@@ -17,8 +17,8 @@ export const entityHasCapability = (
 
 export const getHighlightedTag = (tags?: GlobalTags) => {
     if (tags && tags.tags?.length) {
-        if (tags?.tags[0].tag.properties) return tags?.tags[0].tag.properties.name;
-        return tags?.tags[0].tag.name;
+        if (tags?.tags[0].tag.properties) return tags?.tags[0]?.tag?.properties?.name;
+        return tags?.tags[0]?.tag?.name;
     }
     return '';
 };

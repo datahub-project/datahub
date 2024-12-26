@@ -261,7 +261,7 @@ export class DatasetEntity implements Entity<Dataset> {
                     icon: WarningOutlined,
                     component: IncidentTab,
                     getDynamicName: (_, dataset, loading) => {
-                        const activeIncidentCount = dataset?.dataset?.activeIncidents.total;
+                        const activeIncidentCount = dataset?.dataset?.activeIncidents?.total;
                         return <TabNameWithCount name="Incidents" count={activeIncidentCount} loading={loading} />;
                     },
                 },

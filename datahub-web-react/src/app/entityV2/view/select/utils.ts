@@ -9,6 +9,6 @@ import { DataHubView } from '@types';
 export const filterViews = (filterText, views: DataHubView[]) => {
     const lowerFilterText = filterText.toLowerCase();
     return views.filter((view) => {
-        return view.name?.toLowerCase().includes(lowerFilterText);
+        return view.name?.toLowerCase()?.includes(lowerFilterText);
     });
 };

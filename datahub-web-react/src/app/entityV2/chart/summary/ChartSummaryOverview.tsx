@@ -50,7 +50,7 @@ export default function ChartSummaryOverview() {
 
     const dashboards = (chart?.dashboards?.relationships?.map((r) => r.entity) || []) as Entity[];
 
-    const owner = chart?.ownership?.owners && chart?.ownership?.owners[0].owner;
+    const owner = chart?.ownership?.owners && chart?.ownership?.owners[0]?.owner;
 
     const query = chart?.query?.rawQuery || '';
 

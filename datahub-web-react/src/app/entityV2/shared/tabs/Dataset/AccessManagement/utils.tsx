@@ -14,7 +14,7 @@ export function handleAccessRoles(externalRoles, loggedInUser) {
                     (userRoles?.role?.actors?.users &&
                         userRoles?.role?.actors?.users.length > 0 &&
                         userRoles?.role?.actors?.users?.some(
-                            (user) => user.user.urn === loggedInUser?.me?.corpUser.urn,
+                            (user) => user.user.urn === loggedInUser?.me?.corpUser?.urn,
                         )) ||
                     false,
                 url: userRoles?.role?.properties?.requestUrl || undefined,
