@@ -2970,8 +2970,8 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-24T23:46:13.673905+00:00",
-                        "start_time": "2024-12-23T00:00:00+00:00",
+                        "end_time": "2024-12-26T12:52:26.547386+00:00",
+                        "start_time": "2024-12-25T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
                         "user_email_pattern": {
@@ -4230,8 +4230,8 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-24T23:46:13.141916+00:00",
-                        "start_time": "2024-12-23T00:00:00+00:00",
+                        "end_time": "2024-12-26T12:52:25.934137+00:00",
+                        "start_time": "2024-12-25T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
                         "user_email_pattern": {
@@ -6950,14 +6950,14 @@
                     "title": "Exclude Aspects",
                     "description": "Set of aspect names to exclude from ingestion",
                     "default": [
-                        "globalSettingsKey",
-                        "dataHubIngestionSourceInfo",
-                        "dataHubSecretValue",
-                        "dataHubSecretKey",
-                        "datahubIngestionCheckpoint",
-                        "testResults",
-                        "datahubIngestionRunSummary",
                         "dataHubIngestionSourceKey",
+                        "dataHubSecretValue",
+                        "datahubIngestionCheckpoint",
+                        "globalSettingsKey",
+                        "datahubIngestionRunSummary",
+                        "testResults",
+                        "dataHubIngestionSourceInfo",
+                        "dataHubSecretKey",
                         "globalSettingsInfo"
                     ],
                     "type": "array",
@@ -11232,8 +11232,8 @@
                     "description": "Usage related configs",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-24T23:45:57.442613+00:00",
-                        "start_time": "2024-12-23T00:00:00+00:00",
+                        "end_time": "2024-12-26T12:52:09.441943+00:00",
+                        "start_time": "2024-12-25T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
                         "user_email_pattern": {
@@ -14817,8 +14817,8 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-24T23:46:03.231731+00:00",
-                        "start_time": "2024-12-23T00:00:00+00:00",
+                        "end_time": "2024-12-26T12:52:15.590748+00:00",
+                        "start_time": "2024-12-25T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
                         "user_email_pattern": {
@@ -15151,16 +15151,6 @@
                     "title": "Run Id",
                     "description": "The ID of the run to ingest metadata from. If not specified, we'll default to the latest run.",
                     "type": "integer"
-                },
-                "external_url_mode": {
-                    "title": "External Url Mode",
-                    "description": "Where should the \"View in dbt\" link point to - either the \"Explore\" UI or the dbt Cloud IDE",
-                    "default": "explore",
-                    "enum": [
-                        "explore",
-                        "develop"
-                    ],
-                    "type": "string"
                 }
             },
             "required": [
@@ -17241,6 +17231,18 @@
                     "description": "Global switch for this cleanup task",
                     "default": true,
                     "type": "boolean"
+                },
+                "runtime_limit_seconds": {
+                    "title": "Runtime Limit Seconds",
+                    "description": "Maximum runtime in seconds for the cleanup task",
+                    "default": 3600,
+                    "type": "integer"
+                },
+                "max_read_errors": {
+                    "title": "Max Read Errors",
+                    "description": "Maximum number of read errors before aborting",
+                    "default": 10,
+                    "type": "integer"
                 }
             },
             "additionalProperties": false
