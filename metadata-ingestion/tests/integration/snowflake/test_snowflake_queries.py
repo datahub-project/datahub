@@ -47,9 +47,15 @@ def test_user_identifiers_email_as_identifier(snowflake_connect, tmp_path):
         == "username@example.com"
     )
 
-    # We'd do best effort to form email, but would keep username as is,
+    # We'd do best effort to use email as identifier, but would keep username as is,
     # if email can't be formed.
     source.identifiers.identifier_config.email_domain = None
+
+    assert (
+        source.identifiers.get_user_identifier("username", "username@example.com")
+        == "username@example.com"
+    )
+
     assert source.identifiers.get_user_identifier("username", None) == "username"
 
 
