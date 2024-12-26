@@ -105,7 +105,6 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     ViewPropertiesClass,
 )
-from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.telemetry import telemetry
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -338,22 +337,19 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             )
 
         self.views_failed_parsing: Set[str] = set()
-        self.schema_resolver: SchemaResolver = SchemaResolver(
-            platform=self.platform,
-            platform_instance=self.config.platform_instance,
-            env=self.config.env,
-        )
+
         self.discovered_datasets: Set[str] = set()
         self.aggregator = SqlParsingAggregator(
             platform=self.platform,
             platform_instance=self.config.platform_instance,
             env=self.config.env,
-            schema_resolver=self.schema_resolver,
             graph=self.ctx.graph,
             generate_lineage=self.include_lineage,
             generate_usage_statistics=False,
             generate_operations=False,
+            eager_graph_load=False,
         )
+        self.report.sql_aggregator = self.aggregator.report
 
     @classmethod
     def test_connection(cls, config_dict: dict) -> TestConnectionReport:
@@ -1056,6 +1052,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
             self.config.platform_instance,
             self.config.env,
         )
+
         try:
             columns = inspector.get_columns(view, schema)
         except KeyError:
@@ -1083,20 +1080,25 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         view_definition = self._get_view_definition(inspector, schema, view)
         properties["view_definition"] = view_definition
-        db_name = self.get_db_name(inspector)
         if view_definition and self.config.include_view_lineage:
+            default_db = None
+            default_schema = None
+            try:
+                default_db, default_schema = self.get_db_schema(dataset_name)
+            except ValueError:
+                logger.warning(f"Invalid view identifier: {dataset_name}")
             self.aggregator.add_view_definition(
                 view_urn=dataset_urn,
                 view_definition=view_definition,
-                default_db=db_name,
-                default_schema=schema,
+                default_db=default_db,
+                default_schema=default_schema,
             )
 
         dataset_snapshot = DatasetSnapshot(
             urn=dataset_urn,
             aspects=[StatusClass(removed=False)],
         )
-
+        db_name = self.get_db_name(inspector)
         yield from self.add_table_to_schema_container(
             dataset_urn=dataset_urn,
             db_name=db_name,
