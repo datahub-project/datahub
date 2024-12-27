@@ -26,7 +26,9 @@ from datahub.specific.dataset import DatasetPatchBuilder
 
 class DatasetUpdater:
     # basically a clone of the DatasetPatchBuilder, but with a few more methods?
+
     # TODO: need to build this one out more
+    # TODO: also need to make this one's interface be uniform with the full mechanism
 
     DatasetPatchBuilder
     pass
