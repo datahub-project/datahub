@@ -7,8 +7,6 @@ import click
 import dateutil.parser
 import humanfriendly
 
-from datahub.emitter.mce_builder import parse_ts_millis
-
 logger = logging.getLogger(__name__)
 
 
@@ -41,7 +39,7 @@ def parse_user_datetime(input: str) -> datetime:
             return datetime.fromtimestamp(ts, tz=timezone.utc)
         except (OverflowError, ValueError):
             # This is likely a timestamp in milliseconds.
-            return parse_ts_millis(ts)
+            return datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
 
     # Then try parsing as a relative time.
     with contextlib.suppress(humanfriendly.InvalidTimespan):

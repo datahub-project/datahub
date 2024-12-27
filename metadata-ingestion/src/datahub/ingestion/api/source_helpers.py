@@ -478,10 +478,7 @@ def auto_empty_dataset_usage_statistics(
     if invalid_timestamps:
         logger.warning(
             f"Usage statistics with unexpected timestamps, bucket_duration={config.bucket_duration}:\n"
-            ", ".join(
-                str(parse_ts_millis(ts))
-                for ts in invalid_timestamps
-            )
+            ", ".join(str(parse_ts_millis(ts)) for ts in invalid_timestamps)
         )
 
     for bucket in bucket_timestamps:
