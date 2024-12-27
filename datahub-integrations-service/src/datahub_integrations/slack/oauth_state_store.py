@@ -6,6 +6,8 @@ from uuid import uuid4
 
 from slack_sdk.oauth.state_store import OAuthStateStore
 
+logger = logging.getLogger(__name__)
+
 
 class InMemoryStateStore(OAuthStateStore):
     """A simple in-memory implementation of the Slack's OAuthStateStore interface."""
@@ -17,7 +19,7 @@ class InMemoryStateStore(OAuthStateStore):
         self,
         *,
         expiration_seconds: int,
-        logger: Logger = logging.getLogger(__name__),
+        logger: Logger = logger,
     ):
         self.expiration_seconds = expiration_seconds
 

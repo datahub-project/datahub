@@ -28,7 +28,10 @@ export function groupTimeData<T>(
 }
 
 /**
- * Adds MoM value to data
+ * Adds month over month value to data
+ *
+ * FYI: the month over month functionality is temporarily not used
+ * it is necessary to assess how to calculate the value correctly
  */
 export function addMonthOverMonthValue<T>(
     data: T[],

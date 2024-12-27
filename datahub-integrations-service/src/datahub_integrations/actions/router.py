@@ -209,7 +209,7 @@ async def _get_action_details(action_urn: str) -> dict:
     try:
         return response["actionPipeline"]["details"]
     except KeyError:
-        raise NoSuchPipeline(f"Action {action_urn} not found.")
+        raise NoSuchPipeline(f"Action {action_urn} not found.") from None
 
 
 @actions_router.post("/{action_urn}/reload")
@@ -267,12 +267,7 @@ async def rollback_action(action_urn: str) -> str:
         config = action_spec.action_run.unresolved_config
         executor_id = get_executor_id_from_details(config)
     except NoSuchPipeline:
-        try:
-            updated_details = await _get_action_details(action_urn)
-        except NoSuchPipeline:
-            raise HTTPException(
-                status.HTTP_404_NOT_FOUND, f"Action {action_urn} not found."
-            )
+        updated_details = await _get_action_details(action_urn)
         executor_id = get_executor_id_from_details(updated_details)
         config = get_config_from_details(action_urn, updated_details, executor_id)
 

@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 
@@ -59,14 +60,22 @@ _exception_type_mapping = {
     TooManyColumnsError: status.HTTP_422_UNPROCESSABLE_ENTITY,
 }
 
+
+def handle_exception(
+    request: fastapi.Request, exc: Exception, status_code: int
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={"message": str(exc)},
+    )
+
+
 for exception_type, status_code in _exception_type_mapping.items():
-    # Tricky: passing the status code as a kwarg in the lambda ensures that it is
+    # Tricky: binding the status code using functools.partial ensures that it is
     # captured at the time of the loop, not at the time of the call.
     app.add_exception_handler(
         exception_type,
-        lambda request, exc, status_code=status_code: JSONResponse(
-            status_code=status_code, content={"message": str(exc)}
-        ),
+        functools.partial(handle_exception, status_code=status_code),
     )
 
 

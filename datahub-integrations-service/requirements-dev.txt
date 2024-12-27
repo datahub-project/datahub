@@ -1007,7 +1007,7 @@ ruamel-yaml==0.17.17
     #   -r requirements.txt
     #   acryl-datahub
     #   great-expectations
-ruff==0.4.1
+ruff==0.8.4
     # via acryl-datahub-integrations (pyproject.toml)
 s3transfer==0.10.1
     # via

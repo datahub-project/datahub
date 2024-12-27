@@ -45,7 +45,7 @@ class CacheManager:
         ):
             # Skip cache cleanup if it was done recently
             return
-        for root, dirs, files in os.walk(self.cache_dir):
+        for root, _dirs, files in os.walk(self.cache_dir):
             for file_name in files:
                 file_path = os.path.join(root, file_name)
                 # Get the last modification time of the file

@@ -1,3 +1,5 @@
+import pytest
+
 from datahub_integrations.propagation.bigquery.util import BigqueryTagHelper
 
 
@@ -20,11 +22,8 @@ class TestBigqueryTagHelper:
 
     def test_truncate_policy_tag_name_truncate_end(self) -> None:
         input_str = "a__b__c__d__e__f__g__h__i__j__k__l__m__n__o__p__q__r__s__t__u__v__w__x__y__z"
-        try:
+        with pytest.raises(ValueError):
             BigqueryTagHelper.truncate_policy_tag_name(input_str, max_length=10)
-            assert False, "Expected ValueError but it did not occur"
-        except ValueError:
-            assert True
 
     def test_truncate_policy_tag_name_exact_length(self) -> None:
         input_str = "a__b__c__d__e__f__g__h__i__j__k__l__m__n__o__p__q__r__s__t__u__v__w__x__y__z"

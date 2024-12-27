@@ -381,7 +381,9 @@ class SnowflakeTagHelper(Closeable):
                             break
 
                         # Convert each row to a dictionary with column names
-                        named_batch = [dict(zip(columns, row)) for row in batch]
+                        named_batch = [
+                            dict(zip(columns, row, strict=False)) for row in batch
+                        ]
                         for row in named_batch:
                             table_name = row.get("table_name")
                             if not table_name:
@@ -421,7 +423,7 @@ class SnowflakeTagHelper(Closeable):
             self._log_error()
             raise ValueError(
                 f"Failed to execute snowflake query: {query}. Exception: {e}"
-            )
+            ) from e
         except Exception:
             logger.exception(
                 f"Failed to execute snowflake query: {query}. Total errors: {len(self.error_timestamps)}"
