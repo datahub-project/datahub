@@ -88,6 +88,7 @@ def test_guid_generators():
 
 def _assert_eq(a: builder.ContainerKey, b: builder.ContainerKey) -> None:
     assert a == b
+    assert a.__class__ is b.__class__
     assert a.guid() == b.guid()
     assert a.property_dict() == b.property_dict()
 
