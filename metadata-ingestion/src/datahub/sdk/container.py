@@ -10,6 +10,7 @@ from datahub.emitter.mcp_builder import (
 from datahub.metadata.urns import ContainerUrn, Urn
 from datahub.sdk._shared import (
     Entity,
+    HasContainer,
     HasOwnership,
     HasSubtype,
     OwnersInputType,
@@ -19,7 +20,7 @@ from datahub.sdk._shared import (
 from datahub.sdk.errors import SdkUsageError
 
 
-class Container(HasSubtype, HasOwnership, Entity):
+class Container(HasSubtype, HasContainer, HasOwnership, Entity):
     __slots__ = ()
 
     @classmethod
@@ -31,7 +32,6 @@ class Container(HasSubtype, HasOwnership, Entity):
         *,
         # Identity.
         container_key: ContainerKey,
-        parent_container_key: Optional[ContainerKey] = None,
         # Container attributes.
         display_name: str,
         qualified_name: Optional[str] = None,
@@ -57,10 +57,7 @@ class Container(HasSubtype, HasOwnership, Entity):
             )
         )
 
-        if parent_container_key:
-            self._set_aspect(
-                models.ContainerClass(container=parent_container_key.as_urn())
-            )
+        self._set_container(container_key.parent_key())
 
         self._ensure_container_props(name=display_name)
         self.set_custom_properties(
