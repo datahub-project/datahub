@@ -620,9 +620,7 @@ def test_bigquery_lineage_v2_ingest_view_snapshots(
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/bigquery_v2"
     mcp_golden_path = f"{test_resources_dir}/{golden_file}"
-    mcp_output_path = "{}/{}_output.json".format(
-        tmp_path, golden_file
-    )
+    mcp_output_path = "{}/{}_output.json".format(tmp_path, golden_file)
 
     dataset_name = "bigquery-dataset-1"
     get_datasets_for_project_id.return_value = [
