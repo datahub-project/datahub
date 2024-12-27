@@ -1,6 +1,16 @@
 import abc
 from datetime import datetime
-from typing import Any, List, Optional, Protocol, Tuple, Type, Union, runtime_checkable
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    List,
+    Optional,
+    Protocol,
+    Tuple,
+    Type,
+    Union,
+    runtime_checkable,
+)
 
 from typing_extensions import Self, TypeAlias
 
@@ -12,8 +22,12 @@ from datahub.emitter.mce_builder import (
     parse_ts_millis,
     validate_ownership_type,
 )
+from datahub.emitter.mcp_builder import ContainerKey
 from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn, OwnershipTypeUrn, Urn
 from datahub.sdk.errors import SdkUsageError
+
+if TYPE_CHECKING:
+    from datahub.sdk.container import Container
 
 UrnOrStr: TypeAlias = Union[Urn, str]
 ActorUrn: TypeAlias = Union[CorpUserUrn, CorpGroupUrn]
@@ -178,3 +192,60 @@ class HasOwnership(Entity):
         # TODO: add docs on the default parsing + default ownership type
         parsed_owners = [self._parse_owner_class(owner) for owner in owners]
         self._set_aspect(models.OwnershipClass(owners=parsed_owners))
+
+
+ContainerInputType: TypeAlias = Union["Container", ContainerKey]
+
+
+class HasContainer(Entity):
+    __slots__ = ()
+
+    def _set_container(self, container: Optional[ContainerInputType]) -> None:
+        # We need to allow container to be None. It won't happen for datasets much, but
+        # will be required for root containers.
+
+        browse_path: List[Union[str, models.BrowsePathEntryClass]] = []
+        if isinstance(container, Container):
+            container_urn = container.urn.urn()
+
+            parent_browse_path = container._get_aspect(models.BrowsePathsV2Class)
+            if parent_browse_path is None:
+                raise SdkUsageError(
+                    "Parent container does not have a browse path, so cannot generate one for its children."
+                )
+            browse_path = [
+                *parent_browse_path.path,
+                models.BrowsePathEntryClass(
+                    id=container_urn,
+                    urn=container_urn,
+                ),
+            ]
+        elif container is not None:
+            container_urn = container.as_urn()
+
+            browse_path_reversed = [container_urn]
+            parent_key = container.parent_key()
+            while parent_key is not None:
+                browse_path_reversed.append(parent_key.as_urn())
+                parent_key = parent_key.parent_key()
+            browse_path = list(reversed(browse_path_reversed))
+        else:
+            container_urn = None
+            browse_path = []
+
+        if container_urn:
+            self._set_aspect(models.ContainerClass(container=container_urn))
+
+        self._set_aspect(
+            models.BrowsePathsV2Class(
+                path=[
+                    entry
+                    if isinstance(entry, models.BrowsePathEntryClass)
+                    else models.BrowsePathEntryClass(
+                        id=entry,
+                        urn=entry,
+                    )
+                    for entry in browse_path
+                ]
+            )
+        )
