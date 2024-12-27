@@ -195,7 +195,6 @@ class BigQuerySchemaGenerator:
 
         # Global store of table identifiers for lineage filtering
         self.table_refs: Set[str] = set()
-        self.view_snapshot_refs: Set[str] = set()
 
         # Maps project -> view_ref, so we can find all views in a project
         self.view_refs_by_project: Dict[str, Set[str]] = defaultdict(set)
@@ -655,7 +654,7 @@ class BigQuerySchemaGenerator:
             return
 
         table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
-        self.view_snapshot_refs.add(table_ref)
+        self.table_refs.add(table_ref)
         if self.config.lineage_parse_view_ddl and view.view_definition:
             self.view_refs_by_project[project_id].add(table_ref)
             self.view_definitions[table_ref] = view.view_definition
@@ -700,7 +699,7 @@ class BigQuerySchemaGenerator:
             )
 
         table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
-        self.view_snapshot_refs.add(table_ref)
+        self.table_refs.add(table_ref)
         if snapshot.base_table_identifier:
             self.snapshot_refs_by_project[project_id].add(table_ref)
             self.snapshots_by_ref[table_ref] = snapshot

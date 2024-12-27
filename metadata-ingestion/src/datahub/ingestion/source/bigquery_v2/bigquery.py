@@ -2,7 +2,7 @@ import atexit
 import functools
 import logging
 import os
-from typing import Iterable, List, Optional, Set
+from typing import Iterable, List, Optional
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -274,11 +274,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
             self.report.set_ingestion_stage("*", QUERIES_EXTRACTION)
 
-            discovered_tables: Set[str] = set()
-            discovered_tables.update(self.bq_schema_extractor.view_snapshot_refs)
-            if self.config.include_table_lineage:
-                discovered_tables.update(self.bq_schema_extractor.table_refs)
-
             with BigQueryQueriesExtractor(
                 connection=self.config.get_bigquery_client(),
                 schema_api=self.bq_schema_extractor.schema_api,
@@ -295,7 +290,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                 filters=self.filters,
                 identifiers=self.identifiers,
                 schema_resolver=self.sql_parser_schema_resolver,
-                discovered_tables=discovered_tables,
+                discovered_tables=self.bq_schema_extractor.table_refs,
             ) as queries_extractor:
                 self.report.queries_extractor = queries_extractor.report
                 yield from queries_extractor.get_workunits_internal()
@@ -303,10 +298,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         else:
             if self.config.include_usage_statistics:
                 yield from self.usage_extractor.get_usage_workunits(
-                    [p.id for p in projects],
-                    self.bq_schema_extractor.table_refs.union(
-                        self.bq_schema_extractor.view_snapshot_refs
-                    ),
+                    [p.id for p in projects], self.bq_schema_extractor.table_refs
                 )
 
             if self.config.include_table_lineage:
