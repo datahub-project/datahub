@@ -186,6 +186,15 @@ try:
 except ImportError:
     REAUTHENTICATE_ERRORS = (NonXMLResponseError,)
 
+RETRIABLE_ERROR_CODES = [
+    408,  # Request Timeout
+    429,  # Too Many Requests
+    500,  # Internal Server Error
+    502,  # Bad Gateway
+    503,  # Service Unavailable
+    504,  # Gateway Timeout
+]
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 # Replace / with |
@@ -287,7 +296,7 @@ class TableauConnectionConfig(ConfigModel):
                 max_retries=Retry(
                     total=self.max_retries,
                     backoff_factor=1,
-                    status_forcelist=[429, 500, 502, 503, 504],
+                    status_forcelist=RETRIABLE_ERROR_CODES,
                 )
             )
             server._session.mount("http://", adapter)
@@ -1212,9 +1221,11 @@ class TableauSiteSource:
 
         except InternalServerError as ise:
             # In some cases Tableau Server returns 504 error, which is a timeout error, so it worths to retry.
-            if ise.code == 504:
+            # Extended with other retryable errors.
+            if ise.code in RETRIABLE_ERROR_CODES:
                 if retries_remaining <= 0:
                     raise ise
+                logger.info(f"Retrying query due to error {ise.code}")
                 return self.get_connection_object_page(
                     query=query,
                     connection_type=connection_type,

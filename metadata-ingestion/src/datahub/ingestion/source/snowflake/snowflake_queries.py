@@ -66,6 +66,11 @@ from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
+# Define a type alias
+UserName = str
+UserEmail = str
+UsersMapping = Dict[UserName, UserEmail]
+
 
 class SnowflakeQueriesExtractorConfig(ConfigModel):
     # TODO: Support stateful ingestion for the time windows.
@@ -114,11 +119,13 @@ class SnowflakeQueriesSourceConfig(
 class SnowflakeQueriesExtractorReport(Report):
     copy_history_fetch_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     query_log_fetch_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
+    users_fetch_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
 
     audit_log_load_timer: PerfTimer = dataclasses.field(default_factory=PerfTimer)
     sql_aggregator: Optional[SqlAggregatorReport] = None
 
     num_ddl_queries_dropped: int = 0
+    num_users: int = 0
 
 
 @dataclass
@@ -225,6 +232,9 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
     def get_workunits_internal(
         self,
     ) -> Iterable[MetadataWorkUnit]:
+        with self.report.users_fetch_timer:
+            users = self.fetch_users()
+
         # TODO: Add some logic to check if the cached audit log is stale or not.
         audit_log_file = self.local_temp_path / "audit_log.sqlite"
         use_cached_audit_log = audit_log_file.exists()
@@ -248,7 +258,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     queries.append(entry)
 
             with self.report.query_log_fetch_timer:
-                for entry in self.fetch_query_log():
+                for entry in self.fetch_query_log(users):
                     queries.append(entry)
 
         with self.report.audit_log_load_timer:
@@ -262,6 +272,25 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             queries.close()
             shared_connection.close()
             audit_log_file.unlink(missing_ok=True)
+
+    def fetch_users(self) -> UsersMapping:
+        users: UsersMapping = dict()
+        with self.structured_reporter.report_exc("Error fetching users from Snowflake"):
+            logger.info("Fetching users from Snowflake")
+            query = SnowflakeQuery.get_all_users()
+            resp = self.connection.query(query)
+
+            for row in resp:
+                try:
+                    users[row["NAME"]] = row["EMAIL"]
+                    self.report.num_users += 1
+                except Exception as e:
+                    self.structured_reporter.warning(
+                        "Error parsing user row",
+                        context=f"{row}",
+                        exc=e,
+                    )
+        return users
 
     def fetch_copy_history(self) -> Iterable[KnownLineageMapping]:
         # Derived from _populate_external_lineage_from_copy_history.
@@ -298,7 +327,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                         yield result
 
     def fetch_query_log(
-        self,
+        self, users: UsersMapping
     ) -> Iterable[Union[PreparsedQuery, TableRename, TableSwap]]:
         query_log_query = _build_enriched_query_log_query(
             start_time=self.config.window.start_time,
@@ -319,7 +348,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
                 assert isinstance(row, dict)
                 try:
-                    entry = self._parse_audit_log_row(row)
+                    entry = self._parse_audit_log_row(row, users)
                 except Exception as e:
                     self.structured_reporter.warning(
                         "Error parsing query log row",
@@ -331,7 +360,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                         yield entry
 
     def _parse_audit_log_row(
-        self, row: Dict[str, Any]
+        self, row: Dict[str, Any], users: UsersMapping
     ) -> Optional[Union[TableRename, TableSwap, PreparsedQuery]]:
         json_fields = {
             "DIRECT_OBJECTS_ACCESSED",
@@ -430,9 +459,11 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
                     )
                 )
 
-        # TODO: Fetch email addresses from Snowflake to map user -> email
-        # TODO: Support email_domain fallback for generating user urns.
-        user = CorpUserUrn(self.identifiers.snowflake_identifier(res["user_name"]))
+        user = CorpUserUrn(
+            self.identifiers.get_user_identifier(
+                res["user_name"], users.get(res["user_name"])
+            )
+        )
 
         timestamp: datetime = res["query_start_time"]
         timestamp = timestamp.astimezone(timezone.utc)
