@@ -463,7 +463,6 @@ class FakeFormData(FakeDataModel, FormData):
                         form_assigned_date=assignment_start_date,
                         form_completed_date=None,
                         form_status=form_status,
-                        form_type=form_type,
                         # question-level details
                         question_id=str(question_id),
                         question_status=(

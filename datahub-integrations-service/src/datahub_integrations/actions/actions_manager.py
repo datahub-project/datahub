@@ -220,7 +220,7 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
 
             # Wait for the pipeline to stop. For full correctness, we should use
             # events or channels instead. But this is good enough for now.
-            while urn in self.pipelines:
+            while urn in self.pipelines:  # noqa: ASYNC110
                 await anyio.sleep(0.1)
 
     async def stop_pipeline_job(self, urn: str, stage: Stage) -> None:
@@ -230,7 +230,7 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
         self.job_pipelines[stage][urn]._action_scope.cancel()
 
         # Similar to above, polling to wait for the job pipeline to stop.
-        while urn in self.job_pipelines[stage]:
+        while urn in self.job_pipelines[stage]:  # noqa: ASYNC110
             await anyio.sleep(0.1)
 
     def _is_currently_executing_stage(self, urn: str, stage: Stage) -> bool:
@@ -272,11 +272,13 @@ class ActionsManager(contextlib.AbstractAsyncContextManager):
         stage: Stage,
         executor_id: str,
         config: Optional[dict] = None,
-        cancel_stages: List[Stage] = [],
+        cancel_stages: Optional[List[Stage]] = None,
     ) -> None:
         if config is None:
             raise Exception(f"Cannot execute pipeline {urn} without a config.")
 
+        if cancel_stages is None:
+            cancel_stages = []
         if Stage.LIVE in cancel_stages:
             if urn in self.pipelines:
                 logger.info(

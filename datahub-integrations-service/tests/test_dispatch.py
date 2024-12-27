@@ -21,6 +21,37 @@ def anyio_backend() -> str:
     return "asyncio"
 
 
+def test_log_holder_simple() -> None:
+    logs = LogHolder(echo_to_stdout_prefix="runner: ")
+    logs.append("hello ")
+    logs.append("world\n")
+    logs.append("hi there!")
+    assert logs.get_logs() == "hello world\nhi there!"
+
+
+def test_log_holder_complex() -> None:
+    max_log_lines = 10
+    lines_to_generate = 75
+    logs = LogHolder(
+        echo_to_stdout_prefix="runner: ",
+        max_log_lines=max_log_lines,
+        max_bytes_per_line=50,
+    )
+
+    suffix = "a" * 10000
+    for i in range(lines_to_generate):
+        logs.append(f"line {i}: {suffix}\n")
+
+    truncated_suffix = "a" * (50 - len("line XY: ")) + " [...truncated]"
+    assert logs.get_logs() == (
+        f"[{lines_to_generate - max_log_lines} earlier log lines truncated...]\n"
+        + "".join(
+            f"line {i}: {truncated_suffix}\n"
+            for i in range(lines_to_generate - max_log_lines, lines_to_generate)
+        )
+    )
+
+
 async def test_run_echo() -> None:
     # Test running a simple command.
     logs = LogHolder(echo_to_stdout_prefix="runner: ")
@@ -55,6 +86,20 @@ async def test_run_timeout() -> None:
     assert runner._process is not None
     logger.debug(f"Subprocess return code: {runner._process.returncode}")
     assert runner._process.returncode != 0
+
+
+async def test_run_yes() -> None:
+    logs = LogHolder(echo_to_stdout_prefix="runner: ")
+    runner = SubprocessRunner(logs)
+
+    # The `yes` command generates output indefinitely. This test ensures
+    # that we handle log reading cleanup correctly during a cancellation.
+    with pytest.raises(TimeoutError):
+        async with anyio.create_task_group() as _tg:
+            with anyio.fail_after(1):
+                await runner.execute(["yes", "wooooo " * 20])
+
+    assert "wooooo" in logs.get_logs()
 
 
 async def test_venv_simple(tmp_path: pathlib.Path) -> None:

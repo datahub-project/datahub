@@ -160,7 +160,7 @@ class TagPropagationAction(Action):
         entity_type = "dataset"
         index_field_map = entity_index_field_map.get(entity_type, {})
         asset_filters[entity_type] = {}
-        for index, index_fields in index_field_map.items():
+        for index, _index_fields in index_field_map.items():
             asset_filters[entity_type] = {}
             or_filters: List[SearchFilterRule] = []
             asset_filters[entity_type][index] = or_filters

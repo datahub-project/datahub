@@ -54,6 +54,7 @@ class LogHolder:
         echo_to_stdout_prefix: str | None = None,
     ):
         self._max_log_lines = max_log_lines
+        self._total_log_lines = 0
         self._max_bytes_per_line = max_bytes_per_line
         self._max_log_size_bytes = max_log_size_bytes
         self._echo_logs_prefix = echo_to_stdout_prefix
@@ -73,6 +74,7 @@ class LogHolder:
         if self._create_new_line:
             self._lines.append("")
             self._create_new_line = False
+            self._total_log_lines += 1
 
         current_line_length = len(self._lines[-1])
         if current_line_length < self._max_bytes_per_line:
@@ -120,7 +122,8 @@ class LogHolder:
         text = text[-self._max_log_size_bytes :]
 
         if self._max_log_lines and len(self._lines) >= self._max_log_lines:
-            text = f"[earlier logs truncated...]\n{text}"
+            lines_truncated = self._total_log_lines - len(self._lines)
+            text = f"[{lines_truncated} earlier log lines truncated...]\n{text}"
 
         return text
 

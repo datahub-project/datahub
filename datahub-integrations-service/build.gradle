@@ -35,11 +35,13 @@ task checkPythonVersion(type: Exec) {
 }
 
 task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
+    def sentinel_file = "${venv_name}/.venv_environment_sentinel"
     inputs.file file('pyproject.toml')
-    outputs.dir("${venv_name}")
+    outputs.file(sentinel_file)
     commandLine 'bash', '-c',
         "${python_executable} -m venv ${venv_name} && " +
-        "${venv_name}/bin/python -m pip install --upgrade pip uv wheel setuptools"
+        "${venv_name}/bin/python -m pip install --upgrade pip uv wheel setuptools && " +
+        "touch ${sentinel_file}"
 }
 
 task codegenPython(dependsOn: [":metadata-ingestion:codegen"])
@@ -52,7 +54,6 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, codegenPython]) {
         file('requirements-dev.txt'),
     )
     outputs.file("${venv_name}/.build_install_sentinel")
-    outputs.cacheIf { false }
 
     commandLine 'bash', '-c',
         "source ${venv_name}/bin/activate && set -x && " +

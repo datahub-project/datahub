@@ -83,7 +83,7 @@ async def _build_dynamic_wheel(
             ],
             cwd=build_dir,
         )
-    except CalledProcessError:
+    except CalledProcessError as e:
         logger.debug(
             f"Failed to build {package} wheel:\n{runner.logs.get_logs()}",
             exc_info=True,
@@ -91,7 +91,7 @@ async def _build_dynamic_wheel(
         raise fastapi.HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to build {package} wheel",
-        )
+        ) from e
 
     # logger.debug(f"Built {package} in {build_dir}\n{runner.logs.get_logs()}")
 

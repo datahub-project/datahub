@@ -556,7 +556,7 @@ class BigqueryTagHelper(Closeable):
         except google_exceptions.AlreadyExists:
             raise ValueError(
                 f"Taxonomy {taxonomy.display_name} exists but is inaccessible. This typically occurs when another taxonomy with the same name exists in the same location. To resolve this you should either delete the existing one or specify `taxonomy_project_id` in your config and ensure the service account has proper access permissions"
-            )
+            ) from None
 
         logger.info(f"Taxonomy created: {created_taxonomy.name}")
         return created_taxonomy
@@ -724,7 +724,7 @@ class BigqueryTagHelper(Closeable):
                     if not tag:
                         raise RuntimeError(
                             f"Tag {tag_display_name} already exists but we couldn't resolve it. This should not happen."
-                        )
+                        ) from None
                     created_tag = tag
 
                 platform_resource = self.bigquery_platform_resource_helper.generate_policy_tag_platform_resource(

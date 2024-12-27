@@ -762,7 +762,7 @@ def get_user_name(
         user = identity_provider.get_user(user_urn_str)
         return user.get_resolved_display_name() if user else None
     except Exception as e:
-        raise RuntimeError(f"Invalid actor urn {user_urn_str} provided: {e}")
+        raise RuntimeError(f"Invalid actor urn {user_urn_str} provided: {e}") from e
 
 
 def deserialize_json_list(serialized_list: str) -> List[str]:

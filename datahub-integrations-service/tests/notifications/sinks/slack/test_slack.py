@@ -197,7 +197,7 @@ def test_send_when_slack_config_not_available(sink: SlackNotificationSink) -> No
     with patch.object(
         sink,
         "_maybe_reload_web_client",
-        side_effect=Exception("Slack config not available"),
+        side_effect=ValueError("Slack config not available"),
     ):
         mock_request = NotificationRequestClass(
             message=NotificationMessageClass(
@@ -213,7 +213,7 @@ def test_send_when_slack_config_not_available(sink: SlackNotificationSink) -> No
         )
         mock_context = Mock()
 
-        with pytest.raises(Exception):
+        with pytest.raises(ValueError):
             sink.send(mock_request, mock_context)
 
 
