@@ -255,8 +255,8 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
             .setSchemaFieldLineageIgnoreStatus(_featureFlags.isSchemaFieldLineageIgnoreStatus())
             .setShowDatasetFeaturesSearchSortOptions(
                 _featureFlags.isShowDatasetFeaturesSearchSortOptions())
-            .setShowManageStructuredProperties(_featureFlags.isShowManageStructuredProperties())
             .setShowNavBarRedesign(_featureFlags.isShowNavBarRedesign())
+            .setShowAutoCompleteResults(_featureFlags.isShowAutoCompleteResults())
             .setShowFormAnalytics(_featureFlags.isShowFormAnalytics())
             .setShowStatsTabRedesign(_featureFlags.isShowStatsTabRedesign())
             .setRequestMinimalSlackPermissions(_featureFlags.isRequestMinimalSlackPermissions())
