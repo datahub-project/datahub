@@ -12,7 +12,9 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.urns import DatasetUrn, Urn
 from datahub.sdk._shared import (
+    ContainerInputType,
     Entity,
+    HasContainer,
     HasOwnership,
     HasSubtype,
     OwnersInputType,
@@ -53,7 +55,7 @@ SchemaFieldsInputType: TypeAlias = (
 )
 
 
-class Dataset(HasSubtype, HasOwnership, Entity):
+class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
     __slots__ = ("_edit_mode",)
 
     @classmethod
@@ -80,11 +82,11 @@ class Dataset(HasSubtype, HasOwnership, Entity):
         last_modified: Optional[datetime] = None,
         # Standard aspects.
         subtype: Optional[str] = None,
+        container: Optional[ContainerInputType] = None,
         owners: Optional[OwnersInputType] = None,
         # TODO tags
         # TODO terms
         # structured_properties
-        # TODO container / browse path generation?
         # Dataset-specific aspects.
         schema: Optional[SchemaFieldsInputType] = None,
         # TODO: schema -> how do we make this feel nice
@@ -129,6 +131,8 @@ class Dataset(HasSubtype, HasOwnership, Entity):
 
         if subtype is not None:
             self.set_subtype(subtype)
+        if container is not None:
+            self._set_container(container)
         if owners is not None:
             self.set_owners(owners)
 
