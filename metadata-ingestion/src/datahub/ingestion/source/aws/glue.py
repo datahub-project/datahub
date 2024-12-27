@@ -52,6 +52,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws import s3_util
@@ -114,7 +115,6 @@ from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
 logger = logging.getLogger(__name__)
-
 
 DEFAULT_PLATFORM = "glue"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
@@ -220,6 +220,7 @@ class GlueSourceConfig(
 class GlueSourceReport(StaleEntityRemovalSourceReport):
     tables_scanned = 0
     filtered: List[str] = dataclass_field(default_factory=list)
+    databases: EntityFilterReport = EntityFilterReport.field(type="database")
 
     num_job_script_location_missing: int = 0
     num_job_script_location_invalid: int = 0
@@ -668,6 +669,7 @@ class GlueSource(StatefulIngestionSourceBase):
         return MetadataWorkUnit(id=f'{job_name}-{node["Id"]}', mce=mce)
 
     def get_all_databases(self) -> Iterable[Mapping[str, Any]]:
+        logger.debug("Getting all databases")
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetDatabases.html
         paginator = self.glue_client.get_paginator("get_databases")
 
@@ -684,10 +686,18 @@ class GlueSource(StatefulIngestionSourceBase):
             pattern += "[?!TargetDatabase]"
 
         for database in paginator_response.search(pattern):
-            if self.source_config.database_pattern.allowed(database["Name"]):
+            if (not self.source_config.database_pattern.allowed(database["Name"])) or (
+                self.source_config.catalog_id
+                and database.get("CatalogId")
+                and database.get("CatalogId") != self.source_config.catalog_id
+            ):
+                self.report.databases.dropped(database["Name"])
+            else:
+                self.report.databases.processed(database["Name"])
                 yield database
 
     def get_tables_from_database(self, database: Mapping[str, Any]) -> Iterable[Dict]:
+        logger.debug(f"Getting tables from database {database['Name']}")
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetTables.html
         paginator = self.glue_client.get_paginator("get_tables")
         database_name = database["Name"]
