@@ -1,12 +1,13 @@
 import { LineChart, GraphCard } from '@components';
+import { formatBytes } from '@src/app/shared/formatNumber';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
-import { formatBytes } from '@src/app/shared/formatNumber';
 import { LookbackWindow } from '../../../lookbackWindows';
+import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import GraphPopover from '../components/GraphPopover';
+import MonthOverMonthPill from '../components/MonthOverMonthPill';
 import { GRAPH_LOOPBACK_WINDOWS, GRAPH_LOOPBACK_WINDOWS_OPTIONS } from '../constants';
 import useStorageSizeData from './useStorageSizeData';
-import MonthOverMonthPill from '../components/MonthOverMonthPill';
 import TimeRangeSelect from '../components/TimeRangeSelect';
 
 type RowCountGraphProps = {
@@ -18,6 +19,12 @@ export default function StorageSizeGraph({ urn }: RowCountGraphProps) {
     const [rangeType, setRangeType] = useState<string | null>('MONTH');
 
     const { data, loading } = useStorageSizeData(urn, lookbackWindow);
+
+    const { setSectionState } = useStatsSectionsContext();
+
+    useEffect(() => {
+        setSectionState('storage', data.length > 0);
+    }, [data, setSectionState]);
 
     useEffect(() => {
         if (rangeType) setLookbackWindow(GRAPH_LOOPBACK_WINDOWS[rangeType]);

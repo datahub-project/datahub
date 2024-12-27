@@ -4,6 +4,7 @@ import { AssertionType } from '@src/types.generated';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
 import { LookbackWindow } from '../../../lookbackWindows';
+import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import AddAssertionButton from '../components/AddAssertionButton';
 import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
@@ -20,6 +21,12 @@ export default function RowCountGraph({ urn }: RowCountGraphProps) {
     const [rangeType, setRangeType] = useState<string | null>('MONTH');
 
     const { data, loading } = useRowCountData(urn, lookbackWindow);
+
+    const { sections, setSectionState } = useStatsSectionsContext();
+
+    useEffect(() => {
+        if (!sections.rowsAndUsers.hasData && data.length > 0) setSectionState('rowsAndUsers', true);
+    }, [data, setSectionState, sections.rowsAndUsers]);
 
     useEffect(() => {
         if (rangeType) setLookbackWindow(GRAPH_LOOPBACK_WINDOWS[rangeType]);

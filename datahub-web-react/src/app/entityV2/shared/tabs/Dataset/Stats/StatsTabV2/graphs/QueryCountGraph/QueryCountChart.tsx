@@ -4,7 +4,8 @@ import { pluralize } from '@src/app/shared/textUtil';
 import { GetDatasetQuery } from '@src/graphql/dataset.generated';
 import { Maybe, TimeRange, UsageAggregation } from '@src/types.generated';
 import dayjs from 'dayjs';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
 import { AGGRAGATION_TIME_RANGE_OPTIONS } from '../constants';
@@ -24,6 +25,12 @@ const QueryCountChart = ({ queryCountBuckets }: Props) => {
         timeRange,
         timeRange === TimeRange.Month ? queryCountBuckets || [] : undefined,
     );
+
+    const { setSectionState } = useStatsSectionsContext();
+
+    useEffect(() => {
+        setSectionState('queries', chartData.length > 0);
+    }, [chartData, setSectionState]);
 
     const handleFilterChange = (value: TimeRange) => {
         setTimeRange(value);

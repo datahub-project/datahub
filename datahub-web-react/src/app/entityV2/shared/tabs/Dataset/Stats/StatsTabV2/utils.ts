@@ -31,4 +31,4 @@ export const getMockTopUsersData = (noOfUsers: number) => {
     }));
 };
 
-export type SectionKeys = 'changes' | 'queries' | 'columnStats' | 'rowsAndUsers';
+export type SectionKeys = 'rowsAndUsers' | 'queries' | 'storage' | 'changes' | 'columnStats';

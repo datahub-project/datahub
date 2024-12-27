@@ -15,6 +15,7 @@ import TypesSelect from './components/TypesSelect';
 import { DEFAULT_OPERATION_TYPES, OPERATION_TYPE_OPTIONS } from './constants';
 import Subtitle from './components/Subtitle';
 import useDataRange from './hooks/useDataRange';
+import { useStatsSectionsContext } from '../../StatsSectionsContext';
 
 // DAY, WEEKDAY, ALL time ranges are not available for the change history graph
 const NOT_AVAILABLE_RANGES = [TimeRange.Day, TimeRange.Week, TimeRange.All];
@@ -47,6 +48,13 @@ export default function ChangeHistoryGraph({ urn }: ChangeHistoryGraphProps) {
         setDayOfDayDetailsDrawer(selectedDay);
         setIsDayDetailsDrawerShown(true);
     };
+
+    const { setSectionState } = useStatsSectionsContext();
+
+    useEffect(() => {
+        // TODO: Update hasData for 'changes' based on the change history data
+        setSectionState('changes', false);
+    }, [setSectionState]);
 
     // Operation types
     const [selectedOperationTypes, setSelectedOperationTypes] = useState<OperationType[]>(DEFAULT_OPERATION_TYPES);
