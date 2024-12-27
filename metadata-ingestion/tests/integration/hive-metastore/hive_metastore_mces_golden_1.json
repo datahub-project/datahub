@@ -238,7 +238,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1735230845"
+                "value": "1735298453"
             },
             {
                 "op": "add",
@@ -268,7 +268,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-12-26"
+                "value": "2024-12-27"
             }
         ]
     },
@@ -428,7 +428,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1735230844"
+                "value": "1735298453"
             },
             {
                 "op": "add",
@@ -463,7 +463,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-12-26"
+                "value": "2024-12-27"
             }
         ]
     },
@@ -674,13 +674,13 @@
             },
             {
                 "op": "add",
-                "path": "/customProperties/numRows",
+                "path": "/customProperties/totalSize",
                 "value": "0"
             },
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1735230844"
+                "value": "1735298453"
             },
             {
                 "op": "add",
@@ -699,7 +699,7 @@
             },
             {
                 "op": "add",
-                "path": "/customProperties/totalSize",
+                "path": "/customProperties/numRows",
                 "value": "0"
             },
             {
@@ -715,7 +715,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-12-26"
+                "value": "2024-12-27"
             }
         ]
     },
@@ -928,11 +928,6 @@
             },
             {
                 "op": "add",
-                "path": "/customProperties/numFiles",
-                "value": "1"
-            },
-            {
-                "op": "add",
                 "path": "/customProperties/numRows",
                 "value": "1"
             },
@@ -948,8 +943,13 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/numFiles",
+                "value": "1"
+            },
+            {
+                "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1735230840"
+                "value": "1735298448"
             },
             {
                 "op": "add",
@@ -974,7 +974,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-12-26"
+                "value": "2024-12-27"
             }
         ]
     },
@@ -1167,7 +1167,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1735230836"
+                "value": "1735298442"
             },
             {
                 "op": "add",
@@ -1202,7 +1202,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-12-26"
+                "value": "2024-12-27"
             }
         ]
     },
@@ -1389,7 +1389,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1735230836"
+                "value": "1735298441"
             },
             {
                 "op": "add",
@@ -1424,7 +1424,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-12-26"
+                "value": "2024-12-27"
             }
         ]
     },
@@ -1576,7 +1576,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1735230831"
+                "value": "1735298433"
             },
             {
                 "op": "add",
@@ -1591,7 +1591,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-12-26"
+                "value": "2024-12-27"
             },
             {
                 "op": "add",
@@ -1881,154 +1881,6 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD)",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "db1.array_struct_test_view_2",
-                        "platform": "urn:li:dataPlatform:hive",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "[version=2.0].[type=int].property_id",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
-                            }
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "is_view": "True"
-                        },
-                        "name": "array_struct_test_view_2",
-                        "tags": []
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.dataset.ViewProperties": {
-                        "materialized": false,
-                        "viewLogic": "select `array_struct_test_view`.`property_id` from `db1`.`array_struct_test_view`",
-                        "viewLanguage": "SQL"
-                    }
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "view"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "viewProperties",
-    "aspect": {
-        "json": {
-            "materialized": false,
-            "viewLogic": "select `array_struct_test_view`.`property_id` from `db1`.`array_struct_test_view`",
-            "viewLanguage": "SQL"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
-                {
-                    "id": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589",
-                    "urn": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589"
-                },
-                {
-                    "id": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
-                    "urn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -2201,62 +2053,6 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 1632398400000,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "created": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD)",
-                    "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view%2CPROD%29"
-                }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD),property_id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD),property_id)"
-                    ],
-                    "confidenceScore": 0.2,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view%2CPROD%29"
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD),service)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD),service)"
-                    ],
-                    "confidenceScore": 0.2,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view%2CPROD%29"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD)",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -2270,234 +2066,6 @@
                     "urn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae"
                 }
             ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view%2CPROD%29",
-    "changeType": "UPSERT",
-    "aspectName": "queryProperties",
-    "aspect": {
-        "json": {
-            "statement": {
-                "value": "SELECT\n  `array_struct_test`.`property_id`,\n  `array_struct_test`.`service`\nFROM `db1`.`array_struct_test`",
-                "language": "SQL"
-            },
-            "source": "SYSTEM",
-            "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:_ingestion"
-            },
-            "lastModified": {
-                "time": 1632398400000,
-                "actor": "urn:li:corpuser:_ingestion"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view%2CPROD%29",
-    "changeType": "UPSERT",
-    "aspectName": "querySubjects",
-    "aspect": {
-        "json": {
-            "subjects": [
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD),property_id)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test,PROD),service)"
-                },
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD),property_id)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD),service)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view%2CPROD%29",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:hive"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "upstreamLineage",
-    "aspect": {
-        "json": {
-            "upstreams": [
-                {
-                    "auditStamp": {
-                        "time": 1632398400000,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "created": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD)",
-                    "type": "VIEW",
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_2%2CPROD%29"
-                }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD),property_id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD),property_id)"
-                    ],
-                    "confidenceScore": 0.2,
-                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_2%2CPROD%29"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_2%2CPROD%29",
-    "changeType": "UPSERT",
-    "aspectName": "queryProperties",
-    "aspect": {
-        "json": {
-            "statement": {
-                "value": "SELECT\n  `array_struct_test_view`.`property_id`\nFROM `db1`.`array_struct_test_view`",
-                "language": "SQL"
-            },
-            "source": "SYSTEM",
-            "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:_ingestion"
-            },
-            "lastModified": {
-                "time": 1632398400000,
-                "actor": "urn:li:corpuser:_ingestion"
-            }
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_2%2CPROD%29",
-    "changeType": "UPSERT",
-    "aspectName": "querySubjects",
-    "aspect": {
-        "json": {
-            "subjects": [
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view,PROD),property_id)"
-                },
-                {
-                    "entity": "urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD)"
-                },
-                {
-                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,db1.array_struct_test_view_2,PROD),property_id)"
-                }
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_2%2CPROD%29",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:hive"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view%2CPROD%29",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "query",
-    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Ahive%2Cdb1.array_struct_test_view_2%2CPROD%29",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
         }
     },
     "systemMetadata": {
