@@ -23,8 +23,8 @@ from datahub.emitter.mce_builder import (
     validate_ownership_type,
 )
 from datahub.emitter.mcp_builder import ContainerKey
+from datahub.errors import SdkUsageError
 from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn, OwnershipTypeUrn, Urn
-from datahub.sdk.errors import SdkUsageError
 
 if TYPE_CHECKING:
     from datahub.sdk.container import Container
