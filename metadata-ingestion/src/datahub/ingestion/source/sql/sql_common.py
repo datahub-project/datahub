@@ -567,7 +567,6 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
         # Generate workunit for aggregated SQL parsing results
         for mcp in self.aggregator.gen_metadata():
-            self.report.report_workunit(mcp.as_workunit())
             yield mcp.as_workunit()
 
     def get_identifier(
@@ -1147,9 +1146,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
 
     @property
     def include_lineage(self):
-        return self.config.include_view_lineage or (
-            hasattr(self.config, "include_lineage") and self.config.include_lineage
-        )
+        return self.config.include_view_lineage
 
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
         database, schema, _view = dataset_identifier.split(".", 2)
