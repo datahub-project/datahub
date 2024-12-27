@@ -1,24 +1,19 @@
-"""
-Generic JDBC Source for DataHub metadata ingestion.
-Supports any JDBC-compliant database driver with improved database and schema handling.
-"""
-
 import os
 import subprocess
 import time
 import traceback
 import tempfile
 from typing import Dict, List, Optional, Iterable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 import hashlib
 import logging
 import base64
 import re
+from sqlglot import dialects
 import jaydebeapi
 from pydantic import Field, validator
 
-from datahub.api.entities.common.data_platform_instance import DataPlatformInstance
 from datahub.configuration.common import ConfigModel, AllowDenyPattern
 from datahub.configuration.source_common import PlatformInstanceConfigMixin, EnvConfigMixin
 from datahub.emitter.mce_builder import (
@@ -40,6 +35,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 )
 from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
+from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     SubTypesClass,
@@ -54,12 +50,13 @@ from datahub.metadata.schema_classes import (
     BytesTypeClass,
     TimeTypeClass,
     DateTypeClass,
-    TimeStampClass,
     OtherSchemaClass,
     ContainerPropertiesClass,
     SchemaFieldDataTypeClass,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.sql_parsing import sqlglot_utils
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +85,7 @@ JDBC_TYPE_MAP = {
     "LONGVARBINARY": BytesTypeClass,
     "DATE": DateTypeClass,
     "TIME": TimeTypeClass,
-    "TIMESTAMP": TimeTypeClass,
+    "TIMESTAMP": DateTypeClass,
     # Additional types
     "CLOB": StringTypeClass,
     "NCLOB": StringTypeClass,
@@ -221,6 +218,20 @@ class JDBCSourceConfig(
         description="Include stored procedures in extraction",
     )
 
+    sqlglot_dialect: Optional[str] = Field(
+        default=None,
+        description="sqlglot dialect to use for SQL transpiling",
+    )
+
+    jvm_args: List[str] = Field(
+        default=[],
+        description="""JVM arguments for JDBC driver
+        E.g. '-Xmx1g',
+        '--add-opens=java.base/java.nio=ALL-UNNAMED',
+        '--add-opens=java.base/java.lang=ALL-UNNAMED',
+        '--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED'"""
+    )
+
     schema_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for schemas",
@@ -253,6 +264,20 @@ class JDBCSourceConfig(
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
 
+    @validator("sqlglot_dialect")
+    def validate_dialect(cls, v):
+        if v is None:
+            return v
+
+        # Get available dialects (excluding private attributes)
+        valid_dialects = [d for d in dir(dialects) if not d.startswith('_')]
+
+        if v not in valid_dialects:
+            raise ValueError(
+                f"Invalid dialect '{v}'. Must be one of: {', '.join(sorted(valid_dialects))}"
+            )
+        return v
+
 
 @dataclass
 class JDBCSourceReport(SQLSourceReport, StaleEntityRemovalSourceReport, IngestionStageReport):
@@ -264,7 +289,6 @@ class JDBCSourceReport(SQLSourceReport, StaleEntityRemovalSourceReport, Ingestio
     filtered_tables: int = 0
     filtered_views: int = 0
     filtered_stored_procedures: int = 0
-    #failures: List[str] = field(default_factory=list)
 
     def report_table_scanned(self, table: str) -> None:
         super().report_entity_scanned(table)
@@ -312,6 +336,16 @@ class JDBCSource(StatefulIngestionSourceBase):
         self.report = JDBCSourceReport()
         self._connection = None
         self._temp_files: List[str] = []
+        self.set_dialect(self.config.sqlglot_dialect)
+        self.sql_parsing_aggregator = SqlParsingAggregator(
+            platform=make_data_platform_urn(self.platform),
+            platform_instance=self.platform_instance,
+            env=self.config.env,
+            graph=ctx.graph,
+            generate_usage_statistics=True,
+            generate_operations=True,
+            usage_config=self.config.usage,
+        )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         try:
@@ -330,6 +364,10 @@ class JDBCSource(StatefulIngestionSourceBase):
                 # Extract stored procedures if enabled
                 if self.config.include_stored_procedures:
                     yield from self._extract_stored_procedures(metadata)
+
+                for wu in self.sql_parsing_aggregator.gen_metadata():
+                    self.report.report_workunit(wu.as_workunit())
+                    yield wu.as_workunit()
 
         except Exception as e:
             self.report.report_failure("jdbc-source", f"Extraction failed: {str(e)}")
@@ -358,6 +396,12 @@ class JDBCSource(StatefulIngestionSourceBase):
             key=key,
         )
 
+    def set_dialect(self, custom_dialect: Optional[str]) -> None:
+        def custom_sql_dialect(platform: str) -> str:
+            return custom_dialect if custom_dialect else "generic"
+
+        sqlglot_utils._get_dialect_str = custom_sql_dialect
+
     def _get_connection(self) -> jaydebeapi.Connection:
         """Get JDBC connection with retry logic"""
         max_retries = 3
@@ -370,15 +414,8 @@ class JDBCSource(StatefulIngestionSourceBase):
                     url = self.config.connection.uri
                     props = self._get_connection_properties()
 
-                    # Add JVM args for Arrow Flight JDBC
-                    jvm_args = [
-                        '-Xmx1g',  # Max heap size
-                        '--add-opens=java.base/java.nio=ALL-UNNAMED',
-                        '--add-opens=java.base/java.lang=ALL-UNNAMED',
-                        '--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED'
-                    ]
-
-                    os.environ['_JAVA_OPTIONS'] = ' '.join(jvm_args)
+                    # Use JVM args from config
+                    os.environ['_JAVA_OPTIONS'] = ' '.join(self.config.jvm_args)
 
                     self._connection = jaydebeapi.connect(
                         self.config.driver.driver_class,
@@ -698,8 +735,12 @@ class JDBCSource(StatefulIngestionSourceBase):
                                     f"Failed to extract table: {str(e)}"
                                 )
 
-        except Exception as e:
-            self.report.report_failure("tables", f"Failed to extract tables: {str(e)}")
+        except Exception as exc:
+            self.report.report_failure(
+                message="Failed to extract table",
+                context=table_name,
+                exc=exc,
+            )
             logger.error(f"Failed to extract tables and views: {str(e)}")
             logger.debug(traceback.format_exc())
 
@@ -802,6 +843,11 @@ class JDBCSource(StatefulIngestionSourceBase):
             foreignKeys=foreign_keys if foreign_keys else None,
         )
 
+        self.sql_parsing_aggregator.register_schema(
+            urn=dataset_urn,
+            schema=schema_metadata,
+        )
+
         # Add dataset to container
         schema_container_key = self.get_container_key(schema, [database])
         yield from add_dataset_to_container(
@@ -813,6 +859,14 @@ class JDBCSource(StatefulIngestionSourceBase):
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=schema_metadata
+        ).as_workunit()
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=DatasetProperties(
+                name=table,
+                qualifiedName=f"{database}.{schema}.{table}"
+            )
         ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
@@ -833,7 +887,13 @@ class JDBCSource(StatefulIngestionSourceBase):
                         materialized=False,
                         viewLogic=view_definition,
                         viewLanguage="SQL",
-                        #description=remarks if remarks else None
+                    )
+
+                    self.sql_parsing_aggregator.add_view_definition(
+                        view_urn=dataset_urn,
+                        view_definition=view_definition,
+                        default_db=database,
+                        default_schema=schema,
                     )
 
                     yield MetadataChangeProposalWrapper(
@@ -845,33 +905,76 @@ class JDBCSource(StatefulIngestionSourceBase):
                 logger.debug(f"Could not get view definition for {full_name}: {e}")
 
     def _get_view_definition(self, metadata, schema: str, view: str) -> Optional[str]:
-        """Get view definition with fallback methods"""
+        """Get view definition by discovering the correct approach from database metadata"""
         try:
-            # Try standard JDBC metadata method first
+            # First try: Use JDBC getTables metadata
             with metadata.getTables(None, schema, view, ["VIEW"]) as rs:
                 if rs.next():
-                    view_definition = rs.getString("VIEW_DEFINITION")
-                    if view_definition:
-                        return self._clean_sql(view_definition)
+                    # Get metadata about available columns
+                    rs_metadata = rs.getMetaData()
+                    column_count = rs_metadata.getColumnCount()
 
-            # Fallback: try querying system tables based on common DBMS patterns
-            view_queries = [
-                f"SELECT VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = '{schema}' AND TABLE_NAME = '{view}'",
-                f"SELECT TEXT FROM ALL_VIEWS WHERE OWNER = '{schema}' AND VIEW_NAME = '{view}'",
-                f"SELECT definition FROM sys.sql_modules m JOIN sys.objects o ON m.object_id = o.object_id WHERE o.schema_id = SCHEMA_ID('{schema}') AND o.name = '{view}'"
-            ]
+                    # Find columns containing SQL/definition content
+                    sql_columns = []
+                    for i in range(1, column_count + 1):
+                        col_name = rs_metadata.getColumnName(i).upper()
+                        col_type = rs_metadata.getColumnTypeName(i)
+                        # Look for string columns with names suggesting view definition content
+                        if (col_type.upper() in (
+                        "VARCHAR", "CLOB", "TEXT", "LONGVARCHAR", "NVARCHAR", "CHARACTER VARYING") and
+                                ("SQL" in col_name or "TEXT" in col_name or "DEFINITION" in col_name or
+                                 "SOURCE" in col_name or "BODY" in col_name or "DDL" in col_name)):
+                            sql_columns.append((i, col_name))
 
-            for query in view_queries:
-                try:
-                    with metadata.getConnection().createStatement() as stmt:
-                        with stmt.executeQuery(query) as rs:
-                            if rs.next():
-                                view_definition = rs.getString(1)
-                                if view_definition:
-                                    return self._clean_sql(view_definition)
-                except Exception:
-                    continue
+                    logger.debug(f"Found potential view definition columns: {sql_columns}")
 
+                    # Try each potential column
+                    for col_idx, col_name in sql_columns:
+                        try:
+                            definition = rs.getString(col_idx)
+                            if definition and ("SELECT" in definition.upper() or "WITH" in definition.upper()):
+                                logger.debug(f"Found view definition in column: {col_name}")
+                                return self._clean_sql(definition)
+                        except Exception as e:
+                            logger.debug(f"Failed to get definition from column {col_name}: {e}")
+
+            # Second try: Query INFORMATION_SCHEMA.COLUMNS to find view definition column
+            try:
+                info_schema_query = """
+                    SELECT COLUMN_NAME 
+                    FROM INFORMATION_SCHEMA.COLUMNS 
+                    WHERE TABLE_SCHEMA = 'INFORMATION_SCHEMA' 
+                    AND TABLE_NAME = 'VIEWS' 
+                    AND DATA_TYPE IN ('VARCHAR', 'CLOB', 'TEXT', 'LONGVARCHAR', 'NVARCHAR', 'CHARACTER VARYING')
+                """
+                with metadata.getConnection().createStatement() as stmt:
+                    stmt.setQueryTimeout(5)
+                    with stmt.executeQuery(info_schema_query) as rs:
+                        definition_columns = []
+                        while rs.next():
+                            col_name = rs.getString(1)
+                            definition_columns.append(col_name)
+
+                        logger.debug(f"Found INFORMATION_SCHEMA.VIEWS columns: {definition_columns}")
+
+                        # Try each discovered column
+                        for col_name in definition_columns:
+                            try:
+                                query = f"SELECT {col_name} FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = '{schema}' AND TABLE_NAME = '{view}'"
+                                with stmt.executeQuery(query) as def_rs:
+                                    if def_rs.next():
+                                        definition = def_rs.getString(1)
+                                        if definition and (
+                                                "SELECT" in definition.upper() or "WITH" in definition.upper()):
+                                            logger.debug(
+                                                f"Found view definition in INFORMATION_SCHEMA.VIEWS.{col_name}")
+                                            return self._clean_sql(definition)
+                            except Exception as e:
+                                logger.debug(f"Failed to query column {col_name}: {e}")
+            except Exception as e:
+                logger.debug(f"Failed to query INFORMATION_SCHEMA: {e}")
+
+            logger.debug(f"Could not discover view definition for {schema}.{view}")
             return None
 
         except Exception as e:
