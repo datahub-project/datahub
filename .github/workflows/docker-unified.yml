@@ -1245,7 +1245,7 @@ jobs:
 
   smoke_test:
     name: Run Smoke Tests
-    runs-on: depot-ubuntu-22.04
+    runs-on: ubuntu-latest
     needs:
       [
         setup,
