@@ -8,6 +8,7 @@ import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import first_non_null
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.errors import SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.urns import DatasetUrn, Urn
@@ -22,7 +23,6 @@ from datahub.sdk._shared import (
     make_time_stamp,
     parse_time_stamp,
 )
-from datahub.sdk.errors import SdkUsageError
 from datahub.specific.dataset import DatasetPatchBuilder
 
 
