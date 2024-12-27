@@ -298,8 +298,8 @@ abs_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ~=1.1.0",
-    "pyspark~=3.3.0",
+    "pydeequ>=1.1.0",
+    "pyspark~=3.5.0",
 }
 
 delta_lake = {
@@ -318,7 +318,7 @@ databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
     # 0.22.0 has support for `include_browse` in metadata list apis
     "databricks-sdk>=0.30.0",
-    "pyspark~=3.3.0",
+    "pyspark~=3.5.0",
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
@@ -874,9 +874,6 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
@@ -917,6 +914,7 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
                         "sync-file-emitter",
                         "sql-parser",
                         "iceberg",
+                        "feast",
                     }
                     else set()
                 )
