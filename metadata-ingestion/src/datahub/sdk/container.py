@@ -7,6 +7,7 @@ from datahub.emitter.mcp_builder import (
     _INCLUDE_ENV_IN_CONTAINER_PROPERTIES,
     ContainerKey,
 )
+from datahub.errors import SdkUsageError
 from datahub.metadata.urns import ContainerUrn, Urn
 from datahub.sdk._shared import (
     Entity,
@@ -17,7 +18,6 @@ from datahub.sdk._shared import (
     make_time_stamp,
     parse_time_stamp,
 )
-from datahub.sdk.errors import SdkUsageError
 
 
 class Container(HasSubtype, HasContainer, HasOwnership, Entity):

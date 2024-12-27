@@ -112,7 +112,7 @@ def parse_ts_millis(ts: None) -> None: ...
     ...
 
 
-def parse_ts_millis(ts: Optional[int]) -> Optional[datetime]:
+def parse_ts_millis(ts: Optional[float]) -> Optional[datetime]:
     if ts is None:
         return None
     return datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
