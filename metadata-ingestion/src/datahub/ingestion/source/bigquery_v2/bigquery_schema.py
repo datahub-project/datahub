@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, FrozenSet, Iterable, Iterator, List, Optional
 
@@ -15,6 +15,7 @@ from google.cloud.bigquery.table import (
     TimePartitioningType,
 )
 
+from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import parse_labels
@@ -393,13 +394,7 @@ class BigQuerySchemaApi:
             name=table.table_name,
             created=table.created,
             table_type=table.table_type,
-            last_altered=(
-                datetime.fromtimestamp(
-                    table.get("last_altered") / 1000, tz=timezone.utc
-                )
-                if table.get("last_altered") is not None
-                else None
-            ),
+            last_altered=parse_ts_millis(table.get("last_altered")),
             size_in_bytes=table.get("bytes"),
             rows_count=table.get("row_count"),
             comment=table.comment,
@@ -460,11 +455,7 @@ class BigQuerySchemaApi:
         return BigqueryView(
             name=view.table_name,
             created=view.created,
-            last_altered=(
-                datetime.fromtimestamp(view.get("last_altered") / 1000, tz=timezone.utc)
-                if view.get("last_altered") is not None
-                else None
-            ),
+            last_altered=(parse_ts_millis(view.get("last_altered"))),
             comment=view.comment,
             view_definition=view.view_definition,
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
@@ -705,13 +696,7 @@ class BigQuerySchemaApi:
         return BigqueryTableSnapshot(
             name=snapshot.table_name,
             created=snapshot.created,
-            last_altered=(
-                datetime.fromtimestamp(
-                    snapshot.get("last_altered") / 1000, tz=timezone.utc
-                )
-                if snapshot.get("last_altered") is not None
-                else None
-            ),
+            last_altered=parse_ts_millis(snapshot.get("last_altered")),
             comment=snapshot.comment,
             ddl=snapshot.ddl,
             snapshot_time=snapshot.snapshot_time,
