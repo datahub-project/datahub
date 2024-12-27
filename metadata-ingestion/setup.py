@@ -914,6 +914,7 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
                         "sync-file-emitter",
                         "sql-parser",
                         "iceberg",
+                        "feast",
                     }
                     else set()
                 )
