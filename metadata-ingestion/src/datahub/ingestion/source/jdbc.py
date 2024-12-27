@@ -1,25 +1,30 @@
-import os
-import subprocess
-import time
-import traceback
-import tempfile
-from typing import Dict, List, Optional, Iterable
-from dataclasses import dataclass
-from pathlib import Path
+import base64
 import hashlib
 import logging
-import base64
+import os
 import re
-from sqlglot import dialects
+import subprocess
+import tempfile
+import time
+import traceback
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, Iterable, List, Optional
+
 import jaydebeapi
 from pydantic import Field, validator
+from sqlglot import dialects
 
-from datahub.configuration.common import ConfigModel, AllowDenyPattern
-from datahub.configuration.source_common import PlatformInstanceConfigMixin, EnvConfigMixin
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    PlatformInstanceConfigMixin,
+)
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataset_urn_with_platform_instance,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, add_dataset_to_container
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceReport
@@ -37,24 +42,23 @@ from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.schema_classes import (
-    DataPlatformInstanceClass,
-    SubTypesClass,
-    StatusClass,
-    ContainerClass,
-    SchemaMetadataClass,
-    SchemaFieldClass,
-    ViewPropertiesClass,
     BooleanTypeClass,
-    NumberTypeClass,
-    StringTypeClass,
     BytesTypeClass,
-    TimeTypeClass,
-    DateTypeClass,
-    OtherSchemaClass,
+    ContainerClass,
     ContainerPropertiesClass,
+    DataPlatformInstanceClass,
+    DateTypeClass,
+    NumberTypeClass,
+    OtherSchemaClass,
+    SchemaFieldClass,
     SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
+    StatusClass,
+    StringTypeClass,
+    SubTypesClass,
+    TimeTypeClass,
+    ViewPropertiesClass,
 )
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.sql_parsing import sqlglot_utils
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 
@@ -97,13 +101,16 @@ JDBC_TYPE_MAP = {
     "INTERVAL": StringTypeClass,
 }
 
+
 class JDBCContainerKey(ContainerKey):
     """Container key for JDBC entities"""
+
     key: str
 
 
 class SSLConfig(ConfigModel):
     """SSL Certificate configuration"""
+
     cert_path: Optional[str] = Field(
         default=None,
         description="Path to SSL certificate file",
@@ -131,6 +138,7 @@ class SSLConfig(ConfigModel):
 
 class JDBCConnectionConfig(ConfigModel):
     """JDBC Connection configuration"""
+
     uri: str = Field(
         description="JDBC URI (jdbc:protocol://host:port/database)",
     )
@@ -160,6 +168,7 @@ class JDBCConnectionConfig(ConfigModel):
 
 class JDBCDriverConfig(ConfigModel):
     """JDBC Driver configuration"""
+
     driver_class: str = Field(
         description="Fully qualified JDBC driver class name",
     )
@@ -180,8 +189,10 @@ class JDBCDriverConfig(ConfigModel):
 
     @validator("maven_coordinates")
     def validate_maven_coordinates(cls, v: Optional[str]) -> Optional[str]:
-        if v and not re.match(r'^[^:]+:[^:]+:[^:]+$', v):
-            raise ValueError("maven_coordinates must be in format 'groupId:artifactId:version'")
+        if v and not re.match(r"^[^:]+:[^:]+:[^:]+$", v):
+            raise ValueError(
+                "maven_coordinates must be in format 'groupId:artifactId:version'"
+            )
         return v
 
 
@@ -191,6 +202,7 @@ class JDBCSourceConfig(
     PlatformInstanceConfigMixin,
 ):
     """Configuration for JDBC metadata extraction"""
+
     driver: JDBCDriverConfig = Field(
         description="JDBC driver configuration",
     )
@@ -229,7 +241,7 @@ class JDBCSourceConfig(
         E.g. '-Xmx1g',
         '--add-opens=java.base/java.nio=ALL-UNNAMED',
         '--add-opens=java.base/java.lang=ALL-UNNAMED',
-        '--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED'"""
+        '--add-opens=java.base/java.nio=org.apache.arrow.memory.core,ALL-UNNAMED'""",
     )
 
     schema_pattern: AllowDenyPattern = Field(
@@ -270,7 +282,7 @@ class JDBCSourceConfig(
             return v
 
         # Get available dialects (excluding private attributes)
-        valid_dialects = [d for d in dir(dialects) if not d.startswith('_')]
+        valid_dialects = [d for d in dir(dialects) if not d.startswith("_")]
 
         if v not in valid_dialects:
             raise ValueError(
@@ -280,8 +292,11 @@ class JDBCSourceConfig(
 
 
 @dataclass
-class JDBCSourceReport(SQLSourceReport, StaleEntityRemovalSourceReport, IngestionStageReport):
+class JDBCSourceReport(
+    SQLSourceReport, StaleEntityRemovalSourceReport, IngestionStageReport
+):
     """Report for JDBC source ingestion"""
+
     tables_scanned: int = 0
     views_scanned: int = 0
     stored_procedures_scanned: int = 0
@@ -323,7 +338,8 @@ class JDBCSourceReport(SQLSourceReport, StaleEntityRemovalSourceReport, Ingestio
 
 
 class JDBCSource(StatefulIngestionSourceBase):
-    """Generic JDBC Source implementation with improved database and schema handling"""
+    """Generic JDBC Source"""
+
     config: JDBCSourceConfig
     report: JDBCSourceReport
 
@@ -375,7 +391,7 @@ class JDBCSource(StatefulIngestionSourceBase):
             logger.debug(traceback.format_exc())
 
     @classmethod
-    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "DremioSource":
+    def create(cls, config_dict: Dict, ctx: PipelineContext) -> "JDBCSource":
         config = JDBCSourceConfig.parse_obj(config_dict)
         return cls(config, ctx)
 
@@ -415,19 +431,20 @@ class JDBCSource(StatefulIngestionSourceBase):
                     props = self._get_connection_properties()
 
                     # Use JVM args from config
-                    os.environ['_JAVA_OPTIONS'] = ' '.join(self.config.jvm_args)
+                    os.environ["_JAVA_OPTIONS"] = " ".join(self.config.jvm_args)
 
                     self._connection = jaydebeapi.connect(
-                        self.config.driver.driver_class,
-                        url,
-                        props,
-                        driver_path
+                        self.config.driver.driver_class, url, props, driver_path
                     )
                     return self._connection
             except Exception as e:
                 if attempt == max_retries - 1:
-                    raise Exception(f"Failed to create connection after {max_retries} attempts: {str(e)}")
-                logger.warning(f"Connection attempt {attempt + 1} failed, retrying in {retry_delay}s: {str(e)}")
+                    raise Exception(
+                        f"Failed to create connection after {max_retries} attempts: {str(e)}"
+                    )
+                logger.warning(
+                    f"Connection attempt {attempt + 1} failed, retrying in {retry_delay}s: {str(e)}"
+                )
                 time.sleep(retry_delay)
 
         raise Exception("Failed to establish connection after all retries")
@@ -458,7 +475,9 @@ class JDBCSource(StatefulIngestionSourceBase):
         try:
             group_id, artifact_id, version = coords.split(":")
         except ValueError:
-            raise ValueError(f"Invalid Maven coordinates: {coords}. Format should be groupId:artifactId:version")
+            raise ValueError(
+                f"Invalid Maven coordinates: {coords}. Format should be groupId:artifactId:version"
+            )
 
         # Create hash of coordinates for cache key
         coords_hash = hashlib.sha256(coords.encode()).hexdigest()[:12]
@@ -476,26 +495,26 @@ class JDBCSource(StatefulIngestionSourceBase):
                 f"-Dartifact={coords}",
                 f"-DoutputDirectory={temp_dir}",
                 "-Dmdep.stripVersion=true",
-                "-q"  # Quiet mode
+                "-q",  # Quiet mode
             ]
 
             try:
                 logger.info(f"Downloading driver for {coords}")
                 result = subprocess.run(
-                    maven_cmd,
-                    check=True,
-                    capture_output=True,
-                    text=True
+                    maven_cmd, check=True, capture_output=True, text=True
                 )
 
                 # The file will be named artifactId.jar due to stripVersion=true
                 downloaded_path = Path(temp_dir) / f"{artifact_id}.jar"
 
                 if not downloaded_path.exists():
-                    raise FileNotFoundError(f"Maven download succeeded but file not found at {downloaded_path}")
+                    raise FileNotFoundError(
+                        f"Maven download succeeded but file not found at {downloaded_path}"
+                    )
 
                 # Copy to cache location
                 import shutil
+
                 shutil.copy2(downloaded_path, cache_path)
                 logger.info(f"Driver downloaded and cached at {cache_path}")
 
@@ -531,9 +550,9 @@ class JDBCSource(StatefulIngestionSourceBase):
         elif ssl_config.cert_content:
             try:
                 cert_content = base64.b64decode(ssl_config.cert_content)
-                fd, temp_path = tempfile.mkstemp(suffix=f'.{ssl_config.cert_type}')
+                fd, temp_path = tempfile.mkstemp(suffix=f".{ssl_config.cert_type}")
                 self._temp_files.append(temp_path)  # Track for cleanup
-                with os.fdopen(fd, 'wb') as f:
+                with os.fdopen(fd, "wb") as f:
                     f.write(cert_content)
                 props["sslcert"] = temp_path
             except Exception as e:
@@ -550,7 +569,7 @@ class JDBCSource(StatefulIngestionSourceBase):
             database = metadata.getConnection().getCatalog()
             if not database:
                 url = self.config.connection.uri
-                match = re.search(r'jdbc:[^:]+://[^/]+/([^?;]+)', url)
+                match = re.search(r"jdbc:[^:]+://[^/]+/([^?;]+)", url)
                 if match:
                     database = match.group(1)
             return database or "default"
@@ -571,7 +590,9 @@ class JDBCSource(StatefulIngestionSourceBase):
                 "maxConnections": str(metadata.getMaxConnections()),
                 "supportsBatchUpdates": str(metadata.supportsBatchUpdates()),
                 "supportsTransactions": str(metadata.supportsTransactions()),
-                "defaultTransactionIsolation": str(metadata.getDefaultTransactionIsolation()),
+                "defaultTransactionIsolation": str(
+                    metadata.getDefaultTransactionIsolation()
+                ),
             }
 
             # Generate database container
@@ -583,19 +604,18 @@ class JDBCSource(StatefulIngestionSourceBase):
                     name=database_name,
                     customProperties=props,
                     description=f"Database {database_name}",
-                )
+                ),
             ).as_workunit()
 
             # Add subtype
             yield MetadataChangeProposalWrapper(
                 entityUrn=container_key.as_urn(),
-                aspect=SubTypesClass(typeNames=["Database"])
+                aspect=SubTypesClass(typeNames=["Database"]),
             ).as_workunit()
 
             # Add status
             yield MetadataChangeProposalWrapper(
-                entityUrn=container_key.as_urn(),
-                aspect=StatusClass(removed=False)
+                entityUrn=container_key.as_urn(), aspect=StatusClass(removed=False)
             ).as_workunit()
 
             # Add platform instance
@@ -603,13 +623,12 @@ class JDBCSource(StatefulIngestionSourceBase):
                 entityUrn=container_key.as_urn(),
                 aspect=DataPlatformInstanceClass(
                     platform=make_data_platform_urn(self.platform)
-                )
+                ),
             ).as_workunit()
 
         except Exception as e:
             self.report.report_failure(
-                "database-metadata",
-                f"Failed to extract database metadata: {str(e)}"
+                "database-metadata", f"Failed to extract database metadata: {str(e)}"
             )
             logger.error(f"Failed to extract database metadata: {str(e)}")
             logger.debug(traceback.format_exc())
@@ -630,14 +649,16 @@ class JDBCSource(StatefulIngestionSourceBase):
 
                     try:
                         # Create schema container
-                        schema_container_key = self.get_container_key(schema_name, [database_name])
+                        schema_container_key = self.get_container_key(
+                            schema_name, [database_name]
+                        )
 
                         # Link schema to database
                         yield MetadataChangeProposalWrapper(
                             entityUrn=schema_container_key.as_urn(),
                             aspect=ContainerClass(
                                 container=database_container_key.as_urn()
-                            )
+                            ),
                         ).as_workunit()
 
                         # Add schema properties
@@ -648,32 +669,31 @@ class JDBCSource(StatefulIngestionSourceBase):
                                 description=f"Schema {schema_name}",
                                 customProperties={
                                     "database": database_name,
-                                }
-                            )
+                                },
+                            ),
                         ).as_workunit()
 
                         # Add subtype
                         yield MetadataChangeProposalWrapper(
                             entityUrn=schema_container_key.as_urn(),
-                            aspect=SubTypesClass(typeNames=["Schema"])
+                            aspect=SubTypesClass(typeNames=["Schema"]),
                         ).as_workunit()
 
                         # Add status
                         yield MetadataChangeProposalWrapper(
                             entityUrn=schema_container_key.as_urn(),
-                            aspect=StatusClass(removed=False)
+                            aspect=StatusClass(removed=False),
                         ).as_workunit()
 
                     except Exception as e:
                         self.report.report_failure(
                             f"schema-{schema_name}",
-                            f"Failed to process schema: {str(e)}"
+                            f"Failed to process schema: {str(e)}",
                         )
 
         except Exception as e:
             self.report.report_failure(
-                "schemas",
-                f"Failed to extract schemas: {str(e)}"
+                "schemas", f"Failed to extract schemas: {str(e)}"
             )
             logger.error(f"Failed to extract schemas: {str(e)}")
             logger.debug(traceback.format_exc())
@@ -699,7 +719,9 @@ class JDBCSource(StatefulIngestionSourceBase):
                     if not table_types:
                         continue
 
-                    with metadata.getTables(None, schema_name, None, table_types) as table_rs:
+                    with metadata.getTables(
+                        None, schema_name, None, table_types
+                    ) as table_rs:
                         while table_rs.next():
                             try:
                                 table_name = table_rs.getString(3)
@@ -711,7 +733,10 @@ class JDBCSource(StatefulIngestionSourceBase):
                                     self.report.report_table_filtered(full_name)
                                     continue
 
-                                if table_type == "VIEW" and not self.config.view_pattern.allowed(full_name):
+                                if (
+                                    table_type == "VIEW"
+                                    and not self.config.view_pattern.allowed(full_name)
+                                ):
                                     self.report.report_view_filtered(full_name)
                                     continue
 
@@ -721,7 +746,7 @@ class JDBCSource(StatefulIngestionSourceBase):
                                     schema_name,
                                     table_name,
                                     table_type,
-                                    table_remarks
+                                    table_remarks,
                                 )
 
                                 if table_type == "TABLE":
@@ -732,7 +757,7 @@ class JDBCSource(StatefulIngestionSourceBase):
                             except Exception as e:
                                 self.report.report_failure(
                                     f"table-{schema_name}.{table_name}",
-                                    f"Failed to extract table: {str(e)}"
+                                    f"Failed to extract table: {str(e)}",
                                 )
 
         except Exception as exc:
@@ -741,17 +766,17 @@ class JDBCSource(StatefulIngestionSourceBase):
                 context=table_name,
                 exc=exc,
             )
-            logger.error(f"Failed to extract tables and views: {str(e)}")
+            logger.error(f"Failed to extract tables and views: {str(exc)}")
             logger.debug(traceback.format_exc())
 
     def _extract_table_metadata(
-            self,
-            metadata,
-            database: str,
-            schema: str,
-            table: str,
-            table_type: str,
-            remarks: Optional[str]
+        self,
+        metadata,
+        database: str,
+        schema: str,
+        table: str,
+        table_type: str,
+        remarks: Optional[str],
     ) -> Iterable[MetadataWorkUnit]:
         """Extract metadata for a table/view with improved type handling"""
         full_name = f"{schema}.{table}"
@@ -793,7 +818,7 @@ class JDBCSource(StatefulIngestionSourceBase):
                     nativeDataType=native_type,
                     type=SchemaFieldDataTypeClass(type=type_class()),
                     description=remarks if remarks else None,
-                    nullable=nullable
+                    nullable=nullable,
                 )
                 fields.append(field)
 
@@ -815,13 +840,15 @@ class JDBCSource(StatefulIngestionSourceBase):
                     pk_table = rs.getString("PKTABLE_NAME")
                     pk_column = rs.getString("PKCOLUMN_NAME")
 
-                    foreign_keys.append({
-                        "name": fk_name,
-                        "sourceColumn": fk_column,
-                        "targetSchema": pk_schema,
-                        "targetTable": pk_table,
-                        "targetColumn": pk_column
-                    })
+                    foreign_keys.append(
+                        {
+                            "name": fk_name,
+                            "sourceColumn": fk_column,
+                            "targetSchema": pk_schema,
+                            "targetTable": pk_table,
+                            "targetColumn": pk_column,
+                        }
+                    )
         except Exception as e:
             logger.debug(f"Could not get foreign key info for {full_name}: {e}")
 
@@ -851,31 +878,23 @@ class JDBCSource(StatefulIngestionSourceBase):
         # Add dataset to container
         schema_container_key = self.get_container_key(schema, [database])
         yield from add_dataset_to_container(
-            container_key=schema_container_key,
-            dataset_urn=dataset_urn
+            container_key=schema_container_key, dataset_urn=dataset_urn
         )
 
         # Generate schema metadata workunit
         yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=schema_metadata
+            entityUrn=dataset_urn, aspect=schema_metadata
         ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=DatasetProperties(
-                name=table,
-                qualifiedName=f"{database}.{schema}.{table}"
-            )
+                name=table, qualifiedName=f"{database}.{schema}.{table}"
+            ),
         ).as_workunit()
 
         yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=SubTypesClass(
-                typeNames=[
-                    table_type.title()
-                ]
-            )
+            entityUrn=dataset_urn, aspect=SubTypesClass(typeNames=[table_type.title()])
         ).as_workunit()
 
         # For views, get view definition
@@ -897,8 +916,7 @@ class JDBCSource(StatefulIngestionSourceBase):
                     )
 
                     yield MetadataChangeProposalWrapper(
-                        entityUrn=dataset_urn,
-                        aspect=view_properties
+                        entityUrn=dataset_urn, aspect=view_properties
                     ).as_workunit()
 
             except Exception as e:
@@ -920,31 +938,51 @@ class JDBCSource(StatefulIngestionSourceBase):
                         col_name = rs_metadata.getColumnName(i).upper()
                         col_type = rs_metadata.getColumnTypeName(i)
                         # Look for string columns with names suggesting view definition content
-                        if (col_type.upper() in (
-                        "VARCHAR", "CLOB", "TEXT", "LONGVARCHAR", "NVARCHAR", "CHARACTER VARYING") and
-                                ("SQL" in col_name or "TEXT" in col_name or "DEFINITION" in col_name or
-                                 "SOURCE" in col_name or "BODY" in col_name or "DDL" in col_name)):
+                        if col_type.upper() in (
+                            "VARCHAR",
+                            "CLOB",
+                            "TEXT",
+                            "LONGVARCHAR",
+                            "NVARCHAR",
+                            "CHARACTER VARYING",
+                        ) and (
+                            "SQL" in col_name
+                            or "TEXT" in col_name
+                            or "DEFINITION" in col_name
+                            or "SOURCE" in col_name
+                            or "BODY" in col_name
+                            or "DDL" in col_name
+                        ):
                             sql_columns.append((i, col_name))
 
-                    logger.debug(f"Found potential view definition columns: {sql_columns}")
+                    logger.debug(
+                        f"Found potential view definition columns: {sql_columns}"
+                    )
 
                     # Try each potential column
                     for col_idx, col_name in sql_columns:
                         try:
                             definition = rs.getString(col_idx)
-                            if definition and ("SELECT" in definition.upper() or "WITH" in definition.upper()):
-                                logger.debug(f"Found view definition in column: {col_name}")
+                            if definition and (
+                                "SELECT" in definition.upper()
+                                or "WITH" in definition.upper()
+                            ):
+                                logger.debug(
+                                    f"Found view definition in column: {col_name}"
+                                )
                                 return self._clean_sql(definition)
                         except Exception as e:
-                            logger.debug(f"Failed to get definition from column {col_name}: {e}")
+                            logger.debug(
+                                f"Failed to get definition from column {col_name}: {e}"
+                            )
 
             # Second try: Query INFORMATION_SCHEMA.COLUMNS to find view definition column
             try:
                 info_schema_query = """
-                    SELECT COLUMN_NAME 
-                    FROM INFORMATION_SCHEMA.COLUMNS 
-                    WHERE TABLE_SCHEMA = 'INFORMATION_SCHEMA' 
-                    AND TABLE_NAME = 'VIEWS' 
+                    SELECT COLUMN_NAME
+                    FROM INFORMATION_SCHEMA.COLUMNS
+                    WHERE TABLE_SCHEMA = 'INFORMATION_SCHEMA'
+                    AND TABLE_NAME = 'VIEWS'
                     AND DATA_TYPE IN ('VARCHAR', 'CLOB', 'TEXT', 'LONGVARCHAR', 'NVARCHAR', 'CHARACTER VARYING')
                 """
                 with metadata.getConnection().createStatement() as stmt:
@@ -955,7 +993,9 @@ class JDBCSource(StatefulIngestionSourceBase):
                             col_name = rs.getString(1)
                             definition_columns.append(col_name)
 
-                        logger.debug(f"Found INFORMATION_SCHEMA.VIEWS columns: {definition_columns}")
+                        logger.debug(
+                            f"Found INFORMATION_SCHEMA.VIEWS columns: {definition_columns}"
+                        )
 
                         # Try each discovered column
                         for col_name in definition_columns:
@@ -965,9 +1005,12 @@ class JDBCSource(StatefulIngestionSourceBase):
                                     if def_rs.next():
                                         definition = def_rs.getString(1)
                                         if definition and (
-                                                "SELECT" in definition.upper() or "WITH" in definition.upper()):
+                                            "SELECT" in definition.upper()
+                                            or "WITH" in definition.upper()
+                                        ):
                                             logger.debug(
-                                                f"Found view definition in INFORMATION_SCHEMA.VIEWS.{col_name}")
+                                                f"Found view definition in INFORMATION_SCHEMA.VIEWS.{col_name}"
+                                            )
                                             return self._clean_sql(definition)
                             except Exception as e:
                                 logger.debug(f"Failed to query column {col_name}: {e}")
@@ -988,7 +1031,7 @@ class JDBCSource(StatefulIngestionSourceBase):
             ddl_queries = [
                 f"SHOW CREATE TABLE {schema}.{table}",
                 f"SELECT DDL FROM ALL_OBJECTS WHERE OWNER = '{schema}' AND OBJECT_NAME = '{table}'",
-                f"SELECT definition FROM sys.sql_modules WHERE object_id = OBJECT_ID('{schema}.{table}')"
+                f"SELECT definition FROM sys.sql_modules WHERE object_id = OBJECT_ID('{schema}.{table}')",
             ]
 
             for query in ddl_queries:
@@ -1030,15 +1073,19 @@ class JDBCSource(StatefulIngestionSourceBase):
                         full_name = f"{schema_name}.{proc_name}"
 
                         # Create stored procedure container
-                        container_key = self.get_container_key(proc_name, [database_name, schema_name])
+                        container_key = self.get_container_key(
+                            proc_name, [database_name, schema_name]
+                        )
 
                         # Add to schema container
-                        schema_container_key = self.get_container_key(schema_name, [database_name])
+                        schema_container_key = self.get_container_key(
+                            schema_name, [database_name]
+                        )
                         yield MetadataChangeProposalWrapper(
                             entityUrn=container_key.as_urn(),
                             aspect=ContainerClass(
                                 container=schema_container_key.as_urn()
-                            )
+                            ),
                         ).as_workunit()
 
                         # Add properties
@@ -1049,14 +1096,14 @@ class JDBCSource(StatefulIngestionSourceBase):
                                 description=remarks if remarks else None,
                                 customProperties={
                                     "type": self._get_procedure_type(proc_type),
-                                }
-                            )
+                                },
+                            ),
                         ).as_workunit()
 
                         # Add subtype
                         yield MetadataChangeProposalWrapper(
                             entityUrn=container_key.as_urn(),
-                            aspect=SubTypesClass(typeNames=["StoredProcedure"])
+                            aspect=SubTypesClass(typeNames=["StoredProcedure"]),
                         ).as_workunit()
 
                         self.report.report_stored_procedure_scanned(full_name)
@@ -1064,13 +1111,12 @@ class JDBCSource(StatefulIngestionSourceBase):
                     except Exception as e:
                         self.report.report_failure(
                             f"proc-{schema_name}.{proc_name}",
-                            f"Failed to extract stored procedure: {str(e)}"
+                            f"Failed to extract stored procedure: {str(e)}",
                         )
 
         except Exception as e:
             self.report.report_failure(
-                "stored-procedures",
-                f"Failed to extract stored procedures: {str(e)}"
+                "stored-procedures", f"Failed to extract stored procedures: {str(e)}"
             )
             logger.error(f"Failed to extract stored procedures: {str(e)}")
             logger.debug(traceback.format_exc())
@@ -1078,11 +1124,7 @@ class JDBCSource(StatefulIngestionSourceBase):
     def _get_procedure_type(self, type_value: int) -> str:
         """Map procedure type value to string"""
         # Based on DatabaseMetaData.procedureNoResult etc.
-        type_map = {
-            0: "NO_RESULT",
-            1: "RETURNS_RESULT",
-            2: "RETURNS_OUTPUT"
-        }
+        type_map = {0: "NO_RESULT", 1: "RETURNS_RESULT", 2: "RETURNS_OUTPUT"}
         return type_map.get(type_value, "UNKNOWN")
 
     def _clean_sql(self, sql: str) -> str:
@@ -1091,11 +1133,11 @@ class JDBCSource(StatefulIngestionSourceBase):
             return ""
 
         # Remove comments
-        sql = re.sub(r'--.*', '', sql, flags=re.MULTILINE)
-        sql = re.sub(r'/\*.*?\*/', '', sql, flags=re.DOTALL)
+        sql = re.sub(r"--.*", "", sql, flags=re.MULTILINE)
+        sql = re.sub(r"/\*.*?\*/", "", sql, flags=re.DOTALL)
 
         # Normalize whitespace
-        sql = re.sub(r'\s+', ' ', sql.strip())
+        sql = re.sub(r"\s+", " ", sql.strip())
 
         return sql
 
