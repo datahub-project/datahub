@@ -639,6 +639,7 @@ class SiteIdContentUrl:
     site_content_url: str
 
 
+@dataclass
 class TableauSourceReport(
     StaleEntityRemovalSourceReport,
     IngestionStageReport,
@@ -670,7 +671,7 @@ class TableauSourceReport(
     num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
     num_hidden_assets_skipped: int = 0
-    logged_in_user: List[UserInfo] = []
+    logged_in_user: List[UserInfo] = field(default_factory=list)
 
 
 def report_user_role(report: TableauSourceReport, server: Server) -> None:
@@ -834,6 +835,9 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     platform=self.platform,
                 )
                 yield from site_source.ingest_tableau_site()
+
+            self.report.report_ingestion_stage_start("End")
+            
         except MetadataQueryException as md_exception:
             self.report.failure(
                 title="Failed to Retrieve Tableau Metadata",
