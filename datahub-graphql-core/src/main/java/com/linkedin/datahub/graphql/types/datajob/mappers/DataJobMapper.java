@@ -18,6 +18,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataFlow;
 import com.linkedin.datahub.graphql.generated.DataJob;
 import com.linkedin.datahub.graphql.generated.DataJobEditableProperties;
@@ -129,6 +130,14 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
               } else if (DATA_PLATFORM_INSTANCE_ASPECT_NAME.equals(name)) {
                 result.setDataPlatformInstance(
                     DataPlatformInstanceAspectMapper.map(context, new DataPlatformInstance(data)));
+              } else if (CONTAINER_ASPECT_NAME.equals(name)) {
+                final com.linkedin.container.Container gmsContainer =
+                    new com.linkedin.container.Container(data);
+                result.setContainer(
+                    Container.builder()
+                        .setType(EntityType.CONTAINER)
+                        .setUrn(gmsContainer.getContainer().toString())
+                        .build());
               } else if (BROWSE_PATHS_V2_ASPECT_NAME.equals(name)) {
                 result.setBrowsePathV2(BrowsePathsV2Mapper.map(context, new BrowsePathsV2(data)));
               } else if (SUB_TYPES_ASPECT_NAME.equals(name)) {
