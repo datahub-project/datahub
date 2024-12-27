@@ -592,7 +592,7 @@ LIMIT 100
 @patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
 @patch("google.cloud.resourcemanager_v3.ProjectsClient")
 @pytest.mark.parametrize(
-    "use_queries_v2, include_view_lineage, golden_file",
+    "use_queries_v2, include_table_lineage, golden_file",
     [
         (True, False, "bigquery_mcp_lineage_golden"),
         (True, True, "bigquery_mcp_full_lineage_golden"),
@@ -614,7 +614,7 @@ def test_bigquery_lineage_v2_ingest_view_snapshots(
     pytestconfig,
     tmp_path,
     use_queries_v2,
-    include_view_lineage,
+    include_table_lineage,
     golden_file,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/bigquery_v2"
@@ -708,8 +708,7 @@ def test_bigquery_lineage_v2_ingest_view_snapshots(
         mcp_output_path=mcp_output_path,
         source_config_override={
             "use_queries_v2": use_queries_v2,
-            "include_table_lineage": False,
-            "include_view_lineage": include_view_lineage,
+            "include_table_lineage": include_table_lineage,
             "include_usage_statistics": True,
             "classification": {"enabled": False},
         },
