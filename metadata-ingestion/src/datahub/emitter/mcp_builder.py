@@ -90,6 +90,25 @@ class ContainerKey(DatahubKey):
     def as_urn(self) -> str:
         return make_container_urn(guid=self.guid())
 
+    def parent_key(self) -> Optional["ContainerKey"]:
+        # Find the immediate base class of self.
+        # This is a bit of a hack, but it works.
+        base_classes = self.__class__.__bases__
+        if len(base_classes) != 1:
+            # TODO: Raise a more specific error.
+            raise ValueError(
+                f"Unable to determine parent key for {self.__class__}: {self}"
+            )
+        base_class = base_classes[0]
+        if base_class is DatahubKey or base_class is ContainerKey:
+            return None
+
+        # We need to use `__dict__` instead of `pydantic.BaseModel.dict()`
+        # in order to include "excluded" fields e.g. `backcompat_env_as_instance`.
+        # Tricky: this only works because DatahubKey is a BaseModel and hence
+        # allows extra fields.
+        return base_class(**self.__dict__)
+
 
 # DEPRECATION: Keeping the `PlatformKey` name around for backwards compatibility.
 PlatformKey = ContainerKey
