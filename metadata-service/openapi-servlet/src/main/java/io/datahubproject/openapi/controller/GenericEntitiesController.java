@@ -637,7 +637,7 @@ public abstract class GenericEntitiesController<
     AspectSpec aspectSpec = lookupAspectSpec(entitySpec, aspectName).get();
     ChangeMCP upsert =
         toUpsertItem(
-            opContext.getRetrieverContext().get().getAspectRetriever(),
+            opContext.getRetrieverContext().getAspectRetriever(),
             urn,
             aspectSpec,
             createIfEntityNotExists,
@@ -649,7 +649,7 @@ public abstract class GenericEntitiesController<
         entityService.ingestProposal(
             opContext,
             AspectsBatchImpl.builder()
-                .retrieverContext(opContext.getRetrieverContext().get())
+                .retrieverContext(opContext.getRetrieverContext())
                 .items(List.of(upsert))
                 .build(),
             async);
@@ -725,7 +725,7 @@ public abstract class GenericEntitiesController<
             .build();
     ChangeMCP upsert =
         toUpsertItem(
-            opContext.getRetrieverContext().get().getAspectRetriever(),
+            opContext.getRetrieverContext().getAspectRetriever(),
             validatedUrn(entityUrn),
             aspectSpec,
             currentValue,
@@ -736,7 +736,7 @@ public abstract class GenericEntitiesController<
         entityService.ingestAspects(
             opContext,
             AspectsBatchImpl.builder()
-                .retrieverContext(opContext.getRetrieverContext().get())
+                .retrieverContext(opContext.getRetrieverContext())
                 .items(List.of(upsert))
                 .build(),
             true,

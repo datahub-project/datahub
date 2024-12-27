@@ -1,9 +1,11 @@
-package io.datahubproject.openapi;
+package io.datahubproject.openapi.config;
 
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
+import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.openapi.exception.UnauthorizedException;
 import java.util.Map;
+import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.ConversionNotSupportedException;
 import org.springframework.core.Ordered;
@@ -18,6 +20,11 @@ import org.springframework.web.servlet.mvc.support.DefaultHandlerExceptionResolv
 @Slf4j
 @ControllerAdvice
 public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionResolver {
+
+  @PostConstruct
+  public void init() {
+    log.info("GlobalControllerExceptionHandler initialized");
+  }
 
   public GlobalControllerExceptionHandler() {
     setOrder(Ordered.HIGHEST_PRECEDENCE);
@@ -50,6 +57,11 @@ public class GlobalControllerExceptionHandler extends DefaultHandlerExceptionRes
   @ExceptionHandler(UnauthorizedException.class)
   public static ResponseEntity<Map<String, String>> handleUnauthorizedException(
       UnauthorizedException e) {
+    return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.FORBIDDEN);
+  }
+
+  @ExceptionHandler(ActorAccessException.class)
+  public static ResponseEntity<Map<String, String>> actorAccessException(ActorAccessException e) {
     return new ResponseEntity<>(Map.of("error", e.getMessage()), HttpStatus.FORBIDDEN);
   }
 }

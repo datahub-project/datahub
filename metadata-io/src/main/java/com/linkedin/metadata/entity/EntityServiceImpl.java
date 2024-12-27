@@ -238,7 +238,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       boolean alwaysIncludeKeyAspect) {
 
     Map<EntityAspectIdentifier, EntityAspect> batchGetResults =
-        getLatestAspect(opContext, urns, aspectNames);
+        getLatestAspect(opContext, urns, aspectNames, false);
 
     // Fetch from db and populate urn -> aspect map.
     final Map<Urn, List<RecordTemplate>> urnToAspects = new HashMap<>();
@@ -261,8 +261,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
 
     List<SystemAspect> systemAspects =
-        EntityUtils.toSystemAspects(
-            opContext.getRetrieverContext().get(), batchGetResults.values());
+        EntityUtils.toSystemAspects(opContext.getRetrieverContext(), batchGetResults.values());
 
     systemAspects.stream()
         // for now, don't add the key aspect here we have already added it above
@@ -285,12 +284,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   public Map<String, RecordTemplate> getLatestAspectsForUrn(
       @Nonnull OperationContext opContext,
       @Nonnull final Urn urn,
-      @Nonnull final Set<String> aspectNames) {
+      @Nonnull final Set<String> aspectNames,
+      boolean forUpdate) {
     Map<EntityAspectIdentifier, EntityAspect> batchGetResults =
-        getLatestAspect(opContext, new HashSet<>(Arrays.asList(urn)), aspectNames);
+        getLatestAspect(opContext, new HashSet<>(Arrays.asList(urn)), aspectNames, forUpdate);
 
-    return EntityUtils.toSystemAspects(
-            opContext.getRetrieverContext().get(), batchGetResults.values())
+    return EntityUtils.toSystemAspects(opContext.getRetrieverContext(), batchGetResults.values())
         .stream()
         .map(
             systemAspect -> Pair.of(systemAspect.getAspectName(), systemAspect.getRecordTemplate()))
@@ -334,7 +333,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final Optional<EntityAspect> maybeAspect = Optional.ofNullable(aspectDao.getAspect(primaryKey));
 
     return Pair.of(
-        EntityUtils.toSystemAspect(opContext.getRetrieverContext().get(), maybeAspect.orElse(null))
+        EntityUtils.toSystemAspect(opContext.getRetrieverContext(), maybeAspect.orElse(null))
             .map(SystemAspect::getRecordTemplate)
             .orElse(null),
         version);
@@ -720,7 +719,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
 
     return new ListResult<>(
-        EntityUtils.toSystemAspects(opContext.getRetrieverContext().get(), entityAspects).stream()
+        EntityUtils.toSystemAspects(opContext.getRetrieverContext(), entityAspects).stream()
             .map(SystemAspect::getRecordTemplate)
             .collect(Collectors.toList()),
         aspectMetadataList.getMetadata(),
@@ -757,12 +756,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                         .recordTemplate(pair.getValue())
                         .systemMetadata(systemMetadata)
                         .auditStamp(auditStamp)
-                        .build(opContext.getAspectRetrieverOpt().get()))
+                        .build(opContext.getAspectRetriever()))
             .collect(Collectors.toList());
     return ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,
@@ -814,13 +813,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     log.debug("Considering {} MCLs post commit side effects.", mcls.size());
     List<MCLItem> batch =
         mcls.stream()
-            .map(mcl -> MCLItemImpl.builder().build(mcl, opContext.getAspectRetrieverOpt().get()))
+            .map(mcl -> MCLItemImpl.builder().build(mcl, opContext.getAspectRetriever()))
             .collect(Collectors.toList());
 
     Iterable<List<MCPItem>> iterable =
         () ->
             Iterators.partition(
-                AspectsBatch.applyPostMCPSideEffects(batch, opContext.getRetrieverContext().get())
+                AspectsBatch.applyPostMCPSideEffects(batch, opContext.getRetrieverContext())
                     .iterator(),
                 MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE);
     StreamSupport.stream(iterable.spliterator(), false)
@@ -830,7 +829,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   ingestProposalAsync(
                           AspectsBatchImpl.builder()
                               .items(sideEffects)
-                              .retrieverContext(opContext.getRetrieverContext().get())
+                              .retrieverContext(opContext.getRetrieverContext())
                               .build())
                       .count();
               log.info("Generated {} MCP SideEffects for async processing", count);
@@ -868,13 +867,17 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
               // Read before write is unfortunate, however batch it
               final Map<String, Set<String>> urnAspects = batchWithDefaults.getUrnAspectsMap();
+
               // read #1
+              // READ COMMITED is used in conjunction with SELECT FOR UPDATE (read lock) in order
+              // to ensure that the aspect's version is not modified outside the transaction.
+              // We rely on the retry mechanism if the row is modified and will re-read (require the
+              // lock)
               Map<String, Map<String, EntityAspect>> databaseAspects =
                   aspectDao.getLatestAspects(urnAspects, true);
 
               final Map<String, Map<String, SystemAspect>> batchAspects =
-                  EntityUtils.toSystemAspects(
-                      opContext.getRetrieverContext().get(), databaseAspects);
+                  EntityUtils.toSystemAspects(opContext.getRetrieverContext(), databaseAspects);
 
               // read #2 (potentially)
               final Map<String, Map<String, Long>> nextVersions =
@@ -897,7 +900,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                 Map<String, Map<String, SystemAspect>> newLatestAspects =
                     EntityUtils.toSystemAspects(
-                        opContext.getRetrieverContext().get(),
+                        opContext.getRetrieverContext(),
                         aspectDao.getLatestAspects(updatedItems.getFirst(), true));
                 // merge
                 updatedLatestAspects = AspectsBatch.merge(batchAspects, newLatestAspects);
@@ -935,20 +938,30 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
               // do final pre-commit checks with previous aspect value
               ValidationExceptionCollection exceptions =
-                  AspectsBatch.validatePreCommit(changeMCPs, opContext.getRetrieverContext().get());
-              if (!exceptions.isEmpty()) {
-                MetricUtils.counter(EntityServiceImpl.class, "batch_validation_exception").inc();
-                throw new ValidationException(collectMetrics(exceptions).toString());
+                  AspectsBatch.validatePreCommit(changeMCPs, opContext.getRetrieverContext());
+
+              if (exceptions.hasFatalExceptions()) {
+                // IF this is a client request/API request we fail the `transaction batch`
+                if (opContext.getRequestContext() != null) {
+                  MetricUtils.counter(EntityServiceImpl.class, "batch_request_validation_exception")
+                      .inc();
+                  throw new ValidationException(collectMetrics(exceptions).toString());
+                }
+
+                MetricUtils.counter(EntityServiceImpl.class, "batch_consumer_validation_exception")
+                    .inc();
+                log.error("mce-consumer batch exceptions: {}", collectMetrics(exceptions));
               }
 
-              // Database Upsert results
+              // Database Upsert successfully validated results
               log.info(
                   "Ingesting aspects batch to database: {}",
                   AspectsBatch.toAbbreviatedString(changeMCPs, 2048));
               Timer.Context ingestToLocalDBTimer =
                   MetricUtils.timer(this.getClass(), "ingestAspectsToLocalDB").time();
               List<UpdateAspectResult> upsertResults =
-                  changeMCPs.stream()
+                  exceptions
+                      .streamSuccessful(changeMCPs.stream())
                       .map(
                           writeItem -> {
 
@@ -1127,8 +1140,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     .recordTemplate(newValue)
                     .systemMetadata(systemMetadata)
                     .auditStamp(auditStamp)
-                    .build(opContext.getAspectRetrieverOpt().get()),
-                opContext.getRetrieverContext().get())
+                    .build(opContext.getAspectRetriever()),
+                opContext.getRetrieverContext())
             .build();
     List<UpdateAspectResult> ingested = ingestAspects(opContext, aspectsBatch, true, false);
 
@@ -1153,7 +1166,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return ingestProposal(
             opContext,
             AspectsBatchImpl.builder()
-                .mcps(List.of(proposal), auditStamp, opContext.getRetrieverContext().get())
+                .mcps(List.of(proposal), auditStamp, opContext.getRetrieverContext())
                 .build(),
             async)
         .stream()
@@ -1230,7 +1243,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                           .recordTemplate(
                               EntityApiUtils.buildKeyAspect(
                                   opContext.getEntityRegistry(), item.getUrn()))
-                          .build(opContext.getAspectRetrieverOpt().get()))
+                          .build(opContext.getAspectRetriever()))
               .collect(Collectors.toList());
 
       ingestProposalSync(
@@ -1453,7 +1466,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                 List<SystemAspect> systemAspects =
                     EntityUtils.toSystemAspectFromEbeanAspects(
-                        opContext.getRetrieverContext().get(), batch.collect(Collectors.toList()));
+                        opContext.getRetrieverContext(), batch.collect(Collectors.toList()));
 
                 RestoreIndicesResult result = restoreIndices(opContext, systemAspects, logger);
                 result.timeSqlQueryMs = timeSqlQueryMs;
@@ -1497,8 +1510,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         long startTime = System.currentTimeMillis();
         List<SystemAspect> systemAspects =
             EntityUtils.toSystemAspects(
-                opContext.getRetrieverContext().get(),
-                getLatestAspect(opContext, entityBatch.getValue(), aspectNames).values());
+                opContext.getRetrieverContext(),
+                getLatestAspect(opContext, entityBatch.getValue(), aspectNames, false).values());
         long timeSqlQueryMs = System.currentTimeMillis() - startTime;
 
         RestoreIndicesResult result = restoreIndices(opContext, systemAspects, s -> {});
@@ -1633,12 +1646,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                   .auditStamp(auditStamp)
                   .systemMetadata(latestSystemMetadata)
                   .recordTemplate(EntityApiUtils.buildKeyAspect(opContext.getEntityRegistry(), urn))
-                  .build(opContext.getAspectRetrieverOpt().get()));
+                  .build(opContext.getAspectRetriever()));
       Stream<IngestResult> defaultAspectsResult =
           ingestProposalSync(
               opContext,
               AspectsBatchImpl.builder()
-                  .retrieverContext(opContext.getRetrieverContext().get())
+                  .retrieverContext(opContext.getRetrieverContext())
                   .items(keyAspect)
                   .build());
       defaultAspectsCreated += defaultAspectsResult.count();
@@ -1950,7 +1963,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     AspectsBatchImpl aspectsBatch =
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(
                 aspectRecordsToIngest.stream()
                     .map(
@@ -1961,7 +1974,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                 .recordTemplate(pair.getValue())
                                 .auditStamp(auditStamp)
                                 .systemMetadata(systemMetadata)
-                                .build(opContext.getAspectRetrieverOpt().get()))
+                                .build(opContext.getAspectRetriever()))
                     .collect(Collectors.toList()))
             .build();
 
@@ -2112,7 +2125,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
 
     SystemMetadata latestKeySystemMetadata =
-        EntityUtils.toSystemAspect(opContext.getRetrieverContext().get(), latestKey)
+        EntityUtils.toSystemAspect(opContext.getRetrieverContext(), latestKey)
             .map(SystemAspect::getSystemMetadata)
             .get();
     RollbackResult result =
@@ -2168,7 +2181,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nonnull OperationContext opContext,
       @Nonnull final Collection<Urn> urns,
       @Nullable String aspectName,
-      boolean includeSoftDeleted) {
+      boolean includeSoftDeleted,
+      boolean forUpdate) {
     final Set<EntityAspectIdentifier> dbKeys =
         urns.stream()
             .map(
@@ -2184,11 +2198,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                             : aspectName,
                         ASPECT_LATEST_VERSION))
             .collect(Collectors.toSet());
-    final Map<EntityAspectIdentifier, EntityAspect> aspects = aspectDao.batchGet(dbKeys);
+    final Map<EntityAspectIdentifier, EntityAspect> aspects = aspectDao.batchGet(dbKeys, forUpdate);
     final Set<String> existingUrnStrings =
         aspects.values().stream()
-            .filter(aspect -> aspect != null)
-            .map(aspect -> aspect.getUrn())
+            .filter(Objects::nonNull)
+            .map(EntityAspect::getUrn)
             .collect(Collectors.toSet());
 
     Set<Urn> existing =
@@ -2236,11 +2250,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
             .urn(entityUrn)
             .aspectName(aspectName)
             .auditStamp(auditStamp)
-            .build(opContext.getAspectRetrieverOpt().get());
+            .build(opContext.getAspectRetriever());
 
     // Delete validation hooks
     ValidationExceptionCollection exceptions =
-        AspectsBatch.validateProposed(List.of(deleteItem), opContext.getRetrieverContext().get());
+        AspectsBatch.validateProposed(List.of(deleteItem), opContext.getRetrieverContext());
     if (!exceptions.isEmpty()) {
       throw new ValidationException(collectMetrics(exceptions).toString());
     }
@@ -2254,7 +2268,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
               final EntityAspect.EntitySystemAspect latest =
                   (EntityAspect.EntitySystemAspect)
                       EntityUtils.toSystemAspect(
-                              opContext.getRetrieverContext().get(),
+                              opContext.getRetrieverContext(),
                               aspectDao.getLatestAspect(urn, aspectName, false))
                           .orElse(null);
 
@@ -2282,7 +2296,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                 EntityAspect.EntitySystemAspect candidateAspect =
                     (EntityAspect.EntitySystemAspect)
                         EntityUtils.toSystemAspect(
-                                opContext.getRetrieverContext().get(),
+                                opContext.getRetrieverContext(),
                                 aspectDao.getAspect(urn, aspectName, maxVersion))
                             .orElse(null);
                 SystemMetadata previousSysMetadata =
@@ -2308,13 +2322,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                       .urn(UrnUtils.getUrn(toDelete.getUrn()))
                                       .aspectName(toDelete.getAspect())
                                       .auditStamp(auditStamp)
-                                      .build(
-                                          opContext
-                                              .getRetrieverContext()
-                                              .get()
-                                              .getAspectRetriever()))
+                                      .build(opContext.getAspectRetriever()))
                           .collect(Collectors.toList()),
-                      opContext.getRetrieverContext().get());
+                      opContext.getRetrieverContext());
               if (!preCommitExceptions.isEmpty()) {
                 throw new ValidationException(collectMetrics(preCommitExceptions).toString());
               }
@@ -2444,7 +2454,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private Map<EntityAspectIdentifier, EntityAspect> getLatestAspect(
       @Nonnull OperationContext opContext,
       @Nonnull final Set<Urn> urns,
-      @Nonnull final Set<String> aspectNames) {
+      @Nonnull final Set<String> aspectNames,
+      boolean forUpdate) {
 
     log.debug("Invoked getLatestAspects with urns: {}, aspectNames: {}", urns, aspectNames);
 
@@ -2468,7 +2479,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     Map<EntityAspectIdentifier, EntityAspect> batchGetResults = new HashMap<>();
     Iterators.partition(dbKeys.iterator(), MAX_KEYS_PER_QUERY)
         .forEachRemaining(
-            batch -> batchGetResults.putAll(aspectDao.batchGet(ImmutableSet.copyOf(batch))));
+            batch ->
+                batchGetResults.putAll(aspectDao.batchGet(ImmutableSet.copyOf(batch), forUpdate)));
     return batchGetResults;
   }
 
@@ -2487,10 +2499,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private Map<EntityAspectIdentifier, EnvelopedAspect> getEnvelopedAspects(
       @Nonnull OperationContext opContext, final Set<EntityAspectIdentifier> dbKeys) {
-    final Map<EntityAspectIdentifier, EntityAspect> dbEntries = aspectDao.batchGet(dbKeys);
+    final Map<EntityAspectIdentifier, EntityAspect> dbEntries = aspectDao.batchGet(dbKeys, false);
 
     List<SystemAspect> envelopedAspects =
-        EntityUtils.toSystemAspects(opContext.getRetrieverContext().get(), dbEntries.values());
+        EntityUtils.toSystemAspects(opContext.getRetrieverContext(), dbEntries.values());
 
     return envelopedAspects.stream()
         .collect(

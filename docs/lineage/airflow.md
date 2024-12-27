@@ -339,6 +339,37 @@ TypeError: on_task_instance_success() missing 3 required positional arguments: '
 
 The solution is to upgrade `acryl-datahub-airflow-plugin>=0.12.0.4` or upgrade `pluggy>=1.2.0`. See this [PR](https://github.com/datahub-project/datahub/pull/9365) for details.
 
+### Disabling the DataHub Plugin v2
+
+There are two ways to disable the DataHub Plugin v2:
+
+#### 1. Disable via Configuration
+
+Set the `datahub.enabled` configuration property to `False` in the `airflow.cfg` file and restart the Airflow environment to reload the configuration and disable the plugin.
+
+```ini title="airflow.cfg"
+[datahub]
+enabled = False
+```
+
+#### 2. Disable via Airflow Variable (Kill-Switch)
+
+If a restart is not possible and you need a faster way to disable the plugin, you can use the kill-switch. Create and set the `datahub_airflow_plugin_disable_listener` Airflow variable to `true`. This ensures that the listener won't process anything.
+
+#### Command Line
+
+```shell
+airflow variables set datahub_airflow_plugin_disable_listener true
+```
+
+#### Airflow UI
+
+1. Go to Admin -> Variables.
+2. Click the "+" symbol to create a new variable.
+3. Set the key to `datahub_airflow_plugin_disable_listener` and the value to `true`.
+
+This will immediately disable the plugin without requiring a restart.
+
 ## Compatibility
 
 We no longer officially support Airflow <2.3. However, you can use older versions of `acryl-datahub-airflow-plugin` with older versions of Airflow.

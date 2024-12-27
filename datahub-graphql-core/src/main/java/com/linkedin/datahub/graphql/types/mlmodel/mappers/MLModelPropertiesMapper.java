@@ -7,25 +7,27 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
+import com.linkedin.datahub.graphql.types.mappers.EmbeddedModelMapper;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.NonNull;
 
-public class MLModelPropertiesMapper {
+public class MLModelPropertiesMapper
+    implements EmbeddedModelMapper<com.linkedin.ml.metadata.MLModelProperties, MLModelProperties> {
 
   public static final MLModelPropertiesMapper INSTANCE = new MLModelPropertiesMapper();
 
   public static MLModelProperties map(
       @Nullable final QueryContext context,
-      @NonNull final com.linkedin.ml.metadata.MLModelProperties mlModelProperties,
+      @Nonnull final com.linkedin.ml.metadata.MLModelProperties mlModelProperties,
       Urn entityUrn) {
     return INSTANCE.apply(context, mlModelProperties, entityUrn);
   }
 
   public MLModelProperties apply(
       @Nullable final QueryContext context,
-      @NonNull final com.linkedin.ml.metadata.MLModelProperties mlModelProperties,
-      Urn entityUrn) {
+      @Nonnull final com.linkedin.ml.metadata.MLModelProperties mlModelProperties,
+      @Nonnull Urn entityUrn) {
     final MLModelProperties result = new MLModelProperties();
 
     result.setDate(mlModelProperties.getDate());

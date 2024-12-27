@@ -342,10 +342,9 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                 filtered_user_counts.append(
                     DatasetUserUsageCounts(
                         user=make_user_urn(
-                            self.get_user_identifier(
+                            self.identifiers.get_user_identifier(
                                 user_count["user_name"],
                                 user_email,
-                                self.config.email_as_user_identifier,
                             )
                         ),
                         count=user_count["total"],
@@ -453,9 +452,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
             reported_time: int = int(time.time() * 1000)
             last_updated_timestamp: int = int(start_time.timestamp() * 1000)
             user_urn = make_user_urn(
-                self.get_user_identifier(
-                    user_name, user_email, self.config.email_as_user_identifier
-                )
+                self.identifiers.get_user_identifier(user_name, user_email)
             )
 
             # NOTE: In earlier `snowflake-usage` connector this was base_objects_accessed, which is incorrect

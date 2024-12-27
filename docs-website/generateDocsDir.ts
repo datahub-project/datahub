@@ -573,26 +573,20 @@ function write_markdown_file(
 
 function copy_python_wheels(): void {
   // Copy the built wheel files to the static directory.
-  const wheel_dirs = [
-    "../metadata-ingestion/dist",
-    "../metadata-ingestion-modules/airflow-plugin/dist",
-    "../metadata-ingestion-modules/dagster-plugin/dist",
-    "../metadata-ingestion-modules/prefect-plugin/dist",
-    "../metadata-ingestion-modules/gx-plugin/dist",
-  ];
+  // Everything is copied to the python-build directory first, so
+  // we just need to copy from there.
+  const wheel_dir = "../python-build/wheels";
 
   const wheel_output_directory = path.join(STATIC_DIRECTORY, "wheels");
   fs.mkdirSync(wheel_output_directory, { recursive: true });
 
-  for (const wheel_dir of wheel_dirs) {
-    const wheel_files = fs.readdirSync(wheel_dir);
-    for (const wheel_file of wheel_files) {
-      const src = path.join(wheel_dir, wheel_file);
-      const dest = path.join(wheel_output_directory, wheel_file);
+  const wheel_files = fs.readdirSync(wheel_dir);
+  for (const wheel_file of wheel_files) {
+    const src = path.join(wheel_dir, wheel_file);
+    const dest = path.join(wheel_output_directory, wheel_file);
 
-      // console.log(`Copying artifact ${src} to ${dest}...`);
-      fs.copyFileSync(src, dest);
-    }
+    // console.log(`Copying artifact ${src} to ${dest}...`);
+    fs.copyFileSync(src, dest);
   }
 }
 

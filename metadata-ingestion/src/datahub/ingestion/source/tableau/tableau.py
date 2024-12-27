@@ -35,7 +35,10 @@ from tableauserverclient import (
     SiteItem,
     TableauAuth,
 )
-from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
+from tableauserverclient.server.endpoint.exceptions import (
+    InternalServerError,
+    NonXMLResponseError,
+)
 from urllib3 import Retry
 
 import datahub.emitter.mce_builder as builder
@@ -49,6 +52,7 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     ContainerKey,
@@ -111,6 +115,8 @@ from datahub.ingestion.source.tableau.tableau_common import (
     tableau_field_to_schema_field,
     workbook_graphql_query,
 )
+from datahub.ingestion.source.tableau.tableau_server_wrapper import UserInfo
+from datahub.ingestion.source.tableau.tableau_validation import check_user_role
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -167,7 +173,7 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 try:
     # On earlier versions of the tableauserverclient, the NonXMLResponseError
-    # was thrown when reauthentication was needed. We'll keep both exceptions
+    # was thrown when reauthentication was necessary. We'll keep both exceptions
     # around for now, but can remove this in the future.
     from tableauserverclient.server.endpoint.exceptions import (  # type: ignore
         NotSignedInError,
@@ -179,6 +185,15 @@ try:
     )
 except ImportError:
     REAUTHENTICATE_ERRORS = (NonXMLResponseError,)
+
+RETRIABLE_ERROR_CODES = [
+    408,  # Request Timeout
+    429,  # Too Many Requests
+    500,  # Internal Server Error
+    502,  # Bad Gateway
+    503,  # Service Unavailable
+    504,  # Gateway Timeout
+]
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -281,7 +296,7 @@ class TableauConnectionConfig(ConfigModel):
                 max_retries=Retry(
                     total=self.max_retries,
                     backoff_factor=1,
-                    status_forcelist=[429, 500, 502, 503, 504],
+                    status_forcelist=RETRIABLE_ERROR_CODES,
                 )
             )
             server._session.mount("http://", adapter)
@@ -376,11 +391,6 @@ class TableauConfig(
     page_size: int = Field(
         default=10,
         description="[advanced] Number of metadata objects (e.g. CustomSQLTable, PublishedDatasource, etc) to query at a time using the Tableau API.",
-    )
-
-    fetch_size: int = Field(
-        default=250,
-        description="Specifies the number of records to retrieve in each batch during a query execution.",
     )
 
     # We've found that even with a small workbook page size (e.g. 10), the Tableau API often
@@ -495,6 +505,10 @@ class TableauConfig(
         default=[],
         description="Tags to be added to hidden dashboards and views. If a dashboard or view is hidden in Tableau the luid is blank. "
         "This can only be used with ingest_tags enabled as it will overwrite tags entered from the UI.",
+    )
+
+    _fetch_size = pydantic_removed_field(
+        "fetch_size",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -616,6 +630,12 @@ class DatabaseTable:
                 self.parsed_columns = parsed_columns
 
 
+@dataclass
+class SiteIdContentUrl:
+    site_id: str
+    site_content_url: str
+
+
 class TableauSourceReport(StaleEntityRemovalSourceReport):
     get_all_datasources_query_failed: bool = False
     num_get_datasource_query_failures: int = 0
@@ -632,6 +652,33 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
     num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
     num_hidden_assets_skipped: int = 0
+    logged_in_user: List[UserInfo] = []
+
+
+def report_user_role(report: TableauSourceReport, server: Server) -> None:
+    title: str = "Insufficient Permissions"
+    message: str = "The user must have the `Site Administrator Explorer` role to perform metadata ingestion."
+    try:
+        # TableauSiteSource instance is per site, so each time we need to find-out user detail
+        # the site-role might be different on another site
+        logged_in_user: UserInfo = UserInfo.from_server(server=server)
+
+        if not logged_in_user.has_site_administrator_explorer_privileges():
+            report.warning(
+                title=title,
+                message=message,
+                context=f"user-name={logged_in_user.user_name}, role={logged_in_user.site_role}, site_id={logged_in_user.site_id}",
+            )
+
+        report.logged_in_user.append(logged_in_user)
+
+    except Exception as e:
+        report.warning(
+            title=title,
+            message="Failed to verify the user's role. The user must have `Site Administrator Explorer` role.",
+            context=f"{e}",
+            exc=e,
+        )
 
 
 @platform_name("Tableau")
@@ -676,6 +723,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         try:
             logger.info(f"Authenticated to Tableau site: '{site_content_url}'")
             self.server = self.config.make_tableau_client(site_content_url)
+            report_user_role(report=self.report, server=self.server)
         # Note that we're not catching ConfigurationError, since we want that to throw.
         except ValueError as e:
             self.report.failure(
@@ -689,9 +737,17 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         test_report = TestConnectionReport()
         try:
             source_config = TableauConfig.parse_obj_allow_extras(config_dict)
-            source_config.make_tableau_client(source_config.site)
+
+            server = source_config.make_tableau_client(source_config.site)
+
             test_report.basic_connectivity = CapabilityReport(capable=True)
+
+            test_report.capability_report = check_user_role(
+                logged_in_user=UserInfo.from_server(server=server)
+            )
+
         except Exception as e:
+            logger.warning(f"{e}", exc_info=e)
             test_report.basic_connectivity = CapabilityReport(
                 capable=False, failure_reason=str(e)
             )
@@ -732,7 +788,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         config=self.config,
                         ctx=self.ctx,
                         site=site,
-                        site_id=site.id,
                         report=self.report,
                         server=self.server,
                         platform=self.platform,
@@ -751,8 +806,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 site_source = TableauSiteSource(
                     config=self.config,
                     ctx=self.ctx,
-                    site=site,
-                    site_id=self.server.site_id,
+                    site=site
+                    if site
+                    else SiteIdContentUrl(
+                        site_id=self.server.site_id, site_content_url=self.config.site
+                    ),
                     report=self.report,
                     server=self.server,
                     platform=self.platform,
@@ -785,8 +843,7 @@ class TableauSiteSource:
         self,
         config: TableauConfig,
         ctx: PipelineContext,
-        site: Optional[SiteItem],
-        site_id: Optional[str],
+        site: Union[SiteItem, SiteIdContentUrl],
         report: TableauSourceReport,
         server: Server,
         platform: str,
@@ -797,13 +854,18 @@ class TableauSiteSource:
         self.ctx: PipelineContext = ctx
         self.platform = platform
 
-        self.site: Optional[SiteItem] = site
-        if site_id is not None:
-            self.site_id: str = site_id
+        self.site: Optional[SiteItem] = None
+        if isinstance(site, SiteItem):
+            self.site = site
+            assert site.id is not None, "Site ID is required"
+            self.site_id = site.id
+            self.site_content_url = site.content_url
+        elif isinstance(site, SiteIdContentUrl):
+            self.site = None
+            self.site_id = site.site_id
+            self.site_content_url = site.site_content_url
         else:
-            assert self.site is not None, "site or site_id is required"
-            assert self.site.id is not None, "site_id is required when site is provided"
-            self.site_id = self.site.id
+            raise AssertionError("site or site id+content_url pair is required")
 
         self.database_tables: Dict[str, DatabaseTable] = {}
         self.tableau_stat_registry: Dict[str, UsageStat] = {}
@@ -831,6 +893,8 @@ class TableauSiteSource:
         # when emitting custom SQL data sources.
         self.custom_sql_ids_being_used: List[str] = []
 
+        report_user_role(report=report, server=server)
+
     @property
     def no_env_browse_prefix(self) -> str:
         # Prefix to use with browse path (v1)
@@ -855,17 +919,14 @@ class TableauSiteSource:
         # datasets also have the env in the browse path
         return f"/{self.config.env.lower()}{self.no_env_browse_prefix}"
 
-    def _re_authenticate(self):
-        tableau_auth: Union[
-            TableauAuth, PersonalAccessTokenAuth
-        ] = self.config.get_tableau_auth(self.site_id)
-        self.server.auth.sign_in(tableau_auth)
-
-    @property
-    def site_content_url(self) -> Optional[str]:
-        if self.site and self.site.content_url:
-            return self.site.content_url
-        return None
+    def _re_authenticate(self) -> None:
+        self.report.info(
+            message="Re-authenticating to Tableau",
+            context=f"site='{self.site_content_url}'",
+        )
+        # Sign-in again may not be enough because Tableau sometimes caches invalid sessions
+        # so we need to recreate the Tableau Server object
+        self.server = self.config.make_tableau_client(self.site_content_url)
 
     def _populate_usage_stat_registry(self) -> None:
         if self.server is None:
@@ -1108,7 +1169,7 @@ class TableauSiteSource:
         connection_type: str,
         query_filter: str,
         current_cursor: Optional[str],
-        fetch_size: int = 250,
+        fetch_size: int,
         retry_on_auth_error: bool = True,
         retries_remaining: Optional[int] = None,
     ) -> Tuple[dict, Optional[str], int]:
@@ -1157,6 +1218,26 @@ class TableauSiteSource:
                 retry_on_auth_error=False,
                 retries_remaining=retries_remaining - 1,
             )
+
+        except InternalServerError as ise:
+            # In some cases Tableau Server returns 504 error, which is a timeout error, so it worths to retry.
+            # Extended with other retryable errors.
+            if ise.code in RETRIABLE_ERROR_CODES:
+                if retries_remaining <= 0:
+                    raise ise
+                logger.info(f"Retrying query due to error {ise.code}")
+                return self.get_connection_object_page(
+                    query=query,
+                    connection_type=connection_type,
+                    query_filter=query_filter,
+                    fetch_size=fetch_size,
+                    current_cursor=current_cursor,
+                    retry_on_auth_error=False,
+                    retries_remaining=retries_remaining - 1,
+                )
+            else:
+                raise ise
+
         except OSError:
             # In tableauseverclient 0.26 (which was yanked and released in 0.28 on 2023-10-04),
             # the request logic was changed to use threads.
@@ -1290,7 +1371,6 @@ class TableauSiteSource:
         page_size = page_size_override or self.config.page_size
 
         filter_pages = get_filter_pages(query_filter, page_size)
-
         for filter_page in filter_pages:
             has_next_page = 1
             current_cursor: Optional[str] = None
@@ -1306,7 +1386,11 @@ class TableauSiteSource:
                     connection_type=connection_type,
                     query_filter=filter_,
                     current_cursor=current_cursor,
-                    fetch_size=self.config.fetch_size,
+                    # `filter_page` contains metadata object IDs (e.g., Project IDs, Field IDs, Sheet IDs, etc.).
+                    # The number of IDs is always less than or equal to page_size.
+                    # If the IDs are primary keys, the number of metadata objects to load matches the number of records to return.
+                    # In our case, mostly, the IDs are primary key, therefore, fetch_size is set equal to page_size.
+                    fetch_size=page_size,
                 )
 
                 yield from connection_objects.get(c.NODES) or []

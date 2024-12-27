@@ -25,7 +25,7 @@ source:
 sink:
   type: file
   config:
-    path: ./path/to/mce/file.json
+    filename: ./path/to/mce/file.json
 ```
 
 ## Config details

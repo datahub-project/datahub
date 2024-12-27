@@ -175,7 +175,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "CREATE TABLE person_info_swap CLONE person_info;\n\nCREATE TABLE person_info_incremental AS\nSELECT\n  *\nFROM person_info_dep;\n\nINSERT INTO person_info_swap\nSELECT\n  *\nFROM person_info_incremental;\n\nALTER TABLE dev.public.person_info_swap SWAP WITH dev.public.person_info",
+                "value": "CREATE TABLE person_info_swap CLONE person_info;\n\nCREATE TABLE person_info_incremental AS\nSELECT\n  *\nFROM person_info_dep;\n\nINSERT INTO person_info_swap\nSELECT\n  *\nFROM person_info_incremental;\n\nALTER TABLE dev.public.person_info_swap SWAP WITH dev.public.person_info /* Datahub generated query text-- */",
                 "language": "SQL"
             },
             "source": "SYSTEM",

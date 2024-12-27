@@ -186,7 +186,7 @@ jobs:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: acryldata/sane-checkout-action@v3
       - name: Download image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
@@ -257,7 +257,7 @@ jobs:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: acryldata/sane-checkout-action@v3
       - name: Download image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
@@ -328,7 +328,7 @@ jobs:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: acryldata/sane-checkout-action@v3
       - name: Download image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
@@ -399,7 +399,7 @@ jobs:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: acryldata/sane-checkout-action@v3
       - name: Download image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
@@ -446,7 +446,7 @@ jobs:
           ./gradlew :datahub-frontend:dist -x test -x yarnTest -x yarnLint --parallel
           mv ./datahub-frontend/build/distributions/datahub-frontend-*.zip datahub-frontend.zip
         env:
-          NODE_OPTIONS: "--max-old-space-size=3072"
+          NODE_OPTIONS: "--max-old-space-size=4096"
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
@@ -472,7 +472,7 @@ jobs:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: actions/checkout@v4
       - name: Download image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
@@ -533,7 +533,7 @@ jobs:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: acryldata/sane-checkout-action@v3
       - name: Download image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
@@ -594,7 +594,7 @@ jobs:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: acryldata/sane-checkout-action@v3
       - name: Download image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
@@ -655,7 +655,7 @@ jobs:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: acryldata/sane-checkout-action@v3
       - name: Download image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' }}
         with:
           image: ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
@@ -727,7 +727,7 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Download Base Image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_base_change == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}
@@ -775,7 +775,7 @@ jobs:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
       - name: Download Base Image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_base_change == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}
@@ -836,7 +836,7 @@ jobs:
         if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish =='true' }}
         run: ./gradlew :metadata-ingestion:codegen
       - name: Download Base Image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_base_change == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_slim_tag || 'head-slim' }}
@@ -883,7 +883,7 @@ jobs:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: acryldata/sane-checkout-action@v3
       - name: Download image Slim Image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
@@ -937,7 +937,7 @@ jobs:
         if: ${{ needs.setup.outputs.ingestion_change == 'true' || needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
         run: ./gradlew :metadata-ingestion:codegen
       - name: Download Base Image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' && needs.setup.outputs.ingestion_base_change == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_BASE_IMAGE }}:${{ needs.setup.outputs.ingestion_base_change == 'true' && needs.setup.outputs.unique_tag || 'head' }}
@@ -982,7 +982,7 @@ jobs:
       - name: Checkout # adding checkout step just to make trivy upload happy
         uses: acryldata/sane-checkout-action@v3
       - name: Download image Full Image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.datahub_ingestion_full_build.outputs.needs_artifact_download == 'true' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_full_build.outputs.tag }}
@@ -1011,18 +1011,39 @@ jobs:
     needs: setup
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      cypress_batch_count: ${{ steps.set-batch-count.outputs.cypress_batch_count }}
+      python_batch_count: ${{ steps.set-batch-count.outputs.python_batch_count }}
     steps:
-      - id: set-matrix
+      - id: set-batch-count
+        # Tests are split simply to ensure the configured number of batches for parallelization. This may need some
+        # increase as a new tests added increase the duration where an additional parallel batch helps.
+        # python_batch_count is used to split pytests in the smoke-test (batches of actual test functions)
+        # cypress_batch_count is used to split the collection of cypress test specs into batches.
         run: |
-          if [ '${{ needs.setup.outputs.frontend_only }}' == 'true' ]; then
-             echo 'matrix=["cypress_suite1","cypress_rest"]' >> "$GITHUB_OUTPUT"
-          elif [ '${{ needs.setup.outputs.ingestion_only }}' == 'true' ]; then
-             echo 'matrix=["no_cypress_suite0","no_cypress_suite1"]' >> "$GITHUB_OUTPUT"
-          elif [[ '${{ needs.setup.outputs.backend_change }}' == 'true' || '${{ needs.setup.outputs.smoke_test_change }}' == 'true' ]]; then
-             echo 'matrix=["no_cypress_suite0","no_cypress_suite1","cypress_suite1","cypress_rest"]' >> "$GITHUB_OUTPUT"
-          else
-             echo 'matrix=[]' >> "$GITHUB_OUTPUT"
+          echo "cypress_batch_count=11" >> "$GITHUB_OUTPUT"
+          echo "python_batch_count=5" >> "$GITHUB_OUTPUT"
+
+      - id: set-matrix
+        # For m batches for python and n batches for cypress, we need a test matrix of python x m + cypress x n.
+        # while the github action matrix generation can handle these two parts individually, there isnt a way to use the
+        # two generated matrices for the same job. So, produce that matrix with scripting and use the include directive
+        # to add it to the test matrix.
+        run: |
+          python_batch_count=${{ steps.set-batch-count.outputs.python_batch_count }}
+          python_matrix=$(printf "{\"test_strategy\":\"pytests\",\"batch\":\"0\",\"batch_count\":\"$python_batch_count\"}"; for ((i=1;i<python_batch_count;i++)); do printf ",{\"test_strategy\":\"pytests\", \"batch_count\":\"$python_batch_count\",\"batch\":\"%d\"}" $i; done)
+          
+          cypress_batch_count=${{ steps.set-batch-count.outputs.cypress_batch_count }}
+          cypress_matrix=$(printf "{\"test_strategy\":\"cypress\",\"batch\":\"0\",\"batch_count\":\"$cypress_batch_count\"}"; for ((i=1;i<cypress_batch_count;i++)); do printf ",{\"test_strategy\":\"cypress\", \"batch_count\":\"$cypress_batch_count\",\"batch\":\"%d\"}" $i; done)
+          
+          includes=''
+          if [[  "${{ needs.setup.outputs.frontend_only }}" == 'true' ]]; then
+            includes=$cypress_matrix
+          elif [ "${{ needs.setup.outputs.ingestion_only }}" == 'true' ]; then
+            includes=$python_matrix
+          elif [[ "${{ needs.setup.outputs.backend_change }}" == 'true' || "${{ needs.setup.outputs.smoke_test_change }}" == 'true' ]]; then
+            includes="$python_matrix,$cypress_matrix"
           fi
+          echo "matrix={\"include\":[$includes] }" >> "$GITHUB_OUTPUT"
 
   smoke_test:
     name: Run Smoke Tests
@@ -1043,8 +1064,7 @@ jobs:
       ]
     strategy:
       fail-fast: false
-      matrix:
-        test_strategy: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.smoke_test_matrix.outputs.matrix) }}
     if: ${{ always() && !failure() && !cancelled() && needs.smoke_test_matrix.outputs.matrix != '[]' }}
     steps:
       - name: Free up disk space
@@ -1079,47 +1099,47 @@ jobs:
       - name: Disk Check
         run: df -h . && docker images
       - name: Download GMS image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.gms_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_GMS_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download Frontend image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.frontend_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_FRONTEND_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download Kafka Setup image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.kafka_setup_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_KAFKA_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download Mysql Setup image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.mysql_setup_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_MYSQL_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download Elastic Setup image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.elasticsearch_setup_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_ELASTIC_SETUP_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download MCE Consumer image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.mce_consumer_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_MCE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download MAE Consumer image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.mae_consumer_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_MAE_CONSUMER_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download upgrade image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ ( needs.setup.outputs.publish != 'true' && needs.setup.outputs.pr-publish != 'true' ) && needs.datahub_upgrade_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_UPGRADE_IMAGE }}:${{ needs.setup.outputs.unique_tag }}
       - name: Download datahub-ingestion-slim image
-        uses: ishworkh/docker-image-artifact-download@v1
+        uses: ishworkh/container-image-artifact-download@v2.0.0
         if: ${{ needs.datahub_ingestion_slim_build.outputs.needs_artifact_download == 'true' && needs.datahub_ingestion_slim_build.result == 'success' }}
         with:
           image: ${{ env.DATAHUB_INGESTION_IMAGE }}:${{ needs.datahub_ingestion_slim_build.outputs.tag }}
@@ -1220,6 +1240,8 @@ jobs:
           CYPRESS_RECORD_KEY: ${{ secrets.CYPRESS_RECORD_KEY }}
           CLEANUP_DATA: "false"
           TEST_STRATEGY: ${{ matrix.test_strategy }}
+          BATCH_COUNT: ${{ matrix.batch_count }}
+          BATCH_NUMBER: ${{ matrix.batch }}
         run: |
           echo "$DATAHUB_VERSION"
           ./gradlew --stop
@@ -1230,25 +1252,25 @@ jobs:
         if: failure()
         run: |
           docker ps -a
-          TEST_STRATEGY="-${{ matrix.test_strategy }}"
+          TEST_STRATEGY="-${{ matrix.test_strategy }}-${{ matrix.batch }}"
           source .github/scripts/docker_logs.sh
       - name: Upload logs
         uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: docker-logs-${{ matrix.test_strategy }}
+          name: docker-logs-${{ matrix.test_strategy }}-${{ matrix.batch }}
           path: "docker_logs/*.log"
           retention-days: 5
       - name: Upload screenshots
         uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: cypress-snapshots-${{ matrix.test_strategy }}
+          name: cypress-snapshots-${{ matrix.test_strategy }}-${{ matrix.batch }}
           path: smoke-test/tests/cypress/cypress/screenshots/
       - uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: Test Results (smoke tests) ${{ matrix.test_strategy }}
+          name: Test Results (smoke tests) ${{ matrix.test_strategy }} ${{ matrix.batch }}
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**

@@ -185,7 +185,7 @@
     "aspect": {
         "json": {
             "statement": {
-                "value": "ALTER TABLE dev.public.foo_staging RENAME TO foo",
+                "value": "ALTER TABLE dev.public.foo_staging RENAME TO foo /* Datahub generated query text-- */",
                 "language": "SQL"
             },
             "source": "SYSTEM",

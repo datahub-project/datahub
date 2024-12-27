@@ -31,6 +31,10 @@ from looker_sdk.sdk.api40.models import (
 from pydantic.class_validators import validator
 
 import datahub.emitter.mce_builder as builder
+from datahub.api.entities.platformresource.platform_resource import (
+    PlatformResource,
+    PlatformResourceKey,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, create_embed_mcp
 from datahub.ingestion.api.report import Report
@@ -106,7 +110,7 @@ from datahub.utilities.lossy_collections import LossyList, LossySet
 from datahub.utilities.url_util import remove_port_from_url
 
 CORPUSER_DATAHUB = "urn:li:corpuser:datahub"
-
+LOOKER = "looker"
 logger = logging.getLogger(__name__)
 
 
@@ -1404,6 +1408,15 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     dashboards_with_activity: LossySet[str] = dataclasses_field(
         default_factory=LossySet
     )
+
+    # Entities that don't seem to exist, so we don't emit usage aspects for them despite having usage data
+    dashboards_skipped_for_usage: LossySet[str] = dataclasses_field(
+        default_factory=LossySet
+    )
+    charts_skipped_for_usage: LossySet[str] = dataclasses_field(
+        default_factory=LossySet
+    )
+
     stage_latency: List[StageLatency] = dataclasses_field(default_factory=list)
     _looker_explore_registry: Optional[LookerExploreRegistry] = None
     total_explores: int = 0
@@ -1411,6 +1424,7 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
 
     resolved_user_ids: int = 0
     email_ids_missing: int = 0  # resolved users with missing email addresses
+    looker_user_count: int = 0
 
     _looker_api: Optional[LookerAPI] = None
     query_latency: Dict[str, datetime.timedelta] = dataclasses_field(
@@ -1614,15 +1628,30 @@ class LookerDashboard:
 class LookerUserRegistry:
     looker_api_wrapper: LookerAPI
     fields: str = ",".join(["id", "email", "display_name", "first_name", "last_name"])
+    _user_cache: Dict[str, LookerUser] = {}
 
-    def __init__(self, looker_api: LookerAPI):
+    def __init__(self, looker_api: LookerAPI, report: LookerDashboardSourceReport):
         self.looker_api_wrapper = looker_api
+        self.report = report
+        self._initialize_user_cache()
+
+    def _initialize_user_cache(self) -> None:
+        raw_users: Sequence[User] = self.looker_api_wrapper.all_users(
+            user_fields=self.fields
+        )
+
+        for raw_user in raw_users:
+            looker_user = LookerUser.create_looker_user(raw_user)
+            self._user_cache[str(looker_user.id)] = looker_user
 
     def get_by_id(self, id_: str) -> Optional[LookerUser]:
         if not id_:
             return None
 
         logger.debug(f"Will get user {id_}")
+
+        if str(id_) in self._user_cache:
+            return self._user_cache.get(str(id_))
 
         raw_user: Optional[User] = self.looker_api_wrapper.get_user(
             str(id_), user_fields=self.fields
@@ -1632,3 +1661,35 @@ class LookerUserRegistry:
 
         looker_user = LookerUser.create_looker_user(raw_user)
         return looker_user
+
+    def to_platform_resource(
+        self, platform_instance: Optional[str]
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        try:
+            platform_resource_key = PlatformResourceKey(
+                platform=LOOKER,
+                resource_type="USER_ID_MAPPING",
+                platform_instance=platform_instance,
+                primary_key="",
+            )
+
+            # Extract user email mappings
+            user_email_cache = {
+                user_id: user.email
+                for user_id, user in self._user_cache.items()
+                if user.email
+            }
+
+            platform_resource = PlatformResource.create(
+                key=platform_resource_key,
+                value=user_email_cache,
+            )
+
+            self.report.looker_user_count = len(user_email_cache)
+            yield from platform_resource.to_mcps()
+
+        except Exception as exc:
+            self.report.warning(
+                message="Failed to generate platform resource for looker id mappings",
+                exc=exc,
+            )
