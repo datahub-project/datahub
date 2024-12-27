@@ -572,11 +572,8 @@ class BigQueryV2Config(
         "See [this](https://cloud.google.com/bigquery/docs/information-schema-jobs#scope_and_syntax) for details.",
     )
 
-    # include_view_lineage and include_view_column_lineage are inherited from SQLCommonConfig
-    # but not used in bigquery so we hide them from docs.
-    include_view_lineage: bool = Field(default=True, hidden_from_docs=True)
-
-    include_view_column_lineage: bool = Field(default=True, hidden_from_docs=True)
+    _include_view_lineage = pydantic_removed_field("include_view_lineage")
+    _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
 
     @root_validator(pre=True)
     def set_include_schema_metadata(cls, values: Dict) -> Dict:

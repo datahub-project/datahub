@@ -234,14 +234,6 @@ class BigQuerySchemaGenerator:
             or self.config.use_queries_v2
         )
 
-    @property
-    def store_view_refs(self):
-        return (
-            self.config.include_view_lineage
-            or self.config.include_usage_statistics
-            or self.config.use_queries_v2
-        )
-
     def modified_base32decode(self, text_to_decode: str) -> str:
         # When we sync from DataHub to BigQuery, we encode the tags as modified base32 strings.
         # BiqQuery labels only support lowercase letters, international characters, numbers, or underscores.
@@ -662,14 +654,11 @@ class BigQuerySchemaGenerator:
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.store_view_refs:
-            table_ref = str(
-                BigQueryTableRef(table_identifier).get_sanitized_table_ref()
-            )
-            self.view_snapshot_refs.add(table_ref)
-            if self.config.lineage_parse_view_ddl and view.view_definition:
-                self.view_refs_by_project[project_id].add(table_ref)
-                self.view_definitions[table_ref] = view.view_definition
+        table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
+        self.view_snapshot_refs.add(table_ref)
+        if self.config.lineage_parse_view_ddl and view.view_definition:
+            self.view_refs_by_project[project_id].add(table_ref)
+            self.view_definitions[table_ref] = view.view_definition
 
         view.column_count = len(columns)
         if not view.column_count:
@@ -710,14 +699,11 @@ class BigQuerySchemaGenerator:
                 f"Snapshot doesn't have any column or unable to get columns for snapshot: {table_identifier}"
             )
 
-        if self.store_view_refs:
-            table_ref = str(
-                BigQueryTableRef(table_identifier).get_sanitized_table_ref()
-            )
-            self.view_snapshot_refs.add(table_ref)
-            if snapshot.base_table_identifier:
-                self.snapshot_refs_by_project[project_id].add(table_ref)
-                self.snapshots_by_ref[table_ref] = snapshot
+        table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
+        self.view_snapshot_refs.add(table_ref)
+        if snapshot.base_table_identifier:
+            self.snapshot_refs_by_project[project_id].add(table_ref)
+            self.snapshots_by_ref[table_ref] = snapshot
 
         yield from self.gen_snapshot_dataset_workunits(
             table=snapshot,
