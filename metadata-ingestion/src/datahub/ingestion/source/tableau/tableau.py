@@ -186,6 +186,11 @@ try:
 except ImportError:
     REAUTHENTICATE_ERRORS = (NonXMLResponseError,)
 
+RETRIABLE_ERROR_CODES = {
+    502,
+    504,
+}
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 # Replace / with |
@@ -1212,7 +1217,8 @@ class TableauSiteSource:
 
         except InternalServerError as ise:
             # In some cases Tableau Server returns 504 error, which is a timeout error, so it worths to retry.
-            if ise.code == 504:
+            # Extended with other retryable errors.
+            if ise.code in RETRIABLE_ERROR_CODES:
                 if retries_remaining <= 0:
                     raise ise
                 return self.get_connection_object_page(
