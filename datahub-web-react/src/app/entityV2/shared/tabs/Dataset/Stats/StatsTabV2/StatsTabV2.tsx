@@ -1,12 +1,18 @@
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import EntitySidebarContext from '@src/app/sharedV2/EntitySidebarContext';
-import { GetDatasetQuery, useGetLastMonthUsageAggregationsQuery } from '@src/graphql/dataset.generated';
-import { UsageQueryResult } from '@src/types.generated';
+import {
+    GetDatasetQuery,
+    useGetLastMonthUsageAggregationsQuery,
+    useGetOperationsStatsQuery,
+} from '@src/graphql/dataset.generated';
+import { TimeRange, UsageQueryResult } from '@src/types.generated';
 import React, { useContext, useEffect, useRef } from 'react';
 import styled from 'styled-components';
+import { useGetEntityWithSchema } from '../../Schema/useGetEntitySchema';
 import ColumnStatsV2 from './ColumnStatsV2';
 import HistoricalStats from './HistoricalStats';
 import StatsHighlights from './StatsHighlights';
+import { SectionKeys } from './utils';
 
 const TabContainer = styled.div`
     padding: 16px 24px;
@@ -17,6 +23,7 @@ const TabContainer = styled.div`
 
 const StatsTabV2 = () => {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const { entityWithSchema } = useGetEntityWithSchema();
     const { isClosed, setSidebarClosed } = useContext(EntitySidebarContext);
 
     const { data: usageStatsData } = useGetLastMonthUsageAggregationsQuery({
@@ -24,7 +31,17 @@ const StatsTabV2 = () => {
         skip: !baseEntity?.dataset?.urn,
     });
 
-    const columnStatsSectionRef = useRef<HTMLDivElement>(null);
+    const { data: operationsStats } = useGetOperationsStatsQuery({
+        variables: { urn: baseEntity?.dataset?.urn as string, range: TimeRange.Month },
+        skip: !baseEntity?.dataset?.urn,
+    });
+
+    const sectionRefs: Record<SectionKeys, React.RefObject<HTMLDivElement>> = {
+        changes: useRef<HTMLDivElement>(null),
+        queries: useRef<HTMLDivElement>(null),
+        rowsAndUsers: useRef<HTMLDivElement>(null),
+        columnStats: useRef<HTMLDivElement>(null),
+    };
 
     const hasUsageStats = usageStatsData?.dataset?.usageStats !== undefined;
 
@@ -35,11 +52,14 @@ const StatsTabV2 = () => {
 
     const totalSqlQueries = usageStats?.aggregations?.totalSqlQueries;
     const queryCountLast30Days = baseEntity.dataset?.statsSummary?.queryCountLast30Days;
+    const totalOperations = operationsStats?.dataset?.operationsStats?.aggregations?.totalOperations;
 
     const latestProfile = latestFullTableProfile || latestPartitionProfile;
 
-    const scrollToColumnStats = () => {
-        columnStatsSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const scrollToSection = (sectionKey: keyof typeof sectionRefs) => {
+        sectionRefs[sectionKey].current?.scrollIntoView({
+            behavior: 'smooth',
+        });
     };
 
     const users = usageStats?.aggregations?.users;
@@ -55,20 +75,24 @@ const StatsTabV2 = () => {
     return (
         <TabContainer>
             <StatsHighlights
-                rowCount={latestProfile?.rowCount || undefined}
-                columnCount={latestProfile?.columnCount || undefined}
-                queryCount={queryCountLast30Days || totalSqlQueries || undefined}
+                rowCount={latestProfile?.rowCount ?? undefined}
+                columnCount={
+                    latestProfile?.columnCount ?? entityWithSchema?.schemaMetadata?.fields?.length ?? undefined
+                }
+                queryCount={queryCountLast30Days ?? totalSqlQueries ?? undefined}
                 users={users || undefined}
-                scrollToColumnStats={scrollToColumnStats}
+                totalOperations={totalOperations ?? undefined}
+                scrollToSection={scrollToSection}
                 hasColumnStats={hasColumnStats}
             />
             <HistoricalStats
                 users={users || undefined}
                 queryCountBuckets={queryCountBuckets || undefined}
                 urn={baseEntity?.dataset?.urn}
+                sectionRefs={sectionRefs}
             />
             {hasColumnStats && (
-                <div ref={columnStatsSectionRef}>
+                <div ref={sectionRefs.columnStats}>
                     <ColumnStatsV2 columnStats={columnStats} />
                 </div>
             )}

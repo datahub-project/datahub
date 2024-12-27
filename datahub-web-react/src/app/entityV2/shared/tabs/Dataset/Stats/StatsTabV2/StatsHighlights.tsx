@@ -5,6 +5,7 @@ import { countFormatter } from '@src/utils/formatter';
 import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
+import { SectionKeys } from './utils';
 
 const StatsContainer = styled.div`
     display: flex;
@@ -35,11 +36,20 @@ interface Props {
     columnCount?: number;
     queryCount?: number;
     users?: Array<Maybe<UserUsageCounts>>;
-    scrollToColumnStats: () => void;
+    totalOperations?: number;
+    scrollToSection?: (sectionKey: SectionKeys) => void;
     hasColumnStats?: boolean;
 }
 
-const StatsHighlights = ({ rowCount, columnCount, queryCount, users, scrollToColumnStats, hasColumnStats }: Props) => {
+const StatsHighlights = ({
+    rowCount,
+    columnCount,
+    queryCount,
+    users,
+    totalOperations,
+    scrollToSection,
+    hasColumnStats,
+}: Props) => {
     const ViewButton = () => {
         return (
             <Button variant="text" icon="ArrowDownward">
@@ -65,14 +75,16 @@ const StatsHighlights = ({ rowCount, columnCount, queryCount, users, scrollToCol
                             subTitle={pluralize(rowCount || 0, 'Row')}
                             width={CARD_WIDTH}
                             isEmpty={rowCount === undefined}
+                            button={rowCount ? <ViewButton /> : undefined}
+                            onClick={() => (rowCount ? scrollToSection?.('rowsAndUsers') : undefined)}
                         />
                         <Card
                             title={columnCount?.toString() || ''}
                             subTitle={pluralize(columnCount || 0, 'Column')}
-                            button={hasColumnStats ? <ViewButton /> : undefined}
                             width={CARD_WIDTH}
-                            onClick={hasColumnStats ? scrollToColumnStats : undefined}
                             isEmpty={columnCount === undefined}
+                            button={hasColumnStats ? <ViewButton /> : undefined}
+                            onClick={() => (hasColumnStats ? scrollToSection?.('columnStats') : undefined)}
                         />
                     </StatCards>
                 </Section>
@@ -87,13 +99,24 @@ const StatsHighlights = ({ rowCount, columnCount, queryCount, users, scrollToCol
                             subTitle={pluralize(users?.length || 0, 'User')}
                             width={CARD_WIDTH}
                             isEmpty={users === undefined}
+                            button={users && users.length ? <ViewButton /> : undefined}
+                            onClick={() => (users && users.length ? scrollToSection?.('rowsAndUsers') : undefined)}
                         />
                         <Card
                             title={queryCount?.toString() || ''}
                             subTitle={capitalizeFirstLetter(pluralize(queryCount || 0, 'Query'))}
-                            button={<ViewButton />}
                             width={CARD_WIDTH}
                             isEmpty={queryCount === undefined}
+                            button={queryCount ? <ViewButton /> : undefined}
+                            onClick={() => (queryCount ? scrollToSection?.('queries') : undefined)}
+                        />
+                        <Card
+                            title={totalOperations?.toString() || ''}
+                            subTitle={pluralize(totalOperations || 0, 'Change')}
+                            width={CARD_WIDTH}
+                            isEmpty={totalOperations === undefined}
+                            button={totalOperations ? <ViewButton /> : undefined}
+                            onClick={() => (totalOperations ? scrollToSection?.('changes') : undefined)}
                         />
                     </StatCards>
                 </Section>

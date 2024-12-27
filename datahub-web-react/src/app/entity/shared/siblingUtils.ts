@@ -328,6 +328,9 @@ function customMerge(isPrimary, key) {
             };
         };
     }
+    if (key === 'operationsStats') {
+        return (secondary, primary) => (primary?.aggregations?.totalOperations !== null ? primary : secondary);
+    }
     if (key === 'structuredProperties') {
         return (secondary, primary) => {
             return merge(secondary, primary, {

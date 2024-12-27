@@ -258,8 +258,7 @@ public class OperationsServiceUtil {
             filter,
             groupingBuckets);
 
-    if (operationsTable.getRows() == null) {
-      aggregations.setTotalOperations(0);
+    if (operationsTable.getRows() == null || operationsTable.getRows().size() == 0) {
       return aggregations;
     }
 

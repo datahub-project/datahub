@@ -175,6 +175,7 @@ fragment nonSiblingDatasetFields on Dataset {
             }
         }
     }
+
     siblings {
         isPrimary
     }
@@ -494,6 +495,19 @@ query getDatasetTimeseriesCapability($urn: String!) {
                 oldestOperationTime
                 oldestDatasetUsageTime
                 oldestDatasetProfileTime
+            }
+        }
+    }
+}
+
+query getOperationsStats($urn: String!, $range: TimeRange!) {
+    dataset(urn: $urn) {
+        operationsStats(input: { range: $range }) {
+            aggregations {
+                totalOperations
+                totalInserts
+                totalUpdates
+                totalDeletes
             }
         }
     }

@@ -30,3 +30,5 @@ export const getMockTopUsersData = (noOfUsers: number) => {
         id: index,
     }));
 };
+
+export type SectionKeys = 'changes' | 'queries' | 'columnStats' | 'rowsAndUsers';
