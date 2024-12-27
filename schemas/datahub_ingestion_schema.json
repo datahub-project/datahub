@@ -2970,8 +2970,8 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-26T20:46:27.069576+00:00",
-                        "start_time": "2024-12-25T00:00:00+00:00",
+                        "end_time": "2024-12-27T02:49:59.847233+00:00",
+                        "start_time": "2024-12-26T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
                         "user_email_pattern": {
@@ -4230,8 +4230,8 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-26T20:46:26.533216+00:00",
-                        "start_time": "2024-12-25T00:00:00+00:00",
+                        "end_time": "2024-12-27T02:49:59.231779+00:00",
+                        "start_time": "2024-12-26T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
                         "user_email_pattern": {
@@ -6950,15 +6950,15 @@
                     "title": "Exclude Aspects",
                     "description": "Set of aspect names to exclude from ingestion",
                     "default": [
+                        "dataHubSecretValue",
+                        "datahubIngestionCheckpoint",
+                        "globalSettingsKey",
+                        "testResults",
+                        "datahubIngestionRunSummary",
+                        "dataHubIngestionSourceInfo",
                         "globalSettingsInfo",
                         "dataHubIngestionSourceKey",
-                        "dataHubSecretKey",
-                        "datahubIngestionRunSummary",
-                        "datahubIngestionCheckpoint",
-                        "testResults",
-                        "dataHubSecretValue",
-                        "globalSettingsKey",
-                        "dataHubIngestionSourceInfo"
+                        "dataHubSecretKey"
                     ],
                     "type": "array",
                     "items": {
@@ -11232,8 +11232,8 @@
                     "description": "Usage related configs",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-26T20:46:10.647746+00:00",
-                        "start_time": "2024-12-25T00:00:00+00:00",
+                        "end_time": "2024-12-27T02:49:43.182127+00:00",
+                        "start_time": "2024-12-26T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
                         "user_email_pattern": {
@@ -14817,8 +14817,8 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-26T20:46:16.549627+00:00",
-                        "start_time": "2024-12-25T00:00:00+00:00",
+                        "end_time": "2024-12-27T02:49:49.112027+00:00",
+                        "start_time": "2024-12-26T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
                         "user_email_pattern": {
@@ -15151,6 +15151,16 @@
                     "title": "Run Id",
                     "description": "The ID of the run to ingest metadata from. If not specified, we'll default to the latest run.",
                     "type": "integer"
+                },
+                "external_url_mode": {
+                    "title": "External Url Mode",
+                    "description": "Where should the \"View in dbt\" link point to - either the \"Explore\" UI or the dbt Cloud IDE",
+                    "default": "explore",
+                    "enum": [
+                        "explore",
+                        "ide"
+                    ],
+                    "type": "string"
                 }
             },
             "required": [
