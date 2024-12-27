@@ -2970,7 +2970,7 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-27T02:49:59.847233+00:00",
+                        "end_time": "2024-12-27T06:22:02.921137+00:00",
                         "start_time": "2024-12-26T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
@@ -4230,7 +4230,7 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-27T02:49:59.231779+00:00",
+                        "end_time": "2024-12-27T06:22:02.374025+00:00",
                         "start_time": "2024-12-26T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
@@ -5768,11 +5768,6 @@
                     "default": true,
                     "type": "boolean"
                 },
-                "email_domain": {
-                    "title": "Email Domain",
-                    "description": "Email domain of your organization so users can be displayed on UI appropriately.",
-                    "type": "string"
-                },
                 "apply_view_usage_to_tables": {
                     "title": "Apply View Usage To Tables",
                     "description": "Whether to apply view's usage to its base tables. If set to True, usage is applied to base tables only.",
@@ -6067,6 +6062,17 @@
                     "default": false,
                     "type": "boolean"
                 },
+                "email_domain": {
+                    "title": "Email Domain",
+                    "description": "Email domain of your organization so users can be displayed on UI appropriately.",
+                    "type": "string"
+                },
+                "email_as_user_identifier": {
+                    "title": "Email As User Identifier",
+                    "description": "Format user urns as an email, if the snowflake user's email is set. If `email_domain` is provided, generates email addresses for snowflake users with unset emails, based on their username.",
+                    "default": true,
+                    "type": "boolean"
+                },
                 "include_table_lineage": {
                     "title": "Include Table Lineage",
                     "description": "If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
@@ -6190,12 +6196,6 @@
                     "additionalProperties": {
                         "$ref": "#/definitions/SnowflakeShareConfig"
                     }
-                },
-                "email_as_user_identifier": {
-                    "title": "Email As User Identifier",
-                    "description": "Format user urns as an email, if the snowflake user's email is set. If `email_domain` is provided, generates email addresses for snowflake users with unset emails, based on their username.",
-                    "default": true,
-                    "type": "boolean"
                 },
                 "include_assertion_results": {
                     "title": "Include Assertion Results",
@@ -6950,15 +6950,15 @@
                     "title": "Exclude Aspects",
                     "description": "Set of aspect names to exclude from ingestion",
                     "default": [
-                        "dataHubSecretValue",
                         "datahubIngestionCheckpoint",
-                        "globalSettingsKey",
-                        "testResults",
                         "datahubIngestionRunSummary",
-                        "dataHubIngestionSourceInfo",
-                        "globalSettingsInfo",
                         "dataHubIngestionSourceKey",
-                        "dataHubSecretKey"
+                        "dataHubSecretKey",
+                        "dataHubSecretValue",
+                        "globalSettingsInfo",
+                        "globalSettingsKey",
+                        "dataHubIngestionSourceInfo",
+                        "testResults"
                     ],
                     "type": "array",
                     "items": {
@@ -11232,7 +11232,7 @@
                     "description": "Usage related configs",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-27T02:49:43.182127+00:00",
+                        "end_time": "2024-12-27T06:21:46.418987+00:00",
                         "start_time": "2024-12-26T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
@@ -14817,7 +14817,7 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-27T02:49:49.112027+00:00",
+                        "end_time": "2024-12-27T06:21:52.339330+00:00",
                         "start_time": "2024-12-26T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
