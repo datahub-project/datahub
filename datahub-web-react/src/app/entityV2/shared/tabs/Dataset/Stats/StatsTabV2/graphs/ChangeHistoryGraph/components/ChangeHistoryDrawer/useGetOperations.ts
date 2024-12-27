@@ -3,7 +3,10 @@ import { FacetFilterInput, OperationType } from '@src/types.generated';
 import dayjs from 'dayjs';
 import { useMemo } from 'react';
 import { uniq } from 'lodash';
+import utc from 'dayjs/plugin/utc';
 import { OPERATIONS_LIMIT } from './constants';
+
+dayjs.extend(utc);
 
 export default function useGetOperations(
     urn: string,

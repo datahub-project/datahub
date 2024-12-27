@@ -14,7 +14,7 @@ const TimelineWrapper = styled.div`
 `;
 
 type ChangeHistoryTimelineProps = {
-    selectedDay: string;
+    selectedDay?: string;
     operations: Omit<Operation, 'lastUpdatedTimestamp'>[];
     users: CorpUser[];
     loading?: boolean;

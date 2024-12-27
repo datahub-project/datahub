@@ -2,7 +2,7 @@ import { Margin } from '@visx/xychart';
 import { SVGAttributes } from 'react';
 
 export type DayData<ValueType> = {
-    day: string | Date;
+    day: string;
     key: string;
     value?: ValueType;
 };
@@ -19,7 +19,7 @@ export type MonthData<ValueType> = {
 };
 
 export type CalendarData<ValueType> = {
-    day: string | Date;
+    day: string;
     value: ValueType;
 };
 
@@ -42,6 +42,7 @@ export type CalendarChartProps<ValueType> = {
     bottomAxisLabelProps?: LabelProps;
     margin?: Margin;
     maxHeight?: number;
+    onDayClick?: (day: DayData<ValueType>) => void;
 };
 
 export type CalendarProps<ValueType> = {

@@ -5,7 +5,7 @@ import { useCalendarState } from '../context';
 import { StyledBar } from '../../components';
 
 export function Day<ValueType>({ day, weekOffset, dayIndex }: DayProps<ValueType>) {
-    const { squareSize, squareGap, margin, colorAccessor, popoverRenderer } = useCalendarState<ValueType>();
+    const { squareSize, squareGap, margin, colorAccessor, popoverRenderer, onDayClick } = useCalendarState<ValueType>();
     const color = useMemo(() => colorAccessor(day.value), [colorAccessor, day.value]);
 
     const y = useMemo(
@@ -15,7 +15,15 @@ export function Day<ValueType>({ day, weekOffset, dayIndex }: DayProps<ValueType
 
     return (
         <Popover placement="topLeft" content={popoverRenderer?.(day)}>
-            <StyledBar x={weekOffset} y={y} width={squareSize} height={squareSize} rx={4} fill={color} />
+            <StyledBar
+                x={weekOffset}
+                y={y}
+                width={squareSize}
+                height={squareSize}
+                rx={4}
+                fill={color}
+                onPointerUp={() => onDayClick?.(day)}
+            />
         </Popover>
     );
 }

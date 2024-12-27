@@ -10,6 +10,7 @@ export * from './components/CalendarChart';
 export * from './components/Card';
 export * from './components/Checkbox';
 export * from './components/Drawer';
+export * from './components/GraphCard';
 export * from './components/Heading';
 export * from './components/Icon';
 export * from './components/Input';

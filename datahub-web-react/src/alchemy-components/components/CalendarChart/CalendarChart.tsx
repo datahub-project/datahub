@@ -39,6 +39,7 @@ export function CalendarChart<ValueType = any>({
     bottomAxisLabelProps = calendarChartDefault.bottomAxisLabelProps,
     margin,
     maxHeight = calendarChartDefault.maxHeight,
+    onDayClick,
 }: CalendarChartProps<ValueType>) {
     const preparedData = useMemo(
         () => prepareCalendarData<ValueType>(data, startDate, endDate),
@@ -57,6 +58,7 @@ export function CalendarChart<ValueType = any>({
                             margin={margin}
                             colorAccessor={colorAccessor}
                             popoverRenderer={popoverRenderer}
+                            onDayClick={onDayClick}
                         >
                             <CalendarContainer>
                                 <AxisLeftWeekdays<ValueType> labelProps={leftAxisLabelProps} />

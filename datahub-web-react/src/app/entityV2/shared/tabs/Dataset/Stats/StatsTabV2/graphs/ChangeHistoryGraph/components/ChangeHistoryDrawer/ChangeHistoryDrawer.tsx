@@ -3,12 +3,13 @@ import { OperationType } from '@src/types.generated';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
 import ChangeHistoryTimeline from './components/ChangeHistoryTimeline';
-import { DEFAULT_OPERATION_TYPES, OPERATION_TYPE_OPTIONS } from './constants';
 import useDebounceFalse from './useDebounceFalse';
 import useGetOperations from './useGetOperations';
 import useGetUsers from './useGetUsers';
 import useSelectUserOptions from './useSelectUserOptions';
 import { getUniqueActorsFromOperations } from './utils';
+import { OPERATION_TYPE_OPTIONS } from '../../constants';
+import TypesSelect from '../TypesSelect';
 
 const FlexRow = styled.div`
     display: flex;
@@ -28,14 +29,14 @@ const DrawerContent = styled.div`
 
 type ChangeHistoryDrawerProps = {
     urn: string;
-    // todo: make it required
     selectedDay?: string;
     onClose: () => void;
     open: boolean;
+    operationTypes: OperationType[];
 };
 
-export const ChangeHistoryDrawer = ({ urn, selectedDay, open, onClose }: ChangeHistoryDrawerProps) => {
-    const [selectedOperationTypes, setSelectedOperationTypes] = useState<OperationType[]>(DEFAULT_OPERATION_TYPES);
+export const ChangeHistoryDrawer = ({ urn, selectedDay, open, onClose, operationTypes }: ChangeHistoryDrawerProps) => {
+    const [selectedOperationTypes, setSelectedOperationTypes] = useState<OperationType[]>(operationTypes);
     const [selectedActors, setSelectedActors] = useState<string[]>([]);
 
     const { operations, loading: operationsLoading } = useGetOperations(
@@ -71,21 +72,16 @@ export const ChangeHistoryDrawer = ({ urn, selectedDay, open, onClose }: ChangeH
                         width="full"
                         isDisabled={users.length === 0 || loading || selectUsersOptions.length === 0}
                     />
-                    <SimpleSelect
-                        placeholder="Change Type"
+                    <TypesSelect
                         options={OPERATION_TYPE_OPTIONS}
                         values={selectedOperationTypes}
                         onUpdate={(values) => setSelectedOperationTypes(values as OperationType[])}
-                        width="full"
-                        showClear={false}
-                        isDisabled={loading}
-                        isMultiSelect
+                        loading={loading}
                     />
                 </Controls>
 
                 <ChangeHistoryTimeline
-                    // todo: remove default day
-                    selectedDay={selectedDay || '2024-01-01'}
+                    selectedDay={selectedDay}
                     operations={operations}
                     users={users}
                     loading={loading}

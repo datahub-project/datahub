@@ -1,5 +1,4 @@
-import { BarChart, SimpleSelect } from '@components';
-import { GraphCard } from '@src/alchemy-components/components/GraphCard';
+import { BarChart, GraphCard } from '@components';
 import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import { pluralize } from '@src/app/shared/textUtil';
 import { GetDatasetQuery } from '@src/graphql/dataset.generated';
@@ -10,6 +9,7 @@ import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
 import { AGGRAGATION_TIME_RANGE_OPTIONS } from '../constants';
 import useQueryCountData from './useQueryCountData';
+import TimeRangeSelect from '../components/TimeRangeSelect';
 
 interface Props {
     queryCountBuckets?: Array<Maybe<UsageAggregation>>;
@@ -55,12 +55,11 @@ const QueryCountChart = ({ queryCountBuckets }: Props) => {
             renderGraph={renderBarChart}
             renderControls={() => (
                 <>
-                    <SimpleSelect
+                    <TimeRangeSelect
                         options={AGGRAGATION_TIME_RANGE_OPTIONS}
                         values={[timeRange]}
+                        loading={loading}
                         onUpdate={(values) => handleFilterChange(values[0] as TimeRange)}
-                        showClear={false}
-                        width="full"
                     />
                 </>
             )}

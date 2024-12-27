@@ -6,6 +6,7 @@ import utc from 'dayjs/plugin/utc';
 import advancedFormat from 'dayjs/plugin/advancedFormat';
 import { CalendarChartProps, CalendarData, ColorAccessor, DayData, MonthData, WeekData } from './types';
 import { DAYS_IN_WEEK, MIN_DAYS_IN_WEEK } from './private/constants';
+import { CALENDAR_DATE_FORMAT } from './constants';
 
 dayjs.extend(isoWeek);
 dayjs.extend(utc);
@@ -18,13 +19,13 @@ export function prepareCalendarData<ValueType>(
     labelFormat = 'MMM ’YY',
 ): MonthData<ValueType>[] {
     // Round start/end date to the start/end of the week
-    const startDate = dayjs(start).utc(true).startOf('day').startOf('isoWeek');
+    const startDate = dayjs(start).utc(true).startOf('isoWeek').startOf('day');
     const endDate = dayjs(end).utc(true).endOf('isoWeek').startOf('day');
 
     // Helper functions to create day, week, and month objects
     const createDay = (keyDay, value?: ValueType): DayData<ValueType> => ({
-        day: keyDay.format('YYYY-MM-DD'),
-        key: keyDay.format('YYYY-MM-DD'),
+        day: keyDay.format(CALENDAR_DATE_FORMAT),
+        key: keyDay.format(CALENDAR_DATE_FORMAT),
         value,
     });
 
@@ -102,6 +103,7 @@ export function getColorAccessor<ValueType = any>(
     data: CalendarData<ValueType>[],
     colorAccessors: { [key: string]: ColorAccessor<ValueType> },
     defaultColor: string,
+    correctiveMaxValue = 0,
 ) {
     if (Object.keys(colorAccessors).length === 0) return () => defaultColor;
 
@@ -110,7 +112,10 @@ export function getColorAccessor<ValueType = any>(
             ...acc,
             ...{
                 [key]: scaleLinear({
-                    domain: [0, Math.max(...data.map((datum) => accessor.valueAccessor(datum.value)))],
+                    domain: [
+                        0,
+                        Math.max(...data.map((datum) => accessor.valueAccessor(datum.value)), correctiveMaxValue),
+                    ],
                     range: [0, 1],
                     clamp: true,
                 }),
@@ -160,7 +165,7 @@ export function generateMockData(
             const day = dayjs(startDate)
                 .startOf('day')
                 .add(index - length + 1, 'days')
-                .format('YYYY-MM-DD');
+                .format(CALENDAR_DATE_FORMAT);
 
             return {
                 day,

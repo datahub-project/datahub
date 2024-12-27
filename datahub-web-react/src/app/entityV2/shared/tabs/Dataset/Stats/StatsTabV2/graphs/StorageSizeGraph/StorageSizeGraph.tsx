@@ -1,5 +1,4 @@
-import { LineChart, SimpleSelect } from '@src/alchemy-components';
-import { GraphCard } from '@src/alchemy-components/components/GraphCard';
+import { LineChart, GraphCard } from '@components';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
 import { formatBytes } from '@src/app/shared/formatNumber';
@@ -8,6 +7,7 @@ import GraphPopover from '../components/GraphPopover';
 import { GRAPH_LOOPBACK_WINDOWS, GRAPH_LOOPBACK_WINDOWS_OPTIONS } from '../constants';
 import useStorageSizeData from './useStorageSizeData';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
+import TimeRangeSelect from '../components/TimeRangeSelect';
 
 type RowCountGraphProps = {
     urn?: string;
@@ -36,12 +36,11 @@ export default function StorageSizeGraph({ urn }: RowCountGraphProps) {
             graphHeight="290px"
             renderControls={() => (
                 <>
-                    <SimpleSelect
+                    <TimeRangeSelect
                         options={GRAPH_LOOPBACK_WINDOWS_OPTIONS}
                         values={rangeType ? [rangeType] : []}
                         onUpdate={(values) => setRangeType(values[0])}
-                        showClear={false}
-                        width="full"
+                        loading={loading}
                     />
                 </>
             )}

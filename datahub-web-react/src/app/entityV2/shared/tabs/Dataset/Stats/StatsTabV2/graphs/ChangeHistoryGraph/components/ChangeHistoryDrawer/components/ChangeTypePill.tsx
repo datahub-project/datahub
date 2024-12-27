@@ -2,7 +2,7 @@ import { Pill } from '@src/alchemy-components';
 import { capitalizeFirstLetter } from '@src/app/shared/textUtil';
 import { OperationType } from '@src/types.generated';
 import React, { useMemo } from 'react';
-import { AVAILABLE_OPERATION_TYPES } from '../constants';
+import { AVAILABLE_OPERATION_TYPES } from '../../../constants';
 
 type ChangeTypePillProps = {
     changeType: OperationType;

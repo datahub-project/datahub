@@ -22,13 +22,15 @@ const PillSkeleton = styled(Skeleton.Button)`
 `;
 
 type TimelineHeaderProps = {
-    day: string;
+    day?: string;
     numberOfChanges: number;
     loading?: boolean;
 };
 
 export default function TimelineHeader({ day, numberOfChanges, loading }: TimelineHeaderProps) {
     const formattedDay = useMemo(() => dayjs(day).format('LL'), [day]);
+
+    if (!day) return null;
 
     return (
         <HeaderContainer>

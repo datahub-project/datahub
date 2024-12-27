@@ -13,6 +13,7 @@ export const LoaderWrapper = styled.div<{
     align-items: ${(props) => props.$alignItems};
     margin: auto;
     width: 100%;
+    position: relative;
 `;
 
 export const StyledLoadingOutlined = styled(LoadingOutlined)<{ $height: number }>`

@@ -49,6 +49,7 @@ const meta = {
     args: {
         ...getMockedProps(),
         popoverRenderer: (day) => <>{JSON.stringify(day)}</>,
+        onDayClick: () => null,
     },
 } satisfies Meta<typeof CalendarChart>;
 

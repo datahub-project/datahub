@@ -1,5 +1,4 @@
-import { LineChart, SimpleSelect } from '@src/alchemy-components';
-import { GraphCard } from '@src/alchemy-components/components/GraphCard';
+import { LineChart, GraphCard } from '@components';
 import { pluralize } from '@src/app/shared/textUtil';
 import { AssertionType } from '@src/types.generated';
 import dayjs from 'dayjs';
@@ -10,6 +9,7 @@ import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
 import { GRAPH_LOOPBACK_WINDOWS, GRAPH_LOOPBACK_WINDOWS_OPTIONS } from '../constants';
 import useRowCountData from './useRowCountData';
+import TimeRangeSelect from '../components/TimeRangeSelect';
 
 type RowCountGraphProps = {
     urn?: string;
@@ -36,12 +36,11 @@ export default function RowCountGraph({ urn }: RowCountGraphProps) {
                 <>
                     <AddAssertionButton assertionType={AssertionType.Volume} />
 
-                    <SimpleSelect
+                    <TimeRangeSelect
                         options={GRAPH_LOOPBACK_WINDOWS_OPTIONS}
                         values={rangeType ? [rangeType] : []}
                         onUpdate={(values) => setRangeType(values[0])}
-                        showClear={false}
-                        width="full"
+                        loading={loading}
                     />
                 </>
             )}

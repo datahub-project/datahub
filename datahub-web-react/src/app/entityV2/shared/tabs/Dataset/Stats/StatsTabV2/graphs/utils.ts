@@ -1,4 +1,9 @@
+import { getTimeWindowStart } from '@src/app/shared/time/timeUtils';
+import { DateInterval, TimeRange } from '@src/types.generated';
 import dayjs from 'dayjs';
+import utc from 'dayjs/plugin/utc';
+
+dayjs.extend(utc);
 
 /**
  * Groups time data by interval (day, week, etc)
@@ -58,9 +63,29 @@ export function addMonthOverMonthValue<T>(
         }
 
         return {
-            time,
-            value,
+            ...datum,
             mom,
         };
     });
+}
+
+export function getStartTimeByTimeRange(range: TimeRange): number | undefined {
+    const endTimemillis = dayjs().utc(true).startOf('day').toDate().getTime();
+
+    switch (range) {
+        case TimeRange.Day:
+            return getTimeWindowStart(endTimemillis, DateInterval.Day, 1);
+        case TimeRange.Week:
+            return getTimeWindowStart(endTimemillis, DateInterval.Week, 1);
+        case TimeRange.Month:
+            return getTimeWindowStart(endTimemillis, DateInterval.Month, 1);
+        case TimeRange.Quarter:
+            return getTimeWindowStart(endTimemillis, DateInterval.Month, 3);
+        case TimeRange.Year:
+            return getTimeWindowStart(endTimemillis, DateInterval.Year, 1);
+        case TimeRange.All:
+            return getTimeWindowStart(endTimemillis, DateInterval.Year, 1);
+        default:
+            return undefined;
+    }
 }

@@ -9,5 +9,3 @@ export const OPERATION_TYPE_OPTIONS = AVAILABLE_OPERATION_TYPES.map((operationTy
     value: operationType.toString(),
     label: capitalizeFirstLetter(operationType) as string,
 }));
-
-export const OPERATIONS_LIMIT = 100;

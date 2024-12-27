@@ -466,6 +466,35 @@ query getOperations($urn: String!, $limit: Int, $startTime: Long, $endTime: Long
             timestampMillis
             operationType
             actor
+            lastUpdatedTimestamp
+        }
+    }
+}
+
+query getOperationsStatsBuckets($urn: String!, $input: OperationsStatsInput) {
+    dataset(urn: $urn) {
+        operationsStats(input: $input) {
+            buckets {
+                bucket
+                aggregations {
+                    totalOperations
+                    totalInserts
+                    totalUpdates
+                    totalDeletes
+                }
+            }
+        }
+    }
+}
+
+query getDatasetTimeseriesCapability($urn: String!) {
+    dataset(urn: $urn) {
+        timeseriesCapabilities {
+            assetStats {
+                oldestOperationTime
+                oldestDatasetUsageTime
+                oldestDatasetProfileTime
+            }
         }
     }
 }
