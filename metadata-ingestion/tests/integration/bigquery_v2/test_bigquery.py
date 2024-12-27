@@ -592,12 +592,12 @@ LIMIT 100
 @patch("google.cloud.datacatalog_v1.PolicyTagManagerClient")
 @patch("google.cloud.resourcemanager_v3.ProjectsClient")
 @pytest.mark.parametrize(
-    "use_queries_v2, include_table_lineage, golden_file",
+    "use_queries_v2, include_table_lineage",
     [
-        (True, False, "bigquery_mcp_lineage_golden"),
-        (True, True, "bigquery_mcp_full_lineage_golden"),
-        (False, False, "bigquery_mcp_no_queries_v2_golden"),
-        (False, True, "bigquery_mcp_no_queries_v2_full_lineage_golden"),
+        (True, False),
+        (True, True),
+        (False, False),
+        (False, True),
     ],
 )
 def test_bigquery_lineage_v2_ingest_view_snapshots(
@@ -615,11 +615,12 @@ def test_bigquery_lineage_v2_ingest_view_snapshots(
     tmp_path,
     use_queries_v2,
     include_table_lineage,
-    golden_file,
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/bigquery_v2"
-    mcp_golden_path = f"{test_resources_dir}/{golden_file}.json"
-    mcp_output_path = "{}/{}_output.json".format(tmp_path, {golden_file})
+    mcp_golden_path = f"{test_resources_dir}/bigquery_mcp_lineage_golden.json"
+    mcp_output_path = "{}/{}_output.json".format(
+        tmp_path, "bigquery_mcp_lineage_golden.json"
+    )
 
     dataset_name = "bigquery-dataset-1"
     get_datasets_for_project_id.return_value = [
