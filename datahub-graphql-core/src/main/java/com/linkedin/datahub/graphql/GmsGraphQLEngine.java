@@ -82,6 +82,7 @@ import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
 import com.linkedin.datahub.graphql.generated.GlossaryTermsParams;
 import com.linkedin.datahub.graphql.generated.GlossaryTermsPromptResponse;
+import com.linkedin.datahub.graphql.generated.Incident;
 import com.linkedin.datahub.graphql.generated.IncidentSource;
 import com.linkedin.datahub.graphql.generated.IngestionSource;
 import com.linkedin.datahub.graphql.generated.InstitutionalMemoryMetadata;
@@ -247,6 +248,7 @@ import com.linkedin.datahub.graphql.resolvers.load.EntityTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.EntityTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.LoadableTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeBatchResolver;
 import com.linkedin.datahub.graphql.resolvers.load.OwnerTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.load.TimeSeriesAspectResolver;
 import com.linkedin.datahub.graphql.resolvers.mutate.*;
@@ -2422,6 +2424,13 @@ public class GmsGraphQLEngine {
                     "owner",
                     new OwnerTypeResolver<>(
                         ownerTypes, (env) -> ((Owner) env.getSource()).getOwner())))
+        .type(
+            "Incident",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "assignees",
+                    new OwnerTypeBatchResolver(
+                        ownerTypes, (env) -> ((Incident) env.getSource()).getAssignees())))
         .type(
             "InstitutionalMemoryMetadata",
             typeWiring ->
