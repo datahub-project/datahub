@@ -300,6 +300,28 @@ class SnowflakeIdentifierBuilder:
     def get_quoted_identifier_for_table(db_name, schema_name, table_name):
         return f'"{db_name}"."{schema_name}"."{table_name}"'
 
+    # Note - decide how to construct user urns.
+    # Historically urns were created using part before @ from user's email.
+    # Users without email were skipped from both user entries as well as aggregates.
+    # However email is not mandatory field in snowflake user, user_name is always present.
+    def get_user_identifier(
+        self,
+        user_name: str,
+        user_email: Optional[str],
+    ) -> str:
+        if user_email:
+            return self.snowflake_identifier(
+                user_email
+                if self.identifier_config.email_as_user_identifier is True
+                else user_email.split("@")[0]
+            )
+        return self.snowflake_identifier(
+            f"{user_name}@{self.identifier_config.email_domain}"
+            if self.identifier_config.email_as_user_identifier is True
+            and self.identifier_config.email_domain is not None
+            else user_name
+        )
+
 
 class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
     platform = "snowflake"
@@ -314,24 +336,6 @@ class SnowflakeCommonMixin(SnowflakeStructuredReportMixin):
     @cached_property
     def identifiers(self) -> SnowflakeIdentifierBuilder:
         return SnowflakeIdentifierBuilder(self.config, self.report)
-
-    # Note - decide how to construct user urns.
-    # Historically urns were created using part before @ from user's email.
-    # Users without email were skipped from both user entries as well as aggregates.
-    # However email is not mandatory field in snowflake user, user_name is always present.
-    def get_user_identifier(
-        self,
-        user_name: str,
-        user_email: Optional[str],
-        email_as_user_identifier: bool,
-    ) -> str:
-        if user_email:
-            return self.identifiers.snowflake_identifier(
-                user_email
-                if email_as_user_identifier is True
-                else user_email.split("@")[0]
-            )
-        return self.identifiers.snowflake_identifier(user_name)
 
     # TODO: Revisit this after stateful ingestion can commit checkpoint
     # for failures that do not affect the checkpoint

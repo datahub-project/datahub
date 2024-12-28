@@ -33,7 +33,7 @@ jobs:
       # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
     strategy:
       matrix:
-        python-version: ["3.8", "3.10"]
+        python-version: ["3.8", "3.11"]
         command:
           [
             "testQuick",
@@ -43,7 +43,7 @@ jobs:
           ]
         include:
           - python-version: "3.8"
-          - python-version: "3.10"
+          - python-version: "3.11"
       fail-fast: false
     steps:
       - name: Free up disk space

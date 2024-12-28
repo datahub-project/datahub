@@ -40,6 +40,7 @@ def _get_last_line(query: str) -> str:
 class ToolMetaExtractorReport(Report):
     num_queries_meta_extracted: Dict[str, int] = field(default_factory=int_top_k_dict)
     failures: List[str] = field(default_factory=list)
+    looker_user_mapping_missing: Optional[bool] = None
 
 
 class ToolMetaExtractor:
@@ -108,7 +109,9 @@ class ToolMetaExtractor:
             PlatformResource.search_by_filters(query=query, graph_client=graph)
         )
 
-        if len(platform_resources) > 1:
+        if len(platform_resources) == 0:
+            report.looker_user_mapping_missing = True
+        elif len(platform_resources) > 1:
             report.failures.append(
                 "Looker user metadata extraction failed. Found more than one looker user id mappings."
             )
