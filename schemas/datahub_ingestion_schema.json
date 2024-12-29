@@ -2345,12 +2345,6 @@
                     "default": true,
                     "type": "boolean"
                 },
-                "include_view_lineage": {
-                    "title": "Include View Lineage",
-                    "description": "Populates view->view and table->view lineage using DataHub's sql parser.",
-                    "default": true,
-                    "type": "boolean"
-                },
                 "include_view_column_lineage": {
                     "title": "Include View Column Lineage",
                     "description": "Populates column-level lineage for  view->view and table->view lineage using DataHub's sql parser. Requires `include_view_lineage` to be enabled.",
@@ -2970,8 +2964,8 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-27T19:03:23.411398+00:00",
-                        "start_time": "2024-12-26T00:00:00+00:00",
+                        "end_time": "2024-12-29T13:34:10.905562+00:00",
+                        "start_time": "2024-12-28T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
                         "user_email_pattern": {
@@ -4230,8 +4224,8 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-27T19:03:22.879474+00:00",
-                        "start_time": "2024-12-26T00:00:00+00:00",
+                        "end_time": "2024-12-29T13:34:10.330640+00:00",
+                        "start_time": "2024-12-28T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
                         "user_email_pattern": {
@@ -6950,15 +6944,15 @@
                     "title": "Exclude Aspects",
                     "description": "Set of aspect names to exclude from ingestion",
                     "default": [
-                        "globalSettingsKey",
-                        "testResults",
-                        "dataHubSecretValue",
                         "dataHubIngestionSourceInfo",
-                        "globalSettingsInfo",
-                        "dataHubIngestionSourceKey",
+                        "globalSettingsKey",
+                        "dataHubSecretValue",
                         "datahubIngestionRunSummary",
-                        "dataHubSecretKey",
-                        "datahubIngestionCheckpoint"
+                        "datahubIngestionCheckpoint",
+                        "globalSettingsInfo",
+                        "testResults",
+                        "dataHubIngestionSourceKey",
+                        "dataHubSecretKey"
                     ],
                     "type": "array",
                     "items": {
@@ -11232,8 +11226,8 @@
                     "description": "Usage related configs",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-27T19:03:06.880252+00:00",
-                        "start_time": "2024-12-26T00:00:00+00:00",
+                        "end_time": "2024-12-29T13:33:54.690479+00:00",
+                        "start_time": "2024-12-28T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
                         "user_email_pattern": {
@@ -14111,12 +14105,6 @@
                     "default": true,
                     "type": "boolean"
                 },
-                "include_view_lineage": {
-                    "title": "Include View Lineage",
-                    "description": "Populates view->view and table->view lineage using DataHub's sql parser.",
-                    "default": true,
-                    "type": "boolean"
-                },
                 "include_view_column_lineage": {
                     "title": "Include View Column Lineage",
                     "description": "Populates column-level lineage for  view->view and table->view lineage using DataHub's sql parser. Requires `include_view_lineage` to be enabled.",
@@ -14817,8 +14805,8 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2024-12-27T19:03:12.792346+00:00",
-                        "start_time": "2024-12-26T00:00:00+00:00",
+                        "end_time": "2024-12-29T13:34:00.496501+00:00",
+                        "start_time": "2024-12-28T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
                         "user_email_pattern": {
