@@ -22,7 +22,7 @@ from datahub.configuration.source_common import (
 )
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
-    make_dataset_urn_with_platform_instance,
+    make_dataset_urn_with_platform_instance, make_dataplatform_instance_urn,
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, add_dataset_to_container
@@ -60,7 +60,7 @@ from datahub.metadata.schema_classes import (
     ViewPropertiesClass,
 )
 from datahub.sql_parsing import sqlglot_utils
-from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator, ObservedQuery
 
 logger = logging.getLogger(__name__)
 
@@ -376,8 +376,6 @@ class JDBCSource(StatefulIngestionSourceBase):
             platform_instance=self.platform_instance,
             env=self.config.env,
             graph=ctx.graph,
-            generate_usage_statistics=True,
-            generate_operations=True,
             usage_config=self.config.usage,
         )
 
@@ -657,7 +655,12 @@ class JDBCSource(StatefulIngestionSourceBase):
             yield MetadataChangeProposalWrapper(
                 entityUrn=container_key.as_urn(),
                 aspect=DataPlatformInstanceClass(
-                    platform=make_data_platform_urn(self.platform)
+                    platform=make_data_platform_urn(self.platform),
+                    instance=make_dataplatform_instance_urn(
+                        self.platform, self.platform_instance
+                    )
+                    if self.platform_instance
+                    else None,
                 ),
             ).as_workunit()
 
@@ -669,10 +672,13 @@ class JDBCSource(StatefulIngestionSourceBase):
             logger.debug(traceback.format_exc())
 
     def _extract_schema_containers(self, metadata) -> Iterable[MetadataWorkUnit]:
-        """Extract schema containers with proper container hierarchy"""
+        """Extract schema containers with proper container hierarchy and deduplication"""
         try:
+            # Track emitted containers to avoid duplicates
+            emitted_containers = set()
+
             with metadata.getSchemas() as rs:
-                # First collect all schemas to ensure we create containers in the right order
+                # First collect all schemas
                 schemas = []
                 while rs.next():
                     schema_name = rs.getString(1)
@@ -681,71 +687,91 @@ class JDBCSource(StatefulIngestionSourceBase):
                     else:
                         self.report.report_schema_filtered(schema_name)
 
-                # Process schemas in order to ensure parent containers are created before children
-                for schema_name in sorted(schemas):  # Sorting ensures consistent order
+                # Get database name for container hierarchy
+                database_name = self._get_database_name(metadata)
+
+                # Process all unique container paths
+                container_paths = set()
+                for schema_name in schemas:
+                    parts = schema_name.split('.')
+                    # Generate all possible container paths
+                    for i in range(len(parts)):
+                        container_paths.add('.'.join(parts[:i + 1]))
+
+                # Sort to ensure parent containers are created first
+                for container_path in sorted(container_paths):
                     try:
-                        # Split schema on dots to handle nested paths
-                        schema_parts = schema_name.split('.')
+                        path_parts = container_path.split('.')
+                        container_name = path_parts[-1]
 
-                        # Keep track of the full path as we build it
-                        current_path = []
-                        current_container_key = None
+                        # Construct the full path including database if present
+                        full_path = [database_name] if database_name else []
+                        full_path.extend(path_parts[:-1])
 
-                        # Create container for each path segment
-                        for part in schema_parts:
-                            current_path.append(part)
+                        # Generate unique key for deduplication
+                        container_key = self.get_container_key(container_name, full_path)
+                        container_urn = container_key.as_urn()
 
-                            # Create container for this level
-                            container_key = self.get_container_key(
-                                part,
-                                current_path[:-1] if len(current_path) > 1 else None
-                            )
-                            logger.error(container_key)
+                        # Skip if already emitted
+                        if container_urn in emitted_containers:
+                            continue
+                        emitted_containers.add(container_urn)
 
-                            # Link to parent container if we have one
-                            if current_container_key:
-                                yield MetadataChangeProposalWrapper(
-                                    entityUrn=container_key.as_urn(),
-                                    aspect=ContainerClass(
-                                        container=current_container_key.as_urn()
-                                    ),
-                                ).as_workunit()
-
-                            # Container properties
+                        # Get parent container if exists
+                        parent_path = full_path[:-1] if len(full_path) > 0 else None
+                        parent_name = full_path[-1] if parent_path else None
+                        if parent_name:
+                            parent_key = self.get_container_key(parent_name, parent_path)
+                            # Link to parent container
                             yield MetadataChangeProposalWrapper(
-                                entityUrn=container_key.as_urn(),
-                                aspect=ContainerPropertiesClass(
-                                    name=part,
-                                    description=f"Schema {'.'.join(current_path)}",
-                                    customProperties={
-                                        "full_path": '.'.join(current_path)
-                                    },
+                                entityUrn=container_urn,
+                                aspect=ContainerClass(
+                                    container=parent_key.as_urn()
                                 ),
                             ).as_workunit()
 
-                            # Add subtype
-                            yield MetadataChangeProposalWrapper(
-                                entityUrn=container_key.as_urn(),
-                                aspect=SubTypesClass(typeNames=[
-                                    "Schema"
-                                    if current_container_key is None
-                                    else "Folder"
-                                ]),
-                            ).as_workunit()
+                        # Container properties
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=container_urn,
+                            aspect=ContainerPropertiesClass(
+                                name=container_name,
+                                description=f"Schema {container_path}",
+                                customProperties={
+                                    "full_path": container_path
+                                },
+                            ),
+                        ).as_workunit()
 
-                            # Add status
-                            yield MetadataChangeProposalWrapper(
-                                entityUrn=container_key.as_urn(),
-                                aspect=StatusClass(removed=False),
-                            ).as_workunit()
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=container_urn,
+                            aspect=DataPlatformInstanceClass(
+                                platform=make_data_platform_urn(self.platform),
+                                instance=make_dataplatform_instance_urn(
+                                    self.platform, self.platform_instance
+                                )
+                                if self.platform_instance
+                                else None,
+                            ),
+                        ).as_workunit()
 
-                            # Update current container key for next iteration
-                            current_container_key = container_key
+                        # Add subtype - Schema for root containers, Folder for nested
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=container_urn,
+                            aspect=SubTypesClass(typeNames=[
+                                "Schema" if not parent_name else "Folder"
+                            ]),
+                        ).as_workunit()
+
+                        # Add status
+                        yield MetadataChangeProposalWrapper(
+                            entityUrn=container_urn,
+                            aspect=StatusClass(removed=False),
+                        ).as_workunit()
 
                     except Exception as e:
                         self.report.report_failure(
-                            f"schema-{schema_name}",
-                            f"Failed to process schema: {str(e)}",
+                            f"schema-{container_path}",
+                            f"Failed to process container path: {str(e)}",
                         )
 
         except Exception as e:
@@ -976,6 +1002,7 @@ class JDBCSource(StatefulIngestionSourceBase):
                         default_db=database,
                         #default_schema=schema,
                     )
+
 
                     yield MetadataChangeProposalWrapper(
                         entityUrn=dataset_urn, aspect=view_properties
