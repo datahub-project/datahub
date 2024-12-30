@@ -1,0 +1,25 @@
+source:
+  type: jdbc
+  config:
+    # Coordinates
+    platform: mysql
+    platform_instance: test
+    driver:
+      driver_class: com.mysql.cj.jdbc.Driver
+      maven_coordinates: mysql:mysql-connector-java:8.0.33
+    connection:
+      uri: jdbc:mysql://localhost:43306/test
+      username: root
+      password: test
+
+    # Options
+    include_tables: true
+    include_views: true
+    schema_pattern:
+      allow:
+        - ".*"
+
+sink:
+  type: file
+  config:
+    filename: "./mysql_mces.json"

@@ -1,0 +1,46 @@
+services:
+  postgres:
+    container_name: testpostgres
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: test
+    ports:
+      - "45432:5432"
+    networks:
+      jdbc-network:
+    volumes:
+      - ./setup/postgres:/docker-entrypoint-initdb.d
+
+  mysql:
+    container_name: testmysql
+    image: mysql:8.0
+    platform: linux/amd64
+    environment:
+      MYSQL_ROOT_PASSWORD: test
+      MYSQL_DATABASE: test
+    ports:
+      - "43306:3306"
+    networks:
+      jdbc-network:
+    volumes:
+      - ./setup/mysql:/docker-entrypoint-initdb.d
+
+  mssql:
+    container_name: testmssql
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: Password123!
+      MSSQL_PID: Developer
+    ports:
+      - "41433:1433"
+    networks:
+      jdbc-network:
+    volumes:
+      - ./setup/mssql:/setup
+
+networks:
+  jdbc-network:
