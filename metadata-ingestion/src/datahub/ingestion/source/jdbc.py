@@ -108,6 +108,23 @@ class JDBCContainerKey(ContainerKey):
     key: str
 
 
+@dataclass
+class ViewDefinitionMethod:
+    """Represents a successful method for retrieving view definitions"""
+
+    method_type: str  # 'table_metadata' or 'information_schema'
+    column_index: Optional[int] = None
+    column_name: Optional[str] = None
+    query_pattern: Optional[str] = None
+
+
+@dataclass
+class RawSchemaMethod:
+    """Represents a successful method for retrieving raw schema DDL"""
+
+    query_pattern: str
+
+
 class SSLConfig(ConfigModel):
     """SSL Certificate configuration"""
 
@@ -353,6 +370,7 @@ class JDBCSource(StatefulIngestionSourceBase):
         self._connection = None
         self._temp_files: List[str] = []
         self.set_dialect(self.config.sqlglot_dialect)
+        self._view_definition_method: Optional[ViewDefinitionMethod] = None
         self.sql_parsing_aggregator = SqlParsingAggregator(
             platform=make_data_platform_urn(self.platform),
             platform_instance=self.platform_instance,
@@ -399,16 +417,27 @@ class JDBCSource(StatefulIngestionSourceBase):
         yield from self.get_workunits_internal()
 
     def get_container_key(
-        self, name: Optional[str], path: Optional[List[str]]
+            self, name: Optional[str], path: Optional[List[str]]
     ) -> JDBCContainerKey:
-        key = name
+        """Get container key with proper None handling"""
+        if not name:
+            raise ValueError("Container name cannot be None")
+
+        # Construct key
         if path:
-            key = ".".join(path) + "." + name if name else ".".join(path)
+            # Filter out None values from path
+            valid_path = [p for p in path if p is not None]
+            if valid_path:
+                key = f"{'.'.join(valid_path)}.{name}"
+            else:
+                key = name
+        else:
+            key = name
 
         return JDBCContainerKey(
             platform=make_data_platform_urn(self.platform),
             instance=self.platform_instance,
-            env=str(self.env),
+            env=self.env,
             key=key,
         )
 
@@ -563,7 +592,7 @@ class JDBCSource(StatefulIngestionSourceBase):
 
         return props
 
-    def _get_database_name(self, metadata) -> str:
+    def _get_database_name(self, metadata) -> Optional[str]:
         """Extract database name from connection metadata"""
         try:
             database = metadata.getConnection().getCatalog()
@@ -572,14 +601,19 @@ class JDBCSource(StatefulIngestionSourceBase):
                 match = re.search(r"jdbc:[^:]+://[^/]+/([^?;]+)", url)
                 if match:
                     database = match.group(1)
-            return database or "default"
+            # Return None if no database found
+            return database if database else None
         except Exception:
-            return "default"
+            return None
 
     def _extract_database_metadata(self, metadata) -> Iterable[MetadataWorkUnit]:
         """Extract database container with improved metadata"""
         try:
             database_name = self._get_database_name(metadata)
+
+            # Skip database container creation if no valid name
+            if not database_name:
+                return
 
             props = {
                 "productName": metadata.getDatabaseProductName(),
@@ -615,7 +649,8 @@ class JDBCSource(StatefulIngestionSourceBase):
 
             # Add status
             yield MetadataChangeProposalWrapper(
-                entityUrn=container_key.as_urn(), aspect=StatusClass(removed=False)
+                entityUrn=container_key.as_urn(),
+                aspect=StatusClass(removed=False)
             ).as_workunit()
 
             # Add platform instance
@@ -636,54 +671,76 @@ class JDBCSource(StatefulIngestionSourceBase):
     def _extract_schema_containers(self, metadata) -> Iterable[MetadataWorkUnit]:
         """Extract schema containers with proper container hierarchy"""
         try:
-            database_name = self._get_database_name(metadata)
-            database_container_key = self.get_container_key(database_name, None)
-
             with metadata.getSchemas() as rs:
+                # First collect all schemas to ensure we create containers in the right order
+                schemas = []
                 while rs.next():
                     schema_name = rs.getString(1)
-
-                    if not self.config.schema_pattern.allowed(schema_name):
+                    if self.config.schema_pattern.allowed(schema_name):
+                        schemas.append(schema_name)
+                    else:
                         self.report.report_schema_filtered(schema_name)
-                        continue
 
+                # Process schemas in order to ensure parent containers are created before children
+                for schema_name in sorted(schemas):  # Sorting ensures consistent order
                     try:
-                        # Create schema container
-                        schema_container_key = self.get_container_key(
-                            schema_name, [database_name]
-                        )
+                        # Split schema on dots to handle nested paths
+                        schema_parts = schema_name.split('.')
 
-                        # Link schema to database
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=schema_container_key.as_urn(),
-                            aspect=ContainerClass(
-                                container=database_container_key.as_urn()
-                            ),
-                        ).as_workunit()
+                        # Keep track of the full path as we build it
+                        current_path = []
+                        current_container_key = None
 
-                        # Add schema properties
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=schema_container_key.as_urn(),
-                            aspect=ContainerPropertiesClass(
-                                name=schema_name,
-                                description=f"Schema {schema_name}",
-                                customProperties={
-                                    "database": database_name,
-                                },
-                            ),
-                        ).as_workunit()
+                        # Create container for each path segment
+                        for part in schema_parts:
+                            current_path.append(part)
 
-                        # Add subtype
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=schema_container_key.as_urn(),
-                            aspect=SubTypesClass(typeNames=["Schema"]),
-                        ).as_workunit()
+                            # Create container for this level
+                            container_key = self.get_container_key(
+                                part,
+                                current_path[:-1] if len(current_path) > 1 else None
+                            )
+                            logger.error(container_key)
 
-                        # Add status
-                        yield MetadataChangeProposalWrapper(
-                            entityUrn=schema_container_key.as_urn(),
-                            aspect=StatusClass(removed=False),
-                        ).as_workunit()
+                            # Link to parent container if we have one
+                            if current_container_key:
+                                yield MetadataChangeProposalWrapper(
+                                    entityUrn=container_key.as_urn(),
+                                    aspect=ContainerClass(
+                                        container=current_container_key.as_urn()
+                                    ),
+                                ).as_workunit()
+
+                            # Container properties
+                            yield MetadataChangeProposalWrapper(
+                                entityUrn=container_key.as_urn(),
+                                aspect=ContainerPropertiesClass(
+                                    name=part,
+                                    description=f"Schema {'.'.join(current_path)}",
+                                    customProperties={
+                                        "full_path": '.'.join(current_path)
+                                    },
+                                ),
+                            ).as_workunit()
+
+                            # Add subtype
+                            yield MetadataChangeProposalWrapper(
+                                entityUrn=container_key.as_urn(),
+                                aspect=SubTypesClass(typeNames=[
+                                    "Schema"
+                                    if current_container_key is None
+                                    else "Folder"
+                                ]),
+                            ).as_workunit()
+
+                            # Add status
+                            yield MetadataChangeProposalWrapper(
+                                entityUrn=container_key.as_urn(),
+                                aspect=StatusClass(removed=False),
+                            ).as_workunit()
+
+                            # Update current container key for next iteration
+                            current_container_key = container_key
 
                     except Exception as e:
                         self.report.report_failure(
@@ -768,6 +825,7 @@ class JDBCSource(StatefulIngestionSourceBase):
             )
             logger.error(f"Failed to extract tables and views: {str(exc)}")
             logger.debug(traceback.format_exc())
+
 
     def _extract_table_metadata(
         self,
@@ -876,9 +934,13 @@ class JDBCSource(StatefulIngestionSourceBase):
         )
 
         # Add dataset to container
-        schema_container_key = self.get_container_key(schema, [database])
+        schema_parts = schema.split('.')
+        final_container_key = self.get_container_key(
+            schema_parts[-1],
+            ([database] if database else []) + schema_parts[:-1]
+        )
         yield from add_dataset_to_container(
-            container_key=schema_container_key, dataset_urn=dataset_urn
+            container_key=final_container_key, dataset_urn=dataset_urn
         )
 
         # Generate schema metadata workunit
@@ -912,7 +974,7 @@ class JDBCSource(StatefulIngestionSourceBase):
                         view_urn=dataset_urn,
                         view_definition=view_definition,
                         default_db=database,
-                        default_schema=schema,
+                        #default_schema=schema,
                     )
 
                     yield MetadataChangeProposalWrapper(
@@ -923,127 +985,170 @@ class JDBCSource(StatefulIngestionSourceBase):
                 logger.debug(f"Could not get view definition for {full_name}: {e}")
 
     def _get_view_definition(self, metadata, schema: str, view: str) -> Optional[str]:
-        """Get view definition by discovering the correct approach from database metadata"""
+        """Get view definition using cached method or discover new method"""
         try:
-            # First try: Use JDBC getTables metadata
-            with metadata.getTables(None, schema, view, ["VIEW"]) as rs:
-                if rs.next():
-                    # Get metadata about available columns
-                    rs_metadata = rs.getMetaData()
-                    column_count = rs_metadata.getColumnCount()
+            # If we already know the successful method, use it directly
+            if self._view_definition_method:
+                logger.debug(f"Using cached method type: {self._view_definition_method.method_type}")
+                try:
+                    method = self._view_definition_method
+                    if method.method_type == 'table_metadata':
+                        with metadata.getTables(None, schema, view, ["VIEW"]) as rs:
+                            if rs.next():
+                                definition = rs.getString(method.column_index)
+                                if definition:
+                                    return self._clean_sql(definition)
+                    elif method.method_type == 'information_schema':
+                        with metadata.getConnection().createStatement() as stmt:
+                            query = method.query_pattern.format(schema=schema, view=view)
+                            with stmt.executeQuery(query) as rs:
+                                if rs.next():
+                                    definition = rs.getString(1)
+                                    if definition:
+                                        return self._clean_sql(definition)
 
-                    # Find columns containing SQL/definition content
-                    sql_columns = []
-                    for i in range(1, column_count + 1):
-                        col_name = rs_metadata.getColumnName(i).upper()
-                        col_type = rs_metadata.getColumnTypeName(i)
-                        # Look for string columns with names suggesting view definition content
-                        if col_type.upper() in (
-                            "VARCHAR",
-                            "CLOB",
-                            "TEXT",
-                            "LONGVARCHAR",
-                            "NVARCHAR",
-                            "CHARACTER VARYING",
-                        ) and (
-                            "SQL" in col_name
-                            or "TEXT" in col_name
-                            or "DEFINITION" in col_name
-                            or "SOURCE" in col_name
-                            or "BODY" in col_name
-                            or "DDL" in col_name
-                        ):
-                            sql_columns.append((i, col_name))
+                    # If we get here, the cached method failed for this view
+                    logger.debug("Cached method failed to get view definition")
+                except Exception as e:
+                    logger.debug(f"Error using cached method: {e}")
+                    self._view_definition_method = None
 
-                    logger.debug(
-                        f"Found potential view definition columns: {sql_columns}"
-                    )
+            # If we don't have a cached method or it failed, discover one
+            if not self._view_definition_method:
+                logger.debug("Discovering view definition method")
+                # Try table metadata method first
+                definition = self._try_table_metadata_method(metadata, schema, view)
+                if definition:
+                    return definition
 
-                    # Try each potential column
-                    for col_idx, col_name in sql_columns:
-                        try:
-                            definition = rs.getString(col_idx)
-                            if definition and (
-                                "SELECT" in definition.upper()
-                                or "WITH" in definition.upper()
-                            ):
-                                logger.debug(
-                                    f"Found view definition in column: {col_name}"
-                                )
-                                return self._clean_sql(definition)
-                        except Exception as e:
-                            logger.debug(
-                                f"Failed to get definition from column {col_name}: {e}"
-                            )
+                # Try information schema method
+                definition = self._try_information_schema_method(metadata, schema, view)
+                if definition:
+                    return definition
 
-            # Second try: Query INFORMATION_SCHEMA.COLUMNS to find view definition column
-            try:
-                info_schema_query = """
-                    SELECT COLUMN_NAME
-                    FROM INFORMATION_SCHEMA.COLUMNS
-                    WHERE TABLE_SCHEMA = 'INFORMATION_SCHEMA'
-                    AND TABLE_NAME = 'VIEWS'
-                    AND DATA_TYPE IN ('VARCHAR', 'CLOB', 'TEXT', 'LONGVARCHAR', 'NVARCHAR', 'CHARACTER VARYING')
-                """
-                with metadata.getConnection().createStatement() as stmt:
-                    stmt.setQueryTimeout(5)
-                    with stmt.executeQuery(info_schema_query) as rs:
-                        definition_columns = []
-                        while rs.next():
-                            col_name = rs.getString(1)
-                            definition_columns.append(col_name)
-
-                        logger.debug(
-                            f"Found INFORMATION_SCHEMA.VIEWS columns: {definition_columns}"
-                        )
-
-                        # Try each discovered column
-                        for col_name in definition_columns:
-                            try:
-                                query = f"SELECT {col_name} FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = '{schema}' AND TABLE_NAME = '{view}'"
-                                with stmt.executeQuery(query) as def_rs:
-                                    if def_rs.next():
-                                        definition = def_rs.getString(1)
-                                        if definition and (
-                                            "SELECT" in definition.upper()
-                                            or "WITH" in definition.upper()
-                                        ):
-                                            logger.debug(
-                                                f"Found view definition in INFORMATION_SCHEMA.VIEWS.{col_name}"
-                                            )
-                                            return self._clean_sql(definition)
-                            except Exception as e:
-                                logger.debug(f"Failed to query column {col_name}: {e}")
-            except Exception as e:
-                logger.debug(f"Failed to query INFORMATION_SCHEMA: {e}")
-
-            logger.debug(f"Could not discover view definition for {schema}.{view}")
             return None
 
         except Exception as e:
             logger.debug(f"Failed to get view definition: {str(e)}")
+            logger.debug(traceback.format_exc())
             return None
+
+    def _try_table_metadata_method(self, metadata, schema: str, view: str) -> Optional[str]:
+        """Try getting view definition from table metadata"""
+        try:
+            with metadata.getTables(None, schema, view, ["VIEW"]) as rs:
+                if rs.next():
+                    rs_metadata = rs.getMetaData()
+                    column_count = rs_metadata.getColumnCount()
+
+                    # Try all string-type columns
+                    for i in range(1, column_count + 1):
+                        col_name = rs_metadata.getColumnName(i)
+                        col_type = rs_metadata.getColumnTypeName(i)
+
+                        # Check if it's a string type column
+                        if col_type.upper() in (
+                                "VARCHAR", "CLOB", "TEXT", "LONGVARCHAR", "NVARCHAR",
+                                "CHARACTER VARYING", "STRING"
+                        ):
+                            try:
+                                definition = rs.getString(i)
+                                if definition and self._is_valid_sql(definition):
+                                    # Cache the successful method
+                                    self._view_definition_method = ViewDefinitionMethod(
+                                        method_type='table_metadata',
+                                        column_index=i,
+                                        column_name=col_name
+                                    )
+                                    logger.debug(f"Found view definition in column {col_name}")
+                                    return self._clean_sql(definition)
+                            except Exception as e:
+                                logger.debug(f"Failed to get definition from column {col_name}: {e}")
+        except Exception as e:
+            logger.debug(f"Table metadata method failed: {str(e)}")
+        return None
+
+    def _try_information_schema_method(self, metadata, schema: str, view: str) -> Optional[str]:
+        """Try getting view definition from INFORMATION_SCHEMA"""
+        try:
+            with metadata.getConnection().createStatement() as stmt:
+                stmt.setQueryTimeout(5)
+
+                # Try direct view definition query first (most common case)
+                view_queries = [
+                    f"SELECT VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = '{schema}' AND TABLE_NAME = '{view}'",
+                    f"SELECT VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE SCHEMA_NAME = '{schema}' AND TABLE_NAME = '{view}'",
+                    f"SELECT VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE VIEW_SCHEMA = '{schema}' AND VIEW_NAME = '{view}'"
+                ]
+
+                for query in view_queries:
+                    try:
+                        with stmt.executeQuery(query) as rs:
+                            if rs.next():
+                                definition = rs.getString(1)
+                                if definition and self._is_valid_sql(definition):
+                                    # Found working query - cache this pattern
+                                    query_pattern = query.replace(schema, "{schema}").replace(view, "{view}")
+                                    self._view_definition_method = ViewDefinitionMethod(
+                                        method_type='information_schema',
+                                        query_pattern=query_pattern
+                                    )
+                                    return self._clean_sql(definition)
+                    except Exception:
+                        continue
+
+        except Exception as e:
+            logger.debug(f"Information schema method failed: {str(e)}")
+        return None
+
+    def _is_valid_sql(self, sql: str) -> bool:
+        """Check if the string appears to be a valid SQL definition"""
+        if not sql or len(sql.strip()) < 20:
+            return False
+
+        sql_upper = sql.upper().strip()
+        # Basic check for SQL content
+        return ("SELECT" in sql_upper or "WITH" in sql_upper) and "FROM" in sql_upper
 
     def _get_raw_schema_sql(self, metadata, schema: str, table: str) -> str:
         """Get raw DDL schema for table/view"""
         try:
-            # Common DDL queries for different databases
-            ddl_queries = [
-                f"SHOW CREATE TABLE {schema}.{table}",
-                f"SELECT DDL FROM ALL_OBJECTS WHERE OWNER = '{schema}' AND OBJECT_NAME = '{table}'",
-                f"SELECT definition FROM sys.sql_modules WHERE object_id = OBJECT_ID('{schema}.{table}')",
-            ]
-
-            for query in ddl_queries:
+            # If we have a cached method, use it
+            if hasattr(self, '_raw_schema_method'):
                 try:
                     with metadata.getConnection().createStatement() as stmt:
+                        query = self._raw_schema_method.query_pattern.format(schema=schema, table=table)
                         with stmt.executeQuery(query) as rs:
                             if rs.next():
                                 ddl = rs.getString(1)
                                 if ddl:
                                     return self._clean_sql(ddl)
-                except Exception:
-                    continue
+                except Exception as e:
+                    logger.debug(f"Cached raw schema method failed: {e}")
+                    self._raw_schema_method = None
+
+            # If no cached method or it failed, try to discover one
+            if not hasattr(self, '_raw_schema_method'):
+                # Common DDL queries for different databases
+                ddl_queries = [
+                    "SHOW CREATE TABLE \"{schema}\".\"{table}\"",
+                    "SELECT DDL FROM ALL_OBJECTS WHERE OWNER = '{schema}' AND OBJECT_NAME = '{table}'",
+                    "SELECT definition FROM sys.sql_modules WHERE object_id = OBJECT_ID('{schema}.{table}')"
+                ]
+
+                for query_pattern in ddl_queries:
+                    try:
+                        with metadata.getConnection().createStatement() as stmt:
+                            query = query_pattern.format(schema=schema, table=table)
+                            with stmt.executeQuery(query) as rs:
+                                if rs.next():
+                                    ddl = rs.getString(1)
+                                    if ddl:
+                                        # Cache the successful query pattern
+                                        self._raw_schema_method = RawSchemaMethod(query_pattern=query_pattern)
+                                        return self._clean_sql(ddl)
+                    except Exception:
+                        continue
 
             return ""
 
