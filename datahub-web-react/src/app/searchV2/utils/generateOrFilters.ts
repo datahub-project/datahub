@@ -1,4 +1,5 @@
-import { FacetFilterInput, AndFilterInput } from '../../../types.generated';
+import { FacetFilterInput, AndFilterInput, FilterOperator } from '../../../types.generated';
+import { FrontendFacetFilterInput, FrontendFilterOperator } from '../filters/types';
 import { FILTER_DELIMITER, UnionType } from './constants';
 
 // Generates a list of AND filter inputs to be combined in orFilters. This is used when unionType is OR or AND.
@@ -28,18 +29,34 @@ function generateInputWithNestedFilters(filters: FacetFilterInput[], nestedFilte
     return filtersWithNestedFilters;
 }
 
+function isAllEqualsFilter(filter: FacetFilterInput | FrontendFacetFilterInput) {
+    return (filter.condition as any) === FrontendFilterOperator.AllEqual;
+}
+
+function filterOutAllEqualsFilters(filters: (FacetFilterInput | FrontendFacetFilterInput)[]): FacetFilterInput[] {
+    return filters.filter((f) => f.condition !== FrontendFilterOperator.AllEqual) as FacetFilterInput[];
+}
+
 export function generateOrFilters(
     unionType: UnionType,
-    filters: FacetFilterInput[],
+    filters: (FacetFilterInput | FrontendFacetFilterInput)[],
     excludedFilterFields: string[] = [],
 ): AndFilterInput[] {
     if ((filters?.length || 0) === 0) {
         return [];
     }
-    const nonNestedFilters = filters.filter(
+
+    const finalFilters: FacetFilterInput[] = filterOutAllEqualsFilters(filters);
+    filters.filter(isAllEqualsFilter).forEach((filterToSplit) => {
+        filterToSplit.values?.forEach((value) => {
+            finalFilters.push({ ...filterToSplit, value, values: [value], condition: FilterOperator.Equal });
+        });
+    });
+
+    const nonNestedFilters = finalFilters.filter(
         (f) => !f.field.includes(FILTER_DELIMITER) && !excludedFilterFields?.includes(f.field),
     );
-    const nestedFilters = filters.filter(
+    const nestedFilters = finalFilters.filter(
         (f) => f.field.includes(FILTER_DELIMITER) && !excludedFilterFields?.includes(f.field),
     );
 

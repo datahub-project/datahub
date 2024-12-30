@@ -35,8 +35,8 @@ interface Props {
 }
 
 export default function OperatorSelector({ predicate, onChangeOperator }: Props) {
-    const operatorOptions = getOperatorOptionsForPredicate(predicate);
     const isPlural = predicate.values?.length > 1;
+    const operatorOptions = getOperatorOptionsForPredicate(predicate, isPlural);
     const selectedOperator = SEARCH_FILTER_CONDITION_TYPE_TO_INFO.get(predicate.operator);
     const selectedOperatorText = (isPlural && selectedOperator?.pluralText) || selectedOperator?.text;
 

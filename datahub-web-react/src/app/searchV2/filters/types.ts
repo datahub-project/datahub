@@ -1,4 +1,4 @@
-import { Entity, EntityType, FilterOperator } from '../../../types.generated';
+import { Entity, EntityType, FacetFilterInput, FilterOperator } from '../../../types.generated';
 
 export interface FilterOptionType {
     field: string;
@@ -91,7 +91,16 @@ export enum FilterOperatorType {
     GREATER_THAN_OR_EQUALS,
     LESS_THAN,
     LESS_THAN_OR_EQUALS,
+    ALL_EQUALS, // used for splitting criterion values into multiple AND criterions
 }
+
+export enum FrontendFilterOperator {
+    AllEqual = 'ALL_EQUAL', // used for splitting criterion values into multiple AND criterions
+}
+
+export type FrontendFacetFilterInput = Omit<FacetFilterInput, 'condition'> & {
+    condition: FrontendFilterOperator;
+};
 
 export type FilterOperatorInfo = {
     type: FilterOperatorType;
@@ -99,7 +108,7 @@ export type FilterOperatorInfo = {
     pluralText?: string; // Optional: Used when multiple values are selected
     filter: {
         negated: boolean;
-        operator: FilterOperator;
+        operator: FilterOperator | FrontendFilterOperator;
     };
     icon?: React.ReactNode;
 };
