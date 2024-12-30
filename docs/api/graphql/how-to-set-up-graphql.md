@@ -53,13 +53,13 @@ shown below.
 <Tab>
 <TabItem value="DataHub" label="DataHub" default>
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/api/graphql/how-to-set-up-graphql/datahub_graphiql_link.png"/>
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/api/graphql/how-to-set-up-graphql/datahub_graphiql_link.png"/>
 </p>
 ![graphiql_link.png](../../../../../Desktop/datahub_graphiql_link.png)
 </TabItem>
 <TabItem value="DataHubCloud" label="DataHub Cloud">
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/api/graphql/how-to-set-up-graphql/datahubcloud_graphiql_link.png"/>
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/api/graphql/how-to-set-up-graphql/datahubcloud_graphiql_link.png"/>
 </p>
 </TabItem>
 </Tab>
@@ -67,7 +67,7 @@ shown below.
 This link will then display the following interface for exploring GraphQL queries.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/api/graphql/how-to-set-up-graphql/datahub_graphiql.png"/>
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/api/graphql/how-to-set-up-graphql/datahub_graphiql.png"/>
 </p>
 
 ### CURL

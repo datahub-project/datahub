@@ -694,7 +694,7 @@ There are two primary ways to query lineage:
 The following examples are demonstrated using sample data for `urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)`.
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/api/graphql/graphql-best-practices/sample_lineage.png"/>
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/api/graphql/graphql-best-practices/sample_lineage.png"/>
 </p>
 
 <Tab>
@@ -882,7 +882,7 @@ The previous query requires a root or starting node in the lineage graph. The fo
 The following examples are based on the sample lineage graph shown here:
 
 <p align="center">
-  <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/api/graphql/graphql-best-practices/sample_bulk_lineage.png"/>
+  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/api/graphql/graphql-best-practices/sample_bulk_lineage.png"/>
 </p>
 
 Example Request:
