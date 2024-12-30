@@ -538,6 +538,38 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
             self.report.num_ddl_queries_dropped += 1
             return None
 
+    def _get_query_type(self, query_type: str, query_text: Optional[str] = None) -> str:
+        if query_type == "CREATE_TABLE" and query_text and "CLONE" in query_text.upper():
+            return "CLONE"
+        return query_type
+
+    def process_query_event(self, event: Dict[str, Any]) -> Optional[PreparsedQuery]:
+        actual_query_type = self._get_query_type(event.get("query_type", ""), event.get("query_text"))
+
+        if actual_query_type == "CLONE":
+            objects_modified = event.get("objects_modified", [])
+            if len(objects_modified) >= 1:
+                target_table = objects_modified[0].get("objectName")
+                source_tables = [
+                    obj.get("objectName")
+                    for obj in event.get("direct_objects_accessed", [])
+                    if obj.get("objectDomain") == "Table"
+                ]
+
+                if target_table and source_tables:
+                    self.aggregator.add(
+                        KnownLineageMapping(
+                            downstream_urn=self.identifiers.gen_dataset_urn(
+                                self.identifiers.get_dataset_identifier_from_qualified_name(target_table)
+                            ),
+                            upstream_urn=self.identifiers.gen_dataset_urn(
+                                self.identifiers.get_dataset_identifier_from_qualified_name(source_tables[0])
+                            )
+                        )
+                    )
+
+        return None
+
     def close(self) -> None:
         self._exit_stack.close()
 
@@ -708,4 +740,5 @@ SNOWFLAKE_QUERY_TYPE_MAPPING = {
     "MERGE": QueryType.MERGE,
     "COPY": QueryType.UNKNOWN,
     "TRUNCATE_TABLE": QueryType.UNKNOWN,
+    "CLONE": QueryType.CREATE_TABLE_AS_SELECT,
 }
