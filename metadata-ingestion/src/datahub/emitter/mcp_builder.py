@@ -4,8 +4,8 @@ from pydantic.fields import Field
 from pydantic.main import BaseModel
 
 from datahub.cli.env_utils import get_boolean_env_variable
-from datahub.emitter.enum_helpers import get_enum_options
 from datahub.emitter.mce_builder import (
+    ALL_ENV_TYPES,
     Aspect,
     datahub_guid,
     make_container_urn,
@@ -25,7 +25,6 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     DomainsClass,
     EmbedClass,
-    FabricTypeClass,
     GlobalTagsClass,
     MetadataChangeEventClass,
     OwnerClass,
@@ -206,11 +205,7 @@ def gen_containers(
     # Extra validation on the env field.
     # In certain cases (mainly for backwards compatibility), the env field will actually
     # have a platform instance name.
-    env = (
-        container_key.env
-        if container_key.env in get_enum_options(FabricTypeClass)
-        else None
-    )
+    env = container_key.env if container_key.env in ALL_ENV_TYPES else None
 
     container_urn = container_key.as_urn()
 
