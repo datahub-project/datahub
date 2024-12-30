@@ -357,7 +357,10 @@ class DataProcessCleanup:
             except Exception as e:
                 self.report.report_failure(f"Exception while deleting DPI: {e}", exc=e)
 
-            if deleted_count_retention % self.config.batch_size == 0 and deleted_count_retention > 0:
+            if (
+                deleted_count_retention % self.config.batch_size == 0
+                and deleted_count_retention > 0
+            ):
                 logger.info(
                     f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
                 )
@@ -422,8 +425,9 @@ class DataProcessCleanup:
         assert self.ctx.graph
 
         dataFlows: Dict[str, DataFlowEntity] = {}
-        for flow in self.get_data_flows():
-            dataFlows[flow.urn] = flow
+        if self.config.delete_empty_data_flows:
+            for flow in self.get_data_flows():
+                dataFlows[flow.urn] = flow
 
         scroll_id: Optional[str] = None
         previous_scroll_id: Optional[str] = None
