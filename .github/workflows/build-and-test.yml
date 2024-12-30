@@ -108,7 +108,7 @@ jobs:
       - name: Gradle build (and test) for frontend
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |
-          ./gradlew -PwithCoverage :datahub-frontend:build :datahub-web-react:build --parallel
+          ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel
       - name: Gradle compile (jdk8) for legacy Spark
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         run: |
