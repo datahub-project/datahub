@@ -12,7 +12,6 @@ import {
 } from './components';
 
 export const checkboxDefaults: CheckboxProps = {
-    label: 'Label',
     error: '',
     isChecked: false,
     isDisabled: false,

@@ -38,7 +38,7 @@ import { DataProductLink } from '../shared/tags/DataProductLink';
 import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
 import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
 import { getUniqueOwners } from './utils';
-import StructuredPropertyBadge from '../entity/shared/containers/profile/header/StructuredPropertyBadge';
+import StructuredPropertyBadge from '../entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { usePreviewData } from '../entity/shared/PreviewContext';
 import { FORM_CHECK_RESPONSES_ID } from '../onboarding/config/FormOnboardingConfig';
 import { useEmbeddedProfileLinkProps } from '../shared/useEmbeddedProfileLinkProps';

@@ -21,7 +21,7 @@ import { EntityHealth } from '../entity/shared/containers/profile/header/EntityH
 import { EntityType } from '../../types.generated';
 import StructuredPropertyBadge, {
     MAX_PROP_BADGE_WIDTH,
-} from '../entity/shared/containers/profile/header/StructuredPropertyBadge';
+} from '../entityV2/shared/containers/profile/header/StructuredPropertyBadge';
 import { filterForAssetBadge } from '../entity/shared/containers/profile/header/utils';
 
 const CLICK_DELAY_THRESHOLD = 1000;
