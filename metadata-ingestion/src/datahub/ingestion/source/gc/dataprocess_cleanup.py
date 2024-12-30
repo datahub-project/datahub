@@ -267,7 +267,10 @@ class DataProcessCleanup:
                     self.report.report_failure(
                         f"Exception while deleting DPI: {e}", exc=e
                     )
-            if deleted_count_last_n % self.config.batch_size == 0:
+            if (
+                deleted_count_last_n % self.config.batch_size == 0
+                and deleted_count_last_n > 0
+            ):
                 logger.info(f"Deleted {deleted_count_last_n} DPIs from {job.urn}")
                 if self.config.delay:
                     logger.info(f"Sleeping for {self.config.delay} seconds")
@@ -354,7 +357,7 @@ class DataProcessCleanup:
             except Exception as e:
                 self.report.report_failure(f"Exception while deleting DPI: {e}", exc=e)
 
-            if deleted_count_retention % self.config.batch_size == 0:
+            if deleted_count_retention % self.config.batch_size == 0 and deleted_count_retention > 0:
                 logger.info(
                     f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
                 )
