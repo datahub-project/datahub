@@ -6569,6 +6569,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Data Transform Logic associated with the Data Job
+    """
+    dataTransformLogic: DataTransformLogic
 }
 
 """
@@ -6784,6 +6789,26 @@ type DataJobInputOutput {
     The upstream and downstream columns are from datasets.
     """
     fineGrainedLineages: [FineGrainedLineage!]
+}
+
+"""
+Information about a transformation applied to data assets
+"""
+type DataTransform {
+  """
+  The transformation may be defined by a query statement
+  """
+  queryStatement: QueryStatement
+}
+
+"""
+Information about transformations applied to data assets
+"""
+type DataTransformLogic {
+  """
+  List of transformations applied
+  """
+  transforms: [DataTransform!]!
 }
 
 """

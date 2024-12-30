@@ -5,18 +5,13 @@ import static com.linkedin.metadata.Constants.*;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
-import com.linkedin.data.template.GetMode;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.AuditStamp;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
-import com.linkedin.datahub.graphql.generated.QueryLanguage;
-import com.linkedin.datahub.graphql.generated.QuerySource;
-import com.linkedin.datahub.graphql.generated.QueryStatement;
 import com.linkedin.datahub.graphql.generated.QuerySubject;
-import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.QueryPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.entity.EntityResponse;
@@ -48,7 +43,10 @@ public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
     result.setType(EntityType.QUERY);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<QueryEntity> mappingHelper = new MappingHelper<>(aspectMap, result);
-    mappingHelper.mapToResult(context, QUERY_PROPERTIES_ASPECT_NAME, this::mapQueryProperties);
+    mappingHelper.mapToResult(
+        QUERY_PROPERTIES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setProperties(QueryPropertiesMapper.map(context, new QueryProperties(dataMap))));
     mappingHelper.mapToResult(QUERY_SUBJECTS_ASPECT_NAME, this::mapQuerySubjects);
     mappingHelper.mapToResult(DATA_PLATFORM_INSTANCE_ASPECT_NAME, this::mapPlatform);
     return mappingHelper.getResult();
@@ -62,37 +60,6 @@ public class QueryMapper implements ModelMapper<EntityResponse, QueryEntity> {
       platform.setType(EntityType.DATA_PLATFORM);
       query.setPlatform(platform);
     }
-  }
-
-  private void mapQueryProperties(
-      @Nullable final QueryContext context, @Nonnull QueryEntity query, @Nonnull DataMap dataMap) {
-    QueryProperties queryProperties = new QueryProperties(dataMap);
-    com.linkedin.datahub.graphql.generated.QueryProperties res =
-        new com.linkedin.datahub.graphql.generated.QueryProperties();
-
-    // Query Source must be kept in sync.
-    res.setSource(QuerySource.valueOf(queryProperties.getSource().toString()));
-    res.setStatement(
-        new QueryStatement(
-            queryProperties.getStatement().getValue(),
-            QueryLanguage.valueOf(queryProperties.getStatement().getLanguage().toString())));
-    res.setName(queryProperties.getName(GetMode.NULL));
-    res.setDescription(queryProperties.getDescription(GetMode.NULL));
-    if (queryProperties.hasOrigin() && queryProperties.getOrigin() != null) {
-      res.setOrigin(UrnToEntityMapper.map(context, queryProperties.getOrigin()));
-    }
-
-    AuditStamp created = new AuditStamp();
-    created.setTime(queryProperties.getCreated().getTime());
-    created.setActor(queryProperties.getCreated().getActor(GetMode.NULL).toString());
-    res.setCreated(created);
-
-    AuditStamp lastModified = new AuditStamp();
-    lastModified.setTime(queryProperties.getLastModified().getTime());
-    lastModified.setActor(queryProperties.getLastModified().getActor(GetMode.NULL).toString());
-    res.setLastModified(lastModified);
-
-    query.setProperties(res);
   }
 
   @Nonnull
