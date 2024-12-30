@@ -49,7 +49,7 @@ public class RemoveTagsAction extends UrnValuesAction {
 
   private void applyInternal(
       @Nonnull OperationContext opContext, List<Urn> tagUrns, List<Urn> urns) {
-    if (!urns.isEmpty()) {
+    if (!urns.isEmpty() && !tagUrns.isEmpty()) {
       this.tagService.batchRemoveTags(
           opContext, tagUrns, getResourceReferences(urns), METADATA_TESTS_SOURCE);
     }

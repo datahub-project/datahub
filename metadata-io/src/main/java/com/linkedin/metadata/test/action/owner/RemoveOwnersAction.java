@@ -50,7 +50,7 @@ public class RemoveOwnersAction extends UrnValuesAction {
 
   private void applyInternal(
       @Nonnull OperationContext opContext, List<Urn> ownerUrns, List<Urn> urns) {
-    if (!urns.isEmpty()) {
+    if (!urns.isEmpty() && !ownerUrns.isEmpty()) {
       this.ownerService.batchRemoveOwners(
           opContext, ownerUrns, getResourceReferences(urns), METADATA_TESTS_SOURCE);
     }

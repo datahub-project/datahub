@@ -49,10 +49,10 @@ public class AddGlossaryTermsAction extends UrnValuesAction {
   }
 
   private void applyInternal(
-      @Nonnull OperationContext opContext, List<Urn> tagUrns, List<Urn> urns) {
-    if (!urns.isEmpty()) {
+      @Nonnull OperationContext opContext, List<Urn> termUrns, List<Urn> urns) {
+    if (!urns.isEmpty() && !termUrns.isEmpty()) {
       this.glossaryTermService.batchAddGlossaryTerms(
-          opContext, tagUrns, getResourceReferences(urns), METADATA_TESTS_SOURCE, null);
+          opContext, termUrns, getResourceReferences(urns), METADATA_TESTS_SOURCE, null);
     }
   }
 }

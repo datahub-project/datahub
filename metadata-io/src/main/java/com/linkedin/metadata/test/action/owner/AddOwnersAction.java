@@ -62,7 +62,7 @@ public class AddOwnersAction extends UrnValuesAction {
       @Nonnull final List<Urn> ownerUrns,
       @Nonnull final List<Urn> urns,
       @Nonnull final OwnershipType ownershipType) {
-    if (!urns.isEmpty()) {
+    if (!urns.isEmpty() && !ownerUrns.isEmpty()) {
       this.ownerService.batchAddOwners(
           opContext,
           ownerUrns,
