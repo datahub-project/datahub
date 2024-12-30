@@ -35,7 +35,10 @@ from tableauserverclient import (
     SiteItem,
     TableauAuth,
 )
-from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
+from tableauserverclient.server.endpoint.exceptions import (
+    InternalServerError,
+    NonXMLResponseError,
+)
 from urllib3 import Retry
 
 import datahub.emitter.mce_builder as builder
@@ -49,6 +52,7 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     ContainerKey,
@@ -182,6 +186,15 @@ try:
 except ImportError:
     REAUTHENTICATE_ERRORS = (NonXMLResponseError,)
 
+RETRIABLE_ERROR_CODES = [
+    408,  # Request Timeout
+    429,  # Too Many Requests
+    500,  # Internal Server Error
+    502,  # Bad Gateway
+    503,  # Service Unavailable
+    504,  # Gateway Timeout
+]
+
 logger: logging.Logger = logging.getLogger(__name__)
 
 # Replace / with |
@@ -283,7 +296,7 @@ class TableauConnectionConfig(ConfigModel):
                 max_retries=Retry(
                     total=self.max_retries,
                     backoff_factor=1,
-                    status_forcelist=[429, 500, 502, 503, 504],
+                    status_forcelist=RETRIABLE_ERROR_CODES,
                 )
             )
             server._session.mount("http://", adapter)
@@ -378,11 +391,6 @@ class TableauConfig(
     page_size: int = Field(
         default=10,
         description="[advanced] Number of metadata objects (e.g. CustomSQLTable, PublishedDatasource, etc) to query at a time using the Tableau API.",
-    )
-
-    fetch_size: int = Field(
-        default=250,
-        description="Specifies the number of records to retrieve in each batch during a query execution.",
     )
 
     # We've found that even with a small workbook page size (e.g. 10), the Tableau API often
@@ -497,6 +505,10 @@ class TableauConfig(
         default=[],
         description="Tags to be added to hidden dashboards and views. If a dashboard or view is hidden in Tableau the luid is blank. "
         "This can only be used with ingest_tags enabled as it will overwrite tags entered from the UI.",
+    )
+
+    _fetch_size = pydantic_removed_field(
+        "fetch_size",
     )
 
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
@@ -616,6 +628,12 @@ class DatabaseTable:
                 self.parsed_columns.update(parsed_columns)
             else:
                 self.parsed_columns = parsed_columns
+
+
+@dataclass
+class SiteIdContentUrl:
+    site_id: str
+    site_content_url: str
 
 
 class TableauSourceReport(StaleEntityRemovalSourceReport):
@@ -770,7 +788,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         config=self.config,
                         ctx=self.ctx,
                         site=site,
-                        site_id=site.id,
                         report=self.report,
                         server=self.server,
                         platform=self.platform,
@@ -789,8 +806,11 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 site_source = TableauSiteSource(
                     config=self.config,
                     ctx=self.ctx,
-                    site=site,
-                    site_id=self.server.site_id,
+                    site=site
+                    if site
+                    else SiteIdContentUrl(
+                        site_id=self.server.site_id, site_content_url=self.config.site
+                    ),
                     report=self.report,
                     server=self.server,
                     platform=self.platform,
@@ -823,8 +843,7 @@ class TableauSiteSource:
         self,
         config: TableauConfig,
         ctx: PipelineContext,
-        site: Optional[SiteItem],
-        site_id: Optional[str],
+        site: Union[SiteItem, SiteIdContentUrl],
         report: TableauSourceReport,
         server: Server,
         platform: str,
@@ -835,13 +854,18 @@ class TableauSiteSource:
         self.ctx: PipelineContext = ctx
         self.platform = platform
 
-        self.site: Optional[SiteItem] = site
-        if site_id is not None:
-            self.site_id: str = site_id
+        self.site: Optional[SiteItem] = None
+        if isinstance(site, SiteItem):
+            self.site = site
+            assert site.id is not None, "Site ID is required"
+            self.site_id = site.id
+            self.site_content_url = site.content_url
+        elif isinstance(site, SiteIdContentUrl):
+            self.site = None
+            self.site_id = site.site_id
+            self.site_content_url = site.site_content_url
         else:
-            assert self.site is not None, "site or site_id is required"
-            assert self.site.id is not None, "site_id is required when site is provided"
-            self.site_id = self.site.id
+            raise AssertionError("site or site id+content_url pair is required")
 
         self.database_tables: Dict[str, DatabaseTable] = {}
         self.tableau_stat_registry: Dict[str, UsageStat] = {}
@@ -895,17 +919,11 @@ class TableauSiteSource:
         # datasets also have the env in the browse path
         return f"/{self.config.env.lower()}{self.no_env_browse_prefix}"
 
-    def _re_authenticate(self):
-        tableau_auth: Union[
-            TableauAuth, PersonalAccessTokenAuth
-        ] = self.config.get_tableau_auth(self.site_id)
-        self.server.auth.sign_in(tableau_auth)
-
-    @property
-    def site_content_url(self) -> Optional[str]:
-        if self.site and self.site.content_url:
-            return self.site.content_url
-        return None
+    def _re_authenticate(self) -> None:
+        logger.info(f"Re-authenticating to Tableau site '{self.site_content_url}'")
+        # Sign-in again may not be enough because Tableau sometimes caches invalid sessions
+        # so we need to recreate the Tableau Server object
+        self.server = self.config.make_tableau_client(self.site_content_url)
 
     def _populate_usage_stat_registry(self) -> None:
         if self.server is None:
@@ -1148,7 +1166,7 @@ class TableauSiteSource:
         connection_type: str,
         query_filter: str,
         current_cursor: Optional[str],
-        fetch_size: int = 250,
+        fetch_size: int,
         retry_on_auth_error: bool = True,
         retries_remaining: Optional[int] = None,
     ) -> Tuple[dict, Optional[str], int]:
@@ -1197,6 +1215,26 @@ class TableauSiteSource:
                 retry_on_auth_error=False,
                 retries_remaining=retries_remaining - 1,
             )
+
+        except InternalServerError as ise:
+            # In some cases Tableau Server returns 504 error, which is a timeout error, so it worths to retry.
+            # Extended with other retryable errors.
+            if ise.code in RETRIABLE_ERROR_CODES:
+                if retries_remaining <= 0:
+                    raise ise
+                logger.info(f"Retrying query due to error {ise.code}")
+                return self.get_connection_object_page(
+                    query=query,
+                    connection_type=connection_type,
+                    query_filter=query_filter,
+                    fetch_size=fetch_size,
+                    current_cursor=current_cursor,
+                    retry_on_auth_error=False,
+                    retries_remaining=retries_remaining - 1,
+                )
+            else:
+                raise ise
+
         except OSError:
             # In tableauseverclient 0.26 (which was yanked and released in 0.28 on 2023-10-04),
             # the request logic was changed to use threads.
@@ -1345,7 +1383,11 @@ class TableauSiteSource:
                     connection_type=connection_type,
                     query_filter=filter_,
                     current_cursor=current_cursor,
-                    fetch_size=self.config.fetch_size,
+                    # `filter_page` contains metadata object IDs (e.g., Project IDs, Field IDs, Sheet IDs, etc.).
+                    # The number of IDs is always less than or equal to page_size.
+                    # If the IDs are primary keys, the number of metadata objects to load matches the number of records to return.
+                    # In our case, mostly, the IDs are primary key, therefore, fetch_size is set equal to page_size.
+                    fetch_size=page_size,
                 )
 
                 yield from connection_objects.get(c.NODES) or []

@@ -154,7 +154,6 @@ def merge_schemas(schemas_obj: List[dict]) -> str:
     # Patch add_name method to NOT complain about duplicate names.
     class NamesWithDups(avro.schema.Names):
         def add_name(self, name_attr, space_attr, new_schema):
-
             to_add = avro.schema.Name(name_attr, space_attr, self.default_namespace)
             assert to_add.name
             assert to_add.space
@@ -626,7 +625,7 @@ if TYPE_CHECKING:
 
 class {class_name}(_SpecificUrn):
     ENTITY_TYPE: ClassVar[str] = "{entity_type}"
-    URN_PARTS: ClassVar[int] = {arg_count}
+    _URN_PARTS: ClassVar[int] = {arg_count}
 
     def __init__(self, {init_args}, *, _allow_coercion: bool = True) -> None:
         if _allow_coercion:
@@ -640,8 +639,8 @@ class {class_name}(_SpecificUrn):
 
     @classmethod
     def _parse_ids(cls, entity_ids: List[str]) -> "{class_name}":
-        if len(entity_ids) != cls.URN_PARTS:
-            raise InvalidUrnError(f"{class_name} should have {{cls.URN_PARTS}} parts, got {{len(entity_ids)}}: {{entity_ids}}")
+        if len(entity_ids) != cls._URN_PARTS:
+            raise InvalidUrnError(f"{class_name} should have {{cls._URN_PARTS}} parts, got {{len(entity_ids)}}: {{entity_ids}}")
         return cls({parse_ids_mapping}, _allow_coercion=False)
 
     @classmethod

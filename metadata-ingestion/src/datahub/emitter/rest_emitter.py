@@ -3,7 +3,7 @@ import json
 import logging
 import os
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Union
 
 import requests
 from deprecated import deprecated
@@ -288,9 +288,10 @@ class DataHubRestEmitter(Closeable, Emitter):
 
     def emit_mcps(
         self,
-        mcps: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
+        mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
         async_flag: Optional[bool] = None,
     ) -> int:
+        logger.debug("Attempting to emit batch mcps")
         url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
         for mcp in mcps:
             ensure_has_system_metadata(mcp)
@@ -303,15 +304,22 @@ class DataHubRestEmitter(Closeable, Emitter):
         current_chunk_size = INGEST_MAX_PAYLOAD_BYTES
         for mcp_obj in mcp_objs:
             mcp_obj_size = len(json.dumps(mcp_obj))
+            logger.debug(
+                f"Iterating through object with size {mcp_obj_size} (type: {mcp_obj.get('aspectName')}"
+            )
 
             if (
                 mcp_obj_size + current_chunk_size > INGEST_MAX_PAYLOAD_BYTES
                 or len(mcp_obj_chunks[-1]) >= BATCH_INGEST_MAX_PAYLOAD_LENGTH
             ):
+                logger.debug("Decided to create new chunk")
                 mcp_obj_chunks.append([])
                 current_chunk_size = 0
             mcp_obj_chunks[-1].append(mcp_obj)
             current_chunk_size += mcp_obj_size
+        logger.debug(
+            f"Decided to send {len(mcps)} mcps in {len(mcp_obj_chunks)} chunks"
+        )
 
         for mcp_obj_chunk in mcp_obj_chunks:
             # TODO: We're calling json.dumps on each MCP object twice, once to estimate
@@ -338,8 +346,15 @@ class DataHubRestEmitter(Closeable, Emitter):
 
     def _emit_generic(self, url: str, payload: str) -> None:
         curl_command = make_curl_command(self._session, "POST", url, payload)
+        payload_size = len(payload)
+        if payload_size > INGEST_MAX_PAYLOAD_BYTES:
+            # since we know total payload size here, we could simply avoid sending such payload at all and report a warning, with current approach we are going to cause whole ingestion to fail
+            logger.warning(
+                f"Apparent payload size exceeded {INGEST_MAX_PAYLOAD_BYTES}, might fail with an exception due to the size"
+            )
         logger.debug(
-            "Attempting to emit to DataHub GMS; using curl equivalent to:\n%s",
+            "Attempting to emit aspect (size: %s) to DataHub GMS; using curl equivalent to:\n%s",
+            payload_size,
             curl_command,
         )
         try:

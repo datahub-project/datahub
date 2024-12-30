@@ -1408,6 +1408,15 @@ class LookerDashboardSourceReport(StaleEntityRemovalSourceReport):
     dashboards_with_activity: LossySet[str] = dataclasses_field(
         default_factory=LossySet
     )
+
+    # Entities that don't seem to exist, so we don't emit usage aspects for them despite having usage data
+    dashboards_skipped_for_usage: LossySet[str] = dataclasses_field(
+        default_factory=LossySet
+    )
+    charts_skipped_for_usage: LossySet[str] = dataclasses_field(
+        default_factory=LossySet
+    )
+
     stage_latency: List[StageLatency] = dataclasses_field(default_factory=list)
     _looker_explore_registry: Optional[LookerExploreRegistry] = None
     total_explores: int = 0
