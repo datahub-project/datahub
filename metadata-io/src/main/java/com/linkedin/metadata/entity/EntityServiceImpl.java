@@ -2229,8 +2229,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   }
 
   /** Does not emit MCL */
+  @VisibleForTesting
   @Nullable
-  private RollbackResult deleteAspectWithoutMCL(
+  RollbackResult deleteAspectWithoutMCL(
       @Nonnull OperationContext opContext,
       String urn,
       String aspectName,
@@ -2288,11 +2289,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
               // 4. Fetch all preceding aspects, that match
               List<EntityAspect> aspectsToDelete = new ArrayList<>();
-              long maxVersion = aspectDao.getMaxVersion(urn, aspectName);
+              Pair<Long, Long> versionRange = aspectDao.getVersionRange(urn, aspectName);
+              long minVersion = Math.max(0, versionRange.getFirst());
+              long maxVersion = Math.max(0, versionRange.getSecond());
+
               EntityAspect.EntitySystemAspect survivingAspect = null;
-              String previousMetadata = null;
+
               boolean filterMatch = true;
-              while (maxVersion > 0 && filterMatch) {
+              while (maxVersion > minVersion && filterMatch) {
                 EntityAspect.EntitySystemAspect candidateAspect =
                     (EntityAspect.EntitySystemAspect)
                         EntityUtils.toSystemAspect(
@@ -2305,11 +2309,13 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                     previousSysMetadata != null && filterMatch(previousSysMetadata, conditions);
                 if (filterMatch) {
                   aspectsToDelete.add(candidateAspect.getEntityAspect());
-                  maxVersion = maxVersion - 1;
+                } else if (candidateAspect == null) {
+                  // potential gap
+                  filterMatch = true;
                 } else {
                   survivingAspect = candidateAspect;
-                  previousMetadata = survivingAspect.getMetadataRaw();
                 }
+                maxVersion = maxVersion - 1;
               }
 
               // Delete validation hooks
