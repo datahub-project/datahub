@@ -1,10 +1,8 @@
-import time
 from typing import Dict, List, Optional, Union
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
     AccessLevelClass,
-    AuditStampClass,
     ChangeAuditStampsClass,
     DashboardInfoClass as DashboardInfo,
     EdgeClass as Edge,
@@ -45,43 +43,6 @@ class DashboardPatchBuilder(MetadataPatchProposal):
             self, DashboardInfo.ASPECT_NAME
         )
         self.ownership_patch_helper = OwnershipPatchHelper(self)
-
-    def _mint_auditstamp(self, message: Optional[str] = None) -> AuditStampClass:
-        """
-        Creates an AuditStampClass instance with the current timestamp and other default values.
-
-        Args:
-            message: The message associated with the audit stamp (optional).
-
-        Returns:
-            An instance of AuditStampClass.
-        """
-        return AuditStampClass(
-            time=int(time.time() * 1000.0),
-            actor="urn:li:corpuser:datahub",
-            message=message,
-        )
-
-    def _ensure_urn_type(
-        self, entity_type: str, edges: List[Edge], context: str
-    ) -> None:
-        """
-        Ensures that the destination URNs in the given edges have the specified entity type.
-
-        Args:
-            entity_type: The entity type to check against.
-            edges: A list of Edge objects.
-            context: The context or description of the operation.
-
-        Raises:
-            ValueError: If any of the destination URNs is not of the specified entity type.
-        """
-        for e in edges:
-            urn = Urn.create_from_string(e.destinationUrn)
-            if not urn.get_type() == entity_type:
-                raise ValueError(
-                    f"{context}: {e.destinationUrn} is not of type {entity_type}"
-                )
 
     def add_owner(self, owner: Owner) -> "DashboardPatchBuilder":
         """
@@ -433,7 +394,6 @@ class DashboardPatchBuilder(MetadataPatchProposal):
     def add_custom_properties(
         self, custom_properties: Optional[Dict[str, str]] = None
     ) -> "DashboardPatchBuilder":
-
         if custom_properties:
             for key, value in custom_properties.items():
                 self.custom_properties_patch_helper.add_property(key, value)

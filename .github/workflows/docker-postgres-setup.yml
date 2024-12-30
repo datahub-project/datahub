@@ -52,7 +52,7 @@ jobs:
         with:
           images: |
             acryldata/datahub-postgres-setup
-          tags: ${{ needs.setup.outputs.tag }}
+          image_tag: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
           password: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
           publish: ${{ needs.setup.outputs.publish == 'true' }}

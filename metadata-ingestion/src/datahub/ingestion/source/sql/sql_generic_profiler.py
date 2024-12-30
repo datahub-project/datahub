@@ -1,6 +1,6 @@
 import logging
 from abc import abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Iterable, List, Optional, Union, cast
 
@@ -14,42 +14,13 @@ from datahub.ingestion.source.ge_data_profiler import (
     DatahubGEProfiler,
     GEProfilerRequest,
 )
-from datahub.ingestion.source.sql.sql_common import SQLSourceReport
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_generic import BaseTable, BaseView
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.sql_utils import check_table_with_profile_pattern
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProfile
 from datahub.metadata.com.linkedin.pegasus2avro.timeseries import PartitionType
-from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
-
-
-@dataclass
-class DetailedProfilerReportMixin:
-    profiling_skipped_not_updated: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
-    )
-    profiling_skipped_size_limit: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
-    )
-
-    profiling_skipped_row_limit: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
-    )
-
-    profiling_skipped_table_profile_pattern: TopKDict[str, int] = field(
-        default_factory=int_top_k_dict
-    )
-
-    profiling_skipped_other: TopKDict[str, int] = field(default_factory=int_top_k_dict)
-
-    num_tables_not_eligible_profiling: Dict[str, int] = field(
-        default_factory=int_top_k_dict
-    )
-
-
-class ProfilingSqlReport(DetailedProfilerReportMixin, SQLSourceReport):
-    pass
 
 
 @dataclass
@@ -65,7 +36,7 @@ class GenericProfiler:
     def __init__(
         self,
         config: SQLCommonConfig,
-        report: ProfilingSqlReport,
+        report: SQLSourceReport,
         platform: str,
         state_handler: Optional[ProfilingHandler] = None,
     ) -> None:

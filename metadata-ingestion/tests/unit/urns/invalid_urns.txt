@@ -1,0 +1,40 @@
+# Basic URN format tests
+urn:li:abc
+urn:li:abc:
+urn:li:abc:()
+urn:li:abc:(abc,)
+urn:li:corpuser:abc)
+
+# Reserved characters
+urn:li:corpuser:foo␟bar
+urn:li:tag:a,b,c
+
+# CorpUser URN tests
+urn:li:corpuser:(part1,part2)
+
+# Dataset URN tests
+urn:li:dataset:(urn:li:user:abc,dataset,prod)
+urn:li:dataset:(urn:li:user:abc,dataset)
+urn:li:dataset:(urn:li:user:abc,dataset,invalidEnv)
+
+# DataFlow URN tests
+urn:li:dataFlow:(airflow,flow_id)
+
+# DataJob URN tests
+urn:li:dataJob:(urn:li:user:abc,job_id)
+urn:li:dataJob:(urn:li:dataFlow:(airflow,flow_id,prod))
+
+# Domain URN tests
+urn:li:domain:(part1,part2)
+
+# Tag URN tests
+urn:li:tag:(part1,part2)
+
+# Notebook URN tests
+urn:li:notebook:(part1,part2,part3)
+
+# CorpGroup URN tests
+urn:li:corpGroup:(part1,part2)
+
+# DataProcessInstance URN tests
+urn:li:dataProcessInstance:(part1,part2)

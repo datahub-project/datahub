@@ -32,7 +32,6 @@ public class ValidationApiUtils {
   // https://datahubproject.io/docs/what/urn/#restrictions
   public static final Set<String> ILLEGAL_URN_COMPONENT_CHARACTERS = Set.of("(", ")");
   public static final Set<String> ILLEGAL_URN_TUPLE_CHARACTERS = Set.of(",");
-  public static final String URN_TUPLE_ALLOWED_CHARACTERS_REGEX = "[:]";
 
   /**
    * Validates a {@link RecordTemplate} and throws {@link ValidationException} if validation fails.
@@ -92,8 +91,6 @@ public class ValidationApiUtils {
     List<String> illegalComponents =
         urn.getEntityKey().getParts().stream()
             .flatMap(part -> processUrnPartRecursively(part, totalParts))
-            .filter(
-                urnPart -> ILLEGAL_URN_COMPONENT_CHARACTERS.stream().anyMatch(urnPart::contains))
             .collect(Collectors.toList());
 
     if (!illegalComponents.isEmpty()) {

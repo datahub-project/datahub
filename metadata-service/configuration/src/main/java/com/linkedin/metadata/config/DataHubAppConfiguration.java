@@ -82,4 +82,7 @@ public class DataHubAppConfiguration {
 
   /** MCP throttling configuration */
   private MetadataChangeProposalConfig metadataChangeProposal;
+
+  /** Timeseries Aspect Service configuration */
+  private TimeseriesAspectServiceConfig timeseriesAspectService;
 }

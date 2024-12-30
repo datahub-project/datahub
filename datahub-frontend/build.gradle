@@ -13,6 +13,12 @@ ext {
   docker_dir = 'datahub-frontend'
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(jdkVersion(project))
+    }
+}
+
 test {
   jacoco {
     // jacoco instrumentation is failing when dealing with code of this dependency, excluding it.

@@ -156,9 +156,9 @@ public class BootstrapManagerFactory {
     final WaitForSystemUpdateStep waitForSystemUpdateStep =
         new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
     final IngestEntityTypesStep ingestEntityTypesStep = new IngestEntityTypesStep(_entityService);
-    final IngestDefaultTagsStep ingestDefaultTagsStep = new IngestDefaultTagsStep(_entityService);
     final RestoreFormInfoIndicesStep restoreFormInfoIndicesStep =
         new RestoreFormInfoIndicesStep(_entityService);
+    final IngestDefaultTagsStep ingestDefaultTagsStep = new IngestDefaultTagsStep(_entityService);
 
     final MigrateAssertionsSummaryStep assertionsSummaryStep =
         new MigrateAssertionsSummaryStep(
@@ -187,10 +187,11 @@ public class BootstrapManagerFactory {
                 indexDataPlatformsStep,
                 restoreColumnLineageIndices,
                 ingestEntityTypesStep,
+                restoreFormInfoIndicesStep,
+                ingestEntityTypesStep,
                 assertionsSummaryStep,
                 incidentsSummaryStep,
                 migrateFreshnessAssertionCronToSinceTheLastCheckStep,
-                restoreFormInfoIndicesStep,
                 // Saas-only
                 _ingestMetadataTestsStep,
                 ingestDefaultTagsStep)

@@ -1,19 +1,14 @@
 package com.linkedin.datahub.graphql.analytics.service;
 
+import static com.linkedin.metadata.Constants.CORP_USER_EDITABLE_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.dashboard.DashboardInfo;
-import com.linkedin.datahub.graphql.generated.BarSegment;
-import com.linkedin.datahub.graphql.generated.Cell;
-import com.linkedin.datahub.graphql.generated.Entity;
-import com.linkedin.datahub.graphql.generated.EntityProfileParams;
-import com.linkedin.datahub.graphql.generated.LinkParams;
-import com.linkedin.datahub.graphql.generated.NamedBar;
-import com.linkedin.datahub.graphql.generated.Row;
-import com.linkedin.datahub.graphql.generated.SearchParams;
+import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.dataplatform.DataPlatformInfo;
 import com.linkedin.dataset.DatasetProperties;
@@ -22,6 +17,7 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.glossary.GlossaryTermInfo;
+import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.key.GlossaryTermKey;
@@ -35,6 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -169,36 +166,79 @@ public class AnalyticsUtil {
     final Map<Urn, EntityResponse> gmsResponseByUser =
         entityClient.batchGetV2(
             opContext,
-            CORP_USER_INFO_ASPECT_NAME,
+            CORP_USER_ENTITY_NAME,
             userUrns,
-            ImmutableSet.of(CORP_USER_INFO_ASPECT_NAME));
-    final Map<Urn, CorpUserInfo> urnToCorpUserInfo =
+            ImmutableSet.of(CORP_USER_INFO_ASPECT_NAME, CORP_USER_EDITABLE_INFO_ASPECT_NAME));
+    final Stream<Map.Entry<Urn, EntityResponse>> entityStream =
         gmsResponseByUser.entrySet().stream()
             .filter(
                 entry ->
                     entry.getValue() != null
-                        && entry.getValue().getAspects().containsKey(CORP_USER_INFO_ASPECT_NAME))
-            .collect(
-                Collectors.toMap(
-                    Map.Entry::getKey,
-                    entry ->
+                        && (entry.getValue().getAspects().containsKey(CORP_USER_INFO_ASPECT_NAME)
+                            || entry
+                                .getValue()
+                                .getAspects()
+                                .containsKey(CORP_USER_EDITABLE_INFO_ASPECT_NAME)));
+    final Map<Urn, Pair<CorpUserInfo, CorpUserEditableInfo>> urnToCorpUserInfo =
+        entityStream.collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                entry -> {
+                  CorpUserInfo userInfo = null;
+                  CorpUserEditableInfo editableInfo = null;
+                  try {
+                    userInfo =
                         new CorpUserInfo(
                             entry
                                 .getValue()
                                 .getAspects()
                                 .get(CORP_USER_INFO_ASPECT_NAME)
                                 .getValue()
-                                .data())));
+                                .data());
+                  } catch (Exception e) {
+                    // nothing to do
+                  }
+                  try {
+
+                    editableInfo =
+                        new CorpUserEditableInfo(
+                            entry
+                                .getValue()
+                                .getAspects()
+                                .get(CORP_USER_EDITABLE_INFO_ASPECT_NAME)
+                                .getValue()
+                                .data());
+                  } catch (Exception e) {
+                    // nothing to do
+                  }
+
+                  return Pair.of(userInfo, editableInfo);
+                }));
     // Populate a row with the user link, title, and email.
     rows.forEach(
         row -> {
           Urn urn = UrnUtils.getUrn(row.getCells().get(0).getValue());
           EntityResponse response = gmsResponseByUser.get(urn);
           String maybeDisplayName = response != null ? getUserName(response).orElse(null) : null;
-          String maybeEmail =
-              urnToCorpUserInfo.containsKey(urn) ? urnToCorpUserInfo.get(urn).getEmail() : null;
-          String maybeTitle =
-              urnToCorpUserInfo.containsKey(urn) ? urnToCorpUserInfo.get(urn).getTitle() : null;
+          String maybeEmail = null;
+          String maybeTitle = null;
+          if (urnToCorpUserInfo.containsKey(urn)) {
+            Pair<CorpUserInfo, CorpUserEditableInfo> pair = urnToCorpUserInfo.get(urn);
+            if (pair.getLeft() != null) {
+              CorpUserInfo userInfo = pair.getLeft();
+              maybeEmail = userInfo.getEmail();
+              maybeTitle = userInfo.getTitle();
+            }
+            if (pair.getRight() != null) {
+              CorpUserEditableInfo userInfo = pair.getRight();
+              if (maybeEmail == null) {
+                maybeEmail = userInfo.getEmail();
+              }
+              if (maybeTitle == null) {
+                maybeTitle = userInfo.getTitle();
+              }
+            }
+          }
           if (maybeDisplayName != null) {
             row.getCells().get(0).setValue(maybeDisplayName);
           }

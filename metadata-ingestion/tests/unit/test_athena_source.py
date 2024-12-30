@@ -93,7 +93,8 @@ def test_athena_get_table_properties():
             "CreateTime": datetime.now(),
             "LastAccessTime": datetime.now(),
             "PartitionKeys": [
-                {"Name": "testKey", "Type": "string", "Comment": "testComment"}
+                {"Name": "year", "Type": "string", "Comment": "testComment"},
+                {"Name": "month", "Type": "string", "Comment": "testComment"},
             ],
             "Parameters": {
                 "comment": "testComment",
@@ -112,8 +113,18 @@ def test_athena_get_table_properties():
         response=table_metadata
     )
 
+    # Mock partition query results
+    mock_cursor.execute.return_value.description = [
+        ["year"],
+        ["month"],
+    ]
+    mock_cursor.execute.return_value.__iter__.return_value = [["2023", "12"]]
+
     ctx = PipelineContext(run_id="test")
     source = AthenaSource(config=config, ctx=ctx)
+    source.cursor = mock_cursor
+
+    # Test table properties
     description, custom_properties, location = source.get_table_properties(
         inspector=mock_inspector, table=table, schema=schema
     )
@@ -124,12 +135,34 @@ def test_athena_get_table_properties():
         "last_access_time": "2020-04-14 07:00:00",
         "location": "s3://testLocation",
         "outputformat": "testOutputFormat",
-        "partition_keys": '[{"name": "testKey", "type": "string", "comment": "testComment"}]',
+        "partition_keys": '[{"name": "year", "type": "string", "comment": "testComment"}, {"name": "month", "type": "string", "comment": "testComment"}]',
         "serde.serialization.lib": "testSerde",
         "table_type": "testType",
     }
-
     assert location == make_s3_urn("s3://testLocation", "PROD")
+
+    # Test partition functionality
+    partitions = source.get_partitions(
+        inspector=mock_inspector, schema=schema, table=table
+    )
+    assert partitions == ["year", "month"]
+
+    # Verify the correct SQL query was generated for partitions
+    expected_query = """\
+select year,month from "test_schema"."test_table$partitions" \
+where CAST(year as VARCHAR) || '-' || CAST(month as VARCHAR) = \
+(select max(CAST(year as VARCHAR) || '-' || CAST(month as VARCHAR)) \
+from "test_schema"."test_table$partitions")"""
+    mock_cursor.execute.assert_called_once()
+    actual_query = mock_cursor.execute.call_args[0][0]
+    assert actual_query == expected_query
+
+    # Verify partition cache was populated correctly
+    assert source.table_partition_cache[schema][table].partitions == partitions
+    assert source.table_partition_cache[schema][table].max_partition == {
+        "year": "2023",
+        "month": "12",
+    }
 
 
 def test_get_column_type_simple_types():
@@ -214,3 +247,9 @@ def test_column_type_complex_combination():
     assert isinstance(
         result._STRUCT_fields[2][1].item_type._STRUCT_fields[1][1], types.String
     )
+
+
+def test_casted_partition_key():
+    from datahub.ingestion.source.sql.athena import AthenaSource
+
+    assert AthenaSource._casted_partition_key("test_col") == "CAST(test_col as VARCHAR)"

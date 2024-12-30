@@ -849,7 +849,7 @@ public class TestEngine implements AutoCloseable {
     log.info("Total number of mcps = {}", allMCPs.size());
     AspectsBatchImpl batch =
         AspectsBatchImpl.builder()
-            .mcps(allMCPs, auditStamp, systemOpContext.getRetrieverContext().get())
+            .mcps(allMCPs, auditStamp, systemOpContext.getRetrieverContext())
             .build();
 
     _entityService.ingestProposal(systemOpContext, batch, mode != EvaluationMode.SYNC);
@@ -1181,10 +1181,7 @@ public class TestEngine implements AutoCloseable {
         log.info("Fetching old results");
         oldResults =
             getMaterializedResults(
-                testUrn,
-                oldTestDefinition,
-                oldBatchTestRunResults,
-                opContext.getAspectRetrieverOpt().get());
+                testUrn, oldTestDefinition, oldBatchTestRunResults, opContext.getAspectRetriever());
         log.info("Old results size for test {} = {}", testUrn, oldResults.size());
         oldResults.forEach(
             (urn, testResults) -> {
@@ -1250,7 +1247,7 @@ public class TestEngine implements AutoCloseable {
                   new AuditStamp()
                       .setTime(System.currentTimeMillis())
                       .setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR)),
-                  systemOpContext.getRetrieverContext().get())
+                  systemOpContext.getRetrieverContext())
               .build();
 
       _entityService.ingestProposal(systemOpContext, batch, mode != EvaluationMode.SYNC);

@@ -409,7 +409,6 @@ class DataHubBasedS3Dataset:
         physical_uri: str,
         local_file: str,
     ) -> Iterable[MetadataChangeProposalWrapper]:
-
         aspects: List = []
         mcps: List[MetadataChangeProposalWrapper] = self._update_presigned_url(
             dataset_urn, physical_uri
@@ -456,7 +455,6 @@ class DataHubBasedS3Dataset:
         physical_uri: str,
         dataset_properties: Optional[DatasetPropertiesClass] = None,
     ) -> List[MetadataChangeProposalWrapper]:
-
         if self.config.generate_presigned_url:
             external_url = self._generate_presigned_url(physical_uri)
         else:

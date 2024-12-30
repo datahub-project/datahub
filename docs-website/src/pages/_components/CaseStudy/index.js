@@ -1,11 +1,15 @@
-import React from "react";
+import React, { useRef } from "react";
 import styles from "./case-study.module.scss";
 import Link from '@docusaurus/Link'
-import { Carousel } from "antd";
+import { useDraggable } from "react-use-draggable-scroll";
 import caseStudyData from "./caseStudyContent";
 
 
 const CaseStudy = () => {
+  const containerRef = useRef(null);
+
+  const { events } = useDraggable(containerRef);
+
   return (
     <div className={styles.container}>
       {/* Section-1 */}
@@ -15,16 +19,16 @@ const CaseStudy = () => {
           <p>Across finance, healthcare, e-commerce, and countless more.</p>
         </div>
 
-        <div className={styles.card_row}>
-          <div className={styles.card_row_wrapper} >
+        <div className={styles.card_row} {...events} ref={containerRef}>
+          <div className={styles.card_row_wrapper}>
             {caseStudyData.map((caseStudy) => (
               <div className={styles.card} key={caseStudy.link}>
-                <a className={styles.cardLink} href={caseStudy.link} style={caseStudy.backgroundImage ? null : {
+                <a draggable={false} className={styles.cardLink} href={caseStudy.link} style={caseStudy.backgroundImage ? null : {
                   opacity: .5
                 }}>
                   {caseStudy.tag ? <span className={styles.card_tag}>{caseStudy.tag}</span> : null}
                   <div className={styles.card_image} style={{ backgroundColor: caseStudy.backgroundImage ? null : '#eee' }}>
-                    <img src={caseStudy.image} alt="" />
+                    <img src={caseStudy.image} draggable={false} alt="" />
                     <div className={styles.cardImageBackground} style={{ backgroundImage: `url(${caseStudy.backgroundImage})` }} />
                   </div>
                   <div className={styles.card_heading_div}>

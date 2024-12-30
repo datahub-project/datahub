@@ -239,7 +239,7 @@ public class RestoreFromParquetStep implements UpgradeStep {
       try {
         systemAspectRecord =
             EntityUtils.toSystemAspectFromEbeanAspects(
-                    systemOperationContext.getRetrieverContext().get(), List.of(aspect))
+                    systemOperationContext.getRetrieverContext(), List.of(aspect))
                 .get(0);
       } catch (Exception e) {
         context

@@ -94,8 +94,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
   public void handleChangeEvent(
       @Nonnull OperationContext opContext, @Nonnull final MetadataChangeLog event) {
     try {
-      MCLItemImpl mclItem =
-          MCLItemImpl.builder().build(event, opContext.getAspectRetrieverOpt().get());
+      MCLItemImpl mclItem = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
 
       if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
         handleUpdateChangeEvent(opContext, mclItem);

@@ -18,6 +18,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -49,8 +50,8 @@ import org.testng.annotations.Test;
 
 public class AggregationQueryBuilderTest {
 
-  private static AspectRetriever aspectRetriever;
-  private static AspectRetriever aspectRetrieverV1;
+  private static CachingAspectRetriever aspectRetriever;
+  private static CachingAspectRetriever aspectRetrieverV1;
   private static String DEFAULT_FILTER = "_index";
 
   @BeforeClass
@@ -61,7 +62,7 @@ public class AggregationQueryBuilderTest {
         Urn.createFromString("urn:li:structuredProperty:under.scores.and.dots_make_a_mess");
 
     // legacy
-    aspectRetriever = mock(AspectRetriever.class);
+    aspectRetriever = mock(CachingAspectRetriever.class);
     when(aspectRetriever.getEntityRegistry())
         .thenReturn(TestOperationContexts.defaultEntityRegistry());
 
@@ -106,7 +107,7 @@ public class AggregationQueryBuilderTest {
                     new Aspect(structPropUnderscoresAndDotsDefinition.data()))));
 
     // V1
-    aspectRetrieverV1 = mock(AspectRetriever.class);
+    aspectRetrieverV1 = mock(CachingAspectRetriever.class);
     when(aspectRetrieverV1.getEntityRegistry())
         .thenReturn(TestOperationContexts.defaultEntityRegistry());
 

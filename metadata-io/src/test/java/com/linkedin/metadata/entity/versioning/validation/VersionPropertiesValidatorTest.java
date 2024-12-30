@@ -58,7 +58,7 @@ public class VersionPropertiesValidatorTest {
 
     retrieverContext =
         io.datahubproject.metadata.context.RetrieverContext.builder()
-            .aspectRetriever(mockAspectRetriever)
+            .cachingAspectRetriever(mockAspectRetriever)
             .searchRetriever(mockSearchRetriever)
             .graphRetriever(mockGraphRetriever)
             .build();
@@ -127,7 +127,7 @@ public class VersionPropertiesValidatorTest {
 
     retrieverContext =
         io.datahubproject.metadata.context.RetrieverContext.builder()
-            .aspectRetriever(mockAspectRetriever)
+            .cachingAspectRetriever(mockAspectRetriever)
             .searchRetriever(mockSearchRetriever)
             .graphRetriever(mockGraphRetriever)
             .build();

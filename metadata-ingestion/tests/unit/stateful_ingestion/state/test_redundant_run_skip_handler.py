@@ -37,7 +37,11 @@ def stateful_source(mock_datahub_graph: DataHubGraph) -> Iterable[SnowflakeV2Sou
         ),
     )
 
-    with mock.patch("snowflake.connector.connect"):
+    with mock.patch(
+        "datahub.sql_parsing.sql_parsing_aggregator.ToolMetaExtractor.create",
+    ) as mock_checkpoint, mock.patch("snowflake.connector.connect"):
+        mock_checkpoint.return_value = mock.MagicMock()
+
         yield SnowflakeV2Source(ctx=ctx, config=config)
 
 

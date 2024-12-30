@@ -46,8 +46,8 @@ public class ESUtilsTest {
     Urn abFghTenUrn = Urn.createFromString("urn:li:structuredProperty:ab.fgh.ten");
     Urn underscoresAndDotsUrn =
         Urn.createFromString("urn:li:structuredProperty:under.scores.and.dots_make_a_mess");
-    Urn ownerCountsUrn = Urn.createFromString("urn:li:structuredProperty:owner_counts");
     Urn dateWithDotsUrn = Urn.createFromString("urn:li:structuredProperty:date_here.with_dot");
+    Urn ownerCountsUrn = Urn.createFromString("urn:li:structuredProperty:owner_counts");
 
     // legacy
     aspectRetriever = mock(AspectRetriever.class);
@@ -737,6 +737,86 @@ public class ESUtilsTest {
             + "  }\n"
             + "}";
     Assert.assertEquals(result.toString(), expected);
+
+    final Criterion originCriterion = buildCriterion("origin", Condition.EQUAL, "PROD");
+
+    // Ensure that the query is expanded!
+    QueryBuilder originExpanded =
+        ESUtils.getQueryBuilderFromCriterion(
+            originCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            QueryFilterRewriteChain.EMPTY);
+    String originExpected =
+        "{\n"
+            + "  \"bool\" : {\n"
+            + "    \"should\" : [\n"
+            + "      {\n"
+            + "        \"terms\" : {\n"
+            + "          \"origin.keyword\" : [\n"
+            + "            \"PROD\"\n"
+            + "          ],\n"
+            + "          \"boost\" : 1.0,\n"
+            + "          \"_name\" : \"origin\"\n"
+            + "        }\n"
+            + "      },\n"
+            + "      {\n"
+            + "        \"terms\" : {\n"
+            + "          \"env.keyword\" : [\n"
+            + "            \"PROD\"\n"
+            + "          ],\n"
+            + "          \"boost\" : 1.0,\n"
+            + "          \"_name\" : \"env\"\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
+            + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"minimum_should_match\" : \"1\",\n"
+            + "    \"boost\" : 1.0\n"
+            + "  }\n"
+            + "}";
+    Assert.assertEquals(originExpanded.toString(), originExpected);
+
+    final Criterion envCriterion = buildCriterion("env", Condition.EQUAL, "PROD");
+
+    // Ensure that the query is expanded!
+    QueryBuilder envExpanded =
+        ESUtils.getQueryBuilderFromCriterion(
+            envCriterion,
+            false,
+            new HashMap<>(),
+            mock(OperationContext.class),
+            QueryFilterRewriteChain.EMPTY);
+    String envExpected =
+        "{\n"
+            + "  \"bool\" : {\n"
+            + "    \"should\" : [\n"
+            + "      {\n"
+            + "        \"terms\" : {\n"
+            + "          \"env.keyword\" : [\n"
+            + "            \"PROD\"\n"
+            + "          ],\n"
+            + "          \"boost\" : 1.0,\n"
+            + "          \"_name\" : \"env\"\n"
+            + "        }\n"
+            + "      },\n"
+            + "      {\n"
+            + "        \"terms\" : {\n"
+            + "          \"origin.keyword\" : [\n"
+            + "            \"PROD\"\n"
+            + "          ],\n"
+            + "          \"boost\" : 1.0,\n"
+            + "          \"_name\" : \"origin\"\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
+            + "    \"adjust_pure_negative\" : true,\n"
+            + "    \"minimum_should_match\" : \"1\",\n"
+            + "    \"boost\" : 1.0\n"
+            + "  }\n"
+            + "}";
+    Assert.assertEquals(envExpanded.toString(), envExpected);
   }
 
   @Test

@@ -793,13 +793,13 @@ fragment nonRecursiveMLFeature on MLFeature {
             }
         }
     }
-    assetOrigin {
-        ...originFields
-    }
     structuredProperties {
         properties {
             ...structuredPropertiesFields
         }
+    }
+    assetOrigin {
+        ...originFields
     }
 }
 
@@ -871,13 +871,13 @@ fragment nonRecursiveMLPrimaryKey on MLPrimaryKey {
             }
         }
     }
-    assetOrigin {
-        ...originFields
-    }
     structuredProperties {
         properties {
             ...structuredPropertiesFields
         }
+    }
+    assetOrigin {
+        ...originFields
     }
 }
 
@@ -935,13 +935,13 @@ fragment nonRecursiveMLFeatureTable on MLFeatureTable {
     browsePathV2 {
         ...browsePathV2Fields
     }
-    assetOrigin {
-        ...originFields
-    }
     structuredProperties {
         properties {
             ...structuredPropertiesFields
         }
+    }
+    assetOrigin {
+        ...originFields
     }
 }
 

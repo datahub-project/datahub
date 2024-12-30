@@ -24,10 +24,10 @@ import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
 import { Link } from 'react-router-dom';
-import { CardIcons } from '../Dashboard/Forms/styledComponents';
 import { removeFromPropertiesList } from './cacheUtils';
 import EmptyStructuredProperties from './EmptyStructuredProperties';
 import {
+    CardIcons,
     CreatedByContainer,
     DataContainer,
     IconContainer,

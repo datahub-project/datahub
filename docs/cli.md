@@ -115,6 +115,19 @@ datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml --dry-run
 datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml -n
 ```
 
+#### ingest --list-source-runs
+
+The `--list-source-runs` option of the `ingest` command lists the previous runs, displaying their run ID, source name, 
+start time, status, and source URN. This command allows you to filter results using the --urn option for URN-based 
+filtering or the --source option to filter by source name (partial or complete matches are supported).
+
+```shell
+# List all ingestion runs
+datahub ingest --list-source-runs
+# Filter runs by a source name containing "demo"
+datahub ingest --list-source-runs --source "demo"
+```
+
 #### ingest --preview
 
 The `--preview` option of the `ingest` command performs all of the ingestion steps, but limits the processing to only the first 10 workunits produced by the source.
@@ -705,6 +718,7 @@ Please see our [Integrations page](https://datahubproject.io/integrations) if yo
 | [datahub-lineage-file](./generated/ingestion/sources/file-based-lineage.md)                    | _no additional dependencies_                               | Lineage File source                     |
 | [datahub-business-glossary](./generated/ingestion/sources/business-glossary.md)                | _no additional dependencies_                               | Business Glossary File source           |
 | [dbt](./generated/ingestion/sources/dbt.md)                                                    | _no additional dependencies_                               | dbt source                              |
+| [dremio](./generated/ingestion/sources/dremio.md)                                              | `pip install 'acryl-datahub[dremio]'`                      | Dremio Source                          |
 | [druid](./generated/ingestion/sources/druid.md)                                                | `pip install 'acryl-datahub[druid]'`                       | Druid Source                            |
 | [feast](./generated/ingestion/sources/feast.md)                                                | `pip install 'acryl-datahub[feast]'`                       | Feast source (0.26.0)                   |
 | [glue](./generated/ingestion/sources/glue.md)                                                  | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                         |

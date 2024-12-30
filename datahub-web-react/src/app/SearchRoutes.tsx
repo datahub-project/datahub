@@ -6,8 +6,18 @@ import { AnalyticsPage } from './analyticsDashboard/components/AnalyticsPage';
 import { Automations } from './automations/Automations';
 import { BrowseResultsPage } from './browse/BrowseResultsPage';
 import { BusinessAttributes } from './businessAttribute/BusinessAttributes';
+import { useUserContext } from './context/useUserContext';
 import DomainRoutes from './domain/DomainRoutes';
+import {
+    useAppConfig,
+    useBusinessAttributesFlag,
+    useIsAppConfigContextLoaded,
+    useIsDocumentationFormsEnabled,
+    useIsNestedDomainsEnabled,
+} from './useAppConfig';
 import { ManageDomainsPage } from './domain/ManageDomainsPage';
+import StructuredProperties from './govern/structuredProperties/StructuredProperties';
+
 import { EntityPage } from './entity/EntityPage';
 import { EntityPage as EntityPageV2 } from './entityV2/EntityPage';
 import GlossaryRoutes from './glossary/GlossaryRoutes';
@@ -22,22 +32,13 @@ import { SettingsPage } from './settings/SettingsPage';
 import { SettingsPage as SettingsPageV2 } from './settingsV2/SettingsPage';
 import { NoPageFound } from './shared/NoPageFound';
 import { ManageTestsPage } from './tests/ManageTestsPage';
-import {
-    useAppConfig,
-    useBusinessAttributesFlag,
-    useIsAppConfigContextLoaded,
-    useIsDocumentationFormsEnabled,
-    useIsNestedDomainsEnabled,
-} from './useAppConfig';
 import { useEntityRegistry } from './useEntityRegistry';
 
-import { useUserContext } from './context/useUserContext';
 import DomainRoutesV2 from './domainV2/DomainRoutes';
 import { ManageDomainsPage as ManageDomainsPageV2 } from './domainV2/ManageDomainsPage';
 import { GovernDashboard } from './govern/Dashboard/Dashboard';
 import CreateForm from './govern/Dashboard/Forms/CreateForm';
 import { LoadingPermissions } from './govern/Dashboard/charts/AuxViews';
-import StructuredProperties from './govern/structuredProperties/StructuredProperties';
 import { TaskCenter } from './taskCenter/TaskCenter';
 import { useIsThemeV2 } from './useIsThemeV2';
 import AnalyticsTab from './govern/Dashboard/AnalyticsTab';
@@ -53,8 +54,8 @@ export const SearchRoutes = (): JSX.Element => {
     const entities = isNestedDomainsEnabled
         ? entityRegistry.getEntitiesForSearchRoutes()
         : entityRegistry.getNonGlossaryEntities();
-    const isThemeV2 = useIsThemeV2();
     const { config } = useAppConfig();
+    const isThemeV2 = useIsThemeV2();
     const FinalSearchablePage = isThemeV2 ? SearchablePageV2 : SearchablePage;
     const isDocumentationFormsEnabled = useIsDocumentationFormsEnabled();
     const includeGovernDashboard =

@@ -118,7 +118,6 @@ class DataHubReportingExtractSQLSource(Source):
         return skip_extract
 
     def get_workunits(self):
-
         self.graph = (
             self.ctx.require_graph("Loading default graph coordinates.")
             if self.config.server is None

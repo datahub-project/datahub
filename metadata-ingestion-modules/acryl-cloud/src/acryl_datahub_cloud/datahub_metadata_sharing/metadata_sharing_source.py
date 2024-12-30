@@ -73,7 +73,6 @@ class DataHubMetadataSharingSource(Source):
     def execute_graphql_with_retry(
         self, query: str, variables: Dict[str, Any]
     ) -> Dict[str, Any]:
-
         """Execute GraphQL query with retry logic"""
         if self.graph is None:
             raise ValueError("Graph client not initialized")
@@ -230,7 +229,6 @@ class DataHubMetadataSharingSource(Source):
     ) -> bool:
         """Share entity with retry logic"""
         try:
-
             response = self.execute_graphql_with_retry(
                 GRAPHQL_SHARE_ENTITY,
                 variables={

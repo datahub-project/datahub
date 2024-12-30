@@ -31,8 +31,9 @@ import { getDataProduct } from '../shared/utils';
 import { LOOKER_URN } from '../../ingest/source/builder/constants';
 import { MatchedFieldList } from '../../search/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '../../search/matches/matchedInputFieldRenderer';
-import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
+import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 
 /**
  * Definition of the DataHub Dashboard entity.
@@ -121,10 +122,10 @@ export class DashboardEntity implements Entity<Dashboard> {
                     display: {
                         visible: (_, dashboard: GetDashboardQuery) =>
                             !!dashboard?.dashboard?.embed?.renderUrl &&
-                            dashboard?.dashboard?.platform.urn === LOOKER_URN,
+                            dashboard?.dashboard?.platform?.urn === LOOKER_URN,
                         enabled: (_, dashboard: GetDashboardQuery) =>
                             !!dashboard?.dashboard?.embed?.renderUrl &&
-                            dashboard?.dashboard?.platform.urn === LOOKER_URN,
+                            dashboard?.dashboard?.platform?.urn === LOOKER_URN,
                     },
                 },
                 {
@@ -137,6 +138,14 @@ export class DashboardEntity implements Entity<Dashboard> {
                 {
                     name: 'Properties',
                     component: PropertiesTab,
+                },
+                {
+                    name: 'Incidents',
+                    component: IncidentTab,
+                    getDynamicName: (_, dashboard) => {
+                        const activeIncidentCount = dashboard?.dashboard?.activeIncidents?.total;
+                        return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
+                    },
                 },
             ]}
             sidebarSections={[
@@ -207,6 +216,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 lastUpdatedMs={data.properties?.lastModified?.time}
                 createdMs={data.properties?.created?.time}
                 subtype={data.subTypes?.typeNames?.[0]}
+                health={data.health}
             />
         );
     };
@@ -246,6 +256,7 @@ export class DashboardEntity implements Entity<Dashboard> {
                 subtype={data.subTypes?.typeNames?.[0]}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
+                health={data.health}
             />
         );
     };
@@ -258,6 +269,7 @@ export class DashboardEntity implements Entity<Dashboard> {
             subtype: entity?.subTypes?.typeNames?.[0] || undefined,
             icon: entity?.platform?.properties?.logoUrl || undefined,
             platform: entity?.platform,
+            health: entity?.health || undefined,
         };
     };
 

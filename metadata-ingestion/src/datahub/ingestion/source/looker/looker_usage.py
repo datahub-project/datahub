@@ -14,7 +14,7 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tupl
 
 from looker_sdk.sdk.api40.models import Dashboard, LookWithQuery
 
-from datahub.emitter.mce_builder import Aspect, AspectAbstract
+from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.source.looker import looker_common
 from datahub.ingestion.source.looker.looker_common import (
@@ -40,6 +40,7 @@ from datahub.metadata.schema_classes import (
     DashboardUsageStatisticsClass,
     DashboardUserUsageCountsClass,
     TimeWindowSizeClass,
+    _Aspect as AspectAbstract,
 )
 
 logger = logging.getLogger(__name__)

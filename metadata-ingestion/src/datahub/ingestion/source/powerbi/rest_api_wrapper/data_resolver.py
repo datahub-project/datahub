@@ -13,6 +13,7 @@ from urllib3 import Retry
 from datahub.configuration.common import AllowDenyPattern, ConfigurationError
 from datahub.ingestion.source.powerbi.config import Constant
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    App,
     Column,
     Dashboard,
     Measure,
@@ -55,6 +56,19 @@ def is_http_failure(response: Response, message: str) -> bool:
     return True
 
 
+class SessionWithTimeout(requests.Session):
+    timeout: int
+
+    def __init__(self, timeout, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.timeout = timeout
+
+    def request(self, method, url, **kwargs):
+        # Set the default timeout if none is provided
+        kwargs.setdefault("timeout", self.timeout)
+        return super().request(method, url, **kwargs)
+
+
 class DataResolverBase(ABC):
     SCOPE: str = "https://analysis.windows.net/powerbi/api/.default"
     MY_ORG_URL = "https://api.powerbi.com/v1.0/myorg"
@@ -68,6 +82,7 @@ class DataResolverBase(ABC):
         client_id: str,
         client_secret: str,
         tenant_id: str,
+        metadata_api_timeout: int,
     ):
         self.__access_token: Optional[str] = None
         self.__access_token_expiry_time: Optional[datetime] = None
@@ -83,7 +98,9 @@ class DataResolverBase(ABC):
         self.get_access_token()
 
         logger.info(f"Connected to {self._get_authority_url()}")
-        self._request_session = requests.Session()
+
+        self._request_session = SessionWithTimeout(timeout=metadata_api_timeout)
+
         # set re-try parameter for request_session
         self._request_session.mount(
             "https://",
@@ -141,6 +158,13 @@ class DataResolverBase(ABC):
 
     @abstractmethod
     def get_users(self, workspace_id: str, entity: str, entity_id: str) -> List[User]:
+        pass
+
+    @abstractmethod
+    def _get_app(
+        self,
+        app_id: str,
+    ) -> Optional[Dict]:
         pass
 
     def _get_authority_url(self):
@@ -411,6 +435,36 @@ class DataResolverBase(ABC):
 
             page_number += 1
 
+    def get_app(
+        self,
+        app_id: str,
+    ) -> Optional[App]:
+        raw_app: Optional[Dict] = self._get_app(
+            app_id=app_id,
+        )
+
+        if raw_app is None:
+            return None
+
+        assert (
+            Constant.ID in raw_app
+        ), f"{Constant.ID} is required field not present in server response"
+
+        assert (
+            Constant.NAME in raw_app
+        ), f"{Constant.NAME} is required field not present in server response"
+
+        return App(
+            id=raw_app[Constant.ID],
+            name=raw_app[Constant.NAME],
+            description=raw_app.get(Constant.DESCRIPTION),
+            last_update=raw_app.get(Constant.LAST_UPDATE),
+            dashboards=[],  # dashboards and reports of App are available in scan-result response
+            reports=[],  # There is an App section in documentation https://learn.microsoft.com/en-us/rest/api/power-bi/dashboards/get-dashboards-in-group#code-try-0
+            # However the report API mentioned in that section is not returning the reports
+            # We will collect these details from the scan-result.
+        )
+
 
 class RegularAPIResolver(DataResolverBase):
     # Regular access endpoints
@@ -680,6 +734,15 @@ class RegularAPIResolver(DataResolverBase):
 
         table.column_count = column_count
 
+    def _get_app(
+        self,
+        app_id: str,
+    ) -> Optional[Dict]:
+        # [Date: 2024/10/18] As per API doc, the service principal approach is not supported for regular API
+        # https://learn.microsoft.com/en-us/rest/api/power-bi/apps/get-app
+
+        return None
+
 
 class AdminAPIResolver(DataResolverBase):
     # Admin access endpoints
@@ -763,7 +826,7 @@ class AdminAPIResolver(DataResolverBase):
             res.raise_for_status()
 
             if res.json()[Constant.STATUS].upper() == Constant.SUCCEEDED:
-                logger.info(f"Scan result is available for scan id({scan_id})")
+                logger.debug(f"Scan result is available for scan id({scan_id})")
                 return True
 
             if retry == max_retry:
@@ -850,8 +913,8 @@ class AdminAPIResolver(DataResolverBase):
         return users
 
     def get_scan_result(self, scan_id: str) -> Optional[dict]:
-        logger.info("Fetching scan result")
-        logger.info(f"{Constant.SCAN_ID}={scan_id}")
+        logger.debug("Fetching scan result")
+        logger.debug(f"{Constant.SCAN_ID}={scan_id}")
         scan_result_get_endpoint = AdminAPIResolver.API_ENDPOINTS[
             Constant.SCAN_RESULT_GET
         ]
@@ -992,4 +1055,22 @@ class AdminAPIResolver(DataResolverBase):
         profile_pattern: Optional[AllowDenyPattern],
     ) -> None:
         logger.debug("Profile dataset is unsupported in Admin API")
+        return None
+
+    def _get_app(
+        self,
+        app_id: str,
+    ) -> Optional[Dict]:
+        app_endpoint = self.API_ENDPOINTS[Constant.GET_WORKSPACE_APP].format(
+            POWERBI_ADMIN_BASE_URL=DataResolverBase.ADMIN_BASE_URL,
+            APP_ID=app_id,
+        )
+        # Hit PowerBi
+        logger.debug(f"Request to app URL={app_endpoint}")
+
+        for page in self.itr_pages(endpoint=app_endpoint):
+            for app in page:
+                if Constant.ID in app and app_id == app[Constant.ID]:
+                    return app
+
         return None

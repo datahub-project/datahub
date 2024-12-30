@@ -58,7 +58,7 @@ public class ShowPropertyAsBadgeValidatorTest {
     mockGraphRetriever = Mockito.mock(GraphRetriever.class);
     retrieverContext =
         io.datahubproject.metadata.context.RetrieverContext.builder()
-            .aspectRetriever(mockAspectRetriever)
+            .cachingAspectRetriever(mockAspectRetriever)
             .searchRetriever(mockSearchRetriever)
             .graphRetriever(mockGraphRetriever)
             .build();

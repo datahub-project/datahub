@@ -1,0 +1,56 @@
+version: "3"
+
+services:
+  # Minio Storage Server
+  minio:
+    image: minio/minio:RELEASE.2023-07-21T21-12-44Z
+    container_name: minio
+    environment:
+      - MINIO_ROOT_USER=miniouser
+      - MINIO_ROOT_PASSWORD=miniopassword
+      - MINIO_DOMAIN=storage
+      - MINIO_REGION_NAME=us-east-1
+      - MINIO_REGION=us-east-1
+    networks:
+      dremio-network:
+    ports:
+      - 9001:9001
+      - 9000:9000
+    command: ["server", "/data", "--console-address", ":9001"]
+
+  #MySql
+  mysqldb:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpwd123
+      MYSQL_USER: foo
+      MYSQL_PASSWORD: datahub123
+    container_name: test_mysql
+    hostname: test_mysql
+    ports:
+      - "23306:3306"
+    volumes:
+      - ./setup/mysqld.cnf:/etc/mysql/mysql.conf.d/mysqld.cnf
+      - ./setup/setup.sql:/docker-entrypoint-initdb.d/setup.sql
+    networks:
+      dremio-network:
+
+  # Dremio
+  dremio:
+    platform: linux/x86_64
+    image: dremio/dremio-oss:latest
+    container_name: dremio
+    ports:
+      - 9047:9047
+      - 31010:31010
+      - 32010:32010
+    environment:
+      - DREMIO_JAVA_SERVER_EXTRA_OPTS=-Dpaths.dist=file:///opt/dremio/data/dist
+    networks:
+      dremio-network:
+    depends_on:
+      - minio
+      - mysqldb
+
+networks:
+  dremio-network:

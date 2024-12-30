@@ -1,9 +1,9 @@
 import * as React from 'react';
 import styled from 'styled-components';
 import TableIcon from '@src/images/table-icon.svg?react';
-import { TYPE_ICON_CLASS_NAME } from '@src/app/entityV2/shared/components/subtypes';
+import { TYPE_ICON_CLASS_NAME } from '@src/app/shared/constants';
+import DefaultPreviewCard from '@src/app/preview/DefaultPreviewCard';
 import { EntityType, SearchResult, StructuredPropertyEntity as StructuredProperty } from '../../../types.generated';
-import DefaultPreviewCard from '../../previewV2/DefaultPreviewCard';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { urlEncodeUrn } from '../shared/utils';
@@ -58,13 +58,11 @@ export class StructuredPropertyEntity implements Entity<StructuredProperty> {
 
     renderPreview = (previewType: PreviewType, data: StructuredProperty) => (
         <DefaultPreviewCard
-            data={null}
             description={data.definition?.description || ''}
             name={this.displayName(data)}
             urn={data.urn}
             url={`/${this.getPathName()}/${urlEncodeUrn(data.urn)}`}
             logoComponent={<PreviewPropIcon />}
-            entityType={EntityType.StructuredProperty}
             typeIcon={this.icon(14, IconStyleType.ACCENT)}
             previewType={previewType}
         />

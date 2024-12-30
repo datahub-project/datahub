@@ -47,7 +47,7 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
     const [showConfirmRemove, setShowConfirmRemove] = useState<boolean>(false);
     const mutationUrn = useMutationUrn();
 
-    if (!structuredProperty || structuredProperty?.definition.immutable) {
+    if (!structuredProperty || structuredProperty?.definition?.immutable) {
         return null;
     }
 

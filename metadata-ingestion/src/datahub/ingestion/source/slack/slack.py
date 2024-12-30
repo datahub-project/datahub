@@ -98,7 +98,6 @@ class SlackInstance(BaseModel):
         }
 
     def to_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
-
         return [
             MetadataChangeProposalWrapper(
                 entityUrn=self.to_platform_instance_urn(),
@@ -141,7 +140,6 @@ class SlackUserDetails:
         return f"urn:li:platformResource:{self.to_guid()}"
 
     def to_mcps(self) -> Iterable[MetadataChangeProposalWrapper]:
-
         resource_urn = self.get_resource_urn()
 
         dpi = DataPlatformInstanceClass(
@@ -543,7 +541,6 @@ class SlackSource(Source):
     def emit_slack_member_aspect(
         self, user: SlackUserInfo
     ) -> Iterable[MetadataWorkUnit]:
-
         slack_user = SlackUserDetails(slack_user_info=user)
         for mcp in slack_user.to_mcps():
             yield mcp.as_workunit()

@@ -19,8 +19,8 @@ import { EntityActionItem } from '../shared/entity/EntityActions';
 import { FetchedEntity } from '../../lineage/types';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { PageRoutes } from '../../../conf/Global';
-import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { SidebarMetadataSection } from '../shared/containers/profile/sidebar/SidebarMetadataSection';
 
 /**
  * Definition of the DataHub Dataset entity.

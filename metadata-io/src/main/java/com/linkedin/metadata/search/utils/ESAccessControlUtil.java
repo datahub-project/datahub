@@ -372,65 +372,58 @@ public class ESAccessControlUtil {
       Set<Urn> targetDomainUrns,
       @Nonnull Set<Urn> visitedDomainUrns) {
 
-    if (opContext.getRetrieverContext().isEmpty()) {
-      log.warn("AspectRetriever not available, child domains not available in search.");
-      visitedDomainUrns.addAll(targetDomainUrns);
+    RelatedEntitiesScrollResult result = null;
+    Set<Urn> next = new HashSet<>();
+
+    while (result == null || result.getScrollId() != null) {
+
+      // filter for destination for any of the target domains
+      Filter destinationFilter =
+          new Filter()
+              .setOr(
+                  new ConjunctiveCriterionArray(
+                      targetDomainUrns.stream()
+                          .map(Urn::toString)
+                          .map(
+                              urnStr ->
+                                  new ConjunctiveCriterion()
+                                      .setAnd(
+                                          new CriterionArray(
+                                              List.of(
+                                                  CriterionUtils.buildCriterion(
+                                                      "urn", Condition.EQUAL, urnStr)))))
+                          .collect(Collectors.toList())));
+
+      result =
+          opContext
+              .getRetrieverContext()
+              .getGraphRetriever()
+              .scrollRelatedEntities(
+                  List.of(Constants.DOMAIN_ENTITY_NAME),
+                  null,
+                  List.of(Constants.DOMAIN_ENTITY_NAME),
+                  destinationFilter,
+                  List.of(Constants.IS_PART_OF_RELATIONSHIP_NAME),
+                  new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING),
+                  Edge.EDGE_SORT_CRITERION,
+                  result == null ? null : result.getScrollId(),
+                  GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,
+                  null,
+                  null);
+
+      next.addAll(
+          result.getEntities().stream()
+              .map(r -> UrnUtils.getUrn(r.getSourceUrn()))
+              .filter(urn -> !visitedDomainUrns.contains(urn))
+              .collect(Collectors.toSet()));
+    }
+
+    visitedDomainUrns.addAll(targetDomainUrns);
+
+    if (next.isEmpty()) {
       return visitedDomainUrns;
     } else {
-      RelatedEntitiesScrollResult result = null;
-      Set<Urn> next = new HashSet<>();
-
-      while (result == null || result.getScrollId() != null) {
-
-        // filter for destination for any of the target domains
-        Filter destinationFilter =
-            new Filter()
-                .setOr(
-                    new ConjunctiveCriterionArray(
-                        targetDomainUrns.stream()
-                            .map(Urn::toString)
-                            .map(
-                                urnStr ->
-                                    new ConjunctiveCriterion()
-                                        .setAnd(
-                                            new CriterionArray(
-                                                List.of(
-                                                    CriterionUtils.buildCriterion(
-                                                        "urn", Condition.EQUAL, urnStr)))))
-                            .collect(Collectors.toList())));
-
-        result =
-            opContext
-                .getRetrieverContext()
-                .get()
-                .getGraphRetriever()
-                .scrollRelatedEntities(
-                    List.of(Constants.DOMAIN_ENTITY_NAME),
-                    null,
-                    List.of(Constants.DOMAIN_ENTITY_NAME),
-                    destinationFilter,
-                    List.of(Constants.IS_PART_OF_RELATIONSHIP_NAME),
-                    new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING),
-                    Edge.EDGE_SORT_CRITERION,
-                    result == null ? null : result.getScrollId(),
-                    GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,
-                    null,
-                    null);
-
-        next.addAll(
-            result.getEntities().stream()
-                .map(r -> UrnUtils.getUrn(r.getSourceUrn()))
-                .filter(urn -> !visitedDomainUrns.contains(urn))
-                .collect(Collectors.toSet()));
-      }
-
-      visitedDomainUrns.addAll(targetDomainUrns);
-
-      if (next.isEmpty()) {
-        return visitedDomainUrns;
-      } else {
-        return getChildDomains(opContext, next, visitedDomainUrns);
-      }
+      return getChildDomains(opContext, next, visitedDomainUrns);
     }
   }
 }

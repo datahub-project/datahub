@@ -1,0 +1,12 @@
+{
+    "query_type": "UNKNOWN",
+    "query_type_props": {},
+    "query_fingerprint": null,
+    "in_tables": [],
+    "out_tables": [],
+    "column_lineage": null,
+    "debug_info": {
+        "confidence": 0.0,
+        "generalized_statement": null
+    }
+}

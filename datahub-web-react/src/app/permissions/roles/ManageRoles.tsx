@@ -177,7 +177,7 @@ export const ManageRoles = () => {
             render: (_: any, record: any) => {
                 return (
                     <>
-                        {(record?.users.length && (
+                        {(record?.users?.length && (
                             <AvatarsGroup
                                 users={record?.users}
                                 groups={record?.resolvedGroups}
@@ -218,8 +218,8 @@ export const ManageRoles = () => {
         type: role?.type,
         description: role?.description,
         name: role?.name,
-        users: role?.users?.relationships.map((relationship) => relationship.entity as CorpUser),
-        policies: role?.policies?.relationships.map((relationship) => relationship.entity as DataHubPolicy),
+        users: role?.users?.relationships?.map((relationship) => relationship.entity as CorpUser),
+        policies: role?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy),
     }));
 
     return (

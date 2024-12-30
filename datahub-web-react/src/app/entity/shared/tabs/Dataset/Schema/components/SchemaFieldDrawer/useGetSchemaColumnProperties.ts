@@ -1,11 +1,11 @@
 import { getEntityTypesPropertyFilter, getNotHiddenPropertyFilter } from '@src/app/govern/structuredProperties/utils';
-import { SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME } from '@src/app/searchV2/utils/constants';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { SHOW_IN_COLUMNS_TABLE_PROPERTY_FILTER_NAME } from '@src/app/search/utils/constants';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType, SearchResult } from '@src/types.generated';
 
 export default function useGetSchemaColumnProperties() {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const inputs = {
         types: [EntityType.StructuredProperty],

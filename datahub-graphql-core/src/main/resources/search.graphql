@@ -169,17 +169,17 @@ input  SearchFlags {
   customHighlightingFields: [String!]
 
   """
+  Whether or not to fetch and request for structured property facets when doing a search
+  """
+  includeStructuredPropertyFacets: Boolean
+
+  """
   Additional fields to fetch from the search document in the search results
   These will be fetched in addition to the default fields and will be included
   in the ExtraProperties field of the search result as name-value pairs.
   Note: these are additional fields to fetch and not replacements for the default fields.
   """
   fetchExtraFields: [String!]
-
-  """
-  Whether or not to fetch and request for structured property facets when doing a search
-  """
-  includeStructuredPropertyFacets: Boolean
 
   """
   Invoke query rewrite chain for filters based on configured rewriters. ie. expand to include

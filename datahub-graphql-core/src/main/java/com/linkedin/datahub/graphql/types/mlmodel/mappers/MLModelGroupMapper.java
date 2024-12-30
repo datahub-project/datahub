@@ -74,9 +74,8 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
     mappingHelper.mapToResult(
         ML_MODEL_GROUP_KEY_ASPECT_NAME, MLModelGroupMapper::mapToMLModelGroupKey);
     mappingHelper.mapToResult(
-        context,
         ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME,
-        MLModelGroupMapper::mapToMLModelGroupProperties);
+        (entity, dataMap) -> mapToMLModelGroupProperties(context, entity, dataMap, entityUrn));
     mappingHelper.mapToResult(
         STATUS_ASPECT_NAME,
         (mlModelGroup, dataMap) ->
@@ -146,9 +145,13 @@ public class MLModelGroupMapper implements ModelMapper<EntityResponse, MLModelGr
   }
 
   private static void mapToMLModelGroupProperties(
-      @Nullable final QueryContext context, MLModelGroup mlModelGroup, DataMap dataMap) {
+      @Nullable final QueryContext context,
+      MLModelGroup mlModelGroup,
+      DataMap dataMap,
+      @Nonnull Urn entityUrn) {
     MLModelGroupProperties modelGroupProperties = new MLModelGroupProperties(dataMap);
-    mlModelGroup.setProperties(MLModelGroupPropertiesMapper.map(context, modelGroupProperties));
+    mlModelGroup.setProperties(
+        MLModelGroupPropertiesMapper.map(context, modelGroupProperties, entityUrn));
     if (modelGroupProperties.getDescription() != null) {
       mlModelGroup.setDescription(modelGroupProperties.getDescription());
     }

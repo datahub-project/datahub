@@ -95,6 +95,10 @@ def cleanup(config: BigQueryV2Config) -> None:
     "Optionally enabled via `classification.enabled`",
     supported=True,
 )
+@capability(
+    SourceCapability.PARTITION_SUPPORT,
+    "Enabled by default, partition keys and clustering keys are supported.",
+)
 class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
     def __init__(self, ctx: PipelineContext, config: BigQueryV2Config):
         super().__init__(config, ctx)
@@ -282,6 +286,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     include_usage_statistics=self.config.include_usage_statistics,
                     include_operations=self.config.usage.include_operational_stats,
                     top_n_queries=self.config.usage.top_n_queries,
+                    region_qualifiers=self.config.region_qualifiers,
                 ),
                 structured_report=self.report,
                 filters=self.filters,
@@ -306,6 +311,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     self.bq_schema_extractor.snapshot_refs_by_project,
                     self.bq_schema_extractor.snapshots_by_ref,
                     self.bq_schema_extractor.table_refs,
+                )
+
+        # Lineage BQ to GCS
+        if (
+            self.config.include_table_lineage
+            and self.bq_schema_extractor.external_tables
+        ):
+            for dataset_urn, table in self.bq_schema_extractor.external_tables.items():
+                yield from self.lineage_extractor.gen_lineage_workunits_for_external_table(
+                    dataset_urn, table.ddl, graph=self.ctx.graph
                 )
 
     def get_report(self) -> BigQueryV2Report:

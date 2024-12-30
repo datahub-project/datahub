@@ -21,6 +21,9 @@ DIALECTS_WITH_CASE_INSENSITIVE_COLS = {
     # See more below:
     # https://documentation.sas.com/doc/en/pgmsascdc/9.4_3.5/acreldb/n0ejgx4895bofnn14rlguktfx5r3.htm
     "teradata",
+    # For SQL server, the default collation rules mean that all identifiers (schema, table, column names)
+    # are case preserving but case insensitive.
+    "mssql",
 }
 DIALECTS_WITH_DEFAULT_UPPERCASE_COLS = {
     # In some dialects, column identifiers are effectively case insensitive
@@ -28,6 +31,9 @@ DIALECTS_WITH_DEFAULT_UPPERCASE_COLS = {
     # automatically lowercase unquoted identifiers.
     "snowflake",
 }
+assert DIALECTS_WITH_DEFAULT_UPPERCASE_COLS.issubset(
+    DIALECTS_WITH_CASE_INSENSITIVE_COLS
+)
 
 
 class QueryType(enum.Enum):

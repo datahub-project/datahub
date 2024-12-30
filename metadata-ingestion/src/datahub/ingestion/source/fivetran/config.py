@@ -12,8 +12,9 @@ from datahub.configuration.common import (
     ConfigModel,
     ConfigurationWarning,
 )
-from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
+from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.source.bigquery_v2.bigquery_config import (
     BigQueryConnectionConfig,
@@ -144,8 +145,8 @@ class FivetranSourceReport(StaleEntityRemovalSourceReport):
     def report_connectors_scanned(self, count: int = 1) -> None:
         self.connectors_scanned += count
 
-    def report_connectors_dropped(self, model: str) -> None:
-        self.filtered_connectors.append(model)
+    def report_connectors_dropped(self, connector: str) -> None:
+        self.filtered_connectors.append(connector)
 
 
 class PlatformDetail(ConfigModel):

@@ -111,7 +111,7 @@ public class ESAccessControlUtilTest {
           () ->
               ServicesRegistryContext.builder().restrictedService(mockRestrictedService()).build(),
           null,
-          null,
+          () -> TestOperationContexts.emptyActiveUsersRetrieverContext(null),
           null,
           null,
           null);
@@ -982,6 +982,8 @@ public class ESAccessControlUtilTest {
             .retrieverContext(
                 RetrieverContext.builder()
                     .aspectRetriever(mock(AspectRetriever.class))
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(null))
                     .graphRetriever(mockGraphRetriever)
                     .searchRetriever(mock(SearchRetriever.class))
                     .build())
@@ -1037,6 +1039,8 @@ public class ESAccessControlUtilTest {
             .retrieverContext(
                 RetrieverContext.builder()
                     .aspectRetriever(mock(AspectRetriever.class))
+                    .cachingAspectRetriever(
+                        TestOperationContexts.emptyActiveUsersAspectRetriever(null))
                     .graphRetriever(mockGraphRetriever)
                     .searchRetriever(mock(SearchRetriever.class))
                     .build())

@@ -190,14 +190,14 @@ export interface Entity<T> {
     getGenericEntityProperties: (data: T) => GenericEntityProperties | null;
 
     /**
-     * Returns the supported features for the entity
-     */
-    supportedCapabilities: () => Set<EntityCapabilityType>;
-
-    /**
      * Returns the graph name of the entity, as it appears in the GMS entity registry
      */
     getGraphName: () => string;
+
+    /**
+     * Returns the supported features for the entity
+     */
+    supportedCapabilities: () => Set<EntityCapabilityType>;
 
     /**
      * Returns the profile component to be displayed in our Chrome extension

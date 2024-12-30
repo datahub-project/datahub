@@ -56,10 +56,10 @@ function Form({ formUrn, showHeader, showVerifyPrompt }: Props) {
     const { hasRendered } = useHasComponentRendered();
 
     const formAssociation = getFormAssociation(formUrn, entityData);
-    const title = formAssociation?.form.info.name;
+    const title = formAssociation?.form?.info?.name;
     const associatedUrn = formAssociation?.associatedUrn;
-    const description = formAssociation?.form.info.description;
-    const owners = formAssociation?.form.ownership?.owners;
+    const description = formAssociation?.form?.info?.description;
+    const owners = formAssociation?.form?.ownership?.owners;
 
     if (!hasRendered || !entityData) return <Loading />;
 

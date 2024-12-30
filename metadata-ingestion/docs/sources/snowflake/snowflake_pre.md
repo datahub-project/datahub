@@ -23,12 +23,16 @@ grant references on all external tables in database "<your-database>" to role da
 grant references on future external tables in database "<your-database>" to role datahub_role;
 grant references on all views in database "<your-database>" to role datahub_role;
 grant references on future views in database "<your-database>" to role datahub_role;
+grant monitor on all dynamic tables in database "<your-database>" to role datahub_role;
+grant monitor on future dynamic tables in database "<your-database>" to role datahub_role;
 
 // If you ARE using Snowflake Profiling or Classification feature: Grant select privileges to your tables
 grant select on all tables in database "<your-database>" to role datahub_role;
 grant select on future tables in database "<your-database>" to role datahub_role;
 grant select on all external tables in database "<your-database>" to role datahub_role;
 grant select on future external tables in database "<your-database>" to role datahub_role;
+grant select on all dynamic tables in database "<your-database>" to role datahub_role;
+grant select on future dynamic tables in database "<your-database>" to role datahub_role;
 
 // Create a new DataHub user and assign the DataHub role to it
 create user datahub_user display_name = 'DataHub' password='' default_role = datahub_role default_warehouse = '<your-warehouse>';

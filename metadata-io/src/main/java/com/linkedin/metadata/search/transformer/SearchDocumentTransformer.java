@@ -437,8 +437,6 @@ public class SearchDocumentTransformer {
 
     Map<Urn, Map<String, Aspect>> definitions =
         opContext
-            .getRetrieverContext()
-            .get()
             .getAspectRetriever()
             .getLatestAspectObjects(
                 propertyMap.keySet(), Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));

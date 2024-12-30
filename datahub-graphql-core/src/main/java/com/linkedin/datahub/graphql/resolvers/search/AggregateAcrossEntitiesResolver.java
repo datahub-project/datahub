@@ -81,6 +81,9 @@ public class AggregateAcrossEntitiesResolver
           // do not include default facets if we're requesting any facets specifically
           searchFlags.setIncludeDefaultFacets(facets == null || facets.size() <= 0);
 
+          // do not include default facets if we're requesting any facets specifically
+          searchFlags.setIncludeDefaultFacets(facets == null || facets.size() <= 0);
+
           List<String> finalEntities =
               maybeResolvedView != null
                   ? SearchUtils.intersectEntityTypes(

@@ -193,7 +193,7 @@
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,gcp-staging.smoke_test_db.base_table,PROD)",
                     "type": "TRANSFORMED",
-                    "query": "urn:li:query:composite_0db44e02f671b69df68565346e9d2b68c7166fccf75bd494f34560bfa16c381b"
+                    "query": "urn:li:query:composite_29c38b444a8740d9cc549168e2e0e3657fc00430520f615119bfc3e9fb94112d"
                 }
             ]
         }
@@ -206,7 +206,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_0db44e02f671b69df68565346e9d2b68c7166fccf75bd494f34560bfa16c381b",
+    "entityUrn": "urn:li:query:composite_29c38b444a8740d9cc549168e2e0e3657fc00430520f615119bfc3e9fb94112d",
     "changeType": "UPSERT",
     "aspectName": "queryProperties",
     "aspect": {
@@ -425,7 +425,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_0db44e02f671b69df68565346e9d2b68c7166fccf75bd494f34560bfa16c381b",
+    "entityUrn": "urn:li:query:composite_29c38b444a8740d9cc549168e2e0e3657fc00430520f615119bfc3e9fb94112d",
     "changeType": "UPSERT",
     "aspectName": "querySubjects",
     "aspect": {
@@ -508,7 +508,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_0db44e02f671b69df68565346e9d2b68c7166fccf75bd494f34560bfa16c381b",
+    "entityUrn": "urn:li:query:composite_29c38b444a8740d9cc549168e2e0e3657fc00430520f615119bfc3e9fb94112d",
     "changeType": "UPSERT",
     "aspectName": "dataPlatformInstance",
     "aspect": {
@@ -7890,7 +7890,7 @@
 },
 {
     "entityType": "query",
-    "entityUrn": "urn:li:query:composite_0db44e02f671b69df68565346e9d2b68c7166fccf75bd494f34560bfa16c381b",
+    "entityUrn": "urn:li:query:composite_29c38b444a8740d9cc549168e2e0e3657fc00430520f615119bfc3e9fb94112d",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {

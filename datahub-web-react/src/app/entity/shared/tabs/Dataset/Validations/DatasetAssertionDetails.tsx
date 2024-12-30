@@ -121,7 +121,7 @@ export const DatasetAssertionDetails = ({ urn, lastEvaluatedAtMillis }: Props) =
     };
 
     const completeAssertionRunEvents =
-        data?.assertion?.runEvents?.runEvents.filter(
+        data?.assertion?.runEvents?.runEvents?.filter(
             (runEvent) => runEvent.status === AssertionRunStatus.Complete && runEvent.result,
         ) || [];
 

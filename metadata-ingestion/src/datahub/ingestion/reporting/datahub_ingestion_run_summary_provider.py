@@ -11,9 +11,8 @@ from datahub.configuration.common import (
     redact_raw_config,
 )
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
-from datahub.emitter.mce_builder import datahub_guid
+from datahub.emitter.mce_builder import datahub_guid, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import make_data_platform_urn
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.sink import NoopWriteCallback, Sink
@@ -149,10 +148,10 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
 
     def _get_recipe_to_report(self, ctx: PipelineContext) -> str:
         assert ctx.pipeline_config
-        if not self.report_recipe or not ctx.pipeline_config._raw_dict:
+        if not self.report_recipe or not ctx.pipeline_config.get_raw_dict():
             return ""
         else:
-            return json.dumps(redact_raw_config(ctx.pipeline_config._raw_dict))
+            return json.dumps(redact_raw_config(ctx.pipeline_config.get_raw_dict()))
 
     def _emit_aspect(self, entity_urn: Urn, aspect_value: _Aspect) -> None:
         self.sink.write_record_async(

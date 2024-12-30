@@ -1,5 +1,4 @@
 import { RightOutlined } from '@ant-design/icons';
-import { useFilterDisplayName } from '@src/app/searchV2/filters/utils';
 import { Dropdown } from 'antd';
 import React, { useRef } from 'react';
 import styled from 'styled-components';
@@ -8,7 +7,7 @@ import OptionsDropdownMenu from './OptionsDropdownMenu';
 import { IconWrapper } from './SearchFilterView';
 import { MoreFilterOptionLabel } from './styledComponents';
 import useSearchFilterDropdown from './useSearchFilterDropdown';
-import { getFilterDropdownIcon, useElementDimensions } from './utils';
+import { getFilterDropdownIcon, useElementDimensions, useFilterDisplayName } from './utils';
 
 const IconNameWrapper = styled.span`
     display: flex;

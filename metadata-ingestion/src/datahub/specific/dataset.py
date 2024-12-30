@@ -13,7 +13,7 @@ from datahub.metadata.schema_classes import (
     KafkaAuditHeaderClass,
     OwnerClass as Owner,
     OwnershipTypeClass,
-    SchemaMetadataClass as SchemaMetadata,
+    SchemaMetadataClass,
     SystemMetadataClass,
     TagAssociationClass as Tag,
     UpstreamClass as Upstream,
@@ -40,7 +40,7 @@ class FieldPatchHelper(Generic[_Parent]):
         self.aspect_name = (
             EditableSchemaMetadata.ASPECT_NAME
             if editable
-            else SchemaMetadata.ASPECT_NAME
+            else SchemaMetadataClass.ASPECT_NAME
         )
         self.aspect_field = "editableSchemaFieldInfo" if editable else "schemaFieldInfo"
 

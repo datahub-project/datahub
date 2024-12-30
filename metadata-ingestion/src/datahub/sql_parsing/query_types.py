@@ -14,7 +14,16 @@ def _is_temp_table(table: sqlglot.exp.Table, dialect: sqlglot.Dialect) -> bool:
     identifier: sqlglot.exp.Identifier = table.this
 
     return identifier.args.get("temporary") or (
-        is_dialect_instance(dialect, "redshift") and identifier.name.startswith("#")
+        # These dialects use # as a prefix for temp tables.
+        is_dialect_instance(
+            dialect,
+            [
+                "redshift",
+                "mssql",
+                # sybase is another one, but we don't support that dialect yet.
+            ],
+        )
+        and identifier.name.startswith("#")
     )
 
 

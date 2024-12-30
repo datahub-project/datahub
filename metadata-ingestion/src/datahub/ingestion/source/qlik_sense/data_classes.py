@@ -15,6 +15,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 
+# TODO: Replace with standardized types in sql_types.py
 FIELD_TYPE_MAPPING: Dict[
     str,
     Type[

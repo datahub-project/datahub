@@ -159,6 +159,7 @@ class RedshiftConfig(
         description="Whether to extract column level lineage. This config works with rest-sink only.",
     )
 
+    # TODO - use DatasetPropertiesConfigMixin instead
     patch_custom_properties: bool = Field(
         default=True,
         description="Whether to patch custom properties on existing datasets rather than replace.",

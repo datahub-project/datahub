@@ -1,0 +1,126 @@
+plugins {
+    id("com.palantir.git-version") apply false
+}
+apply plugin: 'java'
+apply plugin: 'jacoco'
+apply plugin: 'signing'
+apply plugin: 'io.codearte.nexus-staging'
+apply plugin: 'maven-publish'
+apply from: '../../versioning.gradle'
+
+dependencies {
+
+    implementation project(':entity-registry')
+//
+//    // Jackson dependencies - use the same versions as in the parent project
+//    implementation 'com.fasterxml.jackson.core:jackson-core:2.12.3'
+//    implementation 'com.fasterxml.jackson.core:jackson-databind:2.12.3'
+//    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.12.3'
+    
+    // Core dependencies
+//    implementation externalDependency.guava
+//    implementation externalDependency.gson
+//    implementation externalDependency.commonsCli
+//    implementation externalDependency.slf4jApi
+//    implementation externalDependency.jacksonCore
+    
+    // Schema format dependencies
+//    implementation externalDependency.protobuf
+    implementation externalDependency.avro
+//    implementation 'org.apache.thrift:libthrift:0.16.0'
+//    implementation 'io.swagger.parser.v3:swagger-parser:2.1.12'
+    
+    // Utilities
+    compileOnly externalDependency.lombok
+    annotationProcessor externalDependency.lombok
+    
+    // Testing
+    testImplementation externalDependency.testng
+    testImplementation 'org.mockito:mockito-core:5.3.1'
+}
+
+jacocoTestReport {
+    dependsOn test
+}
+
+test.finalizedBy jacocoTestReport
+
+configurations {
+    provided
+    implementation.extendsFrom provided
+}
+
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            from components.java
+
+            pom {
+                name = 'Datahub Schematron'
+                groupId = 'io.acryl'
+                artifactId = 'datahub-schematron'
+                description = 'DataHub schema translation library for converting between different schema formats using DataHub as an intermediate representation'
+                url = 'https://datahubproject.io'
+
+                scm {
+                    connection = 'scm:git:git://github.com/datahub-project/datahub.git'
+                    developerConnection = 'scm:git:ssh://github.com:datahub-project/datahub.git'
+                    url = 'https://github.com/datahub-project/datahub.git'
+                }
+
+                licenses {
+                    license {
+                        name = 'The Apache License, Version 2.0'
+                        url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+                    }
+                }
+
+                developers {
+                    developer {
+                        id = 'datahub'
+                        name = 'Datahub'
+                        email = 'datahub@acryl.io'
+                    }
+                }
+            }
+        }
+    }
+
+    repositories {
+        maven {
+            def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+            def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+            def ossrhUsername = System.getenv('RELEASE_USERNAME')
+            def ossrhPassword = System.getenv('RELEASE_PASSWORD')
+            credentials {
+                username ossrhUsername
+                password ossrhPassword
+            }
+            url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+        }
+    }
+}
+
+signing {
+    def signingKey = findProperty("signingKey")
+    def signingPassword = System.getenv("SIGNING_PASSWORD")
+    // Only require signing if we have the signing key property
+    required = signingKey != null
+
+    if (signingKey != null) {
+        useInMemoryPgpKeys(signingKey, signingPassword)
+        sign publishing.publications.mavenJava
+    }
+
+}
+
+nexusStaging {
+    serverUrl = "https://s01.oss.sonatype.org/service/local/"
+    username = System.getenv("NEXUS_USERNAME")
+    password = System.getenv("NEXUS_PASSWORD")
+}

@@ -8,7 +8,7 @@ from confluent_kafka.schema_registry.schema_registry_client import (
 )
 
 from datahub.ingestion.source.confluent_schema_registry import ConfluentSchemaRegistry
-from datahub.ingestion.source.kafka import KafkaSourceConfig, KafkaSourceReport
+from datahub.ingestion.source.kafka.kafka import KafkaSourceConfig, KafkaSourceReport
 
 
 class ConfluentSchemaRegistryTest(unittest.TestCase):

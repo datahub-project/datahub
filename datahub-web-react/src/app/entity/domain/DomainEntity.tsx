@@ -64,7 +64,7 @@ export class DomainEntity implements Entity<Domain> {
 
     getGraphName = () => 'domain';
 
-    getPathName = () => this.getGraphName();
+    getPathName = () => 'domain';
 
     getEntityName = () => 'Domain';
 

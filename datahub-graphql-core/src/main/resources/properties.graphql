@@ -445,14 +445,14 @@ input CreateStructuredPropertyInput {
     entityTypes: [String!]!
 
     """
-    The filter status of this structured property - whether it will show up in search filters or not
-    """
-    filterStatus: StructuredPropertyFilterStatus
-
-    """
     Settings for this structured property
     """
     settings: StructuredPropertySettingsInput
+
+    """
+    The filter status of this structured property - whether it will show up in search filters or not
+    """
+    filterStatus: StructuredPropertyFilterStatus
 }
 
 """
@@ -535,13 +535,14 @@ input UpdateStructuredPropertyInput {
     newEntityTypes: [String!]
 
     """
-    The filter status of this structured property - whether it will show up in search filters or not
-    """
-    filterStatus: StructuredPropertyFilterStatus
-    """
     Settings for this structured property
     """
     settings: StructuredPropertySettingsInput
+
+    """
+    The filter status of this structured property - whether it will show up in search filters or not
+    """
+    filterStatus: StructuredPropertyFilterStatus
 }
 
 """

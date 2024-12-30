@@ -51,7 +51,7 @@ export const AdvancedFilterSelectValueModal = ({
                 urns={[]}
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
-                    entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
+                    entity: facet?.aggregations?.find((aggregation) => aggregation.value === urn)?.entity,
                 }))}
                 onCloseModal={onCloseModal}
                 hideOwnerType
@@ -70,7 +70,7 @@ export const AdvancedFilterSelectValueModal = ({
                 defaultValue={
                     initialValues?.map((urn) => ({
                         urn,
-                        entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
+                        entity: facet?.aggregations?.find((aggregation) => aggregation.value === urn)?.entity,
                     }))?.[0]
                 }
                 onCloseModal={onCloseModal}
@@ -88,7 +88,7 @@ export const AdvancedFilterSelectValueModal = ({
                 titleOverride="Select Container"
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
-                    entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
+                    entity: facet?.aggregations?.find((aggregation) => aggregation.value === urn)?.entity,
                 }))}
                 onCloseModal={onCloseModal}
                 onOkOverride={(containerUrns) => {
@@ -104,7 +104,7 @@ export const AdvancedFilterSelectValueModal = ({
             <SelectPlatformModal
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
-                    entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
+                    entity: facet?.aggregations?.find((aggregation) => aggregation.value === urn)?.entity,
                 }))}
                 titleOverride="Select Platform"
                 onCloseModal={onCloseModal}
@@ -199,7 +199,7 @@ export const AdvancedFilterSelectValueModal = ({
                 }}
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
-                    entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
+                    entity: facet?.aggregations?.find((aggregation) => aggregation.value === urn)?.entity,
                 }))}
             />
         );
@@ -256,7 +256,7 @@ export const AdvancedFilterSelectValueModal = ({
                 }}
                 defaultValues={initialValues?.map((urn) => ({
                     urn,
-                    entity: facet?.aggregations.find((aggregation) => aggregation.value === urn)?.entity,
+                    entity: facet?.aggregations?.find((aggregation) => aggregation.value === urn)?.entity,
                 }))}
             />
         );

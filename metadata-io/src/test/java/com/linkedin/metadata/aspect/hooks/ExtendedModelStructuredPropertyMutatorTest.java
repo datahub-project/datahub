@@ -16,7 +16,8 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.CorpUserInfo;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.config.structuredProperties.extensions.ExtendedModelValidationConfiguration;
@@ -60,19 +61,19 @@ public class ExtendedModelStructuredPropertyMutatorTest {
       UrnUtils.getUrn(
           "urn:li:dataset:(urn:li:dataPlatform:postgres,calm-pagoda-323403.jaffle_shop.customers,PROD)");
   private static final Urn TEST_CORP_USER_URN = UrnUtils.getUrn("urn:li:corpuser:someName");
-  private AspectRetriever mockAspectRetriever;
+  private CachingAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
   private EntityRegistry entityRegistry = TestOperationContexts.defaultEntityRegistry();
 
   @BeforeMethod
   public void setup() {
-    mockAspectRetriever = mock(AspectRetriever.class);
+    mockAspectRetriever = mock(CachingAspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
     retrieverContext =
         RetrieverContext.builder()
             .searchRetriever(mock(SearchRetriever.class))
-            .aspectRetriever(mockAspectRetriever)
-            .graphRetriever(TestOperationContexts.emptyGraphRetriever)
+            .cachingAspectRetriever(mockAspectRetriever)
+            .graphRetriever(GraphRetriever.EMPTY)
             .build();
   }
 

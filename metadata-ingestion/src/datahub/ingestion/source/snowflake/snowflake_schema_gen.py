@@ -16,6 +16,7 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationHandler,
     classification_workunit_processor,
 )
+from datahub.ingestion.source.aws.s3_util import make_s3_urn_for_lineage
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -35,6 +36,7 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 )
 from datahub.ingestion.source.snowflake.snowflake_data_reader import SnowflakeDataReader
 from datahub.ingestion.source.snowflake.snowflake_profiler import SnowflakeProfiler
+from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SCHEMA_PARALLELISM,
@@ -65,6 +67,7 @@ from datahub.ingestion.source.sql.sql_utils import (
     get_domain_wu,
 )
 from datahub.ingestion.source_report.ingestion_stage import (
+    EXTERNAL_TABLE_DDL_LINEAGE,
     METADATA_EXTRACTION,
     PROFILING,
 )
@@ -96,13 +99,17 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
     TimeType,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
-from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.sql_parsing.sql_parsing_aggregator import (
+    KnownLineageMapping,
+    SqlParsingAggregator,
+)
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
 
 # https://docs.snowflake.com/en/sql-reference/intro-summary-data-types.html
+# TODO: Move to the standardized types in sql_types.py
 SNOWFLAKE_FIELD_TYPE_MAPPINGS = {
     "DATE": DateType,
     "BIGINT": NumberType,
@@ -179,7 +186,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         # These are populated as side-effects of get_workunits_internal.
         self.databases: List[SnowflakeDatabase] = []
-        self.aggregator: Optional[SqlParsingAggregator] = aggregator
+
+        self.aggregator = aggregator
 
     def get_connection(self) -> SnowflakeConnection:
         return self.connection
@@ -210,6 +218,19 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             for snowflake_db in self.databases:
                 self.report.set_ingestion_stage(snowflake_db.name, METADATA_EXTRACTION)
                 yield from self._process_database(snowflake_db)
+
+            self.report.set_ingestion_stage("*", EXTERNAL_TABLE_DDL_LINEAGE)
+            discovered_tables: List[str] = [
+                self.identifiers.get_dataset_identifier(
+                    table_name, schema.name, db.name
+                )
+                for db in self.databases
+                for schema in db.schemas
+                for table_name in schema.tables
+            ]
+            if self.aggregator:
+                for entry in self._external_tables_ddl_lineage(discovered_tables):
+                    self.aggregator.add(entry)
 
         except SnowflakePermissionError as e:
             self.structured_reporter.failure(
@@ -423,6 +444,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     view_identifier = self.identifiers.get_dataset_identifier(
                         view.name, schema_name, db_name
                     )
+                    if view.is_secure and not view.view_definition:
+                        view.view_definition = self.fetch_secure_view_definition(
+                            view.name, schema_name, db_name
+                        )
                     if view.view_definition:
                         self.aggregator.add_view_definition(
                             view_urn=self.identifiers.gen_dataset_urn(view_identifier),
@@ -430,6 +455,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                             default_db=db_name,
                             default_schema=schema_name,
                         )
+                    elif view.is_secure:
+                        self.report.num_secure_views_missing_definition += 1
 
             if self.config.include_technical_schema:
                 for view in views:
@@ -445,6 +472,25 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 message="If tables exist, please grant REFERENCES or SELECT permissions on them.",
                 context=f"{db_name}.{schema_name}",
             )
+
+    def fetch_secure_view_definition(
+        self, table_name: str, schema_name: str, db_name: str
+    ) -> Optional[str]:
+        try:
+            view_definitions = self.data_dictionary.get_secure_view_definitions()
+            return view_definitions[db_name][schema_name][table_name]
+        except Exception as e:
+            if isinstance(e, SnowflakePermissionError):
+                error_msg = (
+                    "Failed to get secure views definitions. Please check permissions."
+                )
+            else:
+                error_msg = "Failed to get secure views definitions"
+            self.structured_reporter.warning(
+                error_msg,
+                exc=e,
+            )
+            return None
 
     def fetch_views_for_schema(
         self, snowflake_schema: SnowflakeSchema, db_name: str, schema_name: str
@@ -748,8 +794,21 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
     ) -> DatasetProperties:
         custom_properties = {}
 
-        if isinstance(table, SnowflakeTable) and table.clustering_key:
-            custom_properties["CLUSTERING_KEY"] = table.clustering_key
+        if isinstance(table, SnowflakeTable):
+            if table.clustering_key:
+                custom_properties["CLUSTERING_KEY"] = table.clustering_key
+
+            if table.is_hybrid:
+                custom_properties["IS_HYBRID"] = "true"
+
+            if table.is_dynamic:
+                custom_properties["IS_DYNAMIC"] = "true"
+
+            if table.is_iceberg:
+                custom_properties["IS_ICEBERG"] = "true"
+
+        if isinstance(table, SnowflakeView) and table.is_secure:
+            custom_properties["IS_SECURE"] = "true"
 
         return DatasetProperties(
             name=table.name,
@@ -1043,3 +1102,33 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         # Access to table but none of its constraints - is this possible ?
         return constraints.get(table_name, [])
+
+    # Handles the case for explicitly created external tables.
+    # NOTE: Snowflake does not log this information to the access_history table.
+    def _external_tables_ddl_lineage(
+        self, discovered_tables: List[str]
+    ) -> Iterable[KnownLineageMapping]:
+        external_tables_query: str = SnowflakeQuery.show_external_tables()
+        try:
+            for db_row in self.connection.query(external_tables_query):
+                key = self.identifiers.get_dataset_identifier(
+                    db_row["name"], db_row["schema_name"], db_row["database_name"]
+                )
+
+                if key not in discovered_tables:
+                    continue
+                if db_row["location"].startswith("s3://"):
+                    yield KnownLineageMapping(
+                        upstream_urn=make_s3_urn_for_lineage(
+                            db_row["location"], self.config.env
+                        ),
+                        downstream_urn=self.identifiers.gen_dataset_urn(key),
+                    )
+                    self.report.num_external_table_edges_scanned += 1
+
+                self.report.num_external_table_edges_scanned += 1
+        except Exception as e:
+            self.structured_reporter.warning(
+                "External table ddl lineage extraction failed",
+                exc=e,
+            )

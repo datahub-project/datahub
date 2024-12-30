@@ -653,7 +653,7 @@ class CSVEnricherSource(Source):
 
             is_resource_row: bool = not row["subresource"]
             entity_urn = row["resource"]
-            entity_type = Urn.create_from_string(row["resource"]).get_type()
+            entity_type = Urn.from_string(row["resource"]).get_type()
 
             term_associations: List[
                 GlossaryTermAssociationClass

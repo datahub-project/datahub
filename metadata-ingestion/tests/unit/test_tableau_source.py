@@ -182,8 +182,14 @@ def test_get_filter_pages_simple():
     assert get_filter_pages(filter_dict, 10) == [filter_dict]
 
 
-def test_get_filter_pages_non_id_large_filter_passthrough():
-    projects = [f"project{i}" for i in range(20000)]
+def test_get_filter_pages_non_id_large_filter():
+    projects = [f"project{i}" for i in range(10)]
+    filter_dict = {c.PROJECT_NAME_WITH_IN: projects}
+    assert get_filter_pages(filter_dict, 10) == [filter_dict]
+
+
+def test_get_filter_pages_for_single_key():
+    projects = ["project1"]
     filter_dict = {c.PROJECT_NAME_WITH_IN: projects}
     assert get_filter_pages(filter_dict, 10) == [filter_dict]
 

@@ -54,7 +54,6 @@ export default function MultipleOpenEndedInput({ selectedValues, updateSelectedV
     const {
         prompt: { displayBulkPromptStyles },
     } = useEntityFormContext();
-
     function updateInput(text: string, index: number) {
         const updatedValues =
             selectedValues.length > 0 ? selectedValues.map((value, i) => (i === index ? text : value)) : [text];

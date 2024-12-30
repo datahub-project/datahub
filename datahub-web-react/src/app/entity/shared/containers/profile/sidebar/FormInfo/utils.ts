@@ -217,7 +217,7 @@ export function findPromptAssociation(prompt: FormPrompt, allPrompts: Array<Form
 // Get the prompts for a given form
 export function getPromptsForForm(formUrn: string, entityData: GenericEntityProperties | null) {
     const formAssociation = getFormAssociation(formUrn, entityData);
-    return formAssociation?.form.info.prompts || [];
+    return formAssociation?.form?.info?.prompts || [];
 }
 
 /*
@@ -299,7 +299,7 @@ export function isVerificationComplete(entityData: GenericEntityProperties | nul
 
 export function isFormVerificationType(entityData: GenericEntityProperties | null, formUrn: string) {
     const formAssociation = getFormAssociation(formUrn, entityData);
-    return formAssociation?.form.info.type === FormType.Verification;
+    return formAssociation?.form?.info?.type === FormType.Verification;
 }
 
 /*
@@ -335,7 +335,7 @@ export function getVerificationAuditStamp(entityData: GenericEntityProperties | 
 }
 
 export function getBulkByQuestionPrompts(form: Form) {
-    return form.info.prompts.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type)) || [];
+    return form?.info?.prompts?.filter((prompt) => !SCHEMA_FIELD_PROMPT_TYPES.includes(prompt.type)) || [];
 }
 
 export function filterFormAssociationsForUser(association: FormAssociation) {

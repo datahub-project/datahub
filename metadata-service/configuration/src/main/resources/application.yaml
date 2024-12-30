@@ -134,6 +134,12 @@ searchService:
       pageSize: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_PAGE_SIZE:100}
       limit: ${SEARCH_SERVICE_FILTER_DOMAIN_EXPANSION_LIMIT:100}
 
+timeseriesAspectService:
+  query:
+    concurrency: ${TIMESERIES_ASPECT_SERVICE_QUERY_CONCURRENCY:10} # parallel threads
+    queueSize: ${TIMESERIES_ASPECT_SERVICE_QUERY)QUEUE_SIZE:500}
+    threadKeepAlive: ${TIMESERIES_ASPECT_SERVICE_QUERY_THREAD_KEEP_ALIVE:60}
+
 recommendationService:
   mostPopular:
     offline: ${MOST_POPULAR_RECOMMENDATIONS_OFFLINE:false}
@@ -597,10 +603,10 @@ featureFlags:
   schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true} # If turned on, schema field lineage will always fetch ghost entities
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
+  showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
   hideDbtSourceInLineage: ${HIDE_DBT_SOURCE_IN_LINEAGE:false} # If turned on, dbt sources will not be shown in lineage
   showBulkFormByDefault: ${SHOW_BULK_FORM_BY_DEFAULT:false} # If turned on, the bulk form by question view will be shown by default from the task center
   showDatasetFeaturesSearchSortOptions: ${SHOW_DATASET_FEATURES_SEARCH_SORT_OPTIONS:false} # Enables showing sort by row count, query count, update count, size in bytes.
-  showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
   showNavBarRedesign: ${SHOW_NAV_BAR_REDESIGN:false} # If turned on, show the newly designed nav bar in the V2 experience
   showAutoCompleteResults: ${SHOW_AUTO_COMPLETE_RESULTS:true} # If turned on, show the auto complete results in the search bar
   showFormAnalytics: ${SHOW_FORM_ANALYTICS:false} # If turned on, show the tab in the Compliance Form center to get to forms analytics
@@ -625,7 +631,7 @@ entityClient:
       batchSize: ${ENTITY_CLIENT_JAVA_INGEST_BATCH_SIZE:375}
   restli:
     get:
-      batchSize: ${ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE:50} # limited to prevent exceeding restli URI/header size limits
+      batchSize: ${ENTITY_CLIENT_RESTLI_GET_BATCH_SIZE:100} # limited to prevent exceeding restli URI size limit
       batchConcurrency: ${ENTITY_CLIENT_RESTLI_GET_BATCH_CONCURRENCY:2} # parallel threads
       batchQueueSize: ${ENTITY_CLIENT_RESTLI_GET_BATCH_QUEUE_SIZE:500}
       batchThreadKeepAlive: ${ENTITY_CLIENT_RESTLI_GET_BATCH_THREAD_KEEP_ALIVE:60}
@@ -672,12 +678,12 @@ cache:
       entityAspectTTLSeconds:
         # cache user aspects for 20s
         corpuser:
-          corpUserKey: 20
+          corpUserKey: 300 # 5 min
           corpUserInfo: 20
           corpUserEditableInfo: 20
-          corpUserStatus: 20
+          corpUserStatus: 300 # 5 min
           globalTags: 20
-          status: 20
+          status: 300 # 5 min
           corpUserCredentials: 20
           corpUserSettings: 20
           roleMembership: 20

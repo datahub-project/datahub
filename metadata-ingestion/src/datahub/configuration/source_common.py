@@ -1,14 +1,10 @@
-from typing import Dict, Optional, Set
+from typing import Dict, Optional
 
 from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
-from datahub.emitter.enum_helpers import get_enum_options
-from datahub.metadata.schema_classes import FabricTypeClass
-
-DEFAULT_ENV = FabricTypeClass.PROD
-ALL_ENV_TYPES: Set[str] = set(get_enum_options(FabricTypeClass))
+from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
 
 
 class PlatformInstanceConfigMixin(ConfigModel):
@@ -66,4 +62,17 @@ class DatasetLineageProviderConfigBase(EnvConfigMixin):
     platform_instance_map: Optional[Dict[str, str]] = Field(
         default=None,
         description="A holder for platform -> platform_instance mappings to generate correct dataset urns",
+    )
+
+
+class PlatformDetail(ConfigModel):
+    platform_instance: Optional[str] = Field(
+        default=None,
+        description="DataHub platform instance name. To generate correct urn for upstream dataset, this should match "
+        "with platform instance name used in ingestion "
+        "recipe of other datahub sources.",
+    )
+    env: str = Field(
+        default=DEFAULT_ENV,
+        description="The environment that all assets produced by DataHub platform ingestion source belong to",
     )

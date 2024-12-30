@@ -193,7 +193,7 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
     return entityService.ingestProposal(
         opContext,
         AspectsBatchImpl.builder()
-            .mcps(proposals, opContext.getAuditStamp(), opContext.getRetrieverContext().get())
+            .mcps(proposals, opContext.getAuditStamp(), opContext.getRetrieverContext())
             .build(),
         false);
   }
@@ -243,7 +243,7 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
             EntityKeyUtils.convertUrnToEntityKey(
                 versionSetUrn,
                 opContext.getEntityRegistryContext().getKeyAspectSpec(versionSetUrn));
-    SearchRetriever searchRetriever = opContext.getRetrieverContext().get().getSearchRetriever();
+    SearchRetriever searchRetriever = opContext.getRetrieverContext().getSearchRetriever();
 
     // Find current latest version and previous
     ScrollResult linkedVersions =
@@ -335,7 +335,7 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
               .mcps(
                   ImmutableList.of(versionSetPropertiesProposal),
                   opContext.getAuditStamp(),
-                  opContext.getRetrieverContext().get())
+                  opContext.getRetrieverContext())
               .build(),
           false);
     }

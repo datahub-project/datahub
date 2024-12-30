@@ -83,7 +83,7 @@ public class ESPredicateUtils {
     }
 
     ESPredicateUtils.validatePredicate(
-        predicate, opContext.getRetrieverContext().get().getAspectRetriever());
+        predicate, opContext.getRetrieverContext().getAspectRetriever());
     processPredicate(
         predicate,
         finalQueryBuilder,

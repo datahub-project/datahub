@@ -522,7 +522,7 @@ class DagsterGenerator:
         # Also, add datahub inputs/outputs if present in input/output metatdata.
         for input_def_snap in op_def_snap.input_def_snaps:
             job_property_bag[f"input.{input_def_snap.name}"] = str(
-                input_def_snap._asdict()
+                input_def_snap.__dict__
             )
             if Constant.DATAHUB_INPUTS in input_def_snap.metadata:
                 datajob.inlets.extend(
@@ -533,7 +533,7 @@ class DagsterGenerator:
 
         for output_def_snap in op_def_snap.output_def_snaps:
             job_property_bag[f"output_{output_def_snap.name}"] = str(
-                output_def_snap._asdict()
+                output_def_snap.__dict__
             )
             if (
                 Constant.DATAHUB_OUTPUTS in output_def_snap.metadata

@@ -19,6 +19,8 @@ driver = Entity(
     join_keys=["driver_id"],
     value_type=ValueType.INT64,
     description="Driver ID",
+    owner="MOCK_OWNER",
+    tags={"name": "deprecated"},
 )
 
 driver_hourly_stats_view = FeatureView(
@@ -29,7 +31,7 @@ driver_hourly_stats_view = FeatureView(
         Field(
             name="conv_rate",
             dtype=feast.types.Float64,
-            tags=dict(description="Conv rate"),
+            tags={"name": "needs_documentation", "description": "Conv rate"},
         ),
         Field(
             name="acc_rate",
@@ -49,7 +51,8 @@ driver_hourly_stats_view = FeatureView(
     ],
     online=True,
     source=driver_hourly_stats_source,
-    tags={},
+    tags={"name": "deprecated"},
+    owner="MOCK_OWNER",
 )
 
 input_request = RequestSource(

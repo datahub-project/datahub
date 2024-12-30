@@ -1,0 +1,176 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  font-family: "Manrope";
+}
+.case_study {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  margin: 5rem auto;
+
+  .case_study_heading {
+    color: var(--primitives-text-text-heading, #373A47);
+    text-align: center;
+    font-family: Manrope;
+    font-size: 29.177px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: normal;
+    letter-spacing: 0.292px;
+  }
+
+  .card_row::-webkit-scrollbar {
+    display: none;
+  }
+  .card_row {
+    overflow-x: scroll;
+    width: 100vw;
+    scrollbar-width: none;
+    display: flex;
+    margin-top: 2rem;
+
+    .card_row_wrapper {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      margin: auto;
+    }
+    .cardLink {
+      color: #000;
+      
+      &:hover {
+        text-decoration: none;
+      }
+    }
+    
+    .card {
+      max-width: 419px;
+      max-height: 148px;
+      padding: 1.2rem;
+      margin: 1rem 0.5rem;
+      display: flex; 
+      flex-direction: column;
+      align-items: center; 
+      border-radius: var(--number-scales-2s-32, 32px);
+      border: 1px solid var(--semantics-bg-bg-white, #99999930);
+      background: var(--primitives-grays-1, #9999991a);
+
+      transition: all .3s ease-in-out;
+      &:hover {
+        box-shadow: 0px 1px 4px 1px #0000001C;
+        border-color: #33333340;
+        background: var(--primitives-grays-1, #dddddd1a);
+      }
+    
+      .card_image {
+        border-radius: 16px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 0;
+        margin: auto;
+        margin-right: 16px; 
+    
+      }
+    
+      .card_heading_div {
+        width: 70%; 
+        padding: 12px;
+    
+        .card_heading {
+          color: var(--primitives-grays-9, #484C5C);
+          font-family: Manrope;
+          font-size: 1.3rem;
+          font-style: normal;
+          font-weight: 400;
+          line-height: normal;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          display: -webkit-box;
+        
+        }
+      }
+    }
+    
+  }
+
+  a:hover {
+    text-decoration: none !important;
+  }
+
+  .bottom_line {
+    cursor: pointer;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #12b0fb;
+    font-size: 1.1rem;
+    font-weight: 500;
+    margin-top: 50px;
+    margin-bottom: 10px;
+
+    span {
+      line-height: 10px;
+      font-size: 1.5rem;
+      margin-left: 10px;
+    }
+  }
+}
+
+@media (max-width: 800px) {
+  .case_study {
+    .case_study_heading {
+      text-align: center;
+      font-family: "Manrope";
+      width: 80%;
+      margin: auto;
+      font-size: 1.5rem;
+      line-height: normal;
+      font-weight: 400;
+    }
+
+    .card_row {
+      margin-top: 16px;
+      display: flex;
+      justify-content: flex-start;
+
+      .card_row_wrapper {
+        padding: 0 0;
+        width: 100vh;
+        align-items: flex-start;
+        justify-content: flex-start;
+      }
+
+      .card {
+        min-width: 240px;
+        padding: 0.8rem;
+        margin: 0.5rem;
+        display: flex;
+
+        .card_image {
+          width: 50px;
+          height: 50px;
+          margin: 16px auto;
+        }
+
+        .card_heading_div {
+          text-align: left;
+          padding: 8px;
+
+          .card_heading {
+            font-size: 1rem;
+            line-height: 1.2rem;
+          }
+        }
+      }
+    }
+
+    .bottom_line {
+      font-size: 1rem;
+      margin-top: 40px;
+    }
+  }
+}

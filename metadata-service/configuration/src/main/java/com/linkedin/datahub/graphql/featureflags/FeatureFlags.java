@@ -31,6 +31,7 @@ public class FeatureFlags {
   private boolean editableDatasetNameEnabled = false;
   private boolean showSeparateSiblings = false;
   private boolean alternateMCPValidation = false;
+  private boolean showManageStructuredProperties = false;
   private boolean documentationAiEnabled = false;
   private boolean themeV2Enabled = false;
   private boolean themeV2Default = false;
@@ -47,7 +48,6 @@ public class FeatureFlags {
   private boolean showBulkFormByDefault = false;
   private boolean schemaFieldLineageIgnoreStatus = false;
   private boolean showDatasetFeaturesSearchSortOptions = false;
-  private boolean showManageStructuredProperties = false;
   private boolean showNavBarRedesign = false;
   private boolean showAutoCompleteResults = false;
   private boolean showFormAnalytics = false;

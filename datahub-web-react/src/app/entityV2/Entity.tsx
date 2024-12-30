@@ -236,4 +236,9 @@ export interface Entity<T> {
             urn: string;
         }>
     >;
+
+    /**
+     * Returns the url to be navigated to when clicked on Cards
+     */
+    getCustomCardUrlPath?: () => string | undefined;
 }
