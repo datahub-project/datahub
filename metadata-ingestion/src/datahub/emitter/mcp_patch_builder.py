@@ -2,7 +2,7 @@ import json
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 from datahub.emitter.aspect import JSON_PATCH_CONTENT_TYPE
 from datahub.emitter.serialization_helper import pre_json_transform
@@ -75,7 +75,7 @@ class MetadataPatchProposal:
         # TODO: Validate that aspectName is a valid aspect for this entityType
         self.patches[aspect_name].append(_Patch(op, path, value))
 
-    def build(self) -> Iterable[MetadataChangeProposalClass]:
+    def build(self) -> List[MetadataChangeProposalClass]:
         return [
             MetadataChangeProposalClass(
                 entityUrn=self.urn,

@@ -109,7 +109,7 @@ div[class^="announcementBar"] {
   div {
     display: flex;
     align-items: center;
-    padding: 0 1rem;
+    padding: 0 .5rem;
     justify-content: space-between;
     font-size: 1rem;
 
@@ -156,7 +156,10 @@ div[class^="announcementBar"] {
     a {
       color: #EFB300;
       text-decoration: none;
-      font-size: 1rem
+      font-size: 1rem;
+      padding-right: 0;
+      padding-left: 12px;
+      min-width: 108px;
     }
   }
 }

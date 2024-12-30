@@ -3,7 +3,7 @@ import json
 import logging
 import os
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Union
 
 import requests
 from deprecated import deprecated
@@ -288,7 +288,7 @@ class DataHubRestEmitter(Closeable, Emitter):
 
     def emit_mcps(
         self,
-        mcps: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
+        mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
         async_flag: Optional[bool] = None,
     ) -> int:
         logger.debug("Attempting to emit batch mcps")
