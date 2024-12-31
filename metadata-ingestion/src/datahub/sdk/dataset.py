@@ -1,6 +1,6 @@
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from typing_extensions import TypeAlias, assert_never
 
@@ -37,11 +37,11 @@ class DatasetUpdater:
 
 
 class DatasetEditMode(Enum):
-    UI = "UI"
-    INGESTION = "INGESTION"
+    OVERWRITE_UI = "OVERWRITE_UI"
+    DEFER_TO_UI = "DEFER_TO_UI"
 
 
-_DEFAULT_EDIT_MODE = DatasetEditMode.UI
+_DEFAULT_EDIT_MODE = DatasetEditMode.DEFER_TO_UI
 # TODO: Add default edit attribution for basic props e.g. tags/terms/owners/etc?
 
 SchemaFieldInputType: TypeAlias = Union[
@@ -85,6 +85,7 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
         container: Optional[ContainerInputType] = None,
         owners: Optional[OwnersInputType] = None,
         # TODO tags
+        # TODO: do we need to support edit_mode for tags / other aspects?
         # TODO terms
         # structured_properties
         # Dataset-specific aspects.
@@ -136,6 +137,9 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
         if owners is not None:
             self.set_owners(owners)
 
+    def _init_dummy_args(cls) -> dict[str, Any]:
+        return {"_edit_mode": DatasetEditMode.OVERWRITE_UI}
+
     @property
     def urn(self) -> DatasetUrn:
         return self._urn  # type: ignore
@@ -165,12 +169,13 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
         )
 
     def set_description(self, description: str) -> None:
-        if self._edit_mode == DatasetEditMode.INGESTION:
+        if self._edit_mode == DatasetEditMode.DEFER_TO_UI:
             editable_props = self._get_aspect(models.EditableDatasetPropertiesClass)
             if editable_props is not None and editable_props.description is not None:
-                # TODO does this make sense?
+                # TODO does it make sense to throw here?
                 raise SdkUsageError(
-                    "In ingestion mode, setting the description will be hidden by UI-based edits."
+                    "Setting the description will be hidden by UI-based edits. "
+                    "Set the edit mode to OVERWRITE_UI to override this behavior."
                 )
 
             self._ensure_dataset_props().description = description
