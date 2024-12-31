@@ -6,19 +6,22 @@ from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
     DashboardInfoClass as DashboardInfo,
     EdgeClass as Edge,
-    GlossaryTermAssociationClass as Term,
-    GlossaryTermsClass as GlossaryTerms,
     KafkaAuditHeaderClass,
     SystemMetadataClass,
 )
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
 from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 from datahub.specific.aspect_helpers.tags import HasTagsPatch
+from datahub.specific.aspect_helpers.terms import HasTermsPatch
 from datahub.utilities.urns.urn import Urn
 
 
 class DashboardPatchBuilder(
-    HasOwnershipPatch, HasCustomPropertiesPatch, HasTagsPatch, MetadataPatchProposal
+    HasOwnershipPatch,
+    HasCustomPropertiesPatch,
+    HasTagsPatch,
+    HasTermsPatch,
+    MetadataPatchProposal,
 ):
     def __init__(
         self,
@@ -207,38 +210,6 @@ class DashboardPatchBuilder(
             "add",
             path=("chartEdges",),
             value=charts,
-        )
-        return self
-
-    def add_term(self, term: Term) -> "DashboardPatchBuilder":
-        """
-        Adds a glossary term to the DashboardPatchBuilder.
-
-        Args:
-            term: The Term object representing the glossary term to be added.
-
-        Returns:
-            The DashboardPatchBuilder instance.
-        """
-        self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "add", path=("terms", term.urn), value=term
-        )
-        return self
-
-    def remove_term(self, term: Union[str, Urn]) -> "DashboardPatchBuilder":
-        """
-        Removes a glossary term from the DashboardPatchBuilder.
-
-        Args:
-            term: The term to remove, specified as a string or Urn object.
-
-        Returns:
-            The DashboardPatchBuilder instance.
-        """
-        if isinstance(term, str) and not term.startswith("urn:li:glossaryTerm:"):
-            term = "urn:li:glossaryTerm:" + term
-        self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "remove", path=("terms", term), value={}
         )
         return self
 

@@ -1,22 +1,24 @@
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Tuple
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
 from datahub.metadata.schema_classes import (
     DataProductAssociationClass as DataProductAssociation,
     DataProductPropertiesClass as DataProductProperties,
-    GlossaryTermAssociationClass as Term,
-    GlossaryTermsClass as GlossaryTerms,
     KafkaAuditHeaderClass,
     SystemMetadataClass,
 )
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
 from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 from datahub.specific.aspect_helpers.tags import HasTagsPatch
-from datahub.utilities.urns.urn import Urn
+from datahub.specific.aspect_helpers.terms import HasTermsPatch
 
 
 class DataProductPatchBuilder(
-    HasOwnershipPatch, HasCustomPropertiesPatch, HasTagsPatch, MetadataPatchProposal
+    HasOwnershipPatch,
+    HasCustomPropertiesPatch,
+    HasTagsPatch,
+    HasTermsPatch,
+    MetadataPatchProposal,
 ):
     def __init__(
         self,
@@ -33,20 +35,6 @@ class DataProductPatchBuilder(
     @classmethod
     def _custom_properties_location(cls) -> Tuple[str, PatchPath]:
         return DataProductProperties.ASPECT_NAME, ("customProperties",)
-
-    def add_term(self, term: Term) -> "DataProductPatchBuilder":
-        self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "add", path=("terms", term.urn), value=term
-        )
-        return self
-
-    def remove_term(self, term: Union[str, Urn]) -> "DataProductPatchBuilder":
-        if isinstance(term, str) and not term.startswith("urn:li:glossaryTerm:"):
-            term = "urn:li:glossaryTerm:" + term
-        self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "remove", path=("terms", term), value={}
-        )
-        return self
 
     def set_name(self, name: str) -> "DataProductPatchBuilder":
         self._add_patch(
