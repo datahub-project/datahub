@@ -137,7 +137,8 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
         if owners is not None:
             self.set_owners(owners)
 
-    def _init_dummy_args(cls) -> dict[str, Any]:
+    @classmethod
+    def _graph_init_dummy_args(cls) -> dict[str, Any]:
         return {"_edit_mode": DatasetEditMode.OVERWRITE_UI}
 
     @property
