@@ -56,7 +56,7 @@ export const transformGenericEntityPropertiesToCsvRow = (
         // type
         result.entity.type || '',
         // description
-        properties?.properties?.description || '',
+        properties?.properties?.description || properties?.editableProperties?.description || '',
         // user owners
         properties?.ownership?.owners
             ?.filter((owner) => owner.owner.type === EntityType.CorpUser)
