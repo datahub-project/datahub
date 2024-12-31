@@ -1,5 +1,6 @@
 import { PlusOutlined, RedoOutlined } from '@ant-design/icons';
 import React, { useCallback, useEffect, useState } from 'react';
+import { debounce } from 'lodash';
 import * as QueryString from 'query-string';
 import { useLocation } from 'react-router';
 import { Button, message, Modal, Pagination, Select } from 'antd';
@@ -16,7 +17,7 @@ import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { IngestionSourceBuilderModal } from './builder/IngestionSourceBuilderModal';
 import { addToListIngestionSourcesCache, CLI_EXECUTOR_ID, removeFromListIngestionSourcesCache } from './utils';
 import { DEFAULT_EXECUTOR_ID, SourceBuilderState, StringMapEntryInput } from './builder/types';
-import { IngestionSource, UpdateIngestionSourceInput } from '../../../types.generated';
+import { IngestionSource, SortCriterion, SortOrder, UpdateIngestionSourceInput } from '../../../types.generated';
 import { SearchBar } from '../../search/SearchBar';
 import { useEntityRegistry } from '../../useEntityRegistry';
 import { ExecutionDetailsModal } from './executions/ExecutionRequestDetailsModal';
@@ -30,6 +31,8 @@ import {
     INGESTION_CREATE_SOURCE_ID,
     INGESTION_REFRESH_SOURCES_ID,
 } from '../../onboarding/config/IngestionOnboardingConfig';
+import { ONE_SECOND_IN_MS } from '../../entity/shared/tabs/Dataset/Queries/utils/constants';
+import { useCommandS } from './hooks';
 
 const PLACEHOLDER_URN = 'placeholder-urn';
 
@@ -49,20 +52,12 @@ const FilterWrapper = styled.div`
     display: flex;
 `;
 
+const SYSTEM_INTERNAL_SOURCE_TYPE = 'SYSTEM';
+
 export enum IngestionSourceType {
     ALL,
     UI,
     CLI,
-}
-
-export function shouldIncludeSource(source: any, sourceFilter: IngestionSourceType) {
-    if (sourceFilter === IngestionSourceType.CLI) {
-        return source.config.executorId === CLI_EXECUTOR_ID;
-    }
-    if (sourceFilter === IngestionSourceType.UI) {
-        return source.config.executorId !== CLI_EXECUTOR_ID;
-    }
-    return true;
 }
 
 const DEFAULT_PAGE_SIZE = 25;
@@ -100,6 +95,25 @@ export const IngestionSourceList = () => {
     // Set of removed urns used to account for eventual consistency
     const [removedUrns, setRemovedUrns] = useState<string[]>([]);
     const [sourceFilter, setSourceFilter] = useState(IngestionSourceType.ALL);
+    const [sort, setSort] = useState<SortCriterion>();
+    const [hideSystemSources, setHideSystemSources] = useState(true);
+
+    /**
+     * Show or hide system ingestion sources using a hidden command S command.
+     */
+    useCommandS(() => setHideSystemSources(!hideSystemSources));
+
+    // Ingestion Source Default Filters
+    const filters = hideSystemSources
+        ? [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }]
+        : [];
+    if (sourceFilter !== IngestionSourceType.ALL) {
+        filters.push({
+            field: 'sourceExecutorId',
+            values: [CLI_EXECUTOR_ID],
+            negated: sourceFilter !== IngestionSourceType.CLI,
+        });
+    }
 
     // Ingestion Source Queries
     const { loading, error, data, client, refetch } = useListIngestionSourcesQuery({
@@ -107,10 +121,12 @@ export const IngestionSourceList = () => {
             input: {
                 start,
                 count: pageSize,
-                query,
+                query: query?.length ? query : undefined,
+                filters: filters.length ? filters : undefined,
+                sort,
             },
         },
-        fetchPolicy: 'cache-first',
+        fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
     const [createIngestionSource] = useCreateIngestionSourceMutation();
     const [updateIngestionSource] = useUpdateIngestionSourceMutation();
@@ -121,9 +137,7 @@ export const IngestionSourceList = () => {
 
     const totalSources = data?.listIngestionSources?.total || 0;
     const sources = data?.listIngestionSources?.ingestionSources || [];
-    const filteredSources = sources.filter(
-        (source) => !removedUrns.includes(source.urn) && shouldIncludeSource(source, sourceFilter),
-    ) as IngestionSource[];
+    const filteredSources = sources.filter((source) => !removedUrns.includes(source.urn)) as IngestionSource[];
     const focusSource =
         (focusSourceUrn && filteredSources.find((source) => source.urn === focusSourceUrn)) || undefined;
 
@@ -133,9 +147,13 @@ export const IngestionSourceList = () => {
         setLastRefresh(new Date().getTime());
     }, [refetch]);
 
+    const debouncedSetQuery = debounce((newQuery: string | undefined) => {
+        setQuery(newQuery);
+    }, ONE_SECOND_IN_MS);
+
     function hasActiveExecution() {
         return !!filteredSources.find((source) =>
-            source.executions?.executionRequests.find((request) => isExecutionRequestActive(request)),
+            source.executions?.executionRequests?.find((request) => isExecutionRequestActive(request)),
         );
     }
     useRefreshIngestionData(onRefresh, hasActiveExecution);
@@ -175,7 +193,9 @@ export const IngestionSourceList = () => {
 
     const formatExtraArgs = (extraArgs): StringMapEntryInput[] => {
         if (extraArgs === null || extraArgs === undefined) return [];
-        return extraArgs.map((entry) => ({ key: entry.key, value: entry.value }));
+        return extraArgs
+            .filter((entry) => entry.value !== null && entry.value !== undefined && entry.value !== '')
+            .map((entry) => ({ key: entry.key, value: entry.value }));
     };
 
     const createOrUpdateIngestionSource = (
@@ -355,6 +375,17 @@ export const IngestionSourceList = () => {
         setFocusSourceUrn(undefined);
     };
 
+    const onChangeSort = (field, order) => {
+        setSort(
+            order
+                ? {
+                      sortOrder: order === 'ascend' ? SortOrder.Ascending : SortOrder.Descending,
+                      field,
+                  }
+                : undefined,
+        );
+    };
+
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading ingestion sources..." />}
@@ -399,7 +430,10 @@ export const IngestionSourceList = () => {
                                 fontSize: 12,
                             }}
                             onSearch={() => null}
-                            onQueryChange={(q) => setQuery(q)}
+                            onQueryChange={(q) => {
+                                setPage(1);
+                                debouncedSetQuery(q);
+                            }}
                             entityRegistry={entityRegistry}
                             hideRecommendations
                         />
@@ -414,6 +448,7 @@ export const IngestionSourceList = () => {
                     onView={onView}
                     onDelete={onDelete}
                     onRefresh={onRefresh}
+                    onChangeSort={onChangeSort}
                 />
                 <SourcePaginationContainer>
                     <Pagination
@@ -429,17 +464,13 @@ export const IngestionSourceList = () => {
             </SourceContainer>
             <IngestionSourceBuilderModal
                 initialState={removeExecutionsFromIngestionSource(focusSource)}
-                visible={isBuildingSource}
+                open={isBuildingSource}
                 onSubmit={onSubmit}
                 onCancel={onCancel}
             />
-            {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config.recipe} onCancel={onCancel} />}
+            {isViewingRecipe && <RecipeViewerModal recipe={focusSource?.config?.recipe} onCancel={onCancel} />}
             {focusExecutionUrn && (
-                <ExecutionDetailsModal
-                    urn={focusExecutionUrn}
-                    visible
-                    onClose={() => setFocusExecutionUrn(undefined)}
-                />
+                <ExecutionDetailsModal urn={focusExecutionUrn} open onClose={() => setFocusExecutionUrn(undefined)} />
             )}
         </>
     );

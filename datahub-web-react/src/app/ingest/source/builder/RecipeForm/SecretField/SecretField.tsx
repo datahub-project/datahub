@@ -13,14 +13,14 @@ const StyledDivider = styled(Divider)`
 `;
 
 export const StyledFormItem = styled(Form.Item)<{
-    alignLeft?: boolean;
-    removeMargin?: boolean;
-    isSecretField?: boolean;
+    $alignLeft?: boolean;
+    $removeMargin?: boolean;
+    $isSecretField?: boolean;
 }>`
-    margin-bottom: ${(props) => (props.removeMargin ? '0' : '16px')};
+    margin-bottom: ${(props) => (props.$removeMargin ? '0' : '16px')};
 
     ${(props) =>
-        props.alignLeft &&
+        props.$alignLeft &&
         `
         .ant-form-item {
             flex-direction: row;
@@ -34,7 +34,7 @@ export const StyledFormItem = styled(Form.Item)<{
     `}
 
     ${(props) =>
-        props.isSecretField &&
+        props.$isSecretField &&
         `
         .ant-form-item-label {
             &:after {
@@ -97,12 +97,12 @@ function SecretField({ field, secrets, removeMargin, updateFormValue, refetchSec
             label={field.label}
             rules={field.rules || undefined}
             tooltip={<SecretFieldTooltip tooltipLabel={field?.tooltip} />}
-            removeMargin={!!removeMargin}
-            isSecretField
+            $removeMargin={!!removeMargin}
+            $isSecretField
         >
             <AutoComplete
                 placeholder={field.placeholder}
-                filterOption={(input, option) => !!option?.value.toLowerCase().includes(input.toLowerCase())}
+                filterOption={(input, option) => !!option?.value?.toLowerCase().includes(input.toLowerCase())}
                 notFoundContent={<>No secrets found</>}
                 options={options}
                 dropdownRender={(menu) => {

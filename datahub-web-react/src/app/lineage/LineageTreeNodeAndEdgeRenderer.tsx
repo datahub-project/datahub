@@ -1,6 +1,6 @@
 import React, { useContext } from 'react';
-import { Group } from '@vx/group';
-import { TransformMatrix } from '@vx/zoom/lib/types';
+import { Group } from '@visx/group';
+import { TransformMatrix } from '@visx/zoom/lib/types';
 
 import { NodeData, EntitySelectParams, TreeProps, VizNode, VizEdge, EntityAndType, UpdatedLineages } from './types';
 import LineageEntityNode from './LineageEntityNode';
@@ -77,7 +77,7 @@ export default function LineageTreeNodeAndEdgeRenderer({
                     link.target.data.urn
                 }${link.targetField && `-${link.targetField}`}-${link.target.direction}`;
 
-                return <LineageEntityEdge edge={link} key={key} isHighlighted={!!isHighlighted} />;
+                return <LineageEntityEdge edge={link} edgeKey={key} isHighlighted={!!isHighlighted} />;
             })}
             {nodesToRender.map((node, index) => {
                 const isSelected = node.data.urn === selectedEntity?.urn;

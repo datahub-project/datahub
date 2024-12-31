@@ -1,12 +1,14 @@
 import random
-from typing import Dict, Iterator, List, Set, TypeVar, Union
+from typing import Dict, Generic, Iterable, Iterator, List, Set, TypeVar, Union
+
+from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 
 T = TypeVar("T")
 _KT = TypeVar("_KT")
 _VT = TypeVar("_VT")
 
 
-class LossyList(List[T]):
+class LossyList(List[T], Generic[T]):
     """A list that performs reservoir sampling of a much larger list"""
 
     def __init__(self, max_elements: int = 10) -> None:
@@ -29,6 +31,10 @@ class LossyList(List[T]):
         finally:
             self.total_elements += 1
 
+    def extend(self, __iterable: Iterable[T]) -> None:
+        for item in __iterable:
+            self.append(item)
+
     def __len__(self) -> int:
         return self.total_elements
 
@@ -41,14 +47,32 @@ class LossyList(List[T]):
     def __str__(self) -> str:
         return repr(self)
 
+    if PYDANTIC_VERSION_2:
+        # With pydantic 2, it doesn't recognize that this is a list subclass,
+        # so we need to make it explicit.
+
+        @classmethod
+        def __get_pydantic_core_schema__(cls, source_type, handler):  # type: ignore
+            from pydantic_core import core_schema
+
+            return core_schema.no_info_after_validator_function(cls, handler(list))
+
     def as_obj(self) -> List[Union[T, str]]:
-        base_list: List[Union[T, str]] = list(self.__iter__())
+        from datahub.ingestion.api.report import Report
+
+        base_list: List[Union[T, str]] = [
+            Report.to_pure_python_obj(value) for value in list(self.__iter__())
+        ]
         if self.sampled:
             base_list.append(f"... sampled of {self.total_elements} total elements")
         return base_list
 
+    def set_total(self, total: int) -> None:
+        self.total_elements = total
+        self.sampled = self.total_elements > self.max_elements
 
-class LossySet(Set[T]):
+
+class LossySet(Set[T], Generic[T]):
     """A set that only preserves a sample of elements in a set. Currently this is a very simple greedy sampling set"""
 
     def __init__(self, max_elements: int = 10) -> None:
@@ -89,7 +113,7 @@ class LossySet(Set[T]):
         return base_list
 
 
-class LossyDict(Dict[_KT, _VT]):
+class LossyDict(Dict[_KT, _VT], Generic[_KT, _VT]):
     """A structure that only preserves a sample of elements in a dictionary using reservoir sampling."""
 
     def __init__(self, max_elements: int = 10) -> None:
@@ -129,8 +153,12 @@ class LossyDict(Dict[_KT, _VT]):
         if self.sampled:
             base_dict[
                 "sampled"
-            ] = f"{len(self.keys())} sampled of at most {self.max_elements + self._overflow} entries."
+            ] = f"{len(self.keys())} sampled of at most {self.total_key_count()} entries."
         return base_dict
+
+    def total_key_count(self) -> int:
+        """Returns the total number of keys that have been added to this dictionary."""
+        return super().__len__() + self._overflow
 
     def dropped_keys_count(self) -> int:
         """Returns the number of keys that have been dropped from this dictionary."""

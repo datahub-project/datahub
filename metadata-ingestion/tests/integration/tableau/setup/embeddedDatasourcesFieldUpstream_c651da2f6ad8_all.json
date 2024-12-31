@@ -1,0 +1,1246 @@
+{
+    "data": {
+        "fieldsConnection": {
+            "nodes": [
+                {
+                    "id": "00ec352d-e443-5ba2-c389-c2265d6166c2",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "02c33011-048b-1afe-fd20-783e5c3c57a9",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "02c7edfc-f259-6a56-c229-ce6467a3ebe1",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "042d4a79-fc1f-4e33-f87d-bc06e3272d36",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "04fa52d7-3481-c524-7de1-1e73a2620f3a",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "05db0bae-0d20-bbf9-b5c4-4a2272ffb839",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "06372073-9eee-a7a0-280e-772b0545be7d",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "071f5c53-eb36-7ac6-a9b0-a13ca4987175",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "0746f3ae-e85a-78cf-1b29-4bc3b97e323b",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "0a1dbe03-c079-6fe9-7411-fd600af432ae",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "0bc80520-3393-c8ae-3afb-37d0b52b8cf9",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "0bea60c0-2c3f-0113-4030-b914da11166d",
+                    "upstreamFields": null,
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "0c29691d-07aa-e454-e5e1-ae074a812e40",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "0eb84a88-4d6a-ebf5-a959-b67091ea6c1e",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "0fa74f05-78a2-2b3e-e3d3-2028f7988a08",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "10321d43-f20c-d562-b821-77f761ae5cc5",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "1094b642-9e96-4285-89a3-d85b59e557bc",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "10b2216d-6d19-984d-e60f-11d2751f9ec5",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "113364a6-2476-07a2-e25d-81bc137daf4d",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "116efdf5-d57d-a3f8-6fb5-334d6fbdab87",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "11be7d6b-d6dd-27ac-2975-00c2bd0ff051",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "12e4157c-3d2c-4e4e-373b-b204dad0ee61",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "17a9f961-0d61-c619-0959-bf4a2415fe4d",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "17efeb93-035c-5671-2d6e-eb7256fdc1aa",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "1aa6af8e-0f29-d3bf-b81b-35b214d1e59d",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "1af25d71-cdea-286d-4bac-402a54342d5c",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "1c558792-0edc-0e33-4077-4ce995aa27ff",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "1cbdb3ed-aec2-9f14-b5b2-eb3c83f49cd9",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "1d2f0e36-1814-07e0-506e-4f52682c58c5",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "1d416d43-d670-315f-6a16-ae861d4f1ac2",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "1e0edf18-0901-532a-5451-fa2314e0859b",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "1f0b8af8-dd21-5086-e32a-493255b339a0",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "1fc74be7-19ba-f42b-1e8d-86447923b8a7",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "1ffef80b-0b82-08eb-dffb-16d5937421f2",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "214d0ca1-26b3-ff80-68b5-1af3fbbac2ce",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "23e9b73f-e1cf-cc40-7638-8deaa10c77fa",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "24561cc7-2db6-e582-605b-5a796c76b867",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "24603cc5-425e-8a46-ae3a-2d460df840fe",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "2484715d-12f8-a016-af12-5612bfedc91e",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "27d23241-d9ef-957b-9e98-d58bda254438",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "2878a8b5-4306-f844-ef5a-4029eefdf22f",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "2992ae70-4a49-98e4-f2de-cbc4a8b7a7db",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "2a948342-1daf-ac2f-33d3-329e2ca25e34",
+                    "upstreamFields": [
+                        {
+                            "name": "Overdue",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        },
+                        {
+                            "name": "Number",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "2ab7f5aa-15ba-de8e-214a-4e0a27ee91fe",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "2c95cb81-36f6-443f-6c99-ff001d2388f3",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "2e2db482-1927-ba36-a782-8a95c01fdc7e",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "2f83f6ff-ffdc-07b0-40d8-cb7351c02b66",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "2faad672-a1ff-95d1-67c9-2fd6bda9e8b9",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "30bfdf30-6abc-a741-8563-c8a456e8f478",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "311d5263-73af-4578-0d62-f4b2f00396a7",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "31c3f642-db9d-3d0c-4497-c61859e1f8b9",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "339bd914-66f7-c3c9-e7a7-c45f25cb335a",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "3423b49b-03bb-6d3a-12c8-4e11778931e1",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "34aac98d-e7a5-135b-622f-e6d35d84fae9",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "35637b98-c1c1-1200-8815-f1a4c6a13afd",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "36fe7de3-5e0d-83e7-e08c-1c6f299552e1",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "37daa6c3-f37b-94d7-f59d-116cef3f3444",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "38645dd2-5f4d-effc-a564-0054ba2e634b",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "3ac8f5aa-1260-dabf-c762-3ba52fdfc2c0",
+                    "upstreamFields": [
+                        {
+                            "name": "Opened",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        },
+                        {
+                            "name": "Overdue",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        },
+                        {
+                            "name": "Max Year?",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        },
+                        {
+                            "name": "Number",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "3ad5f4e6-35be-0037-0e88-3da0136c081b",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "3ddaea33-73a5-7781-aee0-3f343dce3efd",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "42d00b7c-9983-8883-6b40-bdb2f47f1c35",
+                    "upstreamFields": null,
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "4448d754-db6b-6d41-1f80-f8d80ebd0664",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "45d50e09-2ec6-76b3-f2bf-80836f7e49e6",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "45dd64b3-2fc5-7c5a-2ef8-684284efdeec",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "47c8a373-e098-0537-e220-013ae1b26dc7",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "49a13936-1856-4a32-197f-13ed80b3ece5",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "4cb02fc2-cb2c-045f-994c-6c54d21626a5",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "4e844797-cf85-8239-dbac-4257822b3408",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "4e9c3619-b42e-0452-dcaa-b5406e038c85",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "4eae18fd-b114-7cf2-b8b6-31af6cea0b55",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "4f45c3ad-fc3b-afeb-6e9d-fb94b42051a9",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "50879b60-d080-240f-2439-d15c4ca23cf0",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "517cd761-a193-d8c1-c3db-93890bc7d27a",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "53342557-60b2-51ea-a730-f38ad3dab715",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "536bc9ae-0f4b-5786-0b0d-691d8bc2b9e5",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "54dfc86a-52b7-52b3-3af9-f18e070e56c8",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "5579f16c-8c12-36be-3ff8-1a4bc270f570",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "5668180e-c0cd-dbde-661a-ff1fc6e93385",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "59214da6-732d-5691-5bb8-a81b4132fdd4",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "5ae6724e-3a1d-a43c-9421-294f3f1bfb6c",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "5b478590-b0a9-c34c-faa2-2b7c7a61822f",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "5d54747d-81ac-f0fc-6320-2bc8b4ea592b",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "5dbafcd1-d8d2-68cc-fde3-20e8c7b26ff8",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "5e9aec72-f27e-7dce-fdb7-6b2d418ad785",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "606cc5eb-28b6-6b2e-9ec9-b4d2441323db",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "60bd0e06-5086-d8dc-a6e5-eff080d6a56d",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "60c104d7-6b2c-1132-8a7b-28c1a05c2654",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "61eb7e5a-5931-0486-1e98-5e17ec92ed9c",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "63090441-e641-21ba-66ae-a0ea3d83344c",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "636235a9-4709-04e1-eef2-67ac7c194eb4",
+                    "upstreamFields": [
+                        {
+                            "name": "Number",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        },
+                        {
+                            "name": "Active",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        },
+                        {
+                            "name": "Closed",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        },
+                        {
+                            "name": "Due date",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "66ac12ab-7cba-79fd-b013-72043161beea",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "66d18cb0-c3f0-ad8a-e15a-89563da02834",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "679172d5-d043-c8ff-d115-ef200d11ca72",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "7029eb80-9d5f-b12e-40a4-adc7c9968daa",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "7063be4c-713b-5d6c-25aa-ad98c5a8f7e9",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "724a16a7-49a8-57bd-9ec6-fb5c777d83cf",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "72dc19f7-e551-1b35-ff53-b2bccbfa6bb9",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "732bfc50-930a-7ac3-c088-680bad52bff0",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "73c00bbc-f7a8-76da-a0bd-bb210b4929b8",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "76723c78-1bea-73eb-80ad-1c6c2ff17a87",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "782ebad0-c62f-cbc8-0c22-5904aa50585b",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "784b08a1-eb8c-d675-36b3-b316492e5b16",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "79767234-b173-544a-063d-821baa6a5df9",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "79fad0d4-12c2-078d-c105-1ab1024e5b21",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "7cc56151-90e8-98bb-4354-a514208bff4a",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "7eacd068-7e19-3dbc-dce0-d5089d3c35b8",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "7ecb2d1d-4dd0-e49b-c5d2-407bc5a7b08e",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "81d9a76b-9a30-a2cc-3078-64c2bfc4f4b0",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "837bda98-50c2-164b-665b-ba6e3a02ace3",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "85f313bb-fe2b-5ad7-0cdf-78a64a71fa27",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "86aa92af-853b-4d4e-35b0-21c6424e1735",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "86b35d25-952f-0881-7e62-a812a6e421ae",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "86b677e8-2841-1b59-d1b0-066d16d345c7",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "8a14e383-ee8e-4493-bfcd-a7238d11edf4",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "8aef8cdb-0381-40e2-4efc-bb6a67c45652",
+                    "upstreamFields": [
+                        {
+                            "name": "Closed",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        },
+                        {
+                            "name": "Opened",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "8b69c38c-8297-fb16-1e56-796f67864f60",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "8be77673-bc23-ffc3-1958-21856a6d42bf",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "8c6b7c63-54a0-46d3-8037-f2de8fa1d476",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "8cc2a71d-49c7-fb56-f8f1-f4df94f83aa0",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "8de5c9d3-0c25-4ff6-1a84-0394bc36c57b",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "8df59f46-4e3b-aa77-0c74-35c93f844e75",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "8e8947fd-7108-d528-44db-7657a1fb480c",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "8ed7ee55-acb7-9064-da1c-80a20e706464",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "91f45936-daa1-6194-4fa8-1e135b053dd1",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "93acf969-1638-980a-5c93-ac1c754d2831",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "941fbf6f-40e4-bfe8-d2ff-b016032ec6dd",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "965d754d-0bc7-06e4-1208-d146de93d6a1",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "9736203a-fc31-b052-3fc5-abf1afe22f18",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "984069c9-5366-622a-98bf-60c4ca3e0ff5",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "9a8a1e52-ae97-aee0-c2c9-a4ddf69b5ffc",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "9b35c0be-0f76-63a1-445d-9872a1465154",
+                    "upstreamFields": [
+                        {
+                            "name": "Opened",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        },
+                        {
+                            "name": "Overdue",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        },
+                        {
+                            "name": "Active",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        },
+                        {
+                            "name": "Max Year?",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        },
+                        {
+                            "name": "Number",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "9d228629-7bd0-42df-3b44-b7900f4c1e48",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "9f81f19e-ce84-459e-ab09-b8e4e6677e98",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a0e000ab-dd73-f572-6a91-4ea2e1d2767d",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a0f25adf-7399-e938-d5b2-96cec332c78d",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a15c1a3a-4cce-f29b-22d7-3044c66da9e1",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a17240cd-70c6-f680-007d-25e83f020daf",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a1a22d48-f456-97d0-c098-5fd70f09ff7f",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a2bc54e9-6160-2cb6-d61e-4453051220d8",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a3702e1d-995f-0cac-3577-7f3500927ed4",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a39e5386-f37e-8d1e-3e74-fc8857d5c08d",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a3b1db00-20da-f6c3-85be-8b769d06db6c",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a3cfeec0-84f3-6fda-f043-2a6da9598453",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a4cee743-4ff1-c3fc-e305-47ffa6ea9b4f",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a788bc5b-010e-00c8-ef97-c112af3343af",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a7e61b7f-2247-0b9c-7da9-39297faadd8e",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "a93c6637-d961-ae0b-598e-fa8da75e62c2",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "ac4e3607-473b-f643-6d23-8cf0c69c7530",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "ad2cbb7c-aaad-12d3-36ef-179ff1cfa1ff",
+                    "upstreamFields": [
+                        {
+                            "name": "Opened",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "af59ec99-214e-e0df-22e2-901b24a2624c",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "b14c7e6b-bd65-5b11-a6a8-5b267a7b1260",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "b22db38f-740d-2d76-b929-370248345099",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "b28fcdc2-bcd6-42aa-4e64-f2b4b176324d",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "b30f2384-7e6f-f13e-f57b-f810985e7cd9",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "b31e32f3-3e3d-01f1-a54c-453aa77a3297",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "b73460b5-51fe-5c8f-61b0-7e9da12244fa",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "b880aec8-de45-999b-d664-588f4856c472",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "baa349ea-198a-29da-9dae-f10f31a12cad",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "bb459069-04ab-3bd8-a9ed-dc5573834a34",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "bd513be6-26ba-b62a-74bc-adab1fb6488c",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "bdd48dd3-e4e3-ef05-b63f-e2a6fbff3fd1",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "bfb0ac8a-31a2-7024-45f3-49996be2df88",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "c199dd42-7e3d-ee43-7497-5c878129a3aa",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "c204f108-6aaa-1157-6649-c1e68bf42ad3",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "c4f111b2-0b44-14c8-46ad-a2d5ffa99c39",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "c5d5443a-e3d4-b1d5-484f-326d66905887",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "c79ce6cd-b9dd-6734-e452-aeaca19e82bd",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "c8cfca57-a823-37a7-4414-6d0b682a8024",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "c958daf4-da7c-229e-390c-f1d81c6dde2a",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "c988934d-d4a5-3b7c-83e8-b383a8f8419b",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "c9beabbf-d9d4-56a1-09d1-a8a0be3078cc",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "ca51fe9b-f1e4-f6f9-ee9e-2961a3fd0ac9",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "ca52cc66-4c1b-83ea-41b1-bc14348096b8",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "cb8052a6-0871-69b3-b212-62b7c74bf205",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "cbd71d39-25b7-3854-6fac-6fa834cce1ee",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "cbfef2b1-a95c-02e9-4c5e-c162e84d7341",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "cd1619c4-dd7a-fa47-e171-78e7ddb57879",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "cd5bb434-957d-79da-2438-89161a10c0f6",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "cf6943b4-a34c-1fcd-f032-a09219619d29",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "cf931c80-aa6a-9a08-26f2-f0bf383fa918",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "d2678e95-9a3b-ae61-a30e-a4fc3ce9985d",
+                    "upstreamFields": [
+                        {
+                            "name": "Opened",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "d2753f51-27e6-bd3c-d86f-c1ac5056f743",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "d3a25e7f-4a67-7985-0fad-5325a221613d",
+                    "upstreamFields": null,
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "d451fb73-04ee-6e91-2b5e-7a619ec49318",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "d487e44d-11ff-6c48-9c12-9a94f368e2e4",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "d5384062-e552-923e-a612-ca291854b4ca",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "d5e37fc7-6a27-f00d-492b-5a04b3aa853e",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "d5f83f0b-2b83-3723-f0f2-210beaf4ebc9",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "da02b984-48fa-76e6-061c-b1462813432b",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "da62c9c2-0ca6-a8ab-e518-3fe3959983ba",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "db0bf429-31ae-7a84-7016-343e9631f0cb",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "dc36513d-648a-03f4-6983-d60b911212ea",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "dfcd0d64-ca18-e181-bd07-a2a2528ea65b",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "e0e4e50f-5bbc-9b6c-b61c-18c3bead6985",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "e107947e-cc43-8d74-bef5-1219b6f26acc",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "e2d64ef4-51dd-351b-1a41-34c331438b03",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "e2f0512c-5ae3-b551-c540-7f7e9d4e2891",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "e3fbc2ec-3c5f-fd89-fee7-a7018f62b8f9",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "e8f1f323-2a8a-9f76-a6f1-1b9475149bbb",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "eb75ad3f-7e12-c6b7-816f-f0cc036587d0",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "ebd98cba-b969-ab25-a1ec-f9e699259ea5",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "ed27d249-10e9-e6ab-7d4d-2b804e8c1969",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "f1e27f80-b699-f683-cf3b-0ebc53d0dfe2",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "f26d57ca-a698-b5e8-b254-65cf3de14a98",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "f3298925-2b95-aa53-b2aa-f83feee7a83f",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "f49bdb6d-26a4-56c1-319c-ecdff5632164",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "f59d94c1-f580-0384-8272-ac4be3edd163",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "f5f1f0a8-580d-c862-bad4-f0e50aa3f8bc",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "f6a05d7e-6f18-f9c7-a424-3f1742a16167",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "f92f9515-c6c9-e857-438f-3f4103e34c09",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "f97631bf-8375-1560-7883-278f9d6b53fc",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "f97fd94e-f5d6-8f68-457b-dfacd40fd7f9",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "fba5a588-b3aa-6033-e01c-0bcd4554f3f1",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "fbd3c962-218c-de6d-a11c-da9e2e249f16",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "fc35b28d-0112-dbd0-960e-8d1a6d3bf2be",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "fc7a1dae-abc6-8574-b17e-d996e4f57bb9",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "fc82ee6e-5518-0b99-5a3e-f11320190dc2",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "fd5c51a2-8000-9c11-f3f7-b3b8eae0b50e",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "ff51c0e0-4b09-ab90-9dca-6b7c9de8f135",
+                    "upstreamFields": [
+                        {
+                            "name": "Time to Close an Incident (seconds)",
+                            "datasource": {
+                                "id": "dfe2c02a-54b7-f7a2-39fc-c651da2f6ad8"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "ff85fc4f-2886-a45a-1e12-e5f0aa87abd2",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                }
+            ],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": null
+            },
+            "totalCount": 8
+        }
+    }
+}

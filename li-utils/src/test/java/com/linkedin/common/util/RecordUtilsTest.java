@@ -1,5 +1,8 @@
 package com.linkedin.common.util;
 
+import static com.datahub.utils.TestUtils.*;
+import static org.testng.Assert.*;
+
 import com.datahub.test.testing.AspectBar;
 import com.datahub.test.testing.AspectBaz;
 import com.datahub.test.testing.AspectFoo;
@@ -29,17 +32,16 @@ import java.util.Optional;
 import org.apache.commons.io.IOUtils;
 import org.testng.annotations.Test;
 
-import static com.datahub.utils.TestUtils.*;
-import static org.testng.Assert.*;
-
-
 public class RecordUtilsTest {
 
   @Test
   public void testToJsonString() throws IOException {
     AspectFoo foo = new AspectFoo().setValue("foo");
     String expected =
-        loadJsonFromResource("foo.json").replaceAll("\\s+", "").replaceAll("\\n", "").replaceAll("\\r", "");
+        loadJsonFromResource("foo.json")
+            .replaceAll("\\s+", "")
+            .replaceAll("\\n", "")
+            .replaceAll("\\r", "");
 
     String actual = RecordUtils.toJsonString(foo);
 
@@ -55,7 +57,8 @@ public class RecordUtilsTest {
 
     assertEquals(actual, expected);
 
-    RecordTemplate actual2 = RecordUtils.toRecordTemplate(AspectFoo.class.getCanonicalName(), expected.data());
+    RecordTemplate actual2 =
+        RecordUtils.toRecordTemplate(AspectFoo.class.getCanonicalName(), expected.data());
 
     assertEquals(actual2.getClass(), AspectFoo.class);
     assertEquals(actual2, expected);
@@ -71,7 +74,8 @@ public class RecordUtilsTest {
     RecordDataSchema schema = ValidationUtils.getRecordSchema(AspectFoo.class);
     RecordDataSchema.Field expected = schema.getField("value");
 
-    assertEquals(RecordUtils.getRecordDataSchemaField(new AspectFoo().setValue("foo"), "value"), expected);
+    assertEquals(
+        RecordUtils.getRecordDataSchemaField(new AspectFoo().setValue("foo"), "value"), expected);
   }
 
   @Test(expectedExceptions = InvalidSchemaException.class)
@@ -112,7 +116,8 @@ public class RecordUtilsTest {
 
     assertTrue(RecordUtils.getRecordTemplateField(baz, "boolField", Boolean.class));
     assertEquals(RecordUtils.getRecordTemplateField(baz, "stringField", String.class), "baz");
-    assertEquals(RecordUtils.getRecordTemplateField(baz, "longField", Long.class), Long.valueOf(1234L));
+    assertEquals(
+        RecordUtils.getRecordTemplateField(baz, "longField", Long.class), Long.valueOf(1234L));
   }
 
   @Test
@@ -127,9 +132,10 @@ public class RecordUtilsTest {
   public void testGetRecordTemplateWrappedField() throws IOException {
     AspectBaz baz = loadAspectBaz("baz.json");
 
-    StringArray stringArray = RecordUtils.getRecordTemplateWrappedField(baz, "arrayField", StringArray.class);
+    StringArray stringArray =
+        RecordUtils.getRecordTemplateWrappedField(baz, "arrayField", StringArray.class);
 
-    assertEquals(stringArray.toArray(), new String[]{"1", "2", "3"});
+    assertEquals(stringArray.toArray(), new String[] {"1", "2", "3"});
   }
 
   @Test
@@ -241,7 +247,10 @@ public class RecordUtilsTest {
     MixedRecord mixedRecord1 = new MixedRecord().setRecordField(foo1);
     PathSpec ps1f1 = MixedRecord.fields().recordField().value();
     PathSpec ps1f2 =
-        MixedRecord.fields().nestedRecordField().foo().value(); // referencing a nullable record template field
+        MixedRecord.fields()
+            .nestedRecordField()
+            .foo()
+            .value(); // referencing a nullable record template field
 
     Optional<Object> o1f1 = RecordUtils.getFieldValue(mixedRecord1, ps1f1);
     Optional<Object> o1f2 = RecordUtils.getFieldValue(mixedRecord1, ps1f2);
@@ -253,7 +262,8 @@ public class RecordUtilsTest {
 
     // case 2: referencing a field inside a RecordTemplate, two levels deep i.e. nested field
     AspectFoo foo2 = new AspectFoo().setValue("fooVal2");
-    com.datahub.test.testing.EntityValue entityValue = new com.datahub.test.testing.EntityValue().setFoo(foo2);
+    com.datahub.test.testing.EntityValue entityValue =
+        new com.datahub.test.testing.EntityValue().setFoo(foo2);
     MixedRecord mixedRecord2 = new MixedRecord().setNestedRecordField(entityValue);
     PathSpec ps2 = MixedRecord.fields().nestedRecordField().foo().value();
 
@@ -268,7 +278,8 @@ public class RecordUtilsTest {
 
     // case 1: array of strings
     final MixedRecord mixedRecord1 =
-        new MixedRecord().setStringArray(new StringArray(Arrays.asList("val1", "val2", "val3", "val4")));
+        new MixedRecord()
+            .setStringArray(new StringArray(Arrays.asList("val1", "val2", "val3", "val4")));
 
     PathSpec ps1 = MixedRecord.fields().stringArray();
     Object o1 = RecordUtils.getFieldValue(mixedRecord1, ps1).get();
@@ -293,20 +304,25 @@ public class RecordUtilsTest {
 
     // case 3: array of records is empty
     final MixedRecord mixedRecord3 = new MixedRecord().setRecordArray(new AspectFooArray());
-    Object o3 = RecordUtils.getFieldValue(mixedRecord3, MixedRecord.fields().recordArray().items().value()).get();
+    Object o3 =
+        RecordUtils.getFieldValue(mixedRecord3, MixedRecord.fields().recordArray().items().value())
+            .get();
     assertEquals(o3, new StringArray());
 
     // case 4: referencing an index of array is not supported
     final MixedRecord mixedRecord4 = new MixedRecord().setRecordArray(aspectFooArray);
 
-    assertThrows(UnsupportedOperationException.class,
+    assertThrows(
+        UnsupportedOperationException.class,
         () -> RecordUtils.getFieldValue(mixedRecord4, "/recordArray/0/value"));
 
     // case 5: referencing nested field inside array of records, field being 2 levels deep
     AspectFoo f1 = new AspectFoo().setValue("val1");
     AspectFoo f2 = new AspectFoo().setValue("val2");
-    com.datahub.test.testing.EntityValue val1 = new com.datahub.test.testing.EntityValue().setFoo(f1);
-    com.datahub.test.testing.EntityValue val2 = new com.datahub.test.testing.EntityValue().setFoo(f2);
+    com.datahub.test.testing.EntityValue val1 =
+        new com.datahub.test.testing.EntityValue().setFoo(f1);
+    com.datahub.test.testing.EntityValue val2 =
+        new com.datahub.test.testing.EntityValue().setFoo(f2);
     EntityValueArray entityValues = new EntityValueArray(Arrays.asList(val1, val2));
     final MixedRecord mixedRecord5 = new MixedRecord().setNestedRecordArray(entityValues);
 
@@ -333,17 +349,21 @@ public class RecordUtilsTest {
     assertFalse(o7.isPresent());
   }
 
-  @Test(description = "Test getFieldValue() when RecordTemplate has field of type array of primitive unions")
+  @Test(
+      description =
+          "Test getFieldValue() when RecordTemplate has field of type array of primitive unions")
   public void testGetFieldValueArrayOfPrimitiveUnions() {
 
     // case 1: array of unions of strings
     final MixedRecord mixedRecord1 =
-        new MixedRecord().setUnionArray(new StringUnionArray(Arrays.asList(
-            StringUnion.create("val1"),
-            StringUnion.create("val2"),
-            StringUnion.create("val3"),
-            StringUnion.create("val4")
-        )));
+        new MixedRecord()
+            .setUnionArray(
+                new StringUnionArray(
+                    Arrays.asList(
+                        StringUnion.create("val1"),
+                        StringUnion.create("val2"),
+                        StringUnion.create("val3"),
+                        StringUnion.create("val4"))));
 
     PathSpec ps1 = MixedRecord.fields().unionArray();
     Object o1 = RecordUtils.getFieldValue(mixedRecord1, ps1).get();
@@ -351,20 +371,24 @@ public class RecordUtilsTest {
     PathSpec ps2 = MixedRecord.fields().unionArray().items();
     Object o2 = RecordUtils.getFieldValue(mixedRecord1, ps2).get();
 
-    assertEquals(o1, new StringUnionArray(Arrays.asList(
-        StringUnion.create("val1"),
-        StringUnion.create("val2"),
-        StringUnion.create("val3"),
-        StringUnion.create("val4")
-    )));
+    assertEquals(
+        o1,
+        new StringUnionArray(
+            Arrays.asList(
+                StringUnion.create("val1"),
+                StringUnion.create("val2"),
+                StringUnion.create("val3"),
+                StringUnion.create("val4"))));
     assertEquals(ps1.toString(), "/unionArray");
 
-    assertEquals(o2, new StringUnionArray(Arrays.asList(
-        StringUnion.create("val1"),
-        StringUnion.create("val2"),
-        StringUnion.create("val3"),
-        StringUnion.create("val4")
-    )));
+    assertEquals(
+        o2,
+        new StringUnionArray(
+            Arrays.asList(
+                StringUnion.create("val1"),
+                StringUnion.create("val2"),
+                StringUnion.create("val3"),
+                StringUnion.create("val4"))));
     assertEquals(ps2.toString(), "/unionArray/*");
   }
 
@@ -381,8 +405,9 @@ public class RecordUtilsTest {
   }
 
   private AspectBaz loadAspectBaz(String resourceName) throws IOException {
-    return RecordUtils.toRecordTemplate(AspectBaz.class,
-        IOUtils.toString(ClassLoader.getSystemResourceAsStream(resourceName), StandardCharsets.UTF_8));
+    return RecordUtils.toRecordTemplate(
+        AspectBaz.class,
+        IOUtils.toString(
+            ClassLoader.getSystemResourceAsStream(resourceName), StandardCharsets.UTF_8));
   }
-
 }

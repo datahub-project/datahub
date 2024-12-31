@@ -1,8 +1,9 @@
 plugins {
-    id 'java'
+    id 'java-library'
+    id 'pegasus'
 }
 
-apply plugin: 'pegasus'
+apply from: '../../gradle/coverage/java-coverage.gradle'
 
 configurations {
     avro
@@ -21,14 +22,14 @@ dependencies {
     implementation project(':metadata-events:mxe-registration')
     implementation project(':metadata-events:mxe-utils-avro')
     implementation project(':metadata-io')
-    implementation project(':metadata-service:restli-client')
+    implementation project(':metadata-service:restli-client-api')
+    implementation project(':metadata-dao-impl:kafka-producer')
     implementation spec.product.pegasus.restliClient
     implementation spec.product.pegasus.restliCommon
     implementation externalDependency.elasticSearchRest
     implementation externalDependency.protobuf
 
     implementation externalDependency.springKafka
-    implementation externalDependency.springActuator
 
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
@@ -49,6 +50,7 @@ task avroSchemaSources(type: Copy) {
 }
 
 compileJava.dependsOn avroSchemaSources
+processResources.dependsOn avroSchemaSources
 
 clean {
     project.delete("src/main/resources/avro")

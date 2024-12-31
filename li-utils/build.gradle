@@ -1,16 +1,11 @@
-apply plugin: 'java-library'
-apply plugin: 'pegasus'
 
-tasks.withType(JavaCompile).configureEach {
-    javaCompiler = javaToolchains.compilerFor {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
+plugins {
+    id 'java-library'
+    id 'pegasus'
 }
-tasks.withType(Test).configureEach {
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(8)
-    }
-}
+
+apply from: "../gradle/coverage/java-coverage.gradle"
+
 
 dependencies {
     api spec.product.pegasus.data
@@ -28,7 +23,7 @@ dependencies {
     testImplementation externalDependency.commonsIo
     testImplementation project(':test-models')
     testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
-    testImplementation externalDependency.testngJava8
+    testImplementation externalDependency.testng
 }
 
 idea {

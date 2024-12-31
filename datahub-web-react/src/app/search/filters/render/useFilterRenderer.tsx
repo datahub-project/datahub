@@ -1,11 +1,10 @@
 import FilterRendererRegistry from './FilterRendererRegistry';
+import { HasActiveIncidentsRenderer } from './incident/HasActiveIncidentsRenderer';
 
 /**
  * Configure the render registry.
  */
-const RENDERERS = [
-    /* Renderers will be registered here  */
-];
+const RENDERERS = [new HasActiveIncidentsRenderer()];
 const REGISTRY = new FilterRendererRegistry();
 RENDERERS.forEach((renderer) => REGISTRY.register(renderer));
 

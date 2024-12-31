@@ -14,7 +14,7 @@ export default function useTagsAndTermsRendererFeatureTable(
     const refetch = useRefetch();
 
     const tagAndTermRender = (tags: GlobalTags, record: SchemaField, rowIndex: number | undefined) => {
-        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
+        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find(
             (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
 

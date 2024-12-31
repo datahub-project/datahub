@@ -12,6 +12,7 @@ import IngestionExecutionTable from './IngestionExecutionTable';
 import { ExecutionRequest } from '../../../../types.generated';
 import { ROLLING_BACK, RUNNING } from '../utils';
 import useRefreshIngestionData from './useRefreshIngestionData';
+import { SearchCfg } from '../../../../conf';
 
 const ListContainer = styled.div`
     margin-left: 28px;
@@ -30,20 +31,25 @@ type Props = {
 
 export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onRefresh }: Props) => {
     const [focusExecutionUrn, setFocusExecutionUrn] = useState<undefined | string>(undefined);
+    const [page, setPage] = useState(1);
+    const [numResultsPerPage, setNumResultsPerPage] = useState(SearchCfg.RESULTS_PER_PAGE);
 
-    const start = 0;
-    const count = 10; // Load 10 items at a time.
+    const start: number = (page - 1) * numResultsPerPage;
 
     const { loading, data, error, refetch } = useGetIngestionSourceQuery({
         variables: {
             urn,
             runStart: start,
-            runCount: count,
+            runCount: numResultsPerPage,
         },
     });
 
+    const onChangePage = (newPage: number) => {
+        setPage(newPage);
+    };
+
     function hasActiveExecution() {
-        return !!data?.ingestionSource?.executions?.executionRequests.find((request) =>
+        return !!data?.ingestionSource?.executions?.executionRequests?.find((request) =>
             isExecutionRequestActive(request as ExecutionRequest),
         );
     }
@@ -139,6 +145,10 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
     }
 
     const executionRequests = (data?.ingestionSource?.executions?.executionRequests as ExecutionRequest[]) || [];
+    const totalExecution = data?.ingestionSource?.executions?.total || 0;
+    const pageSize = data?.ingestionSource?.executions?.count || 0;
+    const pageStart = data?.ingestionSource?.executions?.start || 0;
+    const lastResultIndex = pageStart + pageSize > totalExecution ? totalExecution : pageStart + pageSize;
 
     return (
         <ListContainer>
@@ -147,16 +157,22 @@ export const IngestionSourceExecutionList = ({ urn, isExpanded, lastRefresh, onR
                 <Message type="error" content="Failed to load ingestion executions! An unexpected error occurred." />
             )}
             <IngestionExecutionTable
+                onChangePage={onChangePage}
                 executionRequests={executionRequests}
+                totalExecution={totalExecution}
+                page={page}
+                pageSize={numResultsPerPage}
+                lastResultIndex={lastResultIndex}
                 setFocusExecutionUrn={setFocusExecutionUrn}
                 handleCancelExecution={handleCancelExecution}
                 handleViewDetails={handleViewDetails}
                 handleRollbackExecution={handleRollbackExecution}
+                setNumResultsPerPage={setNumResultsPerPage}
             />
             {focusExecutionUrn && (
                 <ExecutionDetailsModal
                     urn={focusExecutionUrn}
-                    visible={focusExecutionUrn !== undefined}
+                    open={focusExecutionUrn !== undefined}
                     onClose={() => setFocusExecutionUrn(undefined)}
                 />
             )}

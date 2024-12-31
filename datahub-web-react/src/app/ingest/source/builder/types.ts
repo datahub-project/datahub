@@ -18,6 +18,7 @@ export interface SourceConfig {
     name: string;
     displayName: string;
     docsUrl: string;
+    description?: string;
     recipe: string;
 }
 

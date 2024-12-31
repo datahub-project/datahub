@@ -1,0 +1,126 @@
+plugins {
+  id 'java-library'
+  id 'com.gradleup.shadow'
+  id 'signing'
+  id 'io.codearte.nexus-staging'
+  id 'maven-publish'
+}
+
+apply from: "../versioning.gradle"
+
+jar.enabled = false // Since we only want to build shadow jars, disabling the regular jar creation
+
+// only include since required registry file
+processResources {
+  from("${project(':metadata-models').projectDir}/src/main/resources/entity-registry.yml")
+}
+
+dependencies {
+  // Required for custom code plugins
+  api(project(':entity-registry')) {
+    // only include dataTemplate (and resources/entity-registry.yml from above)
+    exclude module: 'metadata-models'
+  }
+  implementation project(path: ':metadata-models', configuration: 'dataTemplate')
+
+  // Required for MCL/MCP hooks
+  implementation(project(':metadata-io:metadata-io-api')) {
+    transitive = false
+  }
+
+  // utility classes
+  implementation(project(':metadata-utils')) {
+    transitive = false
+  }
+}
+
+configurations.all {
+  exclude group: 'org.antlr'
+}
+
+task sourcesJar(type: Jar) {
+  archiveClassifier = 'sources'
+  from sourceSets.main.allSource
+}
+
+task javadocJar(type: Jar) {
+  archiveClassifier = 'javadoc'
+  from javadoc
+}
+
+shadowJar {
+  zip64 = true
+  archiveClassifier = ''
+  // preventing java multi-release JAR leakage
+  // https://github.com/johnrengelman/shadow/issues/729
+  exclude('module-info.class', 'META-INF/versions/**',
+      '**/LICENSE', '**/LICENSE*.txt', '**/NOTICE', '**/NOTICE.txt', 'licenses/**', 'log4j2.*', 'log4j.*')
+  relocate 'com.fasterxml.jackson', 'datahub.shaded.jackson'
+  mergeServiceFiles()
+}
+
+publishing {
+  publications {
+    shadow(MavenPublication) { publication ->
+      project.shadow.component(publication)
+      pom {
+        name = 'DataHub Custom Plugin Dependency'
+        group = 'io.acryl'
+        artifactId = 'datahub-custom-plugin-lib'
+        description = 'DataHub Java Custom Plugin dependencies'
+        url = 'https://datahubproject.io'
+        artifacts = [shadowJar, javadocJar, sourcesJar]
+
+        scm {
+          connection = 'scm:git:git://github.com/datahub-project/datahub.git'
+          developerConnection = 'scm:git:ssh://github.com:datahub-project/datahub.git'
+          url = 'https://github.com/datahub-project/datahub.git'
+        }
+
+        licenses {
+          license {
+            name = 'The Apache License, Version 2.0'
+            url = 'http://www.apache.org/licenses/LICENSE-2.0.txt'
+          }
+        }
+
+        developers {
+          developer {
+            id = 'datahub'
+            name = 'Datahub'
+            email = 'datahub@acryl.io'
+          }
+        }
+      }
+    }
+  }
+
+  repositories {
+    maven {
+      def releasesRepoUrl = "https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/"
+      def snapshotsRepoUrl = "https://s01.oss.sonatype.org/content/repositories/snapshots/"
+      def ossrhUsername = System.getenv('RELEASE_USERNAME')
+      def ossrhPassword = System.getenv('RELEASE_PASSWORD')
+      credentials {
+        username ossrhUsername
+        password ossrhPassword
+      }
+      url = version.endsWith('SNAPSHOT') ? snapshotsRepoUrl : releasesRepoUrl
+    }
+  }
+}
+
+signing {
+  required { gradle.taskGraph.hasTask("publish") }
+  def signingKey = findProperty("signingKey")
+  def signingPassword = System.getenv("SIGNING_PASSWORD")
+  useInMemoryPgpKeys(signingKey, signingPassword)
+  sign publishing.publications.shadow
+}
+
+nexusStaging {
+  serverUrl = "https://s01.oss.sonatype.org/service/local/"
+  //required only for projects registered in Sonatype after 2021-02-24
+  username = System.getenv("NEXUS_USERNAME")
+  password = System.getenv("NEXUS_PASSWORD")
+}

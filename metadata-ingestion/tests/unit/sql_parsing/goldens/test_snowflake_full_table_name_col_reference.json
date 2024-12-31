@@ -1,0 +1,61 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "2b685ace8590f4bf11fe501a1b9fa342ed095904e3d3097f6b41276f590d99cd",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
+                    "column": "id"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "id_gt_100",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INT"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
+                    "column": "id"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "struct_field1",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table,PROD)",
+                    "column": "struct_field.field1"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT my_db.my_schema.my_table.id, CASE WHEN my_db.my_schema.my_table.id > ? THEN ? ELSE ? END AS id_gt_100, my_db.my_schema.my_table.struct_field.field1 AS struct_field1 FROM my_db.my_schema.my_table"
+    }
+}

@@ -37,6 +37,11 @@ extend type Mutation {
   createSecret(input: CreateSecretInput!): String
 
   """
+  Update a Secret
+  """
+  updateSecret(input: UpdateSecretInput!): String
+
+  """
   Delete a Secret
   """
   deleteSecret(urn: String!): String
@@ -112,6 +117,11 @@ type ExecutionRequestInput {
   The time at which the request was created
   """
   requestedAt: Long!
+
+  """
+  Urn of the actor who created this execution request
+  """
+  actorUrn: String
 }
 
 """
@@ -438,6 +448,11 @@ input ListIngestionSourcesInput {
   Optional Facet filters to apply to the result set
   """
   filters: [FacetFilterInput!]
+
+  """
+  Optional sort order. Defaults to use systemCreated.
+  """
+  sort: SortCriterion
 }
 
 """
@@ -544,6 +559,31 @@ input UpdateIngestionSourceInput {
 Input arguments for creating a new Secret
 """
 input CreateSecretInput {
+  """
+  The name of the secret for reference in ingestion recipes
+  """
+  name: String!
+
+  """
+  The value of the secret, to be encrypted and stored
+  """
+  value: String!
+
+  """
+  An optional description for the secret
+  """
+  description: String
+}
+
+"""
+Input arguments for updating a Secret
+"""
+input UpdateSecretInput {
+  """
+  The primary key of the Secret to update
+  """
+  urn: String!
+
   """
   The name of the secret for reference in ingestion recipes
   """

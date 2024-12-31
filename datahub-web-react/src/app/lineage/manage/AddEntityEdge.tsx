@@ -3,8 +3,8 @@ import { AutoComplete, Empty } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { useGetSearchResultsForMultipleLazyQuery } from '../../../graphql/search.generated';
-import { Entity, EntityType, SearchResult } from '../../../types.generated';
+import { useGetAutoCompleteMultipleResultsLazyQuery } from '../../../graphql/search.generated';
+import { Entity, EntityType } from '../../../types.generated';
 import { Direction } from '../types';
 import { getValidEntityTypes } from '../utils/manageLineageUtils';
 import LineageEntityView from './LineageEntityView';
@@ -62,8 +62,8 @@ function getPlaceholderText(validEntityTypes: EntityType[], entityRegistry: Enti
     return placeholderText;
 }
 
-export function existsInEntitiesToAdd(result: SearchResult, entitiesAlreadyAdded: Entity[]) {
-    return !!entitiesAlreadyAdded.find((entity) => entity.urn === result.entity.urn);
+export function existsInEntitiesToAdd(result: Entity, entitiesAlreadyAdded: Entity[]) {
+    return !!entitiesAlreadyAdded.find((entity) => entity.urn === result.urn);
 }
 
 interface Props {
@@ -82,7 +82,8 @@ export default function AddEntityEdge({
     entityType,
 }: Props) {
     const entityRegistry = useEntityRegistry();
-    const [search, { data: searchData, loading }] = useGetSearchResultsForMultipleLazyQuery();
+    const [getAutoCompleteResults, { data: autoCompleteResults, loading }] =
+        useGetAutoCompleteMultipleResultsLazyQuery();
     const [queryText, setQueryText] = useState<string>('');
 
     const validEntityTypes = getValidEntityTypes(lineageDirection, entityType);
@@ -90,13 +91,12 @@ export default function AddEntityEdge({
     function handleSearch(text: string) {
         setQueryText(text);
         if (text !== '') {
-            search({
+            getAutoCompleteResults({
                 variables: {
                     input: {
                         types: validEntityTypes,
                         query: text,
-                        start: 0,
-                        count: 15,
+                        limit: 15,
                     },
                 },
             });
@@ -104,11 +104,12 @@ export default function AddEntityEdge({
     }
 
     function selectEntity(urn: string) {
-        const selectedEntity = searchData?.searchAcrossEntities?.searchResults.find(
-            (result) => result.entity.urn === urn,
+        const resultEntities = autoCompleteResults?.autoCompleteForMultiple?.suggestions?.flatMap(
+            (suggestion) => suggestion.entities || [],
         );
+        const selectedEntity = resultEntities?.find((entity) => entity.urn === urn);
         if (selectedEntity) {
-            setEntitiesToAdd((existingEntities) => [...existingEntities, selectedEntity.entity]);
+            setEntitiesToAdd((existingEntities) => [...existingEntities, selectedEntity]);
         }
     }
 
@@ -120,9 +121,10 @@ export default function AddEntityEdge({
         );
     };
 
-    const searchResults = searchData?.searchAcrossEntities?.searchResults
-        .filter((result) => !existsInEntitiesToAdd(result, entitiesToAdd) && result.entity.urn !== entityUrn)
-        .map((result) => renderSearchResult(result.entity));
+    const searchResults = autoCompleteResults?.autoCompleteForMultiple?.suggestions
+        .flatMap((suggestion) => suggestion.entities || [])
+        .filter((entity) => entity && !existsInEntitiesToAdd(entity, entitiesToAdd) && entity.urn !== entityUrn)
+        .map((entity) => renderSearchResult(entity));
 
     const placeholderText = getPlaceholderText(validEntityTypes, entityRegistry);
 
@@ -142,7 +144,7 @@ export default function AddEntityEdge({
                 filterOption={false}
                 notFoundContent={(queryText.length > 3 && <Empty description="No Assets Found" />) || undefined}
             >
-                {!searchData && loading && (
+                {loading && (
                     <AutoComplete.Option value="loading">
                         <LoadingWrapper>
                             <LoadingOutlined />

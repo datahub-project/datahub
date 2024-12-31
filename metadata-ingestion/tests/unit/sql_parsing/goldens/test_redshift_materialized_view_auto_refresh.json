@@ -1,0 +1,62 @@
+{
+    "query_type": "CREATE_VIEW",
+    "query_type_props": {
+        "kind": "VIEW"
+    },
+    "query_fingerprint": "95c53f18203e740eaff371573f18506801fe194fdf38b7e06527e45eb67a34a0",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,customer,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,orders,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,mv_total_orders,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,mv_total_orders,PROD)",
+                "column": "cust_id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,customer,PROD)",
+                    "column": "cust_id"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,mv_total_orders,PROD)",
+                "column": "first_name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,customer,PROD)",
+                    "column": "first_name"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,mv_total_orders,PROD)",
+                "column": "total_amount",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,orders,PROD)",
+                    "column": "amount"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "CREATE MATERIALIZED VIEW mv_total_orders AUTO REFRESH YES AS SELECT c.cust_id, c.first_name, SUM(o.amount) AS total_amount FROM orders AS o JOIN customer AS c ON c.cust_id = o.customer_id GROUP BY c.cust_id, c.first_name"
+    }
+}

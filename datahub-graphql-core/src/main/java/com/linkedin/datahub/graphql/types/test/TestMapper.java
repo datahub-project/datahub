@@ -1,15 +1,14 @@
 package com.linkedin.datahub.graphql.types.test;
 
-import com.linkedin.datahub.graphql.generated.TestDefinition;
-import com.linkedin.test.TestInfo;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.datahub.graphql.generated.Test;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.generated.Test;
+import com.linkedin.datahub.graphql.generated.TestDefinition;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
-
+import com.linkedin.test.TestInfo;
 
 public class TestMapper {
 
@@ -29,12 +28,11 @@ public class TestMapper {
       result.setName(testInfo.getName());
       result.setDescription(testInfo.getDescription());
       result.setDefinition(new TestDefinition(testInfo.getDefinition().getJson()));
-    } else  {
+    } else {
       return null;
     }
     return result;
   }
 
-  private TestMapper() {
-  }
+  private TestMapper() {}
 }

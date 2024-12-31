@@ -1,16 +1,19 @@
 import os
+import pathlib
 
 import pytest
 from pydantic import SecretStr
 
+import datahub.ingestion.source.git.git_import
 from datahub.configuration.common import ConfigurationWarning
 from datahub.configuration.git import GitInfo, GitReference
 from datahub.ingestion.source.git.git_import import GitClone
+from datahub.testing.doctest import assert_doctest
 
 LOOKML_TEST_SSH_KEY = os.environ.get("DATAHUB_LOOKML_GIT_TEST_SSH_KEY")
 
 
-def test_base_url_guessing():
+def test_base_url_guessing() -> None:
     # Basic GitHub repo.
     config = GitInfo(repo="https://github.com/datahub-project/datahub", branch="master")
     assert config.repo_ssh_locator == "git@github.com:datahub-project/datahub.git"
@@ -68,7 +71,7 @@ def test_base_url_guessing():
         )
 
 
-def test_github_branch():
+def test_github_branch() -> None:
     config = GitInfo(
         repo="owner/repo",
     )
@@ -81,7 +84,37 @@ def test_github_branch():
     assert config.branch_for_clone == "main"
 
 
-def test_git_clone_public(tmp_path):
+def test_url_subdir() -> None:
+    git_ref = GitReference(repo="https://github.com/org/repo", url_subdir="dbt")
+    assert (
+        git_ref.get_url_for_file_path("model.sql")
+        == "https://github.com/org/repo/blob/main/dbt/model.sql"
+    )
+
+    git_ref = GitReference(repo="https://gitlab.com/org/repo", url_subdir="dbt")
+    assert (
+        git_ref.get_url_for_file_path("model.sql")
+        == "https://gitlab.com/org/repo/-/blob/main/dbt/model.sql"
+    )
+
+    git_ref = GitReference(repo="https://github.com/org/repo", url_subdir="")
+    assert (
+        git_ref.get_url_for_file_path("model.sql")
+        == "https://github.com/org/repo/blob/main/model.sql"
+    )
+
+    git_ref = GitReference(repo="https://github.com/org/repo", url_subdir="dbt/models")
+    assert (
+        git_ref.get_url_for_file_path("model.sql")
+        == "https://github.com/org/repo/blob/main/dbt/models/model.sql"
+    )
+
+
+def test_sanitize_repo_url() -> None:
+    assert_doctest(datahub.ingestion.source.git.git_import)
+
+
+def test_git_clone_public(tmp_path: pathlib.Path) -> None:
     git_clone = GitClone(str(tmp_path))
     checkout_dir = git_clone.clone(
         ssh_key=None,
@@ -101,7 +134,7 @@ def test_git_clone_public(tmp_path):
     LOOKML_TEST_SSH_KEY is None,
     reason="DATAHUB_LOOKML_GIT_TEST_SSH_KEY env variable is not configured",
 )
-def test_git_clone_private(tmp_path):
+def test_git_clone_private(tmp_path: pathlib.Path) -> None:
     git_clone = GitClone(str(tmp_path))
     secret_key = SecretStr(LOOKML_TEST_SSH_KEY) if LOOKML_TEST_SSH_KEY else None
 
@@ -111,15 +144,13 @@ def test_git_clone_private(tmp_path):
         branch="d380a2b777ec6f4653626f39c68dba85893faa74",
     )
     assert checkout_dir.exists()
-    assert set(os.listdir(checkout_dir)) == set(
-        [
-            ".datahub",
-            "models",
-            "README.md",
-            ".github",
-            ".git",
-            "views",
-            "manifest_lock.lkml",
-            "manifest.lkml",
-        ]
-    )
+    assert set(os.listdir(checkout_dir)) == {
+        ".datahub",
+        "models",
+        "README.md",
+        ".github",
+        ".git",
+        "views",
+        "manifest_lock.lkml",
+        "manifest.lkml",
+    }

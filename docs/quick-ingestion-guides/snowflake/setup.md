@@ -43,6 +43,8 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
    grant select on future external tables in database identifier($db_var) to role datahub_role;
    grant select on all views in database identifier($db_var) to role datahub_role;
    grant select on future views in database identifier($db_var) to role datahub_role;
+   grant select on all dynamic tables in database identifier($db_var) to role datahub_role;
+   grant select on future dynamic tables in database identifier($db_var) to role datahub_role;
 
    --  Grant access to view tables and views
    grant references on all tables in database identifier($db_var) to role datahub_role;
@@ -51,6 +53,9 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
    grant references on future external tables in database identifier($db_var) to role datahub_role;
    grant references on all views in database identifier($db_var) to role datahub_role;
    grant references on future views in database identifier($db_var) to role datahub_role;
+   --  Grant access to dynamic tables
+   grant monitor on all dynamic tables in database identifier($db_var) to role datahub_role;
+   grant monitor on future dynamic tables in database identifier($db_var) to role datahub_role;
 
    -- Assign privileges to extract lineage and usage statistics from Snowflake by executing the below query.
    grant imported privileges on database snowflake to role datahub_role;
@@ -67,4 +72,4 @@ In order to configure ingestion from Snowflake, you'll first have to ensure you 
 
 Once you've done all of the above in Snowflake, it's time to [move on](configuration.md) to configuring the actual ingestion source within DataHub.
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+

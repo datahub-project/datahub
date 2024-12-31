@@ -1,6 +1,6 @@
 import logging
 from functools import partial
-from typing import Any, Dict, List, Optional, Union, cast
+from typing import Any, Dict, List, Optional, Union
 
 from lark import Token, Tree
 
@@ -46,8 +46,8 @@ def get_variable_statement(parse_tree: Tree, variable: str) -> Optional[Tree]:
 
 def get_first_rule(tree: Tree, rule: str) -> Optional[Tree]:
     """
-    Lark library doesn't have advance search function.
-    This function will return the first tree of provided rule
+    Lark library doesn't have an advance search function.
+    This function will return the first tree of the provided rule
     :param tree: Tree to search for the expression rule
     :return: Tree
     """
@@ -58,7 +58,7 @@ def get_first_rule(tree: Tree, rule: str) -> Optional[Tree]:
         if isinstance(node, Token):
             return None
 
-        for child in cast(Tree, node).children:
+        for child in node.children:
             child_node: Optional[Tree] = internal(child)
             if child_node is not None:
                 return child_node
@@ -99,8 +99,7 @@ def token_values(tree: Tree, parameters: Dict[str, str] = {}) -> List[str]:
                 logger.debug(f"Unable to resolve parameter reference to {ref}")
                 values.append(ref)
         elif isinstance(node, Token):
-            # This means we're probably looking at a literal.
-            values.append(cast(Token, node).value)
+            values.append(node.value)
             return
         else:
             for child in node.children:
@@ -120,10 +119,14 @@ def remove_whitespaces_from_list(values: List[str]) -> List[str]:
     return result
 
 
+def strip_char(value: str, char: str = '"') -> str:
+    return value.strip(char)
+
+
 def strip_char_from_list(values: List[str], char: str = '"') -> List[str]:
     result: List[str] = []
     for item in values:
-        result.append(item.strip(char))
+        result.append(strip_char(item.strip(char), char=char))
 
     return result
 
@@ -135,7 +138,7 @@ def make_function_name(tree: Tree) -> str:
 
 def get_all_function_name(tree: Tree) -> List[str]:
     """
-    Returns all function name present in input tree
+    Returns all function name present in an input tree
     :param tree: Input lexical tree
     :return: list of function name
     """

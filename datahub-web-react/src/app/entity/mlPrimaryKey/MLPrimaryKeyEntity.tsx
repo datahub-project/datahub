@@ -16,6 +16,8 @@ import { SidebarOwnerSection } from '../shared/containers/profile/sidebar/Owners
 import { LineageTab } from '../shared/tabs/Lineage/LineageTab';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 /**
  * Definition of the DataHub MLPrimaryKey entity.
@@ -50,6 +52,8 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
 
     getAutoCompleteFieldName = () => 'name';
 
+    getGraphName = () => 'mlPrimaryKey';
+
     getPathName = () => 'mlPrimaryKeys';
 
     getEntityName = () => 'ML Primary Key';
@@ -62,6 +66,8 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             platform: key?.['featureTables']?.relationships?.[0]?.entity?.platform,
         };
     };
+
+    useEntityQuery = useGetMlPrimaryKeyQuery;
 
     renderProfile = (urn: string) => (
         <EntityProfile
@@ -83,33 +89,42 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                     name: 'Lineage',
                     component: LineageTab,
                 },
-            ]}
-            sidebarSections={[
                 {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
+                    name: 'Properties',
+                    component: PropertiesTab,
                 },
             ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+            properties: {
+                defaultOwnerType: OwnershipType.TechnicalOwner,
+            },
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
+        },
+    ];
 
     renderPreview = (_: PreviewType, data: MlPrimaryKey) => {
         const genericProperties = this.getGenericEntityProperties(data);

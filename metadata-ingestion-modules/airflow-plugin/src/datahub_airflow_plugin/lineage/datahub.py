@@ -71,7 +71,11 @@ class DatahubLineageBackend(LineageBackend):
         try:
             context = context or {}  # ensure not None to satisfy mypy
             send_lineage_to_datahub(
-                config, operator, operator.inlets, operator.outlets, context
+                config,
+                operator,
+                operator.inlets,
+                operator.outlets,
+                context,
             )
         except Exception as e:
             operator.log.error(e)

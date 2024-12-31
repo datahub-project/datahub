@@ -5,7 +5,7 @@ const DomainContainerWrapper = styled.div`
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px;
+    padding: 2px;
 `;
 
 const DomainContentWrapper = styled.div`

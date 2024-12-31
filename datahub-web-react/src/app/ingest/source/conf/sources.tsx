@@ -16,6 +16,8 @@ import { SourceConfig } from './types';
 import hiveConfig from './hive/hive';
 import oracleConfig from './oracle/oracle';
 import tableauConfig from './tableau/tableau';
+import csvConfig from './csv/csv';
+import sacConfig from './sac/sac';
 
 const baseUrl = window.location.origin;
 
@@ -46,6 +48,8 @@ export const SOURCE_TEMPLATE_CONFIGS: Array<SourceConfig> = [
     glueConfig,
     oracleConfig,
     hiveConfig,
+    csvConfig,
+    sacConfig,
     {
         type: 'custom',
         placeholderRecipe: DEFAULT_PLACEHOLDER_RECIPE,

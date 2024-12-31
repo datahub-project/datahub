@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from datahub_classify.helper_classes import ColumnInfo
@@ -8,7 +7,9 @@ from pydantic import validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import ConfigModel
+from datahub.configuration.pydantic_migration_helpers import PYDANTIC_VERSION_2
 from datahub.ingestion.glossary.classifier import Classifier
+from datahub.utilities.str_enum import StrEnum
 
 
 class NameFactorConfig(ConfigModel):
@@ -32,7 +33,7 @@ class DataTypeFactorConfig(ConfigModel):
     )
 
 
-class ValuePredictionType(str, Enum):
+class ValuePredictionType(StrEnum):
     REGEX = "regex"
     LIBRARY = "library"
 
@@ -50,7 +51,10 @@ class ValuesFactorConfig(ConfigModel):
 
 class PredictionFactorsAndWeights(ConfigModel):
     class Config:
-        allow_population_by_field_name = True
+        if PYDANTIC_VERSION_2:
+            populate_by_name = True
+        else:
+            allow_population_by_field_name = True
 
     Name: float = Field(alias="name")
     Description: float = Field(alias="description")
@@ -60,11 +64,19 @@ class PredictionFactorsAndWeights(ConfigModel):
 
 class InfoTypeConfig(ConfigModel):
     class Config:
-        allow_population_by_field_name = True
+        if PYDANTIC_VERSION_2:
+            populate_by_name = True
+        else:
+            allow_population_by_field_name = True
 
     Prediction_Factors_and_Weights: PredictionFactorsAndWeights = Field(
         description="Factors and their weights to consider when predicting info types",
         alias="prediction_factors_and_weights",
+    )
+    ExcludeName: Optional[List[str]] = Field(
+        default=None,
+        alias="exclude_name",
+        description="List of exact column names to exclude from classification for this info type",
     )
     Name: Optional[NameFactorConfig] = Field(default=None, alias="name")
 
@@ -88,6 +100,7 @@ class DataHubClassifierConfig(ConfigModel):
         default=0.68,
         description="The confidence threshold above which the prediction is considered as a proposal",
     )
+    strip_exclusion_formatting: bool = Field(default=True)
     info_types: Optional[List[str]] = Field(
         default=None,
         description="List of infotypes to be predicted. By default, all supported infotypes are considered, along with any custom infotypes configured in `info_types_config`.",

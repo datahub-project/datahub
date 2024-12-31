@@ -12,7 +12,8 @@ import ClickOutside from '../../shared/ClickOutside';
 type Props = {
     policy: Omit<Policy, 'urn'>;
     setPolicy: (policy: Omit<Policy, 'urn'>) => void;
-    visible: boolean;
+    open: boolean;
+    focusPolicyUrn: string | undefined;
     onClose: () => void;
     onSave: (savePolicy: Omit<Policy, 'urn'>) => void;
 };
@@ -39,9 +40,11 @@ const NextButtonContainer = styled.div`
  * Component used for constructing new policies. The purpose of this flow is to populate or edit a Policy
  * object through a sequence of steps.
  */
-export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose, onSave }: Props) {
+export default function PolicyBuilderModal({ policy, setPolicy, open, onClose, onSave, focusPolicyUrn }: Props) {
     // Step control-flow.
     const [activeStepIndex, setActiveStepIndex] = useState(0);
+    const [selectedTags, setSelectedTags] = useState<any[]>([]);
+    const [isEditState, setEditState] = useState(true);
 
     // Go to next step
     const next = () => {
@@ -90,12 +93,17 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
         title: 'Configure Privileges',
         content: (
             <PolicyPrivilegeForm
+                focusPolicyUrn={focusPolicyUrn}
                 policyType={policy.type}
                 // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
                 resources={policy.resources!}
                 setResources={(resources: ResourceFilter) => {
                     setPolicy({ ...policy, resources });
                 }}
+                setSelectedTags={setSelectedTags}
+                selectedTags={selectedTags}
+                setEditState={setEditState}
+                isEditState={isEditState}
                 privileges={policy.privileges}
                 setPrivileges={(privileges: string[]) => setPolicy({ ...policy, privileges })}
             />
@@ -160,7 +168,7 @@ export default function PolicyBuilderModal({ policy, setPolicy, visible, onClose
             <Modal
                 wrapClassName="PolicyBuilderModal"
                 title={isEditing ? 'Edit a Policy' : 'Create a new Policy'}
-                visible={visible}
+                open={open}
                 onCancel={onClose}
                 closable
                 width={750}

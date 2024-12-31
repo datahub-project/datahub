@@ -1,5 +1,7 @@
-apply plugin: 'java-library'
-apply from: "../../gradle/versioning/versioning.gradle"
+plugins {
+  id 'java-library'
+}
+apply from: '../../gradle/coverage/java-coverage.gradle'
 
 dependencies {
   api project(':metadata-io')
@@ -8,10 +10,12 @@ dependencies {
   api project(':metadata-service:auth-config')
   api project(':metadata-service:plugin')
   api project(':metadata-service:configuration')
+  implementation project(':metadata-service:restli-client')
   implementation project(':datahub-graphql-core')
   implementation project(':metadata-service:restli-servlet-impl')
   implementation project(':metadata-dao-impl:kafka-producer')
   implementation project(':ingestion-scheduler')
+  implementation project(':metadata-service:schema-registry-api')
 
   implementation (externalDependency.awsGlueSchemaRegistrySerde) {
     exclude group: 'org.json', module: 'json'
@@ -45,7 +49,7 @@ dependencies {
   implementation spec.product.pegasus.restliSpringBridge
   implementation spec.product.pegasus.restliDocgen
   implementation externalDependency.jline
-  implementation externalDependency.common
+  implementation externalDependency.commonsIo
 
   testImplementation externalDependency.springBootTest
   testImplementation externalDependency.mockito
@@ -64,8 +68,4 @@ dependencies {
 configurations.all{
   exclude group: "commons-io", module:"commons-io"
   exclude group: "jline", module:"jline"
-}
-
-processResources.configure {
-  finalizedBy printVersionDetails // always print version details
 }

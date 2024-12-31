@@ -61,6 +61,7 @@
         "default" : { },
         "Searchable" : {
           "/*" : {
+            "fieldType" : "TEXT",
             "queryByDefault" : true
           }
         }
@@ -833,7 +834,7 @@
     "name" : "FabricType",
     "namespace" : "com.linkedin.common",
     "doc" : "Fabric group type",
-    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP" ],
+    "symbols" : [ "DEV", "TEST", "QA", "UAT", "EI", "PRE", "STG", "NON_PROD", "PROD", "CORP", "RVW", "SANDBOX" ],
     "symbolDocs" : {
       "CORP" : "Designates corporation fabrics",
       "DEV" : "Designates development fabrics",
@@ -842,6 +843,8 @@
       "PRE" : "Designates pre-production fabrics",
       "PROD" : "Designates production fabrics",
       "QA" : "Designates quality assurance fabrics",
+      "RVW" : "Designates review fabrics",
+      "SANDBOX" : "Designates sandbox fabrics",
       "STG" : "Designates staging fabrics",
       "TEST" : "Designates testing fabrics",
       "UAT" : "Designates user acceptance testing fabrics"
@@ -895,6 +898,54 @@
             "type" : "string",
             "doc" : "Additional context about the association",
             "optional" : true
+          }, {
+            "name" : "attribution",
+            "type" : {
+              "type" : "record",
+              "name" : "MetadataAttribution",
+              "doc" : "Information about who, why, and how this metadata was applied",
+              "fields" : [ {
+                "name" : "time",
+                "type" : "Time",
+                "doc" : "When this metadata was updated."
+              }, {
+                "name" : "actor",
+                "type" : "Urn",
+                "doc" : "The entity (e.g. a member URN) responsible for applying the assocated metadata. This can\neither be a user (in case of UI edits) or the datahub system for automation."
+              }, {
+                "name" : "source",
+                "type" : "Urn",
+                "doc" : "The DataHub source responsible for applying the associated metadata. This will only be filled out\nwhen a DataHub source is responsible. This includes the specific metadata test urn, the automation urn.",
+                "optional" : true
+              }, {
+                "name" : "sourceDetail",
+                "type" : {
+                  "type" : "map",
+                  "values" : "string"
+                },
+                "doc" : "The details associated with why this metadata was applied. For example, this could include\nthe actual regex rule, sql statement, ingestion pipeline ID, etc.",
+                "default" : { }
+              } ]
+            },
+            "doc" : "Information about who, why, and how this metadata was applied",
+            "optional" : true,
+            "Searchable" : {
+              "/actor" : {
+                "fieldName" : "tagAttributionActors",
+                "fieldType" : "URN",
+                "queryByDefault" : false
+              },
+              "/source" : {
+                "fieldName" : "tagAttributionSources",
+                "fieldType" : "URN",
+                "queryByDefault" : false
+              },
+              "/time" : {
+                "fieldName" : "tagAttributionDates",
+                "fieldType" : "DATETIME",
+                "queryByDefault" : false
+              }
+            }
           } ]
         }
       },
@@ -994,10 +1045,37 @@
         "hasValuesFieldName" : "hasGlossaryTerms"
       }
     }, {
+      "name" : "actor",
+      "type" : "Urn",
+      "doc" : "The user URN which will be credited for adding associating this term to the entity",
+      "optional" : true
+    }, {
       "name" : "context",
       "type" : "string",
       "doc" : "Additional context about the association",
       "optional" : true
+    }, {
+      "name" : "attribution",
+      "type" : "MetadataAttribution",
+      "doc" : "Information about who, why, and how this metadata was applied",
+      "optional" : true,
+      "Searchable" : {
+        "/actor" : {
+          "fieldName" : "termAttributionActors",
+          "fieldType" : "URN",
+          "queryByDefault" : false
+        },
+        "/source" : {
+          "fieldName" : "termAttributionSources",
+          "fieldType" : "URN",
+          "queryByDefault" : false
+        },
+        "/time" : {
+          "fieldName" : "termAttributionDates",
+          "fieldType" : "DATETIME",
+          "queryByDefault" : false
+        }
+      }
     } ]
   }, "com.linkedin.common.GlossaryTermUrn", {
     "type" : "record",
@@ -1145,7 +1223,7 @@
         "owningTeam" : "urn:li:internalTeam:datahub"
       }
     }
-  }, {
+  }, "com.linkedin.common.MetadataAttribution", {
     "type" : "record",
     "name" : "Owner",
     "namespace" : "com.linkedin.common",
@@ -1252,6 +1330,24 @@
         "items" : "Owner"
       },
       "doc" : "List of owners of the entity."
+    }, {
+      "name" : "ownerTypes",
+      "type" : {
+        "type" : "map",
+        "values" : {
+          "type" : "array",
+          "items" : "Urn"
+        }
+      },
+      "doc" : "Ownership type to Owners map, populated via mutation hook.",
+      "default" : { },
+      "optional" : true,
+      "Searchable" : {
+        "/*" : {
+          "fieldType" : "MAP_ARRAY",
+          "queryByDefault" : false
+        }
+      }
     }, {
       "name" : "lastModified",
       "type" : "AuditStamp",
@@ -1411,6 +1507,26 @@
         }
       }
     }, {
+      "name" : "dashboards",
+      "type" : {
+        "type" : "array",
+        "items" : "com.linkedin.common.Edge"
+      },
+      "doc" : "Dashboards included by this dashboard.\nSome dashboard entities (e.g. PowerBI Apps) can contain other dashboards.\n\nThe Edge's sourceUrn should never be set, as it will always be the base dashboard.",
+      "default" : [ ],
+      "Relationship" : {
+        "/*/destinationUrn" : {
+          "createdActor" : "datasetEdges/*/created/actor",
+          "createdOn" : "datasetEdges/*/created/time",
+          "entityTypes" : [ "dashboard" ],
+          "isLineage" : true,
+          "name" : "DashboardContainsDashboard",
+          "properties" : "datasetEdges/*/properties",
+          "updatedActor" : "datasetEdges/*/lastModified/actor",
+          "updatedOn" : "datasetEdges/*/lastModified/time"
+        }
+      }
+    }, {
       "name" : "lastModified",
       "type" : "com.linkedin.common.ChangeAuditStamps",
       "doc" : "Captures information about who created/last modified/deleted this dashboard and when"
@@ -1516,6 +1632,17 @@
           "fieldType" : "DATETIME"
         }
       }
+    }, {
+      "name" : "env",
+      "type" : "com.linkedin.common.FabricType",
+      "doc" : "Environment for this flow",
+      "optional" : true,
+      "Searchable" : {
+        "addToFilters" : true,
+        "fieldType" : "KEYWORD",
+        "filterNameOverride" : "Environment",
+        "queryByDefault" : false
+      }
     } ],
     "Aspect" : {
       "name" : "dataFlowInfo"
@@ -1612,6 +1739,17 @@
       "doc" : "Status of the job - Deprecated for Data Process Instance model.",
       "optional" : true,
       "deprecated" : "Use Data Process Instance model, instead"
+    }, {
+      "name" : "env",
+      "type" : "com.linkedin.common.FabricType",
+      "doc" : "Environment for this job",
+      "optional" : true,
+      "Searchable" : {
+        "addToFilters" : true,
+        "fieldType" : "KEYWORD",
+        "filterNameOverride" : "Environment",
+        "queryByDefault" : false
+      }
     } ],
     "Aspect" : {
       "name" : "dataJobInfo"
@@ -1867,6 +2005,11 @@
             "type" : "float",
             "doc" : "The confidence in this lineage between 0 (low confidence) and 1 (high confidence)",
             "default" : 1.0
+          }, {
+            "name" : "query",
+            "type" : "com.linkedin.common.Urn",
+            "doc" : "The query that was used to generate this lineage. \nPresent only if the lineage was generated from a detected query.",
+            "optional" : true
           } ]
         }
       },
@@ -2212,6 +2355,15 @@
         "fieldName" : "editedDescription",
         "fieldType" : "TEXT"
       }
+    }, {
+      "name" : "name",
+      "type" : "string",
+      "doc" : "Editable display name of the Dataset",
+      "optional" : true,
+      "Searchable" : {
+        "fieldName" : "editedName",
+        "fieldType" : "TEXT_PARTIAL"
+      }
     } ],
     "Aspect" : {
       "name" : "editableDatasetProperties"
@@ -2252,7 +2404,8 @@
         "name" : "DownstreamOf",
         "properties" : "upstreams/*/properties",
         "updatedActor" : "upstreams/*/auditStamp/actor",
-        "updatedOn" : "upstreams/*/auditStamp/time"
+        "updatedOn" : "upstreams/*/auditStamp/time",
+        "via" : "upstreams/*/query"
       },
       "Searchable" : {
         "fieldName" : "upstreams",
@@ -2270,6 +2423,11 @@
         "values" : "string"
       },
       "doc" : "A generic properties bag that allows us to store specific information on this graph edge.",
+      "optional" : true
+    }, {
+      "name" : "query",
+      "type" : "com.linkedin.common.Urn",
+      "doc" : "If the lineage is generated by a query, a reference to the query",
       "optional" : true
     } ]
   }, {
@@ -2321,6 +2479,11 @@
       "name" : "viewLogic",
       "type" : "string",
       "doc" : "The view logic"
+    }, {
+      "name" : "formattedViewLogic",
+      "type" : "string",
+      "doc" : "The formatted view logic. This is particularly used for SQL sources, where the SQL\nlogic is formatted for better readability, and with dbt, where this contains the\ncompiled SQL logic.",
+      "optional" : true
     }, {
       "name" : "viewLanguage",
       "type" : "string",
@@ -2620,7 +2783,7 @@
                     "Searchable" : {
                       "fieldName" : "managerLdap",
                       "fieldType" : "URN",
-                      "queryByDefault" : true
+                      "queryByDefault" : false
                     }
                   }, {
                     "name" : "departmentId",
@@ -2720,6 +2883,29 @@
                     "doc" : "DataHub-native Title, e.g. 'Software Engineer'",
                     "optional" : true
                   }, {
+                    "name" : "platforms",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "doc" : "The platforms that the user commonly works with",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "dataPlatform" ],
+                        "name" : "IsUserOf"
+                      }
+                    }
+                  }, {
+                    "name" : "persona",
+                    "type" : "com.linkedin.common.Urn",
+                    "doc" : "The user's persona type, based on their role",
+                    "optional" : true,
+                    "Relationship" : {
+                      "entityTypes" : [ "dataHubPersona" ],
+                      "name" : "IsPersona"
+                    }
+                  }, {
                     "name" : "slack",
                     "type" : "string",
                     "doc" : "Slack handle for the user",
@@ -2754,7 +2940,13 @@
                   }, {
                     "name" : "lastModified",
                     "type" : "com.linkedin.common.AuditStamp",
-                    "doc" : "Audit stamp containing who last modified the status and when."
+                    "doc" : "Audit stamp containing who last modified the status and when.",
+                    "Searchable" : {
+                      "/time" : {
+                        "fieldName" : "statusLastModifiedAt",
+                        "fieldType" : "COUNT"
+                      }
+                    }
                   } ],
                   "Aspect" : {
                     "name" : "corpUserStatus"
@@ -3173,7 +3365,7 @@
                           "type" : "com.linkedin.dataset.SchemaFieldPath",
                           "doc" : "Flattened name of the field. Field is computed from jsonPath field.",
                           "Searchable" : {
-                            "boostScore" : 5.0,
+                            "boostScore" : 1.0,
                             "fieldName" : "fieldPaths",
                             "fieldType" : "TEXT",
                             "queryByDefault" : "true"
@@ -3202,8 +3394,9 @@
                         }, {
                           "name" : "label",
                           "type" : "string",
-                          "doc" : "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label. If just one string is associated with\na field in a source, that is most likely a description.",
+                          "doc" : "Label of the field. Provides a more human-readable name for the field than field path. Some sources will\nprovide this metadata but not all sources have the concept of a label. If just one string is associated with\na field in a source, that is most likely a description.\n\nNote that this field is deprecated and is not surfaced in the UI.",
                           "optional" : true,
+                          "Deprecated" : true,
                           "Searchable" : {
                             "boostScore" : 0.2,
                             "fieldName" : "fieldLabels",
@@ -3344,6 +3537,21 @@
                             }
                           },
                           "Searchable" : {
+                            "/tags/*/attribution/actor" : {
+                              "fieldName" : "fieldTagAttributionActors",
+                              "fieldType" : "URN",
+                              "queryByDefault" : false
+                            },
+                            "/tags/*/attribution/source" : {
+                              "fieldName" : "fieldTagAttributionSources",
+                              "fieldType" : "URN",
+                              "queryByDefault" : false
+                            },
+                            "/tags/*/attribution/time" : {
+                              "fieldName" : "fieldTagAttributionDates",
+                              "fieldType" : "DATETIME",
+                              "queryByDefault" : false
+                            },
                             "/tags/*/tag" : {
                               "boostScore" : 0.5,
                               "fieldName" : "fieldTags",
@@ -3362,6 +3570,21 @@
                             }
                           },
                           "Searchable" : {
+                            "/terms/*/attribution/actor" : {
+                              "fieldName" : "fieldTermAttributionActors",
+                              "fieldType" : "URN",
+                              "queryByDefault" : false
+                            },
+                            "/terms/*/attribution/source" : {
+                              "fieldName" : "fieldTermAttributionSources",
+                              "fieldType" : "URN",
+                              "queryByDefault" : false
+                            },
+                            "/terms/*/attribution/time" : {
+                              "fieldName" : "fieldTermAttributionDates",
+                              "fieldType" : "DATETIME",
+                              "queryByDefault" : false
+                            },
                             "/terms/*/urn" : {
                               "boostScore" : 0.5,
                               "fieldName" : "fieldGlossaryTerms",
@@ -3376,7 +3599,7 @@
                         }, {
                           "name" : "isPartitioningKey",
                           "type" : "boolean",
-                          "doc" : "For Datasets which are partitioned, this determines the partitioning key.",
+                          "doc" : "For Datasets which are partitioned, this determines the partitioning key.\nNote that multiple columns can be part of a partitioning key, but currently we do not support\nrendering the ordered partitioning key.",
                           "optional" : true
                         }, {
                           "name" : "jsonProps",
@@ -3531,6 +3754,20 @@
                             }
                           },
                           "Searchable" : {
+                            "/tags/*/attribution/actor" : {
+                              "fieldName" : "editedFieldTagAttributionActors",
+                              "fieldType" : "URN",
+                              "queryByDefault" : false
+                            },
+                            "/tags/*/attribution/source" : {
+                              "fieldName" : "editedFieldTagAttributionSources",
+                              "fieldType" : "URN",
+                              "queryByDefault" : false
+                            },
+                            "/tags/*/attribution/time" : {
+                              "fieldName" : "editedFieldTagAttributionDates",
+                              "fieldType" : "DATETIME"
+                            },
                             "/tags/*/tag" : {
                               "boostScore" : 0.5,
                               "fieldName" : "editedFieldTags",
@@ -3549,6 +3786,20 @@
                             }
                           },
                           "Searchable" : {
+                            "/terms/*/attribution/actor" : {
+                              "fieldName" : "editedFieldTermAttributionActors",
+                              "fieldType" : "URN",
+                              "queryByDefault" : false
+                            },
+                            "/terms/*/attribution/source" : {
+                              "fieldName" : "editedFieldTermAttributionSources",
+                              "fieldType" : "URN",
+                              "queryByDefault" : false
+                            },
+                            "/terms/*/attribution/time" : {
+                              "fieldName" : "editedFieldTermAttributionDates",
+                              "fieldType" : "DATETIME"
+                            },
                             "/terms/*/urn" : {
                               "boostScore" : 0.5,
                               "fieldName" : "editedFieldGlossaryTerms",
@@ -3727,12 +3978,23 @@
                   "type" : "record",
                   "name" : "MLModelProperties",
                   "namespace" : "com.linkedin.ml.metadata",
-                  "doc" : "Properties associated with a ML Model",
+                  "doc" : "Properties associated with a ML Model\r",
                   "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
                   "fields" : [ {
+                    "name" : "name",
+                    "type" : "string",
+                    "doc" : "Display name of the MLModel\r",
+                    "optional" : true,
+                    "Searchable" : {
+                      "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
+                      "fieldType" : "WORD_GRAM",
+                      "queryByDefault" : true
+                    }
+                  }, {
                     "name" : "description",
                     "type" : "string",
-                    "doc" : "Documentation of the MLModel",
+                    "doc" : "Documentation of the MLModel\r",
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT",
@@ -3741,17 +4003,28 @@
                   }, {
                     "name" : "date",
                     "type" : "com.linkedin.common.Time",
-                    "doc" : "Date when the MLModel was developed",
+                    "doc" : "Date when the MLModel was developed\r",
+                    "optional" : true,
+                    "deprecated" : true
+                  }, {
+                    "name" : "created",
+                    "type" : "com.linkedin.common.TimeStamp",
+                    "doc" : "Audit stamp containing who created this and when\r",
+                    "optional" : true
+                  }, {
+                    "name" : "lastModified",
+                    "type" : "com.linkedin.common.TimeStamp",
+                    "doc" : "Date when the MLModel was last modified\r",
                     "optional" : true
                   }, {
                     "name" : "version",
                     "type" : "com.linkedin.common.VersionTag",
-                    "doc" : "Version of the MLModel",
+                    "doc" : "Version of the MLModel\r",
                     "optional" : true
                   }, {
                     "name" : "type",
                     "type" : "string",
-                    "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",
+                    "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc\r",
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT_PARTIAL"
@@ -3767,7 +4040,7 @@
                         "ref" : [ "string", "int", "float", "double", "boolean" ]
                       }
                     },
-                    "doc" : "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams",
+                    "doc" : "Hyper Parameters of the MLModel\r\n\r\nNOTE: these are deprecated in favor of hyperParams\r",
                     "optional" : true
                   }, {
                     "name" : "hyperParams",
@@ -3802,7 +4075,7 @@
                         }
                       }
                     },
-                    "doc" : "Hyperparameters of the MLModel",
+                    "doc" : "Hyperparameters of the MLModel\r",
                     "optional" : true
                   }, {
                     "name" : "trainingMetrics",
@@ -3837,7 +4110,7 @@
                         }
                       }
                     },
-                    "doc" : "Metrics of the MLModel used in training",
+                    "doc" : "Metrics of the MLModel used in training\r",
                     "optional" : true
                   }, {
                     "name" : "onlineMetrics",
@@ -3845,7 +4118,7 @@
                       "type" : "array",
                       "items" : "MLMetric"
                     },
-                    "doc" : "Metrics of the MLModel used in production",
+                    "doc" : "Metrics of the MLModel used in production\r",
                     "optional" : true
                   }, {
                     "name" : "mlFeatures",
@@ -3853,7 +4126,7 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.MLFeatureUrn"
                     },
-                    "doc" : "List of features used for MLModel training",
+                    "doc" : "List of features used for MLModel training\r",
                     "optional" : true,
                     "Relationship" : {
                       "/*" : {
@@ -3868,7 +4141,7 @@
                       "type" : "array",
                       "items" : "string"
                     },
-                    "doc" : "Tags for the MLModel",
+                    "doc" : "Tags for the MLModel\r",
                     "default" : [ ]
                   }, {
                     "name" : "deployments",
@@ -3876,7 +4149,7 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.Urn"
                     },
-                    "doc" : "Deployments for the MLModel",
+                    "doc" : "Deployments for the MLModel\r",
                     "optional" : true,
                     "Relationship" : {
                       "/*" : {
@@ -3890,11 +4163,11 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.Urn"
                     },
-                    "doc" : "List of jobs (if any) used to train the model",
+                    "doc" : "List of jobs (if any) used to train the model. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.\r",
                     "optional" : true,
                     "Relationship" : {
                       "/*" : {
-                        "entityTypes" : [ "dataJob" ],
+                        "entityTypes" : [ "dataJob", "dataProcessInstance" ],
                         "isLineage" : true,
                         "name" : "TrainedBy"
                       }
@@ -3905,7 +4178,7 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.Urn"
                     },
-                    "doc" : "List of jobs (if any) that use the model",
+                    "doc" : "List of jobs (if any) that use the model\r",
                     "optional" : true,
                     "Relationship" : {
                       "/*" : {
@@ -3921,7 +4194,7 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.Urn"
                     },
-                    "doc" : "Groups the model belongs to",
+                    "doc" : "Groups the model belongs to\r",
                     "optional" : true,
                     "Relationship" : {
                       "/*" : {
@@ -4317,6 +4590,7 @@
                   "name" : "MLPrimaryKeyProperties",
                   "namespace" : "com.linkedin.ml.metadata",
                   "doc" : "Properties associated with a MLPrimaryKey",
+                  "include" : [ "com.linkedin.common.CustomProperties" ],
                   "fields" : [ {
                     "name" : "description",
                     "type" : "string",
@@ -4406,6 +4680,7 @@
                   "name" : "MLFeatureProperties",
                   "namespace" : "com.linkedin.ml.metadata",
                   "doc" : "Properties associated with a MLFeature",
+                  "include" : [ "com.linkedin.common.CustomProperties" ],
                   "fields" : [ {
                     "name" : "description",
                     "type" : "string",
@@ -4722,12 +4997,23 @@
                   "type" : "record",
                   "name" : "MLModelGroupProperties",
                   "namespace" : "com.linkedin.ml.metadata",
-                  "doc" : "Properties associated with an ML Model Group",
+                  "doc" : "Properties associated with an ML Model Group\r",
                   "include" : [ "com.linkedin.common.CustomProperties" ],
                   "fields" : [ {
+                    "name" : "name",
+                    "type" : "string",
+                    "doc" : "Display name of the MLModelGroup\r",
+                    "optional" : true,
+                    "Searchable" : {
+                      "boostScore" : 10.0,
+                      "enableAutocomplete" : true,
+                      "fieldType" : "WORD_GRAM",
+                      "queryByDefault" : true
+                    }
+                  }, {
                     "name" : "description",
                     "type" : "string",
-                    "doc" : "Documentation of the MLModelGroup",
+                    "doc" : "Documentation of the MLModelGroup\r",
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT",
@@ -4736,12 +5022,38 @@
                   }, {
                     "name" : "createdAt",
                     "type" : "com.linkedin.common.Time",
-                    "doc" : "Date when the MLModelGroup was developed",
+                    "doc" : "Date when the MLModelGroup was developed\r",
+                    "optional" : true,
+                    "deprecated" : true
+                  }, {
+                    "name" : "created",
+                    "type" : "com.linkedin.common.TimeStamp",
+                    "doc" : "Time and Actor who created the MLModelGroup\r",
                     "optional" : true
+                  }, {
+                    "name" : "lastModified",
+                    "type" : "com.linkedin.common.TimeStamp",
+                    "doc" : "Date when the MLModelGroup was last modified\r",
+                    "optional" : true
+                  }, {
+                    "name" : "trainingJobs",
+                    "type" : {
+                      "type" : "array",
+                      "items" : "com.linkedin.common.Urn"
+                    },
+                    "doc" : "List of jobs (if any) used to train the model group. Visible in Lineage.\r",
+                    "optional" : true,
+                    "Relationship" : {
+                      "/*" : {
+                        "entityTypes" : [ "dataJob" ],
+                        "isLineage" : true,
+                        "name" : "TrainedBy"
+                      }
+                    }
                   }, {
                     "name" : "version",
                     "type" : "com.linkedin.common.VersionTag",
-                    "doc" : "Version of the MLModelGroup",
+                    "doc" : "Version of the MLModelGroup\r",
                     "optional" : true
                   } ],
                   "Aspect" : {
@@ -4961,9 +5273,9 @@
                     },
                     "Searchable" : {
                       "/*" : {
-                        "boostScore" : 2.0,
                         "fieldName" : "isRelatedTerms",
-                        "fieldType" : "URN"
+                        "fieldType" : "URN",
+                        "queryByDefault" : false
                       }
                     }
                   }, {
@@ -4982,9 +5294,9 @@
                     },
                     "Searchable" : {
                       "/*" : {
-                        "boostScore" : 2.0,
                         "fieldName" : "hasRelatedTerms",
-                        "fieldType" : "URN"
+                        "fieldType" : "URN",
+                        "queryByDefault" : false
                       }
                     }
                   }, {
@@ -5078,6 +5390,7 @@
                   "name" : "GlossaryNodeInfo",
                   "namespace" : "com.linkedin.glossary",
                   "doc" : "Properties associated with a GlossaryNode",
+                  "include" : [ "com.linkedin.common.CustomProperties" ],
                   "fields" : [ {
                     "name" : "definition",
                     "type" : "string",
@@ -5182,11 +5495,17 @@
                   }, {
                     "name" : "type",
                     "type" : "string",
-                    "doc" : "The type of policy"
+                    "doc" : "The type of policy",
+                    "Searchable" : {
+                      "fieldType" : "KEYWORD"
+                    }
                   }, {
                     "name" : "state",
                     "type" : "string",
-                    "doc" : "The state of policy, ACTIVE or INACTIVE"
+                    "doc" : "The state of policy, ACTIVE or INACTIVE",
+                    "Searchable" : {
+                      "fieldType" : "KEYWORD"
+                    }
                   }, {
                     "name" : "resources",
                     "type" : {
@@ -5245,9 +5564,10 @@
                                     "type" : "enum",
                                     "name" : "PolicyMatchCondition",
                                     "doc" : "The matching condition in a filter criterion",
-                                    "symbols" : [ "EQUALS" ],
+                                    "symbols" : [ "EQUALS", "STARTS_WITH" ],
                                     "symbolDocs" : {
-                                      "EQUALS" : "Whether the field matches the value"
+                                      "EQUALS" : "Whether the field matches the value",
+                                      "STARTS_WITH" : "Whether the field value starts with the value"
                                     }
                                   },
                                   "doc" : "The condition for the criterion",
@@ -5270,7 +5590,13 @@
                       "type" : "array",
                       "items" : "string"
                     },
-                    "doc" : "The privileges that the policy grants."
+                    "doc" : "The privileges that the policy grants.",
+                    "Searchable" : {
+                      "/*" : {
+                        "addToFilters" : true,
+                        "fieldType" : "KEYWORD"
+                      }
+                    }
                   }, {
                     "name" : "actors",
                     "type" : {
@@ -5284,7 +5610,12 @@
                           "items" : "com.linkedin.common.Urn"
                         },
                         "doc" : "A specific set of users to apply the policy to (disjunctive)",
-                        "optional" : true
+                        "optional" : true,
+                        "Searchable" : {
+                          "/*" : {
+                            "fieldType" : "URN"
+                          }
+                        }
                       }, {
                         "name" : "groups",
                         "type" : {
@@ -5292,7 +5623,12 @@
                           "items" : "com.linkedin.common.Urn"
                         },
                         "doc" : "A specific set of groups to apply the policy to (disjunctive)",
-                        "optional" : true
+                        "optional" : true,
+                        "Searchable" : {
+                          "/*" : {
+                            "fieldType" : "URN"
+                          }
+                        }
                       }, {
                         "name" : "resourceOwners",
                         "type" : "boolean",
@@ -5310,12 +5646,18 @@
                         "name" : "allUsers",
                         "type" : "boolean",
                         "doc" : "Whether the filter should apply to all users.",
-                        "default" : false
+                        "default" : false,
+                        "Searchable" : {
+                          "fieldType" : "BOOLEAN"
+                        }
                       }, {
                         "name" : "allGroups",
                         "type" : "boolean",
                         "doc" : "Whether the filter should apply to all groups.",
-                        "default" : false
+                        "default" : false,
+                        "Searchable" : {
+                          "fieldType" : "BOOLEAN"
+                        }
                       }, {
                         "name" : "roles",
                         "type" : {
@@ -5329,6 +5671,11 @@
                             "entityTypes" : [ "dataHubRole" ],
                             "name" : "IsAssociatedWithRole"
                           }
+                        },
+                        "Searchable" : {
+                          "/*" : {
+                            "fieldType" : "URN"
+                          }
                         }
                       } ]
                     },
@@ -5337,7 +5684,10 @@
                     "name" : "editable",
                     "type" : "boolean",
                     "doc" : "Whether the policy should be editable via the UI",
-                    "default" : true
+                    "default" : true,
+                    "Searchable" : {
+                      "fieldType" : "BOOLEAN"
+                    }
                   }, {
                     "name" : "lastUpdatedTimestamp",
                     "type" : "long",
@@ -5542,6 +5892,7 @@
     "path" : "/platform",
     "schema" : "com.linkedin.entity.Entity",
     "doc" : "DataHub Platform Actions\n\ngenerated from: com.linkedin.metadata.resources.platform.PlatformResource",
+    "resourceClass" : "com.linkedin.metadata.resources.platform.PlatformResource",
     "collection" : {
       "identifier" : {
         "name" : "platformId",
@@ -5550,6 +5901,7 @@
       "supports" : [ ],
       "actions" : [ {
         "name" : "producePlatformEvent",
+        "javaMethodName" : "producePlatformEvent",
         "parameters" : [ {
           "name" : "name",
           "type" : "string"

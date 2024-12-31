@@ -4,6 +4,7 @@ import time
 from datetime import datetime
 from typing import Callable, Dict, Iterable, List, Optional, Tuple, Union
 
+import cachetools
 import pydantic.error_wrappers
 import redshift_connector
 from pydantic.fields import Field
@@ -18,6 +19,11 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source_helpers import auto_empty_dataset_usage_statistics
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.redshift.config import RedshiftConfig
+from datahub.ingestion.source.redshift.query import (
+    RedshiftCommonQuery,
+    RedshiftProvisionedQuery,
+    RedshiftServerlessQuery,
+)
 from datahub.ingestion.source.redshift.redshift_schema import (
     RedshiftTable,
     RedshiftView,
@@ -38,88 +44,6 @@ logger = logging.getLogger(__name__)
 
 REDSHIFT_DATETIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 
-
-# Add this join to the sql query for more metrics on completed queries
-# LEFT JOIN svl_query_metrics_summary sqms ON ss.query = sqms.query
-# Reference: https://docs.aws.amazon.com/redshift/latest/dg/r_SVL_QUERY_METRICS_SUMMARY.html
-
-# this sql query joins stl_scan over table info,
-# querytext, and user info to get usage stats
-# using non-LEFT joins here to limit the results to
-# queries run by the user on user-defined tables.
-REDSHIFT_USAGE_QUERY_TEMPLATE: str = """
-SELECT DISTINCT ss.userid as userid,
-       ss.query as query,
-       sui.usename as username,
-       ss.tbl as tbl,
-       sq.querytxt as querytxt,
-       sti.database as database,
-       sti.schema as schema,
-       sti.table as table,
-       sq.starttime as starttime,
-       sq.endtime as endtime
-FROM stl_scan ss
-  JOIN svv_table_info sti ON ss.tbl = sti.table_id
-  JOIN stl_query sq ON ss.query = sq.query
-  JOIN svl_user_info sui ON sq.userid = sui.usesysid
-WHERE ss.starttime >= '{start_time}'
-AND ss.starttime < '{end_time}'
-AND sti.database = '{database}'
-AND sq.aborted = 0
-ORDER BY ss.endtime DESC;
-""".strip()
-
-REDSHIFT_OPERATION_ASPECT_QUERY_TEMPLATE: str = """
-  (SELECT
-      DISTINCT si.userid AS userid,
-      si.query AS query,
-      si.rows AS rows,
-      sui.usename AS username,
-      si.tbl AS tbl,
-      sq.querytxt AS querytxt,
-      sti.database AS database,
-      sti.schema AS schema,
-      sti.table AS table,
-      sq.starttime AS starttime,
-      sq.endtime AS endtime,
-      'insert' AS operation_type
-    FROM
-      stl_insert si
-      JOIN svv_table_info sti ON si.tbl = sti.table_id
-      JOIN stl_query sq ON si.query = sq.query
-      JOIN svl_user_info sui ON sq.userid = sui.usesysid
-    WHERE
-      si.starttime >= '{start_time}'
-      AND si.starttime < '{end_time}'
-      AND si.rows > 0
-      AND sq.aborted = 0)
-UNION
-  (SELECT
-      DISTINCT sd.userid AS userid,
-      sd.query AS query,
-      sd.rows AS ROWS,
-      sui.usename AS username,
-      sd.tbl AS tbl,
-      sq.querytxt AS querytxt,
-      sti.database AS database,
-      sti.schema AS schema,
-      sti.table AS table,
-      sq.starttime AS starttime,
-      sq.endtime AS endtime,
-      'delete' AS operation_type
-    FROM
-      stl_delete sd
-      JOIN svv_table_info sti ON sd.tbl = sti.table_id
-      JOIN stl_query sq ON sd.query = sq.query
-      JOIN svl_user_info sui ON sq.userid = sui.usesysid
-    WHERE
-      sd.starttime >= '{start_time}'
-      AND sd.starttime < '{end_time}'
-      AND sd.rows > 0
-      AND sq.aborted = 0)
-ORDER BY
-  endtime DESC
-""".strip()
 
 RedshiftTableRef = str
 AggregatedDataset = GenericAggregatedDataset[RedshiftTableRef]
@@ -193,6 +117,10 @@ class RedshiftUsageExtractor:
             self.report.usage_end_time,
         ) = self.get_time_window()
 
+        self.queries: RedshiftCommonQuery = RedshiftProvisionedQuery()
+        if self.config.is_serverless:
+            self.queries = RedshiftServerlessQuery()
+
     def get_time_window(self) -> Tuple[datetime, datetime]:
         if self.redundant_run_skip_handler:
             return self.redundant_run_skip_handler.suggest_run_time_window(
@@ -251,7 +179,7 @@ class RedshiftUsageExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         self.report.num_usage_workunits_emitted = 0
         self.report.num_usage_stat_skipped = 0
-        self.report.num_operational_stats_skipped = 0
+        self.report.num_operational_stats_filtered = 0
 
         if self.config.include_operational_stats:
             self.report.report_ingestion_stage_start(USAGE_EXTRACTION_OPERATIONAL_STATS)
@@ -266,7 +194,7 @@ class RedshiftUsageExtractor:
 
         # Generate aggregate events
         self.report.report_ingestion_stage_start(USAGE_EXTRACTION_USAGE_AGGREGATION)
-        query: str = REDSHIFT_USAGE_QUERY_TEMPLATE.format(
+        query: str = self.queries.usage_query(
             start_time=self.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
             end_time=self.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
             database=self.config.database,
@@ -293,7 +221,7 @@ class RedshiftUsageExtractor:
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
     ) -> Iterable[MetadataWorkUnit]:
         # Generate access events
-        query: str = REDSHIFT_OPERATION_ASPECT_QUERY_TEMPLATE.format(
+        query: str = self.queries.operation_aspect_query(
             start_time=self.start_time.strftime(REDSHIFT_DATETIME_FORMAT),
             end_time=self.end_time.strftime(REDSHIFT_DATETIME_FORMAT),
         )
@@ -304,8 +232,13 @@ class RedshiftUsageExtractor:
         )
 
         # Generate operation aspect work units from the access events
-        yield from self._gen_operation_aspect_workunits_from_access_events(
-            access_events_iterable, all_tables=all_tables
+        yield from (
+            mcpw.as_workunit()
+            for mcpw in self._drop_repeated_operations(
+                self._gen_operation_aspect_workunits_from_access_events(
+                    access_events_iterable, all_tables=all_tables
+                )
+            )
         )
 
     def _should_process_event(
@@ -339,18 +272,22 @@ class RedshiftUsageExtractor:
                         userid=row[field_names.index("userid")],
                         username=row[field_names.index("username")],
                         query=row[field_names.index("query")],
-                        querytxt=row[field_names.index("querytxt")].strip()
-                        if row[field_names.index("querytxt")]
-                        else None,
+                        querytxt=(
+                            row[field_names.index("querytxt")].strip()
+                            if row[field_names.index("querytxt")]
+                            else None
+                        ),
                         tbl=row[field_names.index("tbl")],
                         database=row[field_names.index("database")],
                         schema=row[field_names.index("schema")],
                         table=row[field_names.index("table")],
                         starttime=row[field_names.index("starttime")],
                         endtime=row[field_names.index("endtime")],
-                        operation_type=row[field_names.index("operation_type")]
-                        if "operation_type" in field_names
-                        else None,
+                        operation_type=(
+                            row[field_names.index("operation_type")]
+                            if "operation_type" in field_names
+                            else None
+                        ),
                     )
                 except pydantic.error_wrappers.ValidationError as e:
                     logging.warning(
@@ -359,10 +296,6 @@ class RedshiftUsageExtractor:
                     self.report.num_usage_stat_skipped += 1
                     continue
 
-                # Replace database name with the alias name if one is provided in the config.
-                if self.config.database_alias:
-                    access_event.database = self.config.database_alias
-
                 if not self._should_process_event(access_event, all_tables=all_tables):
                     self.report.num_usage_stat_skipped += 1
                     continue
@@ -370,11 +303,61 @@ class RedshiftUsageExtractor:
                 yield access_event
             results = cursor.fetchmany()
 
+    def _drop_repeated_operations(
+        self, events: Iterable[MetadataChangeProposalWrapper]
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        """Drop repeated operations on the same entity.
+
+        ASSUMPTION: Events are ordered by lastUpdatedTimestamp, descending.
+
+        Operations are only dropped if they were within 1 minute of each other,
+        and have the same operation type, user, and entity.
+
+        This is particularly useful when we see a string of insert operations
+        that are all really part of the same overall operation.
+        """
+
+        OPERATION_CACHE_MAXSIZE = 1000
+        DROP_WINDOW_SEC = 10
+
+        # All timestamps are in milliseconds.
+        timestamp_low_watermark = 0
+
+        def timer():
+            return -timestamp_low_watermark
+
+        # dict of entity urn -> (last event's actor, operation type)
+        # TODO: Remove the type ignore and use TTLCache[key_type, value_type] directly once that's supported in Python 3.9.
+        last_events: Dict[str, Tuple[Optional[str], str]] = cachetools.TTLCache(  # type: ignore[assignment]
+            maxsize=OPERATION_CACHE_MAXSIZE, ttl=DROP_WINDOW_SEC * 1000, timer=timer
+        )
+
+        for event in events:
+            assert isinstance(event.aspect, OperationClass)
+
+            timestamp_low_watermark = min(
+                timestamp_low_watermark, event.aspect.lastUpdatedTimestamp
+            )
+
+            urn = event.entityUrn
+            assert urn
+            assert isinstance(event.aspect.operationType, str)
+            value: Tuple[Optional[str], str] = (
+                event.aspect.actor,
+                event.aspect.operationType,
+            )
+            if urn in last_events and last_events[urn] == value:
+                self.report.num_repeated_operations_dropped += 1
+                continue
+
+            last_events[urn] = value
+            yield event
+
     def _gen_operation_aspect_workunits_from_access_events(
         self,
         events_iterable: Iterable[RedshiftAccessEvent],
         all_tables: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]],
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         self.report.num_operational_stats_workunits_emitted = 0
         for event in events_iterable:
             if not (
@@ -388,7 +371,7 @@ class RedshiftUsageExtractor:
                 continue
 
             if not self._should_process_event(event, all_tables=all_tables):
-                self.report.num_operational_stats_skipped += 1
+                self.report.num_operational_stats_filtered += 1
                 continue
 
             assert event.operation_type in ["insert", "delete"]
@@ -410,7 +393,7 @@ class RedshiftUsageExtractor:
             resource: str = f"{event.database}.{event.schema_}.{event.table}".lower()
             yield MetadataChangeProposalWrapper(
                 entityUrn=self.dataset_urn_builder(resource), aspect=operation_aspect
-            ).as_workunit()
+            )
             self.report.num_operational_stats_workunits_emitted += 1
 
     def _aggregate_access_events(

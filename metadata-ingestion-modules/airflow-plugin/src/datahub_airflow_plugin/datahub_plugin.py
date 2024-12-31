@@ -4,10 +4,11 @@ import os
 
 from airflow.plugins_manager import AirflowPlugin
 
+from datahub_airflow_plugin import __package_name__
 from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
 from datahub_airflow_plugin._airflow_shims import (
-    HAS_AIRFLOW_DAG_LISTENER_API,
     HAS_AIRFLOW_LISTENER_API,
+    NEEDS_AIRFLOW_LISTENER_MODULE,
 )
 
 assert AIRFLOW_PATCHED
@@ -23,7 +24,10 @@ if _USE_AIRFLOW_LISTENER_INTERFACE:
         from openlineage.airflow.utils import try_import_from_string  # noqa: F401
     except ImportError:
         # If v2 plugin dependencies are not installed, we fall back to v1.
-        logger.debug("Falling back to v1 plugin due to missing dependencies.")
+        logger.warning(
+            "Falling back to the v1 DataHub plugin due to missing dependencies. "
+            f"Please install {__package_name__}[plugin-v2] to fix this."
+        )
         _USE_AIRFLOW_LISTENER_INTERFACE = False
 
 
@@ -50,23 +54,28 @@ class DatahubPlugin(AirflowPlugin):
     name = "datahub_plugin"
 
     if _USE_AIRFLOW_LISTENER_INTERFACE:
-        if HAS_AIRFLOW_DAG_LISTENER_API:
-            from datahub_airflow_plugin.datahub_listener import (  # type: ignore[misc]
-                get_airflow_plugin_listener,
+        try:
+            if not NEEDS_AIRFLOW_LISTENER_MODULE:
+                from datahub_airflow_plugin.datahub_listener import (  # type: ignore[misc]
+                    get_airflow_plugin_listener,
+                )
+
+                listeners: list = list(filter(None, [get_airflow_plugin_listener()]))
+
+            else:
+                # On Airflow < 2.5, we need the listener to be a module.
+                # This is just a quick shim layer to make that work.
+                #
+                # Related Airflow change: https://github.com/apache/airflow/pull/27113.
+                import datahub_airflow_plugin._datahub_listener_module as _listener_module  # type: ignore[misc]
+
+                listeners = [_listener_module]
+        except Exception as e:
+            logger.warning(
+                f"Failed to load the DataHub plugin's event listener: {e}",
+                exc_info=True,
             )
-
-            listeners: list = list(filter(None, [get_airflow_plugin_listener()]))
-
-        else:
-            # On Airflow < 2.5, we need the listener to be a module.
-            # This is just a quick shim layer to make that work.
-            # The DAG listener API was added at the same time as this method
-            # was fixed, so we're reusing the same check variable.
-            #
-            # Related Airflow change: https://github.com/apache/airflow/pull/27113.
-            import datahub_airflow_plugin._datahub_listener_module as _listener_module  # type: ignore[misc]
-
-            listeners = [_listener_module]
+            listeners = []
 
 
 if not _USE_AIRFLOW_LISTENER_INTERFACE:

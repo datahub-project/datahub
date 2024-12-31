@@ -1,5 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.container;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.testng.Assert.*;
+
 import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -20,66 +25,62 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.*;
-
-
 public class ContainerEntitiesResolverTest {
 
-  private static final ContainerEntitiesInput TEST_INPUT = new ContainerEntitiesInput(
-      null,
-      0,
-      20,
-      Collections.emptyList()
-  );
+  private static final ContainerEntitiesInput TEST_INPUT =
+      new ContainerEntitiesInput(null, 0, 20, Collections.emptyList());
 
   @Test
   public void testGetSuccess() throws Exception {
     // Create resolver
-    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    EntityClient mockClient = mock(EntityClient.class);
 
     final String childUrn = "urn:li:dataset:(test,test,test)";
     final String containerUrn = "urn:li:container:test-container";
 
-    final Criterion filterCriterion =  new Criterion()
-        .setField("container.keyword")
-        .setCondition(Condition.EQUAL)
-        .setValue(containerUrn);
+    final Criterion filterCriterion =
+        buildCriterion("container.keyword", Condition.EQUAL, containerUrn);
 
-    Mockito.when(mockClient.searchAcrossEntities(
-        Mockito.eq(ContainerEntitiesResolver.CONTAINABLE_ENTITY_NAMES),
-        Mockito.eq("*"),
-        Mockito.eq(
-            new Filter().setOr(new ConjunctiveCriterionArray(
-                new ConjunctiveCriterion().setAnd(new CriterionArray(ImmutableList.of(filterCriterion)))
-            ))
-        ),
-        Mockito.eq(0),
-        Mockito.eq(20),
-        Mockito.eq(null),
-        Mockito.eq(null),
-        Mockito.any(Authentication.class)
-    )).thenReturn(
-        new SearchResult()
-            .setFrom(0)
-            .setPageSize(1)
-            .setNumEntities(1)
-            .setEntities(new SearchEntityArray(ImmutableSet.of(
-                new SearchEntity()
-                  .setEntity(Urn.createFromString(childUrn))
-                )))
-            .setMetadata(new SearchResultMetadata().setAggregations(new AggregationMetadataArray()))
-    );
+    Mockito.when(
+            mockClient.searchAcrossEntities(
+                any(),
+                Mockito.eq(ContainerEntitiesResolver.CONTAINABLE_ENTITY_NAMES),
+                Mockito.eq("*"),
+                Mockito.eq(
+                    new Filter()
+                        .setOr(
+                            new ConjunctiveCriterionArray(
+                                new ConjunctiveCriterion()
+                                    .setAnd(
+                                        new CriterionArray(ImmutableList.of(filterCriterion)))))),
+                Mockito.eq(0),
+                Mockito.eq(20),
+                Mockito.eq(Collections.emptyList()),
+                Mockito.eq(null)))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(1)
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableSet.of(
+                            new SearchEntity().setEntity(Urn.createFromString(childUrn)))))
+                .setMetadata(
+                    new SearchResultMetadata().setAggregations(new AggregationMetadataArray())));
 
     ContainerEntitiesResolver resolver = new ContainerEntitiesResolver(mockClient);
 
     // Execute resolver
-    QueryContext mockContext = Mockito.mock(QueryContext.class);
-    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
-    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = mock(QueryContext.class);
+    Mockito.when(mockContext.getAuthentication()).thenReturn(mock(Authentication.class));
+    Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
@@ -92,6 +93,7 @@ public class ContainerEntitiesResolverTest {
     assertEquals((int) resolver.get(mockEnv).get().getCount(), 1);
     assertEquals((int) resolver.get(mockEnv).get().getTotal(), 1);
     assertEquals(resolver.get(mockEnv).get().getSearchResults().size(), 1);
-    assertEquals(resolver.get(mockEnv).get().getSearchResults().get(0).getEntity().getUrn(), childUrn);
+    assertEquals(
+        resolver.get(mockEnv).get().getSearchResults().get(0).getEntity().getUrn(), childUrn);
   }
 }

@@ -5,7 +5,6 @@ import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
 
-
 public final class AzkabanJobUrn extends Urn {
 
   public static final String ENTITY_TYPE = "azkabanJob";
@@ -42,7 +41,8 @@ public final class AzkabanJobUrn extends Urn {
         throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
       } else {
         try {
-          return new AzkabanJobUrn((AzkabanFlowUrn) key.getAs(0, AzkabanFlowUrn.class),
+          return new AzkabanJobUrn(
+              (AzkabanFlowUrn) key.getAs(0, AzkabanFlowUrn.class),
               (String) key.getAs(1, String.class));
         } catch (Exception e) {
           throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + e.getMessage());
@@ -57,18 +57,20 @@ public final class AzkabanJobUrn extends Urn {
 
   static {
     Custom.initializeCustomClass(AzkabanFlowUrn.class);
-    Custom.registerCoercer(new DirectCoercer<AzkabanJobUrn>() {
-      public Object coerceInput(AzkabanJobUrn object) throws ClassCastException {
-        return object.toString();
-      }
+    Custom.registerCoercer(
+        new DirectCoercer<AzkabanJobUrn>() {
+          public Object coerceInput(AzkabanJobUrn object) throws ClassCastException {
+            return object.toString();
+          }
 
-      public AzkabanJobUrn coerceOutput(Object object) throws TemplateOutputCastException {
-        try {
-          return AzkabanJobUrn.createFromString((String) object);
-        } catch (URISyntaxException e) {
-          throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
-        }
-      }
-    }, AzkabanJobUrn.class);
+          public AzkabanJobUrn coerceOutput(Object object) throws TemplateOutputCastException {
+            try {
+              return AzkabanJobUrn.createFromString((String) object);
+            } catch (URISyntaxException e) {
+              throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
+            }
+          }
+        },
+        AzkabanJobUrn.class);
   }
 }

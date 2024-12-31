@@ -36,12 +36,10 @@ services:
     - '14268'
     - '14250'
   prometheus:
-    container_name: prometheus
     image: prom/prometheus:latest
     ports:
     - 9089:9090
     volumes:
     - ../monitoring/prometheus.yaml:/etc/prometheus/prometheus.yml
-version: '3.9'
 volumes:
   grafana-storage: null

@@ -25,6 +25,8 @@ import UserContextProvider from '../../app/context/UserContextProvider';
 import { DataPlatformEntity } from '../../app/entity/dataPlatform/DataPlatformEntity';
 import { ContainerEntity } from '../../app/entity/container/ContainerEntity';
 import AppConfigProvider from '../../AppConfigProvider';
+import { BusinessAttributeEntity } from '../../app/entity/businessAttribute/BusinessAttributeEntity';
+import { SchemaFieldPropertiesEntity } from '../../app/entity/schemaField/SchemaFieldPropertiesEntity';
 
 type Props = {
     children: React.ReactNode;
@@ -47,6 +49,8 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new MLModelGroupEntity());
     entityRegistry.register(new DataPlatformEntity());
     entityRegistry.register(new ContainerEntity());
+    entityRegistry.register(new BusinessAttributeEntity());
+    entityRegistry.register(new SchemaFieldPropertiesEntity());
     return entityRegistry;
 }
 
@@ -56,7 +60,7 @@ export default ({ children, initialEntries }: Props) => {
         writable: true,
         value: `${CLIENT_AUTH_COOKIE}=urn:li:corpuser:2`,
     });
-    jest.mock('js-cookie', () => ({ get: () => 'urn:li:corpuser:2' }));
+    vi.mock('js-cookie', () => ({ default: { get: () => 'urn:li:corpuser:2' } }));
 
     return (
         <HelmetProvider>

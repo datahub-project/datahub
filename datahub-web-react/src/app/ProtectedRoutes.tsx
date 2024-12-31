@@ -1,38 +1,33 @@
-import React from 'react';
-import { Switch, Route } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { Switch, Route, useLocation, useHistory } from 'react-router-dom';
 import { Layout } from 'antd';
 import { HomePage } from './home/HomePage';
 import { SearchRoutes } from './SearchRoutes';
-import { PageRoutes } from '../conf/Global';
-import EmbeddedPage from './embed/EmbeddedPage';
-import { useEntityRegistry } from './useEntityRegistry';
-import AppProviders from './AppProviders';
-import EmbedLookup from './embed/lookup';
+import EmbedRoutes from './EmbedRoutes';
+import { NEW_ROUTE_MAP, PageRoutes } from '../conf/Global';
+import { getRedirectUrl } from '../conf/utils';
 
 /**
  * Container for all views behind an authentication wall.
  */
 export const ProtectedRoutes = (): JSX.Element => {
-    const entityRegistry = useEntityRegistry();
+    const location = useLocation();
+    const history = useHistory();
+
+    useEffect(() => {
+        if (location.pathname.indexOf('/Validation') !== -1) {
+            history.replace(getRedirectUrl(NEW_ROUTE_MAP));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [location]);
 
     return (
-        <AppProviders>
-            <Layout style={{ height: '100%', width: '100%' }}>
-                <Layout>
-                    <Switch>
-                        <Route exact path="/" render={() => <HomePage />} />
-                        <Route exact path={PageRoutes.EMBED_LOOKUP} render={() => <EmbedLookup />} />
-                        {entityRegistry.getEntities().map((entity) => (
-                            <Route
-                                key={`${entity.getPathName()}/${PageRoutes.EMBED}`}
-                                path={`${PageRoutes.EMBED}/${entity.getPathName()}/:urn`}
-                                render={() => <EmbeddedPage entityType={entity.type} />}
-                            />
-                        ))}
-                        <Route path="/*" render={() => <SearchRoutes />} />
-                    </Switch>
-                </Layout>
-            </Layout>
-        </AppProviders>
+        <Layout>
+            <Switch>
+                <Route exact path="/" render={() => <HomePage />} />
+                <Route path={PageRoutes.EMBED} render={() => <EmbedRoutes />} />
+                <Route path="/*" render={() => <SearchRoutes />} />
+            </Switch>
+        </Layout>
     );
 };

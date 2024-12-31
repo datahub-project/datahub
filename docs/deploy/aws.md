@@ -53,6 +53,19 @@ ip-192-168-64-56.us-west-2.compute.internal   Ready    <none>   3h    v1.18.9-ek
 ip-192-168-8-126.us-west-2.compute.internal   Ready    <none>   3h    v1.18.9-eks-d1db3c
 ```
 
+### Install EBS CSI driver, Core DNS, and VPC CNI plugin for Kubernetes
+
+Once your cluster is running, make sure to install the EBS CSI driver, Core DNS, and VPC CNI plugin for Kubernetes. [add-ons](https://docs.aws.amazon.com/eks/latest/userguide/eks-add-ons.html).  By default Core DNS and VPC CNI plugins are installed.  You need to manually install the EBS CSI driver. It show look this in your console when you are done.
+
+![Screenshot 2024-11-15 at 4 42 09 PM](https://github.com/user-attachments/assets/5a9a2af0-e804-4896-85bb-dc5834208719)
+
+### Add the AmazonEBSCSIDriverPolicy role to the EKS node group 
+
+Next is to add the AmazonEBSCSIDriverPolicy role to the EKS node group.    You will from the EKS Node group by going to the Compute tab in your EKS cluster and clicking on the IAM entry for the EKS node group.  Add the AmazonEBSCSIDriverPolicy policy. 
+
+![Screenshot 2024-11-15 at 4 42 29 PM](https://github.com/user-attachments/assets/8971c8d6-8543-408b-9a07-814aacb2532d)
+![Screenshot 2024-11-15 at 4 42 46 PM](https://github.com/user-attachments/assets/397f9131-5f13-4d9f-a664-9921d9bbf44e)
+
 ## Setup DataHub using Helm
 
 Once the kubernetes cluster has been set up, you can deploy DataHub and it’s prerequisites using helm. Please follow the
@@ -74,7 +87,7 @@ First, if you did not use eksctl to setup the kubernetes cluster, make sure to g
 Download the IAM policy document for allowing the controller to make calls to AWS APIs on your behalf.
 
 ```
-curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.2.0/docs/install/iam_policy.json
+curl -o iam_policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
 ```
 
 Create an IAM policy based on the policy document by running the following.
@@ -135,8 +148,8 @@ file used to deploy datahub). Change datahub-frontend values to the following.
 datahub-frontend:
   enabled: true
   image:
-    repository: linkedin/datahub-frontend-react
-    tag: "latest"
+    repository: acryldata/datahub-frontend-react
+    tag: "head"
   ingress:
     enabled: true
     annotations:
@@ -146,16 +159,13 @@ datahub-frontend:
       alb.ingress.kubernetes.io/certificate-arn: <<certificate-arn>>
       alb.ingress.kubernetes.io/inbound-cidrs: 0.0.0.0/0
       alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS":443}]'
-      alb.ingress.kubernetes.io/actions.ssl-redirect: '{"Type": "redirect", "RedirectConfig": { "Protocol": "HTTPS", "Port": "443", "StatusCode": "HTTP_301"}}'
+      alb.ingress.kubernetes.io/ssl-redirect: '443'
     hosts:
       - host: <<host-name>>
-        redirectPaths:
-          - path: /*
-            name: ssl-redirect
-            port: use-annotation
         paths:
           - /*
 ```
+Do not use the 'latest' or 'debug' tags for any of the images, as those are not supported and are present only due to legacy reasons. Please use 'head' or version-specific tags, like v0.8.40. For production, we recommend using version-specific tags, not 'head'.
 
 You need to request a certificate in the AWS Certificate Manager by following this
 [guide](https://docs.aws.amazon.com/acm/latest/userguide/gs-acm-request-public.html), and replace certificate-arn with
@@ -303,7 +313,7 @@ a different way of creating time based indices.
   elasticsearchSetupJob:
     enabled: true
     image:
-      repository: linkedin/datahub-elasticsearch-setup
+      repository: acryldata/datahub-elasticsearch-setup
       tag: "***"
     extraEnvs:
       - name: USE_AWS_ELASTICSEARCH
@@ -330,7 +340,7 @@ and [here](../../metadata-service/factories/src/main/java/com/linkedin/gms/facto
 .
 
 A mapping between the property name used in the above two files and the name used in docker/env file can be
-found [here](../../metadata-service/configuration/src/main/resources/application.yml).
+found [here](../../metadata-service/configuration/src/main/resources/application.yaml).
 
 ### Managed Streaming for Apache Kafka (MSK)
 

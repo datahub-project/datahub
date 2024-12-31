@@ -1,10 +1,12 @@
 import logging
 import os
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Union
+from urllib.parse import urlparse
 
 import pydantic
 from pydantic import Field
+from typing_extensions import Literal
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
@@ -13,6 +15,9 @@ from datahub.configuration.source_common import (
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.source.ge_data_profiler import DATABRICKS
+from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, make_sqlalchemy_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -31,22 +36,18 @@ logger = logging.getLogger(__name__)
 
 
 class UnityCatalogProfilerConfig(ConfigModel):
-    # TODO: Reduce duplicate code with DataLakeProfilerConfig, GEProfilingConfig, SQLAlchemyConfig
-    enabled: bool = Field(
-        default=False, description="Whether profiling should be done."
-    )
-    operation_config: OperationConfig = Field(
-        default_factory=OperationConfig,
-        description="Experimental feature. To specify operation configs.",
+    method: str = Field(
+        description=(
+            "Profiling method to use."
+            " Options supported are `ge` and `analyze`."
+            " `ge` uses Great Expectations and runs SELECT SQL queries on profiled tables."
+            " `analyze` calls ANALYZE TABLE on profiled tables. Only works for delta tables."
+        ),
     )
 
+    # TODO: Support cluster compute as well, for ge profiling
     warehouse_id: Optional[str] = Field(
         default=None, description="SQL Warehouse id, for running profiling queries."
-    )
-
-    profile_table_level_only: bool = Field(
-        default=False,
-        description="Whether to perform profiling at table-level only or include column-level profiling as well.",
     )
 
     pattern: AllowDenyPattern = Field(
@@ -56,6 +57,31 @@ class UnityCatalogProfilerConfig(ConfigModel):
             "Specify regex to match the `catalog.schema.table` format. "
             "Note that only tables allowed by the `table_pattern` will be considered."
         ),
+    )
+
+
+class DeltaLakeDetails(ConfigModel):
+    platform_instance_name: Optional[str] = Field(
+        default=None, description="Delta-lake paltform instance name"
+    )
+    env: str = Field(default="PROD", description="Delta-lake environment")
+
+
+class UnityCatalogAnalyzeProfilerConfig(UnityCatalogProfilerConfig):
+    method: Literal["analyze"] = "analyze"
+
+    # TODO: Reduce duplicate code with DataLakeProfilerConfig, GEProfilingConfig, SQLAlchemyConfig
+    enabled: bool = Field(
+        default=False, description="Whether profiling should be done."
+    )
+    operation_config: OperationConfig = Field(
+        default_factory=OperationConfig,
+        description="Experimental feature. To specify operation configs.",
+    )
+
+    profile_table_level_only: bool = Field(
+        default=False,
+        description="Whether to perform profiling at table-level only or include column-level profiling as well.",
     )
 
     call_analyze: bool = Field(
@@ -76,20 +102,22 @@ class UnityCatalogProfilerConfig(ConfigModel):
         description="Number of worker threads to use for profiling. Set to 1 to disable.",
     )
 
-    @pydantic.root_validator
-    def warehouse_id_required_for_profiling(
-        cls, values: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        if values.get("enabled") and not values.get("warehouse_id"):
-            raise ValueError("warehouse_id must be set when profiling is enabled.")
-        return values
-
     @property
     def include_columns(self):
         return not self.profile_table_level_only
 
 
+class UnityCatalogGEProfilerConfig(UnityCatalogProfilerConfig, GEProfilingConfig):
+    method: Literal["ge"] = "ge"
+
+    max_wait_secs: Optional[int] = Field(
+        default=None,
+        description="Maximum time to wait for a table to be profiled.",
+    )
+
+
 class UnityCatalogSourceConfig(
+    SQLCommonConfig,
     StatefulIngestionConfigBase,
     BaseUsageConfig,
     DatasetSourceConfigMixin,
@@ -100,18 +128,26 @@ class UnityCatalogSourceConfig(
     workspace_url: str = pydantic.Field(
         description="Databricks workspace url. e.g. https://my-workspace.cloud.databricks.com"
     )
+    warehouse_id: Optional[str] = pydantic.Field(
+        default=None,
+        description="SQL Warehouse id, for running queries. If not set, will use the default warehouse.",
+    )
+    include_hive_metastore: bool = pydantic.Field(
+        default=True,
+        description="Whether to ingest legacy `hive_metastore` catalog. This requires executing queries on SQL warehouse.",
+    )
     workspace_name: Optional[str] = pydantic.Field(
         default=None,
         description="Name of the workspace. Default to deployment name present in workspace_url",
     )
 
     include_metastore: bool = pydantic.Field(
-        default=True,
+        default=False,
         description=(
             "Whether to ingest the workspace's metastore as a container and include it in all urns."
             " Changing this will affect the urns of all entities in the workspace."
-            " This will be disabled by default in the future,"
-            " so it is recommended to set this to `False` for new ingestions."
+            " This config is deprecated and will be removed in the future,"
+            " so it is recommended to not set this to `True` for new ingestions."
             " If you have an existing unity catalog ingestion, you'll want to avoid duplicates by soft deleting existing data."
             " If stateful ingestion is enabled, running with `include_metastore: false` should be sufficient."
             " Otherwise, we recommend deleting via the cli: `datahub delete --platform databricks` and re-ingesting with `include_metastore: false`."
@@ -131,6 +167,14 @@ class UnityCatalogSourceConfig(
     )
 
     _metastore_id_pattern_removed = pydantic_removed_field("metastore_id_pattern")
+
+    catalogs: Optional[List[str]] = pydantic.Field(
+        default=None,
+        description=(
+            "Fixed list of catalogs to ingest."
+            " If not specified, catalogs will be ingested based on `catalog_pattern`."
+        ),
+    )
 
     catalog_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
@@ -209,14 +253,45 @@ class UnityCatalogSourceConfig(
         description="Generate usage statistics.",
     )
 
-    profiling: UnityCatalogProfilerConfig = Field(
-        default=UnityCatalogProfilerConfig(), description="Data profiling configuration"
+    # TODO: Remove `type:ignore` by refactoring config
+    profiling: Union[UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig] = Field(  # type: ignore
+        default=UnityCatalogGEProfilerConfig(),
+        description="Data profiling configuration",
+        discriminator="method",
     )
+
+    emit_siblings: bool = pydantic.Field(
+        default=True,
+        description="Whether to emit siblings relation with corresponding delta-lake platform's table. If enabled, this will also ingest the corresponding delta-lake table.",
+    )
+
+    delta_lake_options: DeltaLakeDetails = Field(
+        default=DeltaLakeDetails(),
+        description="Details about the delta lake, incase to emit siblings",
+    )
+
+    scheme: str = DATABRICKS
+
+    def get_sql_alchemy_url(self, database: Optional[str] = None) -> str:
+        uri_opts = {"http_path": f"/sql/1.0/warehouses/{self.warehouse_id}"}
+        if database:
+            uri_opts["catalog"] = database
+        return make_sqlalchemy_uri(
+            scheme=self.scheme,
+            username="token",
+            password=self.token,
+            at=urlparse(self.workspace_url).netloc,
+            db=database,
+            uri_opts=uri_opts,
+        )
 
     def is_profiling_enabled(self) -> bool:
         return self.profiling.enabled and is_profiling_enabled(
             self.profiling.operation_config
         )
+
+    def is_ge_profiling(self) -> bool:
+        return self.profiling.method == "ge"
 
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="Unity Catalog Stateful Ingestion Config."
@@ -241,10 +316,47 @@ class UnityCatalogSourceConfig(
         if v:
             msg = (
                 "`include_metastore` is enabled."
-                " This is not recommended and will be disabled by default in the future, which is a breaking change."
+                " This is not recommended and this option will be removed in the future, which is a breaking change."
                 " All databricks urns will change if you re-ingest with this disabled."
                 " We recommend soft deleting all databricks data and re-ingesting with `include_metastore` set to `False`."
             )
             logger.warning(msg)
             add_global_warning(msg)
+        return v
+
+    @pydantic.root_validator(skip_on_failure=True)
+    def set_warehouse_id_from_profiling(cls, values: Dict[str, Any]) -> Dict[str, Any]:
+        profiling: Optional[
+            Union[UnityCatalogGEProfilerConfig, UnityCatalogAnalyzeProfilerConfig]
+        ] = values.get("profiling")
+        if not values.get("warehouse_id") and profiling and profiling.warehouse_id:
+            values["warehouse_id"] = profiling.warehouse_id
+        if (
+            values.get("warehouse_id")
+            and profiling
+            and profiling.warehouse_id
+            and values["warehouse_id"] != profiling.warehouse_id
+        ):
+            raise ValueError(
+                "When `warehouse_id` is set, it must match the `warehouse_id` in `profiling`."
+            )
+
+        if values.get("include_hive_metastore") and not values.get("warehouse_id"):
+            raise ValueError(
+                "When `include_hive_metastore` is set, `warehouse_id` must be set."
+            )
+
+        if values.get("warehouse_id") and profiling and not profiling.warehouse_id:
+            profiling.warehouse_id = values["warehouse_id"]
+
+        if profiling and profiling.enabled and not profiling.warehouse_id:
+            raise ValueError("warehouse_id must be set when profiling is enabled.")
+
+        return values
+
+    @pydantic.validator("schema_pattern", always=True)
+    def schema_pattern_should__always_deny_information_schema(
+        cls, v: AllowDenyPattern
+    ) -> AllowDenyPattern:
+        v.deny.append(".*\\.information_schema")
         return v

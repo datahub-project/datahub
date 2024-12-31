@@ -17,35 +17,43 @@ Today the job consumes from two important Kafka topics:
 > Where does the name **Metadata Audit Event** come from? Well, history. Previously, this job consumed
 > a single `MetadataAuditEvent` topic which has been deprecated and removed from the critical path. Hence, the name!
 
-## Pre-requisites
-* You need to have [JDK8](https://www.oracle.com/java/technologies/jdk8-downloads.html)
-installed on your machine to be able to build `DataHub Metadata Service`.
+## Prerequisites
+
+Follow the [main developer guide](../../docs/developers.md) to set up your development environment and install the required dependencies.
 
 ## Build
+
 `Metadata Audit Event Consumer Job` is already built as part of top level build:
-```
+
+```shell
 ./gradlew build
 ```
+
 However, if you only want to build `MAE Consumer Job` specifically:
-```
+
+```shell
 ./gradlew :metadata-jobs:mae-consumer-job:build
 ```
 
 ## Dependencies
-Before starting `Metadata Audit Event Consumer Job`, you need to make sure that [Kafka, Schema Registry & Zookeeper](../../docker/kafka-setup),
-[Elasticsearch](../../docker/elasticsearch), and [Neo4j](../../docker/neo4j) Docker containers are up and running.
+
+Before starting `Metadata Audit Event Consumer Job`, you need to make sure that all backend services, including Kafka and ElasticSearch, are up and running. If GMS is healthy, then Kafka and ElasticSearch should be healthy as well.
 
 ## Start via Docker image
+
 The quickest way to try out `Metadata Audit Event Consumer Job` is running the [Docker image](../../docker/datahub-mae-consumer).
 
 ## Start via command line
+
 If you do modify things and want to try it out quickly without building the Docker image, you can also run
 the application directly from command line after a successful [build](#build):
-```
+
+```shell
 MCL_CONSUMER_ENABLED=true ./gradlew :metadata-jobs:mae-consumer-job:bootRun
 ```
 
 ## Endpoints
+
 Spring boot actuator has been enabled for MAE Application.
 `healthcheck`, `metrics` and `info` web endpoints are enabled by default.
 

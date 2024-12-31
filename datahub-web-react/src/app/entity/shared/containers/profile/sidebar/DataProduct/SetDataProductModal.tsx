@@ -10,6 +10,7 @@ import { IconStyleType } from '../../../../../Entity';
 import { tagRender } from '../tagRenderer';
 import { useBatchSetDataProductMutation } from '../../../../../../../graphql/dataProduct.generated';
 import { handleBatchError } from '../../../../utils';
+import { getModalDomContainer } from '../../../../../../../utils/focus';
 
 const OptionWrapper = styled.div`
     padding: 2px 0;
@@ -126,6 +127,7 @@ export default function SetDataProductModal({
                     </Button>
                 </>
             }
+            getContainer={getModalDomContainer}
         >
             <Select
                 autoFocus
@@ -144,7 +146,7 @@ export default function SetDataProductModal({
                 tagRender={tagRender}
                 onBlur={() => setQuery('')}
             >
-                {data?.searchAcrossEntities?.searchResults.map((result) => (
+                {data?.searchAcrossEntities?.searchResults?.map((result) => (
                     <Select.Option value={result.entity.urn} key={result.entity.urn}>
                         <OptionWrapper>
                             {entityRegistry.getIcon(EntityType.DataProduct, 12, IconStyleType.ACCENT, 'black')}

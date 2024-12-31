@@ -1,0 +1,43 @@
+namespace com.linkedin.assertion
+
+import com.linkedin.common.Urn
+
+/**
+* Attributes that are applicable to Custom Assertions
+**/
+record CustomAssertionInfo {
+    /**
+    * The type of custom assertion.
+    * This is how your assertion will appear categorized in DataHub UI. 
+    */
+    @Searchable = {
+      "fieldName": "customType"
+    }
+    type: string
+
+    /**
+    * The entity targeted by this assertion.
+    * This can have support more entityTypes (e.g. dataJob) in future
+    */
+    @Relationship = {
+      "name": "Asserts",
+      "entityTypes": [ "dataset" ]
+    }
+    entity: Urn
+
+    /**
+    * dataset schema field targeted by this assertion.
+    *
+    * This field is expected to be provided if the assertion is on dataset field
+    */
+    @Relationship = {
+      "name": "Asserts",
+      "entityTypes": [ "schemaField" ]
+    }
+    field: optional Urn
+
+    /*
+    * Logic for the assertion as expressed in the native assertion language. Code fragments, query strings, etc.
+    */
+    logic: optional string
+}

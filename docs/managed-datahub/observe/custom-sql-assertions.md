@@ -8,12 +8,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-
-> ⚠️ The **Custom SQL Assertions** feature is currently in private beta, part of the **Acryl Observe** module, and may only be available to a
-> limited set of design partners.
->
-> If you are interested in trying it and providing feedback, please reach out to your Acryl Customer Success
-> representative.
+> The **Custom SQL Assertions** feature is available as part of the **Acryl Observe** module of DataHub Cloud.
+> If you are interested in learning more about **Acryl Observe** or trying it out, please [visit our website](https://www.acryldata.io/observe).
 
 ## Introduction
 
@@ -22,14 +18,14 @@ If the answer is yes, how did you find out? We'll take a guess - someone looking
 a number looked a bit out of the ordinary. Perhaps your table initially tracked purchases made on your company's e-commerce web store, but suddenly began to include purchases made
 through your company's new mobile app. 
 
-There are many reasons why an important Table on Snowflake, Redshift, or BigQuery may change in its meaning - application code bugs, new feature rollouts,
+There are many reasons why an important Table on Snowflake, Redshift, BigQuery, or Databricks may change in its meaning - application code bugs, new feature rollouts,
 changes to key metric definitions, etc. Often times, these changes break important assumptions made about the data used in building key downstream data products 
 like reporting dashboards or data-driven product features.
 
 What if you could reduce the time to detect these incidents, so that the people responsible for the data were made aware of data
-issues _before_ anyone else? With Acryl DataHub **Custom SQL Assertions**, you can.
+issues _before_ anyone else? With DataHub Cloud **Custom SQL Assertions**, you can.
 
-Acryl DataHub allows users to define complex expectations about a particular warehouse Table through custom SQL queries, and then monitor those expectations over time as the table grows and changes.
+DataHub Cloud allows users to define complex expectations about a particular warehouse Table through custom SQL queries, and then monitor those expectations over time as the table grows and changes.
 
 In this article, we'll cover the basics of monitoring Custom SQL Assertions - what they are, how to configure them, and more - so that you and your team can
 start building trust in your most important data assets.
@@ -43,12 +39,13 @@ Custom SQL Assertions are currently supported for:
 1. Snowflake
 2. Redshift
 3. BigQuery
+4. Databricks
 
-Note that an Ingestion Source _must_ be configured with the data platform of your choice in Acryl DataHub's **Ingestion**
+Note that an Ingestion Source _must_ be configured with the data platform of your choice in DataHub Cloud's **Ingestion**
 tab.
 
 > Note that SQL Assertions are not yet supported if you are connecting to your warehouse
-> using the DataHub CLI or a Remote Ingestion Executor.
+> using the DataHub CLI.
 
 ## What is a Custom SQL Assertion?
 
@@ -58,7 +55,7 @@ the Table. You have full control over the SQL query, and can use any SQL feature
 Custom SQL Assertions can be particularly useful when you have complex tables or relationships
 that are used to generate important metrics or reports, and where the meaning of the table is expected to be stable over time.
 If you have existing SQL queries that you already use to monitor your data, you may find that Custom SQL Assertions are an easy way to port them
-to Acryl DataHub to get started.
+to DataHub Cloud to get started.
 
 For example, imagine that you have a Table that tracks the number of purchases made on your company's e-commerce web store.
 You have a SQL query that you use to calculate the number of purchases made in the past 24 hours, and you'd like to monitor this
@@ -71,8 +68,7 @@ At the most basic level, **Custom SQL Assertions** consist of a few important pa
 
 1. An **Evaluation Schedule**
 2. A **Query**
-3. An **Condition Type**
-4. An **Assertion Description**
+3. A **Condition Type**
 
 In this section, we'll give an overview of each.
 
@@ -95,6 +91,7 @@ Use the "Try it out" button to test your query and ensure that it returns a sing
 #### 3. Condition Type
 
 The **Condition Type**: This defines the conditions under which the Assertion will **fail**. The list of supported operations is:
+
 - **Is Equal To**: The assertion will fail if the query result is equal to the configured value
 - **Is Not Equal To**: The assertion will fail if the query result is not equal to the configured value
 - **Is Greater Than**: The assertion will fail if the query result is greater than the configured value
@@ -106,20 +103,17 @@ The **Condition Type**: This defines the conditions under which the Assertion wi
   
 Custom SQL Assertions also have an off switch: they can be started or stopped at any time with the click of button.
 
-#### 4. Assertion Description
-
-The **Assertion Description**: This is a human-readable description of the Assertion. It should be used to describe the meaning of the Assertion, and can be used to provide additional context to users who are viewing the Assertion.
-
 
 ## Creating a Custom SQL Assertion
 
 ### Prerequisites
 
 1. **Permissions**: To create or delete Custom SQL Assertions for a specific entity on DataHub, you'll need to be granted the
-   `Edit Assertions` and `Edit Monitors` privileges for the entity. This is granted to Entity owners by default.
+   `Edit Assertions`, `Edit Monitors`, **and the additional `Edit SQL Assertion Monitors`** privileges for the entity. This will be granted to Entity owners as part of the `Asset Owners - Metadata Policy`
+   by default.
 
 2. **Data Platform Connection**: In order to create a Custom SQL Assertion, you'll need to have an **Ingestion Source** configured to your
-   Data Platform: Snowflake, BigQuery, or Redshift under the **Integrations** tab.
+   Data Platform: Snowflake, BigQuery, Redshift, or Databricks under the **Integrations** tab.
 
 Once these are in place, you're ready to create your Custom SQL Assertions!
 
@@ -128,14 +122,14 @@ Once these are in place, you're ready to create your Custom SQL Assertions!
 1. Navigate to the Table you want to monitor
 2. Click the **Validations** tab
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
+<p align="left">
+  <img width="80%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/profile-validation-tab.png"/>
 </p>
 
 3. Click **+ Create Assertion**
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-choose-type.png"/>
+<p align="left">
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-choose-type.png"/>
 </p>
 
 4. Choose **Custom**
@@ -145,82 +139,70 @@ Once these are in place, you're ready to create your Custom SQL Assertions!
 
 6. Provide a SQL **query** that will be used to evaluate the Table. The query should return a single row with a single column. Currently only numeric values are supported (integer and floats). The query can be as simple or as complex as you'd like, and can use any SQL features supported by your Data Warehouse. Make sure to use the fully qualified name of the Table in your query.
 
-<p align="center">
-  <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-query-editor.png"/>
+<p align="left">
+  <img width="50%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-query-editor.png"/>
 </p>
 
 7. Configure the evaluation **condition type**. This determines the cases in which the new assertion will fail when it is evaluated.
 
-<p align="center">
-  <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-condition-type.png"/>
+<p align="left">
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-condition-type.png"/>
 </p>
 
-8. Add a **description** for the assertion. This is a human-readable description of the Assertion. It should be used to describe the meaning of the Assertion, and can be used to provide additional context to users who are viewing the Assertion.
-
-<p align="center">
-  <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-description.png"/>
-</p>
-
-9. (Optional) Use the **Try it out** button to test your query and ensure that it returns a single row with a single column, and passes the configured condition type.
-
-<p align="center">
-  <img width="60%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-try-it-out.png"/>
-</p>
-
-10. Click **Next**
-11. Configure actions that should be taken when the Custom SQL Assertion passes or fails
+8. Configure actions that should be taken when the Custom SQL Assertion passes or fails
 
 <p align="left">
-  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-builder-actions.png"/>
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/assertion-builder-actions.png"/>
 </p>
 
 - **Raise incident**: Automatically raise a new DataHub Incident for the Table whenever the Custom SQL Assertion is failing. This
   may indicate that the Table is unfit for consumption. Configure Slack Notifications under **Settings** to be notified when
   an incident is created due to an Assertion failure.
+
 - **Resolve incident**: Automatically resolved any incidents that were raised due to failures in this Custom SQL Assertion. Note that
   any other incidents will not be impacted.
 
-1.  Click **Save**.
+
+9. (Optional) Use the **Try it out** button to test your query and ensure that it returns a single row with a single column, and passes the configured condition type.
+
+<p align="left">
+  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/assertion-builder-custom-try-it-out.png"/>
+</p>
+
+10. Click **Next** and then add a description.
+
+11. Click **Save**
 
 And that's it! DataHub will now begin to monitor your Custom SQL Assertion for the table.
 
-To view the time of the next Custom SQL Assertion evaluation, simply click **Custom** and then click on your
-new Assertion:
-
-<p align="center">
-  <img width="40%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/assertion-next-evaluation-time.png"/>
-</p>
-
 Once your assertion has run, you will begin to see Success or Failure status for the Table
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/profile-passing-custom-assertions-expanded.png"/>
+<p align="left">
+  <img width="45%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/custom/profile-passing-custom-assertions-expanded.png"/>
 </p>
 
 
 ## Stopping a Custom SQL Assertion
 
-In order to temporarily stop the evaluation of a Custom SQL Assertion:
+In order to temporarily stop the evaluation of the assertion:
 
 1. Navigate to the **Validations** tab of the Table with the assertion
-2. Click **Custom** to open the Custom SQL Assertions list
-3. Click the three-dot menu on the right side of the assertion you want to disable
-4. Click **Stop**
+2. Click **Custom SQL** to open the SQL Assertion assertions
+3. Click the "Stop" button for the assertion you wish to pause.
 
 <p align="left">
-  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/manage-assertion-menu.png"/>
+  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/stop-assertion.png"/>
 </p>
 
-To resume the Custom SQL Assertion, simply click **Turn On**.
+To resume the assertion, simply click **Start**.
 
-<p align="center">
-  <img width="90%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/freshness/stopped-assertion.png"/>
+<p align="left">
+  <img width="25%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/observe/shared/start-assertion.png"/>
 </p>
-
 
 ## Creating Custom SQL Assertions via API
 
-Under the hood, Acryl DataHub implements Custom SQL Assertion Monitoring using two "entity" concepts:
+Under the hood, DataHub Cloud implements Custom SQL Assertion Monitoring using two concepts:
 
 - **Assertion**: The specific expectation for the custom assertion, e.g. "The table was changed in the past 7 hours"
   or "The table is changed on a schedule of every day by 8am". This is the "what".
@@ -233,58 +215,32 @@ Note that to create or delete Assertions and Monitors for a specific entity on D
 
 #### GraphQL
 
-In order to create a Custom SQL Assertion that is being monitored on a specific **Evaluation Schedule**, you'll need to use 2
-GraphQL mutation queries to create a Custom SQL Assertion entity and create an Assertion Monitor entity responsible for evaluating it.
-
-Start by creating the Custom SQL Assertion entity using the `createSqlAssertion` query and hang on to the 'urn' field of the Assertion entity
-you get back. Then continue by creating a Monitor entity using the `createAssertionMonitor`.
+In order to create or update a Custom SQL Assertion, you can use the `upsertDatasetSqlAssertionMonitor` mutation. 
 
 ##### Examples
 
-To create a Custom SQL Assertion Entity that checks whether a query result is greater than 100:
+To create a Custom SQL Assertion Entity that checks whether a query result is greater than 100 that runs every 8 hours:
 
-```json
-mutation createSqlAssertion {
-  createSqlAssertion(
+```graphql
+mutation upsertDatasetSqlAssertionMonitor {
+  upsertDatasetSqlAssertionMonitor(
     input: {
-      entityUrn: "<urn of the table to be monitored>",
+      entityUrn: "<urn of entity being monitored>"
       type: METRIC,
       description: "<description of the custom assertion>",
       statement: "<SQL query to be evaluated>",
-      operator: GREATER_THAN,
+      operator: GREATER_THAN_OR_EQUAL_TO,
       parameters: {
         value: {
           value: "100",
           type: NUMBER
         }
       }
-    }
-  ) {
-    urn
-  }
-}
-```
-
-The supported assertion types are `METRIC` and `METRIC_CHANGE`. If you choose `METRIC_CHANGE`,
-you will need to provide a `changeType` parameter with either `ABSOLUTE` or `PERCENTAGE` values.
-The supported operator types are `EQUAL_TO`, `NOT_EQUAL_TO`, `GREATER_THAN`, `GREATER_THAN_OR_EQUAL_TO`, `LESS_THAN`, `LESS_THAN_OR_EQUAL_TO`, and `BETWEEN` (requires minValue, maxValue).
-The supported parameter types are `NUMBER`. 
-
-To create an Assertion Monitor Entity that evaluates the custom assertion every 8 hours:
-
-```json
-mutation createAssertionMonitor {
-  createAssertionMonitor(
-    input: {
-      entityUrn: "<urn of entity being monitored>",
-      assertionUrn: "<urn of assertion created in first query>",
-      schedule: {
-        cron: "0 */8 * * *",
+      evaluationSchedule: {
         timezone: "America/Los_Angeles"
-      },
-      parameters: {
-        type: DATASET_SQL
+        cron: "0 */8 * * *"
       }
+      mode: ACTIVE   
     }
   ) {
     urn
@@ -292,9 +248,35 @@ mutation createAssertionMonitor {
 }
 ```
 
-This entity defines _when_ to run the check (Using CRON format - every 8th hour) and _how_ to run the check (using the Information Schema).
+You can use same endpoint with assertion urn input to update an existing Custom SQL Assertion and corresponding Monitor.
 
-After creating the monitor, the new assertion will start to be evaluated every 8 hours in your selected timezone.
+```graphql
+mutation upsertDatasetSqlAssertionMonitor {
+  upsertDatasetSqlAssertionMonitor(
+    assertionUrn: "<urn of assertion created in earlier query>"
+    input: {
+      entityUrn: "<urn of entity being monitored>"
+      type: METRIC,
+      description: "<description of the custom assertion>",
+      statement: "<SQL query to be evaluated>",
+      operator: GREATER_THAN_OR_EQUAL_TO,
+      parameters: {
+        value: {
+          value: "100",
+          type: NUMBER
+        }
+      }
+      evaluationSchedule: {
+        timezone: "America/Los_Angeles"
+        cron: "0 */6 * * *"
+      }
+      mode: ACTIVE   
+    }
+  ) {
+    urn
+  }
+}
+```
 
 You can delete assertions along with their monitors using GraphQL mutations: `deleteAssertion` and `deleteMonitor`.
 

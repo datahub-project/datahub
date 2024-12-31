@@ -1,15 +1,29 @@
 plugins {
-  id "io.github.kobylynskyi.graphql.codegen" version "4.1.1"
   id 'scala'
   id 'com.palantir.docker'
+  id 'org.gradle.playframework'
 }
 
-apply from: "../gradle/versioning/versioning.gradle"
+apply from: '../gradle/versioning/versioning.gradle'
 apply from: './play.gradle'
+apply from: '../gradle/coverage/java-coverage.gradle'
 
 ext {
   docker_repo = 'datahub-frontend-react'
   docker_dir = 'datahub-frontend'
+}
+
+java {
+  toolchain {
+    languageVersion = JavaLanguageVersion.of(jdkVersion(project))
+  }
+}
+
+test {
+  jacoco {
+    // jacoco instrumentation is failing when dealing with code of this dependency, excluding it.
+    excludes = ["com/gargoylesoftware/**"]
+  }
 }
 
 model {
@@ -20,7 +34,6 @@ model {
 }
 
 task myTar(type: Tar) {
-  extension = "tgz"
   compression = Compression.GZIP
 
   from("${buildDir}/stage")
@@ -38,25 +51,6 @@ task myTar(type: Tar) {
 artifacts {
   archives myTar
 }
-
-graphqlCodegen {
-  // For options: https://github.com/kobylynskyi/graphql-java-codegen/blob/master/docs/codegen-options.md
-  graphqlSchemaPaths = ["$projectDir/conf/datahub-frontend.graphql".toString()]
-  outputDir = new File("$projectDir/app/graphql")
-  packageName = "generated"
-  generateApis = true
-  modelValidationAnnotation = ""
-  customTypesMapping = [
-          Long: "Long",
-  ]
-}
-
-tasks.withType(Checkstyle) {
-  exclude "**/generated/**"
-}
-
-checkstyleMain.source = "app/"
-
 
 /*
 PLAY UPGRADE NOTE
@@ -77,10 +71,11 @@ docker {
   version "v${version}"
   dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
   files fileTree(rootProject.projectDir) {
+    include '.dockerignore'
     include 'docker/monitoring/*'
     include "docker/${docker_dir}/*"
   }.exclude {
-    i -> i.file.isHidden() || i.file == buildDir
+    i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
   }
   tag("Debug", "${docker_registry}/${docker_repo}:debug")
 
@@ -88,9 +83,25 @@ docker {
   buildx(true)
   load(true)
   push(false)
+
+  // Add build args if they are defined (needed for some CI or enterprise environments)
+  def dockerBuildArgs = [:]
+  if (project.hasProperty('alpineApkRepositoryUrl')) {
+    dockerBuildArgs.ALPINE_REPO_URL = project.getProperty('alpineApkRepositoryUrl')
+  }
+  if (project.hasProperty('githubMirrorUrl')) {
+    dockerBuildArgs.GITHUB_REPO_URL = project.getProperty('githubMirrorUrl')
+  }
+  if (project.hasProperty('mavenCentralRepositoryUrl')) {
+    dockerBuildArgs.MAVEN_CENTRAL_REPO_URL = project.getProperty('mavenCentralRepositoryUrl')
+  }
+
+  if (dockerBuildArgs.size() > 0) {
+    buildArgs(dockerBuildArgs)
+  }
 }
 
-task unversionZip(type: Copy, dependsOn: [':datahub-web-react:build', dist]) {
+task unversionZip(type: Copy, dependsOn: [':datahub-web-react:distZip', dist]) {
   from ("${buildDir}/distributions")
   include "datahub-frontend-${version}.zip"
   into "${buildDir}/docker/"
@@ -104,3 +115,23 @@ task cleanLocalDockerImages {
   }
 }
 dockerClean.finalizedBy(cleanLocalDockerImages)
+
+// gradle 8 fixes
+tasks.getByName('createDatahub-frontendTarDist').dependsOn 'stageMainDist'
+tasks.getByName('createDatahub-frontendZipDist').dependsOn 'stageMainDist'
+stagePlayBinaryDist.dependsOn tasks.getByName('createDatahub-frontendStartScripts')
+playBinaryDistTar.dependsOn tasks.getByName('createDatahub-frontendStartScripts')
+playBinaryDistZip.dependsOn tasks.getByName('createDatahub-frontendStartScripts')
+tasks.getByName('stageDatahub-frontendDist').dependsOn stagePlayBinaryDist
+tasks.getByName('stageDatahub-frontendDist').dependsOn createPlayBinaryStartScripts
+tasks.getByName('datahub-frontendDistTar').dependsOn createPlayBinaryStartScripts
+tasks.getByName('datahub-frontendDistTar').dependsOn createMainStartScripts
+tasks.getByName('datahub-frontendDistZip').dependsOn createPlayBinaryStartScripts
+tasks.getByName('datahub-frontendDistZip').dependsOn createMainStartScripts
+playBinaryDistTar.dependsOn createMainStartScripts
+playBinaryDistZip.dependsOn createMainStartScripts
+createMainStartScripts.dependsOn 'stageDatahub-frontendDist'
+createPlayBinaryTarDist.dependsOn 'stageDatahub-frontendDist'
+createPlayBinaryZipDist.dependsOn 'stageDatahub-frontendDist'
+createPlayBinaryTarDist.dependsOn 'stageMainDist'
+createPlayBinaryZipDist.dependsOn 'stageMainDist'

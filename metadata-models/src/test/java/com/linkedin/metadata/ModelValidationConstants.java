@@ -5,7 +5,6 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.UnionTemplate;
 import java.util.Set;
 
-
 public class ModelValidationConstants {
 
   private ModelValidationConstants() {

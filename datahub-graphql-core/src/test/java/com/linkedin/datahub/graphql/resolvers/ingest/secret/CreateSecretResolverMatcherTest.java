@@ -6,7 +6,6 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.secret.DataHubSecretValue;
 import org.mockito.ArgumentMatcher;
 
-
 public class CreateSecretResolverMatcherTest implements ArgumentMatcher<MetadataChangeProposal> {
 
   private MetadataChangeProposal left;
@@ -24,17 +23,13 @@ public class CreateSecretResolverMatcherTest implements ArgumentMatcher<Metadata
   }
 
   private boolean secretPropertiesMatch(GenericAspect left, GenericAspect right) {
-    DataHubSecretValue leftProps = GenericRecordUtils.deserializeAspect(
-        left.getValue(),
-        "application/json",
-        DataHubSecretValue.class
-    );
+    DataHubSecretValue leftProps =
+        GenericRecordUtils.deserializeAspect(
+            left.getValue(), "application/json", DataHubSecretValue.class);
 
-    DataHubSecretValue rightProps = GenericRecordUtils.deserializeAspect(
-        right.getValue(),
-        "application/json",
-        DataHubSecretValue.class
-    );
+    DataHubSecretValue rightProps =
+        GenericRecordUtils.deserializeAspect(
+            right.getValue(), "application/json", DataHubSecretValue.class);
 
     // Omit timestamp comparison.
     return leftProps.getName().equals(rightProps.getName())

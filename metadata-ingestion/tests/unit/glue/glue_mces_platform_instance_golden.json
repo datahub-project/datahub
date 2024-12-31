@@ -10,10 +10,15 @@
                 "platform": "glue",
                 "instance": "some_instance_name",
                 "env": "PROD",
-                "database": "flights-database"
+                "database": "flights-database",
+                "param1": "value1",
+                "param2": "value2",
+                "LocationUri": "s3://test-bucket/test-prefix",
+                "CreateTime": "June 09, 2021 at 14:14:19"
             },
             "name": "flights-database",
-            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/flights-database"
+            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/flights-database",
+            "env": "PROD"
         }
     }
 },
@@ -43,6 +48,118 @@
 {
     "entityType": "container",
     "entityUrn": "urn:li:container:7d53111f2c71396ea6f6d26c84770665",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "glue",
+                "instance": "some_instance_name",
+                "env": "PROD",
+                "database": "test-database",
+                "CreateTime": "June 01, 2021 at 14:55:02"
+            },
+            "name": "test-database",
+            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/test-database",
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:glue",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ac4381240e82d55400c22e4392e744a4",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "glue",
+                "instance": "some_instance_name",
+                "env": "PROD",
+                "database": "empty-database",
+                "CreateTime": "June 01, 2021 at 14:55:13"
+            },
+            "name": "empty-database",
+            "qualifiedName": "arn:aws:glue:us-west-2:000000000000:database/empty-database",
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ac4381240e82d55400c22e4392e744a4",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ac4381240e82d55400c22e4392e744a4",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:glue",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:ac4381240e82d55400c22e4392e744a4",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -115,6 +232,7 @@
                             {
                                 "fieldPath": "[version=2.0].[type=int].yr",
                                 "nullable": true,
+                                "description": "test comment",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
@@ -206,6 +324,7 @@
                             {
                                 "fieldPath": "[version=2.0].[type=string].year",
                                 "nullable": true,
+                                "description": "partition test comment",
                                 "type": {
                                     "type": {
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
@@ -233,6 +352,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -276,60 +396,6 @@
     "aspect": {
         "json": {
             "container": "urn:li:container:7d53111f2c71396ea6f6d26c84770665"
-        }
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
-    "changeType": "UPSERT",
-    "aspectName": "containerProperties",
-    "aspect": {
-        "json": {
-            "customProperties": {
-                "platform": "glue",
-                "instance": "some_instance_name",
-                "env": "PROD",
-                "database": "test-database"
-            },
-            "name": "test-database",
-            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/test-database"
-        }
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
-    "changeType": "UPSERT",
-    "aspectName": "status",
-    "aspect": {
-        "json": {
-            "removed": false
-        }
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:glue",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:glue,some_instance_name)"
-        }
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:9fb26491b2c92dde9e80791dbecca9ca",
-    "changeType": "UPSERT",
-    "aspectName": "subTypes",
-    "aspect": {
-        "json": {
-            "typeNames": [
-                "Database"
-            ]
         }
     }
 },
@@ -472,6 +538,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -658,6 +725,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"

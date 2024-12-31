@@ -1,5 +1,7 @@
-apply plugin: 'distribution'
-apply plugin: 'com.github.node-gradle.node'
+plugins {
+  id 'distribution'
+  id 'com.github.node-gradle.node'
+}
 
 node {
 
@@ -12,10 +14,10 @@ node {
   }
 
   // Version of node to use.
-  version = '16.16.0'
+  version = '22.12.0'
 
   // Version of Yarn to use.
-  yarnVersion = '1.22.0'
+  yarnVersion = '1.22.22'
 
   // Base URL for fetching node distributions (set nodeDistBaseUrl if you have a mirror).
   if (project.hasProperty('nodeDistBaseUrl')) {
@@ -31,7 +33,7 @@ node {
   yarnWorkDir = file("${project.projectDir}/.gradle/yarn")
 
   // Set the work directory where node_modules should be located
-  nodeModulesDir = file("${project.projectDir}")
+  nodeProjectDir = file("${project.projectDir}")
 
 }
 /*
@@ -43,7 +45,7 @@ def projectMdFiles = project.fileTree("${project.projectDir}") {
     include '**/*.ts'
     exclude 'node_modules'
     exclude '**/dist/**'
-    }
+}
 
 // Combine GraphQL schemas for documentation.
 task generateGraphQLSchema(type: Exec) {
@@ -62,16 +64,27 @@ task generateJsonSchema(type: Exec, dependsOn: [':metadata-ingestion:docGen']) {
 task yarnInstall(type: YarnTask) {
   logger.info('CI = "{}"', System.env.CI)
   if (System.env.CI != null && System.env.CI == "true") {
-    args = ['install','--frozen-lockfile']
+    args = ['install', '--frozen-lockfile', '--network-timeout', '300000']
   } else {
-    args = ['install']
+    args = ['install', '--network-timeout', '300000']
   }
+
+  // The node_modules directory can contain built artifacts, so
+  // it's not really safe to cache it.
+  outputs.cacheIf { false }
+
+  inputs.files(
+    file('yarn.lock'),
+    file('package.json'),
+  )
+  outputs.dir('node_modules')
 }
 
 task yarnGenerate(type: YarnTask, dependsOn: [yarnInstall,
     generateGraphQLSchema, generateJsonSchema,
     ':metadata-ingestion:modelDocGen', ':metadata-ingestion:docGen',
-    ':metadata-ingestion:buildWheel', ':metadata-ingestion-modules:airflow-plugin:buildWheel'] ) {
+    ':python-build:buildWheels',
+    ]) {
   inputs.files(projectMdFiles)
   outputs.cacheIf { true }
   args = ['run', 'generate']
@@ -92,17 +105,11 @@ task fastReload(type: YarnTask) {
 task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   inputs.files(projectMdFiles)
   args = ['run', 'lint-check']
-  outputs.dir("dist")
-  // tell gradle to apply the build cache
-  outputs.cacheIf { true }
 }
 
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall]) {
   inputs.files(projectMdFiles)
   args = ['run', 'lint-fix']
-  outputs.dir("dist")
-  // tell gradle to apply the build cache
-  outputs.cacheIf { true }
 }
 
 task serve(type: YarnTask, dependsOn: [yarnInstall] ) {
@@ -121,8 +128,12 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate, downloadHisto
   outputs.cacheIf { true }
   // See https://stackoverflow.com/questions/53230823/fatal-error-ineffective-mark-compacts-near-heap-limit-allocation-failed-java
   // and https://github.com/facebook/docusaurus/issues/8329.
-  // TODO: As suggested in https://github.com/facebook/docusaurus/issues/4765, try switching to swc-loader.
-  environment = ['NODE_OPTIONS': '--max-old-space-size=10248']
+  // TODO: As suggested in https://github.com/facebook/docusaurus/issues/4765, try switching to swc-loader or esbuild minification.
+  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
+    environment = ['NODE_OPTIONS': '--max-old-space-size=10240']
+  } else {
+    environment = ['NODE_OPTIONS': '--max-old-space-size=10240 --openssl-legacy-provider']
+  }
   args = ['run', 'build']
 
 }
@@ -135,8 +146,12 @@ clean {
   delete 'tmp'
   delete 'build'
   delete 'just'
+  delete 'sphinx/venv'
+  delete 'sphinx/_build'
+  delete 'versioned_docs'
   delete fileTree(dir: 'genDocs', exclude: '.gitignore')
   delete fileTree(dir: 'docs', exclude: '.gitignore')
+  delete fileTree(dir: 'genStatic', exclude: '.gitignore')
   delete 'graphql/combined.graphql'
   yarnClear
 }

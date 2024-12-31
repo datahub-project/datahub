@@ -35,7 +35,7 @@ In order to execute this source, you will need to create a policy with below per
         "glue:GetPartitions", 
         "s3:GetObject",
         "s3:ListBucket",
-        "s3:GetBucketLocation",
+        "s3:GetBucketLocation"
       ],
       "Resource": [
         "arn:aws:athena:${region-id}:${account-id}:datacatalog/*",
@@ -64,7 +64,7 @@ In order to execute this source, you will need to create a policy with below per
         "arn:aws:s3:::${athena-query-result-bucket}/*",
         "arn:aws:s3:::${athena-query-result-bucket}"
       ]
-    },
+    }
   ]
 }
 ```

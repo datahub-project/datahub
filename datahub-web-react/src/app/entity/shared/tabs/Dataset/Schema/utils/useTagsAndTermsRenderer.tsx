@@ -2,15 +2,14 @@ import React from 'react';
 import { EditableSchemaMetadata, EntityType, GlobalTags, SchemaField } from '../../../../../../../types.generated';
 import TagTermGroup from '../../../../../../shared/tags/TagTermGroup';
 import { pathMatchesNewPath } from '../../../../../dataset/profile/schema/utils/utils';
-import { useMutationUrn, useRefetch } from '../../../../EntityContext';
 import { useSchemaRefetch } from '../SchemaContext';
+import { useMutationUrn, useRefetch } from '../../../../EntityContext';
 
 export default function useTagsAndTermsRenderer(
     editableSchemaMetadata: EditableSchemaMetadata | null | undefined,
-    tagHoveredIndex: string | undefined,
-    setTagHoveredIndex: (index: string | undefined) => void,
     options: { showTags: boolean; showTerms: boolean },
     filterText: string,
+    canEdit: boolean,
 ) {
     const urn = useMutationUrn();
     const refetch = useRefetch();
@@ -22,29 +21,37 @@ export default function useTagsAndTermsRenderer(
     };
 
     const tagAndTermRender = (tags: GlobalTags, record: SchemaField) => {
-        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo.find(
+        const relevantEditableFieldInfo = editableSchemaMetadata?.editableSchemaFieldInfo?.find(
             (candidateEditableFieldInfo) => pathMatchesNewPath(candidateEditableFieldInfo.fieldPath, record.fieldPath),
         );
 
+        const businessAttributeTags =
+            record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties?.tags
+                ?.tags || [];
+        const businessAttributeTerms =
+            record?.schemaFieldEntity?.businessAttributes?.businessAttribute?.businessAttribute?.properties
+                ?.glossaryTerms?.terms || [];
+
         return (
-            <div data-testid={`schema-field-${record.fieldPath}-${options.showTags ? 'tags' : 'terms'}`}>
-                <TagTermGroup
-                    uneditableTags={options.showTags ? tags : null}
-                    editableTags={options.showTags ? relevantEditableFieldInfo?.globalTags : null}
-                    uneditableGlossaryTerms={options.showTerms ? record.glossaryTerms : null}
-                    editableGlossaryTerms={options.showTerms ? relevantEditableFieldInfo?.glossaryTerms : null}
-                    canRemove
-                    buttonProps={{ size: 'small' }}
-                    canAddTag={tagHoveredIndex === record.fieldPath && options.showTags}
-                    canAddTerm={tagHoveredIndex === record.fieldPath && options.showTerms}
-                    onOpenModal={() => setTagHoveredIndex(undefined)}
-                    entityUrn={urn}
-                    entityType={EntityType.Dataset}
-                    entitySubresource={record.fieldPath}
-                    highlightText={filterText}
-                    refetch={refresh}
-                />
-            </div>
+            <TagTermGroup
+                uneditableTags={options.showTags ? { tags: [...(tags?.tags || []), ...businessAttributeTags] } : null}
+                editableTags={options.showTags ? relevantEditableFieldInfo?.globalTags : null}
+                uneditableGlossaryTerms={
+                    options.showTerms
+                        ? { terms: [...(record?.glossaryTerms?.terms || []), ...businessAttributeTerms] }
+                        : null
+                }
+                editableGlossaryTerms={options.showTerms ? relevantEditableFieldInfo?.glossaryTerms : null}
+                canRemove={canEdit}
+                buttonProps={{ size: 'small' }}
+                canAddTag={canEdit && options.showTags}
+                canAddTerm={canEdit && options.showTerms}
+                entityUrn={urn}
+                entityType={EntityType.Dataset}
+                entitySubresource={record.fieldPath}
+                highlightText={filterText}
+                refetch={refresh}
+            />
         );
     };
     return tagAndTermRender;

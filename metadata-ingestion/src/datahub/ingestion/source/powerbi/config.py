@@ -1,7 +1,7 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
 import pydantic
 from pydantic import validator
@@ -9,7 +9,7 @@ from pydantic.class_validators import root_validator
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
-from datahub.configuration.source_common import DEFAULT_ENV, DatasetSourceConfigMixin
+from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -19,6 +19,8 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.utilities.lossy_collections import LossyList
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +48,11 @@ class Constant:
     Authorization = "Authorization"
     WORKSPACE_ID = "workspaceId"
     DASHBOARD_ID = "powerbi.linkedin.com/dashboards/{}"
+    DATASET_EXECUTE_QUERIES = "DATASET_EXECUTE_QUERIES_POST"
+    GET_WORKSPACE_APP = "GET_WORKSPACE_APP"
     DATASET_ID = "datasetId"
     REPORT_ID = "reportId"
     SCAN_ID = "ScanId"
-    Dataset_URN = "DatasetURN"
     CHART_URN = "ChartURN"
     CHART = "chart"
     CORP_USER = "corpuser"
@@ -60,9 +63,12 @@ class Constant:
     STATUS = "status"
     CHART_ID = "powerbi.linkedin.com/charts/{}"
     CHART_KEY = "chartKey"
+    COLUMN_TYPE = "columnType"
+    DATA_TYPE = "dataType"
     DASHBOARD = "dashboard"
     DASHBOARDS = "dashboards"
     DASHBOARD_KEY = "dashboardKey"
+    DESCRIPTION = "description"
     OWNERSHIP = "ownership"
     BROWSERPATH = "browsePaths"
     DASHBOARD_INFO = "dashboardInfo"
@@ -95,6 +101,7 @@ class Constant:
     TITLE = "title"
     EMBED_URL = "embedUrl"
     ACCESS_TOKEN = "access_token"
+    ACCESS_TOKEN_EXPIRY = "expires_in"
     IS_READ_ONLY = "isReadOnly"
     WEB_URL = "webUrl"
     ODATA_COUNT = "@odata.count"
@@ -108,11 +115,23 @@ class Constant:
     TABLES = "tables"
     EXPRESSION = "expression"
     SOURCE = "source"
+    SCHEMA_METADATA = "schemaMetadata"
     PLATFORM_NAME = "powerbi"
     REPORT_TYPE_NAME = BIAssetSubTypes.REPORT
     CHART_COUNT = "chartCount"
     WORKSPACE_NAME = "workspaceName"
     DATASET_WEB_URL = "datasetWebUrl"
+    TYPE = "type"
+    REPORT_TYPE = "reportType"
+    LAST_UPDATE = "lastUpdate"
+    APP_ID = "appId"
+    REPORTS = "reports"
+    ORIGINAL_REPORT_OBJECT_ID = "originalReportObjectId"
+    APP_SUB_TYPE = "App"
+    STATE = "state"
+    ACTIVE = "Active"
+    SQL_PARSING_FAILURE = "SQL Parsing Failure"
+    M_QUERY_NULL = '"null"'
 
 
 @dataclass
@@ -154,18 +173,41 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="redshift",
     )
 
-    DATABRICK_SQL = DataPlatformPair(
+    DATABRICKS_SQL = DataPlatformPair(
         powerbi_data_platform_name="Databricks", datahub_data_platform_name="databricks"
+    )
+
+    DatabricksMultiCloud_SQL = DataPlatformPair(
+        powerbi_data_platform_name="DatabricksMultiCloud",
+        datahub_data_platform_name="databricks",
     )
 
 
 @dataclass
 class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
+    all_workspace_count: int = 0
+    filtered_workspace_names: LossyList[str] = dataclass_field(
+        default_factory=LossyList
+    )
+    filtered_workspace_types: LossyList[str] = dataclass_field(
+        default_factory=LossyList
+    )
+
     dashboards_scanned: int = 0
     charts_scanned: int = 0
     filtered_dashboards: List[str] = dataclass_field(default_factory=list)
     filtered_charts: List[str] = dataclass_field(default_factory=list)
-    number_of_workspaces: int = 0
+
+    m_query_parse_timer: PerfTimer = dataclass_field(default_factory=PerfTimer)
+    m_query_parse_attempts: int = 0
+    m_query_parse_successes: int = 0
+    m_query_parse_timeouts: int = 0
+    m_query_parse_validation_errors: int = 0
+    m_query_parse_unexpected_character_errors: int = 0
+    m_query_parse_unknown_errors: int = 0
+    m_query_resolver_errors: int = 0
+    m_query_resolver_no_lineage: int = 0
+    m_query_resolver_successes: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -179,9 +221,6 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     def report_charts_dropped(self, view: str) -> None:
         self.filtered_charts.append(view)
 
-    def report_number_of_workspaces(self, number_of_workspaces: int) -> None:
-        self.number_of_workspaces = number_of_workspaces
-
 
 def default_for_dataset_type_mapping() -> Dict[str, str]:
     dict_: dict = {}
@@ -193,16 +232,13 @@ def default_for_dataset_type_mapping() -> Dict[str, str]:
     return dict_
 
 
-class PlatformDetail(ConfigModel):
-    platform_instance: Optional[str] = pydantic.Field(
-        default=None,
-        description="DataHub platform instance name. To generate correct urn for upstream dataset, this should match "
-        "with platform instance name used in ingestion "
-        "recipe of other datahub sources.",
-    )
-    env: str = pydantic.Field(
-        default=DEFAULT_ENV,
-        description="The environment that all assets produced by DataHub platform ingestion source belong to",
+class DataBricksPlatformDetail(PlatformDetail):
+    """
+    metastore is an additional field used in Databricks connector to generate the dataset urn
+    """
+
+    metastore: str = pydantic.Field(
+        description="Databricks Unity Catalog metastore name.",
     )
 
 
@@ -211,7 +247,9 @@ class OwnershipMapping(ConfigModel):
         default=True, description="Whether ingest PowerBI user as Datahub Corpuser"
     )
     use_powerbi_email: bool = pydantic.Field(
-        default=False,
+        # TODO: Deprecate and remove this config, since the non-email format
+        # doesn't make much sense.
+        default=True,
         description="Use PowerBI User email to ingest as corpuser, default is powerbi user identifier",
     )
     remove_email_suffix: bool = pydantic.Field(
@@ -225,6 +263,13 @@ class OwnershipMapping(ConfigModel):
     owner_criteria: Optional[List[str]] = pydantic.Field(
         default=None,
         description="Need to have certain authority to qualify as owner for example ['ReadWriteReshareExplore','Owner','Admin']",
+    )
+
+
+class PowerBiProfilingConfig(ConfigModel):
+    enabled: bool = pydantic.Field(
+        default=False,
+        description="Whether profiling of PowerBI datasets should be done",
     )
 
 
@@ -251,11 +296,12 @@ class PowerBiDashboardSourceConfig(
     # PowerBi workspace identifier
     workspace_id_pattern: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
-        description="Regex patterns to filter PowerBI workspaces in ingestion",
+        description="Regex patterns to filter PowerBI workspaces in ingestion."
+        " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
     )
 
-    # Dataset type mapping PowerBI support many type of data-sources. Here user need to define what type of PowerBI
-    # DataSource need to be mapped to corresponding DataHub Platform DataSource. For example PowerBI `Snowflake` is
+    # Dataset type mapping PowerBI support many type of data-sources. Here user needs to define what type of PowerBI
+    # DataSource needs to be mapped to corresponding DataHub Platform DataSource. For example, PowerBI `Snowflake` is
     # mapped to DataHub `snowflake` PowerBI `PostgreSQL` is mapped to DataHub `postgres` and so on.
     dataset_type_mapping: Union[
         Dict[str, str], Dict[str, PlatformDetail]
@@ -268,11 +314,14 @@ class PowerBiDashboardSourceConfig(
         hidden_from_docs=True,
     )
     # PowerBI datasource's server to platform instance mapping
-    server_to_platform_instance: Dict[str, PlatformDetail] = pydantic.Field(
+    server_to_platform_instance: Dict[
+        str, Union[PlatformDetail, DataBricksPlatformDetail]
+    ] = pydantic.Field(
         default={},
         description="A mapping of PowerBI datasource's server i.e host[:port] to Data platform instance."
-        " :port is optional and only needed if your datasource server is running on non-standard port."
-        "For Google BigQuery the datasource's server is google bigquery project name",
+        " :port is optional and only needed if your datasource server is running on non-standard port. "
+        "For Google BigQuery the datasource's server is google bigquery project name. "
+        "For Databricks Unity Catalog the datasource's server is workspace FQDN.",
     )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(
@@ -295,8 +344,8 @@ class PowerBiDashboardSourceConfig(
     )
     workspace_id_as_urn_part: bool = pydantic.Field(
         default=False,
-        description="Highly recommend changing this to True, as you can have the same workspace name"
-        "To maintain backward compatability, this is set to False which uses workspace name",
+        description="It is recommended to set this to True only if you have legacy workspaces based on Office 365 groups, as those workspaces can have identical names. "
+        "To maintain backward compatibility, this is set to False which uses workspace name",
     )
     # Enable/Disable extracting ownership information of Dashboard
     extract_ownership: bool = pydantic.Field(
@@ -314,7 +363,8 @@ class PowerBiDashboardSourceConfig(
         description="Configure how is ownership ingested",
     )
     modified_since: Optional[str] = pydantic.Field(
-        description="Get only recently modified workspaces based on modified_since datetime '2023-02-10T00:00:00.0000000Z', excludePersonalWorkspaces and excludeInActiveWorkspaces limit to last 30 days",
+        default=None,
+        description="Get only recently modified workspaces based on modified_since datetime '2023-02-10T00:00:00.0000000Z', excludeInActiveWorkspaces limit to last 30 days",
     )
     extract_dashboards: bool = pydantic.Field(
         default=True,
@@ -334,8 +384,8 @@ class PowerBiDashboardSourceConfig(
     # any existing tags defined to those entities
     extract_endorsements_to_tags: bool = pydantic.Field(
         default=False,
-        description="Whether to extract endorsements to tags, note that this may overwrite existing tags. Admin API "
-        "access is required is this setting is enabled",
+        description="Whether to extract endorsements to tags, note that this may overwrite existing tags. "
+        "Admin API access is required if this setting is enabled.",
     )
     filter_dataset_endorsements: AllowDenyPattern = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
@@ -390,10 +440,11 @@ class PowerBiDashboardSourceConfig(
 
     # Enable advance sql construct
     enable_advance_lineage_sql_construct: bool = pydantic.Field(
-        default=False,
+        default=True,
         description="Whether to enable advance native sql construct for parsing like join, sub-queries. "
         "along this flag , the native_query_parsing should be enabled. "
-        "By default convert_lineage_urns_to_lowercase is enabled, in-case if you have disabled it in previous ingestion execution then it may break lineage "
+        "By default convert_lineage_urns_to_lowercase is enabled, in-case if you have disabled it in previous "
+        "ingestion execution then it may break lineage"
         "as this option generates the upstream datasets URN in lowercase.",
     )
 
@@ -401,12 +452,58 @@ class PowerBiDashboardSourceConfig(
     extract_column_level_lineage: bool = pydantic.Field(
         default=False,
         description="Whether to extract column level lineage. "
-        "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are enabled.  "
+        "Works only if configs `native_query_parsing`, `enable_advance_lineage_sql_construct` & `extract_lineage` are "
+        "enabled."
         "Works for M-Query where native SQL is used for transformation.",
     )
 
-    @root_validator
-    @classmethod
+    profile_pattern: AllowDenyPattern = pydantic.Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns to filter tables for profiling during ingestion. Note that only tables "
+        "allowed by the `table_pattern` will be considered. Matched format is 'workspacename.datasetname.tablename'",
+    )
+    profiling: PowerBiProfilingConfig = PowerBiProfilingConfig()
+
+    patch_metadata: bool = pydantic.Field(
+        default=True,
+        description="Patch dashboard metadata",
+    )
+
+    workspace_type_filter: List[
+        Literal[
+            "Workspace", "PersonalGroup", "Personal", "AdminWorkspace", "AdminInsights"
+        ]
+    ] = pydantic.Field(
+        default=["Workspace"],
+        description="Ingest the metadata of the workspace where the workspace type corresponds to the specified workspace_type_filter."
+        " Note: This field works in conjunction with 'workspace_id_pattern'. Both must be matched for a workspace to be processed.",
+    )
+
+    include_workspace_name_in_dataset_urn: bool = pydantic.Field(
+        default=False,
+        description="It is recommended to set this to true, as it helps prevent the overwriting of datasets."
+        "Read section #11560 at https://datahubproject.io/docs/how/updating-datahub/ before enabling this option."
+        "To maintain backward compatibility, this is set to False.",
+    )
+
+    extract_app: bool = pydantic.Field(
+        default=False,
+        description="Whether to ingest workspace app. Requires DataHub server 0.14.2+.",
+    )
+
+    m_query_parse_timeout: int = pydantic.Field(
+        default=70,
+        description="Timeout for PowerBI M-query parsing in seconds. Table-level lineage is determined by analyzing the M-query expression. "
+        "Increase this value if you encounter the 'M-Query Parsing Timeout' message in the connector report.",
+    )
+
+    metadata_api_timeout: int = pydantic.Field(
+        default=30,
+        description="timeout in seconds for Metadata Rest Api.",
+        hidden_from_docs=True,
+    )
+
+    @root_validator(skip_on_failure=True)
     def validate_extract_column_level_lineage(cls, values: Dict) -> Dict:
         flags = [
             "native_query_parsing",
@@ -445,7 +542,7 @@ class PowerBiDashboardSourceConfig(
 
         return value
 
-    @root_validator(pre=False)
+    @root_validator(skip_on_failure=True)
     def workspace_id_backward_compatibility(cls, values: Dict) -> Dict:
         workspace_id = values.get("workspace_id")
         workspace_id_pattern = values.get("workspace_id_pattern")

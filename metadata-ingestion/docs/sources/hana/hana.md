@@ -5,6 +5,3 @@ The implementation uses the [SQLAlchemy Dialect for SAP HANA](https://github.com
 
 Under the hood, [SQLAlchemy Dialect for SAP HANA](https://github.com/SAP/sqlalchemy-hana) uses the SAP HANA Python Driver hdbcli. Therefore it is compatible with HANA or HANA express versions since HANA SPS 2.
 
-## Questions
-
-If you've got any questions on configuring this source, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

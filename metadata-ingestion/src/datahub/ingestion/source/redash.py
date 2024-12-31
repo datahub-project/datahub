@@ -2,15 +2,14 @@ import logging
 import math
 import sys
 from dataclasses import dataclass, field
-from multiprocessing.pool import ThreadPool
-from typing import Dict, Iterable, List, Optional, Set, Type
+from typing import Dict, Iterable, List, Optional, Set
 
 import dateutil.parser as dp
 from packaging import version
 from pydantic.fields import Field
 from redash_toolbelt import Redash
 from requests.adapters import HTTPAdapter
-from requests.packages.urllib3.util.retry import Retry
+from urllib3.util.retry import Retry
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -18,12 +17,12 @@ from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     SupportStatus,
+    capability,
     config_class,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.registry import import_path
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
@@ -39,8 +38,10 @@ from datahub.metadata.schema_classes import (
     ChartTypeClass,
     DashboardInfoClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
+from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sql_parser import SQLParser
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -268,10 +269,6 @@ class RedashConfig(ConfigModel):
     parse_table_names_from_sql: bool = Field(
         default=False, description="See note below."
     )
-    sql_parser: str = Field(
-        default="datahub.utilities.sql_parser.DefaultSQLParser",
-        description="custom SQL parser. See note below for details.",
-    )
 
     env: str = Field(
         default=DEFAULT_ENV,
@@ -282,7 +279,7 @@ class RedashConfig(ConfigModel):
 @dataclass
 class RedashSourceReport(SourceReport):
     items_scanned: int = 0
-    filtered: List[str] = field(default_factory=list)
+    filtered: LossyList[str] = field(default_factory=LossyList)
     queries_problem_parsing: Set[str] = field(default_factory=set)
     queries_no_dataset: Set[str] = field(default_factory=set)
     charts_no_input: Set[str] = field(default_factory=set)
@@ -295,7 +292,7 @@ class RedashSourceReport(SourceReport):
     )
     max_page_dashboards: Optional[int] = field(default=None)
     api_page_limit: Optional[float] = field(default=None)
-    timing: Dict[str, int] = field(default_factory=dict)
+    timing: LossyDict[str, int] = field(default_factory=LossyDict)
 
     def report_item_scanned(self) -> None:
         self.items_scanned += 1
@@ -307,6 +304,7 @@ class RedashSourceReport(SourceReport):
 @platform_name("Redash")
 @config_class(RedashConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
 class RedashSource(Source):
     """
     This plugin extracts the following:
@@ -351,19 +349,18 @@ class RedashSource(Source):
         self.api_page_limit = self.config.api_page_limit or math.inf
 
         self.parse_table_names_from_sql = self.config.parse_table_names_from_sql
-        self.sql_parser_path = self.config.sql_parser
 
         logger.info(
             f"Running Redash ingestion with parse_table_names_from_sql={self.parse_table_names_from_sql}"
         )
 
     def error(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_failure(key, reason)
-        log.error(f"{key} => {reason}")
+        # TODO: Remove this method.
+        self.report.failure(key, reason)
 
     def warn(self, log: logging.Logger, key: str, reason: str) -> None:
-        self.report.report_warning(key, reason)
-        log.warning(f"{key} => {reason}")
+        # TODO: Remove this method.
+        self.report.warning(key, reason)
 
     def validate_connection(self) -> None:
         test_response = self.client._get(f"{self.config.connect_uri}/api")
@@ -376,31 +373,6 @@ class RedashSource(Source):
     def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
         config = RedashConfig.parse_obj(config_dict)
         return cls(ctx, config)
-
-    @classmethod
-    def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
-        assert "." in sql_parser_path, "sql_parser-path must contain a ."
-        parser_cls = import_path(sql_parser_path)
-
-        if not issubclass(parser_cls, SQLParser):
-            raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
-        return parser_cls
-
-    @classmethod
-    def _get_sql_table_names(cls, sql: str, sql_parser_path: str) -> List[str]:
-        parser_cls = cls._import_sql_parser_cls(sql_parser_path)
-
-        try:
-            sql_table_names: List[str] = parser_cls(sql).get_tables()
-        except Exception as e:
-            logger.warning(f"Sql parser failed on {sql} with {e}")
-            return []
-
-        # Remove quotes from table names
-        sql_table_names = [t.replace('"', "") for t in sql_table_names]
-        sql_table_names = [t.replace("`", "") for t in sql_table_names]
-
-        return sql_table_names
 
     def _get_chart_data_source(self, data_source_id: Optional[int] = None) -> Dict:
         url = f"/api/data_sources/{data_source_id}"
@@ -438,14 +410,6 @@ class RedashSource(Source):
 
         return database_name
 
-    def _construct_datalineage_urn(
-        self, platform: str, database_name: str, sql_table_name: str
-    ) -> str:
-        full_dataset_name = get_full_qualified_name(
-            platform, database_name, sql_table_name
-        )
-        return builder.make_dataset_urn(platform, full_dataset_name, self.config.env)
-
     def _get_datasource_urns(
         self, data_source: Dict, sql_query_data: Dict = {}
     ) -> Optional[List[str]]:
@@ -461,34 +425,23 @@ class RedashSource(Source):
             # Getting table lineage from SQL parsing
             if self.parse_table_names_from_sql and data_source_syntax == "sql":
                 dataset_urns = list()
-                try:
-                    sql_table_names = self._get_sql_table_names(
-                        query, self.sql_parser_path
-                    )
-                except Exception as e:
+                sql_parser_in_tables = create_lineage_sql_parsed_result(
+                    query=query,
+                    platform=platform,
+                    env=self.config.env,
+                    platform_instance=None,
+                    default_db=database_name,
+                )
+                # make sure dataset_urns is not empty list
+                dataset_urns = sql_parser_in_tables.in_tables
+                if sql_parser_in_tables.debug_info.table_error:
                     self.report.queries_problem_parsing.add(str(query_id))
                     self.error(
                         logger,
                         "sql-parsing",
-                        f"exception {e} in parsing query-{query_id}-datasource-{data_source_id}",
+                        f"exception {sql_parser_in_tables.debug_info.table_error} in parsing query-{query_id}-datasource-{data_source_id}",
                     )
-                    sql_table_names = []
-                for sql_table_name in sql_table_names:
-                    try:
-                        dataset_urns.append(
-                            self._construct_datalineage_urn(
-                                platform, database_name, sql_table_name
-                            )
-                        )
-                    except Exception:
-                        self.report.queries_problem_parsing.add(str(query_id))
-                        self.warn(
-                            logger,
-                            "data-urn-invalid",
-                            f"Problem making URN for {sql_table_name} parsed from query {query_id}",
-                        )
 
-                # make sure dataset_urns is not empty list
                 return dataset_urns if len(dataset_urns) > 0 else None
 
             else:
@@ -554,7 +507,7 @@ class RedashSource(Source):
         title = dashboard_data.get("name", "")
 
         last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=modified_ts, actor=modified_actor),
+            created=None,
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
@@ -643,11 +596,11 @@ class RedashSource(Source):
         self.report.total_dashboards = total_dashboards
         self.report.max_page_dashboards = max_page
 
-        dash_exec_pool = ThreadPool(self.config.parallelism)
-        for response in dash_exec_pool.imap_unordered(
-            self._process_dashboard_response, range(1, max_page + 1)
-        ):
-            yield from response
+        yield from ThreadedIteratorExecutor.process(
+            self._process_dashboard_response,
+            [(page,) for page in range(1, max_page + 1)],
+            max_workers=self.config.parallelism,
+        )
 
     def _get_chart_type_from_viz_data(self, viz_data: Dict) -> str:
         """
@@ -658,7 +611,7 @@ class RedashSource(Source):
         viz_type = viz_data.get("type", "")
         viz_options = viz_data.get("options", {})
         globalSeriesType = viz_options.get("globalSeriesType", "")
-        report_key = f"redash-chart-{viz_data['id']}"
+        report_type = f"redash-chart-{viz_data['id']}"
 
         # handle Plotly chart types
         if viz_type == "CHART":
@@ -666,14 +619,14 @@ class RedashSource(Source):
             if chart_type is None:
                 chart_type = DEFAULT_VISUALIZATION_TYPE
                 message = f"ChartTypeClass for Redash Visualization Type={viz_type} with options.globalSeriesType={globalSeriesType} is missing. Setting to {DEFAULT_VISUALIZATION_TYPE}"
-                self.report.report_warning(key=report_key, reason=message)
+                self.report.report_warning(title=report_type, message=message)
                 logger.warning(message)
         else:
             chart_type = VISUALIZATION_TYPE_MAP.get(viz_type)
             if chart_type is None:
                 chart_type = DEFAULT_VISUALIZATION_TYPE
                 message = f"ChartTypeClass for Redash Visualization Type={viz_type} is missing. Setting to {DEFAULT_VISUALIZATION_TYPE}"
-                self.report.report_warning(key=report_key, reason=message)
+                self.report.report_warning(title=report_type, message=message)
                 logger.warning(message)
 
         return chart_type
@@ -693,7 +646,7 @@ class RedashSource(Source):
         title = f"{query_data.get('name')} {viz_data.get('name', '')}"
 
         last_modified = ChangeAuditStamps(
-            created=AuditStamp(time=modified_ts, actor=modified_actor),
+            created=None,
             lastModified=AuditStamp(time=modified_ts, actor=modified_actor),
         )
 
@@ -712,8 +665,8 @@ class RedashSource(Source):
             self.report.charts_no_input.add(chart_urn)
             self.report.queries_no_dataset.add(str(query_id))
             self.report.report_warning(
-                key="redash-chart-input-missing",
-                reason=f"For viz-id-{viz_id}-query-{query_id}-datasource-{data_source_id} data_source_type={data_source_type} no datasources found. Setting inputs to None",
+                title="redash-chart-input-missing",
+                message=f"For viz-id-{viz_id}-query-{query_id}-datasource-{data_source_id} data_source_type={data_source_type} no datasources found. Setting inputs to None",
             )
 
         chart_info = ChartInfoClass(
@@ -766,11 +719,12 @@ class RedashSource(Source):
         logger.info(f"/api/queries total count {total_queries} and max page {max_page}")
         self.report.total_queries = total_queries
         self.report.max_page_queries = max_page
-        chart_exec_pool = ThreadPool(self.config.parallelism)
-        for response in chart_exec_pool.imap_unordered(
-            self._process_query_response, range(1, max_page + 1)
-        ):
-            yield from response
+
+        yield from ThreadedIteratorExecutor.process(
+            self._process_query_response,
+            [(page,) for page in range(1, max_page + 1)],
+            max_workers=self.config.parallelism,
+        )
 
     def add_config_to_report(self) -> None:
         self.report.api_page_limit = self.config.api_page_limit

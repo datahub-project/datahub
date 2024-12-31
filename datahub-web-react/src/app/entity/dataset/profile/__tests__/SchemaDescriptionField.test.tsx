@@ -68,7 +68,7 @@ describe('SchemaDescriptionField', () => {
         const longDescription =
             'really long description over 80 characters, really long description over 80 characters, really long description over 80 characters, really long description over 80 characters, really long description over 80 characters';
         it('renders longer messages with show more when not expanded', () => {
-            const onClick = jest.fn();
+            const onClick = vi.fn();
             const { getByText, queryByText } = render(
                 <SchemaDescriptionField
                     expanded={false}
@@ -84,7 +84,7 @@ describe('SchemaDescriptionField', () => {
         });
 
         it('renders longer messages with show less when expanded', () => {
-            const onClick = jest.fn();
+            const onClick = vi.fn();
             const { getByText } = render(
                 <SchemaDescriptionField
                     expanded

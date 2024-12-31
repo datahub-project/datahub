@@ -12,15 +12,14 @@ import java.security.Key;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.security.interfaces.RSAPublicKey;
 import java.security.spec.InvalidKeySpecException;
+import java.security.spec.RSAPublicKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.HashSet;
-import java.security.spec.RSAPublicKeySpec;
-import java.security.interfaces.RSAPublicKey;
 import org.json.JSONArray;
 import org.json.JSONObject;
-
 
 public class DataHubJwtSigningKeyResolver extends SigningKeyResolverAdapter {
 
@@ -38,9 +37,7 @@ public class DataHubJwtSigningKeyResolver extends SigningKeyResolverAdapter {
     client = HttpClient.newHttpClient();
   }
 
-  /**
-   * inspect the header or claims, lookup and return the signing key
-   **/
+  /** inspect the header or claims, lookup and return the signing key */
   @Override
   public Key resolveSigningKey(JwsHeader jwsHeader, Claims claims) {
 
@@ -66,12 +63,11 @@ public class DataHubJwtSigningKeyResolver extends SigningKeyResolverAdapter {
     return key;
   }
 
-  /**
-   * Get public keys from issuer and filter public key for token signature based on token keyId.
-   **/
+  /** Get public keys from issuer and filter public key for token signature based on token keyId. */
   private PublicKey loadPublicKey(String issuer, String keyId) throws Exception {
 
-    HttpRequest request = HttpRequest.newBuilder().uri(URI.create(issuer + "/protocol/openid-connect/certs")).build();
+    HttpRequest request =
+        HttpRequest.newBuilder().uri(URI.create(issuer + "/protocol/openid-connect/certs")).build();
     HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
 
     var body = new JSONObject(response.body());
@@ -87,9 +83,9 @@ public class DataHubJwtSigningKeyResolver extends SigningKeyResolverAdapter {
   }
 
   /**
-   * Generate public key based on token algorithem and public token received from issuer.
-   * Supported algo RSA
-   **/
+   * Generate public key based on token algorithem and public token received from issuer. Supported
+   * algo RSA
+   */
   private PublicKey getPublicKey(JSONObject token) throws Exception {
     PublicKey publicKey = null;
 
@@ -97,8 +93,10 @@ public class DataHubJwtSigningKeyResolver extends SigningKeyResolverAdapter {
       case "RSA":
         try {
           KeyFactory kf = KeyFactory.getInstance("RSA");
-          BigInteger modulus = new BigInteger(1, Base64.getUrlDecoder().decode(token.get("n").toString()));
-          BigInteger exponent = new BigInteger(1, Base64.getUrlDecoder().decode(token.get("e").toString()));
+          BigInteger modulus =
+              new BigInteger(1, Base64.getUrlDecoder().decode(token.get("n").toString()));
+          BigInteger exponent =
+              new BigInteger(1, Base64.getUrlDecoder().decode(token.get("e").toString()));
           publicKey = kf.generatePublic(new RSAPublicKeySpec(modulus, exponent));
         } catch (InvalidKeySpecException e) {
           throw new InvalidKeySpecException("Invalid public key", e);
@@ -113,10 +111,7 @@ public class DataHubJwtSigningKeyResolver extends SigningKeyResolverAdapter {
     return publicKey;
   }
 
-  /**
-   * Generate public Key based on algorithem and 64 encoded public key.
-   * Supported algo RSA
-   **/
+  /** Generate public Key based on algorithem and 64 encoded public key. Supported algo RSA */
   private PublicKey generatePublicKey(String alg, String key) throws Exception {
 
     PublicKey publicKey = null;

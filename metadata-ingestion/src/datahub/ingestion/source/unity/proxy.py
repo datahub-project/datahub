@@ -1,10 +1,11 @@
 """
 Manage the communication with DataBricks Server and provide equivalent dataclasses for dependent modules
 """
+
 import dataclasses
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Union
+from datetime import datetime
+from typing import Any, Dict, Iterable, List, Optional, Union, cast
 from unittest.mock import patch
 
 from databricks.sdk import WorkspaceClient
@@ -26,6 +27,8 @@ from databricks.sdk.service.sql import (
 from databricks.sdk.service.workspace import ObjectType
 
 import datahub
+from datahub.emitter.mce_builder import parse_ts_millis
+from datahub.ingestion.source.unity.hive_metastore_proxy import HiveMetastoreProxy
 from datahub.ingestion.source.unity.proxy_profiling import (
     UnityCatalogProxyProfilingMixin,
 )
@@ -33,6 +36,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ALLOWED_STATEMENT_TYPES,
     Catalog,
     Column,
+    CustomCatalogType,
     ExternalTableReference,
     Metastore,
     Notebook,
@@ -47,16 +51,19 @@ from datahub.ingestion.source.unity.report import UnityCatalogReport
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+@dataclasses.dataclass
 class TableInfoWithGeneration(TableInfo):
     generation: Optional[int] = None
 
-    @classmethod
     def as_dict(self) -> dict:
         return {**super().as_dict(), "generation": self.generation}
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "TableInfoWithGeneration":
-        table_info = super().from_dict(d)
+        table_info: TableInfoWithGeneration = cast(
+            TableInfoWithGeneration,
+            super().from_dict(d),
+        )
         table_info.generation = d.get("generation")
         return table_info
 
@@ -70,7 +77,10 @@ class QueryFilterWithStatementTypes(QueryFilter):
 
     @classmethod
     def from_dict(cls, d: Dict[str, Any]) -> "QueryFilterWithStatementTypes":
-        v = super().from_dict(d)
+        v: QueryFilterWithStatementTypes = cast(
+            QueryFilterWithStatementTypes,
+            super().from_dict(d),
+        )
         v.statement_types = d["statement_types"]
         return v
 
@@ -87,6 +97,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         personal_access_token: str,
         warehouse_id: Optional[str],
         report: UnityCatalogReport,
+        hive_metastore_proxy: Optional[HiveMetastoreProxy] = None,
     ):
         self._workspace_client = WorkspaceClient(
             host=workspace_url,
@@ -96,62 +107,113 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         )
         self.warehouse_id = warehouse_id or ""
         self.report = report
+        self.hive_metastore_proxy = hive_metastore_proxy
 
     def check_basic_connectivity(self) -> bool:
-        return bool(self._workspace_client.catalogs.list())
+        return bool(self._workspace_client.catalogs.list(include_browse=True))
 
-    def assigned_metastore(self) -> Metastore:
+    def assigned_metastore(self) -> Optional[Metastore]:
         response = self._workspace_client.metastores.summary()
         return self._create_metastore(response)
 
     def catalogs(self, metastore: Optional[Metastore]) -> Iterable[Catalog]:
-        response = self._workspace_client.catalogs.list()
+        if self.hive_metastore_proxy:
+            yield self.hive_metastore_proxy.hive_metastore_catalog(metastore)
+
+        response = self._workspace_client.catalogs.list(include_browse=True)
         if not response:
             logger.info("Catalogs not found")
-            return []
+            return
         for catalog in response:
-            yield self._create_catalog(metastore, catalog)
+            optional_catalog = self._create_catalog(metastore, catalog)
+            if optional_catalog:
+                yield optional_catalog
+
+    def catalog(
+        self, catalog_name: str, metastore: Optional[Metastore]
+    ) -> Optional[Catalog]:
+        response = self._workspace_client.catalogs.get(
+            catalog_name, include_browse=True
+        )
+        if not response:
+            logger.info(f"Catalog {catalog_name} not found")
+            return None
+        optional_catalog = self._create_catalog(metastore, response)
+        if optional_catalog:
+            return optional_catalog
+
+        return None
 
     def schemas(self, catalog: Catalog) -> Iterable[Schema]:
-        response = self._workspace_client.schemas.list(catalog_name=catalog.name)
+        if (
+            self.hive_metastore_proxy
+            and catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG
+        ):
+            yield from self.hive_metastore_proxy.hive_metastore_schemas(catalog)
+            return
+        response = self._workspace_client.schemas.list(
+            catalog_name=catalog.name, include_browse=True
+        )
         if not response:
             logger.info(f"Schemas not found for catalog {catalog.id}")
-            return []
+            return
         for schema in response:
-            yield self._create_schema(catalog, schema)
+            optional_schema = self._create_schema(catalog, schema)
+            if optional_schema:
+                yield optional_schema
 
     def tables(self, schema: Schema) -> Iterable[Table]:
+        if (
+            self.hive_metastore_proxy
+            and schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG
+        ):
+            yield from self.hive_metastore_proxy.hive_metastore_tables(schema)
+            return
         with patch("databricks.sdk.service.catalog.TableInfo", TableInfoWithGeneration):
             response = self._workspace_client.tables.list(
-                catalog_name=schema.catalog.name, schema_name=schema.name
+                catalog_name=schema.catalog.name,
+                schema_name=schema.name,
+                include_browse=True,
             )
             if not response:
                 logger.info(f"Tables not found for schema {schema.id}")
-                return []
+                return
             for table in response:
                 try:
-                    yield self._create_table(schema, table)
+                    optional_table = self._create_table(
+                        schema, cast(TableInfoWithGeneration, table)
+                    )
+                    if optional_table:
+                        yield optional_table
                 except Exception as e:
                     logger.warning(f"Error parsing table: {e}")
                     self.report.report_warning("table-parse", str(e))
 
     def service_principals(self) -> Iterable[ServicePrincipal]:
         for principal in self._workspace_client.service_principals.list():
-            yield self._create_service_principal(principal)
+            optional_sp = self._create_service_principal(principal)
+            if optional_sp:
+                yield optional_sp
+
+    def groups(self):
+        """
+        fetch the list of the groups belongs to the workspace, using the workspace client
+        create the list of group's display name, iterating through the list of groups fetched by the workspace client
+        """
+        group_list: List[Optional[str]] = []
+        for group in self._workspace_client.groups.list():
+            group_list.append(group.display_name)
+        return group_list
 
     def workspace_notebooks(self) -> Iterable[Notebook]:
         for obj in self._workspace_client.workspace.list("/", recursive=True):
-            if obj.object_type == ObjectType.NOTEBOOK:
+            if obj.object_type == ObjectType.NOTEBOOK and obj.object_id and obj.path:
                 yield Notebook(
                     id=obj.object_id,
                     path=obj.path,
                     language=obj.language,
-                    created_at=datetime.fromtimestamp(
-                        obj.created_at / 1000, tz=timezone.utc
-                    ),
-                    modified_at=datetime.fromtimestamp(
-                        obj.modified_at / 1000, tz=timezone.utc
-                    ),
+                    created_at=parse_ts_millis(obj.created_at),
+                    modified_at=parse_ts_millis(obj.modified_at),
                 )
 
     def query_history(
@@ -176,7 +238,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         )
         for query_info in self._query_history(filter_by=filter_by):
             try:
-                yield self._create_query(query_info)
+                optional_query = self._create_query(query_info)
+                if optional_query:
+                    yield optional_query
             except Exception as e:
                 logger.warning(f"Error parsing query: {e}")
                 self.report.report_warning("query-parse", str(e))
@@ -201,15 +265,18 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             "max_results": max_results,  # Max batch size
         }
 
-        response: dict = self._workspace_client.api_client.do(
+        response: dict = self._workspace_client.api_client.do(  # type: ignore
             method, path, body={**body, "filter_by": filter_by.as_dict()}
         )
+        # we use default raw=False(default) in above request, therefore will always get dict
         while True:
             if "res" not in response or not response["res"]:
                 return
             for v in response["res"]:
                 yield QueryInfo.from_dict(v)
-            response = self._workspace_client.api_client.do(
+            if not response.get("next_page_token"):  # last page
+                return
+            response = self._workspace_client.api_client.do(  # type: ignore
                 method, path, body={**body, "page_token": response["next_page_token"]}
             )
 
@@ -217,7 +284,7 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self, table_name: str, include_entity_lineage: bool
     ) -> dict:
         """List table lineage by table name."""
-        return self._workspace_client.api_client.do(
+        return self._workspace_client.api_client.do(  # type: ignore
             method="GET",
             path="/api/2.0/lineage-tracking/table-lineage",
             body={
@@ -228,13 +295,16 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
     def list_lineages_by_column(self, table_name: str, column_name: str) -> dict:
         """List column lineage by table name and column name."""
-        return self._workspace_client.api_client.do(
+        return self._workspace_client.api_client.do(  # type: ignore
             "GET",
             "/api/2.0/lineage-tracking/column-lineage",
             body={"table_name": table_name, "column_name": column_name},
         )
 
     def table_lineage(self, table: Table, include_entity_lineage: bool) -> None:
+        if table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG:
+            # Lineage is not available for Hive Metastore Tables.
+            return None
         # Lineage endpoint doesn't exists on 2.1 version
         try:
             response: dict = self.list_lineages_by_table(
@@ -294,7 +364,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
     @staticmethod
     def _create_metastore(
         obj: Union[GetMetastoreSummaryResponse, MetastoreInfo]
-    ) -> Metastore:
+    ) -> Optional[Metastore]:
+        if not obj.name:
+            return None
         return Metastore(
             name=obj.name,
             id=UnityCatalogApiProxy._escape_sequence(obj.name),
@@ -308,7 +380,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
 
     def _create_catalog(
         self, metastore: Optional[Metastore], obj: CatalogInfo
-    ) -> Catalog:
+    ) -> Optional[Catalog]:
+        if not obj.name:
+            self.report.num_catalogs_missing_name += 1
+            return None
         catalog_name = self._escape_sequence(obj.name)
         return Catalog(
             name=obj.name,
@@ -319,7 +394,10 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             type=obj.catalog_type,
         )
 
-    def _create_schema(self, catalog: Catalog, obj: SchemaInfo) -> Schema:
+    def _create_schema(self, catalog: Catalog, obj: SchemaInfo) -> Optional[Schema]:
+        if not obj.name:
+            self.report.num_schemas_missing_name += 1
+            return None
         return Schema(
             name=obj.name,
             id=f"{catalog.id}.{self._escape_sequence(obj.name)}",
@@ -328,11 +406,14 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             owner=obj.owner,
         )
 
-    def _create_column(self, table_id: str, obj: ColumnInfo) -> Column:
+    def _create_column(self, table_id: str, obj: ColumnInfo) -> Optional[Column]:
+        if not obj.name:
+            self.report.num_columns_missing_name += 1
+            return None
         return Column(
             name=obj.name,
             id=f"{table_id}.{self._escape_sequence(obj.name)}",
-            type_text=obj.type_text,
+            type_text=obj.type_text or "",
             type_name=obj.type_name,
             type_scale=obj.type_scale,
             type_precision=obj.type_precision,
@@ -341,7 +422,12 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             comment=obj.comment,
         )
 
-    def _create_table(self, schema: Schema, obj: TableInfoWithGeneration) -> Table:
+    def _create_table(
+        self, schema: Schema, obj: TableInfoWithGeneration
+    ) -> Optional[Table]:
+        if not obj.name:
+            self.report.num_tables_missing_name += 1
+            return None
         table_id = f"{schema.id}.{self._escape_sequence(obj.name)}"
         return Table(
             name=obj.name,
@@ -350,26 +436,36 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             schema=schema,
             storage_location=obj.storage_location,
             data_source_format=obj.data_source_format,
-            columns=[
-                self._create_column(table_id, column) for column in obj.columns or []
-            ],
+            columns=(
+                list(self._extract_columns(obj.columns, table_id))
+                if obj.columns
+                else []
+            ),
             view_definition=obj.view_definition or None,
             properties=obj.properties or {},
             owner=obj.owner,
             generation=obj.generation,
-            created_at=datetime.fromtimestamp(obj.created_at / 1000, tz=timezone.utc),
+            created_at=(parse_ts_millis(obj.created_at) if obj.created_at else None),
             created_by=obj.created_by,
-            updated_at=datetime.fromtimestamp(obj.updated_at / 1000, tz=timezone.utc)
-            if obj.updated_at
-            else None,
+            updated_at=(parse_ts_millis(obj.updated_at) if obj.updated_at else None),
             updated_by=obj.updated_by,
             table_id=obj.table_id,
             comment=obj.comment,
         )
 
+    def _extract_columns(
+        self, columns: List[ColumnInfo], table_id: str
+    ) -> Iterable[Column]:
+        for column in columns:
+            optional_column = self._create_column(table_id, column)
+            if optional_column:
+                yield optional_column
+
     def _create_service_principal(
         self, obj: DatabricksServicePrincipal
-    ) -> ServicePrincipal:
+    ) -> Optional[ServicePrincipal]:
+        if not obj.display_name or not obj.application_id:
+            return None
         return ServicePrincipal(
             id=f"{obj.id}.{self._escape_sequence(obj.display_name)}",
             display_name=obj.display_name,
@@ -377,18 +473,20 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             active=obj.active,
         )
 
-    @staticmethod
-    def _create_query(info: QueryInfo) -> Query:
+    def _create_query(self, info: QueryInfo) -> Optional[Query]:
+        if (
+            not info.query_text
+            or not info.query_start_time_ms
+            or not info.query_end_time_ms
+        ):
+            self.report.num_queries_missing_info += 1
+            return None
         return Query(
             query_id=info.query_id,
             query_text=info.query_text,
             statement_type=info.statement_type,
-            start_time=datetime.fromtimestamp(
-                info.query_start_time_ms / 1000, tz=timezone.utc
-            ),
-            end_time=datetime.fromtimestamp(
-                info.query_end_time_ms / 1000, tz=timezone.utc
-            ),
+            start_time=parse_ts_millis(info.query_start_time_ms),
+            end_time=parse_ts_millis(info.query_end_time_ms),
             user_id=info.user_id,
             user_name=info.user_name,
             executed_as_user_id=info.executed_as_user_id,

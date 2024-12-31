@@ -1,0 +1,21 @@
+namespace com.linkedin.assertion
+
+/**
+* Definition of a transform applied to the values of a column / field.
+* Note that the applicability of a field transform ultimately depends on the native type
+* of the field / column.
+*
+* Model has single field to permit extension.
+*/
+record FieldTransform {
+    /**
+    * The type of the field transform, e.g. the transformation
+    * function / operator to apply.
+    */
+    type: enum FieldTransformType {
+      /**
+      * Obtain the length of a string field / column (applicable to string types)
+      */
+      LENGTH
+    }
+}

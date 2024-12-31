@@ -21,7 +21,7 @@ type Props = {
     setShowDownloadAsCsvModal: (showDownloadAsCsvModal: boolean) => any;
 };
 
-const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 500;
+const SEARCH_PAGE_SIZE_FOR_DOWNLOAD = 200;
 
 export default function DownloadAsCsvModal({
     downloadSearchResults,
@@ -123,7 +123,7 @@ export default function DownloadAsCsvModal({
             centered
             onCancel={() => setShowDownloadAsCsvModal(false)}
             title="Download as..."
-            visible={showDownloadAsCsvModal}
+            open={showDownloadAsCsvModal}
             footer={
                 <>
                     <Button onClick={() => setShowDownloadAsCsvModal(false)} type="text">

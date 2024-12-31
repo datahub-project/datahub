@@ -9,16 +9,13 @@ import java.nio.file.Path;
 import java.util.Map;
 import javax.annotation.Nonnull;
 
-
-/**
- *
- * A mapper to map plugin configuration to java Pojo classes
- */
+/** A mapper to map plugin configuration to java Pojo classes */
 public class YamlMapper<T> {
   private final ObjectMapper objectMapper;
 
   public YamlMapper() {
-    this.objectMapper = YAMLMapper.builder().enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS).build();
+    this.objectMapper =
+        YAMLMapper.builder().enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS).build();
     objectMapper.registerModule(new Jdk8Module());
   }
 

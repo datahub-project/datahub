@@ -1,0 +1,96 @@
+x-search-datastore-elasticsearch-env: &search-datastore-env
+  ELASTICSEARCH_HOST: search
+  ELASTICSEARCH_PORT: 9200
+  ELASTICSEARCH_PROTOCOL: http
+  ELASTICSEARCH_USE_SSL: ${ELASTICSEARCH_USE_SSL:-false}
+
+x-datahub-actions-service: &datahub-actions-service
+  hostname: actions
+  image: ${DATAHUB_ACTIONS_IMAGE:-${DATAHUB_ACTIONS_REPO:-acryldata}/datahub-actions}:${ACTIONS_VERSION:-v0.1.6}
+  env_file:
+    - datahub-actions/env/docker.env
+    - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_ACTIONS_ENV:-empty2.env}
+  environment:
+    <<: *search-datastore-env
+    ACTIONS_EXTRA_PACKAGES: ${ACTIONS_EXTRA_PACKAGES:-}
+    ACTIONS_CONFIG: ${ACTIONS_CONFIG:-}
+    KAFKA_BOOTSTRAP_SERVER: broker:29092
+    SCHEMA_REGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
+
+x-datahub-actions-service-dev: &datahub-actions-service-dev
+  <<: *datahub-actions-service
+
+services:
+  datahub-actions-quickstart:
+    <<: *datahub-actions-service
+    profiles:
+      - quickstart
+      - quickstart-backend
+    depends_on:
+      datahub-gms-quickstart:
+        condition: service_healthy
+  datahub-actions-quickstart-cassandra:
+    <<: *datahub-actions-service
+    profiles:
+      - quickstart-cassandra
+    depends_on:
+      datahub-gms-quickstart-cassandra:
+        condition: service_healthy
+  datahub-actions-quickstart-postgres:
+    <<: *datahub-actions-service
+    profiles:
+      - quickstart-postgres
+    depends_on:
+      datahub-gms-quickstart-postgres:
+        condition: service_healthy
+  datahub-actions-quickstart-consumers:
+    <<: *datahub-actions-service
+    profiles:
+      - quickstart-consumers
+    depends_on:
+      datahub-gms-quickstart-consumers:
+        condition: service_healthy
+  datahub-actions-debug:
+    <<: *datahub-actions-service-dev
+    profiles:
+      - debug
+      - debug-backend
+    depends_on:
+      datahub-gms-debug:
+        condition: service_healthy
+  datahub-actions-debug-postgres:
+    <<: *datahub-actions-service-dev
+    profiles:
+      - debug-postgres
+    depends_on:
+      datahub-gms-debug-postgres:
+        condition: service_healthy
+  datahub-actions-debug-cassandra:
+    <<: *datahub-actions-service-dev
+    profiles:
+      - debug-cassandra
+    depends_on:
+      datahub-gms-debug-cassandra:
+        condition: service_healthy
+  datahub-actions-debug-consumers:
+    <<: *datahub-actions-service-dev
+    profiles:
+      - debug-consumers
+    depends_on:
+      datahub-gms-debug-consumers:
+        condition: service_healthy
+  datahub-actions-debug-neo4j:
+    <<: *datahub-actions-service-dev
+    profiles:
+      - debug-neo4j
+    depends_on:
+      datahub-gms-debug-neo4j:
+        condition: service_healthy
+  datahub-actions-debug-elasticsearch:
+    <<: *datahub-actions-service-dev
+    profiles:
+      - debug-elasticsearch
+    depends_on:
+      datahub-gms-debug-elasticsearch:
+        condition: service_healthy

@@ -1,0 +1,113 @@
+namespace com.linkedin.structured
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+import com.linkedin.datahub.DataHubSearchConfig
+
+@Aspect = {
+   "name": "propertyDefinition"
+}
+record StructuredPropertyDefinition {
+    /**
+    * The fully qualified name of the property. e.g. io.acryl.datahub.myProperty
+    */
+    @Searchable = {}
+    qualifiedName: string
+
+    /**
+    * The display name of the property. This is the name that will be shown in the UI and can be used to look up the property id.
+    */
+    @Searchable = {}
+    displayName: optional string
+
+    /**
+    * The value type of the property. Must be a dataType.
+    * e.g. To indicate that the property is of type DATE, use urn:li:dataType:datahub.date
+    */
+    valueType: Urn
+
+    /**
+    * A map that allows for type specialization of the valueType.
+    * e.g. a valueType of urn:li:dataType:datahub.urn
+    * can be specialized to be a USER or GROUP URN by adding a typeQualifier like 
+    * { "allowedTypes": ["urn:li:entityType:datahub.corpuser", "urn:li:entityType:datahub.corpGroup"] }
+    */
+    typeQualifier: optional map[string, array[string]]
+
+    /**
+    * A list of allowed values that the property is allowed to take. 
+    * If this is not specified, then the property can take any value of given type.
+    */
+    allowedValues: optional array[PropertyValue]
+    
+    /**
+    * The cardinality of the property. If not specified, then the property is assumed to be single valued..
+    */
+    cardinality: optional enum PropertyCardinality {
+        SINGLE
+        MULTIPLE
+    } = "SINGLE"
+
+    @Relationship = {
+      "/*": {
+        "name": "StructuredPropertyOf",
+        "entityTypes": [ "entityType" ]
+      }
+    }
+    @Searchable = {
+      "/*": {
+        "fieldName": "entityTypes"
+      }
+    }
+    entityTypes: array[Urn]
+
+    /**
+    * The description of the property. This is the description that will be shown in the UI.
+    */
+    description: optional string
+
+    /**
+    * Search configuration for this property. If not specified, then the property is indexed using the default mapping.
+    * from the logical type.
+    */
+    searchConfiguration: optional DataHubSearchConfig
+
+    /**
+     * Whether the structured property value is immutable once applied to an entity.
+     */
+    @Searchable = {
+      "fieldType": "BOOLEAN"
+    }
+    immutable: boolean = false
+
+    /**
+     * Definition version - Allows breaking schema changes. String is compared case-insensitive and new
+     *                      versions must be monotonically increasing. Cannot use periods/dots.
+     *                      Suggestions: v1, v2
+     *                                   20240610, 20240611
+     */
+    version: optional string
+
+    /**
+      * Created Audit stamp
+      */
+    @Searchable = {
+      "/time": {
+        "fieldName": "createdTime",
+        "fieldType": "DATETIME"
+      }
+    }
+    created: optional AuditStamp
+
+    /**
+     * Last Modified Audit stamp
+     */
+    @Searchable = {
+      "/time": {
+       "fieldName": "lastModified",
+       "fieldType": "DATETIME"
+      }
+    }
+    lastModified: optional AuditStamp
+}
+

@@ -1,14 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
-import { message, Button, List, Typography } from 'antd';
-import { LinkOutlined, DeleteOutlined } from '@ant-design/icons';
-import { EntityType, InstitutionalMemoryMetadata } from '../../../../../../types.generated';
-import { useEntityData } from '../../../EntityContext';
+import { message, Button, List, Typography, Modal, Form, Input } from 'antd';
+import { LinkOutlined, DeleteOutlined, EditOutlined } from '@ant-design/icons';
+import { InstitutionalMemoryMetadata } from '../../../../../../types.generated';
+import { useEntityData, useMutationUrn } from '../../../EntityContext';
 import { useEntityRegistry } from '../../../../../useEntityRegistry';
 import { ANTD_GRAY } from '../../../constants';
 import { formatDateString } from '../../../containers/profile/utils';
-import { useRemoveLinkMutation } from '../../../../../../graphql/mutations.generated';
+import { useAddLinkMutation, useRemoveLinkMutation } from '../../../../../../graphql/mutations.generated';
+import analytics, { EntityActionType, EventType } from '../../../../../analytics';
 
 const LinkListItem = styled(List.Item)`
     border-radius: 5px;
@@ -33,10 +34,15 @@ type LinkListProps = {
 };
 
 export const LinkList = ({ refetch }: LinkListProps) => {
-    const { urn: entityUrn, entityData } = useEntityData();
+    const [editModalVisble, setEditModalVisible] = useState(false);
+    const [linkDetails, setLinkDetails] = useState<InstitutionalMemoryMetadata | undefined>(undefined);
+    const { urn: entityUrn, entityData, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const [removeLinkMutation] = useRemoveLinkMutation();
     const links = entityData?.institutionalMemory?.elements || [];
+    const [form] = Form.useForm();
+    const [addLinkMutation] = useAddLinkMutation();
+    const mutationUrn = useMutationUrn();
 
     const handleDeleteLink = async (metadata: InstitutionalMemoryMetadata) => {
         try {
@@ -53,8 +59,98 @@ export const LinkList = ({ refetch }: LinkListProps) => {
         refetch?.();
     };
 
+    const handleEditLink = (metadata: InstitutionalMemoryMetadata) => {
+        form.setFieldsValue({
+            url: metadata.url,
+            label: metadata.description,
+        });
+        setLinkDetails(metadata);
+        setEditModalVisible(true);
+    };
+
+    const handleClose = () => {
+        form.resetFields();
+        setEditModalVisible(false);
+    };
+
+    const handleEdit = async (formData: any) => {
+        if (!linkDetails) return;
+        try {
+            await removeLinkMutation({
+                variables: { input: { linkUrl: linkDetails.url, resourceUrn: linkDetails.associatedUrn || entityUrn } },
+            });
+            await addLinkMutation({
+                variables: { input: { linkUrl: formData.url, label: formData.label, resourceUrn: mutationUrn } },
+            });
+
+            message.success({ content: 'Link Updated', duration: 2 });
+
+            analytics.event({
+                type: EventType.EntityActionEvent,
+                entityType,
+                entityUrn: mutationUrn,
+                actionType: EntityActionType.UpdateLinks,
+            });
+
+            refetch?.();
+            handleClose();
+        } catch (e: unknown) {
+            message.destroy();
+
+            if (e instanceof Error) {
+                message.error({ content: `Error updating link: \n ${e.message || ''}`, duration: 2 });
+            }
+        }
+    };
+
     return entityData ? (
         <>
+            <Modal
+                title="Edit Link"
+                open={editModalVisble}
+                destroyOnClose
+                onCancel={handleClose}
+                footer={[
+                    <Button type="text" onClick={handleClose}>
+                        Cancel
+                    </Button>,
+                    <Button form="editLinkForm" key="submit" htmlType="submit">
+                        Edit
+                    </Button>,
+                ]}
+            >
+                <Form form={form} name="editLinkForm" onFinish={handleEdit} layout="vertical">
+                    <Form.Item
+                        name="url"
+                        label="URL"
+                        rules={[
+                            {
+                                required: true,
+                                message: 'A URL is required.',
+                            },
+                            {
+                                type: 'url',
+                                warningOnly: true,
+                                message: 'This field must be a valid url.',
+                            },
+                        ]}
+                    >
+                        <Input placeholder="https://" autoFocus />
+                    </Form.Item>
+                    <Form.Item
+                        name="label"
+                        label="Label"
+                        rules={[
+                            {
+                                required: true,
+                                message: 'A label is required.',
+                            },
+                        ]}
+                    >
+                        <Input placeholder="A short label for this link" />
+                    </Form.Item>
+                </Form>
+            </Modal>
             {links.length > 0 && (
                 <List
                     size="large"
@@ -62,9 +158,14 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                     renderItem={(link) => (
                         <LinkListItem
                             extra={
-                                <Button onClick={() => handleDeleteLink(link)} type="text" shape="circle" danger>
-                                    <DeleteOutlined />
-                                </Button>
+                                <>
+                                    <Button onClick={() => handleEditLink(link)} type="text" shape="circle">
+                                        <EditOutlined />
+                                    </Button>
+                                    <Button onClick={() => handleDeleteLink(link)} type="text" shape="circle" danger>
+                                        <DeleteOutlined />
+                                    </Button>
+                                </>
                             }
                         >
                             <List.Item.Meta
@@ -81,10 +182,8 @@ export const LinkList = ({ refetch }: LinkListProps) => {
                                 description={
                                     <>
                                         Added {formatDateString(link.created.time)} by{' '}
-                                        <Link
-                                            to={`${entityRegistry.getEntityUrl(EntityType.CorpUser, link.author.urn)}`}
-                                        >
-                                            {link.author.username}
+                                        <Link to={`${entityRegistry.getEntityUrl(link.actor.type, link.actor.urn)}`}>
+                                            {entityRegistry.getDisplayName(link.actor.type, link.actor)}
                                         </Link>
                                     </>
                                 }

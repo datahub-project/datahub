@@ -7,6 +7,7 @@ import { HomePageButton } from './components';
 
 const PlatformLogo = styled(Image)`
     max-height: 32px;
+    height: 32px;
     width: auto;
     object-fit: contain;
     background-color: transparent;

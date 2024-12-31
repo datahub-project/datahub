@@ -2,19 +2,16 @@ package com.linkedin.gms.factory.auth;
 
 import com.datahub.authentication.token.StatefulTokenService;
 import com.linkedin.metadata.entity.EntityService;
+import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
-
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
 
 @Configuration
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class DataHubTokenServiceFactory {
 
   @Value("${authentication.tokenService.signingKey:}")
@@ -29,26 +26,17 @@ public class DataHubTokenServiceFactory {
   @Value("${authentication.tokenService.issuer:datahub-metadata-service}")
   private String issuer;
 
-  /**
-   * +  @Inject
-   * +  @Named("entityService")
-   * +  private EntityService _entityService;
-   * +
-   */
+  /** + @Inject + @Named("entityService") + private EntityService<?> _entityService; + */
   @Autowired
   @Qualifier("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
   @Bean(name = "dataHubTokenService")
   @Scope("singleton")
   @Nonnull
-  protected StatefulTokenService getInstance() {
+  protected StatefulTokenService getInstance(
+      @Qualifier("systemOperationContext") final OperationContext systemOpContext) {
     return new StatefulTokenService(
-        this.signingKey,
-        this.signingAlgorithm,
-        this.issuer,
-        this._entityService,
-        this.saltingKey
-    );
+        systemOpContext, signingKey, signingAlgorithm, issuer, _entityService, saltingKey);
   }
 }

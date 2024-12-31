@@ -7,10 +7,11 @@ type PropsData = {
     email: string | undefined;
     slack: string | undefined;
     urn: string | undefined;
+    photoUrl: string | undefined;
 };
 
 type Props = {
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
     onSave: () => void;
     editModalData: PropsData;
@@ -18,7 +19,7 @@ type Props = {
 /** Regex Validations */
 export const USER_NAME_REGEX = new RegExp('^[a-zA-Z ]*$');
 
-export default function GroupEditModal({ visible, onClose, onSave, editModalData }: Props) {
+export default function GroupEditModal({ open, onClose, onSave, editModalData }: Props) {
     const [updateCorpGroupPropertiesMutation] = useUpdateCorpGroupPropertiesMutation();
     const [form] = Form.useForm();
 
@@ -27,6 +28,7 @@ export default function GroupEditModal({ visible, onClose, onSave, editModalData
         slack: editModalData.slack,
         email: editModalData.email,
         urn: editModalData.urn,
+        photoUrl: editModalData.photoUrl,
     });
 
     useEffect(() => {
@@ -41,6 +43,7 @@ export default function GroupEditModal({ visible, onClose, onSave, editModalData
                 input: {
                     email: data.email,
                     slack: data.slack,
+                    pictureLink: data.photoUrl,
                 },
             },
         })
@@ -55,6 +58,7 @@ export default function GroupEditModal({ visible, onClose, onSave, editModalData
                     email: '',
                     slack: '',
                     urn: '',
+                    photoUrl: '',
                 });
             })
             .catch((e) => {
@@ -72,7 +76,7 @@ export default function GroupEditModal({ visible, onClose, onSave, editModalData
     return (
         <Modal
             title="Edit Profile"
-            visible={visible}
+            open={open}
             onCancel={onClose}
             footer={
                 <>
@@ -123,6 +127,19 @@ export default function GroupEditModal({ visible, onClose, onSave, editModalData
                         placeholder="#engineering"
                         value={data.slack}
                         onChange={(event) => setData({ ...data, slack: event.target.value })}
+                    />
+                </Form.Item>
+
+                <Form.Item
+                    name="photoUrl"
+                    label={<Typography.Text strong>Image URL</Typography.Text>}
+                    rules={[{ whitespace: true }, { type: 'url', message: 'not valid url' }]}
+                    hasFeedback
+                >
+                    <Input
+                        placeholder="https://www.example.com/photo.png"
+                        value={data.photoUrl}
+                        onChange={(event) => setData({ ...data, photoUrl: event.target.value })}
                     />
                 </Form.Item>
             </Form>

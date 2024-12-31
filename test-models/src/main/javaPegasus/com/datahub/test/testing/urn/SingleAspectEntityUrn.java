@@ -3,7 +3,6 @@ package com.datahub.test.testing.urn;
 import com.linkedin.common.urn.Urn;
 import java.net.URISyntaxException;
 
-
 public final class SingleAspectEntityUrn extends Urn {
 
   private static final String ENTITY_TYPE = "entitySingleAspectEntity";

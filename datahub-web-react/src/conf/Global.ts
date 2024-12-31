@@ -15,7 +15,6 @@ export enum PageRoutes {
     BROWSE = '/browse',
     BROWSE_RESULTS = '/browse/:type',
     DATASETS = '/datasets',
-    ASSETS = '/assets',
     ANALYTICS = '/analytics',
     POLICIES = '/policies',
     SETTINGS_POLICIES = '/settings/policies',
@@ -26,10 +25,12 @@ export enum PageRoutes {
     DOMAINS = '/domains',
     DOMAIN = '/domain',
     GLOSSARY = '/glossary',
+    STRUCTURED_PROPERTIES = '/structured-properties',
     SETTINGS_VIEWS = '/settings/views',
     EMBED = '/embed',
     EMBED_LOOKUP = '/embed/lookup/:url',
     SETTINGS_POSTS = '/settings/posts',
+    BUSINESS_ATTRIBUTE = '/business-attribute',
 }
 
 /**
@@ -41,3 +42,11 @@ export const CLIENT_AUTH_COOKIE = 'actor';
  * Name of the unique browser id cookie generated on client side
  */
 export const BROWSER_ID_COOKIE = 'bid';
+
+/** New Routes Map for redirection */
+export const NEW_ROUTE_MAP = {
+    '/Validation/Assertions': '/Quality/List',
+    '/Validation/Tests': '/Governance/Tests',
+    '/Validation/Data%20Contract': '/Quality/Data%20Contract',
+    '/Validation': '/Quality',
+};

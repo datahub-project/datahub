@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Form
+ */
+@Aspect = {
+  "name": "formKey",
+}
+record FormKey {
+  /**
+  * Unique id for the form.
+  */
+  id: string
+}

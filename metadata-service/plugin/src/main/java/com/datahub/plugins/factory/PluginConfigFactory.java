@@ -11,12 +11,9 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
 
-
-/**
- * Create instance of config provider as per type mentioned in {@link Config}
- */
+/** Create instance of config provider as per type mentioned in {@link Config} */
 public class PluginConfigFactory {
-  private final static Map<PluginType, PluginConfigProvider> CONFIG_PROVIDER_REGISTRY;
+  private static final Map<PluginType, PluginConfigProvider> CONFIG_PROVIDER_REGISTRY;
 
   static {
     CONFIG_PROVIDER_REGISTRY = new HashMap<>(2);

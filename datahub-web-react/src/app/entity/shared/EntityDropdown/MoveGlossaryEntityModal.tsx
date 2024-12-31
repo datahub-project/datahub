@@ -7,6 +7,7 @@ import { useUpdateParentNodeMutation } from '../../../../graphql/glossary.genera
 import NodeParentSelect from './NodeParentSelect';
 import { useGlossaryEntityData } from '../GlossaryEntityContext';
 import { getGlossaryRootToUpdate, getParentNodeToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
+import { getModalDomContainer } from '../../../../utils/focus';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -66,7 +67,7 @@ function MoveGlossaryEntityModal(props: Props) {
         <Modal
             data-testid="move-glossary-entity-modal"
             title="Move"
-            visible
+            open
             onCancel={onClose}
             footer={
                 <>
@@ -78,6 +79,7 @@ function MoveGlossaryEntityModal(props: Props) {
                     </Button>
                 </>
             }
+            getContainer={getModalDomContainer}
         >
             <Form form={form} initialValues={{}} layout="vertical">
                 <Form.Item
@@ -92,6 +94,7 @@ function MoveGlossaryEntityModal(props: Props) {
                             selectedParentUrn={selectedParentUrn}
                             setSelectedParentUrn={setSelectedParentUrn}
                             isMoving
+                            autofocus
                         />
                     </StyledItem>
                 </Form.Item>

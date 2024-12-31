@@ -23,7 +23,7 @@ import useGetSearchQueryInputs from './useGetSearchQueryInputs';
 import useSearchFilterAnalytics from './filters/useSearchFilterAnalytics';
 import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from './useSearchAndBrowseVersion';
 import useFilterMode from './filters/useFilterMode';
-import { useUpdateEducationStepIdsAllowlist } from '../onboarding/useUpdateEducationStepIdsAllowlist';
+import { useToggleEducationStepIdsAllowList } from '../onboarding/useToggleEducationStepIdsAllowList';
 import { useSelectedSortOption } from './context/SearchContext';
 
 /**
@@ -59,9 +59,10 @@ export const SearchPage = () => {
                 orFilters,
                 viewUrn,
                 sortInput,
-                searchFlags: { getSuggestions: true },
+                searchFlags: { getSuggestions: true, includeStructuredPropertyFacets: true },
             },
         },
+        fetchPolicy: 'cache-and-network',
     });
 
     const total = data?.searchAcrossEntities?.total || 0;
@@ -198,10 +199,10 @@ export const SearchPage = () => {
     }, [isSelectMode]);
 
     // Render new search filters v2 onboarding step if the feature flag is on
-    useUpdateEducationStepIdsAllowlist(showSearchFiltersV2, SEARCH_RESULTS_FILTERS_V2_INTRO);
+    useToggleEducationStepIdsAllowList(showSearchFiltersV2, SEARCH_RESULTS_FILTERS_V2_INTRO);
 
     // Render new browse v2 onboarding step if the feature flag is on
-    useUpdateEducationStepIdsAllowlist(showBrowseV2, SEARCH_RESULTS_BROWSE_SIDEBAR_ID);
+    useToggleEducationStepIdsAllowList(showBrowseV2, SEARCH_RESULTS_BROWSE_SIDEBAR_ID);
 
     return (
         <>
@@ -217,6 +218,7 @@ export const SearchPage = () => {
             )}
             {showSearchFiltersV2 && (
                 <SearchFilters
+                    loading={loading}
                     availableFilters={data?.searchAcrossEntities?.facets || []}
                     activeFilters={filters}
                     unionType={unionType}

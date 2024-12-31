@@ -8,7 +8,7 @@ query listRoles($input: ListRolesInput!) {
             type
             name
             description
-            users: relationships(input: { types: ["IsMemberOfRole"], direction: INCOMING, start: 0, count: 10 }) {
+            users: relationships(input: { types: ["IsMemberOfRole"], direction: INCOMING, start: 0, count: 20 }) {
                 start
                 count
                 total

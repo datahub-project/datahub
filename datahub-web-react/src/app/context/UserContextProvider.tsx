@@ -127,6 +127,7 @@ const UserContextProvider = ({ children }: { children: React.ReactNode }) => {
     return (
         <UserContext.Provider
             value={{
+                loaded: !!meData,
                 urn: meData?.me?.corpUser?.urn,
                 user: meData?.me?.corpUser as CorpUser,
                 platformPrivileges: meData?.me?.platformPrivileges as PlatformPrivileges,

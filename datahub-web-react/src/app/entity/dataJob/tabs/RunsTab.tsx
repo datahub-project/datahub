@@ -13,7 +13,7 @@ import {
 import { CompactEntityNameList } from '../../../recommendations/renderer/component/CompactEntityNameList';
 import { ANTD_GRAY } from '../../shared/constants';
 import { useEntityData } from '../../shared/EntityContext';
-import { ReactComponent as LoadingSvg } from '../../../../images/datahub-logo-color-loading_pendulum.svg';
+import LoadingSvg from '../../../../images/datahub-logo-color-loading_pendulum.svg?react';
 import { scrollToTop } from '../../../shared/searchUtils';
 
 const ExternalUrlLink = styled.a`
@@ -129,8 +129,8 @@ export const RunsTab = () => {
             name: run?.name,
             status: run?.state?.[0]?.status,
             resultType: run?.state?.[0]?.result?.resultType,
-            inputs: run?.inputs?.relationships.map((relationship) => relationship.entity),
-            outputs: run?.outputs?.relationships.map((relationship) => relationship.entity),
+            inputs: run?.inputs?.relationships?.map((relationship) => relationship.entity),
+            outputs: run?.outputs?.relationships?.map((relationship) => relationship.entity),
             externalUrl: run?.externalUrl,
         }));
     if (loading) {

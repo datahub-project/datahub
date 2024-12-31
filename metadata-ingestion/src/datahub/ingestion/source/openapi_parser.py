@@ -51,17 +51,16 @@ def request_call(
     token: Optional[str] = None,
     username: Optional[str] = None,
     password: Optional[str] = None,
+    proxies: Optional[dict] = None,
 ) -> requests.Response:
     headers = {"accept": "application/json"}
-
     if username is not None and password is not None:
         return requests.get(
             url, headers=headers, auth=HTTPBasicAuth(username, password)
         )
-
     elif token is not None:
-        headers["Authorization"] = f"Bearer {token}"
-        return requests.get(url, headers=headers)
+        headers["Authorization"] = f"{token}"
+        return requests.get(url, proxies=proxies, headers=headers)
     else:
         return requests.get(url, headers=headers)
 
@@ -72,12 +71,12 @@ def get_swag_json(
     username: Optional[str] = None,
     password: Optional[str] = None,
     swagger_file: str = "",
+    proxies: Optional[dict] = None,
 ) -> Dict:
     tot_url = url + swagger_file
-    if token is not None:
-        response = request_call(url=tot_url, token=token)
-    else:
-        response = request_call(url=tot_url, username=username, password=password)
+    response = request_call(
+        url=tot_url, token=token, username=username, password=password, proxies=proxies
+    )
 
     if response.status_code != 200:
         raise Exception(f"Unable to retrieve {tot_url}, error {response.status_code}")
@@ -107,8 +106,8 @@ def check_sw_version(sw_dict: dict) -> None:
     version = [int(v) for v in v_split]
 
     if version[0] == 3 and version[1] > 0:
-        raise NotImplementedError(
-            "This plugin is not compatible with Swagger version >3.0"
+        logger.warning(
+            "This plugin has not been fully tested with Swagger version >3.0"
         )
 
 
@@ -251,7 +250,7 @@ def compose_url_attr(raw_url: str, attr_list: list) -> str:
                            attr_list=["2",])
     asd2 == "http://asd.com/2"
     """
-    splitted = re.split(r"\{[^}]+\}", raw_url)
+    splitted = re.split(r"\{[^}]+}", raw_url)
     if splitted[-1] == "":  # it can happen that the last element is empty
         splitted = splitted[:-1]
     composed_url = ""
@@ -265,7 +264,7 @@ def compose_url_attr(raw_url: str, attr_list: list) -> str:
 
 
 def maybe_theres_simple_id(url: str) -> str:
-    dets = re.findall(r"(\{[^}]+\})", url)  # searching the fields between parenthesis
+    dets = re.findall(r"(\{[^}]+})", url)  # searching the fields between parenthesis
     if len(dets) == 0:
         return url
     dets_w_id = [det for det in dets if "id" in det]  # the fields containing "id"
@@ -349,6 +348,7 @@ def get_tok(
     password: str = "",
     tok_url: str = "",
     method: str = "post",
+    proxies: Optional[dict] = None,
 ) -> str:
     """
     Trying to post username/password to get auth.
@@ -357,12 +357,15 @@ def get_tok(
     url4req = url + tok_url
     if method == "post":
         # this will make a POST call with username and password
-        data = {"username": username, "password": password}
+        data = {"username": username, "password": password, "maxDuration": True}
         # url2post = url + "api/authenticate/"
-        response = requests.post(url4req, data=data)
+        response = requests.post(url4req, proxies=proxies, json=data)
         if response.status_code == 200:
             cont = json.loads(response.content)
-            token = cont["tokens"]["access"]
+            if "token" in cont:  # other authentication scheme
+                token = cont["token"]
+            else:  # works only for bearer authentication scheme
+                token = f"Bearer {cont['tokens']['access']}"
     elif method == "get":
         # this will make a GET call with username and password
         response = requests.get(url4req)

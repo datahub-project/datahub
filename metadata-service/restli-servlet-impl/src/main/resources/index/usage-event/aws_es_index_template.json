@@ -20,6 +20,8 @@
     }
   },
   "settings": {
-    "index.opendistro.index_state_management.rollover_alias": "PREFIXdatahub_usage_event"
+    "index.opendistro.index_state_management.rollover_alias": "PREFIXdatahub_usage_event",
+    "index.number_of_shards": DUE_SHARDS,
+    "index.number_of_replicas": DUE_REPLICAS
   }
 }

@@ -1,0 +1,1405 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "glue",
+                "env": "PROD",
+                "database": "flights-database",
+                "param1": "value1",
+                "param2": "value2",
+                "LocationUri": "s3://test-bucket/test-prefix",
+                "CreateTime": "June 09, 2021 at 14:14:19"
+            },
+            "name": "flights-database",
+            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/flights-database",
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:glue"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "glue",
+                "env": "PROD",
+                "database": "test-database",
+                "CreateTime": "June 01, 2021 at 14:55:02"
+            },
+            "name": "test-database",
+            "qualifiedName": "arn:aws:glue:us-west-2:123412341234:database/test-database",
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:glue"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:110bc08849d1c1bde5fc345dab5c3ae7",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "glue",
+                "env": "PROD",
+                "database": "empty-database",
+                "CreateTime": "June 01, 2021 at 14:55:13"
+            },
+            "name": "empty-database",
+            "qualifiedName": "arn:aws:glue:us-west-2:000000000000:database/empty-database",
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:110bc08849d1c1bde5fc345dab5c3ae7",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:110bc08849d1c1bde5fc345dab5c3ae7",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:glue"
+        }
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:110bc08849d1c1bde5fc345dab5c3ae7",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "CrawlerSchemaDeserializerVersion": "1.0",
+                            "CrawlerSchemaSerializerVersion": "1.0",
+                            "UPDATED_BY_CRAWLER": "flights-crawler",
+                            "averageRecordSize": "55",
+                            "avro.schema.literal": "{\"type\":\"record\",\"name\":\"flights_avro_subset\",\"namespace\":\"default\",\"fields\":[{\"name\":\"yr\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"flightdate\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"uniquecarrier\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"airlineid\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"carrier\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"flightnum\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"origin\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"dest\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"depdelay\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"carrierdelay\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"weatherdelay\",\"type\":[\"null\",\"int\"],\"default\":null}]}",
+                            "classification": "avro",
+                            "compressionType": "none",
+                            "objectCount": "30",
+                            "recordCount": "169222196",
+                            "sizeKey": "9503351413",
+                            "typeOfData": "file",
+                            "Location": "s3://crawler-public-us-west-2/flight/avro/",
+                            "InputFormat": "org.apache.hadoop.hive.ql.io.avro.AvroContainerInputFormat",
+                            "OutputFormat": "org.apache.hadoop.hive.ql.io.avro.AvroContainerOutputFormat",
+                            "Compressed": "False",
+                            "NumberOfBuckets": "-1",
+                            "SerdeInfo": "{'SerializationLibrary': 'org.apache.hadoop.hive.serde2.avro.AvroSerDe', 'Parameters': {'avro.schema.literal': '{\"type\":\"record\",\"name\":\"flights_avro_subset\",\"namespace\":\"default\",\"fields\":[{\"name\":\"yr\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"flightdate\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"uniquecarrier\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"airlineid\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"carrier\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"flightnum\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"origin\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"dest\",\"type\":[\"null\",\"string\"],\"default\":null},{\"name\":\"depdelay\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"carrierdelay\",\"type\":[\"null\",\"int\"],\"default\":null},{\"name\":\"weatherdelay\",\"type\":[\"null\",\"int\"],\"default\":null}]}', 'serialization.format': '1'}}",
+                            "BucketColumns": "[]",
+                            "SortColumns": "[]",
+                            "StoredAsSubDirectories": "False"
+                        },
+                        "name": "avro",
+                        "qualifiedName": "arn:aws:glue:us-west-2:123412341234:table/flights-database/avro",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "flights-database.avro",
+                        "platform": "urn:li:dataPlatform:glue",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "[version=2.0].[type=int].yr",
+                                "nullable": true,
+                                "description": "test comment",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=string].flightdate",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=string].uniquecarrier",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=int].airlineid",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=string].carrier",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=string].flightnum",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=string].origin",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=string].year",
+                                "nullable": true,
+                                "description": "partition test comment",
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:glue"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:owner",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:baz:bob"
+                            },
+                            {
+                                "tag": "urn:li:tag:foo:bar"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2/flight/avro,PROD)",
+                    "type": "COPY"
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_jsons_markers,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "CrawlerSchemaDeserializerVersion": "1.0",
+                            "CrawlerSchemaSerializerVersion": "1.0",
+                            "UPDATED_BY_CRAWLER": "test-jsons",
+                            "averageRecordSize": "273",
+                            "classification": "json",
+                            "compressionType": "none",
+                            "objectCount": "1",
+                            "recordCount": "1",
+                            "sizeKey": "273",
+                            "typeOfData": "file",
+                            "Location": "s3://test-glue-jsons/markers/",
+                            "InputFormat": "org.apache.hadoop.mapred.TextInputFormat",
+                            "OutputFormat": "org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat",
+                            "Compressed": "False",
+                            "NumberOfBuckets": "-1",
+                            "SerdeInfo": "{'SerializationLibrary': 'org.openx.data.jsonserde.JsonSerDe', 'Parameters': {'paths': 'markers'}}",
+                            "BucketColumns": "[]",
+                            "SortColumns": "[]",
+                            "StoredAsSubDirectories": "False"
+                        },
+                        "name": "test_jsons_markers",
+                        "qualifiedName": "arn:aws:glue:us-west-2:795586375822:table/test-database/test_jsons_markers",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test-database.test_jsons_markers",
+                        "platform": "urn:li:dataPlatform:glue",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": [
+                                                "record"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "array<struct<name:string,position:array<double>,location:array<double>>>",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"array<struct<name:string,position:array<double>,location:array<double>>>\"}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=string].name",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].position",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": [
+                                                "double"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "array<double>",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"array<double>\"}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=struct].[type=array].[type=struct].markers.[type=array].[type=double].location",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.ArrayType": {
+                                            "nestedType": [
+                                                "double"
+                                            ]
+                                        }
+                                    }
+                                },
+                                "nativeDataType": "array<double>",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"array<double>\"}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:glue"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:owner",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:baz:bob"
+                            },
+                            {
+                                "tag": "urn:li:tag:foo:bar"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_jsons_markers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_jsons_markers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_jsons_markers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons/markers,PROD)",
+                    "type": "COPY"
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_parquet,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "CrawlerSchemaDeserializerVersion": "1.0",
+                            "CrawlerSchemaSerializerVersion": "1.0",
+                            "UPDATED_BY_CRAWLER": "test",
+                            "averageRecordSize": "19",
+                            "classification": "parquet",
+                            "compressionType": "none",
+                            "objectCount": "60",
+                            "recordCount": "167497743",
+                            "sizeKey": "4463574900",
+                            "typeOfData": "file",
+                            "Location": "s3://crawler-public-us-west-2/flight/parquet/",
+                            "InputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetInputFormat",
+                            "OutputFormat": "org.apache.hadoop.hive.ql.io.parquet.MapredParquetOutputFormat",
+                            "Compressed": "False",
+                            "NumberOfBuckets": "-1",
+                            "SerdeInfo": "{'SerializationLibrary': 'org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe', 'Parameters': {'serialization.format': '1'}}",
+                            "BucketColumns": "[]",
+                            "SortColumns": "[]",
+                            "StoredAsSubDirectories": "False"
+                        },
+                        "name": "test_parquet",
+                        "qualifiedName": "arn:aws:glue:us-west-2:795586375822:table/test-database/test_parquet",
+                        "tags": []
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+                        "schemaName": "test-database.test_parquet",
+                        "platform": "urn:li:dataPlatform:glue",
+                        "version": 0,
+                        "created": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        },
+                        "hash": "",
+                        "platformSchema": {
+                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
+                                "tableSchema": ""
+                            }
+                        },
+                        "fields": [
+                            {
+                                "fieldPath": "[version=2.0].[type=int].yr",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=int].quarter",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=int].month",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=int].dayofmonth",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                            },
+                            {
+                                "fieldPath": "[version=2.0].[type=string].year",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                                    }
+                                },
+                                "nativeDataType": "string",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.DataPlatformInstance": {
+                        "platform": "urn:li:dataPlatform:glue"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:owner",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.GlobalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:baz:bob"
+                            },
+                            {
+                                "tag": "urn:li:tag:foo:bar"
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_parquet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_parquet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:bdf4342ea6899d162eae685bfe9074a7"
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_parquet,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,crawler-public-us-west-2/flight/parquet,PROD)",
+                    "type": "COPY"
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
+            "urn": "urn:li:dataFlow:(glue,test-job-1,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
+                        "customProperties": {
+                            "role": "arn:aws:iam::123412341234:role/service-role/AWSGlueServiceRole-glue-crawler",
+                            "created": "2021-06-10 16:51:25.690000",
+                            "modified": "2021-06-10 16:55:35.307000",
+                            "command": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-1.py"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-1/graph",
+                        "name": "test-job-1",
+                        "description": "The first test job"
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataFlowSnapshot": {
+            "urn": "urn:li:dataFlow:(glue,test-job-2,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataFlowInfo": {
+                        "customProperties": {
+                            "role": "arn:aws:iam::123412341234:role/service-role/AWSGlueServiceRole-glue-crawler",
+                            "created": "2021-06-10 16:58:32.469000",
+                            "modified": "2021-06-10 16:58:32.469000",
+                            "command": "s3://aws-glue-assets-123412341234-us-west-2/scripts/job-2.py"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
+                        "name": "test-job-2",
+                        "description": "The second test job"
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Filter-Transform0_job1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "f": "lambda row : ()",
+                            "transformation_ctx": "\"Transform0\"",
+                            "transformType": "Filter",
+                            "nodeId": "Transform0_job1"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-1/graph",
+                        "name": "test-job-1:Filter-Transform0_job1",
+                        "type": {
+                            "string": "GLUE"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [],
+                        "outputDatasets": [],
+                        "inputDatajobs": [
+                            "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform2_job1)"
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform1_job1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "mappings": "[(\"yr\", \"int\", \"yr\", \"int\"), (\"flightdate\", \"string\", \"flightdate\", \"string\"), (\"uniquecarrier\", \"string\", \"uniquecarrier\", \"string\"), (\"airlineid\", \"int\", \"airlineid\", \"int\"), (\"carrier\", \"string\", \"carrier\", \"string\"), (\"flightnum\", \"string\", \"flightnum\", \"string\"), (\"origin\", \"string\", \"origin\", \"string\"), (\"dest\", \"string\", \"dest\", \"string\"), (\"depdelay\", \"int\", \"depdelay\", \"int\"), (\"carrierdelay\", \"int\", \"carrierdelay\", \"int\"), (\"weatherdelay\", \"int\", \"weatherdelay\", \"int\"), (\"year\", \"string\", \"year\", \"string\")]",
+                            "transformation_ctx": "\"Transform1\"",
+                            "transformType": "ApplyMapping",
+                            "nodeId": "Transform1_job1"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-1/graph",
+                        "name": "test-job-1:ApplyMapping-Transform1_job1",
+                        "type": {
+                            "string": "GLUE"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [],
+                        "outputDatasets": [],
+                        "inputDatajobs": [
+                            "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Filter-Transform0_job1)"
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform2_job1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "mappings": "[(\"yr\", \"int\", \"yr\", \"int\"), (\"flightdate\", \"string\", \"flightdate\", \"string\"), (\"uniquecarrier\", \"string\", \"uniquecarrier\", \"string\"), (\"airlineid\", \"int\", \"airlineid\", \"int\"), (\"carrier\", \"string\", \"carrier\", \"string\"), (\"flightnum\", \"string\", \"flightnum\", \"string\"), (\"origin\", \"string\", \"origin\", \"string\"), (\"dest\", \"string\", \"dest\", \"string\"), (\"depdelay\", \"int\", \"depdelay\", \"int\"), (\"carrierdelay\", \"int\", \"carrierdelay\", \"int\"), (\"weatherdelay\", \"int\", \"weatherdelay\", \"int\"), (\"year\", \"string\", \"year\", \"string\")]",
+                            "transformation_ctx": "\"Transform2\"",
+                            "transformType": "ApplyMapping",
+                            "nodeId": "Transform2_job1"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-1/graph",
+                        "name": "test-job-1:ApplyMapping-Transform2_job1",
+                        "type": {
+                            "string": "GLUE"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [
+                            "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)"
+                        ],
+                        "outputDatasets": [],
+                        "inputDatajobs": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Join-Transform3_job1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "keys2": "[\"(right) flightdate\"]",
+                            "transformation_ctx": "\"Transform3\"",
+                            "keys1": "[\"yr\"]",
+                            "transformType": "Join",
+                            "nodeId": "Transform3_job1"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-1/graph",
+                        "name": "test-job-1:Join-Transform3_job1",
+                        "type": {
+                            "string": "GLUE"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [],
+                        "outputDatasets": [],
+                        "inputDatajobs": [
+                            "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform4_job1)"
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform4_job1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "mappings": "[(\"yr\", \"int\", \"yr\", \"int\"), (\"flightdate\", \"string\", \"flightdate\", \"string\"), (\"uniquecarrier\", \"string\", \"uniquecarrier\", \"string\"), (\"airlineid\", \"int\", \"airlineid\", \"int\"), (\"carrier\", \"string\", \"carrier\", \"string\"), (\"flightnum\", \"string\", \"flightnum\", \"string\"), (\"origin\", \"string\", \"origin\", \"string\"), (\"dest\", \"string\", \"dest\", \"string\"), (\"depdelay\", \"int\", \"depdelay\", \"int\"), (\"carrierdelay\", \"int\", \"carrierdelay\", \"int\"), (\"weatherdelay\", \"int\", \"weatherdelay\", \"int\"), (\"year\", \"string\", \"year\", \"string\")]",
+                            "transformation_ctx": "\"Transform4\"",
+                            "transformType": "ApplyMapping",
+                            "nodeId": "Transform4_job1"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-1/graph",
+                        "name": "test-job-1:ApplyMapping-Transform4_job1",
+                        "type": {
+                            "string": "GLUE"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [],
+                        "outputDatasets": [],
+                        "inputDatajobs": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform5_job1)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "mappings": "[(\"yr\", \"int\", \"(right) yr\", \"int\"), (\"flightdate\", \"string\", \"(right) flightdate\", \"string\"), (\"uniquecarrier\", \"string\", \"(right) uniquecarrier\", \"string\"), (\"airlineid\", \"int\", \"(right) airlineid\", \"int\"), (\"carrier\", \"string\", \"(right) carrier\", \"string\"), (\"flightnum\", \"string\", \"(right) flightnum\", \"string\"), (\"origin\", \"string\", \"(right) origin\", \"string\"), (\"dest\", \"string\", \"(right) dest\", \"string\"), (\"depdelay\", \"int\", \"(right) depdelay\", \"int\"), (\"carrierdelay\", \"int\", \"(right) carrierdelay\", \"int\"), (\"weatherdelay\", \"int\", \"(right) weatherdelay\", \"int\"), (\"year\", \"string\", \"(right) year\", \"string\")]",
+                            "transformation_ctx": "\"Transform5\"",
+                            "transformType": "ApplyMapping",
+                            "nodeId": "Transform5_job1"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-1/graph",
+                        "name": "test-job-1:ApplyMapping-Transform5_job1",
+                        "type": {
+                            "string": "GLUE"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [],
+                        "outputDatasets": [],
+                        "inputDatajobs": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "connection_type": "s3",
+                            "format": "json",
+                            "connection_options": "{'path': 's3://test-glue-jsons/', 'partitionKeys': []}",
+                            "transformation_ctx": "DataSink1"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),SplitFields-Transform0_job2)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "paths": "[\"yr\", \"quarter\", \"month\", \"dayofmonth\", \"dayofweek\", \"flightdate\", \"uniquecarrier\"]",
+                            "name2": "\"Transform0Output1\"",
+                            "name1": "\"Transform0Output0\"",
+                            "transformation_ctx": "\"Transform0\"",
+                            "transformType": "SplitFields",
+                            "nodeId": "Transform0_job2"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
+                        "name": "test-job-2:SplitFields-Transform0_job2",
+                        "type": {
+                            "string": "GLUE"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [],
+                        "outputDatasets": [],
+                        "inputDatajobs": [
+                            "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1_job2)"
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1_job2)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "mappings": "[(\"yr\", \"int\", \"yr\", \"int\"), (\"quarter\", \"int\", \"quarter\", \"int\"), (\"month\", \"int\", \"month\", \"int\"), (\"dayofmonth\", \"int\", \"dayofmonth\", \"int\"), (\"dayofweek\", \"int\", \"dayofweek\", \"int\"), (\"flightdate\", \"string\", \"flightdate\", \"string\"), (\"uniquecarrier\", \"string\", \"uniquecarrier\", \"string\"), (\"airlineid\", \"int\", \"airlineid\", \"int\"), (\"carrier\", \"string\", \"carrier\", \"string\")]",
+                            "transformation_ctx": "\"Transform1\"",
+                            "transformType": "ApplyMapping",
+                            "nodeId": "Transform1_job2"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
+                        "name": "test-job-2:ApplyMapping-Transform1_job2",
+                        "type": {
+                            "string": "GLUE"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [
+                            "urn:li:dataset:(urn:li:dataPlatform:glue,test-database.test_parquet,PROD)"
+                        ],
+                        "outputDatasets": [],
+                        "inputDatajobs": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),FillMissingValues-Transform2_job2)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "missing_values_column": "\"dayofmonth\"",
+                            "transformation_ctx": "\"Transform2\"",
+                            "transformType": "FillMissingValues",
+                            "nodeId": "Transform2_job2"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
+                        "name": "test-job-2:FillMissingValues-Transform2_job2",
+                        "type": {
+                            "string": "GLUE"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [],
+                        "outputDatasets": [],
+                        "inputDatajobs": [
+                            "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1_job2)"
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DataJobSnapshot": {
+            "urn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),SelectFields-Transform3_job2)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInfo": {
+                        "customProperties": {
+                            "paths": "[]",
+                            "transformation_ctx": "\"Transform3\"",
+                            "transformType": "SelectFields",
+                            "nodeId": "Transform3_job2"
+                        },
+                        "externalUrl": "https://us-west-2.console.aws.amazon.com/gluestudio/home?region=us-west-2#/editor/job/test-job-2/graph",
+                        "name": "test-job-2:SelectFields-Transform3_job2",
+                        "type": {
+                            "string": "GLUE"
+                        }
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.datajob.DataJobInputOutput": {
+                        "inputDatasets": [],
+                        "outputDatasets": [
+                            "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons,PROD)"
+                        ],
+                        "inputDatajobs": [
+                            "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),FillMissingValues-Transform2_job2)"
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:s3,test-glue-jsons,PROD)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.common.Status": {
+                        "removed": false
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+                        "customProperties": {
+                            "connection_type": "s3",
+                            "format": "json",
+                            "connection_options": "{'path': 's3://test-glue-jsons/', 'partitionKeys': []}",
+                            "transformation_ctx": "DataSink0"
+                        },
+                        "tags": []
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(glue,test-job-1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(glue,test-job-2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform1_job1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform2_job1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform4_job1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),ApplyMapping-Transform5_job1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Filter-Transform0_job1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-1,PROD),Join-Transform3_job1)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),ApplyMapping-Transform1_job2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),FillMissingValues-Transform2_job2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),SelectFields-Transform3_job2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(glue,test-job-2,PROD),SplitFields-Transform0_job2)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:baz:bob",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "baz:bob"
+        }
+    }
+},
+{
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:foo:bar",
+    "changeType": "UPSERT",
+    "aspectName": "tagKey",
+    "aspect": {
+        "json": {
+            "name": "foo:bar"
+        }
+    }
+}
+]

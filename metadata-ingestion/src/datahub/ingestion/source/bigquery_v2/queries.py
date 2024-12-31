@@ -74,7 +74,7 @@ FROM
         table_name) as p on
     t.table_name = p.table_name
 WHERE
-  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}')
+  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
 {{table_filter}}
 order by
   table_schema ASC,
@@ -101,7 +101,7 @@ FROM
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}')
+  table_type in ('{BigqueryTableType.BASE_TABLE}', '{BigqueryTableType.EXTERNAL}', '{BigqueryTableType.CLONE}')
 {{table_filter}}
 order by
   table_schema ASC,
@@ -117,7 +117,8 @@ SELECT
   t.table_type as table_type,
   t.creation_time as created,
   ts.last_modified_time as last_altered,
-  tos.OPTION_VALUE as comment,
+  tos_description.OPTION_VALUE as comment,
+  tos_labels.OPTION_VALUE as labels,
   t.is_insertable_into,
   t.ddl as view_definition,
   ts.row_count,
@@ -125,9 +126,12 @@ SELECT
 FROM
   `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
   join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
-  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
-  and t.TABLE_NAME = tos.TABLE_NAME
-  and tos.OPTION_NAME = "description"
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos_description on t.table_schema = tos_description.table_schema
+  and t.TABLE_NAME = tos_description.TABLE_NAME
+  and tos_description.OPTION_NAME = "description"
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos_labels on t.table_schema = tos_labels.table_schema
+  and t.TABLE_NAME = tos_labels.TABLE_NAME
+  and tos_labels.OPTION_NAME = "labels"
 WHERE
   table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
 order by
@@ -142,16 +146,76 @@ SELECT
   t.table_name as table_name,
   t.table_type as table_type,
   t.creation_time as created,
-  tos.OPTION_VALUE as comment,
+  tos_description.OPTION_VALUE as comment,
+  tos_labels.OPTION_VALUE as labels,
   t.is_insertable_into,
   t.ddl as view_definition
+FROM
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos_description on t.table_schema = tos_description.table_schema
+  and t.TABLE_NAME = tos_description.TABLE_NAME
+  and tos_description.OPTION_NAME = "description"
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos_labels on t.table_schema = tos_labels.table_schema
+  and t.TABLE_NAME = tos_labels.TABLE_NAME
+  and tos_labels.OPTION_NAME = "labels"
+WHERE
+  table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
+order by
+  table_schema ASC,
+  table_name ASC
+"""
+
+    snapshots_for_dataset: str = f"""
+SELECT
+  t.table_catalog as table_catalog,
+  t.table_schema as table_schema,
+  t.table_name as table_name,
+  t.table_type as table_type,
+  t.creation_time as created,
+  t.is_insertable_into,
+  t.ddl,
+  t.snapshot_time_ms as snapshot_time,
+  t.base_table_catalog,
+  t.base_table_schema,
+  t.base_table_name,
+  ts.last_modified_time as last_altered,
+  tos.OPTION_VALUE as comment,
+  ts.row_count,
+  ts.size_bytes
+FROM
+  `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
+  join `{{project_id}}`.`{{dataset_name}}`.__TABLES__ as ts on ts.table_id = t.TABLE_NAME
+  left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
+  and t.TABLE_NAME = tos.TABLE_NAME
+  and tos.OPTION_NAME = "description"
+WHERE
+  table_type = '{BigqueryTableType.SNAPSHOT}'
+order by
+  table_schema ASC,
+  table_name ASC
+"""
+
+    snapshots_for_dataset_without_data_read: str = f"""
+SELECT
+  t.table_catalog as table_catalog,
+  t.table_schema as table_schema,
+  t.table_name as table_name,
+  t.table_type as table_type,
+  t.creation_time as created,
+  t.is_insertable_into,
+  t.ddl,
+  t.snapshot_time_ms as snapshot_time,
+  t.base_table_catalog,
+  t.base_table_schema,
+  t.base_table_name,
+  tos.OPTION_VALUE as comment,
 FROM
   `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLES t
   left join `{{project_id}}`.`{{dataset_name}}`.INFORMATION_SCHEMA.TABLE_OPTIONS as tos on t.table_schema = tos.table_schema
   and t.TABLE_NAME = tos.TABLE_NAME
   and tos.OPTION_NAME = "description"
 WHERE
-  table_type in ('{BigqueryTableType.VIEW}', '{BigqueryTableType.MATERIALIZED_VIEW}')
+  table_type = '{BigqueryTableType.SNAPSHOT}'
 order by
   table_schema ASC,
   table_name ASC
@@ -229,6 +293,30 @@ where
   c.table_name = '{table_identifier.table}'
 ORDER BY
   table_catalog, table_schema, table_name, ordinal_position ASC, data_type DESC"""
+
+    constraints_for_table: str = """
+select
+    kcu.constraint_name as constraint_name,
+    kcu.table_catalog as table_catalog,
+    kcu.table_schema as table_schema,
+    kcu.table_name as table_name,
+    kcu.column_name as column_name,
+    tc.constraint_type,
+    ccu.table_catalog as referenced_catalog,
+    ccu.table_schema as referenced_schema,
+    ccu.table_name as referenced_table,
+    ccu.column_name as referenced_column
+from
+     `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.KEY_COLUMN_USAGE as kcu
+join  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.CONSTRAINT_COLUMN_USAGE as ccu on
+    kcu.constraint_catalog = ccu.constraint_catalog
+    and kcu.constraint_schema = ccu.constraint_schema
+    and kcu.constraint_name = ccu.constraint_name
+join `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.TABLE_CONSTRAINTS as tc on
+    tc.constraint_catalog = ccu.constraint_catalog
+    and tc.constraint_schema = ccu.constraint_schema
+    and tc.constraint_name = ccu.constraint_name
+"""
 
 
 BQ_FILTER_RULE_TEMPLATE_V2_LINEAGE = """

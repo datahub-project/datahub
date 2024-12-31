@@ -21,7 +21,11 @@ import { OnboardingTour } from '../../onboarding/OnboardingTour';
 import { ROLES_INTRO_ID } from '../../onboarding/config/RolesOnboardingConfig';
 import { clearUserListCache } from '../../identity/user/cacheUtils';
 
-const SourceContainer = styled.div``;
+const SourceContainer = styled.div`
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+`;
 
 const PaginationContainer = styled.div`
     display: flex;
@@ -35,6 +39,9 @@ const RoleName = styled.span`
 
 const PageContainer = styled.span`
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
 `;
 
 const ActionsContainer = styled.div`
@@ -72,7 +79,6 @@ export const ManageRoles = () => {
         data: rolesData,
         refetch: rolesRefetch,
     } = useListRolesQuery({
-        fetchPolicy: 'cache-first',
         variables: {
             input: {
                 start,
@@ -80,6 +86,7 @@ export const ManageRoles = () => {
                 query,
             },
         },
+        fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
 
     const totalRoles = rolesData?.listRoles?.total || 0;
@@ -169,7 +176,7 @@ export const ManageRoles = () => {
             render: (_: any, record: any) => {
                 return (
                     <>
-                        {(record?.users.length && (
+                        {(record?.users?.length && (
                             <AvatarsGroup
                                 users={record?.users}
                                 groups={record?.resolvedGroups}
@@ -210,8 +217,8 @@ export const ManageRoles = () => {
         type: role?.type,
         description: role?.description,
         name: role?.name,
-        users: role?.users?.relationships.map((relationship) => relationship.entity as CorpUser),
-        policies: role?.policies?.relationships.map((relationship) => relationship.entity as DataHubPolicy),
+        users: role?.users?.relationships?.map((relationship) => relationship.entity as CorpUser),
+        policies: role?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy),
     }));
 
     return (
@@ -238,7 +245,10 @@ export const ManageRoles = () => {
                             fontSize: 12,
                         }}
                         onSearch={() => null}
-                        onQueryChange={(q) => setQuery(q)}
+                        onQueryChange={(q) => {
+                            setPage(1);
+                            setQuery(q);
+                        }}
                         entityRegistry={entityRegistry}
                     />
                     {isBatchAddRolesModalVisible && (
@@ -274,7 +284,7 @@ export const ManageRoles = () => {
                     showSizeChanger={false}
                 />
             </PaginationContainer>
-            <RoleDetailsModal role={focusRole as DataHubRole} visible={showViewRoleModal} onClose={resetRoleState} />
+            <RoleDetailsModal role={focusRole as DataHubRole} open={showViewRoleModal} onClose={resetRoleState} />
         </PageContainer>
     );
 };

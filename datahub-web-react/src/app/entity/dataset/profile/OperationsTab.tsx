@@ -1,13 +1,13 @@
 import { DeliveredProcedureOutlined } from '@ant-design/icons';
-import { Button, Pagination, Table, Tooltip, Typography } from 'antd';
-import ButtonGroup from 'antd/lib/button/button-group';
+import { Pagination, Table, Tooltip, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { useGetDatasetRunsQuery } from '../../../../graphql/dataset.generated';
+import { GetDatasetRunsQuery, useGetDatasetRunsQuery } from '../../../../graphql/dataset.generated';
 import {
     DataProcessInstanceRunResultType,
     DataProcessRunStatus,
+    EntityType,
     RelationshipDirection,
 } from '../../../../types.generated';
 import {
@@ -18,8 +18,10 @@ import {
 import { CompactEntityNameList } from '../../../recommendations/renderer/component/CompactEntityNameList';
 import { ANTD_GRAY } from '../../shared/constants';
 import { useEntityData } from '../../shared/EntityContext';
-import { ReactComponent as LoadingSvg } from '../../../../images/datahub-logo-color-loading_pendulum.svg';
+import LoadingSvg from '../../../../images/datahub-logo-color-loading_pendulum.svg?react';
 import { scrollToTop } from '../../../shared/searchUtils';
+import { formatDuration } from '../../../shared/formatDuration';
+import { notEmpty } from '../../shared/utils';
 
 const ExternalUrlLink = styled.a`
     font-size: 16px;
@@ -30,10 +32,6 @@ const PaginationControlContainer = styled.div`
     padding-top: 16px;
     padding-bottom: 16px;
     text-align: center;
-`;
-
-const ReadWriteButtonGroup = styled(ButtonGroup)`
-    padding: 12px;
 `;
 
 const LoadingText = styled.div`
@@ -66,6 +64,12 @@ const columns = [
         render: (value) => (
             <Tooltip title={new Date(Number(value)).toUTCString()}>{new Date(Number(value)).toLocaleString()}</Tooltip>
         ),
+    },
+    {
+        title: 'Duration',
+        dataIndex: 'duration',
+        key: 'duration',
+        render: (durationMs: number) => formatDuration(durationMs),
     },
     {
         title: 'Run ID',
@@ -129,14 +133,59 @@ const columns = [
 const PAGE_SIZE = 20;
 
 export const OperationsTab = () => {
-    const { urn } = useEntityData();
+    const { urn, entityData } = useEntityData();
     const [page, setPage] = useState(1);
-    const [direction, setDirection] = useState(RelationshipDirection.Incoming);
 
-    const { loading, data } = useGetDatasetRunsQuery({
-        variables: { urn, start: (page - 1) * PAGE_SIZE, count: PAGE_SIZE, direction },
+    // Fetch data across all siblings.
+    const allUrns = [urn, ...(entityData?.siblings?.siblings || []).map((sibling) => sibling?.urn).filter(notEmpty)];
+    const loadings: boolean[] = [];
+    const datas: GetDatasetRunsQuery[] = [];
+    allUrns.forEach((entityUrn) => {
+        // Because there's a consistent number and order of the urns,
+        // this usage of a hook within a loop should be safe.
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        const { loading, data } = useGetDatasetRunsQuery({
+            variables: {
+                urn: entityUrn,
+                start: (page - 1) * PAGE_SIZE,
+                count: PAGE_SIZE,
+                direction: RelationshipDirection.Outgoing,
+            },
+        });
+        loadings.push(loading);
+        if (data) {
+            datas.push(data);
+        }
     });
-    const runs = data && data?.dataset?.runs?.runs;
+
+    const loading = loadings.some((loadingEntry) => loadingEntry);
+
+    // Merge the runs data from all entities.
+    // If there's more than one entity contributing to the data, then we can't do pagination.
+    let canPaginate = true;
+    let dataRuns: NonNullable<GetDatasetRunsQuery['dataset']>['runs'] | undefined;
+    if (datas.length > 0) {
+        let numWithRuns = 0;
+        for (let i = 0; i < datas.length; i++) {
+            if (datas[i]?.dataset?.runs?.total) {
+                numWithRuns++;
+            }
+
+            if (dataRuns && dataRuns.runs) {
+                dataRuns.runs.push(...(datas[i]?.dataset?.runs?.runs || []));
+                dataRuns.total = (dataRuns.total ?? 0) + (datas[i]?.dataset?.runs?.total ?? 0);
+            } else {
+                dataRuns = JSON.parse(JSON.stringify(datas[i]?.dataset?.runs));
+            }
+        }
+
+        if (numWithRuns > 1) {
+            canPaginate = false;
+        }
+    }
+
+    // This also sorts the runs data across all entities.
+    const runs = dataRuns?.runs?.sort((a, b) => (b?.created?.time ?? 0) - (a?.created?.time ?? 0));
 
     const tableData = runs
         ?.filter((run) => run)
@@ -145,33 +194,27 @@ export const OperationsTab = () => {
             name: run?.name,
             status: run?.state?.[0]?.status,
             resultType: run?.state?.[0]?.result?.resultType,
-            inputs: run?.inputs?.relationships.map((relationship) => relationship.entity),
-            outputs: run?.outputs?.relationships.map((relationship) => relationship.entity),
+            duration: run?.state?.[0]?.durationMillis,
+            inputs: run?.inputs?.relationships?.map((relationship) => relationship.entity),
+            outputs: run?.outputs?.relationships?.map((relationship) => relationship.entity),
             externalUrl: run?.externalUrl,
             parentTemplate: run?.parentTemplate?.relationships?.[0]?.entity,
         }));
+
+    // If the table contains jobs, we need to show the job-related columns. Otherwise we can simplify the table.
+    const containsJobs = tableData?.some((run) => run.parentTemplate?.type !== EntityType.Dataset);
+    const simplifiedColumns = containsJobs
+        ? columns
+        : columns.filter((column) => !['name', 'inputs', 'outputs'].includes(column.key));
 
     const onChangePage = (newPage: number) => {
         scrollToTop();
         setPage(newPage);
     };
 
+    // TODO: Much of this file is duplicated from RunsTab.tsx. We should refactor this to share code.
     return (
         <>
-            <ReadWriteButtonGroup>
-                <Button
-                    type={direction === RelationshipDirection.Incoming ? 'primary' : 'default'}
-                    onClick={() => setDirection(RelationshipDirection.Incoming)}
-                >
-                    Reads
-                </Button>
-                <Button
-                    type={direction === RelationshipDirection.Outgoing ? 'primary' : 'default'}
-                    onClick={() => setDirection(RelationshipDirection.Outgoing)}
-                >
-                    Writes
-                </Button>
-            </ReadWriteButtonGroup>
             {loading && (
                 <LoadingContainer>
                     <LoadingSvg height={80} width={80} />
@@ -180,17 +223,19 @@ export const OperationsTab = () => {
             )}
             {!loading && (
                 <>
-                    <Table dataSource={tableData} columns={columns} pagination={false} />
-                    <PaginationControlContainer>
-                        <Pagination
-                            current={page}
-                            pageSize={PAGE_SIZE}
-                            total={data?.dataset?.runs?.total || 0}
-                            showLessItems
-                            onChange={onChangePage}
-                            showSizeChanger={false}
-                        />
-                    </PaginationControlContainer>
+                    <Table dataSource={tableData} columns={simplifiedColumns} pagination={false} />
+                    {canPaginate && (
+                        <PaginationControlContainer>
+                            <Pagination
+                                current={page}
+                                pageSize={PAGE_SIZE}
+                                total={dataRuns?.total || 0}
+                                showLessItems
+                                onChange={onChangePage}
+                                showSizeChanger={false}
+                            />
+                        </PaginationControlContainer>
+                    )}
                 </>
             )}
         </>

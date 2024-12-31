@@ -1,0 +1,183 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "a204522c98a01568d8575a98a715de98985aeef0e822feb8450153f71891d6c6",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "table_catalog",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
+                    "column": "table_catalog"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "table_schema",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
+                    "column": "table_schema"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "table_name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
+                    "column": "table_name"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "column_name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
+                    "column": "column_name"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "ordinal_position",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
+                    "column": "ordinal_position"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "field_path",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS,PROD)",
+                    "column": "field_path"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "is_nullable",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
+                    "column": "is_nullable"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "data_type",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
+                    "column": "data_type"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS,PROD)",
+                    "column": "field_path"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "comment",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": []
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "is_hidden",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
+                    "column": "is_hidden"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "is_partitioning_column",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
+                    "column": "is_partitioning_column"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "clustering_ordinal_position",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-staging-2.smoke_test_db_4.INFORMATION_SCHEMA.COLUMNS,PROD)",
+                    "column": "clustering_ordinal_position"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "SELECT c.table_catalog AS table_catalog, c.table_schema AS table_schema, c.table_name AS table_name, c.column_name AS column_name, c.ordinal_position AS ordinal_position, cfp.field_path AS field_path, c.is_nullable AS is_nullable, CASE WHEN CONTAINS_SUBSTR(cfp.field_path, ?) THEN NULL ELSE c.data_type END AS data_type, description AS comment, c.is_hidden AS is_hidden, c.is_partitioning_column AS is_partitioning_column, c.clustering_ordinal_position AS clustering_ordinal_position FROM `acryl-staging-2`.`smoke_test_db_4`.`INFORMATION_SCHEMA.COLUMNS` AS c JOIN `acryl-staging-2`.`smoke_test_db_4`.`INFORMATION_SCHEMA.COLUMN_FIELD_PATHS` AS cfp ON cfp.table_name = c.table_name AND cfp.column_name = c.column_name ORDER BY table_catalog, table_schema, table_name, ordinal_position ASC, data_type DESC"
+    }
+}

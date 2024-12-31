@@ -2,6 +2,8 @@ plugins {
     id 'base'
 }
 
+apply from: "../../gradle/coverage/python-coverage.gradle"
+
 ext {
   python_executable = 'python3'
   venv_name = 'venv'
@@ -11,26 +13,22 @@ if (!project.hasProperty("extra_pip_requirements")) {
     ext.extra_pip_requirements = ""
 }
 if (!project.hasProperty("extra_pip_extras")) {
-    ext.extra_pip_extras = "plugin-v2"
+    ext.extra_pip_extras = ""
 }
 // If extra_pip_extras is non-empty, we need to add a comma to the beginning of the string.
 if (extra_pip_extras != "") {
     ext.extra_pip_extras = "," + extra_pip_extras
 }
 
-def pip_install_command = "${venv_name}/bin/pip install -e ../../metadata-ingestion"
+def pip_install_command = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip install -e ../../metadata-ingestion"
 
-task checkPythonVersion(type: Exec) {
-  commandLine python_executable, '-c', 'import sys; assert sys.version_info >= (3, 7)'
-}
-
-task environmentSetup(type: Exec, dependsOn: checkPythonVersion) {
+task environmentSetup(type: Exec) {
   def sentinel_file = "${venv_name}/.venv_environment_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
   commandLine 'bash', '-c', 
-    "${python_executable} -m venv ${venv_name} &&" +
-    "${venv_name}/bin/python -m pip install --upgrade pip wheel 'setuptools>=63.0.0' && " +
+    "${python_executable} -m venv ${venv_name} && set -x && " +
+    "${venv_name}/bin/python -m pip install --upgrade uv && " +
     "touch ${sentinel_file}"
 }
 
@@ -38,11 +36,8 @@ task installPackage(type: Exec, dependsOn: [environmentSetup, ':metadata-ingesti
   def sentinel_file = "${venv_name}/.build_install_package_sentinel"
   inputs.file file('setup.py')
   outputs.file(sentinel_file)
-  // Workaround for https://github.com/yaml/pyyaml/issues/601.
-  // See https://github.com/yaml/pyyaml/issues/601#issuecomment-1638509577.
-  // and https://github.com/datahub-project/datahub/pull/8435.
-  commandLine 'bash', '-x', '-c',
-    "${pip_install_command} install 'Cython<3.0' 'PyYAML<6' --no-build-isolation && " +
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
     "${pip_install_command} -e .[ignore${extra_pip_extras}] ${extra_pip_requirements} &&" +
     "touch ${sentinel_file}"
 }
@@ -53,8 +48,20 @@ task installDev(type: Exec, dependsOn: [install]) {
   def sentinel_file = "${venv_name}/.build_install_dev_sentinel"
   inputs.file file('setup.py')
   outputs.file("${sentinel_file}")
-  commandLine 'bash', '-x', '-c',
-    "${pip_install_command} -e .[dev${extra_pip_extras}] ${extra_pip_requirements} && " +
+  // For some reason, the Airflow constraints files pin things like black and pytest.
+  // This allows us to not respect those constraints ourselves.
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "${pip_install_command} -e .[dev${extra_pip_extras}] && " +
+    "touch ${sentinel_file}"
+}
+task installTest(type: Exec, dependsOn: [installDev]) {
+  def sentinel_file = "${venv_name}/.build_install_test_sentinel"
+  inputs.file file('setup.py')
+  outputs.file(sentinel_file)
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "${pip_install_command} -e .[integration-tests${extra_pip_extras}] ${extra_pip_requirements} && " +
     "touch ${sentinel_file}"
 }
 
@@ -72,43 +79,27 @@ task lint(type: Exec, dependsOn: installDev) {
     "mypy --show-traceback --show-error-codes src/ tests/"
 }
 task lintFix(type: Exec, dependsOn: installDev) {
-  commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && " +
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
     "black src/ tests/ && " +
     "isort src/ tests/ && " +
     "flake8 src/ tests/ && " +
     "mypy src/ tests/ "
 }
 
-task installDevTest(type: Exec, dependsOn: [installDev]) {
-  def sentinel_file = "${venv_name}/.build_install_dev_test_sentinel"
-  inputs.file file('setup.py')
-  outputs.dir("${venv_name}")
-  outputs.file("${sentinel_file}")
-  commandLine 'bash', '-x', '-c',
-    "${pip_install_command} -e .[dev,integration-tests${extra_pip_extras}] ${extra_pip_requirements} && " +
-    "touch ${sentinel_file}"
-}
+// HACK: Some of the Airflow constraint files conflict with packages that we install (e.g. black).
+// I'm not sure why they constrain those in the first place, but we don't want to respect them
+// when running linting. However, we do want to respect them when running integration tests.
+// There's two install steps, and these constraints ensure that we run them in the right order.
+installTest.shouldRunAfter lint
+installTest.shouldRunAfter lintFix
 
-def testFile = hasProperty('testFile') ? testFile : 'unknown'
-task testSingle(dependsOn: [installDevTest]) {
-  doLast {
-  if (testFile != 'unknown')  {
-  exec {
-    commandLine 'bash', '-x', '-c',
-     "source ${venv_name}/bin/activate && pytest ${testFile}"
-    }
-  } else {
-   throw new GradleException("No file provided. Use -PtestFile=<test_file>")
-    }
-  }
-}
-
-task testQuick(type: Exec, dependsOn: installDevTest) {
+task testQuick(type: Exec, dependsOn: installTest) {
   inputs.files(project.fileTree(dir: "src/", include: "**/*.py"))
   inputs.files(project.fileTree(dir: "tests/"))
-  commandLine 'bash', '-x', '-c',
-    "source ${venv_name}/bin/activate && pytest  -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    "pytest --cov-config=setup.cfg ${get_coverage_args('quick')} -vv --continue-on-collection-errors --junit-xml=junit.quick.xml"
 }
 
 
@@ -116,8 +107,10 @@ task cleanPythonCache(type: Exec) {
   commandLine 'bash', '-c',
     "find src -type f -name '*.py[co]' -delete -o -type d -name __pycache__ -delete -o -type d -empty -delete"
 }
-task buildWheel(type: Exec, dependsOn: [install, cleanPythonCache]) {
-  commandLine 'bash', '-c', "source ${venv_name}/bin/activate && " + 'pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_TEST=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
+task buildWheel(type: Exec, dependsOn: [environmentSetup]) {
+  commandLine 'bash', '-c',
+    "source ${venv_name}/bin/activate && set -x && " +
+    'uv pip install build && RELEASE_VERSION="\${RELEASE_VERSION:-0.0.0.dev1}" RELEASE_SKIP_INSTALL=1 RELEASE_SKIP_UPLOAD=1 ./scripts/release.sh'
 }
 
 build.dependsOn install

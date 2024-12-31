@@ -1,0 +1,596 @@
+extend type Mutation {
+    """
+    Remove a form from a given list of entities.
+    """
+    batchRemoveForm(input: BatchRemoveFormInput!): Boolean!
+
+    """
+    Create a new form based on the input
+    """
+    createForm(input: CreateFormInput!): Form!
+
+    """
+    Delete a given form
+    """
+    deleteForm(input: DeleteFormInput!): Boolean!
+
+    """
+    Update an existing form based on the input
+    """
+    updateForm(input: UpdateFormInput!): Form!
+}
+
+"""
+Requirements forms that are assigned to an entity.
+"""
+type Forms {
+  """
+  Forms that are still incomplete.
+  """
+  incompleteForms: [FormAssociation!]!
+
+  """
+  Forms that have been completed.
+  """
+  completedForms: [FormAssociation!]!
+
+  """
+  Verifications that have been applied to the entity via completed forms.
+  """
+  verifications: [FormVerificationAssociation!]!
+}
+
+type FormAssociation {
+    """
+    The form related to the associated urn
+    """
+    form: Form!
+
+    """
+    Reference back to the urn with the form on it for tracking purposes e.g. when sibling nodes are merged together
+    """
+    associatedUrn: String!
+
+    """
+    The prompt that still need to be completed for this form
+    """
+    incompletePrompts: [FormPromptAssociation!]
+
+    """
+    The prompt that are already completed for this form
+    """
+    completedPrompts: [FormPromptAssociation!]
+}
+
+"""
+Verification object that has been applied to the entity via a completed form.
+"""
+type FormVerificationAssociation {
+    """
+    The form related to the associated urn
+    """
+    form: Form!
+
+    """
+    When this verification was applied to this entity
+    """
+    lastModified: ResolvedAuditStamp
+}
+
+"""
+A form that helps with filling out metadata on an entity
+"""
+type FormPromptAssociation {
+    """
+    The unique id of the form prompt
+    """
+    id: String!
+
+    """
+    When and by whom this form prompt has last been modified
+    """
+    lastModified: ResolvedAuditStamp!
+
+    """
+    Optional information about the field-level prompt associations.
+    """
+    fieldAssociations: FormPromptFieldAssociations
+}
+
+"""
+Information about the field-level prompt associations.
+"""
+type FormPromptFieldAssociations {
+    """
+    If this form prompt is for fields, this will contain a list of completed associations per field
+    """
+    completedFieldPrompts: [FieldFormPromptAssociation!]
+
+    """
+    If this form prompt is for fields, this will contain a list of incomlete associations per field
+    """
+    incompleteFieldPrompts: [FieldFormPromptAssociation!]
+}
+
+"""
+An association for field-level form prompts
+"""
+type FieldFormPromptAssociation {
+    """
+    The schema field path
+    """
+    fieldPath: String!
+
+    """
+    When and by whom this form field-level prompt has last been modified
+    """
+    lastModified: ResolvedAuditStamp!
+}
+
+"""
+A form that helps with filling out metadata on an entity
+"""
+type Form implements Entity {
+    """
+    A primary key associated with the Form
+    """
+    urn: String!
+
+    """
+    A standard Entity Type
+    """
+    type: EntityType!
+
+    """
+    Information about this form
+    """
+    info: FormInfo!
+
+    """
+    Ownership metadata of the form
+    """
+    ownership: Ownership
+
+    """
+    Granular API for querying edges extending from this entity
+    """
+    relationships(input: RelationshipsInput!): EntityRelationshipsResult
+}
+
+"""
+The type of a form. This is optional on a form entity
+"""
+enum FormType {
+    """
+    This form is used for "verifying" entities as a state for governance and compliance
+    """
+    VERIFICATION
+
+    """
+    This form is used to help with filling out metadata on entities
+    """
+    COMPLETION
+}
+
+"""
+Properties about an individual Form
+"""
+type FormInfo {
+    """
+    The name of this form
+    """
+    name: String!
+
+    """
+    The description of this form
+    """
+    description: String
+
+    """
+    The type of this form
+    """
+    type: FormType!
+
+    """
+    The prompt for this form
+    """
+    prompts: [FormPrompt!]!
+
+    """
+    The actors that are assigned to complete the forms for the associated entities.
+    """
+    actors: FormActorAssignment!
+}
+
+"""
+A prompt shown to the user to collect metadata about an entity
+"""
+type FormPrompt {
+    """
+    The ID of this prompt. This will be globally unique.
+    """
+    id: String!
+
+    """
+    The title of this prompt
+    """
+    title: String!
+
+    """
+    The urn of the parent form that this prompt is part of
+    """
+    formUrn: String!
+
+    """
+    The description of this prompt
+    """
+    description: String
+
+    """
+    The description of this prompt
+    """
+    type: FormPromptType!
+
+    """
+    Whether the prompt is required for the form to be considered completed.
+    """
+    required: Boolean!
+
+    """
+    The params for this prompt if type is STRUCTURED_PROPERTY
+    """
+    structuredPropertyParams: StructuredPropertyParams
+}
+
+"""
+Enum of all form prompt types
+"""
+enum FormPromptType {
+    """
+    A structured property form prompt type.
+    """
+    STRUCTURED_PROPERTY
+    """
+    A schema field-level structured property form prompt type.
+    """
+    FIELDS_STRUCTURED_PROPERTY
+}
+
+"""
+A prompt shown to the user to collect metadata about an entity
+"""
+type StructuredPropertyParams {
+    """
+    The structured property required for the prompt on this entity
+    """
+    structuredProperty: StructuredPropertyEntity!
+}
+
+"""
+Input for responding to a singular prompt in a form
+"""
+input SubmitFormPromptInput {
+    """
+    The unique ID of the prompt this input is responding to
+    """
+    promptId: String!
+
+    """
+    The urn of the form that this prompt is a part of
+    """
+    formUrn: String!
+
+    """
+    The type of prompt that this input is responding to
+    """
+    type: FormPromptType!
+
+    """
+    The fieldPath on a schema field that this prompt submission is association with.
+    This should be provided when the prompt is type FIELDS_STRUCTURED_PROPERTY
+    """
+    fieldPath: String
+
+    """
+    The structured property required for the prompt on this entity
+    """
+    structuredPropertyParams: StructuredPropertyInputParams
+}
+
+
+"""
+Input for collecting structured property values to apply to entities
+"""
+input PropertyValueInput {
+    """
+    The string value for this structured property
+    """
+    stringValue: String
+
+    """
+    The number value for this structured property
+    """
+    numberValue: Float
+}
+
+"""
+A prompt shown to the user to collect metadata about an entity
+"""
+input StructuredPropertyInputParams {
+    """
+    The urn of the structured property being applied to an entity
+    """
+    structuredPropertyUrn: String!
+
+    """
+    The list of values you want to apply on this structured property to an entity
+    """
+    values: [PropertyValueInput!]!
+}
+
+"""
+Input for batch assigning a form to different entities
+"""
+input BatchAssignFormInput {
+    """
+    The urn of the form being assigned to entities
+    """
+    formUrn: String!
+
+    """
+    The entities that this form is being assigned to
+    """
+    entityUrns: [String!]!
+}
+
+"""
+Input for batch assigning a form to different entities
+"""
+input CreateDynamicFormAssignmentInput {
+    """
+    The urn of the form being assigned to entities that match some criteria
+    """
+    formUrn: String!
+
+    """
+    A list of disjunctive criterion for the filter. (or operation to combine filters).
+    Entities that match this filter will have this form applied to them.
+    Currently, we only support a set of fields to filter on and they are:
+    (1) platform (2) subType (3) container (4) _entityType (5) domain
+    """
+    orFilters: [AndFilterInput!]!
+}
+
+type FormActorAssignment {
+  """
+  Whether the form should be completed by owners of the assets which the form is applied to.
+  """
+  owners: Boolean!
+
+  """
+  Urns of the users that the form is assigned to. If null, then no users are specifically targeted.
+  """
+  users: [CorpUser!]
+
+  """
+  Groups that the form is assigned to. If null, then no groups are specifically targeted.
+  """
+  groups: [CorpGroup!]
+
+  """
+  Whether or not the current actor is universally assigned to this form, either by user or by group.
+  Note that this does not take into account entity ownership based assignment.
+  """
+  isAssignedToMe: Boolean!
+}
+
+"""
+Input for verifying forms on entities
+"""
+input VerifyFormInput {
+    """
+    The urn of the form being verified on an entity
+    """
+    formUrn: String!
+
+    """
+    The urn of the entity that is having a form verified on it
+    """
+    entityUrn: String!
+}
+
+"""
+Input for batch removing a form from different entities
+"""
+input BatchRemoveFormInput {
+    """
+    The urn of the form being removed from entities
+    """
+    formUrn: String!
+
+    """
+    The entities that this form is being removed from
+    """
+    entityUrns: [String!]!
+}
+
+"""
+Input for batch removing a form from different entities
+"""
+input CreateFormInput {
+    """
+    Advanced: Optionally provide an ID to create a form urn from
+    """
+    id: String
+
+    """
+    The name of the form being created
+    """
+    name: String!
+
+    """
+    The optional description of the form being created
+    """
+    description: String
+
+    """
+    The type of this form, whether it's verification or completion. Default is completion.
+    """
+    type: FormType
+
+    """
+    The type of this form, whether it's verification or completion. Default is completion.
+    """
+    prompts: [CreatePromptInput!]
+
+    """
+    Information on how this form should be assigned to users/groups
+    """
+    actors: FormActorAssignmentInput
+}
+
+"""
+Input for creating form prompts
+"""
+input CreatePromptInput {
+    """
+    Advanced: Optionally provide an ID to this prompt. All prompt IDs must be globally unique.
+    """
+    id: String
+
+    """
+    The title of the prompt
+    """
+    title: String!
+
+    """
+    The optional description of the prompt
+    """
+    description: String
+
+    """
+    The type of the prompt.
+    """
+    type: FormPromptType!
+
+    """
+    The params required if this prompt type is STRUCTURED_PROPERTY or FIELDS_STRUCTURED_PROPERTY
+    """
+    structuredPropertyParams: StructuredPropertyParamsInput
+
+    """
+    Whether this prompt will be required or not. Default is false.
+    """
+    required: Boolean
+
+}
+
+"""
+Input for assigning a form to actors
+"""
+input FormActorAssignmentInput {
+    """
+    Whether this form will be applied to owners of associated entities or not. Default is true.
+    """
+    owners: Boolean
+
+    """
+    The optional list of user urns to assign this form to
+    """
+    users: [String!]
+
+    """
+    The optional list of group urns to assign this form to
+    """
+    groups: [String!]
+}
+
+"""
+Input for a structured property type prompt
+"""
+input StructuredPropertyParamsInput {
+    """
+    The urn of the structured property for a given form prompt
+    """
+    urn: String!
+}
+
+"""
+Input for updating a form
+"""
+input UpdateFormInput {
+    """
+    The urn of the form being updated
+    """
+    urn: String!
+
+    """
+    The new name of the form
+    """
+    name: String
+
+    """
+    The new description of the form
+    """
+    description: String
+
+    """
+    The new type of the form
+    """
+    type: FormType
+
+    """
+    The new prompts being added to this form
+    """
+    promptsToAdd: [CreatePromptInput!]
+
+    """
+    The IDs of the prompts to remove from this form
+    """
+    promptsToRemove: [String!]
+
+    """
+    Information on how this form should be assigned to users/groups
+    """
+    actors: FormActorAssignmentUpdateInput
+}
+
+"""
+Update input for assigning a form to actors
+"""
+input FormActorAssignmentUpdateInput {
+    """
+    Whether this form will be applied to owners of associated entities or not. Default is true.
+    """
+    owners: Boolean
+
+    """
+    The optional list of user urns to assign this form to
+    """
+    usersToAdd: [String!]
+
+    """
+    The users being removed from being assigned to this form
+    """
+    usersToRemove: [String!]
+
+    """
+    The optional list of group urns to assign this form to
+    """
+    groupsToAdd: [String!]
+
+    """
+    The groups being removed from being assigned to this form
+    """
+    groupsToRemove: [String!]
+}
+
+"""
+Input for deleting a form
+"""
+input DeleteFormInput {
+    """
+    The urn of the form that is being deleted
+    """
+    urn: String!
+}

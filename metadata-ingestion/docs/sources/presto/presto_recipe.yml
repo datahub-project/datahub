@@ -7,7 +7,7 @@ source:
 
     # Credentials
     username: foo
-    password: datahub
+    password: password
 
 sink:
   # sink configs

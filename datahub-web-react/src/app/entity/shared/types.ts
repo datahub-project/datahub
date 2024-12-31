@@ -38,6 +38,8 @@ import {
     BrowsePathV2,
     DataJobInputOutput,
     ParentDomainsResult,
+    StructuredProperties,
+    Forms,
 } from '../../../types.generated';
 import { FetchedEntity } from '../../lineage/types';
 
@@ -50,6 +52,7 @@ export type EntityTab = {
     };
     properties?: any;
     id?: string;
+    getDynamicName?: (GenericEntityProperties, T) => string;
 };
 
 export type EntitySidebarSection = {
@@ -69,10 +72,12 @@ export type GenericEntityProperties = {
     type?: EntityType;
     name?: Maybe<string>;
     properties?: Maybe<{
+        name?: Maybe<string>;
         description?: Maybe<string>;
         qualifiedName?: Maybe<string>;
         sourceUrl?: Maybe<string>;
         sourceRef?: Maybe<string>;
+        businessAttributeDataType?: Maybe<string>;
     }>;
     globalTags?: Maybe<GlobalTags>;
     glossaryTerms?: Maybe<GlossaryTerms>;
@@ -82,6 +87,7 @@ export type GenericEntityProperties = {
     platform?: Maybe<DataPlatform>;
     dataPlatformInstance?: Maybe<DataPlatformInstance>;
     customProperties?: Maybe<CustomPropertiesEntry[]>;
+    structuredProperties?: Maybe<StructuredProperties>;
     institutionalMemory?: Maybe<InstitutionalMemory>;
     schemaMetadata?: Maybe<SchemaMetadata>;
     externalUrl?: Maybe<string>;
@@ -115,6 +121,8 @@ export type GenericEntityProperties = {
     origin?: Maybe<FabricType>;
     browsePathV2?: Maybe<BrowsePathV2>;
     inputOutput?: Maybe<DataJobInputOutput>;
+    forms?: Maybe<Forms>;
+    parent?: Maybe<GenericEntityProperties>;
 };
 
 export type GenericEntityUpdate = {

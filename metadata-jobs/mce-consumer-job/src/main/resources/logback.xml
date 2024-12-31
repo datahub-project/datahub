@@ -3,10 +3,11 @@
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%date{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%date{ISO8601} [%thread] %-5level %logger{36} urn=%X{entityUrn:-none} aspect=%X{aspectName:-none} entityType=%X{entityType:-none} changeType=%X{changeType:-none} - %msg%n</pattern>
         </encoder>
         <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
             <excluded>scanned from multiple locations</excluded>
+            <excluded>[ignore_throttled] parameter is deprecated because frozen indices have been deprecated</excluded>
         </filter>
     </appender>
 
@@ -26,6 +27,7 @@
         </triggeringPolicy>
         <filter class="com.linkedin.metadata.utils.log.LogMessageFilter">
             <excluded>scanned from multiple locations</excluded>
+            <excluded>[ignore_throttled] parameter is deprecated because frozen indices have been deprecated</excluded>
         </filter>
     </appender>
 

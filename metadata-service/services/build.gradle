@@ -1,19 +1,29 @@
-apply plugin: 'java'
-apply plugin: 'org.hidetake.swagger.generator'
+plugins {
+    id 'org.hidetake.swagger.generator'
+    id 'java-library'
+}
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
 
 configurations {
     enhance
 }
 
 dependencies {
-    implementation externalDependency.jsonPatch
+    implementation 'com.github.java-json-tools:json-patch:1.13' // TODO: Replace with jakarta.json
     implementation project(':entity-registry')
     implementation project(':metadata-utils')
     implementation project(':metadata-events:mxe-avro')
     implementation project(':metadata-events:mxe-registration')
     implementation project(':metadata-events:mxe-utils-avro')
-    implementation project(':metadata-models')
-    implementation project(':metadata-service:restli-client')
+    api project(path: ':metadata-models', configuration: 'dataTemplate')
+    api project(':metadata-models')
+
+    // Consider using the restli-client-api instead of dependency on project(':metadata-service:restli-client')
+    // to avoid circular dependencies with the restli/pegasus code gen
+    implementation project(':metadata-service:restli-client-api')
+    implementation project(':metadata-auth:auth-api')
+    implementation project(':metadata-operation-context')
     implementation project(':metadata-service:configuration')
 
     implementation externalDependency.slf4jApi

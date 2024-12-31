@@ -1,11 +1,30 @@
 query getDashboard($urn: String!) {
     dashboard(urn: $urn) {
+        urn
+        type
         ...dashboardFields
+        privileges {
+            ...entityPrivileges
+        }
         charts: relationships(input: { types: ["Contains"], direction: OUTGOING, start: 0, count: 100 }) {
             ...fullRelationshipResults
         }
         datasets: relationships(input: { types: ["Consumes"], direction: OUTGOING, start: 0, count: 100 }) {
             ...fullRelationshipResults
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+            total
+        }
+        forms {
+            ...formsFields
         }
     }
 }

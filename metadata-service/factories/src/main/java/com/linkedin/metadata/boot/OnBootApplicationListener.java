@@ -2,6 +2,7 @@ package com.linkedin.metadata.boot;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.schemaregistry.InternalSchemaRegistryFactory;
+import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
@@ -20,20 +21,24 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.WebApplicationContext;
-import org.springframework.context.annotation.Configuration;
 
-
-/**
- * Responsible for coordinating starting steps that happen before the application starts up.
- */
-@Configuration
+/** Responsible for coordinating starting steps that happen before the application starts up. */
 @Slf4j
 @Component
 public class OnBootApplicationListener {
- private static final Set<Integer> ACCEPTED_HTTP_CODES = Set.of(HttpStatus.SC_OK, HttpStatus.SC_MOVED_PERMANENTLY,
-         HttpStatus.SC_MOVED_TEMPORARILY, HttpStatus.SC_FORBIDDEN, HttpStatus.SC_UNAUTHORIZED);
 
-  private static final String ROOT_WEB_APPLICATION_CONTEXT_ID = String.format("%s:", WebApplicationContext.class.getName());
+  public static final String SCHEMA_REGISTRY_SERVLET_NAME = "dispatcher-schema-registry";
+
+  private static final Set<Integer> ACCEPTED_HTTP_CODES =
+      Set.of(
+          HttpStatus.SC_OK,
+          HttpStatus.SC_MOVED_PERMANENTLY,
+          HttpStatus.SC_MOVED_TEMPORARILY,
+          HttpStatus.SC_FORBIDDEN,
+          HttpStatus.SC_UNAUTHORIZED);
+
+  private static final String ROOT_WEB_APPLICATION_CONTEXT_ID =
+      String.format("%s:", WebApplicationContext.class.getName());
 
   private final CloseableHttpClient httpClient = HttpClients.createDefault();
 
@@ -50,45 +55,70 @@ public class OnBootApplicationListener {
   @Value("${bootstrap.servlets.waitTimeout}")
   private int _servletsWaitTimeout;
 
+  @Autowired
+  @Qualifier("systemOperationContext")
+  private OperationContext systemOperationContext;
+
   @EventListener(ContextRefreshedEvent.class)
   public void onApplicationEvent(@Nonnull ContextRefreshedEvent event) {
-    log.warn("OnBootApplicationListener context refreshed! {} event: {}",
-        ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId()), event);
+
+    if (SCHEMA_REGISTRY_SERVLET_NAME.equals(event.getApplicationContext().getId())) {
+      log.info("Loading servlet {} without interruption.", SCHEMA_REGISTRY_SERVLET_NAME);
+      return;
+    }
+
+    log.warn(
+        "OnBootApplicationListener context refreshed! {} event: {}",
+        ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId()),
+        event);
     String schemaRegistryType = provider.getKafka().getSchemaRegistry().getType();
     if (ROOT_WEB_APPLICATION_CONTEXT_ID.equals(event.getApplicationContext().getId())) {
+
+      // Handle race condition, if ebean code is executed while waiting/bootstrapping (i.e.
+      // AuthenticationFilter)
+      try {
+        Class.forName("io.ebean.XServiceProvider");
+      } catch (ClassNotFoundException e) {
+        log.error(
+            "Failure to initialize required class `io.ebean.XServiceProvider` during initialization.");
+        throw new RuntimeException(e);
+      }
+
       if (InternalSchemaRegistryFactory.TYPE.equals(schemaRegistryType)) {
         executorService.submit(isSchemaRegistryAPIServletReady());
       } else {
-        _bootstrapManager.start();
+        _bootstrapManager.start(systemOperationContext);
       }
     }
   }
 
   public Runnable isSchemaRegistryAPIServletReady() {
     return () -> {
-        final HttpGet request = new HttpGet(provider.getKafka().getSchemaRegistry().getUrl());
-        int timeouts = _servletsWaitTimeout;
-        boolean openAPIServeletReady = false;
-        while (!openAPIServeletReady && timeouts > 0) {
-          try {
-            log.info("Sleeping for 1 second");
-            Thread.sleep(1000);
-            StatusLine statusLine = httpClient.execute(request).getStatusLine();
-            if (ACCEPTED_HTTP_CODES.contains(statusLine.getStatusCode())) {
-              log.info("Connected! Authentication not tested.");
-              openAPIServeletReady = true;
-            }
-          } catch (IOException | InterruptedException e) {
-            log.info("Failed to connect to open servlet: {}", e.getMessage());
+      final HttpGet request = new HttpGet(provider.getKafka().getSchemaRegistry().getUrl());
+      int timeouts = _servletsWaitTimeout;
+      boolean openAPIServletReady = false;
+      while (!openAPIServletReady && timeouts > 0) {
+        try {
+          log.info("Sleeping for 1 second");
+          Thread.sleep(1000);
+          StatusLine statusLine = httpClient.execute(request).getStatusLine();
+          if (ACCEPTED_HTTP_CODES.contains(statusLine.getStatusCode())) {
+            log.info("Connected! Authentication not tested.");
+            openAPIServletReady = true;
           }
-          timeouts--;
+        } catch (IOException | InterruptedException e) {
+          log.info("Failed to connect to open servlet: {}", e.getMessage());
         }
-        if (!openAPIServeletReady) {
-          log.error("Failed to bootstrap DataHub, OpenAPI servlet was not ready after {} seconds", timeouts);
-          System.exit(1);
-        } else {
-        _bootstrapManager.start();
-        }
+        timeouts--;
+      }
+      if (!openAPIServletReady) {
+        log.error(
+            "Failed to bootstrap DataHub, OpenAPI servlet was not ready after {} seconds",
+            timeouts);
+        System.exit(1);
+      } else {
+        _bootstrapManager.start(systemOperationContext);
+      }
     };
   }
 }

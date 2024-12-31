@@ -7,6 +7,7 @@ import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Ent
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { urlEncodeUrn } from '../shared/utils';
 import RoleEntityProfile from './RoleEntityProfile';
+import { useGetExternalRoleQuery } from '../../../graphql/accessrole.generated';
 
 const PreviewTagIcon = styled(TagOutlined)`
     font-size: 20px;
@@ -50,6 +51,8 @@ export class RoleEntity implements Entity<Role> {
 
     getEntityName: () => string = () => 'Role';
 
+    useEntityQuery = useGetExternalRoleQuery;
+
     renderProfile: (urn: string) => JSX.Element = (_) => <RoleEntityProfile />;
 
     renderPreview = (_: PreviewType, data: Role) => (
@@ -84,5 +87,9 @@ export class RoleEntity implements Entity<Role> {
 
     supportedCapabilities = () => {
         return new Set([EntityCapabilityType.OWNERS]);
+    };
+
+    getGraphName = () => {
+        return 'roleEntity';
     };
 }

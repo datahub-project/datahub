@@ -14,7 +14,7 @@ const FeatureAvailability = ({ saasOnly, ossOnly }) => (
     <div>
       <CloudOutlined className={styles.managedIcon} />
       <span className={clsx(styles.platform, !ossOnly && styles.platformAvailable)}>
-        Managed DataHub {ossOnly ? <CloseCircleFilled /> : <CheckCircleFilled />}
+        DataHub Cloud {ossOnly ? <CloseCircleFilled /> : <CheckCircleFilled />}
       </span>
     </div>
   </div>

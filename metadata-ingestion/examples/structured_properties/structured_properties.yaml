@@ -1,0 +1,68 @@
+- id: io.acryl.privacy.retentionTime
+  # - urn: urn:li:structuredProperty:io.acryl.privacy.retentionTime # optional if id is provided
+  qualified_name: io.acryl.privacy.retentionTime # required if urn is provided
+  type: number
+  cardinality: MULTIPLE
+  display_name: Retention Time
+  entity_types:
+    - dataset # or urn:li:entityType:datahub.dataset
+    - dataFlow
+  description: 'Retention Time is used to figure out how long to retain records in a dataset'
+  allowed_values:
+    - value: 30
+      description: 30 days, usually reserved for datasets that are ephemeral and contain pii
+    - value: 90
+      description: Use this for datasets that drive monthly reporting but contain pii
+    - value: 365
+      description: Use this for non-sensitive data that can be retained for longer
+- id: io.acryl.dataManagement.replicationSLA
+  type: number
+  display_name: Replication SLA
+  description: 'SLA for how long data can be delayed before replicating to the destination cluster'
+  entity_types:
+    - dataset
+- id: io.acryl.dataManagement.deprecationDate
+  type: date
+  display_name: Deprecation Date
+  entity_types:
+    - dataset
+    - dataFlow
+    - dataJob
+- id: io.acryl.dataManagement.steward
+  type: urn
+  type_qualifier:
+    allowed_types: # only user and group urns are allowed
+      - corpuser
+      - corpGroup
+  display_name: Steward
+  entity_types:
+    - dataset
+    - dataFlow
+    - dataJob
+- id: io.acryl.dataManagement.certifier
+  type: urn
+  display_name: Person Certifying the asset
+  entity_types:
+    - dataset
+    - schemaField
+- id: io.acryl.dataManagement.team
+  type: string
+  display_name: Management team
+  entity_types:
+    - dataset
+- id: projectNames
+  type: string
+  cardinality: MULTIPLE
+  display_name: Project names
+  entity_types:
+    - dataset
+  allowed_values:
+    - value: Tracking
+      description: test value 1 for project
+    - value: DataHub
+      description: test value 2 for project
+- id: namespace
+  type: string
+  display_name: Namespace
+  entity_types:
+    - dataset

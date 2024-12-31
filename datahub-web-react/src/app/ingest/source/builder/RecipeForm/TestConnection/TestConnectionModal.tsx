@@ -3,7 +3,7 @@ import { Button, Divider, Modal, Typography } from 'antd';
 import React from 'react';
 import { green, red } from '@ant-design/colors';
 import styled from 'styled-components/macro';
-import { ReactComponent as LoadingSvg } from '../../../../../../images/datahub-logo-color-loading_pendulum.svg';
+import LoadingSvg from '../../../../../../images/datahub-logo-color-loading_pendulum.svg?react';
 import { ANTD_GRAY } from '../../../../../entity/shared/constants';
 import ConnectionCapabilityView from './ConnectionCapabilityView';
 import { CapabilityReport, SourceCapability, TestConnectionResult } from './types';
@@ -101,7 +101,7 @@ function TestConnectionModal({
 
     return (
         <Modal
-            visible
+            open
             onCancel={hideModal}
             footer={<Button onClick={hideModal}>Done</Button>}
             title={
@@ -158,9 +158,9 @@ function TestConnectionModal({
                     {testConnectionResult?.basic_connectivity && (
                         <ConnectionCapabilityView
                             capability="Basic Connectivity"
-                            displayMessage={testConnectionResult?.basic_connectivity.failure_reason}
-                            success={testConnectionResult?.basic_connectivity.capable}
-                            tooltipMessage={testConnectionResult?.basic_connectivity.mitigation_message}
+                            displayMessage={testConnectionResult?.basic_connectivity?.failure_reason}
+                            success={testConnectionResult?.basic_connectivity?.capable}
+                            tooltipMessage={testConnectionResult?.basic_connectivity?.mitigation_message}
                             number={1}
                         />
                     )}

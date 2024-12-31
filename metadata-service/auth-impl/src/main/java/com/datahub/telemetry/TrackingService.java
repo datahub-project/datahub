@@ -1,5 +1,7 @@
 package com.datahub.telemetry;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
@@ -11,11 +13,12 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.secret.SecretService;
 import com.linkedin.metadata.version.GitVersion;
 import com.linkedin.telemetry.TelemetryClientId;
 import com.mixpanel.mixpanelapi.MessageBuilder;
 import com.mixpanel.mixpanelapi.MixpanelAPI;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.services.SecretService;
 import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
@@ -26,9 +29,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONException;
 import org.json.JSONObject;
-
-import static com.linkedin.metadata.Constants.*;
-
 
 @Slf4j
 @RequiredArgsConstructor
@@ -56,11 +56,29 @@ public class TrackingService {
   private static final String INTERVAL_FIELD = "interval";
   private static final String VIEW_TYPE_FIELD = "viewType";
 
-  private static final Set<String> ALLOWED_EVENT_FIELDS = new HashSet<>(
-      ImmutableList.of(EVENT_TYPE_FIELD, ENTITY_TYPE_FIELD, ENTITY_TYPE_FILTER_FIELD,
-          PAGE_NUMBER_FIELD, PAGE_FIELD, TOTAL_FIELD, INDEX_FIELD, RESULT_TYPE_FIELD, RENDER_ID_FIELD, MODULE_ID_FIELD,
-          RENDER_TYPE_FIELD, SCENARIO_TYPE_FIELD, SECTION_FIELD, ACCESS_TOKEN_TYPE_FIELD, DURATION_FIELD,
-          ROLE_URN_FIELD, POLICY_URN_FIELD, SOURCE_TYPE_FIELD, INTERVAL_FIELD, VIEW_TYPE_FIELD));
+  private static final Set<String> ALLOWED_EVENT_FIELDS =
+      new HashSet<>(
+          ImmutableList.of(
+              EVENT_TYPE_FIELD,
+              ENTITY_TYPE_FIELD,
+              ENTITY_TYPE_FILTER_FIELD,
+              PAGE_NUMBER_FIELD,
+              PAGE_FIELD,
+              TOTAL_FIELD,
+              INDEX_FIELD,
+              RESULT_TYPE_FIELD,
+              RENDER_ID_FIELD,
+              MODULE_ID_FIELD,
+              RENDER_TYPE_FIELD,
+              SCENARIO_TYPE_FIELD,
+              SECTION_FIELD,
+              ACCESS_TOKEN_TYPE_FIELD,
+              DURATION_FIELD,
+              ROLE_URN_FIELD,
+              POLICY_URN_FIELD,
+              SOURCE_TYPE_FIELD,
+              INTERVAL_FIELD,
+              VIEW_TYPE_FIELD));
 
   private static final String ACTOR_URN_FIELD = "actorUrn";
   private static final String ORIGIN_FIELD = "origin";
@@ -72,9 +90,20 @@ public class TrackingService {
   private static final String USER_URN_FIELD = "userUrn";
   private static final String USER_URNS_FIELD = "userUrns";
   private static final String PARENT_NODE_URN_FIELD = "parentNodeUrn";
-  private static final Set<String> ALLOWED_OBFUSCATED_EVENT_FIELDS = new HashSet<>(
-      ImmutableList.of(ACTOR_URN_FIELD, ORIGIN_FIELD, ENTITY_URN_FIELD, ENTITY_URNS_FIELD, GROUP_NAME_FIELD,
-          SECTION_FIELD, ENTITY_PAGE_FILTER_FIELD, PATH_FIELD, USER_URN_FIELD, USER_URNS_FIELD, PARENT_NODE_URN_FIELD));
+  private static final Set<String> ALLOWED_OBFUSCATED_EVENT_FIELDS =
+      new HashSet<>(
+          ImmutableList.of(
+              ACTOR_URN_FIELD,
+              ORIGIN_FIELD,
+              ENTITY_URN_FIELD,
+              ENTITY_URNS_FIELD,
+              GROUP_NAME_FIELD,
+              SECTION_FIELD,
+              ENTITY_PAGE_FILTER_FIELD,
+              PATH_FIELD,
+              USER_URN_FIELD,
+              USER_URNS_FIELD,
+              PARENT_NODE_URN_FIELD));
 
   private final MixpanelAPI _mixpanelAPI;
   private final MessageBuilder _mixpanelMessageBuilder;
@@ -85,7 +114,8 @@ public class TrackingService {
   private final ObjectWriter _objectWriter = _objectMapper.writerWithDefaultPrettyPrinter();
   private String _clientId;
 
-  public void emitAnalyticsEvent(@Nonnull final JsonNode event) {
+  public void emitAnalyticsEvent(
+      @Nonnull OperationContext opContext, @Nonnull final JsonNode event) {
     final JSONObject sanitizedEvent = sanitizeEvent(event);
     if (sanitizedEvent == null) {
       return;
@@ -100,15 +130,17 @@ public class TrackingService {
     }
 
     try {
-      _mixpanelAPI.sendMessage(_mixpanelMessageBuilder.event(getClientId(), eventType, sanitizedEvent));
+      _mixpanelAPI.sendMessage(
+          _mixpanelMessageBuilder.event(getClientId(opContext), eventType, sanitizedEvent));
     } catch (IOException e) {
-      log.info("Failed to send event to Mixpanel; this does not affect the functionality of the application");
+      log.info(
+          "Failed to send event to Mixpanel; this does not affect the functionality of the application");
       log.debug("Failed to send event to Mixpanel", e);
     }
   }
 
   @Nonnull
-  public String getClientId() {
+  public String getClientId(@Nonnull OperationContext opContext) {
     // Return cached client id if it exists
     if (_clientId != null) {
       return _clientId;
@@ -116,12 +148,13 @@ public class TrackingService {
 
     Urn clientIdUrn = UrnUtils.getUrn(CLIENT_ID_URN);
     // Create a new client id if it doesn't exist
-    if (!_entityService.exists(clientIdUrn)) {
-      return createClientIdIfNotPresent(_entityService);
+    if (!_entityService.exists(opContext, clientIdUrn, true)) {
+      return createClientIdIfNotPresent(opContext, _entityService);
     }
 
     // Otherwise, return the existing client id from the metadata store
-    RecordTemplate clientIdTemplate = _entityService.getLatestAspect(clientIdUrn, CLIENT_ID_ASPECT);
+    RecordTemplate clientIdTemplate =
+        _entityService.getLatestAspect(opContext, clientIdUrn, CLIENT_ID_ASPECT);
     // Should always be present here from above, so no need for null check
     _clientId = ((TelemetryClientId) clientIdTemplate).getClientId();
     return _clientId;
@@ -134,7 +167,8 @@ public class TrackingService {
 
     final JSONObject unsanitizedEventObj;
     try {
-      unsanitizedEventObj = new JSONObject(_objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(event));
+      unsanitizedEventObj =
+          new JSONObject(_objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(event));
     } catch (Exception e) {
       log.warn("Failed to serialize event", e);
       return createFailedEvent();
@@ -145,18 +179,25 @@ public class TrackingService {
       return createFailedEvent();
     }
 
-    unsanitizedEventObj.keys().forEachRemaining(key -> {
-      String keyString = (String) key;
-      try {
-        if (ALLOWED_EVENT_FIELDS.contains(keyString)) {
-          sanitizedEventObj.put(keyString, unsanitizedEventObj.get(keyString).toString());
-        } else if (ALLOWED_OBFUSCATED_EVENT_FIELDS.contains(keyString)) {
-          sanitizedEventObj.put(keyString, _secretService.hashString(unsanitizedEventObj.get(keyString).toString()));
-        }
-      } catch (JSONException e) {
-        log.warn(String.format("Failed to sanitize field %s. Skipping this field.", keyString), e);
-      }
-    });
+    unsanitizedEventObj
+        .keys()
+        .forEachRemaining(
+            key -> {
+              String keyString = (String) key;
+              try {
+                if (ALLOWED_EVENT_FIELDS.contains(keyString)) {
+                  sanitizedEventObj.put(keyString, unsanitizedEventObj.get(keyString).toString());
+                } else if (ALLOWED_OBFUSCATED_EVENT_FIELDS.contains(keyString)) {
+                  sanitizedEventObj.put(
+                      keyString,
+                      _secretService.hashString(unsanitizedEventObj.get(keyString).toString()));
+                }
+              } catch (JSONException e) {
+                log.warn(
+                    String.format("Failed to sanitize field %s. Skipping this field.", keyString),
+                    e);
+              }
+            });
 
     return transformObjectNodeToJSONObject(sanitizedEventObj);
   }
@@ -183,14 +224,15 @@ public class TrackingService {
   }
 
   @Nonnull
-  private static String createClientIdIfNotPresent(@Nonnull final EntityService entityService) {
+  private static String createClientIdIfNotPresent(
+      @Nonnull OperationContext opContext, @Nonnull final EntityService entityService) {
     String uuid = UUID.randomUUID().toString();
     TelemetryClientId clientId = new TelemetryClientId().setClientId(uuid);
     final AuditStamp clientIdStamp = new AuditStamp();
     clientIdStamp.setActor(UrnUtils.getUrn(Constants.SYSTEM_ACTOR));
     clientIdStamp.setTime(System.currentTimeMillis());
-    entityService.ingestAspectIfNotPresent(UrnUtils.getUrn(CLIENT_ID_URN), CLIENT_ID_ASPECT, clientId, clientIdStamp,
-        null);
+    entityService.ingestAspectIfNotPresent(
+        opContext, UrnUtils.getUrn(CLIENT_ID_URN), CLIENT_ID_ASPECT, clientId, clientIdStamp, null);
     return uuid;
   }
 }

@@ -1,0 +1,15 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Connection
+ */
+@Aspect = {
+  "name": "dataHubConnectionKey"
+}
+record DataHubConnectionKey {
+  /**
+  * A unique identifier for the connection.
+  */
+  @Searchable = {}
+  id: string
+}

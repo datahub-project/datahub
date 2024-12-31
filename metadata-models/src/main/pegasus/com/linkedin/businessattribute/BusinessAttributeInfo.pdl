@@ -1,0 +1,26 @@
+namespace com.linkedin.businessattribute
+
+import com.linkedin.schema.SchemaFieldDataType
+import com.linkedin.schema.EditableSchemaFieldInfo
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ChangeAuditStamps
+
+/**
+ * Properties associated with a BusinessAttribute
+ */
+@Aspect = {
+   "name": "businessAttributeInfo"
+}
+record BusinessAttributeInfo includes EditableSchemaFieldInfo, CustomProperties, ChangeAuditStamps {
+   /**
+   * Display name of the BusinessAttribute
+   */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "enableAutocomplete": true,
+    "boostScore": 10.0,
+    "fieldNameAliases": [ "_entityName" ]
+  }
+  name: string
+  type: optional SchemaFieldDataType
+}

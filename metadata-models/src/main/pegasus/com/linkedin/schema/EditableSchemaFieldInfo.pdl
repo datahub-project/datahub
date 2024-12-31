@@ -36,7 +36,21 @@ record EditableSchemaFieldInfo {
       "fieldName": "editedFieldTags",
       "fieldType": "URN",
       "boostScore": 0.5
-    }
+    },
+    "/tags/*/attribution/time": {
+        "fieldName": "editedFieldTagAttributionDates",
+        "fieldType": "DATETIME"
+      },
+    "/tags/*/attribution/actor": {
+        "fieldName": "editedFieldTagAttributionActors",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
+    "/tags/*/attribution/source": {
+        "fieldName": "editedFieldTagAttributionSources",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
   }
   globalTags: optional GlobalTags
 
@@ -54,7 +68,21 @@ record EditableSchemaFieldInfo {
       "fieldName": "editedFieldGlossaryTerms",
       "fieldType": "URN",
       "boostScore": 0.5
-    }
+    },
+    "/terms/*/attribution/time": {
+        "fieldName": "editedFieldTermAttributionDates",
+        "fieldType": "DATETIME"
+      },
+    "/terms/*/attribution/actor": {
+        "fieldName": "editedFieldTermAttributionActors",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
+    "/terms/*/attribution/source": {
+        "fieldName": "editedFieldTermAttributionSources",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
   }
   glossaryTerms: optional GlossaryTerms
 }

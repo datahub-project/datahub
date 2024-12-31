@@ -14,3 +14,67 @@ jobs:
         with:
           repo-token: "${{ secrets.GITHUB_TOKEN }}"
           configuration-path: ".github/pr-labeler-config.yml"
+      - uses: actions-ecosystem/action-add-labels@v1.1.0
+        # only add names of Acryl Data team members here
+        if: 
+          ${{ 
+            !contains(
+              fromJson('[
+                "anshbansal",
+                "asikowitz",
+                "chriscollins3456",
+                "david-leifker",
+                "shirshanka",
+                "sid-acryl",
+                "swaroopjagadish",
+                "treff7es",
+                "yoonhyejin",
+                "gabe-lyons",
+                "hsheth2",
+                "jjoyce0510",
+                "maggiehays",
+                "pedro93",
+                "RyanHolstien",
+                "sakethvarma397",
+                "purnimagarg1",
+                "sagar-salvi-apptware",
+                "kushagra-apptware",
+                "Salman-Apptware",
+                "mayurinehate",
+                "noggi",
+                "skrydal",
+                "kevinkarchacryl",
+                "sgomezvillamor",
+                "acrylJonny",
+                "chakru-r"
+              ]'), 
+              github.actor
+            ) 
+          }}
+        with:
+          github_token: ${{ github.token }}
+          labels: |
+            community-contribution
+      - uses: actions-ecosystem/action-add-labels@v1.1.0
+        # only add names of champions here. Confirm with DevRel Team
+        if: 
+          ${{ 
+            contains(
+              fromJson('[
+                "siladitya2",
+                "bossenti",
+                "PatrickfBraz",
+                "cuong-pham",
+                "sudhakarast",
+                "tkdrahn",
+                "rtekal",
+                "mikeburke24",
+                "DSchmidtDev"
+              ]'), 
+              github.actor
+            ) 
+          }}
+        with:
+          github_token: ${{ github.token }}
+          labels: |
+            datahub-community-champion

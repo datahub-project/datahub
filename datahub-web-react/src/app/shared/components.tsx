@@ -47,3 +47,9 @@ export const BodyGridExpander = styled.div<{ isOpen: boolean }>`
 export const BodyContainer = styled.div`
     min-height: 0;
 `;
+
+export const WhiteButton = styled(Button)`
+    background-color: white;
+    color: ${(props) => props.theme.styles['primary-color']};
+    text-shadow: none;
+`;

@@ -2,7 +2,6 @@ package com.linkedin.metadata.datahubusage;
 
 import lombok.Getter;
 
-
 @Getter
 public enum DataHubUsageEventType {
   PAGE_VIEW_EVENT("PageViewEvent"),
@@ -44,6 +43,7 @@ public enum DataHubUsageEventType {
   CREATE_RESET_CREDENTIALS_LINK_EVENT("CreateResetCredentialsLinkEvent"),
   DELETE_ENTITY_EVENT("DeleteEntityEvent"),
   SELECT_USER_ROLE_EVENT("SelectUserRoleEvent"),
+  SELECT_GROUP_ROLE_EVENT("SelectGroupRoleEvent"),
   BATCH_SELECT_USER_ROLE_EVENT("BatchSelectUserRoleEvent"),
   CREATE_POLICY_EVENT("CreatePolicyEvent"),
   UPDATE_POLICY_EVENT("UpdatePolicyEvent"),
@@ -77,7 +77,16 @@ public enum DataHubUsageEventType {
   DESELECT_QUICK_FILTER_EVENT("DeselectQuickFilterEvent"),
   EMBED_PROFILE_VIEW_EVENT("EmbedProfileViewEvent"),
   EMBED_PROFILE_VIEW_IN_DATAHUB_EVENT("EmbedProfileViewInDataHubEvent"),
-  EMBED_LOOKUP_NOT_FOUND_EVENT("EmbedLookupNotFoundEvent");
+  EMBED_LOOKUP_NOT_FOUND_EVENT("EmbedLookupNotFoundEvent"),
+  CREATE_BUSINESS_ATTRIBUTE("CreateBusinessAttributeEvent"),
+  CREATE_STRUCTURED_PROPERTY_CLICK_EVENT("CreateStructuredPropertyClickEvent"),
+  CREATE_STRUCTURED_PROPERTY_EVENT("CreateStructuredPropertyEvent"),
+  EDIT_STRUCTURED_PROPERTY_EVENT("EditStructuredPropertyEvent"),
+  DELETE_STRUCTURED_PROPERTY_EVENT("DeleteStructuredPropertyEvent"),
+  VIEW_STRUCTURED_PROPERTY_EVENT("ViewStructuredPropertyEvent"),
+  APPLY_STRUCTURED_PROPERTY_EVENT("ApplyStructuredPropertyEvent"),
+  UPDATE_STRUCTURED_PROPERTY_ON_ASSET_EVENT("UpdateStructuredPropertyOnAssetEvent"),
+  REMOVE_STRUCTURED_PROPERTY_EVENT("RemoveStructuredPropertyEvent");
 
   private final String type;
 

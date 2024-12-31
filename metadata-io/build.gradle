@@ -1,5 +1,10 @@
-apply plugin: 'java-library'
-apply plugin: 'org.hidetake.swagger.generator'
+plugins {
+  id 'java-library'
+  id 'pegasus'
+  id 'io.ebean' version "${ebeanVersion}" // Use the latest version from global build.gradle
+}
+
+apply from: '../gradle/coverage/java-coverage.gradle'
 
 configurations {
   enhance
@@ -7,28 +12,39 @@ configurations {
 
 dependencies {
   implementation project(':entity-registry')
+  implementation project(':metadata-service:auth-config')
+  api project(':metadata-io:metadata-io-api')
   api project(':metadata-utils')
   api project(':metadata-events:mxe-avro')
   api project(':metadata-events:mxe-registration')
   api project(':metadata-events:mxe-utils-avro')
   api project(':metadata-models')
-  api project(':metadata-service:restli-client')
+  api project(':metadata-service:restli-client-api')
   api project(':metadata-service:configuration')
   api project(':metadata-service:services')
+  api project(':metadata-operation-context')
 
+  implementation spec.product.pegasus.restliServer
   implementation spec.product.pegasus.data
   implementation spec.product.pegasus.generator
 
   implementation externalDependency.guava
   implementation externalDependency.reflections
-  implementation externalDependency.jsonPatch
-  api externalDependency.dgraph4j exclude group: 'com.google.guava', module: 'guava'
+  // https://mvnrepository.com/artifact/nl.basjes.parse.useragent/yauaa
+  implementation 'nl.basjes.parse.useragent:yauaa:7.27.0'
+
+  api(externalDependency.dgraph4j) {
+    exclude group: 'com.google.guava', module: 'guava'
+    exclude group: 'io.grpc', module: 'grpc-protobuf'
+  }
   implementation externalDependency.slf4jApi
   runtimeOnly externalDependency.logbackClassic
   compileOnly externalDependency.lombok
   implementation externalDependency.commonsCollections
   api externalDependency.datastaxOssNativeProtocol
-  api externalDependency.datastaxOssCore
+  api(externalDependency.datastaxOssCore) {
+    exclude group: 'com.fasterxml.jackson.core'
+  }
   api externalDependency.datastaxOssQueryBuilder
   api externalDependency.elasticSearchRest
   api externalDependency.elasticSearchJava
@@ -37,12 +53,13 @@ dependencies {
   runtimeOnly externalDependency.jna
   api externalDependency.kafkaClients
   api externalDependency.ebean
-  enhance externalDependency.ebeanAgent
+  annotationProcessor externalDependency.ebeanQueryBean
   implementation externalDependency.ebeanDdl
+  implementation externalDependency.ebeanAgent
   implementation externalDependency.opentelemetryAnnotations
   implementation externalDependency.resilience4j
-  api externalDependency.springContext
-  implementation externalDependency.swaggerAnnotations
+  // Newer Spring libraries require JDK17 classes, allow for JDK11
+  compileOnly externalDependency.springBootAutoconfigureJdk11
   implementation(externalDependency.mixpanel) {
     exclude group: 'org.json', module: 'json'
   }
@@ -53,10 +70,17 @@ dependencies {
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
   testImplementation project(':datahub-graphql-core')
   testImplementation project(path: ':metadata-integration:java:datahub-client', configuration: 'shadow')
+  testImplementation project(':metadata-service:auth-impl')
   testImplementation externalDependency.testng
   testImplementation externalDependency.h2
   testImplementation externalDependency.mysqlConnector
   testImplementation externalDependency.neo4jHarness
+  testImplementation (externalDependency.neo4jApocCore) {
+    exclude group: 'org.yaml', module: 'snakeyaml'
+  }
+  testImplementation (externalDependency.neo4jApocCommon) {
+    exclude group: 'org.yaml', module: 'snakeyaml'
+  }
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockitoInline
   testImplementation externalDependency.iStackCommons
@@ -69,13 +93,16 @@ dependencies {
   testImplementation externalDependency.lombok
   testImplementation externalDependency.springBootTest
   testImplementation spec.product.pegasus.restliServer
+  testImplementation externalDependency.ebeanTest
 
   // logback >=1.3 required due to `testcontainers` only
   testImplementation 'ch.qos.logback:logback-classic:1.4.7'
   testImplementation 'net.datafaker:datafaker:1.9.0'
 
-  testAnnotationProcessor externalDependency.lombok
+  testImplementation(testFixtures(project(":entity-registry")))
 
+  testAnnotationProcessor externalDependency.lombok
+  testImplementation project(':mock-entity-registry')
   constraints {
     implementation(externalDependency.log4jCore) {
         because("previous versions are vulnerable to CVE-2021-45105")
@@ -98,6 +125,9 @@ dependencies {
     implementation(externalDependency.snappy) {
       because("previous versions are vulnerable to CVE-2023-34453 through CVE-2023-34455")
     }
+    implementation(externalDependency.grpcProtobuf) {
+      because("CVE-2023-1428, CVE-2023-32731")
+    }
   }
 }
 
@@ -112,19 +142,16 @@ test {
   }
   testLogging.showStandardStreams = true
   testLogging.exceptionFormat = 'full'
+
+  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
+}
+
+ebean {
+  debugLevel = 1 // 0 - 9
 }
 
 tasks.withType(Test) {
   enableAssertions = false
-}
-
-project.compileJava {
-  doLast {
-    ant.taskdef(name: 'ebean', classname: 'io.ebean.enhance.ant.AntEnhanceTask',
-        classpath: project.configurations.enhance.asPath)
-    ant.ebean(classSource: "${project.buildDir}/classes/java/main", packages: 'com.linkedin.metadata.entity.ebean',
-        transformArgs: 'debug=1')
-  }
 }
 
 clean {

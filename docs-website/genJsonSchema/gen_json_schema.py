@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 
 def get_base() -> Any:
     return {
-        "$schema": "http://json-schema.org/draft-04/schema#",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "id": "https://json.schemastore.org/datahub-ingestion",
         "title": "Datahub Ingestion",
         "description": "Root schema of Datahub Ingestion",
@@ -116,7 +116,7 @@ def get_base() -> Any:
                             "bootstrap": {
                                 "type": "string",
                                 "description": "Kafka bootstrap URL.",
-                                "default": "localhost:9092"
+                                "default": "localhost:9092",
                             },
                             "producer_config": {
                                 "type": "object",
@@ -125,7 +125,7 @@ def get_base() -> Any:
                             "schema_registry_url": {
                                 "type": "string",
                                 "description": "URL of schema registry being used.",
-                                "default": "http://localhost:8081"
+                                "default": "http://localhost:8081",
                             },
                             "schema_registry_config": {
                                 "type": "object",

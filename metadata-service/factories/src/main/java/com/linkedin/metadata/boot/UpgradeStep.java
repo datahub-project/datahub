@@ -13,42 +13,45 @@ import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.upgrade.DataHubUpgradeRequest;
 import com.linkedin.upgrade.DataHubUpgradeResult;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Collections;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-
 
 @Slf4j
 public abstract class UpgradeStep implements BootstrapStep {
 
-  protected final EntityService _entityService;
-  private final String _version;
-  private final String _upgradeId;
-  private final Urn _upgradeUrn;
+  protected final EntityService<?> entityService;
+  private final String version;
+  private final String upgradeId;
+  private final Urn upgradeUrn;
 
-  public UpgradeStep(EntityService entityService, String version, String upgradeId) {
-    this._entityService = entityService;
-    this._version = version;
-    this._upgradeId = upgradeId;
-    this._upgradeUrn = EntityKeyUtils.convertEntityKeyToUrn(new DataHubUpgradeKey().setId(upgradeId),
-        Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
+  public UpgradeStep(EntityService<?> entityService, String version, String upgradeId) {
+    this.entityService = entityService;
+    this.version = version;
+    this.upgradeId = upgradeId;
+    this.upgradeUrn =
+        EntityKeyUtils.convertEntityKeyToUrn(
+            new DataHubUpgradeKey().setId(upgradeId), Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
   }
 
   @Override
-  public void execute() throws Exception {
+  public void execute(@Nonnull OperationContext systemOperationContext) throws Exception {
 
-    if (hasUpgradeRan()) {
-      log.info(String.format("%s has run before for version %s. Skipping..", _upgradeId, _version));
+    if (hasUpgradeRan(systemOperationContext)) {
+      log.info(String.format("%s has run before for version %s. Skipping..", upgradeId, version));
       return;
     }
 
     try {
-      ingestUpgradeRequestAspect();
-      upgrade();
-      ingestUpgradeResultAspect();
+      ingestUpgradeRequestAspect(systemOperationContext);
+      upgrade(systemOperationContext);
+      ingestUpgradeResultAspect(systemOperationContext);
     } catch (Exception e) {
-      String errorMessage = String.format("Error when running %s for version %s", _upgradeId, _version);
-      cleanUpgradeAfterError(e, errorMessage);
+      String errorMessage =
+          String.format("Error when running %s for version %s", upgradeId, version);
+      cleanUpgradeAfterError(systemOperationContext, e, errorMessage);
       throw new RuntimeException(errorMessage, e);
     }
   }
@@ -58,60 +61,80 @@ public abstract class UpgradeStep implements BootstrapStep {
     return this.getClass().getSimpleName();
   }
 
-  public abstract void upgrade() throws Exception;
+  public abstract void upgrade(@Nonnull OperationContext systemOperationContext) throws Exception;
 
-  private boolean hasUpgradeRan() {
+  private boolean hasUpgradeRan(@Nonnull OperationContext systemOperationContext) {
     try {
-      EntityResponse response = _entityService.getEntityV2(Constants.DATA_HUB_UPGRADE_ENTITY_NAME, _upgradeUrn,
-          Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME));
+      EntityResponse response =
+          entityService.getEntityV2(
+              systemOperationContext,
+              Constants.DATA_HUB_UPGRADE_ENTITY_NAME,
+              upgradeUrn,
+              Collections.singleton(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME));
 
-      if (response != null && response.getAspects().containsKey(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)) {
-        DataMap dataMap = response.getAspects().get(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME).getValue().data();
+      if (response != null
+          && response.getAspects().containsKey(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)) {
+        DataMap dataMap =
+            response
+                .getAspects()
+                .get(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME)
+                .getValue()
+                .data();
         DataHubUpgradeRequest request = new DataHubUpgradeRequest(dataMap);
-        if (request.hasVersion() && request.getVersion().equals(_version)) {
+        if (request.hasVersion() && request.getVersion().equals(version)) {
           return true;
         }
       }
     } catch (Exception e) {
-      log.error("Error when checking to see if datahubUpgrade entity exists. Commencing with upgrade...", e);
+      log.error(
+          "Error when checking to see if datahubUpgrade entity exists. Commencing with upgrade...",
+          e);
       return false;
     }
     return false;
   }
 
-  private void ingestUpgradeRequestAspect() throws URISyntaxException {
+  private void ingestUpgradeRequestAspect(@Nonnull OperationContext systemOperationContext)
+      throws URISyntaxException {
     final AuditStamp auditStamp =
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
+        new AuditStamp()
+            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
     final DataHubUpgradeRequest upgradeRequest =
-        new DataHubUpgradeRequest().setTimestampMs(System.currentTimeMillis()).setVersion(_version);
+        new DataHubUpgradeRequest().setTimestampMs(System.currentTimeMillis()).setVersion(version);
 
     final MetadataChangeProposal upgradeProposal = new MetadataChangeProposal();
-    upgradeProposal.setEntityUrn(_upgradeUrn);
+    upgradeProposal.setEntityUrn(upgradeUrn);
     upgradeProposal.setEntityType(Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
     upgradeProposal.setAspectName(Constants.DATA_HUB_UPGRADE_REQUEST_ASPECT_NAME);
     upgradeProposal.setAspect(GenericRecordUtils.serializeAspect(upgradeRequest));
     upgradeProposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(upgradeProposal, auditStamp, false);
+    entityService.ingestProposal(systemOperationContext, upgradeProposal, auditStamp, false);
   }
 
-  private void ingestUpgradeResultAspect() throws URISyntaxException {
+  private void ingestUpgradeResultAspect(@Nonnull OperationContext systemOperationContext)
+      throws URISyntaxException {
     final AuditStamp auditStamp =
-        new AuditStamp().setActor(Urn.createFromString(Constants.SYSTEM_ACTOR)).setTime(System.currentTimeMillis());
-    final DataHubUpgradeResult upgradeResult = new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis());
+        new AuditStamp()
+            .setActor(Urn.createFromString(Constants.SYSTEM_ACTOR))
+            .setTime(System.currentTimeMillis());
+    final DataHubUpgradeResult upgradeResult =
+        new DataHubUpgradeResult().setTimestampMs(System.currentTimeMillis());
 
     final MetadataChangeProposal upgradeProposal = new MetadataChangeProposal();
-    upgradeProposal.setEntityUrn(_upgradeUrn);
+    upgradeProposal.setEntityUrn(upgradeUrn);
     upgradeProposal.setEntityType(Constants.DATA_HUB_UPGRADE_ENTITY_NAME);
     upgradeProposal.setAspectName(Constants.DATA_HUB_UPGRADE_RESULT_ASPECT_NAME);
     upgradeProposal.setAspect(GenericRecordUtils.serializeAspect(upgradeResult));
     upgradeProposal.setChangeType(ChangeType.UPSERT);
 
-    _entityService.ingestProposal(upgradeProposal, auditStamp, false);
+    entityService.ingestProposal(systemOperationContext, upgradeProposal, auditStamp, false);
   }
 
-  private void cleanUpgradeAfterError(Exception e, String errorMessage) {
+  private void cleanUpgradeAfterError(
+      @Nonnull OperationContext systemOperationContext, Exception e, String errorMessage) {
     log.error(errorMessage, e);
-    _entityService.deleteUrn(_upgradeUrn);
+    entityService.deleteUrn(systemOperationContext, upgradeUrn);
   }
 }

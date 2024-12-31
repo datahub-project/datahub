@@ -75,7 +75,7 @@ for configuring multiple ways to authenticate a given request, for example via L
 
 Only if each Authenticator within the chain fails to authenticate a request will it be rejected.
 
-The Authenticator Chain can be configured in the `application.yml` file under `authentication.authenticators`:
+The Authenticator Chain can be configured in the `application.yaml` file under `authentication.authenticators`:
 
 ```
 authentication:

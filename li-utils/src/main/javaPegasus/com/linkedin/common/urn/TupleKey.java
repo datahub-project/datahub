@@ -8,11 +8,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
-
 /**
- * Represents the entity key portion of a Urn, encoded as a tuple of Strings.
- * A single-element tuple is encoded simply as the value of that element.  A tuple with multiple
- * elements is encoded as a parenthesized list of strings, comma-delimited.
+ * Represents the entity key portion of a Urn, encoded as a tuple of Strings. A single-element tuple
+ * is encoded simply as the value of that element. A tuple with multiple elements is encoded as a
+ * parenthesized list of strings, comma-delimited.
  */
 public class TupleKey {
   public static final char START_TUPLE = '(';
@@ -31,27 +30,26 @@ public class TupleKey {
 
   /**
    * Constructs a {@code TupleKey} given a list of tuple parts.
-   * <p>
-   * When {@code calledFromExternal} is {@code false}, it means the constructor
-   * was called from within this class, where we can ensure our implementation
-   * satisfies some constraints and skip some work.
-   * <p>
-   * The work we skip is checking that no tuple parts are null and wrapping the
-   * list with an unmodifiable view.
-   * <p>
-   * For context, an earlier performance optimization introduced from Guava the
-   * {@code ImmutableList}, which gives both of that for free. Since then, we
-   * have encountered complications with Guava (specifically, Hadoop at the time
-   * of this writing requires using Guava 11 -- see LIHADOOP-44200). In order to
-   * resolve that with minimal effect, we copy this behavior here.
-   * <p>
-   * Whether this optimization is meaningful can be examined later, if time is
-   * permitting, or {@code List#copyOf} from JDK 10 can be used to recover the
-   * benefits more elegantly when it is available for us to use.
+   *
+   * <p>When {@code calledFromExternal} is {@code false}, it means the constructor was called from
+   * within this class, where we can ensure our implementation satisfies some constraints and skip
+   * some work.
+   *
+   * <p>The work we skip is checking that no tuple parts are null and wrapping the list with an
+   * unmodifiable view.
+   *
+   * <p>For context, an earlier performance optimization introduced from Guava the {@code
+   * ImmutableList}, which gives both of that for free. Since then, we have encountered
+   * complications with Guava (specifically, Hadoop at the time of this writing requires using Guava
+   * 11 -- see LIHADOOP-44200). In order to resolve that with minimal effect, we copy this behavior
+   * here.
+   *
+   * <p>Whether this optimization is meaningful can be examined later, if time is permitting, or
+   * {@code List#copyOf} from JDK 10 can be used to recover the benefits more elegantly when it is
+   * available for us to use.
    *
    * @param tuple tuple parts
-   * @param calledFromExternal whether the constructions is invoked from outside
-   *     of this class
+   * @param calledFromExternal whether the constructions is invoked from outside of this class
    */
   private TupleKey(List<String> tuple, boolean calledFromExternal) {
     _tuple = calledFromExternal ? Collections.unmodifiableList(checkStringsNotNull(tuple)) : tuple;
@@ -74,9 +72,8 @@ public class TupleKey {
   }
 
   /**
-   * Create a tuple key from a sequence of Objects.  The resulting tuple
-   * consists of the sequence of String values resulting from calling .toString() on each
-   * object in the input sequence
+   * Create a tuple key from a sequence of Objects. The resulting tuple consists of the sequence of
+   * String values resulting from calling .toString() on each object in the input sequence
    *
    * @param tuple - a sequence of Objects to be represented in the tuple
    * @return - a TupleKey representation of the object sequence
@@ -99,9 +96,8 @@ public class TupleKey {
   }
 
   /**
-   * Create a tuple key from a sequence of Objects.  The resulting tuple
-   * consists of the sequence of String values resulting from calling .toString() on each
-   * object in the input sequence
+   * Create a tuple key from a sequence of Objects. The resulting tuple consists of the sequence of
+   * String values resulting from calling .toString() on each object in the input sequence
    *
    * @param tuple - a sequence of Objects to be represented in the tuple
    * @return - a TupleKey representation of the object sequence
@@ -130,7 +126,8 @@ public class TupleKey {
    * Return a tuple element coerced to a specific type
    *
    * @param index - the index of the tuple element to be returned
-   * @param clazz - the Class object for the return type.  Must be String, Short, Boolean, Integer, Long, or an Enum subclass
+   * @param clazz - the Class object for the return type. Must be String, Short, Boolean, Integer,
+   *     Long, or an Enum subclass
    * @param <T> - the desired type for the returned object.
    * @return The specified element of the tuple, coerced to the specified type T.
    */
@@ -166,9 +163,7 @@ public class TupleKey {
     return rv;
   }
 
-  /**
-   * Helper method to capture E.
-   */
+  /** Helper method to capture E. */
   private <E extends Enum<E>> Enum<E> getEnumValue(Class<?> clazz, String value) {
     @SuppressWarnings("unchecked")
     final Class<E> enumClazz = (Class<E>) clazz.asSubclass(Enum.class);
@@ -228,6 +223,7 @@ public class TupleKey {
 
   /**
    * Create a tuple key from a string starting at the given index.
+   *
    * @param s raw urn string or urn type specific string.
    * @param startIndex index where urn type specific string starts.
    * @return entity tuple key.
@@ -237,7 +233,8 @@ public class TupleKey {
     return new TupleKey(parseKeyParts(s, startIndex), false);
   }
 
-  private static List<String> parseKeyParts(String input, int startIndex) throws URISyntaxException {
+  private static List<String> parseKeyParts(String input, int startIndex)
+      throws URISyntaxException {
     if (startIndex >= input.length()) {
       return Collections.emptyList();
     }
@@ -270,7 +267,7 @@ public class TupleKey {
     List<String> parts = new ArrayList<>(3);
 
     int numStartedParenPairs = 1; // We know we have at least one starting paren
-    int partStart = startIndex + 1;  // +1 to skip opening paren
+    int partStart = startIndex + 1; // +1 to skip opening paren
     for (int i = startIndex + 1; i < input.length(); i++) {
       char c = input.charAt(i);
       if (c == START_TUPLE) {
@@ -302,7 +299,8 @@ public class TupleKey {
       throw new URISyntaxException(input, "mismatched paren nesting");
     }
 
-    int lastPartEnd = input.charAt(input.length() - 1) == END_TUPLE ? input.length() - 1 : input.length();
+    int lastPartEnd =
+        input.charAt(input.length() - 1) == END_TUPLE ? input.length() - 1 : input.length();
 
     if (lastPartEnd - partStart <= 0) {
       throw new URISyntaxException(input, "empty part disallowed");

@@ -190,8 +190,9 @@ def test_make_usage_workunit():
     assert (
         wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
     )
-    assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
-    du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
+    assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    assert isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+    du: DatasetUsageStatisticsClass = wu.metadata.aspect
     assert du.totalSqlQueries == 1
     assert du.topSqlQueries
     assert du.topSqlQueries.pop() == test_query
@@ -225,8 +226,9 @@ def test_query_formatting():
     assert (
         wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
     )
-    assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
-    du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
+    assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    assert isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+    du: DatasetUsageStatisticsClass = wu.metadata.aspect
     assert du.totalSqlQueries == 1
     assert du.topSqlQueries
     assert du.topSqlQueries.pop() == formatted_test_query
@@ -260,8 +262,9 @@ def test_query_trimming():
     assert (
         wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
     )
-    assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
-    du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
+    assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    assert isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+    du: DatasetUsageStatisticsClass = wu.metadata.aspect
     assert du.totalSqlQueries == 1
     assert du.topSqlQueries
     assert du.topSqlQueries.pop() == "select * from te ..."
@@ -299,8 +302,9 @@ def test_make_usage_workunit_include_top_n_queries():
     assert (
         wu.id == f"{_simple_urn_builder(resource)}-{USAGE_ASPECT_NAME}-{ts_timestamp}"
     )
-    assert isinstance(wu.get_metadata()["metadata"], MetadataChangeProposalWrapper)
-    du: DatasetUsageStatisticsClass = wu.get_metadata()["metadata"].aspect
+    assert isinstance(wu.metadata, MetadataChangeProposalWrapper)
+    assert isinstance(wu.metadata.aspect, DatasetUsageStatisticsClass)
+    du: DatasetUsageStatisticsClass = wu.metadata.aspect
     assert du.totalSqlQueries == 1
     assert du.topSqlQueries is None
 

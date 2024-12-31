@@ -9,11 +9,10 @@ Also take a look at the guide to [adding a source](./adding-source.md).
 
 ### Requirements
 
-1. Python 3.7+ must be installed in your host environment.
-2. Java8 (gradle won't work with newer versions)
-3. On MacOS: `brew install librdkafka`
-4. On Debian/Ubuntu: `sudo apt install librdkafka-dev python3-dev python3-venv`
-5. On Fedora (if using LDAP source integration): `sudo yum install openldap-devel`
+1. Python 3.8+ must be installed in your host environment.
+2. Java 17 (gradle won't work with newer or older versions)
+3. On Debian/Ubuntu: `sudo apt install python3-dev python3-venv`
+4. On Fedora (if using LDAP source integration): `sudo yum install openldap-devel`
 
 ### Set up your Python environment
 
@@ -35,8 +34,71 @@ cd metadata-ingestion-modules/airflow-plugin
 ../../gradlew :metadata-ingestion-modules:airflow-plugin:installDev
 source venv/bin/activate
 datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
+
+# start the airflow web server
+export AIRFLOW_HOME=~/airflow
+airflow webserver --port 8090 -d
+
+# start the airflow scheduler
+airflow scheduler
+
+# access the airflow service and run any of the DAG
+# open http://localhost:8090/
+# select any DAG and click on the `play arrow` button to start the DAG
+
+# add the debug lines in the codebase, i.e. in ./src/datahub_airflow_plugin/datahub_listener.py
+logger.debug("this is the sample debug line")
+
+# run the DAG again and you can see the debug lines in the task_run log at,
+#1. click on the `timestamp` in the `Last Run` column
+#2. select the task
+#3. click on the `log` option
 ```
 
+> **P.S. if you are not able to see the log lines, then restart the `airflow scheduler` and rerun the DAG**
+
+### (Optional) Set up your Python environment for developing on Dagster Plugin
+
+From the repository root:
+
+```shell
+cd metadata-ingestion-modules/dagster-plugin
+../../gradlew :metadata-ingestion-modules:dagster-plugin:installDev
+source venv/bin/activate
+datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
+```
+
+### (Optional) Set up your Python environment for developing on Prefect Plugin
+
+From the repository root:
+
+```shell
+cd metadata-ingestion-modules/prefect-plugin
+../../gradlew :metadata-ingestion-modules:prefect-plugin:installDev
+source venv/bin/activate
+datahub version   # should print "DataHub CLI version: unavailable (installed in develop mode)"
+```
+
+### (Optional) Set up your Python environment for developing on GX Plugin
+
+From the repository root:
+
+```shell
+cd metadata-ingestion-modules/gx-plugin
+../../gradlew :metadata-ingestion-modules:gx-plugin:installDev
+source venv/bin/activate
+datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
+```
+### (Optional) Set up your Python environment for developing on Dagster Plugin
+
+From the repository root:
+
+```shell
+cd metadata-ingestion-modules/dagster-plugin
+../../gradlew :metadata-ingestion-modules:dagster-plugin:installDev
+source venv/bin/activate
+datahub version  # should print "DataHub CLI version: unavailable (installed in develop mode)"
+```
 ### Common setup issues
 
 Common issues (click to expand):
@@ -71,6 +133,18 @@ pip cache purge
   <summary>Failure to install confluent_kafka: "error: command 'x86_64-linux-gnu-gcc' failed with exit status 1"</summary>
 
 This sometimes happens if there's a version mismatch between the Kafka's C library and the Python wrapper library. Try running `pip install confluent_kafka==1.5.0` and then retrying.
+
+</details>
+
+<details>
+  <summary>Conflict: acryl-datahub requires pydantic 1.10</summary>
+
+The base `acryl-datahub` package supports both Pydantic 1.x and 2.x. However, some of our specific sources require Pydantic 1.x because of transitive dependencies.
+
+If you're primarily using `acryl-datahub` for the SDKs, you can install `acryl-datahub` and some extras, like `acryl-datahub[sql-parser]`, without getting conflicts related to Pydantic versioning.
+
+We recommend not installing full ingestion sources into your main environment (e.g. avoid having a dependency on `acryl-datahub[snowflake]` or other ingestion sources).
+Instead, we recommend using UI-based ingestion or isolating the ingestion pipelines using [virtual environments](https://docs.python.org/3/library/venv.html). If you're using an orchestrator, they often have first-class support for virtual environments - here's an [example for Airflow](./schedule_docs/airflow.md).
 
 </details>
 
@@ -209,4 +283,28 @@ For example,
 
 ```shell
 pytest tests/integration/dbt/test_dbt.py --update-golden-files
+```
+
+### Testing the Airflow plugin
+
+For the Airflow plugin, we use `tox` to test across multiple sets of dependencies.
+
+```sh
+cd metadata-ingestion-modules/airflow-plugin
+
+# Run all tests.
+tox
+
+# Run a specific environment.
+# These are defined in the `tox.ini` file
+tox -e py310-airflow26
+
+# Run a specific test.
+tox -e py310-airflow26 -- tests/integration/test_plugin.py
+
+# Update all golden files.
+tox -- --update-golden-files
+
+# Update golden files for a specific environment.
+tox -e py310-airflow26 -- --update-golden-files
 ```

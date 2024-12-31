@@ -1,5 +1,7 @@
 package com.linkedin.datahub.graphql.exception;
 
+import static graphql.Assert.*;
+
 import graphql.ErrorType;
 import graphql.GraphQLError;
 import graphql.GraphqlErrorHelper;
@@ -11,9 +13,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import static graphql.Assert.*;
-
-
 @PublicApi
 public class DataHubGraphQLError implements GraphQLError {
 
@@ -23,7 +22,11 @@ public class DataHubGraphQLError implements GraphQLError {
   private final List<SourceLocation> locations;
   private final Map<String, Object> extensions;
 
-  public DataHubGraphQLError(String message, ResultPath path, SourceLocation sourceLocation, DataHubGraphQLErrorCode errorCode) {
+  public DataHubGraphQLError(
+      String message,
+      ResultPath path,
+      SourceLocation sourceLocation,
+      DataHubGraphQLErrorCode errorCode) {
     this.path = assertNotNull(path).toList();
     this.errorCode = assertNotNull(errorCode);
     this.locations = Collections.singletonList(sourceLocation);
@@ -90,4 +93,3 @@ public class DataHubGraphQLError implements GraphQLError {
     return GraphqlErrorHelper.hashCode(this);
   }
 }
-

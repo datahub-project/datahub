@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, TypeVar, Union
+from typing import Dict, List, Optional, Union
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
@@ -18,8 +18,6 @@ from datahub.specific.ownership import OwnershipPatchHelper
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
 
-T = TypeVar("T", bound=MetadataPatchProposal)
-
 
 class DataProductPatchBuilder(MetadataPatchProposal):
     def __init__(
@@ -30,7 +28,6 @@ class DataProductPatchBuilder(MetadataPatchProposal):
     ) -> None:
         super().__init__(
             urn,
-            "dataProduct",
             system_metadata=system_metadata,
             audit_header=audit_header,
         )
@@ -85,7 +82,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
     def set_name(self, name: str) -> "DataProductPatchBuilder":
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
-            "replace",
+            "add",
             path="/name",
             value=name,
         )
@@ -94,7 +91,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
     def set_description(self, description: str) -> "DataProductPatchBuilder":
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
-            "replace",
+            "add",
             path="/description",
             value=description,
         )
@@ -105,7 +102,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
     ) -> "DataProductPatchBuilder":
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
-            "replace",
+            "add",
             path="/customProperties",
             value=custom_properties,
         )
@@ -124,7 +121,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
     ) -> "DataProductPatchBuilder":
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
-            "replace",
+            "add",
             path="/assets",
             value=assets,
         )
@@ -134,7 +131,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
             "add",
-            path=f"/assets/{asset_urn}",
+            path=f"/assets/{self.quote(asset_urn)}",
             value=DataProductAssociation(destinationUrn=asset_urn),
         )
         return self
@@ -143,7 +140,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
             "remove",
-            path=f"/assets/{asset_urn}",
+            path=f"/assets/{self.quote(asset_urn)}",
             value={},
         )
         return self
@@ -151,8 +148,8 @@ class DataProductPatchBuilder(MetadataPatchProposal):
     def set_external_url(self, external_url: str) -> "DataProductPatchBuilder":
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
-            "replace",
-            path="/external_url",
+            "add",
+            path="/externalUrl",
             value=external_url,
         )
         return self

@@ -2,10 +2,32 @@ import pathlib
 
 import pytest
 
+import datahub.testing.check_sql_parser_result as checker
 from datahub.testing.check_sql_parser_result import assert_sql_result
-from datahub.utilities.sqlglot_lineage import _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
+
+
+@pytest.fixture(autouse=True)
+def set_update_sql_parser(
+    pytestconfig: pytest.Config, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    update_golden = pytestconfig.getoption("--update-golden-files")
+
+    if update_golden:
+        monkeypatch.setattr(checker, "UPDATE_FILES", True)
+
+
+def test_invalid_sql():
+    assert_sql_result(
+        """
+SELECT as '
+FROM snowflake_sample_data.tpch_sf1.orders o
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_invalid_sql.json",
+        allow_table_error=True,
+    )
 
 
 def test_select_max():
@@ -34,8 +56,7 @@ FROM mytable
                 "col2": "NUMBER",
             },
         },
-        # Shared with the test above.
-        expected_file=RESOURCE_DIR / "test_select_max.json",
+        expected_file=RESOURCE_DIR / "test_select_max_with_schema.json",
     )
 
 
@@ -71,6 +92,40 @@ JOIN cte2 ON cte1.col2 = cte2.col4
 """,
         dialect="oracle",
         expected_file=RESOURCE_DIR / "test_select_with_ctes.json",
+    )
+
+
+def test_select_with_complex_ctes():
+    # This one has group bys in the CTEs, which means they can't be collapsed into the main query.
+    assert_sql_result(
+        """
+WITH cte1 AS (
+    SELECT col1, col2
+    FROM table1
+    WHERE col1 = 'value1'
+    GROUP BY 1, 2
+), cte2 AS (
+    SELECT col3, col4
+    FROM table2
+    WHERE col2 = 'value2'
+    GROUP BY col3, col4
+)
+SELECT cte1.col1, cte2.col3
+FROM cte1
+JOIN cte2 ON cte1.col2 = cte2.col4
+""",
+        dialect="oracle",
+        expected_file=RESOURCE_DIR / "test_select_with_complex_ctes.json",
+    )
+
+
+def test_multiple_select_subqueries():
+    assert_sql_result(
+        """
+SELECT SUM((SELECT max(a) a from x) + (SELECT min(b) b from x) + c) AS y FROM x
+""",
+        dialect="mysql",
+        expected_file=RESOURCE_DIR / "test_multiple_select_subqueries.json",
     )
 
 
@@ -132,6 +187,16 @@ limit 100;
 """,
         dialect="hive",
         expected_file=RESOURCE_DIR / "test_insert_as_select.json",
+    )
+
+
+def test_insert_with_column_list():
+    assert_sql_result(
+        """\
+insert into downstream (a, c) select a, c from upstream2
+""",
+        dialect="redshift",
+        expected_file=RESOURCE_DIR / "test_insert_with_column_list.json",
     )
 
 
@@ -509,6 +574,23 @@ FROM `bq-proj.dataset.table_2023*`
     )
 
 
+def test_bigquery_partitioned_table_insert():
+    assert_sql_result(
+        """
+SELECT *
+FROM `bq-proj.dataset.my-table$__UNPARTITIONED__`
+""",
+        dialect="bigquery",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,bq-proj.dataset.my-table,PROD)": {
+                "col1": "STRING",
+                "col2": "STRING",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_bigquery_partitioned_table_insert.json",
+    )
+
+
 def test_bigquery_star_with_replace():
     assert_sql_result(
         """
@@ -536,7 +618,7 @@ def test_bigquery_view_from_union():
         """
 CREATE VIEW my_view as
 select * from my_project_2.my_dataset_2.sometable
-union
+union all
 select * from my_project_2.my_dataset_2.sometable2 as a
 """,
         dialect="bigquery",
@@ -630,6 +712,84 @@ LIMIT 10
     )
 
 
+def test_snowflake_unused_cte():
+    # For this, we expect table level lineage to include table1, but CLL should not.
+    assert_sql_result(
+        """
+WITH cte1 AS (
+    SELECT col1, col2
+    FROM table1
+    WHERE col1 = 'value1'
+), cte2 AS (
+    SELECT col3, col4
+    FROM table2
+    WHERE col2 = 'value2'
+)
+SELECT cte1.col1, table3.col6
+FROM cte1
+JOIN table3 ON table3.col5 = cte1.col2
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_unused_cte.json",
+    )
+
+
+def test_snowflake_cte_name_collision():
+    # In this example, output col1 should come from table3 and not table1, since the cte is unused.
+    # We'll still generate table-level lineage that includes table1.
+    assert_sql_result(
+        """
+WITH cte_alias AS (
+    SELECT col1, col2
+    FROM table1
+)
+SELECT table2.col2, cte_alias.col1
+FROM table2
+JOIN table3 AS cte_alias ON cte_alias.col2 = cte_alias.col2
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table1,PROD)": {
+                "col1": "NUMBER(38,0)",
+                "col2": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table2,PROD)": {
+                "col2": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table3,PROD)": {
+                "col1": "VARCHAR(16777216)",
+                "col2": "VARCHAR(16777216)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_snowflake_cte_name_collision.json",
+    )
+
+
+def test_snowflake_full_table_name_col_reference():
+    assert_sql_result(
+        """
+SELECT
+    my_db.my_schema.my_table.id,
+    case when my_db.my_schema.my_table.id > 100 then 1 else 0 end as id_gt_100,
+    my_db.my_schema.my_table.struct_field.field1 as struct_field1,
+FROM my_db.my_schema.my_table
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_db.my_schema.my_table,PROD)": {
+                "id": "NUMBER(38,0)",
+                "struct_field": "struct",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_full_table_name_col_reference.json",
+    )
+
+
 # TODO: Add a test for setting platform_instance or env
 
 
@@ -676,9 +836,13 @@ create table demo_user.test_lineage2 as
 
 
 def test_teradata_strange_operators():
+    # This is a test for the following operators:
+    # - `SEL` (select)
+    # - `EQ` (equals)
+    # - `MINUS` (except)
     assert_sql_result(
         """
-select col1, col2 from dbc.table1
+sel col1, col2 from dbc.table1
 where col1 eq 'value1'
 minus
 select col1, col2 from dbc.table2
@@ -686,6 +850,19 @@ select col1, col2 from dbc.table2
         dialect="teradata",
         default_schema="dbc",
         expected_file=RESOURCE_DIR / "test_teradata_strange_operators.json",
+    )
+
+
+@pytest.mark.skip("sqlglot doesn't support this cast syntax yet")
+def test_teradata_cast_syntax():
+    assert_sql_result(
+        """
+SELECT my_table.date_col MONTH(4) AS month_col
+FROM my_table
+""",
+        dialect="teradata",
+        default_schema="dbc",
+        expected_file=RESOURCE_DIR / "test_teradata_cast_syntax.json",
     )
 
 
@@ -705,10 +882,6 @@ WHERE orderkey = 3
         },
         expected_file=RESOURCE_DIR / "test_snowflake_update_hardcoded.json",
     )
-
-
-def test_update_from_select():
-    assert _UPDATE_ARGS_NOT_SUPPORTED_BY_SELECT == {"returning", "this"}
 
 
 def test_snowflake_update_from_table():
@@ -828,7 +1001,6 @@ FROM table1
     )
 
 
-@pytest.mark.skip(reason="We can't parse column-list syntax with sub-selects yet")
 def test_postgres_update_subselect():
     assert_sql_result(
         """
@@ -879,4 +1051,275 @@ UPDATE accounts SET (contact_first_name, contact_last_name) =
             },
         },
         expected_file=RESOURCE_DIR / "test_postgres_complex_update.json",
+    )
+
+
+def test_redshift_materialized_view_auto_refresh():
+    # Example query from the redshift docs: https://docs.aws.amazon.com/prescriptive-guidance/latest/materialized-views-redshift/refreshing-materialized-views.html
+    assert_sql_result(
+        """
+CREATE MATERIALIZED VIEW mv_total_orders
+AUTO REFRESH YES -- Add this clause to auto refresh the MV
+AS
+ SELECT c.cust_id,
+        c.first_name,
+        sum(o.amount) as total_amount
+ FROM orders o
+ JOIN customer c
+    ON c.cust_id = o.customer_id
+ GROUP BY c.cust_id,
+          c.first_name;
+""",
+        dialect="redshift",
+        expected_file=RESOURCE_DIR
+        / "test_redshift_materialized_view_auto_refresh.json",
+    )
+
+
+def test_redshift_temp_table_shortcut():
+    # On redshift, tables starting with # are temporary tables.
+    assert_sql_result(
+        """
+CREATE TABLE #my_custom_name
+distkey (1)
+sortkey (1,2)
+AS
+WITH cte AS (
+SELECT *
+FROM other_schema.table1
+)
+SELECT * FROM cte
+""",
+        dialect="redshift",
+        default_db="my_db",
+        default_schema="my_schema",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.other_schema.table1,PROD)": {
+                "col1": "INTEGER",
+                "col2": "INTEGER",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_redshift_temp_table_shortcut.json",
+    )
+
+
+def test_redshift_union_view():
+    # TODO: This currently fails to generate CLL. Need to debug further.
+    assert_sql_result(
+        """
+CREATE VIEW sales_vw AS SELECT * FROM public.sales UNION ALL SELECT * FROM spectrum.sales WITH NO SCHEMA BINDING
+""",
+        dialect="redshift",
+        default_db="my_db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.public.sales,PROD)": {
+                "col1": "INTEGER",
+                "col2": "INTEGER",
+            },
+            # Testing a case where we only have one schema available.
+        },
+        expected_file=RESOURCE_DIR / "test_redshift_union_view.json",
+    )
+
+
+def test_redshift_system_automove() -> None:
+    # Came across this in the Redshift query log, but it seems to be a system-generated query.
+    assert_sql_result(
+        """
+CREATE TABLE "pg_automv"."mv_tbl__auto_mv_12708107__0_recomputed"
+BACKUP YES
+DISTSTYLE KEY
+DISTKEY(2)
+AS (
+    SELECT
+        COUNT(CAST(1 AS INT4)) AS "aggvar_3",
+        COUNT(CAST(1 AS INT4)) AS "num_rec"
+    FROM
+        "public"."permanent_1" AS "permanent_1"
+    WHERE (
+        (CAST("permanent_1"."insertxid" AS INT8) <= 41990135)
+        AND (CAST("permanent_1"."deletexid" AS INT8) > 41990135)
+    )
+    OR (
+        CAST(FALSE AS BOOL)
+        AND (CAST("permanent_1"."insertxid" AS INT8) = 0)
+        AND (CAST("permanent_1"."deletexid" AS INT8) <> 0)
+    )
+)
+""",
+        dialect="redshift",
+        default_db="my_db",
+        expected_file=RESOURCE_DIR / "test_redshift_system_automove.json",
+    )
+
+
+def test_snowflake_with_unnamed_column_from_udf_call() -> None:
+    assert_sql_result(
+        """SELECT
+  A.ID,
+  B.NAME,
+  PARSE_JSON(B.MY_JSON) AS :userInfo,
+  B.ADDRESS
+FROM my_db.my_schema.my_table AS A
+LEFT JOIN my_db.my_schema.my_table_B AS B
+  ON A.ID = B.ID
+""",
+        dialect="snowflake",
+        default_db="my_db",
+        expected_file=RESOURCE_DIR / "test_snowflake_unnamed_column_udf.json",
+    )
+
+
+def test_sqlite_insert_into_values() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO my_table (id, month, total_cost, area)
+    VALUES
+        (1, '2021-01', 100, 10),
+        (2, '2021-02', 200, 20),
+        (3, '2021-03', 300, 30)
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_sqlite_insert_into_values.json",
+    )
+
+
+def test_bigquery_information_schema_query() -> None:
+    # Special case - the BigQuery INFORMATION_SCHEMA views are prefixed with a
+    # project + possibly a dataset/region, so sometimes are 4 parts instead of 3.
+    # https://cloud.google.com/bigquery/docs/information-schema-intro#syntax
+
+    assert_sql_result(
+        """\
+select
+  c.table_catalog as table_catalog,
+  c.table_schema as table_schema,
+  c.table_name as table_name,
+  c.column_name as column_name,
+  c.ordinal_position as ordinal_position,
+  cfp.field_path as field_path,
+  c.is_nullable as is_nullable,
+  CASE WHEN CONTAINS_SUBSTR(cfp.field_path, ".") THEN NULL ELSE c.data_type END as data_type,
+  description as comment,
+  c.is_hidden as is_hidden,
+  c.is_partitioning_column as is_partitioning_column,
+  c.clustering_ordinal_position as clustering_ordinal_position,
+from
+  `acryl-staging-2`.`smoke_test_db_4`.INFORMATION_SCHEMA.COLUMNS c
+  join `acryl-staging-2`.`smoke_test_db_4`.INFORMATION_SCHEMA.COLUMN_FIELD_PATHS as cfp on cfp.table_name = c.table_name
+  and cfp.column_name = c.column_name
+ORDER BY
+  table_catalog, table_schema, table_name, ordinal_position ASC, data_type DESC""",
+        dialect="bigquery",
+        expected_file=RESOURCE_DIR / "test_bigquery_information_schema_query.json",
+    )
+
+
+def test_bigquery_alter_table_column() -> None:
+    assert_sql_result(
+        """\
+ALTER TABLE `my-bq-project.covid_data.covid_deaths` drop COLUMN patient_name
+    """,
+        dialect="bigquery",
+        expected_file=RESOURCE_DIR / "test_bigquery_alter_table_column.json",
+    )
+
+
+def test_sqlite_drop_table() -> None:
+    assert_sql_result(
+        """\
+DROP TABLE my_schema.my_table
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_sqlite_drop_table.json",
+    )
+
+
+def test_sqlite_drop_view() -> None:
+    assert_sql_result(
+        """\
+DROP VIEW my_schema.my_view
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_sqlite_drop_view.json",
+    )
+
+
+def test_snowflake_drop_schema() -> None:
+    assert_sql_result(
+        """\
+DROP SCHEMA my_schema
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_drop_schema.json",
+    )
+
+
+def test_bigquery_subquery_column_inference() -> None:
+    assert_sql_result(
+        """\
+SELECT user_id, source, user_source
+FROM (
+    SELECT *, ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY __partition_day DESC) AS rank_
+    FROM invent_dw.UserDetail
+) source_user
+WHERE rank_ = 1
+""",
+        dialect="bigquery",
+        expected_file=RESOURCE_DIR / "test_bigquery_subquery_column_inference.json",
+    )
+
+
+def test_sqlite_attach_database() -> None:
+    assert_sql_result(
+        """\
+ATTACH DATABASE ':memory:' AS aux1
+""",
+        dialect="sqlite",
+        expected_file=RESOURCE_DIR / "test_sqlite_attach_database.json",
+        allow_table_error=True,
+    )
+
+
+def test_mssql_casing_resolver() -> None:
+    assert_sql_result(
+        """\
+SELECT Age, name, UPPERCASED_COL, COUNT(*) as Count
+FROM Foo.Persons
+GROUP BY Age
+""",
+        dialect="mssql",
+        default_db="NewData",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.persons,PROD)": {
+                "Age": "INTEGER",
+                "Name": "VARCHAR(16777216)",
+                "Uppercased_Col": "VARCHAR(16777216)",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_mssql_casing_resolver.json",
+    )
+
+
+def test_mssql_select_into() -> None:
+    assert_sql_result(
+        """\
+SELECT age as AGE, COUNT(*) as Count
+INTO Foo.age_dist
+FROM Foo.Persons
+GROUP BY Age
+""",
+        dialect="mssql",
+        default_db="NewData",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.persons,PROD)": {
+                "Age": "INTEGER",
+                "Name": "VARCHAR(16777216)",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.age_dist,PROD)": {
+                "AGE": "INTEGER",
+                "Count": "INTEGER",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_mssql_select_into.json",
     )

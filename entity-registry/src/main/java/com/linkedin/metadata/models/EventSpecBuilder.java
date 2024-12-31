@@ -9,33 +9,32 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class EventSpecBuilder {
 
-  public EventSpecBuilder() {
-  }
+  public EventSpecBuilder() {}
 
   public EventSpec buildEventSpec(
-      @Nonnull final String eventName,
-      @Nonnull final DataSchema eventDataSchema) {
+      @Nonnull final String eventName, @Nonnull final DataSchema eventDataSchema) {
 
     final RecordDataSchema eventRecordSchema = validateEvent(eventDataSchema);
-    final Object eventAnnotationObj = eventDataSchema.getProperties().get(EventAnnotation.ANNOTATION_NAME);
+    final Object eventAnnotationObj =
+        eventDataSchema.getProperties().get(EventAnnotation.ANNOTATION_NAME);
 
     if (eventAnnotationObj != null) {
 
       final EventAnnotation eventAnnotation =
-          EventAnnotation.fromPegasusAnnotationObject(eventAnnotationObj, eventRecordSchema.getFullName());
+          EventAnnotation.fromPegasusAnnotationObject(
+              eventAnnotationObj, eventRecordSchema.getFullName());
 
-      return new DefaultEventSpec(
-          eventName,
-          eventAnnotation,
-          eventRecordSchema);
+      return new DefaultEventSpec(eventName, eventAnnotation, eventRecordSchema);
     }
     return null;
   }
 
   private RecordDataSchema validateEvent(@Nonnull final DataSchema eventSchema) {
     if (eventSchema.getType() != DataSchema.Type.RECORD) {
-      failValidation(String.format("Failed to validate event schema of type %s. Schema must be of record type.",
-          eventSchema.getType().toString()));
+      failValidation(
+          String.format(
+              "Failed to validate event schema of type %s. Schema must be of record type.",
+              eventSchema.getType().toString()));
     }
     return (RecordDataSchema) eventSchema;
   }

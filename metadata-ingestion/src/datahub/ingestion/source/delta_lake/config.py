@@ -4,10 +4,10 @@ from typing import Optional
 import pydantic
 from cached_property import cached_property
 from pydantic import Field
+from typing_extensions import Literal
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
-    ConfigModel,
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
@@ -46,10 +46,9 @@ class DeltaLakeSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         "'<base_path>/<relative_path>' and URNs will be created using "
         "relative_path only.",
     )
-    platform: str = Field(
+    platform: Literal["delta-lake"] = Field(
         default="delta-lake",
         description="The platform that this source connects to",
-        const=True,
     )
     platform_instance: Optional[str] = Field(
         default=None,

@@ -32,6 +32,21 @@ function getParentRelationship(direction: Direction, parent: VizNode | null, nod
     return directionRelationships?.find((r) => r?.entity?.urn === node?.urn);
 }
 
+// this utility function is to help make sure layouts that contain many references to the same URN don't struggle laying out that URN.
+function firstAppearanceIndices(arr) {
+    const seen = new Set(); // To track which strings have been seen
+    const result = [] as number[];
+
+    for (let i = 0; i < arr.length; i++) {
+        if (!seen.has(arr[i])) {
+            seen.add(arr[i]); // Add the string to the set
+            result.push(i); // Save the index
+        }
+    }
+
+    return result;
+}
+
 function layoutNodesForOneDirection(
     data: NodeData,
     direction: Direction,
@@ -54,12 +69,10 @@ function layoutNodesForOneDirection(
     while (nodesInCurrentLayer.length > 0) {
         // if we've already added a node to the viz higher up dont add it again
         const urnsToAddInCurrentLayer = Array.from(new Set(nodesInCurrentLayer.map(({ node }) => node.urn || '')));
-        const nodesToAddInCurrentLayer = urnsToAddInCurrentLayer
-            .filter((urn, pos) => urnsToAddInCurrentLayer.indexOf(urn) === pos)
-            .filter((urn) => !nodesByUrn[urn || '']);
+        const positionsToAddInCurrentLayer = firstAppearanceIndices(urnsToAddInCurrentLayer);
 
         const filteredNodesInCurrentLayer = nodesInCurrentLayer
-            .filter(({ node }) => nodesToAddInCurrentLayer.indexOf(node.urn || '') > -1)
+            .filter((_, idx) => positionsToAddInCurrentLayer.indexOf(idx) > -1)
             .filter(({ node }) => node.status?.removed !== true);
 
         const layerSize = filteredNodesInCurrentLayer.length;
@@ -206,9 +219,9 @@ function drawColumnEdge({
     const targetFieldY = targetNode?.y || 0 + 3;
     let targetFieldX = (targetNode?.x || 0) + 35 + targetTitleHeight;
     // if currentNode is a dataJob, draw line to center of data job
-    if (targetNode?.data.type === EntityType.DataJob) {
+    if (targetNode?.data?.type === EntityType.DataJob) {
         targetFieldX = targetNode?.x || 0;
-    } else if (!collapsedColumnsNodes[targetNode?.data.urn || 'no-op']) {
+    } else if (!collapsedColumnsNodes[targetNode?.data?.urn || 'no-op']) {
         if (!visibleColumnsByUrn[targetUrn]?.has(targetField)) {
             targetFieldX =
                 (targetNode?.x || 0) +
@@ -286,19 +299,19 @@ function layoutColumnTree(
                 const fieldForwardEdges = fieldPathToEdges[sourceField];
 
                 const currentNode = nodesToRender.find((node) => node.data.urn === entityUrn);
-                const fields = columnsByUrn[currentNode?.data.urn || ''] || [];
+                const fields = columnsByUrn[currentNode?.data?.urn || ''] || [];
                 const fieldIndex = fields.findIndex((candidate) => candidate.fieldPath === sourceField) || 0;
 
                 const sourceTitleHeight = getTitleHeight(
-                    expandTitles ? currentNode?.data.expandedName || currentNode?.data.name : undefined,
+                    expandTitles ? currentNode?.data?.expandedName || currentNode?.data?.name : undefined,
                 );
 
                 const sourceFieldY = currentNode?.y || 0 + 1;
                 let sourceFieldX = (currentNode?.x || 0) + 30 + sourceTitleHeight;
                 // if currentNode is a dataJob, draw line from center of data job
-                if (currentNode?.data.type === EntityType.DataJob) {
+                if (currentNode?.data?.type === EntityType.DataJob) {
                     sourceFieldX = currentNode?.x || 0;
-                } else if (!collapsedColumnsNodes[currentNode?.data.urn || 'no-op']) {
+                } else if (!collapsedColumnsNodes[currentNode?.data?.urn || 'no-op']) {
                     if (!visibleColumnsByUrn[entityUrn]?.has(sourceField)) {
                         sourceFieldX =
                             (currentNode?.x || 0) +
@@ -318,9 +331,9 @@ function layoutColumnTree(
 
                 Object.keys(fieldForwardEdges || {}).forEach((targetUrn) => {
                     const targetNode = nodesToRender.find((node) => node.data.urn === targetUrn);
-                    const targetFields = columnsByUrn[targetNode?.data.urn || ''] || [];
+                    const targetFields = columnsByUrn[targetNode?.data?.urn || ''] || [];
                     const targetTitleHeight = getTitleHeight(
-                        expandTitles ? targetNode?.data.expandedName || targetNode?.data.name : undefined,
+                        expandTitles ? targetNode?.data?.expandedName || targetNode?.data?.name : undefined,
                     );
 
                     (fieldForwardEdges[targetUrn] || []).forEach((targetField) => {

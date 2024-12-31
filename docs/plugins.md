@@ -65,14 +65,14 @@ The sample authenticator implementation can be found at [Authenticator Sample](.
 3. Use `getResourceAsStream` to read files: If your plugin read any configuration file like properties or YAML or JSON or xml then use `this.getClass().getClassLoader().getResourceAsStream("<file-name>")` to read that file from DataHub GMS plugin's class-path. For DataHub GMS resource look-up behavior please refer [Plugin Installation](#plugin-installation) section. Sample code of `getResourceAsStream` is available in sample Authenticator plugin [TestAuthenticator.java](../metadata-service/plugin/src/test/sample-test-plugins/src/main/java/com/datahub/plugins/test/TestAuthenticator.java).
 
 
-4. Bundle your Jar: Use `com.github.johnrengelman.shadow` gradle plugin to create an uber jar. 
+4. Bundle your Jar: Use `com.gradleup.shadow` gradle plugin to create an uber jar. 
 
    To see an example of building an uber jar, check out the `build.gradle` file for the apache-ranger-plugin file of [Apache Ranger Plugin](https://github.com/acryldata/datahub-ranger-auth-plugin/tree/main/apache-ranger-plugin) for reference. 
 
    Exclude signature files as shown in below `shadowJar` task.
 
    ```groovy
-     apply plugin: 'com.github.johnrengelman.shadow';
+     apply plugin: 'com.gradleup.shadow';
      shadowJar {
          // Exclude com.datahub.plugins package and files related to jar signature   
          exclude "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
@@ -152,14 +152,14 @@ The sample authorizer implementation can be found at [Authorizer Sample](https:/
 
 3. Use `getResourceAsStream` to read files: If your plugin read any configuration file like properties or YAML or JSON or xml then use `this.getClass().getClassLoader().getResourceAsStream("<file-name>")` to read that file from DataHub GMS plugin's class-path. For DataHub GMS resource look-up behavior please refer [Plugin Installation](#plugin-installation) section. Sample code of `getResourceAsStream` is available in sample Authenticator plugin [TestAuthenticator.java](../metadata-service/plugin/src/test/sample-test-plugins/src/main/java/com/datahub/plugins/test/TestAuthenticator.java).
 
-4. Bundle your Jar: Use `com.github.johnrengelman.shadow` gradle plugin to create an uber jar. 
+4. Bundle your Jar: Use `com.gradleup.shadow` gradle plugin to create an uber jar. 
 
    To see an example of building an uber jar, check out the `build.gradle` file for the apache-ranger-plugin file of [Apache Ranger Plugin](https://github.com/acryldata/datahub-ranger-auth-plugin/tree/main/apache-ranger-plugin) for reference.
 
    Exclude signature files as shown in below `shadowJar` task.
 
    ```groovy
-     apply plugin: 'com.github.johnrengelman.shadow';
+     apply plugin: 'com.gradleup.shadow';
      shadowJar {
          // Exclude com.datahub.plugins package and files related to jar signature   
          exclude "META-INF/*.RSA", "META-INF/*.SF","META-INF/*.DSA"
@@ -252,11 +252,11 @@ All other access are forbidden for the plugin.
 
 > Disclaimer: In BETA version your plugin can access any port and can read/write to any location on file system, however you should implement the plugin as per above access permission to keep your plugin compatible with upcoming release of DataHub.
 
-## Migration Of Plugins From application.yml
-If you have any custom Authentication or Authorization plugin define in `authorization` or `authentication` section of  [application.yml](../metadata-service/configuration/src/main/resources/application.yml) then migrate them as per below steps.
+## Migration Of Plugins From application.yaml
+If you have any custom Authentication or Authorization plugin define in `authorization` or `authentication` section of  [application.yaml](../metadata-service/configuration/src/main/resources/application.yaml) then migrate them as per below steps.
 
 1. Implement Plugin: For Authentication Plugin follow steps of [Implementing an Authentication Plugin](#implementing-an-authentication-plugin) and for Authorization Plugin follow steps of [Implementing an Authorization Plugin](#implementing-an-authorization-plugin)
-2. Install Plugin: Install the plugins as per steps mentioned in [Plugin Installation](#plugin-installation). Here you need to map the configuration from [application.yml](../metadata-service/configuration/src/main/resources/application.yml) to configuration in `config.yml`. This mapping from `application.yml` to `config.yml` is described below 
+2. Install Plugin: Install the plugins as per steps mentioned in [Plugin Installation](#plugin-installation). Here you need to map the configuration from [application.yaml](../metadata-service/configuration/src/main/resources/application.yaml) to configuration in `config.yml`. This mapping from `application.yaml` to `config.yml` is described below 
 
    **Mapping for Authenticators**
 

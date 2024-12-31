@@ -13,6 +13,10 @@ fragment autoCompleteFields on Entity {
         properties {
             name
             qualifiedName
+            lastModified {
+                time
+                actor
+            }
         }
         parentContainers {
             ...parentContainersFields
@@ -39,6 +43,10 @@ fragment autoCompleteFields on Entity {
                         description
                         qualifiedName
                         externalUrl
+                        lastModified {
+                            time
+                            actor
+                        }
                     }
                 }
             }
@@ -104,6 +112,9 @@ fragment autoCompleteFields on Entity {
         }
         parentContainers {
             ...parentContainersFields
+        }
+        subTypes {
+            typeNames
         }
     }
     ... on DataFlow {
@@ -230,6 +241,12 @@ fragment autoCompleteFields on Entity {
     ... on DataPlatform {
         ...nonConflictingPlatformFields
     }
+    ... on BusinessAttribute {
+        properties {
+            name
+            description
+        }
+    }
 }
 
 query getAutoCompleteResults($input: AutoCompleteInput!) {
@@ -318,6 +335,7 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
         ...dataPlatformInstanceFields
     }
     editableProperties {
+        name
         description
     }
     access {
@@ -333,6 +351,10 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
             value
         }
         externalUrl
+        lastModified {
+            time
+            actor
+        }
     }
     ownership {
         ...ownershipFields
@@ -357,15 +379,12 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
         ...deprecationFields
     }
     health {
-        type
-        status
-        message
-        causes
+        ...entityHealth
     }
     ...datasetStatsFields
 }
 
-fragment searchResultFields on Entity {
+fragment searchResultsWithoutSchemaField on Entity {
     urn
     type
     ... on Dataset {
@@ -377,7 +396,17 @@ fragment searchResultFields on Entity {
                 type
                 ... on Dataset {
                     ...nonSiblingsDatasetSearchFields
+                    structuredProperties {
+                        properties {
+                            ...structuredPropertiesFields
+                        }
+                    }
                 }
+            }
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
             }
         }
     }
@@ -487,6 +516,14 @@ fragment searchResultFields on Entity {
         subTypes {
             typeNames
         }
+        health {
+            ...entityHealth
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on Chart {
         chartId
@@ -550,6 +587,17 @@ fragment searchResultFields on Entity {
                 }
             }
         }
+        subTypes {
+            typeNames
+        }
+        health {
+            ...entityHealth
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on DataFlow {
         flowId
@@ -588,6 +636,14 @@ fragment searchResultFields on Entity {
         childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }) {
             total
         }
+        health {
+            ...entityHealth
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on DataJob {
         dataFlow {
@@ -621,6 +677,9 @@ fragment searchResultFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        subTypes {
+            typeNames
+        }
         lastRun: runs(start: 0, count: 1) {
             count
             start
@@ -632,6 +691,14 @@ fragment searchResultFields on Entity {
                     time
                     actor
                 }
+            }
+        }
+        health {
+            ...entityHealth
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
             }
         }
     }
@@ -659,11 +726,21 @@ fragment searchResultFields on Entity {
         domain {
             ...entityDomain
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on GlossaryNode {
         ...glossaryNode
         parentNodes {
             ...parentNodesFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
         }
     }
     ... on Domain {
@@ -678,6 +755,11 @@ fragment searchResultFields on Entity {
             ...parentDomainsFields
         }
         ...domainEntitiesFields
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on Container {
         properties {
@@ -715,6 +797,11 @@ fragment searchResultFields on Entity {
         parentContainers {
             ...parentContainersFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on MLFeatureTable {
         name
@@ -740,12 +827,27 @@ fragment searchResultFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on MLFeature {
         ...nonRecursiveMLFeature
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on MLPrimaryKey {
         ...nonRecursiveMLPrimaryKey
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on MLModel {
         name
@@ -762,6 +864,11 @@ fragment searchResultFields on Entity {
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
         }
     }
     ... on MLModelGroup {
@@ -780,6 +887,11 @@ fragment searchResultFields on Entity {
         dataPlatformInstance {
             ...dataPlatformInstanceFields
         }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
     }
     ... on Tag {
         name
@@ -795,17 +907,63 @@ fragment searchResultFields on Entity {
     ... on DataProduct {
         ...dataProductSearchFields
     }
+    ... on ERModelRelationship {
+        urn
+        type
+        id
+        properties {
+            ...ermodelrelationPropertiesFields
+        }
+        editableProperties {
+            ...ermodelrelationEditablePropertiesFields
+        }
+        ownership {
+            ...ownershipFields
+        }
+        tags {
+            ...globalTagsFields
+        }
+        glossaryTerms {
+            ...glossaryTerms
+        }
+    }
+    ... on BusinessAttribute {
+        ...businessAttributeFields
+    }
+    ... on StructuredPropertyEntity {
+        ...structuredPropertyFields
+    }
+}
+
+fragment searchResultFields on Entity {
+    ...searchResultsWithoutSchemaField
+    ... on SchemaFieldEntity {
+        ...entityField
+    }
 }
 
 fragment facetFields on FacetMetadata {
     field
     displayName
+    entity {
+        urn
+        type
+        ...entityDisplayNameFields
+        ... on StructuredPropertyEntity {
+            definition {
+                valueType {
+                    urn
+                }
+            }
+        }
+    }
     aggregations {
         value
         count
         entity {
             urn
             type
+            ...entityDisplayNameFields
             ... on Tag {
                 name
                 properties {
@@ -842,6 +1000,9 @@ fragment facetFields on FacetMetadata {
                 }
                 properties {
                     name
+                }
+                parentContainers {
+                    ...parentContainersFields
                 }
             }
             ... on CorpUser {
@@ -902,12 +1063,44 @@ fragment searchResults on SearchResults {
     }
 }
 
+fragment entityField on SchemaFieldEntity {
+    urn
+    type
+    parent {
+        urn
+        type
+        ...entityDisplayNameFields
+        ... on Dataset {
+            platform {
+                ...platformFields
+            }
+            dataPlatformInstance {
+                ...dataPlatformInstanceFields
+            }
+            parentContainers {
+                ...parentContainersFields
+            }
+        }
+    }
+    fieldPath
+    structuredProperties {
+        properties {
+            ...structuredPropertiesFields
+        }
+    }
+    businessAttributes {
+        businessAttribute {
+            ...businessAttribute
+        }
+    }
+}
+
 fragment schemaFieldEntityFields on SchemaFieldEntity {
     urn
     type
     fieldPath
     parent {
-        ...searchResultFields
+        ...searchResultsWithoutSchemaField
     }
 }
 
@@ -940,7 +1133,7 @@ fragment searchAcrossRelationshipResults on SearchAcrossLineageResults {
         }
         paths {
             path {
-                ...searchResultFields
+                ...searchResultsWithoutSchemaField
                 ... on SchemaFieldEntity {
                     ...schemaFieldEntityFields
                 }

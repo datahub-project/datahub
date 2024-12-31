@@ -1,0 +1,29 @@
+namespace com.linkedin.structured
+import com.linkedin.common.Urn
+import com.linkedin.common.AuditStamp
+
+record StructuredPropertyValueAssignment {
+
+  /**
+   * The property that is being assigned a value.
+   */
+  propertyUrn: Urn
+
+  /**
+   * The value assigned to the property.
+   */
+   values: array[PrimitivePropertyValue]
+
+  /**
+   * Audit stamp containing who created this relationship edge and when
+   */
+  created: optional AuditStamp
+
+  /**
+   * Audit stamp containing who last modified this relationship edge and when
+   */
+  lastModified: optional AuditStamp
+
+}
+
+

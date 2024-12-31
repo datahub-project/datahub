@@ -4,4 +4,4 @@ export const EMBED_LOOKUP_NOT_FOUND_REASON = {
 } as const;
 
 export type EmbedLookupNotFoundReason =
-    typeof EMBED_LOOKUP_NOT_FOUND_REASON[keyof typeof EMBED_LOOKUP_NOT_FOUND_REASON];
+    (typeof EMBED_LOOKUP_NOT_FOUND_REASON)[keyof typeof EMBED_LOOKUP_NOT_FOUND_REASON];

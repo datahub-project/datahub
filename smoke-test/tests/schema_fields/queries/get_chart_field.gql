@@ -1,0 +1,20 @@
+query($urn:String!) {
+  chart(urn: $urn) {
+    inputFields {
+      fields {
+        schemaFieldUrn
+        schemaField {
+          schemaFieldEntity {
+            urn
+            fieldPath
+            documentation {
+              documentations {
+                documentation
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

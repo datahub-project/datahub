@@ -21,7 +21,35 @@ record GlossaryTermAssociation {
   urn: GlossaryTermUrn
 
   /**
+   * The user URN which will be credited for adding associating this term to the entity
+   */
+  actor: optional Urn
+
+  /**
    * Additional context about the association
    */
   context: optional string
+
+  /**
+   * Information about who, why, and how this metadata was applied
+   */
+  @Searchable = {
+    "/time": {
+        "fieldName": "termAttributionDates",
+        "fieldType": "DATETIME",
+        "queryByDefault": false,
+      },
+    "/actor": {
+        "fieldName": "termAttributionActors",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
+    "/source": {
+        "fieldName": "termAttributionSources",
+        "fieldType": "URN",
+        "queryByDefault": false,
+      },
+  }
+  attribution: optional MetadataAttribution
+
 }

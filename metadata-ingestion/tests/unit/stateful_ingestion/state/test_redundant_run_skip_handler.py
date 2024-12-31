@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from typing import Iterable
 from unittest import mock
 
 import pytest
@@ -11,20 +12,14 @@ from datahub.ingestion.source.snowflake.snowflake_v2 import SnowflakeV2Source
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
-from datahub.ingestion.source.state.stateful_ingestion_base import (
-    DynamicTypedStateProviderConfig,
-)
 from datahub.ingestion.source.state.usage_common_state import (
     BaseTimeWindowCheckpointState,
 )
 from datahub.utilities.time import datetime_to_ts_millis
 
-GMS_PORT = 8080
-GMS_SERVER = f"http://localhost:{GMS_PORT}"
-
 
 @pytest.fixture
-def stateful_source(mock_datahub_graph: DataHubGraph) -> SnowflakeV2Source:
+def stateful_source(mock_datahub_graph: DataHubGraph) -> Iterable[SnowflakeV2Source]:
     pipeline_name = "test_redundant_run_lineage"
     run_id = "test_redundant_run"
     ctx = PipelineContext(
@@ -38,13 +33,16 @@ def stateful_source(mock_datahub_graph: DataHubGraph) -> SnowflakeV2Source:
         password="TST_PWD",
         stateful_ingestion=StatefulStaleMetadataRemovalConfig(
             enabled=True,
-            state_provider=DynamicTypedStateProviderConfig(
-                type="datahub", config={"datahub_api": {"server": GMS_SERVER}}
-            ),
+            # Uses the graph from the pipeline context.
         ),
     )
-    source = SnowflakeV2Source(ctx=ctx, config=config)
-    return source
+
+    with mock.patch(
+        "datahub.sql_parsing.sql_parsing_aggregator.ToolMetaExtractor.create",
+    ) as mock_checkpoint, mock.patch("snowflake.connector.connect"):
+        mock_checkpoint.return_value = mock.MagicMock()
+
+        yield SnowflakeV2Source(ctx=ctx, config=config)
 
 
 def test_redundant_run_job_ids(stateful_source: SnowflakeV2Source) -> None:

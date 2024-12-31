@@ -55,18 +55,17 @@ type Props = {
 };
 
 export const EntityHealthPopover = ({ health, baseUrl, children, fontSize, placement = 'right' }: Props) => {
-    const icon = getHealthSummaryIcon(health, HealthSummaryIconType.OUTLINED, fontSize);
-    const message = getHealthSummaryMessage(health);
     return (
         <Popover
             content={
                 <>
                     <Header>
-                        <Icon>{icon}</Icon> <Title>{message}</Title>
+                        <Icon>{getHealthSummaryIcon(health, HealthSummaryIconType.OUTLINED, fontSize)}</Icon>{' '}
+                        <Title>{getHealthSummaryMessage(health)}</Title>
                     </Header>
                     <StyledDivider />
                     {health.map((h) => (
-                        <StatusContainer>
+                        <StatusContainer key={h.type}>
                             <EntityHealthStatus type={h.type} message={h.message || undefined} baseUrl={baseUrl} />
                         </StatusContainer>
                     ))}

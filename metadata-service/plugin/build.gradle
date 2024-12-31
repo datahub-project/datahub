@@ -1,22 +1,32 @@
-apply plugin: 'java'
+plugins {
+  id 'java'
+}
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
 
 dependencies {
 
   implementation 'org.apache.commons:commons-lang3:3.12.0'
   implementation project(path: ':metadata-auth:auth-api')
+  implementation project(':entity-registry')
+  implementation externalDependency.springContext
   implementation externalDependency.guava
   implementation externalDependency.jacksonDataBind
   implementation externalDependency.jacksonDataFormatYaml
   implementation externalDependency.jacksonJDK8
   implementation externalDependency.jacksonDataPropertyFormat
-  implementation externalDependency.logbackClassic;
+  implementation externalDependency.logbackClassic
   implementation externalDependency.slf4jApi
   
   compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
 
+  testImplementation project(':test-models')
+  testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
-  annotationProcessor externalDependency.lombok
+  testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
 }
 
 test {

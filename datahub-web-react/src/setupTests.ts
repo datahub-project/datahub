@@ -2,8 +2,7 @@
 // allows you to do things like:
 // expect(element).toHaveTextContent(/react/i)
 // learn more: https://github.com/testing-library/jest-dom
-import '@testing-library/jest-dom';
-import sinon from 'sinon';
+import '@testing-library/jest-dom/vitest';
 
 // Mock window.matchMedia interface.
 // See https://jestjs.io/docs/en/manual-mocks#mocking-methods-which-are-not-implemented-in-jsdom
@@ -13,14 +12,22 @@ global.matchMedia =
     (() => {
         return {
             matches: false,
-            addListener: jest.fn(),
-            removeListener: jest.fn(),
+            addListener: vi.fn(),
+            removeListener: vi.fn(),
         };
     });
 
-const { location } = window;
-delete window.location;
-window.location = { ...location, replace: () => {} };
-sinon.stub(window.location, 'replace');
-jest.mock('js-cookie', () => ({ get: () => 'urn:li:corpuser:2' }));
-jest.mock('./app/entity/shared/tabs/Documentation/components/editor/Editor');
+window.location = { ...window.location, replace: () => {} };
+
+// Suppress `Error: Not implemented: window.computedStyle(elt, pseudoElt)`.
+// From https://github.com/vitest-dev/vitest/issues/2061
+// and https://github.com/NickColley/jest-axe/issues/147#issuecomment-758804533
+const { getComputedStyle } = window;
+window.getComputedStyle = (elt) => getComputedStyle(elt);
+
+vi.mock('js-cookie', () => ({
+    default: {
+        get: () => 'urn:li:corpuser:2',
+    },
+}));
+vi.mock('./app/entity/shared/tabs/Documentation/components/editor/Editor');

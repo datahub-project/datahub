@@ -39,7 +39,7 @@ export default function GlossaryTermsDropdown({ urns, disabled = false, refetch 
             {isEditModalVisible && (
                 <EditTagTermsModal
                     type={EntityType.GlossaryTerm}
-                    visible
+                    open
                     onCloseModal={() => {
                         setIsEditModalVisible(false);
                         refetch?.();

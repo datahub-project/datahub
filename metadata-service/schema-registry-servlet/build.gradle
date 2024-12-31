@@ -1,4 +1,8 @@
-apply plugin: 'java'
+plugins {
+    id 'java'
+}
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
 
 dependencies {
     implementation project(':metadata-service:factories')
@@ -15,6 +19,7 @@ dependencies {
     implementation externalDependency.springBeans
     implementation externalDependency.springContext
     implementation externalDependency.springBootAutoconfigure
+    implementation externalDependency.servletApi
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
     implementation externalDependency.antlr4Runtime
@@ -24,6 +29,7 @@ dependencies {
 
     testImplementation externalDependency.springBootTest
     testImplementation project(':mock-entity-registry')
+    testImplementation project(':metadata-dao-impl:kafka-producer')
     testImplementation externalDependency.springBoot
     testImplementation externalDependency.testContainers
     testImplementation externalDependency.testContainersKafka

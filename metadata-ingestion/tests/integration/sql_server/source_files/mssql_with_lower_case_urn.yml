@@ -5,9 +5,7 @@ source:
   config:
     username: sa
     password: test!Password
-    database: DemoData
-    host_port: localhost:51433
-    database_alias: DemoDataAlias
+    host_port: localhost:21433
     convert_urns_to_lowercase: true
     # use_odbc: True
     # uri_args:

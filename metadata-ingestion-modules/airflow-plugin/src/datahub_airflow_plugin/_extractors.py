@@ -7,7 +7,7 @@ import datahub.emitter.mce_builder as builder
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
-from datahub.utilities.sqlglot_lineage import (
+from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
     create_lineage_sql_parsed_result,
 )
@@ -50,7 +50,6 @@ class ExtractorManager(OLExtractorManager):
             "BigQueryOperator",
             "BigQueryExecuteQueryOperator",
             # Athena also does something similar.
-            "AthenaOperator",
             "AWSAthenaOperator",
             # Additional types that OL doesn't support. This is only necessary because
             # on older versions of Airflow, these operators don't inherit from SQLExecuteQueryOperator.
@@ -58,6 +57,12 @@ class ExtractorManager(OLExtractorManager):
         ]
         for operator in _sql_operator_overrides:
             self.task_to_extractor.extractors[operator] = GenericSqlExtractor
+
+        self.task_to_extractor.extractors["AthenaOperator"] = AthenaOperatorExtractor
+
+        self.task_to_extractor.extractors[
+            "BigQueryInsertJobOperator"
+        ] = BigQueryInsertJobOperatorExtractor
 
         self._graph: Optional["DataHubGraph"] = None
 
@@ -78,7 +83,7 @@ class ExtractorManager(OLExtractorManager):
                 unittest.mock.patch.object(
                     SnowflakeExtractor,
                     "default_schema",
-                    property(snowflake_default_schema),
+                    property(_snowflake_default_schema),
                 )
             )
 
@@ -166,12 +171,6 @@ def _sql_extractor_extract(self: "SqlExtractor") -> TaskMetadata:
     task_name = f"{self.operator.dag_id}.{self.operator.task_id}"
     sql = self.operator.sql
 
-    run_facets = {}
-    job_facets = {"sql": SqlJobFacet(query=self._normalize_sql(sql))}
-
-    # Prepare to run the SQL parser.
-    graph = self.context.get(_DATAHUB_GRAPH_CONTEXT_KEY, None)
-
     default_database = getattr(self.operator, "database", None)
     if not default_database:
         default_database = self.database
@@ -185,6 +184,31 @@ def _sql_extractor_extract(self: "SqlExtractor") -> TaskMetadata:
     # Run the SQL parser.
     scheme = self.scheme
     platform = OL_SCHEME_TWEAKS.get(scheme, scheme)
+
+    return _parse_sql_into_task_metadata(
+        self,
+        sql,
+        platform=platform,
+        default_database=default_database,
+        default_schema=default_schema,
+    )
+
+
+def _parse_sql_into_task_metadata(
+    self: "BaseExtractor",
+    sql: str,
+    platform: str,
+    default_database: Optional[str],
+    default_schema: Optional[str],
+) -> TaskMetadata:
+    task_name = f"{self.operator.dag_id}.{self.operator.task_id}"
+
+    run_facets = {}
+    job_facets = {"sql": SqlJobFacet(query=SqlExtractor._normalize_sql(sql))}
+
+    # Prepare to run the SQL parser.
+    graph = self.context.get(_DATAHUB_GRAPH_CONTEXT_KEY, None)
+
     self.log.debug(
         "Running the SQL parser %s (platform=%s, default db=%s, schema=%s): %s",
         "with graph client" if graph else "in offline mode",
@@ -199,8 +223,8 @@ def _sql_extractor_extract(self: "SqlExtractor") -> TaskMetadata:
         platform=platform,
         platform_instance=None,
         env=builder.DEFAULT_ENV,
-        database=default_database,
-        schema=default_schema,
+        default_db=default_database,
+        default_schema=default_schema,
     )
     self.log.debug(f"Got sql lineage {sql_parsing_result}")
 
@@ -232,7 +256,49 @@ def _sql_extractor_extract(self: "SqlExtractor") -> TaskMetadata:
     )
 
 
-def snowflake_default_schema(self: "SnowflakeExtractor") -> Optional[str]:
+class BigQueryInsertJobOperatorExtractor(BaseExtractor):
+    def extract(self) -> Optional[TaskMetadata]:
+        from airflow.providers.google.cloud.operators.bigquery import (
+            BigQueryInsertJobOperator,  # type: ignore
+        )
+
+        operator: "BigQueryInsertJobOperator" = self.operator
+        sql = operator.configuration.get("query", {}).get("query")
+        if not sql:
+            self.log.warning("No query found in BigQueryInsertJobOperator")
+            return None
+
+        return _parse_sql_into_task_metadata(
+            self,
+            sql,
+            platform="bigquery",
+            default_database=operator.project_id,
+            default_schema=None,
+        )
+
+
+class AthenaOperatorExtractor(BaseExtractor):
+    def extract(self) -> Optional[TaskMetadata]:
+        from airflow.providers.amazon.aws.operators.athena import (
+            AthenaOperator,  # type: ignore
+        )
+
+        operator: "AthenaOperator" = self.operator
+        sql = operator.query
+        if not sql:
+            self.log.warning("No query found in AthenaOperator")
+            return None
+
+        return _parse_sql_into_task_metadata(
+            self,
+            sql,
+            platform="athena",
+            default_database=None,
+            default_schema=self.operator.database,
+        )
+
+
+def _snowflake_default_schema(self: "SnowflakeExtractor") -> Optional[str]:
     if hasattr(self.operator, "schema") and self.operator.schema is not None:
         return self.operator.schema
     return (

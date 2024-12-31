@@ -10,9 +10,17 @@ import { BrowserWrapper } from '../../../shared/tags/AddTagsTermsModal';
 import TermLabel from '../../../shared/TermLabel';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { useEntityData, useRefetch } from '../../shared/EntityContext';
+import ParentEntities from '../../../search/filters/ParentEntities';
+import { getParentEntities } from '../../../search/filters/utils';
 
 const StyledSelect = styled(Select)`
     width: 480px;
+`;
+
+const SearchResultContainer = styled.div`
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 `;
 
 interface Props {
@@ -68,7 +76,10 @@ function AddRelatedTermsModal(props: Props) {
 
         return (
             <Select.Option value={result.entity.urn} key={result.entity.urn} name={displayName}>
-                <TermLabel name={displayName} />
+                <SearchResultContainer>
+                    <ParentEntities parentEntities={getParentEntities(result.entity) || []} />
+                    <TermLabel name={displayName} />
+                </SearchResultContainer>
             </Select.Option>
         );
     });
@@ -93,7 +104,10 @@ function AddRelatedTermsModal(props: Props) {
         const newUrns = [...selectedUrns, urn];
         setSelectedUrns(newUrns);
         const selectedSearchOption = tagSearchOptions.find((option) => option.props.value === urn);
-        setSelectedTerms([...selectedTerms, { urn, component: <TermLabel name={selectedSearchOption?.props.name} /> }]);
+        setSelectedTerms([
+            ...selectedTerms,
+            { urn, component: <TermLabel name={selectedSearchOption?.props?.name} /> },
+        ]);
     };
 
     // When a Tag or term search result is deselected, remove the urn from the Owners
@@ -156,7 +170,7 @@ function AddRelatedTermsModal(props: Props) {
     return (
         <Modal
             title="Add Related Terms"
-            visible
+            open
             onCancel={onClose}
             footer={
                 <>

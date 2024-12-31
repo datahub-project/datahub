@@ -5,7 +5,7 @@ import { DataHubRole } from '../../../types.generated';
 import analytics, { EventType } from '../../analytics';
 
 type Props = {
-    visible: boolean;
+    open: boolean;
     roleToAssign: DataHubRole | undefined;
     userUrn: string;
     username: string;
@@ -13,14 +13,7 @@ type Props = {
     onConfirm: () => void;
 };
 
-export default function AssignRoleConfirmation({
-    visible,
-    roleToAssign,
-    userUrn,
-    username,
-    onClose,
-    onConfirm,
-}: Props) {
+export default function AssignRoleConfirmation({ open, roleToAssign, userUrn, username, onClose, onConfirm }: Props) {
     const [batchAssignRoleMutation] = useBatchAssignRoleMutation();
     // eslint-disable-next-line
     const batchAssignRole = () => {
@@ -63,5 +56,5 @@ export default function AssignRoleConfirmation({
         ? `Would you like to assign the role ${roleToAssign?.name} to ${username}?`
         : `Would you like to remove ${username}'s existing role?`;
 
-    return <Popconfirm title={assignRoleText} visible={visible} onConfirm={batchAssignRole} onCancel={onClose} />;
+    return <Popconfirm title={assignRoleText} open={open} onConfirm={batchAssignRole} onCancel={onClose} />;
 }

@@ -1,9 +1,10 @@
 package {{package}};
 
-import io.datahubproject.openapi.delegates.EntityApiDelegateImpl;
+import io.datahubproject.openapi.v2.delegates.EntityApiDelegateImpl;
+import io.datahubproject.metadata.context.OperationContext;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.SearchService;
-import io.datahubproject.openapi.entities.EntitiesController;
+import io.datahubproject.openapi.v1.entities.EntitiesController;
 import com.datahub.authorization.AuthorizerChain;
 
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -47,12 +48,12 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.multipart.MultipartFile;
 
     {{#useBeanValidation}}
-import javax.validation.constraints.*;
-import javax.validation.Valid;
+import jakarta.validation.constraints.*;
+import jakarta.validation.Valid;
     {{/useBeanValidation}}
 
 {{^isDelegate}}
-import javax.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletRequest;
     {{#isJava8or11}}
 import java.util.Optional;
     {{/isJava8or11}}
@@ -91,13 +92,14 @@ public class {{classname}}Controller implements {{classname}} {
     private final EntityApiDelegateImpl<{{requestClass}}, {{responseClass}}, {{scrollResponseClass}}> delegate;
 
     @org.springframework.beans.factory.annotation.Autowired
-    public {{classname}}Controller(ObjectMapper objectMapper, HttpServletRequest request, EntityService entityService,
-    SearchService searchService, EntitiesController v1Controller, AuthorizerChain authorizationChain,
-    @Value("${authorization.restApiAuthorization:false}") boolean restApiAuthorizationEnabled) {
+    public {{classname}}Controller(ObjectMapper objectMapper, HttpServletRequest request,
+    @org.springframework.beans.factory.annotation.Qualifier("systemOperationContext") OperationContext systemOperationContext,
+    EntityService entityService,
+    SearchService searchService, EntitiesController v1Controller, AuthorizerChain authorizationChain) {
         this.objectMapper = objectMapper;
         this.request = request;
-        this.delegate = new EntityApiDelegateImpl<{{requestClass}}, {{responseClass}}, {{scrollResponseClass}}>(entityService, searchService, v1Controller,
-        restApiAuthorizationEnabled, authorizationChain, {{requestClass}}.class, {{responseClass}}.class, {{scrollResponseClass}}.class);
+        this.delegate = new EntityApiDelegateImpl<{{requestClass}}, {{responseClass}}, {{scrollResponseClass}}>(systemOperationContext, request, entityService, searchService, v1Controller,
+        authorizationChain, {{requestClass}}.class, {{responseClass}}.class, {{scrollResponseClass}}.class);
     }
     {{#isJava8or11}}
 

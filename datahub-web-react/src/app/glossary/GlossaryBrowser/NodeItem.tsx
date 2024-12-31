@@ -80,7 +80,7 @@ function NodeItem(props: Props) {
     });
 
     useEffect(() => {
-        if (openToEntity && entityData && entityData.parentNodes?.nodes.some((parent) => parent.urn === node.urn)) {
+        if (openToEntity && entityData && entityData.parentNodes?.nodes?.some((parent) => parent.urn === node.urn)) {
             setAreChildrenVisible(true);
         }
     }, [entityData, node.urn, openToEntity]);
@@ -166,7 +166,12 @@ function NodeItem(props: Props) {
                             ))}
                             {!hideTerms &&
                                 (childTerms as GlossaryTerm[]).map((child) => (
-                                    <TermItem term={child} isSelecting={isSelecting} selectTerm={selectTerm} />
+                                    <TermItem
+                                        term={child}
+                                        isSelecting={isSelecting}
+                                        selectTerm={selectTerm}
+                                        includeActiveTabPath
+                                    />
                                 ))}
                         </ChildrenWrapper>
                     )}

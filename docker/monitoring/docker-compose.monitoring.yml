@@ -1,5 +1,4 @@
 ---
-version: '3.9'
 services:
   datahub-frontend-react:
     environment:
@@ -38,7 +37,6 @@ services:
       - '14268'
       - '14250'
   prometheus:
-    container_name: prometheus
     image: prom/prometheus:latest
     volumes:
       - ./monitoring/prometheus.yaml:/etc/prometheus/prometheus.yml

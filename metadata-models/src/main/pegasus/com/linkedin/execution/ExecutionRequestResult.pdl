@@ -10,6 +10,10 @@ record ExecutionRequestResult {
   /**
   * The status of the execution request
   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "fieldName": "executionResultStatus"
+  }
   status: string
 
   /**

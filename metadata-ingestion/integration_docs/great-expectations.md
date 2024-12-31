@@ -23,7 +23,7 @@ This integration does not support
 
 1. Install the required dependency in your Great Expectations environment.  
     ```shell
-    pip install 'acryl-datahub[great-expectations]'
+    pip install 'acryl-datahub-gx-plugin'
     ```
 
 
@@ -32,7 +32,7 @@ This integration does not support
     action_list:
       - name: datahub_action
         action:
-          module_name: datahub.integrations.great_expectations.action
+          module_name: datahub_gx_plugin.action
           class_name: DataHubValidationAction
           server_url: http://localhost:8080 #datahub server url
     ```

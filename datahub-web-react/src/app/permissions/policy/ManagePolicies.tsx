@@ -1,32 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Button, Empty, message, Modal, Pagination, Tag } from 'antd';
+import { Button, Empty, message, Pagination, Select, Tag } from 'antd';
 import styled from 'styled-components/macro';
 import * as QueryString from 'query-string';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useLocation } from 'react-router';
 import PolicyBuilderModal from './PolicyBuilderModal';
-import {
-    Policy,
-    PolicyUpdateInput,
-    PolicyState,
-    PolicyType,
-    Maybe,
-    ResourceFilterInput,
-    PolicyMatchFilter,
-    PolicyMatchFilterInput,
-    PolicyMatchCriterionInput,
-    EntityType,
-} from '../../../types.generated';
+import { AndFilterInput, Policy, PolicyState, FilterOperator } from '../../../types.generated';
 import { useAppConfig } from '../../useAppConfig';
 import PolicyDetailsModal from './PolicyDetailsModal';
-import {
-    useCreatePolicyMutation,
-    useDeletePolicyMutation,
-    useListPoliciesQuery,
-    useUpdatePolicyMutation,
-} from '../../../graphql/policy.generated';
+import { useListPoliciesQuery } from '../../../graphql/policy.generated';
 import { Message } from '../../shared/Message';
-import { EMPTY_POLICY } from './policyUtils';
+import { DEFAULT_PAGE_SIZE, EMPTY_POLICY } from './policyUtils';
 import TabToolbar from '../../entity/shared/components/styled/TabToolbar';
 import { StyledTable } from '../../entity/shared/components/styled/StyledTable';
 import AvatarsGroup from '../AvatarsGroup';
@@ -37,8 +21,13 @@ import { scrollToTop } from '../../shared/searchUtils';
 import analytics, { EventType } from '../../analytics';
 import { POLICIES_CREATE_POLICY_ID, POLICIES_INTRO_ID } from '../../onboarding/config/PoliciesOnboardingConfig';
 import { OnboardingTour } from '../../onboarding/OnboardingTour';
+import { usePolicy } from './usePolicy';
 
-const SourceContainer = styled.div``;
+const SourceContainer = styled.div`
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+`;
 
 const PaginationContainer = styled.div`
     display: flex;
@@ -75,60 +64,26 @@ const EditPolicyButton = styled(Button)`
 
 const PageContainer = styled.span`
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: auto;
+`;
+const StyledSelect = styled(Select)`
+    margin-right: 15px;
+    min-width: 90px;
+    margin-left: 20px;
 `;
 
-const DEFAULT_PAGE_SIZE = 10;
+const SelectContainer = styled.div`
+    display: flex;
+    align-items: flex-start;
+`;
 
-type PrivilegeOptionType = {
-    type?: string;
-    name?: Maybe<string>;
-};
-
-const toFilterInput = (filter: PolicyMatchFilter): PolicyMatchFilterInput => {
-    return {
-        criteria: filter.criteria?.map((criterion): PolicyMatchCriterionInput => {
-            return {
-                field: criterion.field,
-                values: criterion.values.map((criterionValue) => criterionValue.value),
-                condition: criterion.condition,
-            };
-        }),
-    };
-};
-
-const toPolicyInput = (policy: Omit<Policy, 'urn'>): PolicyUpdateInput => {
-    let policyInput: PolicyUpdateInput = {
-        type: policy.type,
-        name: policy.name,
-        state: policy.state,
-        description: policy.description,
-        privileges: policy.privileges,
-        actors: {
-            users: policy.actors.users,
-            groups: policy.actors.groups,
-            allUsers: policy.actors.allUsers,
-            allGroups: policy.actors.allGroups,
-            resourceOwners: policy.actors.resourceOwners,
-            resourceOwnersTypes: policy.actors.resourceOwnersTypes,
-        },
-    };
-    if (policy.resources !== null && policy.resources !== undefined) {
-        let resourceFilter: ResourceFilterInput = {
-            type: policy.resources.type,
-            resources: policy.resources.resources,
-            allResources: policy.resources.allResources,
-        };
-        if (policy.resources.filter) {
-            resourceFilter = { ...resourceFilter, filter: toFilterInput(policy.resources.filter) };
-        }
-        // Add the resource filters.
-        policyInput = {
-            ...policyInput,
-            resources: resourceFilter,
-        };
-    }
-    return policyInput;
-};
+export enum StatusType {
+    ALL,
+    ACTIVE,
+    INACTIVE,
+}
 
 // TODO: Cleanup the styling.
 export const ManagePolicies = () => {
@@ -137,6 +92,11 @@ export const ManagePolicies = () => {
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
     const paramsQuery = (params?.query as string) || undefined;
     const [query, setQuery] = useState<undefined | string>(undefined);
+    const [orFilters, setOrFilters] = useState<AndFilterInput[]>([
+        { and: [{ field: 'state', values: ['ACTIVE'], condition: FilterOperator.Equal }] },
+    ]);
+    const [statusFilter, setStatusFilter] = useState(StatusType.ACTIVE);
+
     useEffect(() => setQuery(paramsQuery), [paramsQuery]);
 
     const {
@@ -156,34 +116,22 @@ export const ManagePolicies = () => {
     const [focusPolicyUrn, setFocusPolicyUrn] = useState<undefined | string>(undefined);
     const [focusPolicy, setFocusPolicy] = useState<Omit<Policy, 'urn'>>(EMPTY_POLICY);
 
-    // Construct privileges
-    const platformPrivileges = policiesConfig?.platformPrivileges || [];
-    const resourcePrivileges = policiesConfig?.resourcePrivileges || [];
-
     const {
         loading: policiesLoading,
         error: policiesError,
         data: policiesData,
         refetch: policiesRefetch,
     } = useListPoliciesQuery({
-        fetchPolicy: 'no-cache',
         variables: {
             input: {
                 start,
                 count: pageSize,
                 query,
+                orFilters,
             },
         },
+        fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
-
-    // Any time a policy is removed, edited, or created, refetch the list.
-    const [createPolicy, { error: createPolicyError }] = useCreatePolicyMutation();
-
-    const [updatePolicy, { error: updatePolicyError }] = useUpdatePolicyMutation();
-
-    const [deletePolicy, { error: deletePolicyError }] = useDeletePolicyMutation();
-
-    const updateError = createPolicyError || updatePolicyError || deletePolicyError;
 
     const totalPolicies = policiesData?.listPolicies?.total || 0;
     const policies = useMemo(() => policiesData?.listPolicies?.policies || [], [policiesData]);
@@ -205,28 +153,6 @@ export const ManagePolicies = () => {
         setShowPolicyBuilderModal(false);
     };
 
-    const getPrivilegeNames = (policy: Omit<Policy, 'urn'>) => {
-        let privileges: PrivilegeOptionType[] = [];
-        if (policy?.type === PolicyType.Platform) {
-            privileges = platformPrivileges
-                .filter((platformPrivilege) => policy.privileges.includes(platformPrivilege.type))
-                .map((platformPrivilege) => {
-                    return { type: platformPrivilege.type, name: platformPrivilege.displayName };
-                });
-        } else {
-            const allResourcePriviliges = resourcePrivileges.find(
-                (resourcePrivilege) => resourcePrivilege.resourceType === 'all',
-            );
-            privileges =
-                allResourcePriviliges?.privileges
-                    .filter((resourcePrivilege) => policy.privileges.includes(resourcePrivilege.type))
-                    .map((b) => {
-                        return { type: b.type, name: b.displayName };
-                    }) || [];
-        }
-        return privileges;
-    };
-
     const onViewPolicy = (policy: Policy) => {
         setShowViewPolicyModal(true);
         setFocusPolicyUrn(policy?.urn);
@@ -245,73 +171,46 @@ export const ManagePolicies = () => {
         setFocusPolicy({ ...policy });
     };
 
-    // On Delete Policy handler
-    const onRemovePolicy = (policy: Policy) => {
-        Modal.confirm({
-            title: `Delete ${policy?.name}`,
-            content: `Are you sure you want to remove policy?`,
-            onOk() {
-                deletePolicy({ variables: { urn: policy?.urn as string } }); // There must be a focus policy urn.
-                analytics.event({
-                    type: EventType.DeleteEntityEvent,
-                    entityUrn: policy?.urn,
-                    entityType: EntityType.DatahubPolicy,
-                });
-                message.success('Successfully removed policy.');
-                setTimeout(() => {
-                    policiesRefetch();
-                }, 3000);
-                onCancelViewPolicy();
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
-    };
-
-    // On Activate and deactivate Policy handler
-    const onToggleActiveDuplicate = (policy: Policy) => {
-        const newState = policy?.state === PolicyState.Active ? PolicyState.Inactive : PolicyState.Active;
-        const newPolicy = {
-            ...policy,
-            state: newState,
-        };
-        updatePolicy({
-            variables: {
-                urn: policy?.urn as string, // There must be a focus policy urn.
-                input: toPolicyInput(newPolicy),
-            },
-        });
-        message.success(`Successfully ${newState === PolicyState.Active ? 'activated' : 'deactivated'} policy.`);
-        setTimeout(() => {
-            policiesRefetch();
-        }, 3000);
-        setShowViewPolicyModal(false);
-    };
-
-    // On Add/Update Policy handler
-    const onSavePolicy = (savePolicy: Omit<Policy, 'urn'>) => {
-        if (focusPolicyUrn) {
-            // If there's an URN associated with the focused policy, then we are editing an existing policy.
-            updatePolicy({ variables: { urn: focusPolicyUrn, input: toPolicyInput(savePolicy) } });
-            analytics.event({
-                type: EventType.UpdatePolicyEvent,
-                policyUrn: focusPolicyUrn,
-            });
-        } else {
-            // If there's no URN associated with the focused policy, then we are creating.
-            createPolicy({ variables: { input: toPolicyInput(savePolicy) } });
-            analytics.event({
-                type: EventType.CreatePolicyEvent,
-            });
+    const onStatusChange = (newStatusFilter: StatusType) => {
+        setStatusFilter(newStatusFilter);
+        // Reset page to 1 when filter changes
+        setPage(1);
+        const filtersInput: any = [];
+        let statusValue = '';
+        if (newStatusFilter === StatusType.ACTIVE) {
+            statusValue = 'ACTIVE';
+        } else if (newStatusFilter === StatusType.INACTIVE) {
+            statusValue = 'INACTIVE';
         }
-        message.success('Successfully saved policy.');
-        setTimeout(() => {
-            policiesRefetch();
-        }, 3000);
-        onClosePolicyBuilder();
+        if (statusValue) {
+            const filter = { field: 'state', values: [statusValue], condition: FilterOperator.Equal };
+            filtersInput.push({ and: [filter] });
+        }
+        setOrFilters(filtersInput);
     };
+
+    useEffect(() => {
+        policiesRefetch();
+    }, [orFilters, policiesRefetch]);
+
+    const {
+        createPolicyError,
+        updatePolicyError,
+        deletePolicyError,
+        onSavePolicy,
+        onToggleActiveDuplicate,
+        onRemovePolicy,
+        getPrivilegeNames,
+    } = usePolicy(
+        policiesConfig,
+        focusPolicyUrn,
+        policiesRefetch,
+        setShowViewPolicyModal,
+        onCancelViewPolicy,
+        onClosePolicyBuilder,
+    );
+
+    const updateError = createPolicyError || updatePolicyError || deletePolicyError;
 
     const tableColumns = [
         {
@@ -463,23 +362,43 @@ export const ManagePolicies = () => {
                             <PlusOutlined /> Create new policy
                         </Button>
                     </div>
-                    <SearchBar
-                        initialQuery={query || ''}
-                        placeholderText="Search policies..."
-                        suggestions={[]}
-                        style={{
-                            maxWidth: 220,
-                            padding: 0,
-                        }}
-                        inputStyle={{
-                            height: 32,
-                            fontSize: 12,
-                        }}
-                        onSearch={() => null}
-                        onQueryChange={(q) => setQuery(q)}
-                        entityRegistry={entityRegistry}
-                        hideRecommendations
-                    />
+                    <SelectContainer>
+                        <SearchBar
+                            initialQuery={query || ''}
+                            placeholderText="Search policies..."
+                            suggestions={[]}
+                            style={{
+                                maxWidth: 220,
+                                padding: 0,
+                            }}
+                            inputStyle={{
+                                height: 32,
+                                fontSize: 12,
+                            }}
+                            onSearch={() => null}
+                            onQueryChange={(q) => {
+                                setPage(1);
+                                setQuery(q);
+                            }}
+                            entityRegistry={entityRegistry}
+                            hideRecommendations
+                        />
+                        <StyledSelect
+                            value={statusFilter}
+                            onChange={(selection) => onStatusChange(selection as StatusType)}
+                            style={{ width: 100 }}
+                        >
+                            <Select.Option value={StatusType.ALL} key="ALL">
+                                All
+                            </Select.Option>
+                            <Select.Option value={StatusType.ACTIVE} key="ACTIVE">
+                                Active
+                            </Select.Option>
+                            <Select.Option value={StatusType.INACTIVE} key="INACTIVE">
+                                Inactive
+                            </Select.Option>
+                        </StyledSelect>
+                    </SelectContainer>
                 </TabToolbar>
                 <StyledTable
                     columns={tableColumns}
@@ -504,9 +423,10 @@ export const ManagePolicies = () => {
             </PaginationContainer>
             {showPolicyBuilderModal && (
                 <PolicyBuilderModal
+                    focusPolicyUrn={focusPolicyUrn}
                     policy={focusPolicy || EMPTY_POLICY}
                     setPolicy={setFocusPolicy}
-                    visible={showPolicyBuilderModal}
+                    open={showPolicyBuilderModal}
                     onClose={onClosePolicyBuilder}
                     onSave={onSavePolicy}
                 />
@@ -514,7 +434,7 @@ export const ManagePolicies = () => {
             {showViewPolicyModal && (
                 <PolicyDetailsModal
                     policy={focusPolicy}
-                    visible={showViewPolicyModal}
+                    open={showViewPolicyModal}
                     onClose={onCancelViewPolicy}
                     privileges={getPrivilegeNames(focusPolicy)}
                 />

@@ -15,8 +15,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1639417592792,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1639417592792,
@@ -26,6 +26,9 @@
                         "chartUrl": "http://localhost:3000/card/1",
                         "inputs": [
                             {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)"
+                            },
+                            {
                                 "string": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)"
                             }
                         ],
@@ -34,7 +37,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.chart.ChartQuery": {
-                        "rawQuery": "SELECT\\n\\tcustomer.customer_id,\\n\\tfirst_name,\\n\\tlast_name,\\n\\tamount,\\n\\tpayment_date,\\n\\trental_id\\nFROM\\n\\tcustomer\\nINNER JOIN payment \\n    ON payment.customer_id = customer.customer_id\\nORDER BY payment_date",
+                        "rawQuery": "SELECT\n\tcustomer.customer_id,\n\tfirst_name,\n\tlast_name,\n\tamount,\n\tpayment_date,\n\trental_id\nFROM\n\tcustomer\nINNER JOIN payment \n    ON payment.customer_id = customer.customer_id\nORDER BY payment_date",
                         "type": "SQL"
                     }
                 },
@@ -46,6 +49,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -57,7 +61,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "metabase-test"
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -76,8 +82,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1636614000000,
-                                "actor": "urn:li:corpuser:admin@metabase.com"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1636614000000,
@@ -101,6 +107,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -112,7 +119,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "metabase-test"
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -131,8 +140,8 @@
                         "description": "",
                         "lastModified": {
                             "created": {
-                                "time": 1685628119636,
-                                "actor": "urn:li:corpuser:john.doe@example.com"
+                                "time": 0,
+                                "actor": "urn:li:corpuser:unknown"
                             },
                             "lastModified": {
                                 "time": 1685628119636,
@@ -141,6 +150,9 @@
                         },
                         "chartUrl": "http://localhost:3000/card/3",
                         "inputs": [
+                            {
+                                "string": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.customer,PROD)"
+                            },
                             {
                                 "string": "urn:li:dataset:(urn:li:dataPlatform:bigquery,acryl-data.public.payment,PROD)"
                             }
@@ -156,6 +168,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -167,13 +180,15 @@
     },
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "metabase-test"
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
-            "urn": "urn:li:dashboard:(metabase,1)",
+            "urn": "urn:li:dashboard:(metabase,10)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
@@ -182,20 +197,21 @@
                         "description": "",
                         "charts": [
                             "urn:li:chart:(metabase,1)",
-                            "urn:li:chart:(metabase,2)"
+                            "urn:li:chart:(metabase,2)",
+                            "urn:li:chart:(metabase,3)"
                         ],
                         "datasets": [],
                         "lastModified": {
                             "created": {
-                                "time": 1639417721742,
+                                "time": 1705398694904,
                                 "actor": "urn:li:corpuser:admin@metabase.com"
                             },
                             "lastModified": {
-                                "time": 1639417721742,
+                                "time": 1705398694904,
                                 "actor": "urn:li:corpuser:admin@metabase.com"
                             }
                         },
-                        "dashboardUrl": "http://localhost:3000/dashboard/1"
+                        "dashboardUrl": "http://localhost:3000/dashboard/10"
                     }
                 },
                 {
@@ -206,6 +222,7 @@
                                 "type": "DATAOWNER"
                             }
                         ],
+                        "ownerTypes": {},
                         "lastModified": {
                             "time": 0,
                             "actor": "urn:li:corpuser:unknown"
@@ -217,7 +234,171 @@
     },
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "metabase-test"
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(metabase,20)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {},
+                        "title": "Dashboard 2",
+                        "description": "",
+                        "charts": [
+                            "urn:li:chart:(metabase,1)",
+                            "urn:li:chart:(metabase,2)",
+                            "urn:li:chart:(metabase,3)"
+                        ],
+                        "datasets": [],
+                        "lastModified": {
+                            "created": {
+                                "time": 1705398694904,
+                                "actor": "urn:li:corpuser:admin@metabase.com"
+                            },
+                            "lastModified": {
+                                "time": 1705398694904,
+                                "actor": "urn:li:corpuser:admin@metabase.com"
+                            }
+                        },
+                        "dashboardUrl": "http://localhost:3000/dashboard/20"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:admin@metabase.com",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(metabase,10)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {},
+                        "title": "Dashboard 1",
+                        "description": "",
+                        "charts": [
+                            "urn:li:chart:(metabase,1)",
+                            "urn:li:chart:(metabase,2)",
+                            "urn:li:chart:(metabase,3)"
+                        ],
+                        "datasets": [],
+                        "lastModified": {
+                            "created": {
+                                "time": 1705398694904,
+                                "actor": "urn:li:corpuser:admin@metabase.com"
+                            },
+                            "lastModified": {
+                                "time": 1705398694904,
+                                "actor": "urn:li:corpuser:admin@metabase.com"
+                            }
+                        },
+                        "dashboardUrl": "http://localhost:3000/dashboard/10"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:admin@metabase.com",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "proposedSnapshot": {
+        "com.linkedin.pegasus2avro.metadata.snapshot.DashboardSnapshot": {
+            "urn": "urn:li:dashboard:(metabase,20)",
+            "aspects": [
+                {
+                    "com.linkedin.pegasus2avro.dashboard.DashboardInfo": {
+                        "customProperties": {},
+                        "title": "Dashboard 2",
+                        "description": "",
+                        "charts": [
+                            "urn:li:chart:(metabase,1)",
+                            "urn:li:chart:(metabase,2)",
+                            "urn:li:chart:(metabase,3)"
+                        ],
+                        "datasets": [],
+                        "lastModified": {
+                            "created": {
+                                "time": 1705398694904,
+                                "actor": "urn:li:corpuser:admin@metabase.com"
+                            },
+                            "lastModified": {
+                                "time": 1705398694904,
+                                "actor": "urn:li:corpuser:admin@metabase.com"
+                            }
+                        },
+                        "dashboardUrl": "http://localhost:3000/dashboard/20"
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.Ownership": {
+                        "owners": [
+                            {
+                                "owner": "urn:li:corpuser:admin@metabase.com",
+                                "type": "DATAOWNER"
+                            }
+                        ],
+                        "ownerTypes": {},
+                        "lastModified": {
+                            "time": 0,
+                            "actor": "urn:li:corpuser:unknown"
+                        }
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -232,7 +413,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "metabase-test"
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -247,7 +430,9 @@
     },
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "metabase-test"
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
@@ -262,12 +447,14 @@
     },
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "metabase-test"
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 },
 {
     "entityType": "dashboard",
-    "entityUrn": "urn:li:dashboard:(metabase,1)",
+    "entityUrn": "urn:li:dashboard:(metabase,10)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -277,7 +464,26 @@
     },
     "systemMetadata": {
         "lastObserved": 1636614000000,
-        "runId": "metabase-test"
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(metabase,20)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1636614000000,
+        "runId": "metabase-test",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
     }
 }
 ]

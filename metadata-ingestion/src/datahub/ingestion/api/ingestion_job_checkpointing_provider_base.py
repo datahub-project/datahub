@@ -1,6 +1,8 @@
 from abc import abstractmethod
 from dataclasses import dataclass
-from typing import Any, Dict, NewType, Optional, Type, TypeVar
+from typing import Any, Dict, NewType, Optional
+
+from typing_extensions import Self
 
 import datahub.emitter.mce_builder as builder
 from datahub.configuration.common import ConfigModel
@@ -17,26 +19,19 @@ class IngestionCheckpointingProviderConfig(ConfigModel):
     pass
 
 
-_Self = TypeVar("_Self", bound="IngestionCheckpointingProviderBase")
-
-
 @dataclass()
 class IngestionCheckpointingProviderBase(StatefulCommittable[CheckpointJobStatesMap]):
     """
     The base class for all checkpointing state provider implementations.
     """
 
-    def __init__(
-        self, name: str, commit_policy: CommitPolicy = CommitPolicy.ON_NO_ERRORS
-    ):
+    def __init__(self, name: str, commit_policy: CommitPolicy = CommitPolicy.ALWAYS):
         # Set the initial state to an empty dict.
         super().__init__(name, commit_policy, {})
 
     @classmethod
     @abstractmethod
-    def create(
-        cls: Type[_Self], config_dict: Dict[str, Any], ctx: PipelineContext, name: str
-    ) -> "_Self":
+    def create(cls, config_dict: Dict[str, Any], ctx: PipelineContext) -> Self:
         pass
 
     @abstractmethod

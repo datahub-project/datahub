@@ -18,6 +18,7 @@ import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab'
 import MlModelFeaturesTab from './profile/MlModelFeaturesTab';
 import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 /**
  * Definition of the DataHub MlModel entity.
@@ -52,6 +53,8 @@ export class MLModelEntity implements Entity<MlModel> {
 
     getAutoCompleteFieldName = () => 'name';
 
+    getGraphName = () => 'mlModel';
+
     getPathName = () => 'mlModels';
 
     getEntityName = () => 'ML Model';
@@ -63,6 +66,36 @@ export class MLModelEntity implements Entity<MlModel> {
             externalUrl: mlModel?.properties?.externalUrl,
         };
     };
+
+    useEntityQuery = useGetMlModelQuery;
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+        },
+        {
+            component: SidebarOwnerSection,
+            properties: {
+                defaultOwnerType: OwnershipType.TechnicalOwner,
+            },
+        },
+        {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: true,
+            },
+        },
+        {
+            component: SidebarDomainSection,
+        },
+        {
+            component: DataProductSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
+        },
+    ];
 
     renderProfile = (urn: string) => (
         <EntityProfile
@@ -94,30 +127,7 @@ export class MLModelEntity implements Entity<MlModel> {
                     component: PropertiesTab,
                 },
             ]}
-            sidebarSections={[
-                {
-                    component: SidebarAboutSection,
-                },
-                {
-                    component: SidebarOwnerSection,
-                    properties: {
-                        defaultOwnerType: OwnershipType.TechnicalOwner,
-                    },
-                },
-                {
-                    component: SidebarTagsSection,
-                    properties: {
-                        hasTags: true,
-                        hasTerms: true,
-                    },
-                },
-                {
-                    component: SidebarDomainSection,
-                },
-                {
-                    component: DataProductSection,
-                },
-            ]}
+            sidebarSections={this.getSidebarSections()}
         />
     );
 

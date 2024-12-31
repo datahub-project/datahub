@@ -48,17 +48,19 @@ export default function DomainItemMenu({ name, urn, onDelete }: Props) {
         });
     };
 
+    const items = [
+        {
+            key: 0,
+            label: (
+                <Menu.Item onClick={onConfirmDelete} key="delete">
+                    <DeleteOutlined /> &nbsp;Delete
+                </Menu.Item>
+            ),
+        },
+    ];
+
     return (
-        <Dropdown
-            trigger={['click']}
-            overlay={
-                <Menu>
-                    <Menu.Item onClick={onConfirmDelete} key="delete">
-                        <DeleteOutlined /> &nbsp;Delete
-                    </Menu.Item>
-                </Menu>
-            }
-        >
+        <Dropdown trigger={['click']} menu={{ items }}>
             <MenuIcon data-testid={`dropdown-menu-${urn}`} fontSize={20} />
         </Dropdown>
     );

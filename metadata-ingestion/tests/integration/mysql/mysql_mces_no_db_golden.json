@@ -11,7 +11,8 @@
                 "env": "PROD",
                 "database": "dataCharmer"
             },
-            "name": "dataCharmer"
+            "name": "dataCharmer",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -147,7 +148,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -159,7 +160,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "DATE()",
+                                "nativeDataType": "DATE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -171,7 +172,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=14)",
+                                "nativeDataType": "VARCHAR(14)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -183,7 +184,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=16)",
+                                "nativeDataType": "VARCHAR(16)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -195,8 +196,19 @@
                                         "com.linkedin.pegasus2avro.schema.EnumType": {}
                                     }
                                 },
-                                "nativeDataType": "ENUM('M', 'F')",
+                                "nativeDataType": "ENUM('M','F')",
                                 "recursive": false,
+                                "glossaryTerms": {
+                                    "terms": [
+                                        {
+                                            "urn": "urn:li:glossaryTerm:Gender"
+                                        }
+                                    ],
+                                    "auditStamp": {
+                                        "time": 1586847600000,
+                                        "actor": "urn:li:corpuser:datahub"
+                                    }
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -207,7 +219,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "DATE()",
+                                "nativeDataType": "DATE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -323,7 +335,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -335,7 +347,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -347,7 +359,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "DATE()",
+                                "nativeDataType": "DATE",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -359,7 +371,7 @@
                                         "com.linkedin.pegasus2avro.schema.DateType": {}
                                     }
                                 },
-                                "nativeDataType": "DATE()",
+                                "nativeDataType": "DATE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -423,8 +435,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 10,
             "columnCount": 6,
@@ -562,7 +574,8 @@
                         "1989-08-24"
                     ]
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
@@ -580,8 +593,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 112,
             "columnCount": 4,
@@ -978,7 +991,8 @@
                         "1993-02-09"
                     ]
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
@@ -999,7 +1013,8 @@
                 "env": "PROD",
                 "database": "metagalaxy"
             },
-            "name": "metagalaxy"
+            "name": "metagalaxy",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -1153,7 +1168,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=500)",
+                                "nativeDataType": "VARCHAR(500)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -1165,7 +1180,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=200)",
+                                "nativeDataType": "VARCHAR(200)",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -1177,7 +1192,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "BIGINT()",
+                                "nativeDataType": "BIGINT",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -1189,7 +1204,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "LONGTEXT()",
+                                "nativeDataType": "LONGTEXT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1201,7 +1216,7 @@
                                         "com.linkedin.pegasus2avro.schema.TimeType": {}
                                     }
                                 },
-                                "nativeDataType": "DATETIME(fsp=6)",
+                                "nativeDataType": "DATETIME(6)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1213,7 +1228,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=255)",
+                                "nativeDataType": "VARCHAR(255)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1225,7 +1240,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=255)",
+                                "nativeDataType": "VARCHAR(255)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1360,7 +1375,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "BIGINT()",
+                                "nativeDataType": "BIGINT",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -1373,7 +1388,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=200)",
+                                "nativeDataType": "VARCHAR(200)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1385,7 +1400,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=150)",
+                                "nativeDataType": "VARCHAR(150)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1397,7 +1412,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=150)",
+                                "nativeDataType": "VARCHAR(150)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1409,7 +1424,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "BIGINT()",
+                                "nativeDataType": "BIGINT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1421,7 +1436,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=200)",
+                                "nativeDataType": "VARCHAR(200)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1433,7 +1448,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "DOUBLE(asdecimal=True)",
+                                "nativeDataType": "DOUBLE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1535,8 +1550,8 @@
                 {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
-                            "view_definition": "CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `metadata_index_view` AS select `metadata_index`.`id` AS `id`,`metadata_index`.`urn` AS `urn`,`metadata_index`.`path` AS `path`,`metadata_index`.`doubleVal` AS `doubleVal` from `metadata_index`",
-                            "is_view": "True"
+                            "is_view": "True",
+                            "view_definition": "CREATE ALGORITHM=UNDEFINED DEFINER=`root`@`localhost` SQL SECURITY DEFINER VIEW `metadata_index_view` AS select `metadata_index`.`id` AS `id`,`metadata_index`.`urn` AS `urn`,`metadata_index`.`path` AS `path`,`metadata_index`.`doubleVal` AS `doubleVal` from `metadata_index`"
                         },
                         "name": "metadata_index_view",
                         "tags": []
@@ -1570,7 +1585,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "BIGINT()",
+                                "nativeDataType": "BIGINT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1582,7 +1597,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=200)",
+                                "nativeDataType": "VARCHAR(200)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1594,7 +1609,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=150)",
+                                "nativeDataType": "VARCHAR(150)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1606,7 +1621,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "DOUBLE(asdecimal=True)",
+                                "nativeDataType": "DOUBLE",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -1709,7 +1724,8 @@
                 "env": "PROD",
                 "database": "northwind"
             },
-            "name": "northwind"
+            "name": "northwind",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -1845,7 +1861,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -1857,7 +1873,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1869,7 +1885,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1881,7 +1897,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -1893,8 +1909,19 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
+                                "glossaryTerms": {
+                                    "terms": [
+                                        {
+                                            "urn": "urn:li:glossaryTerm:Email_Address"
+                                        }
+                                    ],
+                                    "auditStamp": {
+                                        "time": 1586847600000,
+                                        "actor": "urn:li:corpuser:datahub"
+                                    }
+                                },
                                 "isPartOfKey": false
                             },
                             {
@@ -1905,7 +1932,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "FLOAT()",
+                                "nativeDataType": "FLOAT",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -2021,7 +2048,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": true
                             },
@@ -2033,7 +2060,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             },
@@ -2045,7 +2072,7 @@
                                         "com.linkedin.pegasus2avro.schema.NumberType": {}
                                     }
                                 },
-                                "nativeDataType": "INTEGER()",
+                                "nativeDataType": "INTEGER",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -2121,8 +2148,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 5,
             "columnCount": 6,
@@ -2190,10 +2217,17 @@
                 },
                 {
                     "fieldPath": "email_address",
-                    "uniqueCount": 0,
-                    "nullCount": 5,
-                    "nullProportion": 1,
-                    "sampleValues": []
+                    "uniqueCount": 5,
+                    "uniqueProportion": 1,
+                    "nullCount": 0,
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "Bedecs@xyz.com",
+                        "Gratacos@xyz.com",
+                        "Axen@xyz.com",
+                        "Lee@xyz.com",
+                        "Donnell@xyz.com"
+                    ]
                 },
                 {
                     "fieldPath": "priority",
@@ -2227,7 +2261,8 @@
                         "3.8"
                     ]
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
@@ -2245,8 +2280,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 0,
             "columnCount": 3,
@@ -2254,32 +2289,20 @@
                 {
                     "fieldPath": "id",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "min": "None",
-                    "max": "None",
-                    "mean": "None",
-                    "median": "None",
-                    "stdev": "0.0",
-                    "sampleValues": []
+                    "nullCount": 0
                 },
                 {
                     "fieldPath": "description",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "sampleValues": []
+                    "nullCount": 0
                 },
                 {
                     "fieldPath": "customer_id",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "min": "None",
-                    "max": "None",
-                    "mean": "None",
-                    "median": "None",
-                    "stdev": "0.0",
-                    "sampleValues": []
+                    "nullCount": 0
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
@@ -2300,7 +2323,8 @@
                 "env": "PROD",
                 "database": "test_cases"
             },
-            "name": "test_cases"
+            "name": "test_cases",
+            "env": "PROD"
         }
     },
     "systemMetadata": {
@@ -2436,7 +2460,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "SET('a', 'b', 'c', 'd')",
+                                "nativeDataType": "SET('a','b','c','d')",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -2552,7 +2576,7 @@
                                         "com.linkedin.pegasus2avro.schema.StringType": {}
                                     }
                                 },
-                                "nativeDataType": "VARCHAR(length=50)",
+                                "nativeDataType": "VARCHAR(50)",
                                 "recursive": false,
                                 "isPartOfKey": false
                             }
@@ -2616,8 +2640,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 0,
             "columnCount": 1,
@@ -2625,10 +2649,10 @@
                 {
                     "fieldPath": "col",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "sampleValues": []
+                    "nullCount": 0
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
@@ -2646,8 +2670,8 @@
         "json": {
             "timestampMillis": 1586847600000,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 0,
             "columnCount": 1,
@@ -2655,10 +2679,10 @@
                 {
                     "fieldPath": "dummy",
                     "uniqueCount": 0,
-                    "nullCount": 0,
-                    "sampleValues": []
+                    "nullCount": 0
                 }
-            ]
+            ],
+            "sizeInBytes": 16384
         }
     },
     "systemMetadata": {
@@ -2677,25 +2701,19 @@
             "upstreams": [
                 {
                     "auditStamp": {
+                        "time": 1586847600000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
                         "time": 0,
-                        "actor": "urn:li:corpuser:unknown"
+                        "actor": "urn:li:corpuser:_ingestion"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD)",
-                    "type": "VIEW"
+                    "type": "VIEW",
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29"
                 }
             ],
             "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),doubleVal)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),doubleVal)"
-                    ],
-                    "confidenceScore": 1.0
-                },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
@@ -2705,18 +2723,8 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),id)"
                     ],
-                    "confidenceScore": 1.0
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),path)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),path)"
-                    ],
-                    "confidenceScore": 1.0
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29"
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -2727,9 +2735,173 @@
                     "downstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),urn)"
                     ],
-                    "confidenceScore": 1.0
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),path)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),path)"
+                    ],
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),doubleVal)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),doubleVal)"
+                    ],
+                    "confidenceScore": 0.9,
+                    "query": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29"
                 }
             ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "statement": {
+                "value": "CREATE ALGORITHM=UNDEFINED\nDEFINER=\"root\"@\"localhost\"\nSQL SECURITY DEFINER VIEW `metadata_index_view` AS\nSELECT\n  `metadata_index`.`id` AS `id`,\n  `metadata_index`.`urn` AS `urn`,\n  `metadata_index`.`path` AS `path`,\n  `metadata_index`.`doubleVal` AS `doubleVal`\nFROM `metadata_index`",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:_ingestion"
+            },
+            "lastModified": {
+                "time": 1586847600000,
+                "actor": "urn:li:corpuser:_ingestion"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),doubleVal)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),path)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index,PROD),urn)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),urn)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),path)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mysql,metagalaxy.metadata_index_view,PROD),doubleVal)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mysql"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:view_urn%3Ali%3Adataset%3A%28urn%3Ali%3AdataPlatform%3Amysql%2Cmetagalaxy.metadata_index_view%2CPROD%29",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Email_Address",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Email_Address"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "mysql-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Gender",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Gender"
         }
     },
     "systemMetadata": {

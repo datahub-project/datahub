@@ -14,7 +14,7 @@ from okta.models import Group, GroupProfile, User, UserProfile, UserStatus
 from pydantic import validator
 from pydantic.fields import Field
 
-from datahub.configuration.common import ConfigModel, ConfigurationError
+from datahub.configuration.common import ConfigModel
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -140,6 +140,10 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
         default=None,
         description="Okta search expression (not regex) for ingesting groups. Only one of `okta_groups_filter` and `okta_groups_search` can be set. See (https://developer.okta.com/docs/reference/api/groups/#list-groups-with-search) for more info.",
     )
+    skip_users_without_a_group: bool = Field(
+        default=False,
+        description="Whether to only ingest users that are members of groups. If this is set to False, all users will be ingested regardless of group membership.",
+    )
 
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -153,7 +157,7 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
     @validator("okta_users_search")
     def okta_users_one_of_filter_or_search(cls, v, values):
         if v and values["okta_users_filter"]:
-            raise ConfigurationError(
+            raise ValueError(
                 "Only one of okta_users_filter or okta_users_search can be set"
             )
         return v
@@ -161,7 +165,7 @@ class OktaConfig(StatefulIngestionConfigBase, ConfigModel):
     @validator("okta_groups_search")
     def okta_groups_one_of_filter_or_search(cls, v, values):
         if v and values["okta_groups_filter"]:
-            raise ConfigurationError(
+            raise ValueError(
                 "Only one of okta_groups_filter or okta_groups_search can be set"
             )
         return v
@@ -211,7 +215,7 @@ class OktaSource(StatefulIngestionSourceBase):
     like to take actions like adding them to a group or assigning them a role.
 
     For instructions on how to do configure Okta OIDC SSO, please read the documentation
-    [here](https://datahubproject.io/docs/authentication/guides/sso/configure-oidc-react-okta).
+    [here](../../../authentication/guides/sso/configure-oidc-react.md#create-an-application-in-okta-developer-console).
 
     ### Extracting DataHub Users
 
@@ -285,7 +289,7 @@ class OktaSource(StatefulIngestionSourceBase):
         return cls(config, ctx)
 
     def __init__(self, config: OktaConfig, ctx: PipelineContext):
-        super(OktaSource, self).__init__(config, ctx)
+        super().__init__(config, ctx)
         self.config = config
         self.report = OktaSourceReport()
         self.okta_client = self._create_okta_client()
@@ -387,6 +391,15 @@ class OktaSource(StatefulIngestionSourceBase):
                         datahub_corp_user_snapshot.urn
                     ]
                 )
+                if (
+                    self.config.skip_users_without_a_group
+                    and len(datahub_group_membership.groups) == 0
+                ):
+                    logger.debug(
+                        f"Filtering {datahub_corp_user_snapshot.urn} due to group filter"
+                    )
+                    self.report.report_filtered(datahub_corp_user_snapshot.urn)
+                    continue
                 assert datahub_group_membership is not None
                 datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
                 mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_user_snapshot)
@@ -452,8 +465,7 @@ class OktaSource(StatefulIngestionSourceBase):
                     "okta_groups", f"Failed to fetch Groups from Okta API: {err}"
                 )
             if groups:
-                for group in groups:
-                    yield group
+                yield from groups
             if resp and resp.has_next():
                 sleep(self.config.delay_seconds)
                 try:
@@ -491,8 +503,7 @@ class OktaSource(StatefulIngestionSourceBase):
                     f"Failed to fetch Users of Group {group.profile.name} from Okta API: {err}",
                 )
             if users:
-                for user in users:
-                    yield user
+                yield from users
             if resp and resp.has_next():
                 sleep(self.config.delay_seconds)
                 try:
@@ -529,8 +540,7 @@ class OktaSource(StatefulIngestionSourceBase):
                     "okta_users", f"Failed to fetch Users from Okta API: {err}"
                 )
             if users:
-                for user in users:
-                    yield user
+                yield from users
             if resp and resp.has_next():
                 sleep(self.config.delay_seconds)
                 try:
@@ -654,9 +664,9 @@ class OktaSource(StatefulIngestionSourceBase):
         full_name = f"{profile.firstName} {profile.lastName}"
         return CorpUserInfoClass(
             active=True,
-            displayName=profile.displayName
-            if profile.displayName is not None
-            else full_name,
+            displayName=(
+                profile.displayName if profile.displayName is not None else full_name
+            ),
             firstName=profile.firstName,
             lastName=profile.lastName,
             fullName=full_name,

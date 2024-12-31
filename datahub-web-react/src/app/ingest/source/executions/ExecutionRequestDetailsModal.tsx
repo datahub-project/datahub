@@ -13,9 +13,14 @@ import {
     getExecutionRequestStatusDisplayText,
     getExecutionRequestStatusIcon,
     getExecutionRequestSummaryText,
+    getIngestionSourceStatus,
+    getStructuredReport,
     RUNNING,
     SUCCESS,
+    SUCCEEDED_WITH_WARNINGS,
 } from '../utils';
+import { ExecutionRequestResult } from '../../../../types.generated';
+import { StructuredReport } from './reporting/StructuredReport';
 
 const StyledTitle = styled(Typography.Title)`
     padding: 0px;
@@ -83,6 +88,17 @@ const ShowMoreButton = styled(Button)`
     padding: 0px;
 `;
 
+const DetailsContainer = styled.div<DetailsContainerProps>`
+    margin-bottom: -25px;
+    ${(props) =>
+        props.areDetailsExpandable &&
+        !props.showExpandedDetails &&
+        `
+        -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90% );
+        mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 50%, rgba(255,0,0,0.5) 60%, rgba(255,0,0,0) 90%);
+    `}
+`;
+
 const modalStyle = {
     top: 100,
 };
@@ -91,13 +107,18 @@ const modalBodyStyle = {
     padding: 0,
 };
 
+type DetailsContainerProps = {
+    showExpandedDetails: boolean;
+    areDetailsExpandable: boolean;
+};
+
 type Props = {
     urn: string;
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
 };
 
-export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
+export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     const [showExpandedLogs, setShowExpandedLogs] = useState(false);
     const [showExpandedRecipe, setShowExpandedRecipe] = useState(false);
 
@@ -108,40 +129,44 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
         downloadFile(output, `exec-${urn}.log`);
     };
 
-    const logs = (showExpandedLogs && output) || output.slice(0, 100);
-    const result = data?.executionRequest?.result?.status;
+    const logs = (showExpandedLogs && output) || output?.split('\n')?.slice(0, 5)?.join('\n');
+    const result = data?.executionRequest?.result as Partial<ExecutionRequestResult>;
+    const status = getIngestionSourceStatus(result);
 
     useEffect(() => {
         const interval = setInterval(() => {
-            if (result === RUNNING) refetch();
+            if (status === RUNNING) refetch();
         }, 2000);
 
         return () => clearInterval(interval);
     });
 
-    const ResultIcon = result && getExecutionRequestStatusIcon(result);
-    const resultColor = result && getExecutionRequestStatusDisplayColor(result);
-    const resultText = result && (
+    const ResultIcon = status && getExecutionRequestStatusIcon(status);
+    const resultColor = status && getExecutionRequestStatusDisplayColor(status);
+    const resultText = status && (
         <Typography.Text style={{ color: resultColor, fontSize: 14 }}>
             {ResultIcon && <ResultIcon style={{ marginRight: 4 }} />}
-            {getExecutionRequestStatusDisplayText(result)}
+            {getExecutionRequestStatusDisplayText(status)}
         </Typography.Text>
     );
+
+    const structuredReport = result && getStructuredReport(result);
+
     const resultSummaryText =
-        (result && <Typography.Text type="secondary">{getExecutionRequestSummaryText(result)}</Typography.Text>) ||
+        (status && <Typography.Text type="secondary">{getExecutionRequestSummaryText(status)}</Typography.Text>) ||
         undefined;
 
-    const recipeJson = data?.executionRequest?.input.arguments?.find((arg) => arg.key === 'recipe')?.value;
+    const recipeJson = data?.executionRequest?.input?.arguments?.find((arg) => arg.key === 'recipe')?.value;
     let recipeYaml: string;
     try {
         recipeYaml = recipeJson && YAML.stringify(JSON.parse(recipeJson), 8, 2).trim();
     } catch (e) {
         recipeYaml = '';
     }
-    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n').slice(0, 1).join('\n');
+    const recipe = showExpandedRecipe ? recipeYaml : recipeYaml?.split('\n')?.slice(0, 5)?.join('\n');
 
-    const areLogsExpandable = output.length > 100;
-    const isRecipeExpandable = recipeYaml?.includes('\n');
+    const areLogsExpandable = output?.split(/\r\n|\r|\n/)?.length > 5;
+    const isRecipeExpandable = recipeYaml?.split(/\r\n|\r|\n/)?.length > 5;
 
     return (
         <Modal
@@ -151,21 +176,22 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
             bodyStyle={modalBodyStyle}
             title={
                 <HeaderSection>
-                    <StyledTitle level={4}>Ingestion Run Details</StyledTitle>
+                    <StyledTitle level={4}>Sync Details</StyledTitle>
                 </HeaderSection>
             }
-            visible={visible}
+            open={open}
             onCancel={onClose}
         >
-            {!data && loading && <Message type="loading" content="Loading execution details..." />}
-            {error && message.error('Failed to load execution details :(')}
+            {!data && loading && <Message type="loading" content="Loading sync details..." />}
+            {error && message.error('Failed to load sync details :(')}
             <Section>
                 <StatusSection>
                     <Typography.Title level={5}>Status</Typography.Title>
                     <ResultText>{resultText}</ResultText>
                     <SubHeaderParagraph>{resultSummaryText}</SubHeaderParagraph>
+                    {structuredReport ? <StructuredReport report={structuredReport} /> : null}
                 </StatusSection>
-                {result === SUCCESS && (
+                {(status === SUCCESS || status === SUCCEEDED_WITH_WARNINGS) && (
                     <IngestedAssetsSection>
                         {data?.executionRequest?.id && <IngestedAssets id={data?.executionRequest?.id} />}
                     </IngestedAssetsSection>
@@ -174,33 +200,40 @@ export const ExecutionDetailsModal = ({ urn, visible, onClose }: Props) => {
                     <SectionHeader level={5}>Logs</SectionHeader>
                     <SectionSubHeader>
                         <SubHeaderParagraph type="secondary">
-                            View logs that were collected during the ingestion run.
+                            View logs that were collected during the sync.
                         </SubHeaderParagraph>
                         <Button type="text" onClick={downloadLogs}>
                             <DownloadOutlined />
                             Download
                         </Button>
                     </SectionSubHeader>
-                    <Typography.Paragraph ellipsis>
-                        <pre>{`${logs}${!showExpandedLogs && areLogsExpandable ? '...' : ''}`}</pre>
-                        {areLogsExpandable && (
-                            <ShowMoreButton type="link" onClick={() => setShowExpandedLogs(!showExpandedLogs)}>
-                                {showExpandedLogs ? 'Hide' : 'Show More'}
-                            </ShowMoreButton>
-                        )}
-                    </Typography.Paragraph>
+                    <DetailsContainer areDetailsExpandable={areLogsExpandable} showExpandedDetails={showExpandedLogs}>
+                        <Typography.Paragraph ellipsis>
+                            <pre>{`${logs}${!showExpandedLogs && areLogsExpandable ? '...' : ''}`}</pre>
+                        </Typography.Paragraph>
+                    </DetailsContainer>
+                    {areLogsExpandable && (
+                        <ShowMoreButton type="link" onClick={() => setShowExpandedLogs(!showExpandedLogs)}>
+                            {showExpandedLogs ? 'Hide' : 'Show More'}
+                        </ShowMoreButton>
+                    )}
                 </LogsSection>
                 {recipe && (
                     <RecipeSection>
                         <SectionHeader level={5}>Recipe</SectionHeader>
                         <SectionSubHeader>
                             <SubHeaderParagraph type="secondary">
-                                The recipe used for this ingestion run.
+                                The configurations used for this sync with the data source.
                             </SubHeaderParagraph>
                         </SectionSubHeader>
-                        <Typography.Paragraph ellipsis>
-                            <pre>{`${recipe}${!showExpandedRecipe && isRecipeExpandable ? '\n...' : ''}`}</pre>
-                        </Typography.Paragraph>
+                        <DetailsContainer
+                            areDetailsExpandable={isRecipeExpandable}
+                            showExpandedDetails={showExpandedRecipe}
+                        >
+                            <Typography.Paragraph ellipsis>
+                                <pre>{`${recipe}${!showExpandedRecipe && isRecipeExpandable ? '...' : ''}`}</pre>
+                            </Typography.Paragraph>
+                        </DetailsContainer>
                         {isRecipeExpandable && (
                             <ShowMoreButton type="link" onClick={() => setShowExpandedRecipe((v) => !v)}>
                                 {showExpandedRecipe ? 'Hide' : 'Show More'}

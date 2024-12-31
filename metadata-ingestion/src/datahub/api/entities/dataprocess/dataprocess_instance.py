@@ -1,6 +1,5 @@
 import time
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Callable, Dict, Iterable, List, Optional, Union, cast
 
 from datahub.api.entities.datajob import DataFlow, DataJob
@@ -20,8 +19,8 @@ from datahub.metadata.schema_classes import (
     DataProcessInstanceRunResultClass,
     DataProcessRunStatusClass,
     DataProcessTypeClass,
-    StatusClass,
 )
+from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.data_process_instance_urn import DataProcessInstanceUrn
@@ -29,12 +28,12 @@ from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 
 class DataProcessInstanceKey(DatahubKey):
-    cluster: str
+    cluster: Optional[str] = None
     orchestrator: str
     id: str
 
 
-class InstanceRunResult(str, Enum):
+class InstanceRunResult(StrEnum):
     SUCCESS = RunResultType.SUCCESS
     SKIPPED = RunResultType.SKIPPED
     FAILURE = RunResultType.FAILURE
@@ -46,23 +45,23 @@ class DataProcessInstance:
     """This is a DataProcessInstance class which represent an instance of a DataFlow or DataJob.
 
     Args:
-        id (str): The id of the dataprocess instance execution.
-        orchestrator (str): The orchestrator which does the execution. For example airflow.
-        type (str): The execution type like Batch, Streaming, Ad-hoc, etc..  See valid values at DataProcessTypeClass
-        template_urn (Optional[Union[DataJobUrn, DataFlowUrn]]): The parent DataJob or DataFlow which was instantiated if applicable
-        parent_instance (Optional[DataProcessInstanceUrn]): The parent execution's urn if applicable
-        properties Dict[str, str]: Custom properties to set for the DataProcessInstance
-        url (Optional[str]): Url which points to the execution at the orchestrator
-        inlets (List[str]): List of entities the DataProcessInstance consumes
-        outlets (List[str]): List of entities the DataProcessInstance produces
+        id: The id of the dataprocess instance execution.
+        orchestrator: The orchestrator which does the execution. For example airflow.
+        type: The execution type like Batch, Streaming, Ad-hoc, etc..  See valid values at DataProcessTypeClass
+        template_urn: The parent DataJob or DataFlow which was instantiated if applicable
+        parent_instance: The parent execution's urn if applicable
+        properties: Custom properties to set for the DataProcessInstance
+        url: Url which points to the execution at the orchestrator
+        inlets: List of entities the DataProcessInstance consumes
+        outlets: List of entities the DataProcessInstance produces
     """
 
-    id: str
     urn: DataProcessInstanceUrn = field(init=False)
+    id: str
     orchestrator: str
-    cluster: str
+    cluster: Optional[str] = None
     type: str = DataProcessTypeClass.BATCH_SCHEDULED
-    template_urn: Optional[Union[DataJobUrn, DataFlowUrn]] = None
+    template_urn: Optional[Union[DataJobUrn, DataFlowUrn, DatasetUrn]] = None
     parent_instance: Optional[DataProcessInstanceUrn] = None
     properties: Dict[str, str] = field(default_factory=dict)
     url: Optional[str] = None
@@ -74,8 +73,8 @@ class DataProcessInstance:
     )
 
     def __post_init__(self):
-        self.urn = DataProcessInstanceUrn.create_from_id(
-            dataprocessinstance_id=DataProcessInstanceKey(
+        self.urn = DataProcessInstanceUrn(
+            id=DataProcessInstanceKey(
                 cluster=self.cluster,
                 orchestrator=self.orchestrator,
                 id=self.id,
@@ -107,16 +106,18 @@ class DataProcessInstance:
         start_timestamp_millis: int,
         attempt: Optional[int] = None,
         emit_template: bool = True,
+        materialize_iolets: bool = True,
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
         """
 
         :rtype: None
         :param emitter: Datahub Emitter to emit the process event
-        :param start_timestamp_millis: (int) the execution start time in milliseconds
+        :param start_timestamp_millis: the execution start time in milliseconds
         :param attempt: the number of attempt of the execution with the same execution id
-        :param emit_template: (bool) If it is set the template of the execution (datajob, dataflow) will be emitted as well.
-        :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
+        :param emit_template: If it is set the template of the execution (datajob, dataflow) will be emitted as well.
+        :param materialize_iolets: If it is set the iolets will be materialized
+        :param callback: the callback method for KafkaEmitter if it is used
         """
         if emit_template and self.template_urn is not None:
             template_object: Union[DataJob, DataFlow]
@@ -157,7 +158,10 @@ class DataProcessInstance:
             for mcp in template_object.generate_mcp():
                 self._emit_mcp(mcp, emitter, callback)
 
-        for mcp in self.generate_mcp(created_ts_millis=start_timestamp_millis):
+        for mcp in self.generate_mcp(
+            created_ts_millis=start_timestamp_millis,
+            materialize_iolets=materialize_iolets,
+        ):
             self._emit_mcp(mcp, emitter, callback)
         for mcp in self.start_event_mcp(start_timestamp_millis, attempt):
             self._emit_mcp(mcp, emitter, callback)
@@ -168,6 +172,7 @@ class DataProcessInstance:
         result: InstanceRunResult,
         result_type: Optional[str] = None,
         attempt: Optional[int] = None,
+        start_timestamp_millis: Optional[int] = None,
     ) -> Iterable[MetadataChangeProposalWrapper]:
         """
 
@@ -175,6 +180,8 @@ class DataProcessInstance:
         :param result: (InstanceRunResult) the result of the run
         :param result_type: (string) It identifies the system where the native result comes from like Airflow, Azkaban
         :param attempt: (int) the attempt number of this execution
+        :param start_timestamp_millis: (Optional[int]) the start time of the execution in milliseconds
+
         """
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
@@ -183,11 +190,16 @@ class DataProcessInstance:
                 timestampMillis=end_timestamp_millis,
                 result=DataProcessInstanceRunResultClass(
                     type=result,
-                    nativeResultType=result_type
-                    if result_type is not None
-                    else self.orchestrator,
+                    nativeResultType=(
+                        result_type if result_type is not None else self.orchestrator
+                    ),
                 ),
                 attempt=attempt,
+                durationMillis=(
+                    (end_timestamp_millis - start_timestamp_millis)
+                    if start_timestamp_millis
+                    else None
+                ),
             ),
         )
         yield mcp
@@ -199,6 +211,7 @@ class DataProcessInstance:
         result: InstanceRunResult,
         result_type: Optional[str] = None,
         attempt: Optional[int] = None,
+        start_timestamp_millis: Optional[int] = None,
         callback: Optional[Callable[[Exception, str], None]] = None,
     ) -> None:
         """
@@ -210,22 +223,23 @@ class DataProcessInstance:
         :param result_type: (string) It identifies the system where the native result comes from like Airflow, Azkaban
         :param attempt: (int) the attempt number of this execution
         :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
+        :param start_timestamp_millis: (Optional[int]) the start time of the execution in milliseconds
+
         """
         for mcp in self.end_event_mcp(
             end_timestamp_millis=end_timestamp_millis,
             result=result,
             result_type=result_type,
             attempt=attempt,
+            start_timestamp_millis=start_timestamp_millis,
         ):
             self._emit_mcp(mcp, emitter, callback)
 
     def generate_mcp(
-        self, created_ts_millis: Optional[int] = None
+        self, created_ts_millis: Optional[int], materialize_iolets: bool
     ) -> Iterable[MetadataChangeProposalWrapper]:
-        """
-        Generates mcps from the object
-        :rtype: Iterable[MetadataChangeProposalWrapper]
-        """
+        """Generates mcps from the object"""
+
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataProcessInstanceProperties(
@@ -246,14 +260,16 @@ class DataProcessInstance:
             aspect=DataProcessInstanceRelationships(
                 upstreamInstances=[str(urn) for urn in self.upstream_urns],
                 parentTemplate=str(self.template_urn) if self.template_urn else None,
-                parentInstance=str(self.parent_instance)
-                if self.parent_instance is not None
-                else None,
+                parentInstance=(
+                    str(self.parent_instance)
+                    if self.parent_instance is not None
+                    else None
+                ),
             ),
         )
         yield mcp
 
-        yield from self.generate_inlet_outlet_mcp()
+        yield from self.generate_inlet_outlet_mcp(materialize_iolets=materialize_iolets)
 
     @staticmethod
     def _emit_mcp(
@@ -272,13 +288,17 @@ class DataProcessInstance:
         self,
         emitter: Emitter,
         callback: Optional[Callable[[Exception, str], None]] = None,
+        created_ts_millis: Optional[int] = None,
     ) -> None:
         """
 
         :param emitter: (Emitter) the datahub emitter to emit generated mcps
         :param callback: (Optional[Callable[[Exception, str], None]]) the callback method for KafkaEmitter if it is used
         """
-        for mcp in self.generate_mcp():
+        for mcp in self.generate_mcp(
+            created_ts_millis=created_ts_millis,
+            materialize_iolets=True,
+        ):
             self._emit_mcp(mcp, emitter, callback)
 
     @staticmethod
@@ -298,8 +318,8 @@ class DataProcessInstance:
         :return: DataProcessInstance
         """
         dpi: DataProcessInstance = DataProcessInstance(
-            orchestrator=datajob.flow_urn.get_orchestrator_name(),
-            cluster=datajob.flow_urn.get_env(),
+            orchestrator=datajob.flow_urn.orchestrator,
+            cluster=datajob.flow_urn.cluster,
             template_urn=datajob.urn,
             id=id,
         )
@@ -329,7 +349,9 @@ class DataProcessInstance:
         dpi._template_object = dataflow
         return dpi
 
-    def generate_inlet_outlet_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
+    def generate_inlet_outlet_mcp(
+        self, materialize_iolets: bool
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         if self.inlets:
             mcp = MetadataChangeProposalWrapper(
                 entityUrn=str(self.urn),
@@ -349,10 +371,9 @@ class DataProcessInstance:
             yield mcp
 
         # Force entity materialization
-        for iolet in self.inlets + self.outlets:
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=str(iolet),
-                aspect=StatusClass(removed=False),
-            )
-
-            yield mcp
+        if materialize_iolets:
+            for iolet in self.inlets + self.outlets:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=str(iolet),
+                    aspect=iolet.to_key_aspect(),
+                )

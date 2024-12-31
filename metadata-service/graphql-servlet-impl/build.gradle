@@ -1,4 +1,8 @@
-apply plugin: 'java'
+plugins {
+  id 'java'
+}
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
 
 dependencies {
   implementation project(':datahub-graphql-core')
@@ -20,7 +24,7 @@ dependencies {
 
   implementation externalDependency.charle
   implementation externalDependency.jetbrains
-
+  implementation externalDependency.opentelemetryApi
 }
 
 configurations.all{

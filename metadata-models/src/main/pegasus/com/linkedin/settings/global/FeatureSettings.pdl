@@ -1,0 +1,22 @@
+namespace com.linkedin.settings.global
+
+/**
+ * A standardized settings template for a feature.
+ */
+
+record FeatureSettings {
+
+    enabled: boolean
+
+    /**
+     * The configuration for the feature, in JSON format.
+    */
+    config: optional string
+
+    /**
+     * The version of the configuration schema that has been used to serialize
+       the config.
+     * If not provided, the version is assumed to be the latest version.
+     */
+     configVersion: optional string
+}

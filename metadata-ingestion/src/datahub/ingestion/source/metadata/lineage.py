@@ -8,11 +8,7 @@ from pydantic.fields import Field
 
 import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import get_aspects_for_entity
-from datahub.configuration.common import (
-    ConfigModel,
-    ConfigurationError,
-    VersionedConfig,
-)
+from datahub.configuration.common import ConfigModel, VersionedConfig
 from datahub.configuration.config_loader import load_config_file
 from datahub.configuration.source_common import EnvConfigMixin
 from datahub.emitter.mce_builder import (
@@ -39,6 +35,7 @@ from datahub.ingestion.api.source_helpers import (
     auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import get_default_graph
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
     FineGrainedLineageDownstreamType,
     FineGrainedLineageUpstreamType,
@@ -57,8 +54,16 @@ class EntityConfig(EnvConfigMixin):
     def type_must_be_supported(cls, v: str) -> str:
         allowed_types = ["dataset"]
         if v not in allowed_types:
-            raise ConfigurationError(
+            raise ValueError(
                 f"Type must be one of {allowed_types}, {v} is not yet supported."
+            )
+        return v
+
+    @validator("name")
+    def validate_name(cls, v: str) -> str:
+        if v.startswith("urn:li:"):
+            raise ValueError(
+                "Name should not start with urn:li: - use a plain name, not an urn"
             )
         return v
 
@@ -79,7 +84,7 @@ class FineGrainedLineageConfig(ConfigModel):
             FineGrainedLineageUpstreamType.NONE,
         ]
         if v not in allowed_types:
-            raise ConfigurationError(
+            raise ValueError(
                 f"Upstream Type must be one of {allowed_types}, {v} is not yet supported."
             )
         return v
@@ -147,7 +152,7 @@ class LineageFileSource(Source):
 
     @staticmethod
     def load_lineage_config(file_name: str) -> LineageConfig:
-        config = load_config_file(file_name)
+        config = load_config_file(file_name, resolve_env_vars=True)
         lineage_config = LineageConfig.parse_obj(config)
         return lineage_config
 
@@ -205,7 +210,11 @@ def _get_lineage_mcp(
 
     # extract the old lineage and save it for the new mcp
     if preserve_upstream:
+        client = get_default_graph()
+
         old_upstream_lineage = get_aspects_for_entity(
+            client._session,
+            client.config.server,
             entity_urn=entity_urn,
             aspects=["upstreamLineage"],
             typed=True,

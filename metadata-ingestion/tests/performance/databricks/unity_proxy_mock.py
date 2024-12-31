@@ -1,7 +1,7 @@
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
-from typing import Dict, Iterable, List
+from typing import Dict, Iterable, List, Optional
 
 from databricks.sdk.service.catalog import ColumnTypeName
 from databricks.sdk.service.sql import QueryStatementType
@@ -57,13 +57,15 @@ class UnityCatalogApiProxyMock:
             region=None,
         )
 
-    def catalogs(self, metastore: Metastore) -> Iterable[Catalog]:
+    def catalogs(self, metastore: Optional[Metastore]) -> Iterable[Catalog]:
         for container in self.seed_metadata.containers[1]:
-            if not container.parent or metastore.name != container.parent.name:
+            if not container.parent or (
+                metastore and metastore.name != container.parent.name
+            ):
                 continue
 
             yield Catalog(
-                id=f"{metastore.id}.{container.name}",
+                id=f"{metastore.id}.{container.name}" if metastore else container.name,
                 name=container.name,
                 metastore=metastore,
                 comment=None,
@@ -88,22 +90,21 @@ class UnityCatalogApiProxyMock:
     def tables(self, schema: Schema) -> Iterable[Table]:
         for table in self._schema_to_table[schema.name]:
             columns = []
-            if table.column_mapping:
-                for i, col_name in enumerate(table.columns):
-                    column = table.column_mapping[col_name]
-                    columns.append(
-                        Column(
-                            id=column.name,
-                            name=column.name,
-                            type_name=self._convert_column_type(column.type),
-                            type_text=column.type.value,
-                            nullable=column.nullable,
-                            position=i,
-                            comment=None,
-                            type_precision=0,
-                            type_scale=0,
-                        )
+            for i, col_name in enumerate(table.columns):
+                column = table.columns[col_name]
+                columns.append(
+                    Column(
+                        id=column.name,
+                        name=column.name,
+                        type_name=_convert_column_type(column.type),
+                        type_text=column.type.value,
+                        nullable=column.nullable,
+                        position=i,
+                        comment=None,
+                        type_precision=0,
+                        type_scale=0,
                     )
+                )
 
             yield Table(
                 id=f"{schema.id}.{table.name}",
@@ -121,9 +122,9 @@ class UnityCatalogApiProxyMock:
                 updated_at=None,
                 updated_by=None,
                 table_id="",
-                view_definition=table.definition
-                if isinstance(table, data_model.View)
-                else None,
+                view_definition=(
+                    table.definition if isinstance(table, data_model.View) else None
+                ),
                 properties={},
             )
 
@@ -145,7 +146,7 @@ class UnityCatalogApiProxyMock:
             yield Query(
                 query_id=str(i),
                 query_text=query.text,
-                statement_type=self._convert_statement_type(query.type),
+                statement_type=_convert_statement_type(query.type),
                 start_time=query.timestamp,
                 end_time=query.timestamp,
                 user_id=hash(query.actor),
@@ -154,30 +155,30 @@ class UnityCatalogApiProxyMock:
                 executed_as_user_name=None,
             )
 
-    def table_lineage(self, table: Table) -> None:
+    def table_lineage(self, table: Table, include_entity_lineage: bool) -> None:
         pass
 
     def get_column_lineage(self, table: Table) -> None:
         pass
 
-    @staticmethod
-    def _convert_column_type(t: ColumnType) -> ColumnTypeName:
-        if t == ColumnType.INTEGER:
-            return ColumnTypeName.INT
-        elif t == ColumnType.FLOAT:
-            return ColumnTypeName.DOUBLE
-        elif t == ColumnType.STRING:
-            return ColumnTypeName.STRING
-        elif t == ColumnType.BOOLEAN:
-            return ColumnTypeName.BOOLEAN
-        elif t == ColumnType.DATETIME:
-            return ColumnTypeName.TIMESTAMP
-        else:
-            raise ValueError(f"Unknown column type: {t}")
 
-    @staticmethod
-    def _convert_statement_type(t: StatementType) -> QueryStatementType:
-        if t == "CUSTOM" or t == "UNKNOWN":
-            return QueryStatementType.OTHER
-        else:
-            return QueryStatementType[t]
+def _convert_column_type(t: ColumnType) -> ColumnTypeName:
+    if t == ColumnType.INTEGER:
+        return ColumnTypeName.INT
+    elif t == ColumnType.FLOAT:
+        return ColumnTypeName.DOUBLE
+    elif t == ColumnType.STRING:
+        return ColumnTypeName.STRING
+    elif t == ColumnType.BOOLEAN:
+        return ColumnTypeName.BOOLEAN
+    elif t == ColumnType.DATETIME:
+        return ColumnTypeName.TIMESTAMP
+    else:
+        raise ValueError(f"Unknown column type: {t}")
+
+
+def _convert_statement_type(t: StatementType) -> QueryStatementType:
+    if t == "CUSTOM" or t == "UNKNOWN":
+        return QueryStatementType.OTHER
+    else:
+        return QueryStatementType[t]

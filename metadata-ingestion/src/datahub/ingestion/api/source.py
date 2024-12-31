@@ -1,4 +1,6 @@
+import contextlib
 import datetime
+import logging
 from abc import ABCMeta, abstractmethod
 from collections import defaultdict
 from dataclasses import dataclass, field
@@ -9,6 +11,7 @@ from typing import (
     Dict,
     Generic,
     Iterable,
+    Iterator,
     List,
     Optional,
     Sequence,
@@ -20,24 +23,35 @@ from typing import (
 )
 
 from pydantic import BaseModel
+from typing_extensions import LiteralString
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
 from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
+    auto_patch_last_modified,
+)
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.source_helpers import (
     auto_browse_path_v2,
+    auto_fix_duplicate_schema_field_paths,
+    auto_fix_empty_field_paths,
     auto_lowercase_urns,
-    auto_materialize_referenced_tags,
+    auto_materialize_referenced_tags_terms,
     auto_status_aspect,
     auto_workunit_reporter,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.schema_classes import UpstreamLineageClass
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.type_annotations import get_class_from_annotation
+
+logger = logging.getLogger(__name__)
+
+_MAX_CONTEXT_STRING_LENGTH = 1000
 
 
 class SourceCapability(Enum):
@@ -54,10 +68,123 @@ class SourceCapability(Enum):
     TAGS = "Extract Tags"
     SCHEMA_METADATA = "Schema Metadata"
     CONTAINERS = "Asset Containers"
+    CLASSIFICATION = "Classification"
+
+
+class StructuredLogLevel(Enum):
+    INFO = logging.INFO
+    WARN = logging.WARN
+    ERROR = logging.ERROR
+
+
+@dataclass
+class StructuredLogEntry(Report):
+    title: Optional[str]
+    message: str
+    context: LossyList[str]
+
+
+@dataclass
+class StructuredLogs(Report):
+    # Underlying Lossy Dicts to Capture Errors, Warnings, and Infos.
+    _entries: Dict[StructuredLogLevel, LossyDict[str, StructuredLogEntry]] = field(
+        default_factory=lambda: {
+            StructuredLogLevel.ERROR: LossyDict(10),
+            StructuredLogLevel.WARN: LossyDict(10),
+            StructuredLogLevel.INFO: LossyDict(10),
+        }
+    )
+
+    def report_log(
+        self,
+        level: StructuredLogLevel,
+        message: LiteralString,
+        title: Optional[LiteralString] = None,
+        context: Optional[str] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = False,
+        stacklevel: int = 1,
+    ) -> None:
+        """
+        Report a user-facing warning for the ingestion run.
+
+        Args:
+            level: The level of the log entry.
+            message: The main message associated with the report entry. This should be a human-readable message.
+            title: The category / heading to present on for this message in the UI.
+            context: Additional context (e.g. where, how) for the log entry.
+            exc: The exception associated with the event. We'll show the stack trace when in debug mode.
+        """
+
+        # One for this method, and one for the containing report_* call.
+        stacklevel = stacklevel + 2
+
+        log_key = f"{title}-{message}"
+        entries = self._entries[level]
+
+        if context and len(context) > _MAX_CONTEXT_STRING_LENGTH:
+            context = f"{context[:_MAX_CONTEXT_STRING_LENGTH]} ..."
+
+        log_content = f"{message} => {context}" if context else message
+        if title:
+            log_content = f"{title}: {log_content}"
+        if exc:
+            log_content += f"{log_content}: {exc}"
+
+            if log:
+                logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
+                logger.log(
+                    level=logging.DEBUG,
+                    msg="Full stack trace:",
+                    stacklevel=stacklevel,
+                    exc_info=exc,
+                )
+
+            # Add the simple exception details to the context.
+            if context:
+                context = f"{context} {type(exc)}: {exc}"
+            else:
+                context = f"{type(exc)}: {exc}"
+        elif log:
+            logger.log(level=level.value, msg=log_content, stacklevel=stacklevel)
+
+        if log_key not in entries:
+            context_list: LossyList[str] = LossyList()
+            if context is not None:
+                context_list.append(context)
+            entries[log_key] = StructuredLogEntry(
+                title=title,
+                message=message,
+                context=context_list,
+            )
+        else:
+            if context is not None:
+                entries[log_key].context.append(context)
+
+    def _get_of_type(self, level: StructuredLogLevel) -> LossyList[StructuredLogEntry]:
+        entries = self._entries[level]
+        result: LossyList[StructuredLogEntry] = LossyList()
+        for log in entries.values():
+            result.append(log)
+        result.set_total(entries.total_key_count())
+        return result
+
+    @property
+    def warnings(self) -> LossyList[StructuredLogEntry]:
+        return self._get_of_type(StructuredLogLevel.WARN)
+
+    @property
+    def failures(self) -> LossyList[StructuredLogEntry]:
+        return self._get_of_type(StructuredLogLevel.ERROR)
+
+    @property
+    def infos(self) -> LossyList[StructuredLogEntry]:
+        return self._get_of_type(StructuredLogLevel.INFO)
 
 
 @dataclass
 class SourceReport(Report):
+    event_not_produced_warn: bool = True
     events_produced: int = 0
     events_produced_per_sec: int = 0
 
@@ -66,9 +193,23 @@ class SourceReport(Report):
     aspects: Dict[str, Dict[str, int]] = field(
         default_factory=lambda: defaultdict(lambda: defaultdict(int))
     )
+    aspect_urn_samples: Dict[str, Dict[str, LossyList[str]]] = field(
+        default_factory=lambda: defaultdict(lambda: defaultdict(LossyList))
+    )
 
-    warnings: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
-    failures: LossyDict[str, LossyList[str]] = field(default_factory=LossyDict)
+    _structured_logs: StructuredLogs = field(default_factory=StructuredLogs)
+
+    @property
+    def warnings(self) -> LossyList[StructuredLogEntry]:
+        return self._structured_logs.warnings
+
+    @property
+    def failures(self) -> LossyList[StructuredLogEntry]:
+        return self._structured_logs.failures
+
+    @property
+    def infos(self) -> LossyList[StructuredLogEntry]:
+        return self._structured_logs.infos
 
     def report_workunit(self, wu: WorkUnit) -> None:
         self.events_produced += 1
@@ -92,20 +233,102 @@ class SourceReport(Report):
 
                 if aspectName is not None:  # usually true
                     self.aspects[entityType][aspectName] += 1
+                    self.aspect_urn_samples[entityType][aspectName].append(urn)
+                    if isinstance(mcp.aspect, UpstreamLineageClass):
+                        upstream_lineage = cast(UpstreamLineageClass, mcp.aspect)
+                        if upstream_lineage.fineGrainedLineages:
+                            self.aspect_urn_samples[entityType][
+                                "fineGrainedLineages"
+                            ].append(urn)
 
-    def report_warning(self, key: str, reason: str) -> None:
-        warnings = self.warnings.get(key, LossyList())
-        warnings.append(reason)
-        self.warnings[key] = warnings
+    def report_warning(
+        self,
+        message: LiteralString,
+        context: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
+    ) -> None:
+        self._structured_logs.report_log(
+            StructuredLogLevel.WARN, message, title, context, exc, log=False
+        )
 
-    def report_failure(self, key: str, reason: str) -> None:
-        failures = self.failures.get(key, LossyList())
-        failures.append(reason)
-        self.failures[key] = failures
+    def warning(
+        self,
+        message: LiteralString,
+        context: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
+    ) -> None:
+        self._structured_logs.report_log(
+            StructuredLogLevel.WARN, message, title, context, exc, log=True
+        )
+
+    def report_failure(
+        self,
+        message: LiteralString,
+        context: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = True,
+    ) -> None:
+        self._structured_logs.report_log(
+            StructuredLogLevel.ERROR, message, title, context, exc, log=log
+        )
+
+    def failure(
+        self,
+        message: LiteralString,
+        context: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = True,
+    ) -> None:
+        self._structured_logs.report_log(
+            StructuredLogLevel.ERROR, message, title, context, exc, log=log
+        )
+
+    def info(
+        self,
+        message: LiteralString,
+        context: Optional[str] = None,
+        title: Optional[LiteralString] = None,
+        exc: Optional[BaseException] = None,
+        log: bool = True,
+    ) -> None:
+        self._structured_logs.report_log(
+            StructuredLogLevel.INFO, message, title, context, exc, log=log
+        )
+
+    @contextlib.contextmanager
+    def report_exc(
+        self,
+        message: LiteralString,
+        title: Optional[LiteralString] = None,
+        context: Optional[str] = None,
+        level: StructuredLogLevel = StructuredLogLevel.ERROR,
+    ) -> Iterator[None]:
+        # Convenience method that helps avoid boilerplate try/except blocks.
+        # TODO: I'm not super happy with the naming here - it's not obvious that this
+        # suppresses the exception in addition to reporting it.
+        try:
+            yield
+        except Exception as exc:
+            self._structured_logs.report_log(
+                level, message=message, title=title, context=context, exc=exc
+            )
 
     def __post_init__(self) -> None:
         self.start_time = datetime.datetime.now()
         self.running_time: datetime.timedelta = datetime.timedelta(seconds=0)
+
+    def as_obj(self) -> dict:
+        return {
+            **super().as_obj(),
+            # To reduce the amount of nesting, we pull these fields out of the structured log.
+            "failures": Report.to_pure_python_obj(self.failures),
+            "warnings": Report.to_pure_python_obj(self.warnings),
+            "infos": Report.to_pure_python_obj(self.infos),
+        }
 
     def compute_stats(self) -> None:
         duration = datetime.datetime.now() - self.start_time
@@ -219,9 +442,14 @@ class Source(Closeable, metaclass=ABCMeta):
         return [
             auto_lowercase_dataset_urns,
             auto_status_aspect,
-            auto_materialize_referenced_tags,
+            auto_materialize_referenced_tags_terms,
+            partial(
+                auto_fix_duplicate_schema_field_paths, platform=self._infer_platform()
+            ),
+            partial(auto_fix_empty_field_paths, platform=self._infer_platform()),
             browse_path_processor,
             partial(auto_workunit_reporter, self.get_report()),
+            auto_patch_last_modified,
         ]
 
     @staticmethod
@@ -263,9 +491,22 @@ class Source(Closeable, metaclass=ABCMeta):
     def close(self) -> None:
         pass
 
+    def _infer_platform(self) -> Optional[str]:
+        config = self.get_config()
+        platform = (
+            getattr(config, "platform_name", None)
+            or getattr(self, "platform", None)
+            or getattr(config, "platform", None)
+        )
+        if platform is None and hasattr(self, "get_platform_id"):
+            platform = type(self).get_platform_id()
+
+        return platform
+
     def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
         config = self.get_config()
-        platform = getattr(self, "platform", None) or getattr(config, "platform", None)
+
+        platform = self._infer_platform()
         env = getattr(config, "env", None)
         browse_path_drop_dirs = [
             platform,
@@ -278,13 +519,14 @@ class Source(Closeable, metaclass=ABCMeta):
         if isinstance(config, PlatformInstanceConfigMixin) and config.platform_instance:
             platform_instance = config.platform_instance
 
-        return partial(
+        browse_path_processor = partial(
             auto_browse_path_v2,
             platform=platform,
             platform_instance=platform_instance,
             drop_dirs=[s for s in browse_path_drop_dirs if s is not None],
             dry_run=dry_run,
         )
+        return lambda stream: browse_path_processor(stream)
 
 
 class TestableSource(Source):

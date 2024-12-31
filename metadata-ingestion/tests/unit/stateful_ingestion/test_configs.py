@@ -3,9 +3,10 @@ from typing import Any, Dict, Optional, Tuple, Type, cast
 import pytest
 from pydantic import ValidationError
 
-from datahub.configuration.common import ConfigModel, DynamicTypedConfig
+from datahub.configuration.common import ConfigModel
 from datahub.ingestion.graph.client import DatahubClientConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
+    DynamicTypedStateProviderConfig,
     StatefulIngestionConfig,
 )
 from datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider import (
@@ -13,17 +14,12 @@ from datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_pro
 )
 
 # 0. Common client configs.
-datahub_client_configs: Dict[str, Any] = {
-    "full": {
-        "server": "http://localhost:8080",
-        "token": "dummy_test_tok",
-        "timeout_sec": 10,
-        "extra_headers": {},
-        "max_threads": 10,
-    },
-    "simple": {},
-    "default": {},
-    "none": None,
+datahub_client_full_config = {
+    "server": "http://localhost:8080",
+    "token": "dummy_test_tok",
+    "timeout_sec": 10,
+    "extra_headers": {},
+    "max_threads": 10,
 }
 
 
@@ -41,7 +37,7 @@ checkpointing_provider_config_test_params: Dict[
     "checkpointing_valid_full_config": (
         DatahubIngestionStateProviderConfig,
         {
-            "datahub_api": datahub_client_configs["full"],
+            "datahub_api": datahub_client_full_config,
         },
         DatahubIngestionStateProviderConfig(
             # This test verifies that the max_threads arg is ignored.
@@ -57,36 +53,16 @@ checkpointing_provider_config_test_params: Dict[
         ),
         False,
     ),
-    # Simple config
-    "checkpointing_valid_simple_config": (
-        DatahubIngestionStateProviderConfig,
-        {
-            "datahub_api": datahub_client_configs["simple"],
-        },
-        DatahubIngestionStateProviderConfig(
-            datahub_api=DatahubClientConfig(
-                server="http://localhost:8080",
-            ),
-        ),
-        False,
-    ),
     # Default
     "checkpointing_default": (
         DatahubIngestionStateProviderConfig,
         {
-            "datahub_api": datahub_client_configs["default"],
+            "datahub_api": None,
         },
         DatahubIngestionStateProviderConfig(
-            datahub_api=DatahubClientConfig(),
+            datahub_api=None,
         ),
         False,
-    ),
-    # None
-    "checkpointing_bad_config": (
-        DatahubIngestionStateProviderConfig,
-        datahub_client_configs["none"],
-        None,
-        True,
     ),
 }
 
@@ -109,7 +85,7 @@ stateful_ingestion_config_test_params: Dict[
             "max_checkpoint_state_size": 1024,
             "state_provider": {
                 "type": "datahub",
-                "config": datahub_client_configs["full"],
+                "config": datahub_client_full_config,
             },
             "ignore_old_state": True,
             "ignore_new_state": True,
@@ -119,9 +95,9 @@ stateful_ingestion_config_test_params: Dict[
             max_checkpoint_state_size=1024,
             ignore_old_state=True,
             ignore_new_state=True,
-            state_provider=DynamicTypedConfig(
+            state_provider=DynamicTypedStateProviderConfig(
                 type="datahub",
-                config=datahub_client_configs["full"],
+                config=datahub_client_full_config,
             ),
         ),
         False,
@@ -148,7 +124,7 @@ stateful_ingestion_config_test_params: Dict[
             max_checkpoint_state_size=2**24,
             ignore_old_state=False,
             ignore_new_state=False,
-            state_provider=DynamicTypedConfig(type="datahub", config=None),
+            state_provider=DynamicTypedStateProviderConfig(type="datahub"),
         ),
         False,
     ),

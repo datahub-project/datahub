@@ -5,10 +5,13 @@ source:
   config:
     username: sa
     password: test!Password
-    host_port: localhost:51433
+    host_port: localhost:21433
     database_pattern:
       deny:
         - NewData
+    procedure_pattern:
+      deny:
+        - DemoData.Foo.NewProc
 
 sink:
   type: file

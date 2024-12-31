@@ -29,7 +29,7 @@ export const ChooseEntityTypeModal = ({ defaultValues, onCloseModal, onOk, title
     return (
         <Modal
             title={title}
-            visible
+            open
             onCancel={onCloseModal}
             keyboard
             footer={

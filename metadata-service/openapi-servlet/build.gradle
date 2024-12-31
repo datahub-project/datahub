@@ -1,4 +1,9 @@
-apply plugin: 'java'
+plugins {
+  id 'java'
+  id 'org.hidetake.swagger.generator'
+}
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
 
 dependencies {
 
@@ -6,6 +11,7 @@ dependencies {
   implementation project(':metadata-service:auth-impl')
   implementation project(':metadata-service:factories')
   implementation project(':metadata-service:schema-registry-api')
+  implementation project (':metadata-service:openapi-servlet:models')
 
   implementation externalDependency.reflections
   implementation externalDependency.springBoot
@@ -17,11 +23,16 @@ dependencies {
   implementation externalDependency.springWebMVC
   implementation externalDependency.springBeans
   implementation externalDependency.springContext
+  implementation externalDependency.servletApi
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   implementation externalDependency.antlr4Runtime
   implementation externalDependency.antlr4
   implementation externalDependency.swaggerAnnotations
+  implementation externalDependency.guava
+  implementation('io.acryl:json-schema-avro:0.2.3')
+  implementation externalDependency.jsonSchemaValidator
+  implementation group: 'io.github.deblockt', name: 'json-diff', version: '1.1.0'
 
   annotationProcessor externalDependency.lombok
 
@@ -36,4 +47,37 @@ dependencies {
   testImplementation externalDependency.jacksonCore
   testImplementation externalDependency.jacksonDataBind
   testImplementation externalDependency.springBootStarterWeb
+
+  // Openlineage Specific Dependencies
+  implementation "io.openlineage:openlineage-java:$openLineageVersion"
+  implementation project(':metadata-integration:java:openlineage-converter')
+  implementation project(':metadata-integration:java:datahub-event')
+  swaggerCodegen externalDependency.swaggerCli
 }
+
+sourceSets {
+  main {
+    java {
+      srcDirs = ["$buildDir/openapi/generated/src/main/java", 'src/main/java']
+    }
+  }
+}
+
+// https://github.com/int128/gradle-swagger-generator-plugin#task-type-generateswaggercode
+task openApiGenerate(type: GenerateSwaggerCode) {
+  inputFile = file("$projectDir/src/main/resources/openlineage/openlineage.json")
+  outputDir = file("$buildDir/openapi/generated")
+  language = "spring"
+  components = ["apis"]
+  additionalProperties = [
+          'group-id'           : "io.datahubproject",
+          'dateLibrary'        : "java8",
+          'java11'             : "true",
+          'interfaceOnly'      : 'true',
+          'modelPropertyNaming': "original",
+          'modelPackage'       : "io.datahubproject.openlineage.model",
+          'apiPackage'         : "io.datahubproject.openlineage.generated.controller",
+          'delegatePattern'    : "true"
+  ]
+}
+tasks.getByName("compileJava").dependsOn(openApiGenerate)

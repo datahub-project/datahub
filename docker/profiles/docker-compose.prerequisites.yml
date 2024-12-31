@@ -1,0 +1,369 @@
+# Common environment
+x-search-datastore-search: &search-datastore-environment
+  ELASTICSEARCH_HOST: search
+  ELASTICSEARCH_PORT: 9200
+  ELASTICSEARCH_PROTOCOL: http
+  ELASTICSEARCH_USE_SSL: ${ELASTICSEARCH_USE_SSL:-false}
+
+# Primary Storage Profiles
+x-mysql-profiles-quickstart: &mysql-profiles-quickstart
+  - quickstart
+  - quickstart-backend
+  - quickstart-frontend
+  - quickstart-storage
+  - quickstart-consumers
+x-mysql-profiles-dev: &mysql-profiles-dev
+  - debug
+  - debug-frontend
+  - debug-backend
+  - debug-consumers
+  - debug-neo4j
+  - debug-elasticsearch
+x-mysql-profiles: &mysql-profiles
+  - quickstart
+  - quickstart-backend
+  - quickstart-frontend
+  - quickstart-storage
+  - quickstart-consumers
+  - debug
+  - debug-frontend
+  - debug-backend
+  - debug-consumers
+  - debug-neo4j
+  - debug-elasticsearch
+
+x-postgres-profiles-quickstart: &postgres-profiles-quickstart
+  - quickstart-postgres
+x-postgres-profiles-dev: &postgres-profiles-dev
+  - debug-postgres
+x-postgres-profiles: &postgres-profiles
+  - quickstart-postgres
+  - debug-postgres
+
+x-cassandra-profiles: &cassandra-profiles
+  - quickstart-cassandra
+  - debug-cassandra
+
+# Graph Storage Profiles
+x-neo4j-profiles: &neo4j-profiles
+  - quickstart-cassandra
+  - debug-neo4j
+
+# Search Storage Profiles
+x-elasticsearch-profiles: &elasticsearch-profiles
+  - debug-elasticsearch
+
+x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
+  - quickstart
+  - quickstart-backend
+  - quickstart-frontend
+  - quickstart-storage
+  - quickstart-cassandra
+  - quickstart-postgres
+  - quickstart-consumers
+x-opensearch-profiles-dev: &opensearch-profiles-dev
+  - debug
+  - debug-frontend
+  - debug-backend
+  - debug-postgres
+  - debug-cassandra
+  - debug-consumers
+  - debug-neo4j
+x-opensearch-profiles: &opensearch-profiles
+  - quickstart
+  - quickstart-backend
+  - quickstart-frontend
+  - quickstart-storage
+  - quickstart-cassandra
+  - quickstart-postgres
+  - quickstart-consumers
+  - debug
+  - debug-frontend
+  - debug-backend
+  - debug-postgres
+  - debug-cassandra
+  - debug-consumers
+  - debug-neo4j
+
+# Debug vs Quickstart Profiles
+x-profiles-quickstart: &profiles-quickstart
+  - quickstart
+  - quickstart-backend
+  - quickstart-frontend
+  - quickstart-storage
+  - quickstart-cassandra
+  - quickstart-postgres
+  - quickstart-consumers
+x-profiles-dev: &profiles-dev
+  - debug
+  - debug-frontend
+  - debug-backend
+  - debug-postgres
+  - debug-cassandra
+  - debug-consumers
+  - debug-neo4j
+  - debug-elasticsearch
+
+services:
+  mysql:
+    profiles: *mysql-profiles
+    hostname: mysql
+    image: mysql:${DATAHUB_MYSQL_VERSION:-8.2}
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=caching_sha2_password
+    ports:
+      - ${DATAHUB_MAPPED_MYSQL_PORT:-3306}:3306
+    env_file: mysql/env/docker.env
+    restart: on-failure
+    healthcheck:
+      test: mysqladmin ping -h mysql -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
+      start_period: 20s
+      interval: 2s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - mysqldata:/var/lib/mysql
+  mysql-setup: &mysql-setup
+    profiles: *mysql-profiles-quickstart
+    hostname: mysql-setup
+    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-head}
+    env_file: mysql-setup/env/docker.env
+    depends_on:
+      mysql:
+        condition: service_healthy
+    labels:
+      datahub_setup_job: true
+  mysql-setup-dev:
+    <<: *mysql-setup
+    profiles: *mysql-profiles-dev
+    image: ${DATAHUB_MYSQL_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mysql-setup}:${DATAHUB_VERSION:-debug}
+  postgres:
+    profiles: *postgres-profiles
+    hostname: postgres
+    image: postgres:${DATAHUB_POSTGRES_VERSION:-15.5}
+    env_file: postgres/env/docker.env
+    ports:
+      - '5432:5432'
+    restart: on-failure
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready" ]
+      start_period: 20s
+      interval: 2s
+      timeout: 10s
+      retries: 5
+    volumes:
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgresdata:/var/lib/postgresql/data
+  postgres-setup: &postgres-setup
+    profiles: *postgres-profiles-quickstart
+    hostname: postgres-setup
+    image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-postgres-setup}:${DATAHUB_VERSION:-head}
+    env_file: postgres-setup/env/docker.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    labels:
+      datahub_setup_job: true
+  postgres-setup-dev:
+    <<: *postgres-setup
+    profiles: *postgres-profiles-dev
+    image: ${DATAHUB_POSTGRES_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-postgres-setup}:${DATAHUB_VERSION:-debug}
+  cassandra:
+    profiles: *cassandra-profiles
+    hostname: cassandra
+    image: cassandra:4.1
+    ports:
+      - 9042:9042
+    healthcheck:
+      test: cqlsh -u cassandra -p cassandra -e 'describe keyspaces'
+      interval: 15s
+      timeout: 10s
+      retries: 10
+    volumes:
+      - cassandradata:/var/lib/cassandra
+  cassandra-setup:
+    profiles: *cassandra-profiles
+    hostname: cassandra-setup
+    image: cassandra:4.1
+    command: /bin/bash -c "cqlsh cassandra -f /init.cql"
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./cassandra/init.cql:/init.cql
+    labels:
+      datahub_setup_job: true
+  neo4j:
+    profiles: *neo4j-profiles
+    hostname: neo4j
+    image: neo4j:4.4.28-community
+    ports:
+      - ${DATAHUB_MAPPED_NEO4J_HTTP_PORT:-7474}:7474
+      - ${DATAHUB_MAPPED_NEO4J_BOLT_PORT:-7687}:7687
+    env_file: neo4j/env/docker.env
+    healthcheck:
+      test: wget http://neo4j:$${DATAHUB_NEO4J_HTTP_PORT:-7474}
+      start_period: 5s
+      interval: 1s
+      retries: 5
+      timeout: 5s
+    volumes:
+      - neo4jdata:/data
+  kafka-broker:
+    hostname: broker
+    image: ${DATAHUB_CONFLUENT_KAFKA_IMAGE:-confluentinc/cp-kafka}:${DATAHUB_CONFLUENT_VERSION:-7.4.0}
+    command:
+      - /bin/bash
+      - -c
+      - |
+        # Generate KRaft clusterID
+        file_path="/var/lib/kafka/data/clusterID"
+  
+        if [ ! -f "$$file_path" ]; then
+           /bin/kafka-storage random-uuid > $$file_path
+           echo "Cluster id has been created..."
+           # KRaft required step: Format the storage directory with a new cluster ID
+           kafka-storage format --ignore-formatted -t $$(cat "$$file_path") -c /etc/kafka/kafka.properties
+        fi
+  
+        export CLUSTER_ID=$$(cat "$$file_path")
+        echo "CLUSTER_ID=$$CLUSTER_ID"
+  
+        /etc/confluent/docker/run
+    ports:
+      - ${DATAHUB_MAPPED_KAFKA_BROKER_PORT:-9092}:9092
+    env_file: kafka-broker/env/docker.env
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_ADVERTISED_LISTENERS: BROKER://broker:29092,EXTERNAL://localhost:9092
+      KAFKA_LISTENERS: BROKER://broker:29092,EXTERNAL://broker:9092,CONTROLLER://broker:39092
+      KAFKA_INTER_BROKER_LISTENER_NAME: BROKER
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,BROKER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_PROCESS_ROLES: controller, broker
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@broker:39092
+      # https://github.com/confluentinc/cp-all-in-one/issues/120
+      KAFKA_LOG4J_LOGGERS: 'org.apache.kafka.image.loader.MetadataLoader=WARN'
+      KAFKA_ZOOKEEPER_CONNECT: null
+    healthcheck:
+      test: nc -z broker $${DATAHUB_KAFKA_BROKER_PORT:-9092}
+      start_period: 60s
+      interval: 1s
+      retries: 5
+      timeout: 5s
+    volumes:
+      - broker:/var/lib/kafka/data/
+  kafka-setup: &kafka-setup
+    profiles: *profiles-quickstart
+    hostname: kafka-setup
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-kafka-setup}:${DATAHUB_VERSION:-head}
+    env_file: kafka-setup/env/docker.env
+    environment: &kafka-setup-env
+      DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-false}
+      KAFKA_BOOTSTRAP_SERVER: broker:29092
+      USE_CONFLUENT_SCHEMA_REGISTRY: false
+    depends_on:
+      kafka-broker:
+        condition: service_healthy
+    labels:
+      datahub_setup_job: true
+  kafka-setup-dev:
+    <<: *kafka-setup
+    profiles: *profiles-dev
+    environment:
+      <<: *kafka-setup-env
+      DATAHUB_PRECREATE_TOPICS: ${DATAHUB_PRECREATE_TOPICS:-true}
+    image: ${DATAHUB_KAFKA_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-kafka-setup}:${DATAHUB_VERSION:-debug}
+  elasticsearch:
+    profiles: *elasticsearch-profiles
+    hostname: search
+    image: ${DATAHUB_SEARCH_IMAGE:-elasticsearch}:${DATAHUB_SEARCH_TAG:-7.10.1}
+    ports:
+      - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
+    env_file: elasticsearch/env/docker.env
+    environment:
+      - discovery.type=single-node
+      - ${XPACK_SECURITY_ENABLED:-xpack.security.enabled=false}
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    healthcheck:
+      test: curl -sS --fail http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
+      start_period: 30s
+      interval: 1s
+      retries: 3
+      timeout: 5s
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+  elasticsearch-setup-dev: &elasticsearch-setup-dev
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-debug}
+    profiles: *elasticsearch-profiles
+    hostname: elasticsearch-setup
+    env_file: elasticsearch-setup/env/docker.env
+    environment:
+      <<: *search-datastore-environment
+      USE_AWS_ELASTICSEARCH: ${USE_AWS_ELASTICSEARCH:-false}
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    labels:
+      datahub_setup_job: true
+  opensearch:
+    profiles: *opensearch-profiles
+    hostname: search
+    image: ${DATAHUB_SEARCH_IMAGE:-opensearchproject/opensearch}:${DATAHUB_SEARCH_TAG:-2.11.0}
+    ports:
+      - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
+    env_file: elasticsearch/env/docker.env
+    environment:
+      - discovery.type=single-node
+      - ${XPACK_SECURITY_ENABLED:-plugins.security.disabled=true}
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+    healthcheck:
+      test: curl -sS --fail http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s
+      start_period: 30s
+      interval: 1s
+      retries: 3
+      timeout: 5s
+    volumes:
+      - osdata:/usr/share/elasticsearch/data
+  opensearch-setup: &opensearch-setup
+    <<: *elasticsearch-setup-dev
+    profiles: *opensearch-profiles-quickstart
+    hostname: opensearch-setup
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-head}
+    environment:
+      <<: *search-datastore-environment
+      USE_AWS_ELASTICSEARCH: ${USE_AWS_ELASTICSEARCH:-true}
+    depends_on:
+      opensearch:
+        condition: service_healthy
+    labels:
+      datahub_setup_job: true
+  opensearch-setup-dev:
+    <<: *opensearch-setup
+    profiles: *opensearch-profiles-dev
+    hostname: opensearch-setup-dev
+    image: ${DATAHUB_ELASTIC_SETUP_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-elasticsearch-setup}:${DATAHUB_VERSION:-debug}
+    environment:
+      <<: *search-datastore-environment
+      USE_AWS_ELASTICSEARCH: ${USE_AWS_ELASTICSEARCH:-true}
+    depends_on:
+      opensearch:
+        condition: service_healthy
+
+networks:
+  default:
+    name: datahub_network
+
+volumes:
+  neo4jdata:
+  esdata:
+  osdata:
+  broker:
+  mysqldata:
+  cassandradata:
+  postgresdata:

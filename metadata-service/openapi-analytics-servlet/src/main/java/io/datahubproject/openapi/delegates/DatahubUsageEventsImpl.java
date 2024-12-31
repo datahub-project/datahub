@@ -1,48 +1,59 @@
 package io.datahubproject.openapi.delegates;
 
-import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
-import io.datahubproject.openapi.generated.controller.DatahubUsageEventsApiDelegate;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
+import static com.linkedin.metadata.authorization.ApiGroup.ANALYTICS;
+import static com.linkedin.metadata.authorization.ApiOperation.READ;
+
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
-import com.datahub.authorization.AuthorizerChain;
-import org.springframework.beans.factory.annotation.Value;
-import com.google.common.collect.ImmutableList;
-import io.datahubproject.openapi.exception.UnauthorizedException;
 import com.datahub.authorization.AuthUtil;
-import com.linkedin.metadata.authorization.PoliciesConfig;
-
-import java.util.Optional;
+import com.datahub.authorization.AuthorizerChain;
+import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
+import io.datahubproject.openapi.exception.UnauthorizedException;
+import io.datahubproject.openapi.v2.generated.controller.DatahubUsageEventsApiDelegate;
+import jakarta.servlet.http.HttpServletRequest;
+import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nonnull;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.ResponseEntity;
 
 public class DatahubUsageEventsImpl implements DatahubUsageEventsApiDelegate {
 
-    @Autowired
-    private ElasticSearchService _searchService;
-    @Autowired
-    private AuthorizerChain _authorizationChain;
-    @Value("${authorization.restApiAuthorization:false}")
-    private boolean _restApiAuthorizationEnabled;
+  @Autowired private ElasticSearchService _searchService;
+  @Autowired private AuthorizerChain _authorizationChain;
 
-    final public static String DATAHUB_USAGE_INDEX = "datahub_usage_event";
+  @Autowired
+  @Qualifier("systemOperationContext")
+  OperationContext systemOperationContext;
 
-    @Override
-    public ResponseEntity<String> raw(String body) {
-        Authentication authentication = AuthenticationContext.getAuthentication();
-        checkAnalyticsAuthorized(authentication);
-        return ResponseEntity.of(_searchService.raw(DATAHUB_USAGE_INDEX, body).map(Objects::toString));
+  @Autowired private HttpServletRequest request;
+
+  public static final String DATAHUB_USAGE_INDEX = "datahub_usage_event";
+
+  @Override
+  public ResponseEntity<String> raw(String body) {
+    Authentication authentication = AuthenticationContext.getAuthentication();
+    OperationContext opContext =
+        OperationContext.asSession(
+            systemOperationContext,
+            RequestContext.builder()
+                .buildOpenapi(authentication.getActor().toUrnStr(), request, "raw", List.of()),
+            _authorizationChain,
+            authentication,
+            true);
+    checkAnalyticsAuthorized(opContext);
+
+    return ResponseEntity.of(
+        _searchService.raw(opContext, DATAHUB_USAGE_INDEX, body).map(Objects::toString));
+  }
+
+  private void checkAnalyticsAuthorized(@Nonnull OperationContext opContext) {
+    if (!AuthUtil.isAPIAuthorized(opContext, ANALYTICS, READ)) {
+      throw new UnauthorizedException(
+          opContext.getActorContext().getActorUrn() + " is unauthorized to get analytics.");
     }
-
-    private void checkAnalyticsAuthorized(Authentication authentication) {
-        String actorUrnStr = authentication.getActor().toUrnStr();
-        DisjunctivePrivilegeGroup orGroup = new DisjunctivePrivilegeGroup(ImmutableList.of(new ConjunctivePrivilegeGroup(
-                ImmutableList.of(PoliciesConfig.GET_ANALYTICS_PRIVILEGE.getType()))));
-
-        if (_restApiAuthorizationEnabled && !AuthUtil.isAuthorized(_authorizationChain, actorUrnStr, Optional.empty(), orGroup)) {
-            throw new UnauthorizedException(actorUrnStr + " is unauthorized to get analytics.");
-        }
-    }
+  }
 }

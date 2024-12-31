@@ -12,13 +12,11 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.ToString;
 
-
 /**
- * A partially specified entity spec that can be used with a {@link com.linkedin.metadata.models.registry.PatchEntityRegistry}.
- * Specifically, it does not require the following things compared to a {@link DefaultEntitySpec}
- * - a key aspect
- * - snapshot schemas for the entity
- * - typeref schemas for aspect
+ * A partially specified entity spec that can be used with a {@link
+ * com.linkedin.metadata.models.registry.PatchEntityRegistry}. Specifically, it does not require the
+ * following things compared to a {@link DefaultEntitySpec} - a key aspect - snapshot schemas for
+ * the entity - typeref schemas for aspect
  */
 @ToString
 public class PartialEntitySpec implements EntitySpec {
@@ -26,8 +24,10 @@ public class PartialEntitySpec implements EntitySpec {
   private final EntityAnnotation _entityAnnotation;
   private final Map<String, AspectSpec> _aspectSpecs;
 
-  public PartialEntitySpec(@Nonnull final Collection<AspectSpec> aspectSpecs, final EntityAnnotation entityAnnotation) {
-    _aspectSpecs = aspectSpecs.stream().collect(Collectors.toMap(AspectSpec::getName, Function.identity()));
+  public PartialEntitySpec(
+      @Nonnull final Collection<AspectSpec> aspectSpecs, final EntityAnnotation entityAnnotation) {
+    _aspectSpecs =
+        aspectSpecs.stream().collect(Collectors.toMap(AspectSpec::getName, Function.identity()));
     _entityAnnotation = entityAnnotation;
   }
 
@@ -82,7 +82,7 @@ public class PartialEntitySpec implements EntitySpec {
 
   @Override
   public TyperefDataSchema getAspectTyperefSchema() {
-      throw new UnsupportedOperationException("Partial entity specs do not contain aspect typeref schemas");
+    throw new UnsupportedOperationException(
+        "Partial entity specs do not contain aspect typeref schemas");
   }
-
 }

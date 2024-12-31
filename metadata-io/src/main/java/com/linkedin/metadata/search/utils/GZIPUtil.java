@@ -7,9 +7,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
-
 public class GZIPUtil {
-  private GZIPUtil() { }
+  private GZIPUtil() {}
 
   public static String gzipDecompress(byte[] gzipped) {
     String unzipped;
@@ -30,7 +29,8 @@ public class GZIPUtil {
 
   public static byte[] gzipCompress(String unzipped) {
     byte[] gzipped;
-    try (ByteArrayInputStream bis = new ByteArrayInputStream(unzipped.getBytes(StandardCharsets.UTF_8));
+    try (ByteArrayInputStream bis =
+            new ByteArrayInputStream(unzipped.getBytes(StandardCharsets.UTF_8));
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         GZIPOutputStream gzipOutputStream = new GZIPOutputStream(bos)) {
       byte[] buffer = new byte[1024];

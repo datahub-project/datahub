@@ -3,12 +3,15 @@ plugins {
     id 'org.hidetake.swagger.generator'
 }
 
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
 dependencies {
 
     implementation project(':metadata-auth:auth-api')
     implementation project(':metadata-service:auth-impl')
     implementation project(':metadata-service:factories')
     implementation project(':metadata-service:openapi-servlet')
+    implementation project(':metadata-service:openapi-servlet:models')
     implementation project(':metadata-models')
 
     implementation externalDependency.springBoot
@@ -18,7 +21,7 @@ dependencies {
     implementation externalDependency.springWebMVC
     implementation externalDependency.springBeans
     implementation externalDependency.springContext
-
+    implementation externalDependency.servletApi
     implementation externalDependency.reflections
     implementation externalDependency.slf4jApi
     compileOnly externalDependency.lombok
@@ -58,10 +61,8 @@ task openApiGenerate(type: GenerateSwaggerCode) {
             'java11'             : "true",
             'modelPropertyNaming': "original",
             'modelPackage'       : "io.datahubproject.openapi.generated",
-            'apiPackage'         : "io.datahubproject.openapi.generated.controller",
+            'apiPackage'         : "io.datahubproject.openapi.v2.generated.controller",
             'delegatePattern'    : "true"
     ]
 }
 tasks.getByName("compileJava").dependsOn(openApiGenerate)
-
-checkstyleMain.exclude '**/generated/**'

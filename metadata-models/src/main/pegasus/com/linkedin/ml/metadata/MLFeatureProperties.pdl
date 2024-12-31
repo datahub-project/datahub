@@ -1,5 +1,6 @@
 namespace com.linkedin.ml.metadata
 
+import com.linkedin.common.CustomProperties
 import com.linkedin.common.Urn
 import com.linkedin.common.MLFeatureDataType
 import com.linkedin.common.VersionTag
@@ -10,7 +11,7 @@ import com.linkedin.common.VersionTag
 @Aspect = {
   "name": "mlFeatureProperties"
 }
-record MLFeatureProperties {
+record MLFeatureProperties includes CustomProperties {
 
   /**
    * Documentation of the MLFeature

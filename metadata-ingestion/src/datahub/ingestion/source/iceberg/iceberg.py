@@ -1,14 +1,17 @@
-import sys
-
-if sys.version_info < (3, 8):
-    raise ImportError("Iceberg is only supported on Python 3.8+")
-
 import json
 import logging
+import threading
 import uuid
 from typing import Any, Dict, Iterable, List, Optional
 
 from pyiceberg.catalog import Catalog
+from pyiceberg.exceptions import (
+    NoSuchIcebergTableError,
+    NoSuchNamespaceError,
+    NoSuchPropertyException,
+    NoSuchTableError,
+    ServerError,
+)
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
 from pyiceberg.typedef import Identifier
@@ -79,8 +82,13 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     OwnershipTypeClass,
 )
+from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 LOGGER = logging.getLogger(__name__)
+logging.getLogger("azure.core.pipeline.policies.http_logging_policy").setLevel(
+    logging.WARNING
+)
 
 
 @platform_name("Iceberg")
@@ -98,7 +106,7 @@ LOGGER = logging.getLogger(__name__)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default.")
 @capability(
     SourceCapability.OWNERSHIP,
-    "Optionally enabled via configuration by specifying which Iceberg table property holds user or group ownership.",
+    "Automatically ingests ownership information from table properties based on `user_ownership_property` and `group_ownership_property`",
 )
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 class IcebergSource(StatefulIngestionSourceBase):
@@ -131,74 +139,180 @@ class IcebergSource(StatefulIngestionSourceBase):
         ]
 
     def _get_datasets(self, catalog: Catalog) -> Iterable[Identifier]:
-        for namespace in catalog.list_namespaces():
-            yield from catalog.list_tables(namespace)
+        namespaces = catalog.list_namespaces()
+        LOGGER.debug(
+            f"Retrieved {len(namespaces)} namespaces, first 10: {namespaces[:10]}"
+        )
+        self.report.report_no_listed_namespaces(len(namespaces))
+        tables_count = 0
+        for namespace in namespaces:
+            namespace_repr = ".".join(namespace)
+            if not self.config.namespace_pattern.allowed(namespace_repr):
+                LOGGER.info(
+                    f"Namespace {namespace_repr} is not allowed by config pattern, skipping"
+                )
+                self.report.report_dropped(f"{namespace_repr}.*")
+                continue
+            try:
+                tables = catalog.list_tables(namespace)
+                tables_count += len(tables)
+                LOGGER.debug(
+                    f"Retrieved {len(tables)} tables for namespace: {namespace}, in total retrieved {tables_count}, first 10: {tables[:10]}"
+                )
+                self.report.report_listed_tables_for_namespace(
+                    ".".join(namespace), len(tables)
+                )
+                yield from tables
+            except NoSuchNamespaceError:
+                self.report.report_warning(
+                    "no-such-namespace",
+                    f"Couldn't list tables for namespace {namespace} due to NoSuchNamespaceError exception",
+                )
+                LOGGER.warning(
+                    f"NoSuchNamespaceError exception while trying to get list of tables from namespace {namespace}, skipping it",
+                )
+            except Exception as e:
+                self.report.report_failure(
+                    "listing-tables-exception",
+                    f"Couldn't list tables for namespace {namespace} due to {e}",
+                )
+                LOGGER.exception(
+                    f"Unexpected exception while trying to get list of tables for namespace {namespace}, skipping it"
+                )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        try:
-            catalog = self.config.get_catalog()
-        except Exception as e:
-            LOGGER.error("Failed to get catalog", exc_info=True)
-            self.report.report_failure(
-                "get-catalog", f"Failed to get catalog {self.config.catalog.name}: {e}"
-            )
-            return
+        thread_local = threading.local()
 
-        for dataset_path in self._get_datasets(catalog):
+        def _process_dataset(dataset_path: Identifier) -> Iterable[MetadataWorkUnit]:
+            LOGGER.debug(f"Processing dataset for path {dataset_path}")
             dataset_name = ".".join(dataset_path)
             if not self.config.table_pattern.allowed(dataset_name):
                 # Dataset name is rejected by pattern, report as dropped.
                 self.report.report_dropped(dataset_name)
-                continue
-
+                LOGGER.debug(
+                    f"Skipping table {dataset_name} due to not being allowed by the config pattern"
+                )
+                return
             try:
-                # Try to load an Iceberg table.  Might not contain one, this will be caught by NoSuchIcebergTableError.
-                table = catalog.load_table(dataset_path)
+                if not hasattr(thread_local, "local_catalog"):
+                    LOGGER.debug(
+                        f"Didn't find local_catalog in thread_local ({thread_local}), initializing new catalog"
+                    )
+                    thread_local.local_catalog = self.config.get_catalog()
+
+                with PerfTimer() as timer:
+                    table = thread_local.local_catalog.load_table(dataset_path)
+                    time_taken = timer.elapsed_seconds()
+                    self.report.report_table_load_time(time_taken)
+                LOGGER.debug(f"Loaded table: {table.name()}, time taken: {time_taken}")
                 yield from self._create_iceberg_workunit(dataset_name, table)
+            except NoSuchPropertyException as e:
+                self.report.report_warning(
+                    "table-property-missing",
+                    f"Failed to create workunit for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"NoSuchPropertyException while processing table {dataset_path}, skipping it.",
+                )
+            except NoSuchIcebergTableError as e:
+                self.report.report_warning(
+                    "not-an-iceberg-table",
+                    f"Failed to create workunit for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"NoSuchIcebergTableError while processing table {dataset_path}, skipping it.",
+                )
+            except NoSuchTableError as e:
+                self.report.report_warning(
+                    "no-such-table",
+                    f"Failed to create workunit for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"NoSuchTableError while processing table {dataset_path}, skipping it.",
+                )
+            except FileNotFoundError as e:
+                self.report.report_warning(
+                    "file-not-found",
+                    f"Encountered FileNotFoundError when trying to read manifest file for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"FileNotFoundError while processing table {dataset_path}, skipping it."
+                )
+            except ServerError as e:
+                self.report.report_warning(
+                    "iceberg-rest-server-error",
+                    f"Iceberg Rest Catalog returned 500 status due to an unhandled exception for {dataset_name}. Exception: {e}",
+                )
+                LOGGER.warning(
+                    f"Iceberg Rest Catalog server error (500 status) encountered when processing table {dataset_path}, skipping it."
+                )
             except Exception as e:
                 self.report.report_failure("general", f"Failed to create workunit: {e}")
                 LOGGER.exception(
                     f"Exception while processing table {dataset_path}, skipping it.",
                 )
 
+        try:
+            catalog = self.config.get_catalog()
+        except Exception as e:
+            self.report.report_failure("get-catalog", f"Failed to get catalog: {e}")
+            return
+
+        for wu in ThreadedIteratorExecutor.process(
+            worker_func=_process_dataset,
+            args_list=[(dataset_path,) for dataset_path in self._get_datasets(catalog)],
+            max_workers=self.config.processing_threads,
+        ):
+            yield wu
+
     def _create_iceberg_workunit(
         self, dataset_name: str, table: Table
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.report_table_scanned(dataset_name)
-        dataset_urn: str = make_dataset_urn_with_platform_instance(
-            self.platform,
-            dataset_name,
-            self.config.platform_instance,
-            self.config.env,
-        )
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[Status(removed=False)],
-        )
+        with PerfTimer() as timer:
+            self.report.report_table_scanned(dataset_name)
+            LOGGER.debug(f"Processing table {dataset_name}")
+            dataset_urn: str = make_dataset_urn_with_platform_instance(
+                self.platform,
+                dataset_name,
+                self.config.platform_instance,
+                self.config.env,
+            )
+            dataset_snapshot = DatasetSnapshot(
+                urn=dataset_urn,
+                aspects=[Status(removed=False)],
+            )
 
-        # Dataset properties aspect.
-        custom_properties = table.metadata.properties.copy()
-        custom_properties["location"] = table.metadata.location
-        custom_properties["format-version"] = str(table.metadata.format_version)
-        if table.current_snapshot():
-            custom_properties["snapshot-id"] = str(table.current_snapshot().snapshot_id)
-            custom_properties["manifest-list"] = table.current_snapshot().manifest_list
-        dataset_properties = DatasetPropertiesClass(
-            tags=[],
-            description=table.metadata.properties.get("comment", None),
-            customProperties=custom_properties,
-        )
-        dataset_snapshot.aspects.append(dataset_properties)
+            # Dataset properties aspect.
+            custom_properties = table.metadata.properties.copy()
+            custom_properties["location"] = table.metadata.location
+            custom_properties["format-version"] = str(table.metadata.format_version)
+            custom_properties["partition-spec"] = str(self._get_partition_aspect(table))
+            if table.current_snapshot():
+                custom_properties["snapshot-id"] = str(
+                    table.current_snapshot().snapshot_id
+                )
+                custom_properties[
+                    "manifest-list"
+                ] = table.current_snapshot().manifest_list
+            dataset_properties = DatasetPropertiesClass(
+                name=table.name()[-1],
+                description=table.metadata.properties.get("comment", None),
+                customProperties=custom_properties,
+            )
+            dataset_snapshot.aspects.append(dataset_properties)
+            # Dataset ownership aspect.
+            dataset_ownership = self._get_ownership_aspect(table)
+            if dataset_ownership:
+                LOGGER.debug(
+                    f"Adding ownership: {dataset_ownership} to the dataset {dataset_name}"
+                )
+                dataset_snapshot.aspects.append(dataset_ownership)
 
-        # Dataset ownership aspect.
-        dataset_ownership = self._get_ownership_aspect(table)
-        if dataset_ownership:
-            dataset_snapshot.aspects.append(dataset_ownership)
+            schema_metadata = self._create_schema_metadata(dataset_name, table)
+            dataset_snapshot.aspects.append(schema_metadata)
 
-        schema_metadata = self._create_schema_metadata(dataset_name, table)
-        dataset_snapshot.aspects.append(schema_metadata)
-
-        mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+            mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+        self.report.report_table_processing_time(timer.elapsed_seconds())
         yield MetadataWorkUnit(id=dataset_name, mce=mce)
 
         dpi_aspect = self._get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
@@ -208,6 +322,49 @@ class IcebergSource(StatefulIngestionSourceBase):
         if self.config.is_profiling_enabled():
             profiler = IcebergProfiler(self.report, self.config.profiling)
             yield from profiler.profile_table(dataset_name, dataset_urn, table)
+
+    def _get_partition_aspect(self, table: Table) -> Optional[str]:
+        """Extracts partition information from the provided table and returns a JSON array representing the [partition spec](https://iceberg.apache.org/spec/?#partition-specs) of the table.
+        Each element of the returned array represents a field in the [partition spec](https://iceberg.apache.org/spec/?#partition-specs) that follows [Appendix-C](https://iceberg.apache.org/spec/?#appendix-c-json-serialization) of the Iceberg specification.
+        Extra information has been added to this spec to make the information more user-friendly.
+
+        Since Datahub does not have a place in its model to store this information, it is saved as a JSON string and displayed as a table property.
+
+        Here is an example:
+        ```json
+        "partition-spec": "[{\"name\": \"timeperiod_loaded\", \"transform\": \"identity\", \"source\": \"timeperiod_loaded\", \"source-id\": 19, \"source-type\": \"date\", \"field-id\": 1000}]",
+        ```
+
+        Args:
+            table (Table): The Iceberg table to extract partition spec from.
+
+        Returns:
+            str: JSON representation of the partition spec of the provided table (empty array if table is not partitioned) or `None` if an error occured.
+        """
+        try:
+            return json.dumps(
+                [
+                    {
+                        "name": partition.name,
+                        "transform": str(partition.transform),
+                        "source": str(
+                            table.schema().find_column_name(partition.source_id)
+                        ),
+                        "source-id": partition.source_id,
+                        "source-type": str(
+                            table.schema().find_type(partition.source_id)
+                        ),
+                        "field-id": partition.field_id,
+                    }
+                    for partition in table.spec().fields
+                ]
+            )
+        except Exception as e:
+            self.report.report_warning(
+                "extract-partition",
+                f"Failed to extract partition spec from Iceberg table {table.name()} due to error: {str(e)}",
+            )
+            return None
 
     def _get_ownership_aspect(self, table: Table) -> Optional[OwnershipClass]:
         owners = []
@@ -435,6 +592,25 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
             # if timestamp_type.adjust_to_utc
             # else "local-timestamp-micros",
             "native_data_type": str(timestamp_type),
+        }
+
+    # visit_timestamptz() is required when using pyiceberg >= 0.5.0, which is essentially a duplicate
+    # of visit_timestampz().  The function has been renamed from visit_timestampz().
+    # Once Datahub can upgrade its pyiceberg dependency to >=0.5.0, the visit_timestampz() function can be safely removed.
+    def visit_timestamptz(self, timestamptz_type: TimestamptzType) -> Dict[str, Any]:
+        # Avro supports 2 types of timestamp:
+        #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
+        #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
+        # utcAdjustment: bool = True
+        return {
+            "type": "long",
+            "logicalType": "timestamp-micros",
+            # Commented out since Avro's Python implementation (1.11.0) does not support local-timestamp-micros, even though it exists in the spec.
+            # See bug report: https://issues.apache.org/jira/browse/AVRO-3476 and PR https://github.com/apache/avro/pull/1634
+            # "logicalType": "timestamp-micros"
+            # if timestamp_type.adjust_to_utc
+            # else "local-timestamp-micros",
+            "native_data_type": str(timestamptz_type),
         }
 
     def visit_timestampz(self, timestamptz_type: TimestamptzType) -> Dict[str, Any]:

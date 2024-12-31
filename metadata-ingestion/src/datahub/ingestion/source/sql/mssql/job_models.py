@@ -1,11 +1,17 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Union
 
-from datahub.emitter.mce_builder import make_data_flow_urn, make_data_job_urn
+from datahub.emitter.mce_builder import (
+    make_data_flow_urn,
+    make_data_job_urn,
+    make_data_platform_urn,
+    make_dataplatform_instance_urn,
+)
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
     DataJobInfoClass,
     DataJobInputOutputClass,
+    DataPlatformInstanceClass,
 )
 
 
@@ -16,7 +22,7 @@ class ProcedureDependency:
     name: str
     type: str
     env: str
-    server: str
+    server: Optional[str]
     source: str = "mssql"
 
 
@@ -34,7 +40,7 @@ class ProcedureLineageStream:
 @dataclass
 class MSSQLJob:
     db: str
-    platform_instance: str
+    platform_instance: Optional[str]
     name: str
     env: str
     source: str = "mssql"
@@ -42,7 +48,7 @@ class MSSQLJob:
 
     @property
     def formatted_name(self) -> str:
-        return f"{self.formatted_platform_instance}.{self.name.replace(',', '-')}"
+        return self.name.replace(",", "-")
 
     @property
     def full_type(self) -> str:
@@ -53,10 +59,6 @@ class MSSQLJob:
         return self.source
 
     @property
-    def formatted_platform_instance(self) -> str:
-        return self.platform_instance.replace(".", "/")
-
-    @property
     def cluster(self) -> str:
         return f"{self.env}"
 
@@ -64,7 +66,7 @@ class MSSQLJob:
 @dataclass
 class MSSQLProceduresContainer:
     db: str
-    platform_instance: str
+    platform_instance: Optional[str]
     name: str
     env: str
     source: str = "mssql"
@@ -72,15 +74,11 @@ class MSSQLProceduresContainer:
 
     @property
     def formatted_name(self) -> str:
-        return f"{self.formatted_platform_instance}.{self.name.replace(',', '-')}"
+        return self.name.replace(",", "-")
 
     @property
     def orchestrator(self) -> str:
         return self.source
-
-    @property
-    def formatted_platform_instance(self) -> str:
-        return self.platform_instance.replace(".", "/")
 
     @property
     def cluster(self) -> str:
@@ -109,6 +107,7 @@ class StoredProcedure:
     flow: Union[MSSQLJob, MSSQLProceduresContainer]
     type: str = "STORED_PROCEDURE"
     source: str = "mssql"
+    code: Optional[str] = None
 
     @property
     def full_type(self) -> str:
@@ -149,7 +148,7 @@ class JobStep:
 
     @property
     def full_name(self) -> str:
-        return f"{self.formatted_name}.{self.formatted_name}"
+        return self.formatted_name
 
 
 @dataclass
@@ -172,6 +171,11 @@ class MSSQLDataJob:
             flow_id=self.entity.flow.formatted_name,
             job_id=self.entity.formatted_name,
             cluster=self.entity.flow.cluster,
+            platform_instance=(
+                self.entity.flow.platform_instance
+                if self.entity.flow.platform_instance
+                else None
+            ),
         )
 
     def add_property(
@@ -206,6 +210,18 @@ class MSSQLDataJob:
             status=self.status,
         )
 
+    @property
+    def as_maybe_platform_instance_aspect(self) -> Optional[DataPlatformInstanceClass]:
+        if self.entity.flow.platform_instance:
+            return DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.entity.flow.orchestrator),
+                instance=make_dataplatform_instance_urn(
+                    platform=self.entity.flow.orchestrator,
+                    instance=self.entity.flow.platform_instance,
+                ),
+            )
+        return None
+
 
 @dataclass
 class MSSQLDataFlow:
@@ -228,6 +244,9 @@ class MSSQLDataFlow:
             orchestrator=self.entity.orchestrator,
             flow_id=self.entity.formatted_name,
             cluster=self.entity.cluster,
+            platform_instance=(
+                self.entity.platform_instance if self.entity.platform_instance else None
+            ),
         )
 
     @property
@@ -237,3 +256,14 @@ class MSSQLDataFlow:
             customProperties=self.flow_properties,
             externalUrl=self.external_url,
         )
+
+    @property
+    def as_maybe_platform_instance_aspect(self) -> Optional[DataPlatformInstanceClass]:
+        if self.entity.platform_instance:
+            return DataPlatformInstanceClass(
+                platform=make_data_platform_urn(self.entity.orchestrator),
+                instance=make_dataplatform_instance_urn(
+                    self.entity.orchestrator, self.entity.platform_instance
+                ),
+            )
+        return None

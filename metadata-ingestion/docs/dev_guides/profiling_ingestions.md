@@ -88,7 +88,3 @@ This will generate an interactive HTML file for analysis:
 
 `memray` has an extensive set of features for memory investigation. Take a look at their [documentation](https://bloomberg.github.io/memray/overview.html) to see the full feature set.
 
-
-## Questions
-
-If you've got any questions on configuring profiling, feel free to ping us on [our Slack](https://slack.datahubproject.io/)!

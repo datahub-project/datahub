@@ -1,6 +1,11 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
+import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+
+import com.datahub.authorization.ConjunctivePrivilegeGroup;
+import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.businessattribute.BusinessAttributeInfo;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.GlossaryTermAssociationArray;
@@ -13,8 +18,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
-import com.datahub.authorization.ConjunctivePrivilegeGroup;
-import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
 import com.linkedin.metadata.Constants;
@@ -24,116 +27,147 @@ import com.linkedin.metadata.entity.EntityUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaMetadata;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
-
-
 // TODO: Move to consuming GlossaryTermService, TagService.
 @Slf4j
 public class LabelUtils {
-  private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP = new ConjunctivePrivilegeGroup(ImmutableList.of(
-      PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()
-  ));
+  private static final ConjunctivePrivilegeGroup ALL_PRIVILEGES_GROUP =
+      new ConjunctivePrivilegeGroup(
+          ImmutableList.of(PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType()));
 
-  private LabelUtils() { }
+  private LabelUtils() {}
 
   public static void removeTermFromResource(
+      @Nonnull OperationContext opContext,
       Urn labelUrn,
       Urn resourceUrn,
       String subResource,
       Urn actor,
-      EntityService entityService
-  ) {
+      EntityService<?> entityService) {
     if (subResource == null || subResource.equals("")) {
       com.linkedin.common.GlossaryTerms terms =
-          (com.linkedin.common.GlossaryTerms) EntityUtils.getAspectFromEntity(
-              resourceUrn.toString(), Constants.GLOSSARY_TERMS_ASPECT_NAME, entityService, new GlossaryTerms());
+          (com.linkedin.common.GlossaryTerms)
+              EntityUtils.getAspectFromEntity(
+                  opContext,
+                  resourceUrn.toString(),
+                  Constants.GLOSSARY_TERMS_ASPECT_NAME,
+                  entityService,
+                  new GlossaryTerms());
       terms.setAuditStamp(EntityUtils.getAuditStamp(actor));
 
       removeTermIfExists(terms, labelUrn);
-      persistAspect(resourceUrn, Constants.GLOSSARY_TERMS_ASPECT_NAME, terms, actor, entityService);
+      persistAspect(
+          opContext,
+          resourceUrn,
+          Constants.GLOSSARY_TERMS_ASPECT_NAME,
+          terms,
+          actor,
+          entityService);
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-          (com.linkedin.schema.EditableSchemaMetadata) EntityUtils.getAspectFromEntity(
-              resourceUrn.toString(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
-      EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
+          (com.linkedin.schema.EditableSchemaMetadata)
+              EntityUtils.getAspectFromEntity(
+                  opContext,
+                  resourceUrn.toString(),
+                  Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                  entityService,
+                  new EditableSchemaMetadata());
+      EditableSchemaFieldInfo editableFieldInfo =
+          getFieldInfoFromSchema(editableSchemaMetadata, subResource);
       if (!editableFieldInfo.hasGlossaryTerms()) {
         editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
       }
 
       removeTermIfExists(editableFieldInfo.getGlossaryTerms(), labelUrn);
-      persistAspect(resourceUrn, Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, editableSchemaMetadata, actor, entityService);
+      persistAspect(
+          opContext,
+          resourceUrn,
+          Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+          editableSchemaMetadata,
+          actor,
+          entityService);
     }
   }
 
   public static void removeTagsFromResources(
+      @Nonnull OperationContext opContext,
       List<Urn> tags,
       List<ResourceRefInput> resources,
       Urn actor,
-      EntityService entityService
-  ) throws Exception {
+      EntityService<?> entityService)
+      throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
-      changes.add(buildRemoveTagsProposal(tags, resource, actor, entityService));
+      changes.add(buildRemoveTagsProposal(opContext, tags, resource, actor, entityService));
     }
-    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
+    EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
   }
 
   public static void addTagsToResources(
+      @Nonnull OperationContext opContext,
       List<Urn> tagUrns,
       List<ResourceRefInput> resources,
       Urn actor,
-      EntityService entityService
-  ) throws Exception {
+      EntityService<?> entityService)
+      throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
-      changes.add(buildAddTagsProposal(tagUrns, resource, actor, entityService));
+      changes.add(buildAddTagsProposal(opContext, tagUrns, resource, actor, entityService));
     }
-    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
+    EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
   }
 
   public static void removeTermsFromResources(
+      @Nonnull OperationContext opContext,
       List<Urn> termUrns,
       List<ResourceRefInput> resources,
       Urn actor,
-      EntityService entityService
-  ) throws Exception {
+      EntityService<?> entityService)
+      throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
-      changes.add(buildRemoveTermsProposal(termUrns, resource, actor, entityService));
+      changes.add(buildRemoveTermsProposal(opContext, termUrns, resource, actor, entityService));
     }
-    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
+    EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
   }
 
   public static void addTermsToResources(
+      @Nonnull OperationContext opContext,
       List<Urn> termUrns,
       List<ResourceRefInput> resources,
       Urn actor,
-      EntityService entityService
-  ) throws Exception {
+      EntityService<?> entityService)
+      throws Exception {
     final List<MetadataChangeProposal> changes = new ArrayList<>();
     for (ResourceRefInput resource : resources) {
-      changes.add(buildAddTermsProposal(termUrns, resource, actor, entityService));
+      changes.add(buildAddTermsProposal(opContext, termUrns, resource, actor, entityService));
     }
-    EntityUtils.ingestChangeProposals(changes, entityService, actor, false);
+    EntityUtils.ingestChangeProposals(opContext, changes, entityService, actor, false);
   }
 
   public static void addTermsToResource(
+      @Nonnull OperationContext opContext,
       List<Urn> labelUrns,
       Urn resourceUrn,
       String subResource,
       Urn actor,
-      EntityService entityService
-  ) throws URISyntaxException {
+      EntityService<?> entityService)
+      throws URISyntaxException {
     if (subResource == null || subResource.equals("")) {
       com.linkedin.common.GlossaryTerms terms =
-          (com.linkedin.common.GlossaryTerms) EntityUtils.getAspectFromEntity(resourceUrn.toString(), Constants.GLOSSARY_TERMS_ASPECT_NAME,
-              entityService, new GlossaryTerms());
+          (com.linkedin.common.GlossaryTerms)
+              EntityUtils.getAspectFromEntity(
+                  opContext,
+                  resourceUrn.toString(),
+                  Constants.GLOSSARY_TERMS_ASPECT_NAME,
+                  entityService,
+                  new GlossaryTerms());
       terms.setAuditStamp(EntityUtils.getAuditStamp(actor));
 
       if (!terms.hasTerms()) {
@@ -141,13 +175,25 @@ public class LabelUtils {
       }
 
       addTermsIfNotExists(terms, labelUrns);
-      persistAspect(resourceUrn, Constants.GLOSSARY_TERMS_ASPECT_NAME, terms, actor, entityService);
+      persistAspect(
+          opContext,
+          resourceUrn,
+          Constants.GLOSSARY_TERMS_ASPECT_NAME,
+          terms,
+          actor,
+          entityService);
     } else {
       com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-          (com.linkedin.schema.EditableSchemaMetadata) EntityUtils.getAspectFromEntity(
-              resourceUrn.toString(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
+          (com.linkedin.schema.EditableSchemaMetadata)
+              EntityUtils.getAspectFromEntity(
+                  opContext,
+                  resourceUrn.toString(),
+                  Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                  entityService,
+                  new EditableSchemaMetadata());
 
-      EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, subResource);
+      EditableSchemaFieldInfo editableFieldInfo =
+          getFieldInfoFromSchema(editableSchemaMetadata, subResource);
       if (!editableFieldInfo.hasGlossaryTerms()) {
         editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
       }
@@ -155,7 +201,13 @@ public class LabelUtils {
       editableFieldInfo.getGlossaryTerms().setAuditStamp(EntityUtils.getAuditStamp(actor));
 
       addTermsIfNotExists(editableFieldInfo.getGlossaryTerms(), labelUrns);
-      persistAspect(resourceUrn, Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, editableSchemaMetadata, actor, entityService);
+      persistAspect(
+          opContext,
+          resourceUrn,
+          Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+          editableSchemaMetadata,
+          actor,
+          entityService);
     }
   }
 
@@ -181,213 +233,281 @@ public class LabelUtils {
     return termArray;
   }
 
-  public static boolean isAuthorizedToUpdateTags(@Nonnull QueryContext context, Urn targetUrn, String subResource) {
+  public static boolean isAuthorizedToUpdateTags(
+      @Nonnull QueryContext context, Urn targetUrn, String subResource) {
 
     Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
     // Decide whether the current principal should be allowed to update the Dataset.
-    // If you either have all entity privileges, or have the specific privileges required, you are authorized.
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        ALL_PRIVILEGES_GROUP,
-        new ConjunctivePrivilegeGroup(ImmutableList.of(isTargetingSchema
-            ? PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE.getType()
-            : PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType()))
-    ));
+    // If you either have all entity privileges, or have the specific privileges required, you are
+    // authorized.
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(
+                        isTargetingSchema
+                            ? PoliciesConfig.EDIT_DATASET_COL_TAGS_PRIVILEGE.getType()
+                            : PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
-  public static boolean isAuthorizedToUpdateTerms(@Nonnull QueryContext context, Urn targetUrn, String subResource) {
+  public static boolean isAuthorizedToUpdateTerms(
+      @Nonnull QueryContext context, Urn targetUrn, String subResource) {
 
     Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
 
     // Decide whether the current principal should be allowed to update the Dataset.
-    // If you either have all entity privileges, or have the specific privileges required, you are authorized.
-    final DisjunctivePrivilegeGroup orPrivilegeGroups = new DisjunctivePrivilegeGroup(ImmutableList.of(
-        ALL_PRIVILEGES_GROUP,
-        new ConjunctivePrivilegeGroup(ImmutableList.of(isTargetingSchema
-                ? PoliciesConfig.EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType()
-                : PoliciesConfig.EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType()
-            ))
-    ));
+    // If you either have all entity privileges, or have the specific privileges required, you are
+    // authorized.
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(
+                        isTargetingSchema
+                            ? PoliciesConfig.EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE.getType()
+                            : PoliciesConfig.EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
-        context.getAuthorizer(),
-        context.getActorUrn(),
-        targetUrn.getEntityType(),
-        targetUrn.toString(),
-        orPrivilegeGroups);
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
   public static void validateResourceAndLabel(
+      @Nonnull OperationContext opContext,
       List<Urn> labelUrns,
       Urn resourceUrn,
       String subResource,
       SubResourceType subResourceType,
       String labelEntityType,
-      EntityService entityService,
-      Boolean isRemoving
-  ) {
+      EntityService<?> entityService,
+      Boolean isRemoving) {
     for (Urn urn : labelUrns) {
-      validateResourceAndLabel(urn, resourceUrn, subResource, subResourceType, labelEntityType, entityService, isRemoving);
+      validateResourceAndLabel(
+          opContext,
+          urn,
+          resourceUrn,
+          subResource,
+          subResourceType,
+          labelEntityType,
+          entityService,
+          isRemoving);
     }
   }
 
-  public static void validateLabel(Urn labelUrn, String labelEntityType, EntityService entityService) {
+  public static void validateLabel(
+      @Nonnull OperationContext opContext,
+      Urn labelUrn,
+      String labelEntityType,
+      EntityService<?> entityService) {
     if (!labelUrn.getEntityType().equals(labelEntityType)) {
-      throw new IllegalArgumentException(String.format("Failed to validate label with urn %s. Urn type does not match entity type %s..",
-          labelUrn,
-          labelEntityType));
+      throw new IllegalArgumentException(
+          String.format(
+              "Failed to validate label with urn %s. Urn type does not match entity type %s..",
+              labelUrn, labelEntityType));
     }
-    if (!entityService.exists(labelUrn)) {
-      throw new IllegalArgumentException(String.format("Failed to validate label with urn %s. Urn does not exist.", labelUrn));
+    if (!entityService.exists(opContext, labelUrn, true)) {
+      throw new IllegalArgumentException(
+          String.format("Failed to validate label with urn %s. Urn does not exist.", labelUrn));
     }
   }
 
   // TODO: Move this out into a separate utilities class.
-  public static void validateResource(Urn resourceUrn, String subResource, SubResourceType subResourceType, EntityService entityService) {
-    if (!entityService.exists(resourceUrn)) {
-      throw new IllegalArgumentException(String.format("Failed to update resource with urn %s. Entity does not exist.", resourceUrn));
+  public static void validateResource(
+      @Nonnull OperationContext opContext,
+      Urn resourceUrn,
+      String subResource,
+      SubResourceType subResourceType,
+      EntityService<?> entityService) {
+    if (!entityService.exists(opContext, resourceUrn, true)) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Failed to update resource with urn %s. Entity does not exist.", resourceUrn));
     }
     if ((subResource != null && subResource.length() > 0) || subResourceType != null) {
       if (subResource == null || subResource.length() == 0) {
-        throw new IllegalArgumentException(String.format(
-            "Failed to update resource with urn %s. SubResourceType (%s) provided without a subResource.", resourceUrn, subResourceType));
+        throw new IllegalArgumentException(
+            String.format(
+                "Failed to update resource with urn %s. SubResourceType (%s) provided without a subResource.",
+                resourceUrn, subResourceType));
       }
       if (subResourceType == null) {
-        throw new IllegalArgumentException(String.format(
-            "Failed to updates resource with urn %s. SubResource (%s) provided without a subResourceType.",  resourceUrn, subResource));
+        throw new IllegalArgumentException(
+            String.format(
+                "Failed to updates resource with urn %s. SubResource (%s) provided without a subResourceType.",
+                resourceUrn, subResource));
       }
-      validateSubresourceExists(resourceUrn, subResource, subResourceType, entityService);
+      validateSubresourceExists(
+          opContext, resourceUrn, subResource, subResourceType, entityService);
     }
   }
 
   public static void validateResourceAndLabel(
+      @Nonnull OperationContext opContext,
       Urn labelUrn,
       Urn resourceUrn,
       String subResource,
       SubResourceType subResourceType,
       String labelEntityType,
-      EntityService entityService,
-      Boolean isRemoving
-  ) {
+      EntityService<?> entityService,
+      Boolean isRemoving) {
     if (!isRemoving) {
-      validateLabel(labelUrn, labelEntityType, entityService);
+      validateLabel(opContext, labelUrn, labelEntityType, entityService);
     }
-    validateResource(resourceUrn, subResource, subResourceType, entityService);
+    validateResource(opContext, resourceUrn, subResource, subResourceType, entityService);
   }
 
   private static MetadataChangeProposal buildAddTagsProposal(
+      @Nonnull OperationContext opContext,
       List<Urn> tagUrns,
       ResourceRefInput resource,
       Urn actor,
-      EntityService entityService
-  ) throws URISyntaxException {
+      EntityService<?> entityService)
+      throws URISyntaxException {
     if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
       // Case 1: Adding tags to a top-level entity
-      return buildAddTagsToEntityProposal(tagUrns, resource, actor, entityService);
+      Urn targetUrn = Urn.createFromString(resource.getResourceUrn());
+      if (targetUrn.getEntityType().equals(Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
+        return buildAddTagsToBusinessAttributeProposal(
+            opContext, tagUrns, resource, actor, entityService);
+      }
+      return buildAddTagsToEntityProposal(opContext, tagUrns, resource, actor, entityService);
     } else {
       // Case 2: Adding tags to subresource (e.g. schema fields)
-      return buildAddTagsToSubResourceProposal(tagUrns, resource, actor, entityService);
+      return buildAddTagsToSubResourceProposal(opContext, tagUrns, resource, actor, entityService);
     }
   }
 
   private static MetadataChangeProposal buildRemoveTagsProposal(
+      @Nonnull OperationContext opContext,
       List<Urn> tagUrns,
       ResourceRefInput resource,
       Urn actor,
-      EntityService entityService
-  ) throws URISyntaxException {
+      EntityService<?> entityService)
+      throws URISyntaxException {
     if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
       // Case 1: Adding tags to a top-level entity
-      return buildRemoveTagsToEntityProposal(tagUrns, resource, actor, entityService);
+      Urn targetUrn = Urn.createFromString(resource.getResourceUrn());
+      if (targetUrn.getEntityType().equals(Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
+        return buildRemoveTagsToBusinessAttributeProposal(
+            opContext, tagUrns, resource, actor, entityService);
+      }
+      return buildRemoveTagsToEntityProposal(opContext, tagUrns, resource, actor, entityService);
     } else {
       // Case 2: Adding tags to subresource (e.g. schema fields)
-      return buildRemoveTagsToSubResourceProposal(tagUrns, resource, actor, entityService);
+      return buildRemoveTagsToSubResourceProposal(
+          opContext, tagUrns, resource, actor, entityService);
     }
   }
 
   private static MetadataChangeProposal buildRemoveTagsToEntityProposal(
+      @Nonnull OperationContext opContext,
       List<Urn> tagUrns,
       ResourceRefInput resource,
       Urn actor,
-      EntityService entityService
-  ) {
+      EntityService<?> entityService) {
     com.linkedin.common.GlobalTags tags =
-        (com.linkedin.common.GlobalTags) EntityUtils.getAspectFromEntity(resource.getResourceUrn(), Constants.GLOBAL_TAGS_ASPECT_NAME,
-            entityService, new GlobalTags());
+        (com.linkedin.common.GlobalTags)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resource.getResourceUrn(),
+                Constants.GLOBAL_TAGS_ASPECT_NAME,
+                entityService,
+                new GlobalTags());
 
     if (!tags.hasTags()) {
       tags.setTags(new TagAssociationArray());
     }
     removeTagsIfExists(tags, tagUrns);
-    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.GLOBAL_TAGS_ASPECT_NAME, tags);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()), Constants.GLOBAL_TAGS_ASPECT_NAME, tags);
   }
 
   private static MetadataChangeProposal buildRemoveTagsToSubResourceProposal(
+      @Nonnull OperationContext opContext,
       List<Urn> tagUrns,
       ResourceRefInput resource,
       Urn actor,
-      EntityService entityService
-  ) {
+      EntityService<?> entityService) {
     com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-        (com.linkedin.schema.EditableSchemaMetadata) EntityUtils.getAspectFromEntity(
-            resource.getResourceUrn(),
-            Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
-            entityService,
-            new EditableSchemaMetadata());
-    EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
+        (com.linkedin.schema.EditableSchemaMetadata)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resource.getResourceUrn(),
+                Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                entityService,
+                new EditableSchemaMetadata());
+    EditableSchemaFieldInfo editableFieldInfo =
+        getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
 
     if (!editableFieldInfo.hasGlobalTags()) {
       editableFieldInfo.setGlobalTags(new GlobalTags());
     }
     removeTagsIfExists(editableFieldInfo.getGlobalTags(), tagUrns);
-    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()),
-            Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, editableSchemaMetadata);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()),
+        Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+        editableSchemaMetadata);
   }
 
   private static MetadataChangeProposal buildAddTagsToEntityProposal(
+      @Nonnull OperationContext opContext,
       List<Urn> tagUrns,
       ResourceRefInput resource,
       Urn actor,
-      EntityService entityService
-  ) throws URISyntaxException {
+      EntityService<?> entityService)
+      throws URISyntaxException {
     com.linkedin.common.GlobalTags tags =
-        (com.linkedin.common.GlobalTags) EntityUtils.getAspectFromEntity(resource.getResourceUrn(), Constants.GLOBAL_TAGS_ASPECT_NAME,
-            entityService, new GlobalTags());
+        (com.linkedin.common.GlobalTags)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resource.getResourceUrn(),
+                Constants.GLOBAL_TAGS_ASPECT_NAME,
+                entityService,
+                new GlobalTags());
 
     if (!tags.hasTags()) {
       tags.setTags(new TagAssociationArray());
     }
     addTagsIfNotExists(tags, tagUrns);
-    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.GLOBAL_TAGS_ASPECT_NAME, tags);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()), Constants.GLOBAL_TAGS_ASPECT_NAME, tags);
   }
 
   private static MetadataChangeProposal buildAddTagsToSubResourceProposal(
+      @Nonnull OperationContext opContext,
       List<Urn> tagUrns,
       ResourceRefInput resource,
       Urn actor,
-      EntityService entityService
-  ) throws URISyntaxException {
+      EntityService<?> entityService)
+      throws URISyntaxException {
     com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-        (com.linkedin.schema.EditableSchemaMetadata) EntityUtils.getAspectFromEntity(
-            resource.getResourceUrn(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
-    EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
+        (com.linkedin.schema.EditableSchemaMetadata)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resource.getResourceUrn(),
+                Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                entityService,
+                new EditableSchemaMetadata());
+    EditableSchemaFieldInfo editableFieldInfo =
+        getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
 
     if (!editableFieldInfo.hasGlobalTags()) {
       editableFieldInfo.setGlobalTags(new GlobalTags());
     }
 
     addTagsIfNotExists(editableFieldInfo.getGlobalTags(), tagUrns);
-    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()),
-            Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, editableSchemaMetadata);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()),
+        Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+        editableSchemaMetadata);
   }
 
-  private static void addTagsIfNotExists(GlobalTags tags, List<Urn> tagUrns) throws URISyntaxException {
+  private static void addTagsIfNotExists(GlobalTags tags, List<Urn> tagUrns)
+      throws URISyntaxException {
     if (!tags.hasTags()) {
       tags.setTags(new TagAssociationArray());
     }
@@ -396,7 +516,8 @@ public class LabelUtils {
 
     List<Urn> tagsToAdd = new ArrayList<>();
     for (Urn tagUrn : tagUrns) {
-      if (tagAssociationArray.stream().anyMatch(association -> association.getTag().equals(tagUrn))) {
+      if (tagAssociationArray.stream()
+          .anyMatch(association -> association.getTag().equals(tagUrn))) {
         continue;
       }
       tagsToAdd.add(tagUrn);
@@ -415,44 +536,64 @@ public class LabelUtils {
   }
 
   private static MetadataChangeProposal buildAddTermsProposal(
+      @Nonnull OperationContext opContext,
       List<Urn> termUrns,
       ResourceRefInput resource,
       Urn actor,
-      EntityService entityService
-  ) throws URISyntaxException {
+      EntityService<?> entityService)
+      throws URISyntaxException {
     if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
       // Case 1: Adding terms to a top-level entity
-      return buildAddTermsToEntityProposal(termUrns, resource, actor, entityService);
+      Urn targetUrn = Urn.createFromString(resource.getResourceUrn());
+      if (targetUrn.getEntityType().equals(Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
+        return buildAddTermsToBusinessAttributeProposal(
+            opContext, termUrns, resource, actor, entityService);
+      }
+      return buildAddTermsToEntityProposal(opContext, termUrns, resource, actor, entityService);
     } else {
       // Case 2: Adding terms to subresource (e.g. schema fields)
-      return buildAddTermsToSubResourceProposal(termUrns, resource, actor, entityService);
+      return buildAddTermsToSubResourceProposal(
+          opContext, termUrns, resource, actor, entityService);
     }
   }
 
   private static MetadataChangeProposal buildRemoveTermsProposal(
+      @Nonnull OperationContext opContext,
       List<Urn> termUrns,
       ResourceRefInput resource,
       Urn actor,
-      EntityService entityService
-  ) throws URISyntaxException {
+      EntityService<?> entityService)
+      throws URISyntaxException {
     if (resource.getSubResource() == null || resource.getSubResource().equals("")) {
       // Case 1: Removing terms from a top-level entity
-      return buildRemoveTermsToEntityProposal(termUrns, resource, actor, entityService);
+      Urn targetUrn = Urn.createFromString(resource.getResourceUrn());
+      if (targetUrn.getEntityType().equals(Constants.BUSINESS_ATTRIBUTE_ENTITY_NAME)) {
+        return buildRemoveTermsToBusinessAttributeProposal(
+            opContext, termUrns, resource, actor, entityService);
+      }
+      return buildRemoveTermsToEntityProposal(opContext, termUrns, resource, actor, entityService);
     } else {
       // Case 2: Removing terms from subresource (e.g. schema fields)
-      return buildRemoveTermsToSubResourceProposal(termUrns, resource, actor, entityService);
+      return buildRemoveTermsToSubResourceProposal(
+          opContext, termUrns, resource, actor, entityService);
     }
   }
 
   private static MetadataChangeProposal buildAddTermsToEntityProposal(
+      @Nonnull OperationContext opContext,
       List<Urn> termUrns,
       ResourceRefInput resource,
       Urn actor,
-      EntityService entityService
-  ) throws URISyntaxException {
+      EntityService<?> entityService)
+      throws URISyntaxException {
     com.linkedin.common.GlossaryTerms terms =
-        (com.linkedin.common.GlossaryTerms) EntityUtils.getAspectFromEntity(resource.getResourceUrn(), Constants.GLOSSARY_TERMS_ASPECT_NAME,
-            entityService, new GlossaryTerms());
+        (com.linkedin.common.GlossaryTerms)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resource.getResourceUrn(),
+                Constants.GLOSSARY_TERMS_ASPECT_NAME,
+                entityService,
+                new GlossaryTerms());
     terms.setAuditStamp(EntityUtils.getAuditStamp(actor));
 
     if (!terms.hasTerms()) {
@@ -460,20 +601,28 @@ public class LabelUtils {
     }
 
     addTermsIfNotExists(terms, termUrns);
-    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.GLOSSARY_TERMS_ASPECT_NAME, terms);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()), Constants.GLOSSARY_TERMS_ASPECT_NAME, terms);
   }
 
   private static MetadataChangeProposal buildAddTermsToSubResourceProposal(
+      @Nonnull OperationContext opContext,
       List<Urn> termUrns,
       ResourceRefInput resource,
       Urn actor,
-      EntityService entityService
-  ) throws URISyntaxException {
+      EntityService<?> entityService)
+      throws URISyntaxException {
     com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-        (com.linkedin.schema.EditableSchemaMetadata) EntityUtils.getAspectFromEntity(
-            resource.getResourceUrn(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
+        (com.linkedin.schema.EditableSchemaMetadata)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resource.getResourceUrn(),
+                Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                entityService,
+                new EditableSchemaMetadata());
 
-    EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
+    EditableSchemaFieldInfo editableFieldInfo =
+        getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
     if (!editableFieldInfo.hasGlossaryTerms()) {
       editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
     }
@@ -481,42 +630,58 @@ public class LabelUtils {
     editableFieldInfo.getGlossaryTerms().setAuditStamp(EntityUtils.getAuditStamp(actor));
 
     addTermsIfNotExists(editableFieldInfo.getGlossaryTerms(), termUrns);
-    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()),
-            Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, editableSchemaMetadata);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()),
+        Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+        editableSchemaMetadata);
   }
 
   private static MetadataChangeProposal buildRemoveTermsToEntityProposal(
+      @Nonnull OperationContext opContext,
       List<Urn> termUrns,
       ResourceRefInput resource,
       Urn actor,
-      EntityService entityService
-  ) {
+      EntityService<?> entityService) {
     com.linkedin.common.GlossaryTerms terms =
-        (com.linkedin.common.GlossaryTerms) EntityUtils.getAspectFromEntity(
-            resource.getResourceUrn(), Constants.GLOSSARY_TERMS_ASPECT_NAME, entityService, new GlossaryTerms());
+        (com.linkedin.common.GlossaryTerms)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resource.getResourceUrn(),
+                Constants.GLOSSARY_TERMS_ASPECT_NAME,
+                entityService,
+                new GlossaryTerms());
     terms.setAuditStamp(EntityUtils.getAuditStamp(actor));
 
     removeTermsIfExists(terms, termUrns);
-    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()), Constants.GLOSSARY_TERMS_ASPECT_NAME, terms);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()), Constants.GLOSSARY_TERMS_ASPECT_NAME, terms);
   }
 
   private static MetadataChangeProposal buildRemoveTermsToSubResourceProposal(
+      @Nonnull OperationContext opContext,
       List<Urn> termUrns,
       ResourceRefInput resource,
       Urn actor,
-      EntityService entityService
-  ) {
+      EntityService<?> entityService) {
     com.linkedin.schema.EditableSchemaMetadata editableSchemaMetadata =
-        (com.linkedin.schema.EditableSchemaMetadata) EntityUtils.getAspectFromEntity(
-            resource.getResourceUrn(), Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, entityService, new EditableSchemaMetadata());
-    EditableSchemaFieldInfo editableFieldInfo = getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
+        (com.linkedin.schema.EditableSchemaMetadata)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resource.getResourceUrn(),
+                Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+                entityService,
+                new EditableSchemaMetadata());
+    EditableSchemaFieldInfo editableFieldInfo =
+        getFieldInfoFromSchema(editableSchemaMetadata, resource.getSubResource());
     if (!editableFieldInfo.hasGlossaryTerms()) {
       editableFieldInfo.setGlossaryTerms(new GlossaryTerms());
     }
 
     removeTermsIfExists(editableFieldInfo.getGlossaryTerms(), termUrns);
-    return buildMetadataChangeProposalWithUrn(UrnUtils.getUrn(resource.getResourceUrn()),
-            Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME, editableSchemaMetadata);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()),
+        Constants.EDITABLE_SCHEMA_METADATA_ASPECT_NAME,
+        editableSchemaMetadata);
   }
 
   private static void addTermsIfNotExists(GlossaryTerms terms, List<Urn> termUrns)
@@ -547,7 +712,8 @@ public class LabelUtils {
     }
   }
 
-  private static GlossaryTermAssociationArray removeTermsIfExists(GlossaryTerms terms, List<Urn> termUrns) {
+  private static GlossaryTermAssociationArray removeTermsIfExists(
+      GlossaryTerms terms, List<Urn> termUrns) {
     if (!terms.hasTerms()) {
       terms.setTerms(new GlossaryTermAssociationArray());
     }
@@ -556,5 +722,106 @@ public class LabelUtils {
       termAssociationArray.removeIf(association -> association.getUrn().equals(termUrn));
     }
     return termAssociationArray;
+  }
+
+  private static MetadataChangeProposal buildAddTagsToBusinessAttributeProposal(
+      OperationContext opContext,
+      List<Urn> tagUrns,
+      ResourceRefInput resource,
+      Urn actor,
+      EntityService<?> entityService)
+      throws URISyntaxException {
+    BusinessAttributeInfo businessAttributeInfo =
+        (BusinessAttributeInfo)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resource.getResourceUrn(),
+                Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+                entityService,
+                new GlobalTags());
+
+    if (!businessAttributeInfo.hasGlobalTags()) {
+      businessAttributeInfo.setGlobalTags(new GlobalTags());
+    }
+    addTagsIfNotExists(businessAttributeInfo.getGlobalTags(), tagUrns);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()),
+        Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+        businessAttributeInfo);
+  }
+
+  private static MetadataChangeProposal buildAddTermsToBusinessAttributeProposal(
+      OperationContext opContext,
+      List<Urn> termUrns,
+      ResourceRefInput resource,
+      Urn actor,
+      EntityService<?> entityService)
+      throws URISyntaxException {
+    BusinessAttributeInfo businessAttributeInfo =
+        (BusinessAttributeInfo)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resource.getResourceUrn(),
+                Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+                entityService,
+                new GlossaryTerms());
+    if (!businessAttributeInfo.hasGlossaryTerms()) {
+      businessAttributeInfo.setGlossaryTerms(new GlossaryTerms());
+    }
+    businessAttributeInfo.getGlossaryTerms().setAuditStamp(EntityUtils.getAuditStamp(actor));
+    addTermsIfNotExists(businessAttributeInfo.getGlossaryTerms(), termUrns);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()),
+        Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+        businessAttributeInfo);
+  }
+
+  private static MetadataChangeProposal buildRemoveTagsToBusinessAttributeProposal(
+      OperationContext opContext,
+      List<Urn> tagUrns,
+      ResourceRefInput resource,
+      Urn actor,
+      EntityService<?> entityService) {
+    BusinessAttributeInfo businessAttributeInfo =
+        (BusinessAttributeInfo)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resource.getResourceUrn(),
+                Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+                entityService,
+                new GlobalTags());
+
+    if (!businessAttributeInfo.hasGlobalTags()) {
+      businessAttributeInfo.setGlobalTags(new GlobalTags());
+    }
+    removeTagsIfExists(businessAttributeInfo.getGlobalTags(), tagUrns);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()),
+        Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+        businessAttributeInfo);
+  }
+
+  private static MetadataChangeProposal buildRemoveTermsToBusinessAttributeProposal(
+      OperationContext opContext,
+      List<Urn> termUrns,
+      ResourceRefInput resource,
+      Urn actor,
+      EntityService<?> entityService) {
+    BusinessAttributeInfo businessAttributeInfo =
+        (BusinessAttributeInfo)
+            EntityUtils.getAspectFromEntity(
+                opContext,
+                resource.getResourceUrn(),
+                Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+                entityService,
+                new GlossaryTerms());
+    if (!businessAttributeInfo.hasGlossaryTerms()) {
+      businessAttributeInfo.setGlossaryTerms(new GlossaryTerms());
+    }
+    removeTermsIfExists(businessAttributeInfo.getGlossaryTerms(), termUrns);
+    return buildMetadataChangeProposalWithUrn(
+        UrnUtils.getUrn(resource.getResourceUrn()),
+        Constants.BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME,
+        businessAttributeInfo);
   }
 }

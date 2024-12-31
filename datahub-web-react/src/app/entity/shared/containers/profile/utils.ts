@@ -134,6 +134,22 @@ export function useIsOnTab(tabName: string): boolean {
     return false;
 }
 
+export function useGlossaryActiveTabPath(): string {
+    const { pathname, search } = useLocation();
+    const trimmedPathName = pathname.endsWith('/') ? pathname.slice(0, pathname.length - 1) : pathname;
+
+    // Match against the regex
+    const match = trimmedPathName.match(ENTITY_TAB_NAME_REGEX_PATTERN);
+
+    if (match && match[1]) {
+        const selectedTabPath = match[1] + (search || ''); // Include all query parameters
+        return selectedTabPath;
+    }
+
+    // No match found!
+    return '';
+}
+
 export function formatDateString(time: number) {
     const date = new Date(time);
     return date.toLocaleDateString('en-US');
@@ -215,9 +231,13 @@ export function sortEntityProfileTabs(appConfig: AppConfig, entityType: EntityTy
     const sortedTabs = [...tabs];
 
     if (entityType === EntityType.Domain && appConfig.visualConfig.entityProfiles?.domain?.defaultTab) {
-        const defaultTabId = appConfig.visualConfig.entityProfiles?.domain.defaultTab;
+        const defaultTabId = appConfig.visualConfig.entityProfiles?.domain?.defaultTab;
         sortTabsWithDefaultTabId(sortedTabs, defaultTabId);
     }
 
     return sortedTabs;
+}
+
+export function getNestedValue(obj: any, path: string) {
+    return path.split('.').reduce((o, p) => (o || {})[p], obj);
 }

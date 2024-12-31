@@ -1,9 +1,6 @@
 # Adapted from https://github.com/big-data-europe/docker-hive.
 
-version: "3"
-
 services:
-
   testtrino:
     image: trinodb/trino:369
     container_name: "testtrino"

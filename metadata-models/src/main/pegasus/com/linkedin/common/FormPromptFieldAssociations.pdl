@@ -1,0 +1,16 @@
+namespace com.linkedin.common
+
+/**
+ * Information about the field-level prompt associations on a top-level prompt association.
+ */
+record FormPromptFieldAssociations {
+    /**
+     * A list of field-level prompt associations that are not yet complete for this form.
+     */
+    completedFieldPrompts: optional array[FieldFormPromptAssociation]
+
+    /**
+     * A list of field-level prompt associations that are complete for this form.
+     */
+    incompleteFieldPrompts: optional array[FieldFormPromptAssociation]
+}

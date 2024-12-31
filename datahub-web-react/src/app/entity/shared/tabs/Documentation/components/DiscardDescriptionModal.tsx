@@ -12,7 +12,7 @@ export const DiscardDescriptionModal = ({ cancelModalVisible, onDiscard, onCance
         <>
             <Modal
                 title="Exit Editor"
-                visible={cancelModalVisible}
+                open={cancelModalVisible}
                 destroyOnClose
                 onCancel={onCancel}
                 footer={[

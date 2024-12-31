@@ -64,7 +64,7 @@ function CreateSecretButton({ initialState, onSubmit, refetchSecrets }: Props) {
             {isCreateModalVisible && (
                 <SecretBuilderModal
                     initialState={initialState}
-                    visible={isCreateModalVisible}
+                    open={isCreateModalVisible}
                     onCancel={() => setIsCreateModalVisible(false)}
                     onSubmit={createSecret}
                 />

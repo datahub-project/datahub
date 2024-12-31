@@ -24,17 +24,19 @@ source venv/bin/activate         # activate the environment
 Once inside the virtual environment, install `datahub` using the following commands
 
 ```shell
-# Requires Python 3.7+
+# Requires Python 3.8+
 python3 -m pip install --upgrade pip wheel setuptools
 python3 -m pip install --upgrade acryl-datahub
 # validate that the install was successful
 datahub version
 # If you see "command not found", try running this instead: python3 -m datahub version
+datahub init
+# authenticate your datahub CLI with your datahub instance
 ```
 
-If you run into an error, try checking the [_common setup issues_](../metadata-ingestion/developing.md#Common-setup-issues).
+If you run into an error, try checking the [_common setup issues_](../metadata-ingestion/developing.md#common-setup-issues).
 
-Other installation options such as installation from source and running the cli inside a container are available further below in the guide [here](#alternate-installation-options)
+Other installation options such as installation from source and running the cli inside a container are available further below in the guide [here](#alternate-installation-options).
 
 ## Starter Commands
 
@@ -98,29 +100,153 @@ Command Options:
   --preview-workunits       The number of workunits to produce for preview
   --strict-warnings         If enabled, ingestion runs with warnings will yield a non-zero error code
   --test-source-connection  When set, ingestion will only test the source connection details from the recipe
+  --no-progress             If enabled, mute intermediate progress ingestion reports
 ```
 
-#### ingest deploy
+#### ingest --dry-run
+
+The `--dry-run` option of the `ingest` command performs all of the ingestion steps, except writing to the sink. This is useful to validate that the
+ingestion recipe is producing the desired metadata events before ingesting them into datahub.
+
+```shell
+# Dry run
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml --dry-run
+# Short-form
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml -n
+```
+
+#### ingest --list-source-runs
+
+The `--list-source-runs` option of the `ingest` command lists the previous runs, displaying their run ID, source name, 
+start time, status, and source URN. This command allows you to filter results using the --urn option for URN-based 
+filtering or the --source option to filter by source name (partial or complete matches are supported).
+
+```shell
+# List all ingestion runs
+datahub ingest --list-source-runs
+# Filter runs by a source name containing "demo"
+datahub ingest --list-source-runs --source "demo"
+```
+
+#### ingest --preview
+
+The `--preview` option of the `ingest` command performs all of the ingestion steps, but limits the processing to only the first 10 workunits produced by the source.
+This option helps with quick end-to-end smoke testing of the ingestion recipe.
+
+```shell
+# Preview
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml --preview
+# Preview with dry-run
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml -n --preview
+```
+
+By default `--preview` creates 10 workunits. But if you wish to try producing more workunits you can use another option `--preview-workunits`
+
+```shell
+# Preview 20 workunits without sending anything to sink
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml -n --preview --preview-workunits=20
+```
+
+#### ingest --no-default-report
+
+By default, the cli sends an ingestion report to DataHub, which allows you to see the result of all cli-based ingestion in the UI. This can be turned off with the `--no-default-report` flag.
+
+```shell
+# Running ingestion with reporting to DataHub turned off
+datahub ingest -c ./examples/recipes/example_to_datahub_rest.dhub.yaml --no-default-report
+```
+
+The reports include the recipe that was used for ingestion. This can be turned off by adding an additional section to the ingestion recipe.
+
+```yaml
+source:
+  # source configs
+
+sink:
+  # sink configs
+
+# Add configuration for the datahub reporter
+reporting:
+  - type: datahub
+    config:
+      report_recipe: false
+
+# Optional log to put failed JSONs into a file
+# Helpful in case you are trying to debug some issue with specific ingestion failing
+failure_log:
+  enabled: false
+  log_config:
+    filename: ./path/to/failure.json
+```
+
+### ingest deploy
 
 The `ingest deploy` command instructs the cli to upload an ingestion recipe to DataHub to be run by DataHub's [UI Ingestion](./ui-ingestion.md).
-This command can also be used to schedule the ingestion while uploading or even to update existing sources.
+This command can also be used to schedule the ingestion while uploading or even to update existing sources. It will upload to the remote instance the
+CLI is connected to, not the sink of the recipe. Use `datahub init` to set the remote if not already set.
 
-To schedule a recipe called "test", to run at 5am everyday, London time with the recipe configured in a local `recipe.yaml` file: 
-````shell
-datahub ingest deploy --name "test" --schedule "5 * * * *" --time-zone "Europe/London" -c recipe.yaml
-````
-
-To update an existing recipe please use the `--urn` parameter to specify the id of the recipe to update.
-
-**Note:** Updating a recipe will result in a replacement of the existing options with what was specified in the cli command.
+This command will automatically create a new recipe if it doesn't exist, or update it if it does.
+Note that this is a complete update, and will remove any options that were previously set.
 I.e: Not specifying a schedule in the cli update command will remove the schedule from the recipe to be updated.
+
+**Basic example**
+
+To schedule a recipe called "Snowflake Integration", to run at 5am every day, London time with the recipe configured in a local `recipe.yaml` file:
+
+```shell
+datahub ingest deploy --name "Snowflake Integration" --schedule "5 * * * *" --time-zone "Europe/London" -c recipe.yaml
+```
+
+By default, the ingestion recipe's identifier is generated by hashing the name.
+You can override the urn generation by passing the `--urn` flag to the CLI.
+
+**Using `deployment` to avoid CLI args**
+
+As an alternative to configuring settings from the CLI, all of these settings can also be set in the `deployment` field of the recipe.
+
+```yml
+# deployment_recipe.yml
+deployment:
+  name: "Snowflake Integration"
+  schedule: "5 * * * *"
+  time_zone: "Europe/London"
+
+source: ...
+```
+
+```shell
+datahub ingest deploy -c deployment_recipe.yml
+```
+
+This is particularly useful when you want all recipes to be stored in version control.
+
+```shell
+# Deploy every yml recipe in a directory
+ls recipe_directory/*.yml | xargs -n 1 -I {} datahub ingest deploy -c {}
+```
 
 ### init
 
 The init command is used to tell `datahub` about where your DataHub instance is located. The CLI will point to localhost DataHub by default.
-Running `datahub init` will allow you to customize the datahub instance you are communicating with.
+Running `datahub init` will allow you to customize the datahub instance you are communicating with. It has an optional `--use-password` option which allows to initialise the config using username, password. We foresee this mainly being used by admins as majority of organisations will be using SSO and there won't be any passwords to use.
 
 **_Note_**: Provide your GMS instance's host when the prompt asks you for the DataHub host.
+
+```
+# locally hosted example
+datahub init
+/Users/user/.datahubenv already exists. Overwrite? [y/N]: y
+Configure which datahub instance to connect to
+Enter your DataHub host [http://localhost:8080]: http://localhost:8080
+Enter your DataHub access token []:
+
+# acryl example
+datahub init
+/Users/user/.datahubenv already exists. Overwrite? [y/N]: y
+Configure which datahub instance to connect to
+Enter your DataHub host [http://localhost:8080]: https://<your-instance-id>.acryl.io/gms
+Enter your DataHub access token []: <token generated from https://<your-instance-id>.acryl.io/settings/tokens>
+```
 
 #### Environment variables supported
 
@@ -134,7 +260,7 @@ The environment variables listed below take precedence over the DataHub CLI conf
 - `DATAHUB_GMS_TOKEN` (default `None`) - Used for communicating with DataHub Cloud.
 - `DATAHUB_TELEMETRY_ENABLED` (default `true`) - Set to `false` to disable telemetry. If CLI is being run in an environment with no access to public internet then this should be disabled.
 - `DATAHUB_TELEMETRY_TIMEOUT` (default `10`) - Set to a custom integer value to specify timeout in secs when sending telemetry.
-- `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI.
+- `DATAHUB_DEBUG` (default `false`) - Set to `true` to enable debug logging for CLI. Can also be achieved through `--debug` option of the CLI. This exposes sensitive information in logs, enabling on production instances should be avoided especially if UI ingestion is in use as logs can be made available for runs through the UI.
 - `DATAHUB_VERSION` (default `head`) - Set to a specific version to run quickstart with the particular version of docker images.
 - `ACTIONS_VERSION` (default `head`) - Set to a specific version to run quickstart with that image tag of `datahub-actions` container.
 - `DATAHUB_ACTIONS_IMAGE` (default `acryldata/datahub-actions`) - Set to `-slim` to run a slimmer actions container without pyspark/deequ features.
@@ -161,8 +287,6 @@ The [metadata deletion guide](./how/delete-metadata.md) covers the various optio
 
 ### exists
 
-**🤝 Version compatibility** : `acryl-datahub>=0.10.2.4`
-
 The exists command can be used to check if an entity exists in DataHub.
 
 ```shell
@@ -171,7 +295,6 @@ true
 > datahub exists --urn "urn:li:dataset:(urn:li:dataPlatform:hive,NonExistentHiveDataset,PROD)"
 false
 ```
-
 
 ### get
 
@@ -233,6 +356,7 @@ Update succeeded with status 200
 ```
 
 #### put platform
+
 **🤝 Version Compatibility:** `acryl-datahub>0.8.44.4`
 
 The **put platform** command instructs `datahub` to create or update metadata about a data platform. This is very useful if you are using a custom data platform, to set up its logo and display name for a native UI experience.
@@ -260,6 +384,24 @@ datahub timeline --urn "urn:li:dataset:(urn:li:dataPlatform:mysql,User.UserAccou
 
 ## Entity Specific Commands
 
+### dataset (Dataset Entity)
+
+The `dataset` command allows you to interact with the dataset entity.
+
+The `get` operation can be used to read in a dataset into a yaml file.
+
+```shell
+datahub dataset get --urn "$URN" --to-file "$FILE_NAME"
+```
+
+The `upsert` operation can be used to create a new user or update an existing one.
+
+```shell
+datahub dataset upsert -f dataset.yaml
+```
+
+An example of `dataset.yaml` would look like as in [dataset.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/dataset/dataset.yaml).
+
 ### user (User Entity)
 
 The `user` command allows you to interact with the User entity.
@@ -270,7 +412,7 @@ For detailed information, please refer to [Creating Users and Groups with Datahu
 datahub user upsert -f users.yaml
 ```
 
-An example of `users.yaml` would look like the following. You can refer to the [bar.user.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/user/bar.user.dhub.yaml) file for the complete code.
+An example of `users.yaml` would look like as in [bar.user.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/user/bar.user.dhub.yaml) file for the complete code.
 
 ```yaml
 - id: bar@acryl.io
@@ -298,7 +440,7 @@ For more information, please refer to [Creating Users and Groups with Datahub CL
 datahub group upsert -f group.yaml
 ```
 
-An example of `group.yaml` would look like the following. You can refer to the [foo.group.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/group/foo.group.dhub.yaml) file for the complete code.
+An example of `group.yaml` would look like as in [foo.group.dhub.yaml](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/cli_usage/group/foo.group.dhub.yaml) file for the complete code.
 
 ```yaml
 id: foogroup@acryl.io
@@ -311,7 +453,6 @@ members:
     slack: "@joe_shmoe"
     display_name: "Joe's Hub"
 ```
-
 
 ### dataproduct (Data Product Entity)
 
@@ -467,13 +608,11 @@ Use this to delete a Data Product from DataHub. Default to `--soft` which preser
 # > datahub dataproduct delete --urn "urn:li:dataProduct:pet_of_the_week" --hard
 ```
 
-
 ## Miscellaneous Admin Commands
 
 ### lite (experimental)
 
 The lite group of commands allow you to run an embedded, lightweight DataHub instance for command line exploration of your metadata. This is intended more for developer tool oriented usage rather than as a production server instance for DataHub. See [DataHub Lite](./datahub_lite.md) for more information about how you can ingest metadata into DataHub Lite and explore your metadata easily.
-
 
 ### telemetry
 
@@ -541,13 +680,11 @@ External Entities Affected: None
 Old Entities Migrated = {'urn:li:dataset:(urn:li:dataPlatform:hive,logging_events,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)', 'urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)'}
 ```
 
-
 ## Alternate Installation Options
 
 ### Using docker
 
 [![Docker Hub](https://img.shields.io/docker/pulls/acryldata/datahub-ingestion?style=plastic)](https://hub.docker.com/r/acryldata/datahub-ingestion)
-[![datahub-ingestion docker](https://github.com/acryldata/datahub/workflows/datahub-ingestion%20docker/badge.svg)](https://github.com/acryldata/datahub/actions/workflows/docker-ingestion.yml)
 
 If you don't want to install locally, you can alternatively run metadata ingestion within a Docker container.
 We have prebuilt images available on [Docker hub](https://hub.docker.com/r/acryldata/datahub-ingestion). All plugins will be installed and enabled automatically.
@@ -575,12 +712,13 @@ Please see our [Integrations page](https://datahubproject.io/integrations) if yo
 
 | Plugin Name                                                                                    | Install Command                                            | Provides                                |
 | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------- |
-| [file](./generated/ingestion/sources/file.md)                                                  | _included by default_                                      | File source and sink                    |
+| [metadata-file](./generated/ingestion/sources/metadata-file.md)                                | _included by default_                                      | File source and sink                    |
 | [athena](./generated/ingestion/sources/athena.md)                                              | `pip install 'acryl-datahub[athena]'`                      | AWS Athena source                       |
 | [bigquery](./generated/ingestion/sources/bigquery.md)                                          | `pip install 'acryl-datahub[bigquery]'`                    | BigQuery source                         |
 | [datahub-lineage-file](./generated/ingestion/sources/file-based-lineage.md)                    | _no additional dependencies_                               | Lineage File source                     |
 | [datahub-business-glossary](./generated/ingestion/sources/business-glossary.md)                | _no additional dependencies_                               | Business Glossary File source           |
 | [dbt](./generated/ingestion/sources/dbt.md)                                                    | _no additional dependencies_                               | dbt source                              |
+| [dremio](./generated/ingestion/sources/dremio.md)                                              | `pip install 'acryl-datahub[dremio]'`                      | Dremio Source                          |
 | [druid](./generated/ingestion/sources/druid.md)                                                | `pip install 'acryl-datahub[druid]'`                       | Druid Source                            |
 | [feast](./generated/ingestion/sources/feast.md)                                                | `pip install 'acryl-datahub[feast]'`                       | Feast source (0.26.0)                   |
 | [glue](./generated/ingestion/sources/glue.md)                                                  | `pip install 'acryl-datahub[glue]'`                        | AWS Glue source                         |
@@ -615,12 +753,12 @@ Please see our [Integrations page](https://datahubproject.io/integrations) if yo
 
 ### Sinks
 
-| Plugin Name                                                 | Install Command                              | Provides                   |
-| ----------------------------------------------------------- | -------------------------------------------- | -------------------------- |
-| [file](../metadata-ingestion/sink_docs/file.md)             | _included by default_                        | File source and sink       |
-| [console](../metadata-ingestion/sink_docs/console.md)       | _included by default_                        | Console sink               |
-| [datahub-rest](../metadata-ingestion/sink_docs/datahub.md)  | `pip install 'acryl-datahub[datahub-rest]'`  | DataHub sink over REST API |
-| [datahub-kafka](../metadata-ingestion/sink_docs/datahub.md) | `pip install 'acryl-datahub[datahub-kafka]'` | DataHub sink over Kafka    |
+| Plugin Name                                                       | Install Command                              | Provides                   |
+| ----------------------------------------------------------------- | -------------------------------------------- | -------------------------- |
+| [metadata-file](../metadata-ingestion/sink_docs/metadata-file.md) | _included by default_                        | File source and sink       |
+| [console](../metadata-ingestion/sink_docs/console.md)             | _included by default_                        | Console sink               |
+| [datahub-rest](../metadata-ingestion/sink_docs/datahub.md)        | `pip install 'acryl-datahub[datahub-rest]'`  | DataHub sink over REST API |
+| [datahub-kafka](../metadata-ingestion/sink_docs/datahub.md)       | `pip install 'acryl-datahub[datahub-kafka]'` | DataHub sink over Kafka    |
 
 These plugins can be mixed and matched as desired. For example:
 

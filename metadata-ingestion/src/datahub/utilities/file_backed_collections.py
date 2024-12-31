@@ -1,18 +1,22 @@
 import collections
 import gzip
 import logging
+import os
 import pathlib
 import pickle
 import shutil
 import sqlite3
 import tempfile
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime
+from enum import Enum
 from types import TracebackType
 from typing import (
     Any,
     Callable,
     Dict,
+    Final,
     Generic,
     Iterator,
     List,
@@ -30,16 +34,39 @@ from datahub.ingestion.api.closeable import Closeable
 
 logger: logging.Logger = logging.getLogger(__name__)
 
+OVERRIDE_SQLITE_VERSION_REQUIREMENT_STR = (
+    os.environ.get("OVERRIDE_SQLITE_VERSION_REQ") or ""
+)
+OVERRIDE_SQLITE_VERSION_REQUIREMENT = (
+    OVERRIDE_SQLITE_VERSION_REQUIREMENT_STR
+    and OVERRIDE_SQLITE_VERSION_REQUIREMENT_STR.lower() != "false"
+)
+
 _DEFAULT_FILE_NAME = "sqlite.db"
 _DEFAULT_TABLE_NAME = "data"
-_DEFAULT_MEMORY_CACHE_MAX_SIZE = 2000
-_DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE = 200
+
+# As per https://stackoverflow.com/questions/7106016/too-many-sql-variables-error-in-django-with-sqlite3
+# the default SQLITE_MAX_VARIABLE_NUMBER is 999. There's a few places where we embed one id from every
+# item in the cache into a query (e.g. when implementing __len__), so we need to be careful not to
+# exceed this limit.
+_DEFAULT_MEMORY_CACHE_MAX_SIZE = 900
+_DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE = 150
 
 # https://docs.python.org/3/library/sqlite3.html#sqlite-and-python-types
 # Datetimes get converted to strings
 SqliteValue = Union[int, float, str, bytes, datetime, None]
 
 _VT = TypeVar("_VT")
+
+
+class Unset(Enum):
+    token = 0
+
+
+# It's pretty annoying to create a true sentinel that works with typing.
+# https://peps.python.org/pep-0484/#support-for-singleton-types-in-unions
+# Can't wait for https://peps.python.org/pep-0661/
+_unset: Final = Unset.token
 
 
 class ConnectionWrapper:
@@ -58,18 +85,26 @@ class ConnectionWrapper:
     filename: pathlib.Path
 
     _temp_directory: Optional[str]
+    _dependent_objects: List[Union["FileBackedList", "FileBackedDict"]]
 
     def __init__(self, filename: Optional[pathlib.Path] = None):
         self._temp_directory = None
+        self._dependent_objects = []
 
         # Warning: If filename is provided, the file will not be automatically cleaned up.
         if not filename:
             self._temp_directory = tempfile.mkdtemp()
             filename = pathlib.Path(self._temp_directory) / _DEFAULT_FILE_NAME
-
-        self.conn = sqlite3.connect(filename, isolation_level=None)
-        self.conn.row_factory = sqlite3.Row
         self.filename = filename
+
+        # SQLite connections are technically not supposed to be used from multiple threads.
+        # We bypass this restriction by setting `check_same_thread=False`. However, we
+        # still need to be careful to avoid concurrent access.
+        self.conn_lock = threading.Lock()
+        self.conn = sqlite3.connect(
+            filename, isolation_level=None, check_same_thread=False
+        )
+        self.conn.row_factory = sqlite3.Row
 
         # These settings are optimized for performance.
         # See https://www.sqlite.org/pragma.html for more information.
@@ -92,15 +127,21 @@ class ConnectionWrapper:
     def execute(
         self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
     ) -> sqlite3.Cursor:
-        return self.conn.execute(sql, parameters)
+        with self.conn_lock:
+            return self.conn.execute(sql, parameters)
 
     def executemany(
         self, sql: str, parameters: Union[Dict[str, Any], Sequence[Any]] = ()
     ) -> sqlite3.Cursor:
-        return self.conn.executemany(sql, parameters)
+        with self.conn_lock:
+            return self.conn.executemany(sql, parameters)
 
     def close(self) -> None:
-        self.conn.close()
+        for obj in self._dependent_objects:
+            obj.close()
+        self._dependent_objects.clear()
+        with self.conn_lock:
+            self.conn.close()
         if self._temp_directory:
             shutil.rmtree(self._temp_directory)
             self._temp_directory = None
@@ -148,11 +189,15 @@ def _default_deserializer(value: Any) -> Any:
 
 @dataclass(eq=False)
 class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
-    """
-    A dict-like object that stores its data in a temporary SQLite database.
+    """A dict-like object that stores its data in a temporary SQLite database.
+
     This is useful for storing large amounts of data that don't fit in memory.
 
-    This class is not thread-safe.
+    Like a standard Python dict / OrderedDict, it maintains insertion order.
+
+    It maintains a small in-memory cache to avoid having to serialize/deserialize
+    data from the database too often. This is an implementation detail that isn't
+    exposed to the user.
     """
 
     # Use a predefined connection, able to be shared across multiple FileBacked* objects
@@ -176,19 +221,31 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
     _active_object_cache: OrderedDict[str, Tuple[_VT, bool]] = field(
         init=False, repr=False
     )
+    _use_sqlite_on_conflict: bool = field(repr=False, default=True)
 
     def __post_init__(self) -> None:
         assert (
             self.cache_eviction_batch_size > 0
         ), "cache_eviction_batch_size must be positive"
 
-        assert "key" not in self.extra_columns, '"key" is a reserved column name'
-        assert "value" not in self.extra_columns, '"value" is a reserved column name'
+        for reserved_column in ("key", "value", "rowid"):
+            if reserved_column in self.extra_columns:
+                raise ValueError(f'"{reserved_column}" is a reserved column name')
 
         if self.shared_connection:
             self._conn = self.shared_connection
+            self.shared_connection._dependent_objects.append(self)
         else:
             self._conn = ConnectionWrapper()
+
+        if sqlite3.sqlite_version_info < (3, 24, 0):
+            # We use the ON CONFLICT clause to implement UPSERTs with sqlite.
+            # This was added in 3.24.0 from 2018-06-04.
+            # See https://www.sqlite.org/lang_conflict.html
+            if OVERRIDE_SQLITE_VERSION_REQUIREMENT:
+                self.use_sqlite_on_conflict = False
+            else:
+                raise RuntimeError("SQLite version 3.24.0 or later is required")
 
         # We keep a small cache in memory to avoid having to serialize/deserialize
         # data from the database too often. We use an OrderedDict to build
@@ -196,10 +253,13 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         self._active_object_cache = collections.OrderedDict()
 
         # Create the table.
+        # We could use the built-in sqlite `rowid` column, but that can get changed
+        # if a VACUUM is performed and would break our ordering guarantees.
         if_not_exists = "IF NOT EXISTS" if self._conn.allow_table_name_reuse else ""
         self._conn.execute(
             f"""CREATE TABLE {if_not_exists} {self.tablename} (
-                key TEXT PRIMARY KEY,
+                rowid INTEGER PRIMARY KEY AUTOINCREMENT,
+                key TEXT UNIQUE,
                 value BLOB
                 {''.join(f', {column_name} BLOB' for column_name in self.extra_columns.keys())}
             )"""
@@ -227,10 +287,14 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
     def _add_to_cache(self, key: str, value: _VT, dirty: bool) -> None:
         self._active_object_cache[key] = value, dirty
 
-        if len(self._active_object_cache) > self.cache_max_size:
+        if self.cache_max_size == 0:
+            self._prune_cache(len(self._active_object_cache))
+        elif len(self._active_object_cache) > self.cache_max_size:
             # Try to prune in batches rather than one at a time.
+            # However, we don't want to prune the thing we just added,
+            # in case there's a mark_dirty() call immediately after.
             num_items_to_prune = min(
-                len(self._active_object_cache), self.cache_eviction_batch_size
+                len(self._active_object_cache) - 1, self.cache_eviction_batch_size
             )
             self._prune_cache(num_items_to_prune)
 
@@ -244,16 +308,43 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                     values.append(column_serializer(value))
                 items_to_write.append(tuple(values))
 
-        if items_to_write:
+        if items_to_write and self._use_sqlite_on_conflict:
+            # Tricky: By using a INSERT INTO ... ON CONFLICT (key) structure, we can
+            # ensure that the rowid remains the same if a value is updated but is
+            # autoincremented when rows are inserted.
             self._conn.executemany(
-                f"""INSERT OR REPLACE INTO {self.tablename} (
+                f"""INSERT INTO {self.tablename} (
                     key,
                     value
                     {''.join(f', {column_name}' for column_name in self.extra_columns.keys())}
                 )
-                VALUES ({', '.join(['?'] *(2 + len(self.extra_columns)))})""",
+                VALUES ({', '.join(['?'] *(2 + len(self.extra_columns)))})
+                ON CONFLICT (key) DO UPDATE SET
+                    value = excluded.value
+                    {''.join(f', {column_name} = excluded.{column_name}' for column_name in self.extra_columns.keys())}
+                """,
                 items_to_write,
             )
+        else:
+            for item in items_to_write:
+                try:
+                    self._conn.execute(
+                        f"""INSERT INTO {self.tablename} (
+                            key,
+                            value
+                            {''.join(f', {column_name}' for column_name in self.extra_columns.keys())}
+                        )
+                        VALUES ({', '.join(['?'] *(2 + len(self.extra_columns)))})""",
+                        item,
+                    )
+                except sqlite3.IntegrityError:
+                    self._conn.execute(
+                        f"""UPDATE {self.tablename} SET
+                            value = ?
+                            {''.join(f', {column_name} = ?' for column_name in self.extra_columns.keys())}
+                        WHERE key = ?""",
+                        (*item[1:], item[0]),
+                    )
 
     def flush(self) -> None:
         self._prune_cache(len(self._active_object_cache))
@@ -277,6 +368,34 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
     def __setitem__(self, key: str, value: _VT) -> None:
         self._add_to_cache(key, value, True)
 
+    def for_mutation(
+        self,
+        /,
+        key: str,
+        default: Union[_VT, Unset] = _unset,
+    ) -> _VT:
+        # If key is in the dictionary, this is similar to __getitem__ + mark_dirty.
+        # If key is not in the dictionary, this is similar to __setitem__.
+        assert self.cache_max_size > 0, "Cache must be enabled to use getsetdefault"
+
+        try:
+            value = self[key]
+            self.mark_dirty(key)
+            return value
+        except KeyError:
+            if default is _unset:
+                raise
+
+            self[key] = default
+            return default
+
+    def setdefault(self, key: str, default: _VT) -> _VT:
+        # In almost all cases where setdefault is used, we want to always mark the
+        # value as dirty, even if the key already exists. While `for_mutation` is
+        # preferred, it's easy to accidentally use the default `setdefault`
+        # implementation in a subtly unsafe way, so we override it here.
+        return self.for_mutation(key, default=default)
+
     def __delitem__(self, key: str) -> None:
         in_cache = False
         if key in self._active_object_cache:
@@ -290,18 +409,25 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             raise KeyError(key)
 
     def mark_dirty(self, key: str) -> None:
-        if key in self._active_object_cache and not self._active_object_cache[key][1]:
+        if key not in self._active_object_cache:
+            raise ValueError(
+                f"key {key} not in active object cache, which means any dirty value "
+                "is already persisted or lost"
+            )
+
+        if not self._active_object_cache[key][1]:
             self._active_object_cache[key] = self._active_object_cache[key][0], True
 
     def __iter__(self) -> Iterator[str]:
-        # Cache should be small, so safe set cast to avoid mutation during iteration
-        cache_keys = set(self._active_object_cache.keys())
-        yield from cache_keys
+        self.flush()
 
-        cursor = self._conn.execute(f"SELECT key FROM {self.tablename}")
+        # Our active object cache should now be empty, so it's fine to
+        # just pull from the DB.
+        cursor = self._conn.execute(
+            f"SELECT key FROM {self.tablename} ORDER BY rowid ASC"
+        )
         for row in cursor:
-            if row[0] not in cache_keys:
-                yield row[0]
+            yield row[0]
 
     def items_snapshot(
         self, cond_sql: Optional[str] = None
@@ -383,19 +509,15 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
         self.close()
 
 
-class FileBackedList(Generic[_VT]):
-    """
-    An append-only, list-like object that stores its contents in a SQLite database.
-
-    This class is not thread-safe.
-    """
+class FileBackedList(Generic[_VT], Closeable):
+    """An append-only, list-like object that stores its contents in a SQLite database."""
 
     _len: int = field(default=0)
     _dict: FileBackedDict[_VT] = field(init=False)
 
     def __init__(
         self,
-        connection: Optional[ConnectionWrapper] = None,
+        shared_connection: Optional[ConnectionWrapper] = None,
         tablename: str = _DEFAULT_TABLE_NAME,
         serializer: Callable[[_VT], SqliteValue] = _default_serializer,
         deserializer: Callable[[Any], _VT] = _default_deserializer,
@@ -403,17 +525,22 @@ class FileBackedList(Generic[_VT]):
         cache_max_size: Optional[int] = None,
         cache_eviction_batch_size: Optional[int] = None,
     ) -> None:
-        self._len = 0
         self._dict = FileBackedDict[_VT](
-            shared_connection=connection,
+            shared_connection=shared_connection,
+            tablename=tablename,
             serializer=serializer,
             deserializer=deserializer,
-            tablename=tablename,
             extra_columns=extra_columns or {},
             cache_max_size=cache_max_size or _DEFAULT_MEMORY_CACHE_MAX_SIZE,
             cache_eviction_batch_size=cache_eviction_batch_size
             or _DEFAULT_MEMORY_CACHE_EVICTION_BATCH_SIZE,
         )
+
+        if shared_connection:
+            shared_connection._dependent_objects.append(self)
+
+        # In case we're reusing an existing list, we need to run a query to get the length.
+        self._len = len(self._dict)
 
     @property
     def tablename(self) -> str:

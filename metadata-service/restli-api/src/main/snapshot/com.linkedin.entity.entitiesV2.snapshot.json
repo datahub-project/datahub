@@ -146,6 +146,11 @@
                 },
                 "doc" : "Additional properties",
                 "optional" : true
+              }, {
+                "name" : "version",
+                "type" : "string",
+                "doc" : "Aspect version\n   Initial implementation will use the aspect version's number, however stored as\n   a string in the case where a different aspect versioning scheme is later adopted.",
+                "optional" : true
               } ]
             },
             "doc" : "The system metadata for this aspect\n",
@@ -162,6 +167,7 @@
     "path" : "/entitiesV2",
     "schema" : "com.linkedin.entity.EntityResponse",
     "doc" : "Single unified resource for fetching, updating, searching, & browsing DataHub entities\n\ngenerated from: com.linkedin.metadata.resources.entity.EntityV2Resource",
+    "resourceClass" : "com.linkedin.metadata.resources.entity.EntityV2Resource",
     "collection" : {
       "identifier" : {
         "name" : "entitiesV2Id",
@@ -170,17 +176,27 @@
       "supports" : [ "batch_get", "get" ],
       "methods" : [ {
         "method" : "get",
+        "javaMethodName" : "get",
         "doc" : "Retrieves the value for an entity that is made up of latest versions of specified aspects.",
         "parameters" : [ {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
           "optional" : true
+        }, {
+          "name" : "alwaysIncludeKeyAspect",
+          "type" : "boolean",
+          "optional" : true
         } ]
       }, {
         "method" : "batch_get",
+        "javaMethodName" : "batchGet",
         "parameters" : [ {
           "name" : "aspects",
           "type" : "{ \"type\" : \"array\", \"items\" : \"string\" }",
+          "optional" : true
+        }, {
+          "name" : "alwaysIncludeKeyAspect",
+          "type" : "boolean",
           "optional" : true
         } ]
       } ],

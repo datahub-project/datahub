@@ -13,8 +13,10 @@ This code path should not be executed if we're being used as a library.
 
 import collections
 import contextlib
+import itertools
 import logging
 import os
+import pathlib
 import sys
 from typing import Deque, Iterator, Optional
 
@@ -30,10 +32,77 @@ DATAHUB_PACKAGES = [
     "datahub_provider",
     "datahub_classify",
     "datahub_actions",
+    "acryl_datahub_cloud",
 ]
 IN_MEMORY_LOG_BUFFER_SIZE = 2000  # lines
+IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH = 2000  # characters
+
 
 NO_COLOR = os.environ.get("NO_COLOR", False)
+
+
+def extract_name_from_filename(filename: str, fallback_name: str) -> str:
+    """Guess the module path from the filename.
+
+    Because the logger name may not be the same as the package path (e.g. when using stacklevel),
+    we do a best-effort attempt to extract the module name from the filename.
+
+    >>> extract_name_from_filename("/datahub-ingestion/.local/lib/python3.10/site-packages/datahub/configuration/common.py", "bad")
+    'datahub.configuration.common'
+
+    >>> extract_name_from_filename("/home/user/datahub/metadata-ingestion/src/datahub/telemetry/telemetry.py", "bad")
+    'datahub.telemetry.telemetry'
+
+    >>> extract_name_from_filename("/home/user/datahub/metadata-ingestion-modules/airflow-plugin/src/datahub_airflow_plugin/datahub_listener.py", "bad")
+    'datahub_airflow_plugin.datahub_listener'
+
+    >>> extract_name_from_filename("/this/is/not/a/normal/path.py", "fallback.package")
+    'fallback.package'
+
+    Args:
+        filename: The filename of the module.
+        fallback_name: The name to use if we can't guess the module.
+
+    Returns:
+        The guessed module name.
+    """
+
+    with contextlib.suppress(Exception):
+        # Split the path into components
+        path_parts = list(pathlib.Path(filename).parts)
+
+        # Remove the .py extension from the last part
+        if path_parts[-1].endswith(".py"):
+            path_parts[-1] = path_parts[-1][:-3]
+
+        # If we're in a site-packages directory, we want to use the package name as the top-level module.
+        if "site-packages" in path_parts:
+            # Find the index of 'site-packages' in the path
+            site_packages_index = path_parts.index("site-packages")
+            # Join the parts from 'site-packages' onwards with '.'
+            return ".".join(path_parts[site_packages_index + 1 :])
+
+        # We're probably in a development environment, so take everything after 'src' as the module.
+        src_dir_index = next(
+            itertools.chain(
+                (
+                    i + 2
+                    for i, part in enumerate(path_parts)
+                    if "metadata-ingestion-modules" in part
+                ),
+                (
+                    i + 1
+                    for i, part in enumerate(path_parts)
+                    if "metadata-ingestion" in part
+                ),
+                [None],
+            )
+        )
+        if src_dir_index is not None:
+            # Join the parts after 'src' with '.'
+            return ".".join(path_parts[src_dir_index + 1 :])
+
+    return fallback_name
 
 
 class _ColorLogFormatter(logging.Formatter):
@@ -51,6 +120,7 @@ class _ColorLogFormatter(logging.Formatter):
         super().__init__(BASE_LOGGING_FORMAT)
 
     def formatMessage(self, record: logging.LogRecord) -> str:
+        record.name = extract_name_from_filename(record.pathname, record.name)
         if not NO_COLOR and sys.stderr.isatty():
             return self._formatMessageColor(record)
         else:
@@ -81,9 +151,9 @@ class _DatahubLogFilter(logging.Filter):
                 return record.levelno >= logging.INFO
         else:
             if self.debug:
-                return record.levelno >= logging.WARNING
-            else:
                 return record.levelno >= logging.INFO
+            else:
+                return record.levelno >= logging.WARNING
 
 
 class _LogBuffer:
@@ -91,6 +161,9 @@ class _LogBuffer:
         self._buffer: Deque[str] = collections.deque(maxlen=maxlen)
 
     def write(self, line: str) -> None:
+        if len(line) > IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH:
+            line = line[:IN_MEMORY_LOG_BUFFER_MAX_LINE_LENGTH] + "[truncated]"
+
         self._buffer.append(line)
 
     def clear(self) -> None:
@@ -199,12 +272,15 @@ def configure_logging(debug: bool, log_file: Optional[str] = None) -> Iterator[N
         for handler in handlers:
             root_logger.removeHandler(handler)
             for lib in DATAHUB_PACKAGES:
+                lib_logger = logging.getLogger(lib)
                 lib_logger.removeHandler(handler)
                 lib_logger.propagate = True
 
 
 # Reduce logging from some particularly chatty libraries.
 logging.getLogger("urllib3").setLevel(logging.ERROR)
+logging.getLogger("urllib3.util.retry").setLevel(logging.WARNING)
 logging.getLogger("snowflake").setLevel(level=logging.WARNING)
 # logging.getLogger("botocore").setLevel(logging.INFO)
 # logging.getLogger("google").setLevel(logging.INFO)
+logging.getLogger("pyodata").setLevel(logging.WARNING)

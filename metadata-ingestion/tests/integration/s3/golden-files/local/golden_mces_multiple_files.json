@@ -12,7 +12,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -34,7 +35,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -63,7 +65,19 @@
             },
             "fields": [
                 {
-                    "fieldPath": "2",
+                    "fieldPath": "Sampling Date",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "date",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Site ID",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -75,7 +89,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "3",
+                    "fieldPath": "Park ID",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -83,102 +97,6 @@
                         }
                     },
                     "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Br \n(mg/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Ca \n(mg/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Cl \n(mg/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Cond (\u00b5S/cm)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "DO (mg/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "DOC [mg/L C]",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "F \n(mg/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "K \n(mg/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -207,7 +125,91 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "Mg \n(mg/L)",
+                    "fieldPath": "Water Temp (\u00b0C)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Cond (\u00b5S/cm)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "pH",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "DO (mg/L)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Secchi Depth (m)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "UV Absorbance, 254nm",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "DOC [mg/L C]",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "SUVA, 254nm",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -243,91 +245,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "Na \n(mg/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "PO4-P \n(mg P/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Park ID",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "SO4-S \n(mg/L)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "SUVA, 254nm",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "number",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Sampling Date",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Secchi Depth (m)",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "Site ID",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -363,7 +281,7 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "UV Absorbance, 254nm",
+                    "fieldPath": "Cl \n(mg/L)",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -375,7 +293,79 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "Water Temp (\u00b0C)",
+                    "fieldPath": "SO4-S \n(mg/L)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "F \n(mg/L)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Br \n(mg/L)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Na \n(mg/L)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "K \n(mg/L)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Ca \n(mg/L)",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "Mg \n(mg/L)",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -423,7 +413,19 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "pH",
+                    "fieldPath": "2",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "3",
                     "nullable": false,
                     "type": {
                         "type": {
@@ -439,7 +441,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -451,16 +454,17 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444889021
+            "lastUpdatedTimestamp": 1586808010000
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -476,12 +480,14 @@
                 "env": "DEV",
                 "folder_abs_path": "tests"
             },
-            "name": "tests"
+            "name": "tests",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -496,7 +502,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -512,7 +519,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -529,7 +537,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -549,7 +558,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -565,12 +575,14 @@
                 "env": "DEV",
                 "folder_abs_path": "tests/integration"
             },
-            "name": "integration"
+            "name": "integration",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -585,7 +597,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -601,7 +614,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -618,7 +632,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -633,7 +648,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -657,7 +673,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -673,12 +690,14 @@
                 "env": "DEV",
                 "folder_abs_path": "tests/integration/s3"
             },
-            "name": "s3"
+            "name": "s3",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -693,7 +712,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -709,7 +729,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -726,7 +747,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -741,7 +763,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -769,7 +792,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -785,12 +809,14 @@
                 "env": "DEV",
                 "folder_abs_path": "tests/integration/s3/test_data"
             },
-            "name": "test_data"
+            "name": "test_data",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -805,7 +831,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -821,7 +848,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -838,7 +866,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -853,7 +882,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -885,7 +915,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -901,12 +932,14 @@
                 "env": "DEV",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system"
             },
-            "name": "local_system"
+            "name": "local_system",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -921,7 +954,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -937,7 +971,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -954,7 +989,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -969,7 +1005,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1005,7 +1042,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1021,12 +1059,14 @@
                 "env": "DEV",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a"
             },
-            "name": "folder_a"
+            "name": "folder_a",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1041,7 +1081,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1057,7 +1098,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1074,7 +1116,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1089,7 +1132,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1129,7 +1173,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1145,12 +1190,14 @@
                 "env": "DEV",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a/folder_aa"
             },
-            "name": "folder_aa"
+            "name": "folder_aa",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1165,7 +1212,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1181,7 +1229,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1198,7 +1247,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1213,7 +1263,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1257,7 +1308,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1273,12 +1325,14 @@
                 "env": "DEV",
                 "folder_abs_path": "tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa"
             },
-            "name": "folder_aaa"
+            "name": "folder_aaa",
+            "env": "DEV"
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1293,7 +1347,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1309,7 +1364,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1326,7 +1382,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1341,7 +1398,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1389,7 +1447,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1404,7 +1463,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -1416,8 +1476,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 33,
             "columnCount": 14,
@@ -2701,7 +2761,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2753,7 +2814,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2769,7 +2831,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2791,7 +2854,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2832,18 +2896,6 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "[version=2.0].[type=Record].[type=long].FourthChord",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "FourthChord",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "[version=2.0].[type=Record].[type=long].SecondChord",
                     "nullable": false,
                     "type": {
@@ -2868,6 +2920,18 @@
                     "isPartOfKey": false
                 },
                 {
+                    "fieldPath": "[version=2.0].[type=Record].[type=long].FourthChord",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "FourthChord",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
                     "fieldPath": "[version=2.0].[type=Record].[type=string].ProgressionQuality",
                     "nullable": false,
                     "type": {
@@ -2884,7 +2948,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2896,16 +2961,17 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444899021
+            "lastUpdatedTimestamp": 1586808020000
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2920,7 +2986,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -2932,8 +2999,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 28,
             "columnCount": 5,
@@ -3270,7 +3337,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3322,7 +3390,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3338,7 +3407,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3360,7 +3430,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3453,7 +3524,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3465,16 +3537,17 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444909021
+            "lastUpdatedTimestamp": 1586808030000
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3489,7 +3562,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3501,8 +3575,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 28,
             "columnCount": 5,
@@ -3839,7 +3913,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3891,7 +3966,25 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3913,23 +4006,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:file",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -3958,14 +4036,14 @@
             },
             "fields": [
                 {
-                    "fieldPath": "countries",
+                    "fieldPath": "countries.name",
                     "nullable": false,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.ArrayType": {}
+                            "com.linkedin.schema.StringType": {}
                         }
                     },
-                    "nativeDataType": "list",
+                    "nativeDataType": "str",
                     "recursive": false,
                     "isPartOfKey": false
                 },
@@ -3982,14 +4060,14 @@
                     "isPartOfKey": false
                 },
                 {
-                    "fieldPath": "countries.name",
+                    "fieldPath": "countries",
                     "nullable": false,
                     "type": {
                         "type": {
-                            "com.linkedin.schema.StringType": {}
+                            "com.linkedin.schema.ArrayType": {}
                         }
                     },
-                    "nativeDataType": "str",
+                    "nativeDataType": "list",
                     "recursive": false,
                     "isPartOfKey": false
                 }
@@ -3998,7 +4076,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4010,16 +4089,17 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444919021
+            "lastUpdatedTimestamp": 1586808040000
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4034,7 +4114,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4046,8 +4127,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 1,
             "columnCount": 1,
@@ -4067,7 +4148,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4119,7 +4201,25 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4141,7 +4241,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4170,42 +4271,6 @@
             },
             "fields": [
                 {
-                    "fieldPath": "color",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.StringType": {}
-                        }
-                    },
-                    "nativeDataType": "string",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "healthy",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.BooleanType": {}
-                        }
-                    },
-                    "nativeDataType": "bool",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
-                    "fieldPath": "height",
-                    "nullable": false,
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "int64",
-                    "recursive": false,
-                    "isPartOfKey": false
-                },
-                {
                     "fieldPath": "name",
                     "nullable": false,
                     "type": {
@@ -4228,13 +4293,50 @@
                     "nativeDataType": "int64",
                     "recursive": false,
                     "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "height",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int64",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "color",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "healthy",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "bool",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4246,32 +4348,17 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444929021
+            "lastUpdatedTimestamp": 1586808050000
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:file",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4286,7 +4373,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4298,8 +4386,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 70,
             "columnCount": 5,
@@ -4590,7 +4678,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4642,7 +4731,25 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4664,23 +4771,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:file",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4773,7 +4865,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4785,16 +4878,17 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444939021
+            "lastUpdatedTimestamp": 1586808060000
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4809,7 +4903,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -4821,8 +4916,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 5,
             "columnCount": 5,
@@ -4972,7 +5067,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5024,7 +5120,25 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:file",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5046,7 +5160,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5451,7 +5566,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5463,16 +5579,17 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "operationType": "UPDATE",
-            "lastUpdatedTimestamp": 1688444949021
+            "lastUpdatedTimestamp": 1586808070000
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5487,7 +5604,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -5499,8 +5617,8 @@
         "json": {
             "timestampMillis": 1615443388097,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "rowCount": 249,
             "columnCount": 31,
@@ -7647,7 +7765,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7699,23 +7818,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:file",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:file,test-platform-instance)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7730,7 +7834,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7745,7 +7850,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7760,7 +7866,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7775,7 +7882,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7790,7 +7898,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7805,7 +7914,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -7820,7 +7930,162 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "multiple_files.json"
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/NPS.7.1.package_data_NPS.6.1_ARCN_Lakes_ChemistryData_v1_csv.csv,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808010000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_avro.avro,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808020000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/chord_progressions_csv.csv,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808030000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/countries_json.json,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808040000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/food_parquet.parquet,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808050000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/small.csv,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808060000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:file,test-platform-instance.tests/integration/s3/test_data/local_system/folder_a/folder_aa/folder_aaa/wa_fn_usec_hr_employee_attrition_csv.csv,DEV)",
+    "changeType": "PATCH",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/lastModified",
+                "value": {
+                    "time": 1586808070000
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "multiple_files.json",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

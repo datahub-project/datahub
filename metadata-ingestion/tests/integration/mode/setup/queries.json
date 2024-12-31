@@ -8,7 +8,7 @@
     "queries": [{
       "id": 10149707,
       "token": "6e26a9f3d4e2",
-      "raw_query": "SELECT  rental.*,  staff.first_name \"Staff First Name\", staff.last_name \"Staff Last Name\" FROM  {{  @join_on_definition    as                      rental  }} join staff on staff.staff_id = rental.staff_id",
+      "raw_query": "SELECT  rental.*,  staff.first_name \"Staff First Name\", staff.last_name \"Staff Last Name\" FROM  {{  @join_on_definition    as                      rental  }} join staff on staff.staff_id = rental.staff_id where selected_id = {{ selected_id }} \n{% form %}\nselected_id:\n   type: text\n   default: my_id\n{% endform %}",
       "created_at": "2021-12-10T20:55:24.361Z",
       "updated_at": "2021-12-10T23:12:53.273Z",
       "name": "Customer and staff",
@@ -53,7 +53,7 @@
             "query": {
               "raw_query": {
                 "type": "text",
-                "value": "SELECT  rental.*,  staff.first_name \"Staff First Name\", staff.last_name \"Staff Last Name\" FROM  {{  @join_on_definition    as                      rental  }} join staff on staff.staff_id = rental.staff_id"
+                "value": "SELECT  rental.*,  staff.first_name \"Staff First Name\", staff.last_name \"Staff Last Name\" FROM  {{  @join_on_definition    as                      rental  }} join staff on staff.staff_id = rental.staff_id where selected_id = {{ selected_id }} \n{% form %}\nselected_id:\n   type: text\n   default: my_id\n{% endform %}"
               },
               "name": {
                 "type": "text",

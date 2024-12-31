@@ -1,0 +1,9 @@
+namespace com.linkedin.structured
+
+/**
+* Represents a stored primitive property value
+**/
+typeref PrimitivePropertyValue = union [
+    string,
+    double
+   ]

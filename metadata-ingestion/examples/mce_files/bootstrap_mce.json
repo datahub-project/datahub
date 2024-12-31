@@ -3394,7 +3394,7 @@
     "changeType":"UPSERT",
     "aspectName":"datasetProfile",
     "aspect":{
-      "value":"{\"timestampMillis\": 1679515693000, \"rowCount\": 4500, \"columnCount\": 2, \"sizeInBytes\": 842000200000, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"false\"]}]}",
+      "value":"{\"timestampMillis\": 1723488954865, \"rowCount\": 4500, \"columnCount\": 2, \"sizeInBytes\": 842000200000, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"false\"]}]}",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -3406,7 +3406,7 @@
     "changeType":"UPSERT",
     "aspectName":"datasetProfile",
     "aspect":{
-      "value":"{\"timestampMillis\": 1684786093000, \"rowCount\": 3500, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\"]}]}",
+      "value":"{\"timestampMillis\": 1723488954865, \"rowCount\": 3500, \"columnCount\": 2, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00057, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\"]}]}",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -3612,5 +3612,86 @@
       "contentType": "application/json"
     },
     "systemMetadata": null
+  },
+  {
+      "entityType": "post",
+      "entityUrn": "urn:li:post:f3a68539-f7e4-4c41-a4fd-9e57c085d8dd",
+      "changeType": "UPSERT",
+      "aspectName": "postInfo",
+      "aspect": {
+          "json": {
+              "type": "HOME_PAGE_ANNOUNCEMENT",
+              "content": {
+                  "title": "Join DataHub Slack",
+                  "type": "LINK",
+                  "link": "https://datahubproject.io/slack?utm_source=quickstart&utm_medium=annoucement&utm_campaign=quickstart_annoucement",
+                  "media": {
+                      "type": "IMAGE",
+                      "location": "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg"
+                  }
+              },
+              "created": 1712547125049,
+              "lastModified": 1712547125049
+          }
+      },
+      "systemMetadata": {
+          "lastObserved": 1712548844816,
+          "runId": "datahub-2024_04_08-13_00_44",
+          "lastRunId": "no-run-id-provided"
+      }
+  },
+  {
+      "entityType": "post",
+      "entityUrn": "urn:li:post:e9c7e4a5-b7b0-4390-bd94-9a0fe8acd6bf",
+      "changeType": "UPSERT",
+      "aspectName": "postInfo",
+      "aspect": {
+          "json": {
+              "type": "HOME_PAGE_ANNOUNCEMENT",
+              "content": {
+                  "title": "View Docs",
+                  "type": "LINK",
+                  "link": "https://datahubproject.io/docs",
+                  "media": {
+                      "type": "IMAGE",
+                      "location": "https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/datahub-logo-color-mark.svg"
+                  }
+              },
+              "created": 1712547164761,
+              "lastModified": 1712547164761
+          }
+      },
+      "systemMetadata": {
+          "lastObserved": 1712548844816,
+          "runId": "datahub-2024_04_08-13_00_44",
+          "lastRunId": "no-run-id-provided"
+      }
+  },
+  {
+      "entityType": "post",
+      "entityUrn": "urn:li:post:326e42b3-2965-47d1-9660-50e513af7d6e",
+      "changeType": "UPSERT",
+      "aspectName": "postInfo",
+      "aspect": {
+          "json": {
+              "type": "HOME_PAGE_ANNOUNCEMENT",
+              "content": {
+                  "title": "Upcoming Events",
+                  "type": "LINK",
+                  "link": "https://datahubproject.io/events",
+                  "media": {
+                      "type": "IMAGE",
+                      "location": "https://datahubproject.io/img/acryl-logo-transparent-mark.svg"
+                  }
+              },
+              "created": 1712547268882,
+              "lastModified": 1712547268882
+          }
+      },
+      "systemMetadata": {
+          "lastObserved": 1712548844817,
+          "runId": "datahub-2024_04_08-13_00_44",
+          "lastRunId": "no-run-id-provided"
+      }
   }
 ]

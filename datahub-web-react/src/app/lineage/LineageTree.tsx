@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { TransformMatrix } from '@vx/zoom/lib/types';
+import { TransformMatrix } from '@visx/zoom/lib/types';
 
 import { NodeData, EntitySelectParams, TreeProps, EntityAndType, FetchedEntity, UpdatedLineages } from './types';
 import LineageTreeNodeAndEdgeRenderer from './LineageTreeNodeAndEdgeRenderer';
@@ -25,7 +25,7 @@ type LineageTreeProps = {
     setIsDraggingNode: (isDraggingNode: boolean) => void;
     draggedNodes: Record<string, { x: number; y: number }>;
     setDraggedNodes: (draggedNodes: Record<string, { x: number; y: number }>) => void;
-    fetchedEntities: { [x: string]: FetchedEntity };
+    fetchedEntities: Map<string, FetchedEntity>;
     setUpdatedLineages: React.Dispatch<React.SetStateAction<UpdatedLineages>>;
 };
 

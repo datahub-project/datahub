@@ -3,23 +3,24 @@ import {
     Chart,
     Dashboard,
     DataJob,
+    DataPlatform,
     Dataset,
+    Entity,
     EntityType,
-    MlFeatureTable,
-    MlPrimaryKey,
+    FineGrainedLineage,
+    Health,
+    InputFields,
+    LineageRelationship,
+    Maybe,
     MlFeature,
+    MlFeatureTable,
     MlModel,
     MlModelGroup,
-    Maybe,
-    Status,
-    DataPlatform,
-    FineGrainedLineage,
+    MlPrimaryKey,
     SchemaMetadata,
-    InputFields,
-    Entity,
-    LineageRelationship,
     SiblingProperties,
-    Health,
+    Status,
+    StructuredProperties,
 } from '../../types.generated';
 
 export type EntitySelectParams = {
@@ -57,7 +58,8 @@ export type FetchedEntity = {
     schemaMetadata?: SchemaMetadata;
     inputFields?: InputFields;
     canEditLineage?: boolean;
-    health?: Health[];
+    health?: Maybe<Health[]>;
+    structuredProperties?: Maybe<StructuredProperties>;
 };
 
 export type NodeData = {
@@ -81,7 +83,9 @@ export type NodeData = {
     canEditLineage?: boolean;
     upstreamRelationships?: Array<LineageRelationship>;
     downstreamRelationships?: Array<LineageRelationship>;
-    health?: Health[];
+    health?: Maybe<Health[]>;
+    structuredProperties?: Maybe<StructuredProperties>;
+    siblingStructuredProperties?: Maybe<StructuredProperties>;
 };
 
 export type VizNode = {
@@ -111,7 +115,7 @@ export type ColumnEdge = {
     targetField: string;
 };
 
-export type FetchedEntities = { [x: string]: FetchedEntity };
+export type FetchedEntities = Map<string, FetchedEntity>;
 
 export enum Direction {
     Upstream = 'Upstream',
@@ -126,7 +130,7 @@ export type LineageExplorerParams = {
 export type TreeProps = {
     margin?: { top: number; right: number; bottom: number; left: number };
     entityAndType?: EntityAndType | null;
-    fetchedEntities: { [x: string]: FetchedEntity };
+    fetchedEntities: Map<string, FetchedEntity>;
     onEntityClick: (EntitySelectParams) => void;
     onEntityCenter: (EntitySelectParams) => void;
     onLineageExpand: (data: EntityAndType) => void;

@@ -11,9 +11,8 @@ from datahub.configuration.common import (
     redact_raw_config,
 )
 from datahub.emitter.aspect import JSON_CONTENT_TYPE
-from datahub.emitter.mce_builder import datahub_guid
+from datahub.emitter.mce_builder import datahub_guid, make_data_platform_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import make_data_platform_urn
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.pipeline_run_listener import PipelineRunListener
 from datahub.ingestion.api.sink import NoopWriteCallback, Sink
@@ -43,6 +42,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
     _EXECUTOR_ID: str = "__datahub_cli_"
     _EXECUTION_REQUEST_SOURCE_TYPE: str = "CLI_INGESTION_SOURCE"
     _INGESTION_TASK_NAME: str = "CLI Ingestion"
+    _MAX_SUMMARY_SIZE: int = 800000
 
     @staticmethod
     def get_cur_time_in_ms() -> int:
@@ -79,36 +79,33 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         cls,
         config_dict: Dict[str, Any],
         ctx: PipelineContext,
+        sink: Sink,
     ) -> PipelineRunListener:
-        sink_config_holder: Optional[DynamicTypedConfig] = None
-
         reporter_config = DatahubIngestionRunSummaryProviderConfig.parse_obj(
             config_dict or {}
         )
         if reporter_config.sink:
-            sink_config_holder = reporter_config.sink
-
-        if sink_config_holder is None:
-            # Populate sink from global recipe
-            assert ctx.pipeline_config
-            sink_config_holder = ctx.pipeline_config.sink
-            # Global instances are safe to use only if the types are datahub-rest and datahub-kafka
-            # Re-using a shared file sink will result in clobbering the events
-            if sink_config_holder.type not in ["datahub-rest", "datahub-kafka"]:
+            sink_class = sink_registry.get(reporter_config.sink.type)
+            sink_config = reporter_config.sink.config or {}
+            sink = sink_class.create(sink_config, ctx)
+        else:
+            if not isinstance(
+                sink,
+                tuple(
+                    [
+                        kls
+                        for kls in [
+                            sink_registry.get_optional("datahub-rest"),
+                            sink_registry.get_optional("datahub-kafka"),
+                        ]
+                        if kls
+                    ]
+                ),
+            ):
                 raise IgnorableError(
-                    f"Datahub ingestion reporter will be disabled because sink type {sink_config_holder.type} is not supported"
+                    f"Datahub ingestion reporter will be disabled because sink type {type(sink)} is not supported"
                 )
 
-        sink_type = sink_config_holder.type
-        sink_class = sink_registry.get(sink_type)
-        sink_config = sink_config_holder.dict().get("config") or {}
-        if sink_type == "datahub-rest":
-            # for the rest emitter we want to use sync mode to emit
-            # regardless of the default sink config since that makes it
-            # immune to process shutdown related failures
-            sink_config["mode"] = "SYNC"
-
-        sink: Sink = sink_class.create(sink_config, ctx)
         return cls(sink, reporter_config.report_recipe, ctx)
 
     def __init__(self, sink: Sink, report_recipe: bool, ctx: PipelineContext) -> None:
@@ -151,10 +148,10 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
 
     def _get_recipe_to_report(self, ctx: PipelineContext) -> str:
         assert ctx.pipeline_config
-        if not self.report_recipe or not ctx.pipeline_config._raw_dict:
+        if not self.report_recipe or not ctx.pipeline_config.get_raw_dict():
             return ""
         else:
-            return json.dumps(redact_raw_config(ctx.pipeline_config._raw_dict))
+            return json.dumps(redact_raw_config(ctx.pipeline_config.get_raw_dict()))
 
     def _emit_aspect(self, entity_urn: Urn, aspect_value: _Aspect) -> None:
         self.sink.write_record_async(
@@ -212,7 +209,9 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             status=status,
             startTimeMs=self.start_time_ms,
             durationMs=self.get_cur_time_in_ms() - self.start_time_ms,
-            report=summary,
+            # Truncate summary such that the generated MCP will not exceed GMS's payload limit.
+            # Hardcoding the overall size of dataHubExecutionRequestResult to >1MB by trimming summary to 800,000 chars
+            report=summary[-self._MAX_SUMMARY_SIZE :],
             structuredReport=structured_report,
         )
 

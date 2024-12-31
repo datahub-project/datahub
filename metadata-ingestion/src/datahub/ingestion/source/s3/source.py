@@ -5,35 +5,17 @@ import os
 import pathlib
 import re
 import time
-from collections import OrderedDict
 from datetime import datetime
+from itertools import groupby
 from pathlib import PurePath
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import smart_open.compression as so_compression
 from more_itertools import peekable
 from pyspark.conf import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql.dataframe import DataFrame
-from pyspark.sql.types import (
-    ArrayType,
-    BinaryType,
-    BooleanType,
-    ByteType,
-    DateType,
-    DecimalType,
-    DoubleType,
-    FloatType,
-    IntegerType,
-    LongType,
-    MapType,
-    NullType,
-    ShortType,
-    StringType,
-    StructField,
-    StructType,
-    TimestampType,
-)
 from pyspark.sql.utils import AnalysisException
 from smart_open import open as smart_open
 
@@ -52,7 +34,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.s3_boto_utils import get_s3_tags, list_folders
 from datahub.ingestion.source.aws.s3_util import (
@@ -62,35 +44,31 @@ from datahub.ingestion.source.aws.s3_util import (
     strip_s3_prefix,
 )
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
+from datahub.ingestion.source.data_lake_common.path_spec import FolderTraversalMethod
 from datahub.ingestion.source.s3.config import DataLakeSourceConfig, PathSpec
 from datahub.ingestion.source.s3.report import DataLakeSourceReport
 from datahub.ingestion.source.schema_inference import avro, csv_tsv, json, parquet
+from datahub.ingestion.source.schema_inference.base import SchemaInferenceBase
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
+from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
 from datahub.metadata.com.linkedin.pegasus2avro.schema import (
-    BooleanTypeClass,
-    BytesTypeClass,
-    DateTypeClass,
-    NullTypeClass,
-    NumberTypeClass,
-    RecordTypeClass,
     SchemaField,
-    SchemaFieldDataType,
     SchemaMetadata,
     StringTypeClass,
-    TimeTypeClass,
 )
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
-    MapTypeClass,
     OperationClass,
     OperationTypeClass,
     OtherSchemaClass,
+    PartitionsSummaryClass,
+    PartitionSummaryClass,
     SchemaFieldDataTypeClass,
     _Aspect,
 )
@@ -101,54 +79,10 @@ from datahub.utilities.perf_timer import PerfTimer
 logging.getLogger("py4j").setLevel(logging.ERROR)
 logger: logging.Logger = logging.getLogger(__name__)
 
-# for a list of all types, see https://spark.apache.org/docs/3.0.3/api/python/_modules/pyspark/sql/types.html
-_field_type_mapping = {
-    NullType: NullTypeClass,
-    StringType: StringTypeClass,
-    BinaryType: BytesTypeClass,
-    BooleanType: BooleanTypeClass,
-    DateType: DateTypeClass,
-    TimestampType: TimeTypeClass,
-    DecimalType: NumberTypeClass,
-    DoubleType: NumberTypeClass,
-    FloatType: NumberTypeClass,
-    ByteType: BytesTypeClass,
-    IntegerType: NumberTypeClass,
-    LongType: NumberTypeClass,
-    ShortType: NumberTypeClass,
-    ArrayType: NullTypeClass,
-    MapType: MapTypeClass,
-    StructField: RecordTypeClass,
-    StructType: RecordTypeClass,
-}
 PAGE_SIZE = 1000
 
 # Hack to support the .gzip extension with smart_open.
 so_compression.register_compressor(".gzip", so_compression._COMPRESSOR_REGISTRY[".gz"])
-
-
-def get_column_type(
-    report: SourceReport, dataset_name: str, column_type: str
-) -> SchemaFieldDataType:
-    """
-    Maps known Spark types to datahub types
-    """
-    TypeClass: Any = None
-
-    for field_type, type_class in _field_type_mapping.items():
-        if isinstance(column_type, field_type):
-            TypeClass = type_class
-            break
-
-    # if still not found, report the warning
-    if TypeClass is None:
-        report.report_warning(
-            dataset_name, f"unable to map type {column_type} to metadata schema"
-        )
-        TypeClass = NullTypeClass
-
-    return SchemaFieldDataType(type=TypeClass())
-
 
 # config flags to emit telemetry for
 config_options_to_report = [
@@ -206,27 +140,55 @@ def partitioned_folder_comparator(folder1: str, folder2: str) -> int:
 
 
 @dataclasses.dataclass
+class Folder:
+    creation_time: datetime
+    modification_time: datetime
+    size: int
+    sample_file: str
+    partition_id: Optional[List[Tuple[str, str]]] = None
+    is_partition: bool = False
+
+    def partition_id_text(self) -> Optional[str]:
+        return (
+            "/".join([f"{k}={v}" for k, v in self.partition_id])
+            if self.partition_id
+            else None
+        )
+
+
+@dataclasses.dataclass
+class BrowsePath:
+    file: str
+    timestamp: datetime
+    size: int
+    partitions: List[Folder]
+    content_type: Optional[str] = None
+
+
+@dataclasses.dataclass
 class TableData:
     display_name: str
     is_s3: bool
     full_path: str
-    partitions: Optional[OrderedDict]
     timestamp: datetime
     table_path: str
     size_in_bytes: int
     number_of_files: int
+    partitions: Optional[List[Folder]] = None
+    max_partition: Optional[Folder] = None
+    min_partition: Optional[Folder] = None
+    content_type: Optional[str] = None
 
 
-@platform_name("S3 Data Lake", id="s3")
+@platform_name("S3 / Local Files", id="s3")
 @config_class(DataLakeSourceConfig)
 @support_status(SupportStatus.INCUBATING)
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
-@capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
 @capability(
-    SourceCapability.DELETION_DETECTION,
-    "Optionally enabled via `stateful_ingestion.remove_stale_metadata`",
-    supported=True,
+    SourceCapability.SCHEMA_METADATA, "Can infer schema from supported file types"
 )
+@capability(SourceCapability.TAGS, "Can extract S3 object/bucket tags if enabled")
 class S3Source(StatefulIngestionSourceBase):
     source_config: DataLakeSourceConfig
     report: DataLakeSourceReport
@@ -263,12 +225,14 @@ class S3Source(StatefulIngestionSourceBase):
             self.init_spark()
 
     def init_spark(self):
+        os.environ.setdefault("SPARK_VERSION", "3.5")
+        spark_version = os.environ["SPARK_VERSION"]
+
         # Importing here to avoid Deequ dependency for non profiling use cases
         # Deequ fails if Spark is not available which is not needed for non profiling use cases
         import pydeequ
 
         conf = SparkConf()
-        spark_version = os.getenv("SPARK_VERSION", "3.3")
         conf.set(
             "spark.jars.packages",
             ",".join(
@@ -377,7 +341,7 @@ class S3Source(StatefulIngestionSourceBase):
                 ignoreLeadingWhiteSpace=True,
                 ignoreTrailingWhiteSpace=True,
             )
-        elif ext.endswith(".json"):
+        elif ext.endswith(".json") or ext.endswith(".jsonl"):
             df = self.spark.read.json(file)
         elif ext.endswith(".avro"):
             try:
@@ -417,8 +381,6 @@ class S3Source(StatefulIngestionSourceBase):
             # capabilities of smart_open.
             file = smart_open(table_data.full_path, "rb")
 
-        fields = []
-
         extension = pathlib.Path(table_data.full_path).suffix
         from datahub.ingestion.source.data_lake_common.path_spec import (
             SUPPORTED_COMPRESSIONS,
@@ -430,42 +392,63 @@ class S3Source(StatefulIngestionSourceBase):
         if extension == "" and path_spec.default_extension:
             extension = f".{path_spec.default_extension}"
 
-        try:
-            if extension == ".parquet":
-                fields = parquet.ParquetInferrer().infer_schema(file)
-            elif extension == ".csv":
-                fields = csv_tsv.CsvInferrer(
-                    max_rows=self.source_config.max_rows
-                ).infer_schema(file)
-            elif extension == ".tsv":
-                fields = csv_tsv.TsvInferrer(
-                    max_rows=self.source_config.max_rows
-                ).infer_schema(file)
-            elif extension == ".json":
-                fields = json.JsonInferrer().infer_schema(file)
-            elif extension == ".avro":
-                fields = avro.AvroInferrer().infer_schema(file)
-            else:
+        fields = []
+        inferrer = self._get_inferrer(extension, table_data.content_type)
+        if inferrer:
+            try:
+                fields = inferrer.infer_schema(file)
+                logger.debug(f"Extracted fields in schema: {fields}")
+            except Exception as e:
                 self.report.report_warning(
                     table_data.full_path,
-                    f"file {table_data.full_path} has unsupported extension",
+                    f"could not infer schema for file {table_data.full_path}: {e}",
                 )
-            file.close()
-        except Exception as e:
+        else:
             self.report.report_warning(
                 table_data.full_path,
-                f"could not infer schema for file {table_data.full_path}: {e}",
+                f"file {table_data.full_path} has unsupported extension",
             )
-            file.close()
-        logger.debug(f"Extracted fields in schema: {fields}")
-        fields = sorted(fields, key=lambda f: f.fieldPath)
+        file.close()
 
-        if self.source_config.add_partition_columns_to_schema:
+        if self.source_config.sort_schema_fields:
+            fields = sorted(fields, key=lambda f: f.fieldPath)
+
+        if self.source_config.add_partition_columns_to_schema and table_data.partitions:
             self.add_partition_columns_to_schema(
                 fields=fields, path_spec=path_spec, full_path=table_data.full_path
             )
 
         return fields
+
+    def _get_inferrer(
+        self, extension: str, content_type: Optional[str]
+    ) -> Optional[SchemaInferenceBase]:
+        if content_type == "application/vnd.apache.parquet":
+            return parquet.ParquetInferrer()
+        elif content_type == "text/csv":
+            return csv_tsv.CsvInferrer(max_rows=self.source_config.max_rows)
+        elif content_type == "text/tab-separated-values":
+            return csv_tsv.TsvInferrer(max_rows=self.source_config.max_rows)
+        elif content_type == "application/json":
+            return json.JsonInferrer()
+        elif content_type == "application/avro":
+            return avro.AvroInferrer()
+        elif extension == ".parquet":
+            return parquet.ParquetInferrer()
+        elif extension == ".csv":
+            return csv_tsv.CsvInferrer(max_rows=self.source_config.max_rows)
+        elif extension == ".tsv":
+            return csv_tsv.TsvInferrer(max_rows=self.source_config.max_rows)
+        elif extension == ".jsonl":
+            return json.JsonInferrer(
+                max_rows=self.source_config.max_rows, format="jsonl"
+            )
+        elif extension == ".json":
+            return json.JsonInferrer()
+        elif extension == ".avro":
+            return avro.AvroInferrer()
+        else:
+            return None
 
     def add_partition_columns_to_schema(
         self, path_spec: PathSpec, full_path: str, fields: List[SchemaField]
@@ -475,23 +458,25 @@ class S3Source(StatefulIngestionSourceBase):
             if field.fieldPath.startswith("[version=2.0]"):
                 is_fieldpath_v2 = True
                 break
-        vars = path_spec.get_named_vars(full_path)
-        if vars is not None and "partition_key" in vars:
-            for partition_key in vars["partition_key"].values():
-                fields.append(
-                    SchemaField(
-                        fieldPath=f"{partition_key}"
+        partition_keys = path_spec.get_partition_from_path(full_path)
+        if not partition_keys:
+            return None
+
+        for partition_key in partition_keys:
+            fields.append(
+                SchemaField(
+                    fieldPath=(
+                        f"{partition_key[0]}"
                         if not is_fieldpath_v2
-                        else f"[version=2.0].[type=string].{partition_key}",
-                        nativeDataType="string",
-                        type=SchemaFieldDataType(StringTypeClass())
-                        if not is_fieldpath_v2
-                        else SchemaFieldDataTypeClass(type=StringTypeClass()),
-                        isPartitioningKey=True,
-                        nullable=True,
-                        recursive=False,
-                    )
+                        else f"[version=2.0].[type=string].{partition_key[0]}"
+                    ),
+                    nativeDataType="string",
+                    type=SchemaFieldDataTypeClass(StringTypeClass()),
+                    isPartitioningKey=True,
+                    nullable=True,
+                    recursive=False,
                 )
+            )
 
     def get_table_profile(
         self, table_data: TableData, dataset_urn: str
@@ -584,6 +569,39 @@ class S3Source(StatefulIngestionSourceBase):
 
         return operation
 
+    def __create_partition_summary_aspect(
+        self, partitions: List[Folder]
+    ) -> Optional[PartitionsSummaryClass]:
+        min_partition = min(partitions, key=lambda x: x.creation_time)
+        max_partition = max(partitions, key=lambda x: x.creation_time)
+
+        max_partition_summary: Optional[PartitionSummaryClass] = None
+
+        max_partition_id = max_partition.partition_id_text()
+        if max_partition_id is not None:
+            max_partition_summary = PartitionSummaryClass(
+                partition=max_partition_id,
+                createdTime=int(max_partition.creation_time.timestamp() * 1000),
+                lastModifiedTime=int(
+                    max_partition.modification_time.timestamp() * 1000
+                ),
+            )
+
+        min_partition_summary: Optional[PartitionSummaryClass] = None
+        min_partition_id = min_partition.partition_id_text()
+        if min_partition_id is not None:
+            min_partition_summary = PartitionSummaryClass(
+                partition=min_partition_id,
+                createdTime=int(min_partition.creation_time.timestamp() * 1000),
+                lastModifiedTime=int(
+                    min_partition.modification_time.timestamp() * 1000
+                ),
+            )
+
+        return PartitionsSummaryClass(
+            maxPartition=max_partition_summary, minPartition=min_partition_summary
+        )
+
     def ingest_table(
         self, table_data: TableData, path_spec: PathSpec
     ) -> Iterable[MetadataWorkUnit]:
@@ -616,6 +634,12 @@ class S3Source(StatefulIngestionSourceBase):
 
         customProperties = {"schema_inferred_from": str(table_data.full_path)}
 
+        min_partition: Optional[Folder] = None
+        max_partition: Optional[Folder] = None
+        if table_data.partitions:
+            min_partition = min(table_data.partitions, key=lambda x: x.creation_time)
+            max_partition = max(table_data.partitions, key=lambda x: x.creation_time)
+
         if not path_spec.sample_files:
             customProperties.update(
                 {
@@ -623,11 +647,30 @@ class S3Source(StatefulIngestionSourceBase):
                     "size_in_bytes": str(table_data.size_in_bytes),
                 }
             )
+        else:
+            if table_data.partitions:
+                customProperties.update(
+                    {
+                        "number_of_partitions": str(
+                            len(table_data.partitions) if table_data.partitions else 0
+                        ),
+                    }
+                )
 
         dataset_properties = DatasetPropertiesClass(
             description="",
             name=table_data.display_name,
             customProperties=customProperties,
+            created=(
+                TimeStamp(time=int(min_partition.creation_time.timestamp() * 1000))
+                if min_partition
+                else None
+            ),
+            lastModified=(
+                TimeStamp(time=int(max_partition.modification_time.timestamp() * 1000))
+                if max_partition
+                else None
+            ),
         )
         aspects.append(dataset_properties)
         if table_data.size_in_bytes > 0:
@@ -676,6 +719,12 @@ class S3Source(StatefulIngestionSourceBase):
 
         operation = self._create_table_operation_aspect(table_data)
         aspects.append(operation)
+
+        if table_data.partitions and self.source_config.generate_partition_aspects:
+            aspects.append(
+                self.__create_partition_summary_aspect(table_data.partitions)
+            )
+
         for mcp in MetadataChangeProposalWrapper.construct_many(
             entityUrn=dataset_urn,
             aspects=aspects,
@@ -702,22 +751,36 @@ class S3Source(StatefulIngestionSourceBase):
         return path_spec.table_name.format_map(named_vars)
 
     def extract_table_data(
-        self, path_spec: PathSpec, path: str, timestamp: datetime, size: int
+        self,
+        path_spec: PathSpec,
+        browse_path: BrowsePath,
     ) -> TableData:
+        path = browse_path.file
+        partitions = browse_path.partitions
         logger.debug(f"Getting table data for path: {path}")
         table_name, table_path = path_spec.extract_table_name_and_path(path)
-        table_data = None
-        table_data = TableData(
+        return TableData(
             display_name=table_name,
             is_s3=self.is_s3_platform(),
             full_path=path,
-            partitions=None,
-            timestamp=timestamp,
+            partitions=partitions,
+            max_partition=partitions[-1] if partitions else None,
+            min_partition=partitions[0] if partitions else None,
+            timestamp=browse_path.timestamp,
             table_path=table_path,
             number_of_files=1,
-            size_in_bytes=size,
+            size_in_bytes=(
+                browse_path.size
+                if browse_path.size
+                else sum(
+                    [
+                        partition.size if partition.size else 0
+                        for partition in partitions
+                    ]
+                )
+            ),
+            content_type=browse_path.content_type,
         )
-        return table_data
 
     def resolve_templated_folders(self, bucket_name: str, prefix: str) -> Iterable[str]:
         folder_split: List[str] = prefix.split("*", 1)
@@ -735,8 +798,16 @@ class S3Source(StatefulIngestionSourceBase):
             )
 
     def get_dir_to_process(
-        self, bucket_name: str, folder: str, path_spec: PathSpec, protocol: str
-    ) -> str:
+        self,
+        bucket_name: str,
+        folder: str,
+        path_spec: PathSpec,
+        protocol: str,
+        min: bool = False,
+    ) -> List[str]:
+        # if len(path_spec.include.split("/")) == len(f"{protocol}{bucket_name}/{folder}".split("/")):
+        #    return [f"{protocol}{bucket_name}/{folder}"]
+
         iterator = list_folders(
             bucket_name=bucket_name,
             prefix=folder,
@@ -747,23 +818,102 @@ class S3Source(StatefulIngestionSourceBase):
             sorted_dirs = sorted(
                 iterator,
                 key=functools.cmp_to_key(partitioned_folder_comparator),
-                reverse=True,
+                reverse=not min,
             )
+            folders = []
             for dir in sorted_dirs:
                 if path_spec.dir_allowed(f"{protocol}{bucket_name}/{dir}/"):
-                    return self.get_dir_to_process(
+                    folders_list = self.get_dir_to_process(
                         bucket_name=bucket_name,
                         folder=dir + "/",
                         path_spec=path_spec,
                         protocol=protocol,
+                        min=min,
                     )
-            return folder
-        else:
-            return folder
+                    folders.extend(folders_list)
+                    if not path_spec.traversal_method == FolderTraversalMethod.ALL:
+                        return folders
+            if folders:
+                return folders
+            else:
+                return [f"{protocol}{bucket_name}/{folder}"]
+        return [f"{protocol}{bucket_name}/{folder}"]
 
-    def s3_browser(
-        self, path_spec: PathSpec, sample_size: int
-    ) -> Iterable[Tuple[str, datetime, int]]:
+    def get_folder_info(
+        self,
+        path_spec: PathSpec,
+        bucket: Any,  # Todo: proper type
+        prefix: str,
+    ) -> List[Folder]:
+        """
+        Retrieves all the folders in a path by listing all the files in the prefix.
+        If the prefix is a full path then only that folder will be extracted.
+
+        A folder has creation and modification times, size, and a sample file path.
+        - Creation time is the earliest creation time of all files in the folder.
+        - Modification time is the latest modification time of all files in the folder.
+        - Size is the sum of all file sizes in the folder.
+        - Sample file path is used for schema inference later. (sample file is the latest created file in the folder)
+
+        Parameters:
+        path_spec (PathSpec): The path specification used to determine partitioning.
+        bucket (Any): The S3 bucket object.
+        prefix (str): The prefix path in the S3 bucket to list objects from.
+
+        Returns:
+        List[Folder]: A list of Folder objects representing the partitions found.
+        """
+
+        prefix_to_list = prefix
+        files = list(
+            bucket.objects.filter(Prefix=f"{prefix_to_list}").page_size(PAGE_SIZE)
+        )
+        files = sorted(files, key=lambda a: a.last_modified)
+        grouped_files = groupby(files, lambda x: x.key.rsplit("/", 1)[0])
+
+        partitions: List[Folder] = []
+        for key, group in grouped_files:
+            file_size = 0
+            creation_time = None
+            modification_time = None
+
+            for item in group:
+                file_path = self.create_s3_path(item.bucket_name, item.key)
+                if not path_spec.allowed(file_path):
+                    logger.debug(f"File {file_path} not allowed and skipping")
+                    continue
+                file_size += item.size
+                if creation_time is None or item.last_modified < creation_time:
+                    creation_time = item.last_modified
+                if modification_time is None or item.last_modified > modification_time:
+                    modification_time = item.last_modified
+                    max_file = item
+
+            if modification_time is None:
+                logger.warning(
+                    f"Unable to find any files in the folder {key}. Skipping..."
+                )
+                continue
+
+            id = path_spec.get_partition_from_path(
+                self.create_s3_path(max_file.bucket_name, max_file.key)
+            )
+
+            # If id is None, it means the folder is not a partition
+            partitions.append(
+                Folder(
+                    partition_id=id,
+                    is_partition=bool(id),
+                    creation_time=creation_time if creation_time else None,
+                    modification_time=modification_time,
+                    sample_file=self.create_s3_path(max_file.bucket_name, max_file.key),
+                    size=file_size,
+                )
+            )
+
+        return partitions
+
+    def s3_browser(self, path_spec: PathSpec, sample_size: int) -> Iterable[BrowsePath]:
         if self.source_config.aws_config is None:
             raise ValueError("aws_config not set. Cannot browse s3")
         s3 = self.source_config.aws_config.get_s3_resource(
@@ -795,6 +945,9 @@ class S3Source(StatefulIngestionSourceBase):
                         include = include.replace(max_match, "*")
                     max_start = match.start()
                     max_match = match.group()
+                    # We stop at {table}
+                    if max_match == "{table}":
+                        break
 
             table_index = include.find(max_match)
             for folder in self.resolve_templated_folders(
@@ -804,24 +957,67 @@ class S3Source(StatefulIngestionSourceBase):
                     for f in list_folders(
                         bucket_name, f"{folder}", self.source_config.aws_config
                     ):
+                        dirs_to_process = []
                         logger.info(f"Processing folder: {f}")
-                        protocol = ContainerWUCreator.get_protocol(path_spec.include)
-                        dir_to_process = self.get_dir_to_process(
-                            bucket_name=bucket_name,
-                            folder=f + "/",
-                            path_spec=path_spec,
-                            protocol=protocol,
+                        if path_spec.traversal_method == FolderTraversalMethod.ALL:
+                            dirs_to_process.append(f)
+                        else:
+                            if (
+                                path_spec.traversal_method
+                                == FolderTraversalMethod.MIN_MAX
+                                or path_spec.traversal_method
+                                == FolderTraversalMethod.MAX
+                            ):
+                                protocol = ContainerWUCreator.get_protocol(
+                                    path_spec.include
+                                )
+                                dirs_to_process_max = self.get_dir_to_process(
+                                    bucket_name=bucket_name,
+                                    folder=f + "/",
+                                    path_spec=path_spec,
+                                    protocol=protocol,
+                                )
+                                dirs_to_process.append(dirs_to_process_max[0])
+
+                            if (
+                                path_spec.traversal_method
+                                == FolderTraversalMethod.MIN_MAX
+                            ):
+                                dirs_to_process_min = self.get_dir_to_process(
+                                    bucket_name=bucket_name,
+                                    folder=f + "/",
+                                    path_spec=path_spec,
+                                    protocol=protocol,
+                                    min=True,
+                                )
+                                dirs_to_process.append(dirs_to_process_min[0])
+                        folders = []
+                        for dir in dirs_to_process:
+                            logger.info(f"Getting files from folder: {dir}")
+                            prefix_to_process = urlparse(dir).path.lstrip("/")
+
+                            folders.extend(
+                                self.get_folder_info(
+                                    path_spec, bucket, prefix_to_process
+                                )
+                            )
+                        max_folder = None
+                        if folders:
+                            max_folder = max(folders, key=lambda x: x.modification_time)
+                        if not max_folder:
+                            logger.warning(
+                                f"Unable to find any files in the folder {dir}. Skipping..."
+                            )
+                            continue
+
+                        partitions = list(filter(lambda x: x.is_partition, folders))
+                        yield BrowsePath(
+                            file=max_folder.sample_file,
+                            timestamp=max_folder.modification_time,
+                            size=max_folder.size,
+                            partitions=partitions,
+                            # TODO: Support content type inference for partitions
                         )
-                        logger.info(f"Getting files from folder: {dir_to_process}")
-                        dir_to_process = dir_to_process.rstrip("\\")
-                        for obj in (
-                            bucket.objects.filter(Prefix=f"{dir_to_process}")
-                            .page_size(PAGE_SIZE)
-                            .limit(sample_size)
-                        ):
-                            s3_path = self.create_s3_path(obj.bucket_name, obj.key)
-                            logger.debug(f"Sampling file: {s3_path}")
-                            yield s3_path, obj.last_modified, obj.size,
                 except Exception as e:
                     # This odd check if being done because boto does not have a proper exception to catch
                     # The exception that appears in stacktrace cannot actually be caught without a lot more work
@@ -841,18 +1037,32 @@ class S3Source(StatefulIngestionSourceBase):
             for obj in bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE):
                 s3_path = self.create_s3_path(obj.bucket_name, obj.key)
                 logger.debug(f"Path: {s3_path}")
-                yield s3_path, obj.last_modified, obj.size,
+
+                content_type = None
+                if self.source_config.use_s3_content_type:
+                    content_type = s3.Object(obj.bucket_name, obj.key).content_type
+
+                yield BrowsePath(
+                    file=s3_path,
+                    timestamp=obj.last_modified,
+                    size=obj.size,
+                    partitions=[],
+                    content_type=content_type,
+                )
 
     def create_s3_path(self, bucket_name: str, key: str) -> str:
         return f"s3://{bucket_name}/{key}"
 
-    def local_browser(self, path_spec: PathSpec) -> Iterable[Tuple[str, datetime, int]]:
+    def local_browser(self, path_spec: PathSpec) -> Iterable[BrowsePath]:
         prefix = self.get_prefix(path_spec.include)
         if os.path.isfile(prefix):
             logger.debug(f"Scanning single local file: {prefix}")
-            yield prefix, datetime.utcfromtimestamp(
-                os.path.getmtime(prefix)
-            ), os.path.getsize(prefix)
+            yield BrowsePath(
+                file=prefix,
+                timestamp=datetime.utcfromtimestamp(os.path.getmtime(prefix)),
+                size=os.path.getsize(prefix),
+                partitions=[],
+            )
         else:
             logger.debug(f"Scanning files under local folder: {prefix}")
             for root, dirs, files in os.walk(prefix):
@@ -863,9 +1073,14 @@ class S3Source(StatefulIngestionSourceBase):
                     full_path = PurePath(
                         os.path.normpath(os.path.join(root, file))
                     ).as_posix()
-                    yield full_path, datetime.utcfromtimestamp(
-                        os.path.getmtime(full_path)
-                    ), os.path.getsize(full_path)
+                    yield BrowsePath(
+                        file=full_path,
+                        timestamp=datetime.utcfromtimestamp(
+                            os.path.getmtime(full_path)
+                        ),
+                        size=os.path.getsize(full_path),
+                        partitions=[],
+                    )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.container_WU_creator = ContainerWUCreator(
@@ -884,12 +1099,14 @@ class S3Source(StatefulIngestionSourceBase):
                     else self.local_browser(path_spec)
                 )
                 table_dict: Dict[str, TableData] = {}
-                for file, timestamp, size in file_browser:
-                    if not path_spec.allowed(file):
+                for browse_path in file_browser:
+                    if not path_spec.allowed(
+                        browse_path.file,
+                        ignore_ext=self.is_s3_platform()
+                        and self.source_config.use_s3_content_type,
+                    ):
                         continue
-                    table_data = self.extract_table_data(
-                        path_spec, file, timestamp, size
-                    )
+                    table_data = self.extract_table_data(path_spec, browse_path)
                     if table_data.table_path not in table_dict:
                         table_dict[table_data.table_path] = table_data
                     else:

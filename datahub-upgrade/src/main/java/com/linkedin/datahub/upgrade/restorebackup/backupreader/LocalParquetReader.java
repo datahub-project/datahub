@@ -14,10 +14,7 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.parquet.avro.AvroParquetReader;
 import org.apache.parquet.hadoop.ParquetReader;
 
-
-/**
- * BackupReader for retrieving EbeanAspectV2 objects from a local parquet file
- */
+/** BackupReader for retrieving EbeanAspectV2 objects from a local parquet file */
 @Slf4j
 public class LocalParquetReader implements BackupReader<ParquetReaderWrapper> {
 
@@ -46,14 +43,18 @@ public class LocalParquetReader implements BackupReader<ParquetReaderWrapper> {
   public EbeanAspectBackupIterator<ParquetReaderWrapper> getBackupIterator(UpgradeContext context) {
     Optional<String> path = context.parsedArgs().get("BACKUP_FILE_PATH");
     if (!path.isPresent()) {
-      context.report().addLine("BACKUP_FILE_PATH must be set to run RestoreBackup through local parquet file");
+      context
+          .report()
+          .addLine("BACKUP_FILE_PATH must be set to run RestoreBackup through local parquet file");
       throw new IllegalArgumentException(
           "BACKUP_FILE_PATH must be set to run RestoreBackup through local parquet file");
     }
 
     try {
-      ParquetReader<GenericRecord> reader = AvroParquetReader.<GenericRecord>builder(new Path(path.get())).build();
-      return new EbeanAspectBackupIterator<>(ImmutableList.of(new ParquetReaderWrapper(reader, path.get())));
+      ParquetReader<GenericRecord> reader =
+          AvroParquetReader.<GenericRecord>builder(new Path(path.get())).build();
+      return new EbeanAspectBackupIterator<>(
+          ImmutableList.of(new ParquetReaderWrapper(reader, path.get())));
     } catch (IOException e) {
       throw new RuntimeException(String.format("Failed to build ParquetReader: %s", e));
     }

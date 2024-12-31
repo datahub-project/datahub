@@ -1,0 +1,433 @@
+#################################
+# Common Environment Variables
+#################################
+x-primary-datastore-mysql-env: &primary-datastore-mysql-env
+  EBEAN_DATASOURCE_HOST: mysql:3306
+  EBEAN_DATASOURCE_URL: 'jdbc:mysql://mysql:3306/datahub?verifyServerCertificate=false&useSSL=true&useUnicode=yes&characterEncoding=UTF-8&enabledTLSProtocols=TLSv1.2'
+  EBEAN_DATASOURCE_DRIVER: com.mysql.jdbc.Driver
+
+x-primary-datastore-postgres-env: &primary-datastore-postgres-env
+  EBEAN_DATASOURCE_HOST: postgres:5432
+  EBEAN_DATASOURCE_URL: 'jdbc:postgresql://postgres:5432/datahub'
+  EBEAN_DATASOURCE_DRIVER: org.postgresql.Driver
+  EBEAN_POSTGRES_USE_AWS_IAM_AUTH: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:-false}
+
+x-primary-datastore-cassandra-env: &primary-datastore-cassandra-env
+  CASSANDRA_DATASOURCE_USERNAME: cassandra
+  CASSANDRA_DATASOURCE_PASSWORD: cassandra
+  CASSANDRA_HOSTS: cassandra
+  CASSANDRA_PORT: 9042
+  CASSANDRA_DATASOURCE_HOST: 'cassandra:9042'
+  ENTITY_SERVICE_IMPL: cassandra
+
+x-graph-datastore-neo4j-env: &graph-datastore-neo4j-env
+  GRAPH_SERVICE_IMPL: neo4j
+  NEO4J_HOST: 'http://neo4j:7474'
+  NEO4J_URI: 'bolt://neo4j'
+  NEO4J_USERNAME: neo4j
+  NEO4J_PASSWORD: datahub
+x-graph-datastore-search-env: &graph-datastore-search-env
+  GRAPH_SERVICE_IMPL: elasticsearch
+
+x-search-datastore-elasticsearch-env: &search-datastore-env
+  ELASTICSEARCH_HOST: search
+  ELASTICSEARCH_PORT: 9200
+  ELASTICSEARCH_PROTOCOL: http
+  ELASTICSEARCH_USE_SSL: ${ELASTICSEARCH_USE_SSL:-false}
+
+x-kafka-env: &kafka-env
+  KAFKA_BOOTSTRAP_SERVER: broker:29092
+  # KAFKA_SCHEMAREGISTRY_URL=http://schema-registry:8081
+  SCHEMA_REGISTRY_TYPE: INTERNAL
+  KAFKA_SCHEMAREGISTRY_URL: http://datahub-gms:8080/schema-registry/api/
+
+x-datahub-quickstart-telemetry-env: &datahub-quickstart-telemetry-env
+  DATAHUB_SERVER_TYPE: ${DATAHUB_SERVER_TYPE:-quickstart}
+  DATAHUB_TELEMETRY_ENABLED: ${DATAHUB_TELEMETRY_ENABLED:-true}
+
+x-datahub-dev-telemetry-env: &datahub-dev-telemetry-env
+  DATAHUB_SERVER_TYPE: ${DATAHUB_SERVER_TYPE:-dev}
+  DATAHUB_TELEMETRY_ENABLED: ${DATAHUB_TELEMETRY_ENABLED:-true}
+
+#################################
+# System Update
+#################################
+x-datahub-system-update-service: &datahub-system-update-service
+  hostname: datahub-system-update
+  image: ${DATAHUB_UPGRADE_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-upgrade}:${DATAHUB_VERSION:-head}
+  command:
+    - -u
+    - SystemUpdate
+  env_file:
+    - datahub-upgrade/env/docker.env
+    - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_SYS_UPDATE_ENV:-empty2.env}
+  environment: &datahub-system-update-env
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env]
+    SCHEMA_REGISTRY_SYSTEM_UPDATE: ${SCHEMA_REGISTRY_SYSTEM_UPDATE:-true}
+    SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS: ${SPRING_KAFKA_PROPERTIES_AUTO_REGISTER_SCHEMAS:-true}
+    SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION: ${SPRING_KAFKA_PROPERTIES_USE_LATEST_VERSION:-true}
+  volumes:
+    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+
+x-datahub-system-update-service-dev: &datahub-system-update-service-dev
+  <<: *datahub-system-update-service
+  image: ${DATAHUB_UPGRADE_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-upgrade}:${DATAHUB_VERSION:-debug}
+  ports:
+    - ${DATAHUB_MAPPED_UPGRADE_DEBUG_PORT:-5003}:5003
+  environment: &datahub-system-update-dev-env
+    <<: [*datahub-dev-telemetry-env, *datahub-system-update-env]
+    SKIP_ELASTICSEARCH_CHECK: false
+    REPROCESS_DEFAULT_BROWSE_PATHS_V2: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:-false}
+    JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5003'
+  volumes:
+    - ../../datahub-upgrade/build/libs/:/datahub/datahub-upgrade/bin/
+    - ../../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
+    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+
+#################################
+# GMS
+#################################
+x-datahub-gms-service: &datahub-gms-service
+  hostname: datahub-gms
+  image: ${DATAHUB_GMS_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-gms}:${DATAHUB_VERSION:-head}
+  ports:
+    - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
+  env_file:
+    - datahub-gms/env/docker.env
+    - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_GMS_ENV:-empty2.env}
+  environment: &datahub-gms-env
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
+    ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
+    STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
+  healthcheck:
+    test: curl -sS --fail http://datahub-gms:${DATAHUB_GMS_PORT:-8080}/health
+    start_period: 90s
+    interval: 1s
+    retries: 3
+    timeout: 5s
+  volumes:
+    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ${HOME}/.datahub/search:/etc/datahub/search
+  labels:
+    io.datahubproject.datahub.component: "gms"
+
+x-datahub-gms-service-dev: &datahub-gms-service-dev
+  <<: *datahub-gms-service
+  image: ${DATAHUB_GMS_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-gms}:${DATAHUB_VERSION:-debug}
+  ports:
+    - ${DATAHUB_MAPPED_GMS_DEBUG_PORT:-5001}:5001
+    - ${DATAHUB_MAPPED_GMS_PORT:-8080}:8080
+  env_file:
+    - datahub-gms/env/docker.env
+    - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_GMS_ENV:-empty2.env}
+  environment: &datahub-gms-dev-env
+    <<: [*datahub-dev-telemetry-env, *datahub-gms-env]
+    SKIP_ELASTICSEARCH_CHECK: false
+    JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5001'
+    BOOTSTRAP_SYSTEM_UPDATE_WAIT_FOR_SYSTEM_UPDATE: false
+    SEARCH_SERVICE_ENABLE_CACHE: false
+    LINEAGE_SEARCH_CACHE_ENABLED: false
+    SHOW_BROWSE_V2: true
+  volumes:
+    - ./datahub-gms/start.sh:/datahub/datahub-gms/scripts/start.sh
+    - ./datahub-gms/jetty.xml:/datahub/datahub-gms/scripts/jetty.xml
+    - ./datahub-gms/jetty-jmx.xml:/datahub/datahub-gms/scripts/jetty-jmx.xml
+    - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-gms/scripts/prometheus-config.yaml
+    - ../../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
+    - ../../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
+    - ${HOME}/.datahub/plugins:/etc/datahub/plugins
+    - ${HOME}/.datahub/search:/etc/datahub/search
+
+#################################
+# MAE Consumer
+#################################
+x-datahub-mae-consumer-service: &datahub-mae-consumer-service
+  hostname: datahub-mae-consumer
+  image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mae-consumer}:${DATAHUB_VERSION:-head}
+  ports:
+    - 9091:9091
+  env_file:
+    - datahub-mae-consumer/env/docker.env
+    - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_MAE_ENV:-empty2.env}
+  environment: &datahub-mae-consumer-env
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *kafka-env]
+
+x-datahub-mae-consumer-service-dev: &datahub-mae-consumer-service-dev
+  <<: *datahub-mae-consumer-service
+  image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mae-consumer}:${DATAHUB_VERSION:-debug}
+  environment:
+    <<: [*datahub-dev-telemetry-env, *datahub-mae-consumer-env]
+  volumes:
+    - ./datahub-mae-consumer/start.sh:/datahub/datahub-mae-consumer/scripts/start.sh
+    - ../../metadata-models/src/main/resources/:/datahub/datahub-mae-consumer/resources
+    - ../../metadata-jobs/mae-consumer-job/build/libs/:/datahub/datahub-mae-consumer/bin/
+    - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-mae-consumer/scripts/prometheus-config.yaml
+
+#################################
+# MCE Consumer
+#################################
+x-datahub-mce-consumer-service: &datahub-mce-consumer-service
+  hostname: datahub-mce-consumer
+  image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_VERSION:-head}
+  ports:
+    - 9090:9090
+  env_file:
+    - datahub-mce-consumer/env/docker.env
+    - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
+    - ${DATAHUB_LOCAL_MCE_ENV:-empty2.env}
+  environment: &datahub-mce-consumer-env
+    <<: [*primary-datastore-mysql-env, *graph-datastore-search-env, *search-datastore-env, *datahub-quickstart-telemetry-env, *kafka-env]
+    ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
+    STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
+
+x-datahub-mce-consumer-service-dev: &datahub-mce-consumer-service-dev
+  <<: *datahub-mce-consumer-service
+  image: ${DATAHUB_MCE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mce-consumer}:${DATAHUB_VERSION:-debug}
+  environment:
+    <<: [*datahub-dev-telemetry-env, *datahub-mce-consumer-env]
+  volumes:
+    - ./datahub-mce-consumer/start.sh:/datahub/datahub-mce-consumer/scripts/start.sh
+    - ../../metadata-jobs/mce-consumer-job/build/libs/:/datahub/datahub-mce-consumer/bin
+    - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-mce-consumer/scripts/prometheus-config.yaml
+
+services:
+  #################################
+  # System Update
+  #################################
+  system-update-quickstart:
+    <<: *datahub-system-update-service
+    profiles:
+      - quickstart
+      - quickstart-storage
+      - quickstart-consumers
+      - quickstart-frontend
+      - quickstart-backend
+    depends_on:
+      mysql-setup:
+        condition: service_completed_successfully
+      opensearch-setup:
+        condition: service_completed_successfully
+      kafka-setup:
+        condition: service_completed_successfully
+  system-update-quickstart-cassandra:
+    <<: *datahub-system-update-service
+    profiles:
+      - quickstart-cassandra
+    environment:
+      <<: [*primary-datastore-cassandra-env, *graph-datastore-neo4j-env, *datahub-system-update-env]
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      cassandra-setup:
+        condition: service_completed_successfully
+      opensearch-setup:
+        condition: service_completed_successfully
+      kafka-setup:
+        condition: service_completed_successfully
+  system-update-quickstart-postgres:
+    <<: *datahub-system-update-service
+    profiles:
+      - quickstart-postgres
+    environment:
+      <<: [*primary-datastore-postgres-env, *datahub-system-update-env]
+    depends_on:
+      postgres-setup:
+        condition: service_completed_successfully
+      opensearch-setup:
+        condition: service_completed_successfully
+      kafka-setup:
+        condition: service_completed_successfully
+  system-update-debug:
+    <<: *datahub-system-update-service-dev
+    profiles:
+      - debug
+      - debug-backend
+      - debug-consumers
+    depends_on:
+      mysql-setup-dev:
+        condition: service_completed_successfully
+      opensearch-setup-dev:
+        condition: service_completed_successfully
+      kafka-setup-dev:
+        condition: service_completed_successfully
+  system-update-debug-elasticsearch:
+    <<: *datahub-system-update-service-dev
+    profiles:
+      - debug-elasticsearch
+    depends_on:
+      mysql-setup-dev:
+        condition: service_completed_successfully
+      elasticsearch-setup-dev:
+        condition: service_completed_successfully
+      kafka-setup-dev:
+        condition: service_completed_successfully
+  system-update-debug-postgres:
+    <<: *datahub-system-update-service-dev
+    profiles:
+      - debug-postgres
+    environment:
+      <<: [*primary-datastore-postgres-env, *datahub-system-update-dev-env]
+    depends_on:
+      postgres-setup-dev:
+        condition: service_completed_successfully
+      opensearch-setup-dev:
+        condition: service_completed_successfully
+      kafka-setup-dev:
+        condition: service_completed_successfully
+  system-update-debug-cassandra:
+    <<: *datahub-system-update-service-dev
+    profiles:
+      - debug-cassandra
+    environment:
+      <<: [*primary-datastore-cassandra-env, *datahub-system-update-dev-env]
+    depends_on:
+      cassandra-setup:
+        condition: service_completed_successfully
+      opensearch-setup-dev:
+        condition: service_completed_successfully
+      kafka-setup-dev:
+        condition: service_completed_successfully
+  system-update-debug-neo4j:
+    <<: *datahub-system-update-service-dev
+    profiles:
+      - debug-neo4j
+    environment:
+      <<: [*graph-datastore-neo4j-env, *datahub-system-update-dev-env]
+    depends_on:
+      neo4j:
+        condition: service_healthy
+      opensearch-setup-dev:
+        condition: service_completed_successfully
+      kafka-setup-dev:
+        condition: service_completed_successfully
+  #################################
+  # GMS
+  #################################
+  datahub-gms-quickstart:
+    <<: *datahub-gms-service
+    profiles:
+      - quickstart
+      - quickstart-backend
+    depends_on:
+      system-update-quickstart:
+        condition: service_completed_successfully
+  datahub-gms-quickstart-cassandra:
+    <<: *datahub-gms-service
+    profiles:
+      - quickstart-cassandra
+    environment:
+      <<: [*primary-datastore-cassandra-env, *graph-datastore-neo4j-env, *datahub-gms-env]
+    depends_on:
+      system-update-quickstart-cassandra:
+        condition: service_completed_successfully
+  datahub-gms-quickstart-postgres:
+    <<: *datahub-gms-service
+    profiles:
+      - quickstart-postgres
+    environment:
+      <<: [*primary-datastore-postgres-env, *datahub-gms-env]
+    depends_on:
+      system-update-quickstart-postgres:
+        condition: service_completed_successfully
+  datahub-gms-quickstart-consumers:
+    <<: *datahub-gms-service
+    profiles:
+      - quickstart-consumers
+    environment:
+      <<: *datahub-gms-env
+      MAE_CONSUMER_ENABLED: false
+      MCE_CONSUMER_ENABLED: false
+    depends_on:
+      system-update-quickstart:
+        condition: service_completed_successfully
+  datahub-gms-debug:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug
+      - debug-backend
+    depends_on:
+      system-update-debug:
+        condition: service_completed_successfully
+  datahub-gms-debug-postgres:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug-postgres
+    environment:
+      <<: [*primary-datastore-postgres-env, *datahub-gms-dev-env]
+    depends_on:
+      system-update-debug-postgres:
+        condition: service_completed_successfully
+  datahub-gms-debug-cassandra:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug-cassandra
+    environment:
+      <<: [*primary-datastore-cassandra-env, *datahub-gms-dev-env]
+    depends_on:
+      system-update-debug-cassandra:
+        condition: service_completed_successfully
+  datahub-gms-debug-consumers:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug-consumers
+    environment:
+      <<: *datahub-gms-dev-env
+      MAE_CONSUMER_ENABLED: false
+      MCE_CONSUMER_ENABLED: false
+    depends_on:
+      system-update-debug:
+        condition: service_completed_successfully
+  datahub-gms-debug-neo4j:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug-neo4j
+    environment:
+      <<: [*graph-datastore-neo4j-env, *datahub-gms-dev-env]
+    depends_on:
+      system-update-debug-neo4j:
+        condition: service_completed_successfully
+  datahub-gms-debug-elasticsearch:
+    <<: *datahub-gms-service-dev
+    profiles:
+      - debug-elasticsearch
+    depends_on:
+      system-update-debug-elasticsearch:
+        condition: service_completed_successfully
+  #################################
+  # MAE Consumer
+  #################################
+  datahub-mae-consumer-quickstart-consumers:
+    <<: *datahub-mae-consumer-service
+    profiles:
+      - quickstart-consumers
+    depends_on:
+      datahub-gms-quickstart-consumers:
+        condition: service_healthy
+  datahub-mae-consumer-quickstart-consumers-dev:
+    <<: *datahub-mae-consumer-service-dev
+    profiles:
+      - debug-consumers
+    depends_on:
+      datahub-gms-debug-consumers:
+        condition: service_healthy
+  #################################
+  # MCE Consumer
+  #################################
+  datahub-mce-consumer-quickstart-consumers:
+    <<: *datahub-mce-consumer-service
+    profiles:
+      - quickstart-consumers
+    depends_on:
+      datahub-gms-quickstart-consumers:
+        condition: service_healthy
+  datahub-mce-consumer-quickstart-consumers-dev:
+    <<: *datahub-mce-consumer-service-dev
+    profiles:
+      - debug-consumers
+    depends_on:
+      datahub-gms-debug-consumers:
+        condition: service_healthy

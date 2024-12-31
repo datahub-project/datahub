@@ -1,4 +1,9 @@
-apply plugin: 'java-library'
+plugins {
+  id 'java-library'
+  id 'pegasus'
+}
+
+apply from: '../gradle/coverage/java-coverage.gradle'
 
 dependencies {
   api externalDependency.avro

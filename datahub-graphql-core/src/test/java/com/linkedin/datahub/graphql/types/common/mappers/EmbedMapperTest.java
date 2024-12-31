@@ -8,7 +8,8 @@ public class EmbedMapperTest {
   @Test
   public void testEmbedMapper() throws Exception {
     final String renderUrl = "https://www.google.com";
-    final Embed result = EmbedMapper.map(new com.linkedin.common.Embed().setRenderUrl(renderUrl));
+    final Embed result =
+        EmbedMapper.map(null, new com.linkedin.common.Embed().setRenderUrl(renderUrl));
     Assert.assertEquals(result.getRenderUrl(), renderUrl);
   }
 }

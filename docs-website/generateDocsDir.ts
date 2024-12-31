@@ -125,7 +125,6 @@ function list_markdown_files(): string[] {
     /^docker\/(?!README|datahub-upgrade|airflow\/local_airflow)/, // Drop all but a few docker docs.
     /^docs\/docker\/README\.md/, // This one is just a pointer to another file.
     /^docs\/README\.md/, // This one is just a pointer to the hosted docs site.
-    /^SECURITY\.md$/,
     /^\s*$/, //Empty string
   ];
 
@@ -177,7 +176,7 @@ const hardcoded_titles = {
   "docs/actions/README.md": "Introduction",
   "docs/actions/concepts.md": "Concepts",
   "docs/actions/quickstart.md": "Quickstart",
-  "docs/saas.md": "Managed DataHub",
+  "docs/saas.md": "DataHub Cloud",
 };
 // titles that have been hardcoded in sidebars.js
 // (for cases where doc is reference multiple times with different titles)
@@ -285,6 +284,10 @@ function markdown_add_slug(
 //   );
 // }
 
+function trim_anchor_link(url: string): string {
+  return url.replace(/#.+$/, "");
+}
+
 function new_url(original: string, filepath: string): string {
   if (original.toLowerCase().startsWith(HOSTED_SITE_URL)) {
     // For absolute links to the hosted docs site, we transform them into local ones.
@@ -314,7 +317,7 @@ function new_url(original: string, filepath: string): string {
   }
 
   // Now we assume this is a local reference.
-  const suffix = path.extname(original);
+  const suffix = path.extname(trim_anchor_link(original));
   if (
     suffix == "" ||
     [
@@ -336,7 +339,7 @@ function new_url(original: string, filepath: string): string {
     // A reference to a file or directory in the Github repo.
     const relation = path.dirname(filepath);
     const updated_path = path.normalize(`${relation}/${original}`);
-    const check_path = updated_path.replace(/#.+$/, "");
+    const check_path = trim_anchor_link(updated_path);
     if (
       !fs.existsSync(`../${check_path}`) &&
       actually_in_sidebar(filepath) &&
@@ -570,23 +573,20 @@ function write_markdown_file(
 
 function copy_python_wheels(): void {
   // Copy the built wheel files to the static directory.
-  const wheel_dirs = [
-    "../metadata-ingestion/dist",
-    "../metadata-ingestion-modules/airflow-plugin/dist",
-  ];
+  // Everything is copied to the python-build directory first, so
+  // we just need to copy from there.
+  const wheel_dir = "../python-build/wheels";
 
   const wheel_output_directory = path.join(STATIC_DIRECTORY, "wheels");
   fs.mkdirSync(wheel_output_directory, { recursive: true });
 
-  for (const wheel_dir of wheel_dirs) {
-    const wheel_files = fs.readdirSync(wheel_dir);
-    for (const wheel_file of wheel_files) {
-      const src = path.join(wheel_dir, wheel_file);
-      const dest = path.join(wheel_output_directory, wheel_file);
+  const wheel_files = fs.readdirSync(wheel_dir);
+  for (const wheel_file of wheel_files) {
+    const src = path.join(wheel_dir, wheel_file);
+    const dest = path.join(wheel_output_directory, wheel_file);
 
-      // console.log(`Copying artifact ${src} to ${dest}...`);
-      fs.copyFileSync(src, dest);
-    }
+    // console.log(`Copying artifact ${src} to ${dest}...`);
+    fs.copyFileSync(src, dest);
   }
 }
 

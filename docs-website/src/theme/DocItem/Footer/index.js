@@ -7,6 +7,7 @@ import EditThisPage from "@theme/EditThisPage";
 import TagsListInline from "@theme/TagsListInline";
 import styles from "./styles.module.css";
 import Feedback from "../../../components/Feedback";
+import SlackUtm from "../../../components/SlackUtm";
 
 function TagsRow(props) {
   return (
@@ -42,6 +43,7 @@ export default function DocItemFooter() {
   return (
     <>
       <footer className={clsx(ThemeClassNames.docs.docFooter, "docusaurus-mt-lg")}>
+        <SlackUtm pageId={unversionedId}/>
         {canDisplayTagsRow && <TagsRow tags={tags} />}
         {canDisplayEditMetaRow && (
           <EditMetaRow

@@ -30,35 +30,32 @@ import java.util.Optional;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-
 /**
- * This test case covers below scenarios
- * 1. Loading plugin configuration and validating the loaded configuration against the expected configuration.
- *    This scenario is covered in @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testConfigurationLoading()}
- *    test
+ * This test case covers below scenarios 1. Loading plugin configuration and validating the loaded
+ * configuration against the expected configuration. This scenario is covered in @{link
+ * com.datahub.plugins.auth.TestIsolatedClassLoader#testConfigurationLoading()} test
  *
- * 2. Plugin name should be unique in config.yaml. The plugin framework should raise error if more than one plugin
- * has the same name.
- *    This scenario is covered in @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testDuplicatePluginName()}
- *    test
+ * <p>2. Plugin name should be unique in config.yaml. The plugin framework should raise error if
+ * more than one plugin has the same name. This scenario is covered in @{link
+ * com.datahub.plugins.auth.TestIsolatedClassLoader#testDuplicatePluginName()} test
  *
- * 3. Developer can provide plugin jar file name in config.yaml.
- *    This scenario is covered in @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testJarFileName()} test
+ * <p>3. Developer can provide plugin jar file name in config.yaml. This scenario is covered
+ * in @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testJarFileName()} test
  *
- * 4. Test @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testAuthenticatorPlugin()} covers the valid
- * authenticator plugin execution.
- *    Plugin used in this test-case is metadata-service/plugin/src/test/sample-test-plugins/src/main/java/com/datahub
- *    /plugins/test/TestAuthenticator.java
+ * <p>4. Test @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testAuthenticatorPlugin()}
+ * covers the valid authenticator plugin execution. Plugin used in this test-case is
+ * metadata-service/plugin/src/test/sample-test-plugins/src/main/java/com/datahub
+ * /plugins/test/TestAuthenticator.java
  *
- * 5. Test @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testAuthorizerPlugin()} covers the valid
- * authorizer plugin execution
- *    Plugin used in this test-case is metadata-service/plugin/src/test/sample-test-plugins/src/main/java/com/datahub
- *    /plugins/test/TestAuthorizer.java
+ * <p>5. Test @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testAuthorizerPlugin()} covers
+ * the valid authorizer plugin execution Plugin used in this test-case is
+ * metadata-service/plugin/src/test/sample-test-plugins/src/main/java/com/datahub
+ * /plugins/test/TestAuthorizer.java
  *
- * 6. The plugin framework should raise error if authenticator plugin is configured as authorizer plugin or vice-versa.
- *    This scenario is covered in @{link com.datahub.plugins.auth.TestIsolatedClassLoader#testIncorrectImplementation
- *    ()}.
- *    The test case tries to load authorizer plugin as authenticator plugin
+ * <p>6. The plugin framework should raise error if authenticator plugin is configured as authorizer
+ * plugin or vice-versa. This scenario is covered in @{link
+ * com.datahub.plugins.auth.TestIsolatedClassLoader#testIncorrectImplementation ()}. The test case
+ * tries to load authorizer plugin as authenticator plugin
  */
 class TestIsolatedClassLoader {
 
@@ -84,22 +81,34 @@ class TestIsolatedClassLoader {
   public void testJarFileName() throws Exception {
     Path configPath = Paths.get("src", "test", "resources", "plugin-jar-from-jarFileName");
 
-    Path authenticatorPluginJarPath = Paths.get(configPath.toAbsolutePath().toString(), "apache-ranger-authenticator",
-        "apache-ranger-authenticator-v1.0.1.jar");
-    Config config = (new ConfigProvider(configPath)).load().orElseThrow(() -> new Exception("Should not be empty"));
-    List<PluginConfig> pluginConfig = (new PluginConfigFactory(config)).loadPluginConfigs(PluginType.AUTHENTICATOR);
-    pluginConfig.forEach((pluginConfigWithJar) -> {
-      assert pluginConfigWithJar.getPluginJarPath().equals(authenticatorPluginJarPath);
-    });
+    Path authenticatorPluginJarPath =
+        Paths.get(
+            configPath.toAbsolutePath().toString(),
+            "apache-ranger-authenticator",
+            "apache-ranger-authenticator-v1.0.1.jar");
+    Config config =
+        (new ConfigProvider(configPath))
+            .load()
+            .orElseThrow(() -> new Exception("Should not be empty"));
+    List<PluginConfig> pluginConfig =
+        (new PluginConfigFactory(config)).loadPluginConfigs(PluginType.AUTHENTICATOR);
+    pluginConfig.forEach(
+        (pluginConfigWithJar) -> {
+          assert pluginConfigWithJar.getPluginJarPath().equals(authenticatorPluginJarPath);
+        });
 
-    Path authorizerPluginJarPath = Paths.get(configPath.toAbsolutePath().toString(), "apache-ranger-authorizer",
-        "apache-ranger-authorizer-v2.0.1.jar");
+    Path authorizerPluginJarPath =
+        Paths.get(
+            configPath.toAbsolutePath().toString(),
+            "apache-ranger-authorizer",
+            "apache-ranger-authorizer-v2.0.1.jar");
     List<PluginConfig> authorizerPluginConfigs =
         (new PluginConfigFactory(config)).loadPluginConfigs(PluginType.AUTHORIZER);
 
-    authorizerPluginConfigs.forEach((pluginConfigWithJar) -> {
-      assert pluginConfigWithJar.getPluginJarPath().equals(authorizerPluginJarPath);
-    });
+    authorizerPluginConfigs.forEach(
+        (pluginConfigWithJar) -> {
+          assert pluginConfigWithJar.getPluginJarPath().equals(authorizerPluginJarPath);
+        });
   }
 
   public static Path getSamplePluginDirectory() {
@@ -145,14 +154,21 @@ class TestIsolatedClassLoader {
     // authenticator plugin config instance
     AuthenticatorPluginConfig authenticatorPluginConfig = getAuthenticatorPluginConfig();
     // create IsolatedClassLoader
-    PluginPermissionManager permissionManager = new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
-    IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoader(permissionManager, authenticatorPluginConfig);
+    PluginPermissionManager permissionManager =
+        new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
+    IsolatedClassLoader isolatedClassLoader =
+        new IsolatedClassLoader(permissionManager, authenticatorPluginConfig);
     // initiate and invoke the init and authenticate methods
-    Authenticator authenticator = (Authenticator) isolatedClassLoader.instantiatePlugin(Authenticator.class);
-    AuthenticatorContext authenticatorContext = new AuthenticatorContext(
-        ImmutableMap.of(PluginConstant.PLUGIN_HOME, authenticatorPluginConfig.getPluginHomeDirectory().toString()));
+    Authenticator authenticator =
+        (Authenticator) isolatedClassLoader.instantiatePlugin(Authenticator.class);
+    AuthenticatorContext authenticatorContext =
+        new AuthenticatorContext(
+            ImmutableMap.of(
+                PluginConstant.PLUGIN_HOME,
+                authenticatorPluginConfig.getPluginHomeDirectory().toString()));
     AuthenticationRequest request = new AuthenticationRequest(ImmutableMap.of("foo", "bar"));
-    authenticator.init(authenticatorPluginConfig.getConfigs().orElse(new HashMap<>()), authenticatorContext);
+    authenticator.init(
+        authenticatorPluginConfig.getConfigs().orElse(new HashMap<>()), authenticatorContext);
 
     Authentication authentication = authenticator.authenticate(request);
     assert authentication.getActor().getId().equals("fake");
@@ -163,13 +179,20 @@ class TestIsolatedClassLoader {
     // authenticator plugin config instance
     AuthorizerPluginConfig authorizerPluginConfig = getAuthorizerPluginConfig();
     // create IsolatedClassLoader
-    PluginPermissionManager permissionManager = new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
-    IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoader(permissionManager, authorizerPluginConfig);
+    PluginPermissionManager permissionManager =
+        new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
+    IsolatedClassLoader isolatedClassLoader =
+        new IsolatedClassLoader(permissionManager, authorizerPluginConfig);
     // initiate and invoke the init and authenticate methods
     Authorizer authorizer = (Authorizer) isolatedClassLoader.instantiatePlugin(Authorizer.class);
-    AuthorizerContext authorizerContext = new AuthorizerContext(
-        ImmutableMap.of(PluginConstant.PLUGIN_HOME, authorizerPluginConfig.getPluginHomeDirectory().toString()), null);
-    AuthorizationRequest authorizationRequest = new AuthorizationRequest("urn:li:user:fake", "test", Optional.empty());
+    AuthorizerContext authorizerContext =
+        new AuthorizerContext(
+            ImmutableMap.of(
+                PluginConstant.PLUGIN_HOME,
+                authorizerPluginConfig.getPluginHomeDirectory().toString()),
+            null);
+    AuthorizationRequest authorizationRequest =
+        new AuthorizationRequest("urn:li:user:fake", "test", Optional.empty());
     authorizer.init(authorizerPluginConfig.getConfigs().orElse(new HashMap<>()), authorizerContext);
     assert authorizer.authorize(authorizationRequest).getMessage().equals("fake message");
   }
@@ -178,13 +201,17 @@ class TestIsolatedClassLoader {
   public void testIncorrectImplementation() {
     AuthorizerPluginConfig authorizerPluginConfig = getAuthorizerPluginConfig();
     // create IsolatedClassLoader
-    PluginPermissionManager permissionManager = new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
-    IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoader(permissionManager, authorizerPluginConfig);
+    PluginPermissionManager permissionManager =
+        new PluginPermissionManagerImpl(SecurityMode.RESTRICTED);
+    IsolatedClassLoader isolatedClassLoader =
+        new IsolatedClassLoader(permissionManager, authorizerPluginConfig);
     // initiate and invoke the init and authenticate methods
     try {
-      // Authorizer configuration is provided, however here we were expecting that plugin should be of type
+      // Authorizer configuration is provided, however here we were expecting that plugin should be
+      // of type
       // Authenticator.class
-      Authorizer authorizer = (Authorizer) isolatedClassLoader.instantiatePlugin(Authenticator.class);
+      Authorizer authorizer =
+          (Authorizer) isolatedClassLoader.instantiatePlugin(Authenticator.class);
       assert authorizer != null;
     } catch (RuntimeException | ClassNotFoundException e) {
       assert e.getCause() instanceof java.lang.InstantiationException;
@@ -197,10 +224,13 @@ class TestIsolatedClassLoader {
     AuthenticatorPluginConfig authenticatorPluginConfig = getAuthenticatorPluginConfig();
     authenticatorPluginConfig.setClassName("com.datahub.plugins.test.TestLenientModeAuthenticator");
     // create IsolatedClassLoader
-    PluginPermissionManager permissionManager = new PluginPermissionManagerImpl(SecurityMode.LENIENT);
-    IsolatedClassLoader isolatedClassLoader = new IsolatedClassLoader(permissionManager, authenticatorPluginConfig);
+    PluginPermissionManager permissionManager =
+        new PluginPermissionManagerImpl(SecurityMode.LENIENT);
+    IsolatedClassLoader isolatedClassLoader =
+        new IsolatedClassLoader(permissionManager, authenticatorPluginConfig);
     // initiate and invoke the init and authenticate methods
-    Authenticator authenticator = (Authenticator) isolatedClassLoader.instantiatePlugin(Authenticator.class);
+    Authenticator authenticator =
+        (Authenticator) isolatedClassLoader.instantiatePlugin(Authenticator.class);
     authenticator.init(authenticatorPluginConfig.getConfigs().orElse(new HashMap<>()), null);
     AuthenticationRequest request = new AuthenticationRequest(ImmutableMap.of("foo", "bar"));
     assert authenticator.authenticate(request) != null;

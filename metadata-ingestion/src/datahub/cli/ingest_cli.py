@@ -1,4 +1,3 @@
-import asyncio
 import csv
 import json
 import logging
@@ -15,22 +14,20 @@ from tabulate import tabulate
 
 import datahub as datahub_package
 from datahub.cli import cli_utils
-from datahub.cli.cli_utils import (
-    CONDENSED_DATAHUB_CONFIG_PATH,
-    format_aspect_summaries,
-    get_session_and_host,
-    post_rollback_endpoint,
-)
+from datahub.cli.config_utils import CONDENSED_DATAHUB_CONFIG_PATH
+from datahub.configuration.common import ConfigModel, GraphError
 from datahub.configuration.config_loader import load_config_file
+from datahub.emitter.mce_builder import datahub_guid
 from datahub.ingestion.graph.client import get_default_graph
 from datahub.ingestion.run.connection import ConnectionManager
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.telemetry import telemetry
 from datahub.upgrade import upgrade
-from datahub.utilities import memory_leak_detector
+from datahub.utilities.perf_timer import PerfTimer
 
 logger = logging.getLogger(__name__)
 
+INGEST_SRC_TABLE_COLUMNS = ["runId", "source", "startTime", "status", "URN"]
 RUNS_TABLE_COLUMNS = ["runId", "rows", "created at"]
 RUN_TABLE_COLUMNS = ["urn", "aspect name", "created at"]
 
@@ -98,7 +95,13 @@ def ingest() -> None:
 @click.option(
     "--no-spinner", type=bool, is_flag=True, default=False, help="Turn off spinner"
 )
-@click.pass_context
+@click.option(
+    "--no-progress",
+    type=bool,
+    is_flag=True,
+    default=False,
+    help="If enabled, mute intermediate progress ingestion reports",
+)
 @telemetry.with_telemetry(
     capture_kwargs=[
         "dry_run",
@@ -107,34 +110,34 @@ def ingest() -> None:
         "test_source_connection",
         "no_default_report",
         "no_spinner",
+        "no_progress",
     ]
 )
-@memory_leak_detector.with_leak_detection
 def run(
-    ctx: click.Context,
     config: str,
     dry_run: bool,
     preview: bool,
     strict_warnings: bool,
     preview_workunits: int,
     test_source_connection: bool,
-    report_to: str,
+    report_to: Optional[str],
     no_default_report: bool,
     no_spinner: bool,
+    no_progress: bool,
 ) -> None:
     """Ingest metadata into DataHub."""
 
-    async def run_pipeline_to_completion(pipeline: Pipeline) -> int:
+    def run_pipeline_to_completion(pipeline: Pipeline) -> int:
         logger.info("Starting metadata ingestion")
-        with click_spinner.spinner(disable=no_spinner):
+        with click_spinner.spinner(disable=no_spinner or no_progress):
             try:
                 pipeline.run()
             except Exception as e:
                 logger.info(
-                    f"Source ({pipeline.config.source.type}) report:\n{pipeline.source.get_report().as_string()}"
+                    f"Source ({pipeline.source_type}) report:\n{pipeline.source.get_report().as_string()}"
                 )
                 logger.info(
-                    f"Sink ({pipeline.config.sink.type}) report:\n{pipeline.sink.get_report().as_string()}"
+                    f"Sink ({pipeline.sink_type}) report:\n{pipeline.sink.get_report().as_string()}"
                 )
                 raise e
             else:
@@ -151,53 +154,58 @@ def run(
         squirrel_original_config=True,
         squirrel_field="__raw_config",
         allow_stdin=True,
+        allow_remote=True,
+        process_directives=True,
+        resolve_env_vars=True,
     )
     raw_pipeline_config = pipeline_config.pop("__raw_config")
 
     if test_source_connection:
-        _test_source_connection(report_to, pipeline_config)
+        sys.exit(_test_source_connection(report_to, pipeline_config))
 
-    async def run_ingestion_and_check_upgrade() -> int:
-        # TRICKY: We want to make sure that the Pipeline.create() call happens on the
-        # same thread as the rest of the ingestion. As such, we must initialize the
-        # pipeline inside the async function so that it happens on the same event
-        # loop, and hence the same thread.
+    if no_default_report:
+        # The default is "datahub" reporting. The extra flag will disable it.
+        report_to = None
 
-        # logger.debug(f"Using config: {pipeline_config}")
-        pipeline = Pipeline.create(
-            pipeline_config,
-            dry_run,
-            preview,
-            preview_workunits,
-            report_to,
-            no_default_report,
-            raw_pipeline_config,
+    # logger.debug(f"Using config: {pipeline_config}")
+    pipeline = Pipeline.create(
+        pipeline_config,
+        dry_run=dry_run,
+        preview_mode=preview,
+        preview_workunits=preview_workunits,
+        report_to=report_to,
+        no_progress=no_progress,
+        raw_config=raw_pipeline_config,
+    )
+    with PerfTimer() as timer:
+        ret = run_pipeline_to_completion(pipeline)
+
+    # The main ingestion has completed. If it was successful, potentially show an upgrade nudge message.
+    if ret == 0:
+        upgrade.check_upgrade_post(
+            main_method_runtime=timer.elapsed_seconds(), graph=pipeline.ctx.graph
         )
 
-        version_stats_future = asyncio.ensure_future(
-            upgrade.retrieve_version_stats(pipeline.ctx.graph)
-        )
-        ingestion_future = asyncio.ensure_future(run_pipeline_to_completion(pipeline))
-        ret = await ingestion_future
-
-        # The main ingestion has completed. If it was successful, potentially show an upgrade nudge message.
-        if ret == 0:
-            try:
-                # we check the other futures quickly on success
-                version_stats = await asyncio.wait_for(version_stats_future, 0.5)
-                upgrade.maybe_print_upgrade_message(version_stats=version_stats)
-            except Exception as e:
-                logger.debug(
-                    f"timed out with {e} waiting for version stats to be computed... skipping ahead."
-                )
-
-        return ret
-
-    loop = asyncio.get_event_loop()
-    ret = loop.run_until_complete(run_ingestion_and_check_upgrade())
     if ret:
         sys.exit(ret)
     # don't raise SystemExit if there's no error
+
+
+def _make_ingestion_urn(name: str) -> str:
+    guid = datahub_guid(
+        {
+            "name": name,
+        }
+    )
+    return f"urn:li:dataHubIngestionSource:deploy-{guid}"
+
+
+class DeployOptions(ConfigModel):
+    name: str
+    schedule: Optional[str] = None
+    time_zone: str = "UTC"
+    cli_version: Optional[str] = None
+    executor_id: str = "default"
 
 
 @ingest.command()
@@ -208,7 +216,6 @@ def run(
     "--name",
     type=str,
     help="Recipe Name",
-    required=True,
 )
 @click.option(
     "-c",
@@ -220,7 +227,7 @@ def run(
 @click.option(
     "--urn",
     type=str,
-    help="Urn of recipe to update",
+    help="Urn of recipe to update. If not specified here or in the recipe's pipeline_name, this will create a new ingestion source.",
     required=False,
 )
 @click.option(
@@ -252,7 +259,7 @@ def run(
     default="UTC",
 )
 def deploy(
-    name: str,
+    name: Optional[str],
     config: str,
     urn: Optional[str],
     executor_id: str,
@@ -272,86 +279,105 @@ def deploy(
     pipeline_config = load_config_file(
         config,
         allow_stdin=True,
+        allow_remote=True,
         resolve_env_vars=False,
     )
 
+    deploy_options_raw = pipeline_config.pop("deployment", None)
+    if deploy_options_raw is not None:
+        deploy_options = DeployOptions.parse_obj(deploy_options_raw)
+
+        if name:
+            logger.info(f"Overriding deployment name {deploy_options.name} with {name}")
+            deploy_options.name = name
+    else:
+        if not name:
+            raise click.UsageError(
+                "Either --name must be set or deployment_name specified in the config"
+            )
+        deploy_options = DeployOptions(name=name)
+
+    # Use remaining CLI args to override deploy_options
+    if schedule:
+        deploy_options.schedule = schedule
+    if time_zone:
+        deploy_options.time_zone = time_zone
+    if cli_version:
+        deploy_options.cli_version = cli_version
+    if executor_id:
+        deploy_options.executor_id = executor_id
+
+    logger.info(f"Using {repr(deploy_options)}")
+
+    if not urn:
+        # When urn/name is not specified, we will generate a unique urn based on the deployment name.
+        urn = _make_ingestion_urn(deploy_options.name)
+        logger.info(f"Using recipe urn: {urn}")
+
+    # Invariant - at this point, both urn and deploy_options are set.
+
     variables: dict = {
         "urn": urn,
-        "name": name,
+        "name": deploy_options.name,
         "type": pipeline_config["source"]["type"],
         "recipe": json.dumps(pipeline_config),
-        "executorId": executor_id,
-        "version": cli_version,
+        "executorId": deploy_options.executor_id,
+        "version": deploy_options.cli_version,
     }
 
-    if schedule is not None:
-        variables["schedule"] = {"interval": schedule, "timezone": time_zone}
+    if deploy_options.schedule is not None:
+        variables["schedule"] = {
+            "interval": deploy_options.schedule,
+            "timezone": deploy_options.time_zone,
+        }
 
-    if urn:
-        if not datahub_graph.exists(urn):
-            logger.error(f"Could not find recipe for provided urn: {urn}")
-            exit()
-        logger.info("Found recipe URN, will update recipe.")
+    # The updateIngestionSource endpoint can actually do upserts as well.
+    graphql_query: str = textwrap.dedent(
+        """
+        mutation updateIngestionSource(
+            $urn: String!,
+            $name: String!,
+            $type: String!,
+            $schedule: UpdateIngestionSourceScheduleInput,
+            $recipe: String!,
+            $executorId: String!
+            $version: String) {
 
-        graphql_query: str = textwrap.dedent(
-            """
-            mutation updateIngestionSource(
-                $urn: String!,
-                $name: String!,
-                $type: String!,
-                $schedule: UpdateIngestionSourceScheduleInput,
-                $recipe: String!,
-                $executorId: String!
-                $version: String) {
+            updateIngestionSource(urn: $urn, input: {
+                name: $name,
+                type: $type,
+                schedule: $schedule,
+                config: {
+                    recipe: $recipe,
+                    executorId: $executorId,
+                    version: $version,
+                }
+            })
+        }
+        """
+    )
 
-                updateIngestionSource(urn: $urn, input: {
-                    name: $name,
-                    type: $type,
-                    schedule: $schedule,
-                    config: {
-                        recipe: $recipe,
-                        executorId: $executorId,
-                        version: $version,
-                    }
-                })
-            }
-            """
+    try:
+        response = datahub_graph.execute_graphql(
+            graphql_query, variables=variables, format_exception=False
         )
-    else:
-        logger.info("No URN specified recipe urn, will create a new recipe.")
-        graphql_query = textwrap.dedent(
-            """
-            mutation createIngestionSource(
-                $name: String!,
-                $type: String!,
-                $schedule: UpdateIngestionSourceScheduleInput,
-                $recipe: String!,
-                $executorId: String!,
-                $version: String) {
-
-                createIngestionSource(input: {
-                    name: $name,
-                    type: $type,
-                    schedule: $schedule,
-                    config: {
-                        recipe: $recipe,
-                        executorId: $executorId,
-                        version: $version,
-                    }
-                })
-            }
-            """
-        )
-
-    response = datahub_graph.execute_graphql(graphql_query, variables=variables)
+    except GraphError as graph_error:
+        try:
+            error = json.loads(str(graph_error).replace('"', '\\"').replace("'", '"'))
+            click.secho(error[0]["message"], fg="red", err=True)
+        except Exception:
+            click.secho(
+                f"Could not create ingestion source:\n{graph_error}", fg="red", err=True
+            )
+        sys.exit(1)
 
     click.echo(
-        f"✅ Successfully wrote data ingestion source metadata for recipe {name}:"
+        f"✅ Successfully wrote data ingestion source metadata for recipe {deploy_options.name}:"
     )
     click.echo(response)
 
 
-def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> None:
+def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> int:
     connection_report = None
     try:
         connection_report = ConnectionManager().test_source_connection(pipeline_config)
@@ -360,12 +386,12 @@ def _test_source_connection(report_to: Optional[str], pipeline_config: dict) -> 
             with open(report_to, "w") as out_fp:
                 out_fp.write(connection_report.as_json())
             logger.info(f"Wrote report successfully to {report_to}")
-        sys.exit(0)
+        return 0
     except Exception as e:
         logger.error(f"Failed to test connection due to {e}")
         if connection_report:
             logger.error(connection_report.as_json())
-        sys.exit(1)
+        return 1
 
 
 def parse_restli_response(response):
@@ -406,10 +432,119 @@ def mcps(path: str) -> None:
         },
     }
 
-    pipeline = Pipeline.create(recipe, no_default_report=True)
+    pipeline = Pipeline.create(recipe, report_to=None)
     pipeline.run()
     ret = pipeline.pretty_print_summary()
     sys.exit(ret)
+
+
+@ingest.command()
+@click.argument("page_offset", type=int, default=0)
+@click.argument("page_size", type=int, default=100)
+@click.option("--urn", type=str, default=None, help="Filter by ingestion source URN.")
+@click.option(
+    "--source", type=str, default=None, help="Filter by ingestion source name."
+)
+@upgrade.check_upgrade
+@telemetry.with_telemetry()
+def list_source_runs(page_offset: int, page_size: int, urn: str, source: str) -> None:
+    """List ingestion source runs with their details, optionally filtered by URN or source."""
+
+    query = """
+    query listIngestionRuns($input: ListIngestionSourcesInput!) {
+      listIngestionSources(input: $input) {
+        ingestionSources {
+          urn
+          name
+          executions {
+            executionRequests {
+              id
+              result {
+                startTimeMs
+                status
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+
+    # filter by urn and/or source using CONTAINS
+    filters = []
+    if urn:
+        filters.append({"field": "urn", "values": [urn], "condition": "CONTAIN"})
+    if source:
+        filters.append({"field": "name", "values": [source], "condition": "CONTAIN"})
+
+    variables = {
+        "input": {
+            "start": page_offset,
+            "count": page_size,
+            "filters": filters,
+        }
+    }
+
+    client = get_default_graph()
+    session = client._session
+    gms_host = client.config.server
+
+    url = f"{gms_host}/api/graphql"
+    try:
+        response = session.post(url, json={"query": query, "variables": variables})
+        response.raise_for_status()
+    except Exception as e:
+        click.echo(f"Error fetching data: {str(e)}")
+        return
+
+    try:
+        data = response.json()
+    except ValueError:
+        click.echo("Failed to parse JSON response from server.")
+        return
+
+    if not data:
+        click.echo("No response received from the server.")
+        return
+
+    # when urn or source filter does not match, exit gracefully
+    if (
+        not isinstance(data.get("data"), dict)
+        or "listIngestionSources" not in data["data"]
+    ):
+        click.echo("No matching ingestion sources found. Please check your filters.")
+        return
+
+    ingestion_sources = data["data"]["listIngestionSources"]["ingestionSources"]
+    if not ingestion_sources:
+        click.echo("No ingestion sources or executions found.")
+        return
+
+    rows = []
+    for ingestion_source in ingestion_sources:
+        urn = ingestion_source.get("urn", "N/A")
+        name = ingestion_source.get("name", "N/A")
+
+        executions = ingestion_source.get("executions", {}).get("executionRequests", [])
+        for execution in executions:
+            execution_id = execution.get("id", "N/A")
+            start_time = execution.get("result", {}).get("startTimeMs", "N/A")
+            start_time = (
+                datetime.fromtimestamp(start_time / 1000).strftime("%Y-%m-%d %H:%M:%S")
+                if start_time != "N/A"
+                else "N/A"
+            )
+            status = execution.get("result", {}).get("status", "N/A")
+
+            rows.append([execution_id, name, start_time, status, urn])
+
+    click.echo(
+        tabulate(
+            rows,
+            headers=INGEST_SRC_TABLE_COLUMNS,
+            tablefmt="grid",
+        )
+    )
 
 
 @ingest.command()
@@ -426,7 +561,9 @@ def mcps(path: str) -> None:
 def list_runs(page_offset: int, page_size: int, include_soft_deletes: bool) -> None:
     """List recent ingestion runs to datahub"""
 
-    session, gms_host = get_session_and_host()
+    client = get_default_graph()
+    session = client._session
+    gms_host = client.config.server
 
     url = f"{gms_host}/runs?action=list"
 
@@ -475,7 +612,9 @@ def show(
     run_id: str, start: int, count: int, include_soft_deletes: bool, show_aspect: bool
 ) -> None:
     """Describe a provided ingestion run to datahub"""
-    session, gms_host = get_session_and_host()
+    client = get_default_graph()
+    session = client._session
+    gms_host = client.config.server
 
     url = f"{gms_host}/runs?action=describe"
 
@@ -494,7 +633,11 @@ def show(
     rows = parse_restli_response(response)
     if not show_aspect:
         click.echo(
-            tabulate(format_aspect_summaries(rows), RUN_TABLE_COLUMNS, tablefmt="grid")
+            tabulate(
+                cli_utils.format_aspect_summaries(rows),
+                RUN_TABLE_COLUMNS,
+                tablefmt="grid",
+            )
         )
     else:
         for row in rows:
@@ -519,8 +662,7 @@ def rollback(
     run_id: str, force: bool, dry_run: bool, safe: bool, report_dir: str
 ) -> None:
     """Rollback a provided ingestion run to datahub"""
-
-    cli_utils.test_connectivity_complain_exit("ingest")
+    client = get_default_graph()
 
     if not force and not dry_run:
         click.confirm(
@@ -536,7 +678,9 @@ def rollback(
         aspects_affected,
         unsafe_entity_count,
         unsafe_entities,
-    ) = post_rollback_endpoint(payload_obj, "/runs?action=rollback")
+    ) = cli_utils.post_rollback_endpoint(
+        client._session, client.config.server, payload_obj, "/runs?action=rollback"
+    )
 
     click.echo(
         "Rolling back deletes the entities created by a run and reverts the updated aspects"
@@ -579,6 +723,6 @@ def rollback(
                 for row in unsafe_entities:
                     writer.writerow([row.get("urn")])
 
-        except IOError as e:
+        except OSError as e:
             logger.exception(f"Unable to save rollback failure report: {e}")
             sys.exit(f"Unable to write reports to {report_dir}")

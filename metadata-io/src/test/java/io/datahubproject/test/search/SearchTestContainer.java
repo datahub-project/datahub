@@ -1,16 +1,15 @@
 package io.datahubproject.test.search;
 
-import org.testcontainers.containers.GenericContainer;
-
 import java.time.Duration;
+import org.testcontainers.containers.GenericContainer;
 
 public interface SearchTestContainer {
 
-    String SEARCH_JAVA_OPTS = "-Xms446m -Xmx446m -XX:MaxDirectMemorySize=368435456";
+  String SEARCH_JAVA_OPTS = "-Xms446m -Xmx446m -XX:MaxDirectMemorySize=368435456";
 
-    Duration STARTUP_TIMEOUT = Duration.ofMinutes(5); // usually < 1min
+  Duration STARTUP_TIMEOUT = Duration.ofMinutes(5); // usually < 1min
 
-    GenericContainer<?> startContainer();
+  GenericContainer<?> startContainer();
 
-    void stopContainer();
+  void stopContainer();
 }

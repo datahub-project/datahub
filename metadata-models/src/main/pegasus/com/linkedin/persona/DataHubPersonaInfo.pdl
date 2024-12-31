@@ -1,0 +1,10 @@
+namespace com.linkedin.persona
+
+/**
+ * Placeholder aspect for persona type info
+ */
+@Aspect = {
+  "name": "dataHubPersonaInfo"
+}
+record DataHubPersonaInfo {
+}

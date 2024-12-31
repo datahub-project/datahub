@@ -9,9 +9,9 @@ import com.linkedin.data.schema.annotation.SchemaVisitorTraversalResult;
 import com.linkedin.data.schema.annotation.TraverserContext;
 import com.linkedin.metadata.models.annotation.RelationshipAnnotation;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-
 
 /**
  * Implementation of {@link SchemaVisitor} responsible for extracting {@link RelationshipFieldSpec}s
@@ -41,25 +41,31 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
       final Object primaryAnnotationObj = properties.get(RelationshipAnnotation.ANNOTATION_NAME);
 
       if (primaryAnnotationObj != null) {
-        validatePropertiesAnnotation(currentSchema, primaryAnnotationObj, context.getTraversePath().toString());
+        validatePropertiesAnnotation(
+            currentSchema, primaryAnnotationObj, context.getTraversePath().toString());
       }
 
       // Next, check resolved properties for annotations on primitives.
-      final Map<String, Object> resolvedProperties = FieldSpecUtils.getResolvedProperties(currentSchema);
-      final Object resolvedAnnotationObj = resolvedProperties.get(RelationshipAnnotation.ANNOTATION_NAME);
+      final Map<String, Object> resolvedProperties =
+          FieldSpecUtils.getResolvedProperties(currentSchema, Collections.emptyMap());
+      final Object resolvedAnnotationObj =
+          resolvedProperties.get(RelationshipAnnotation.ANNOTATION_NAME);
 
       if (resolvedAnnotationObj != null) {
-        if (currentSchema.isPrimitive() && isValidPrimitiveType((PrimitiveDataSchema) currentSchema)) {
+        if (currentSchema.isPrimitive()
+            && isValidPrimitiveType((PrimitiveDataSchema) currentSchema)) {
           final PathSpec path = new PathSpec(context.getSchemaPathSpec());
-          final RelationshipAnnotation annotation = RelationshipAnnotation.fromPegasusAnnotationObject(
-              resolvedAnnotationObj,
-              path.toString()
-          );
-          final RelationshipFieldSpec fieldSpec = new RelationshipFieldSpec(path, annotation, currentSchema);
+          final RelationshipAnnotation annotation =
+              RelationshipAnnotation.fromPegasusAnnotationObject(
+                  resolvedAnnotationObj, path.toString());
+          final RelationshipFieldSpec fieldSpec =
+              new RelationshipFieldSpec(path, annotation, currentSchema);
           _specs.add(fieldSpec);
           return;
         }
-        throw new ModelValidationException(String.format("Invalid @Relationship Annotation at %s", context.getSchemaPathSpec().toString()));
+        throw new ModelValidationException(
+            String.format(
+                "Invalid @Relationship Annotation at %s", context.getSchemaPathSpec().toString()));
       }
     }
   }
@@ -78,7 +84,8 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
     return DataSchema.Type.STRING.equals(schema.getDereferencedDataSchema().getDereferencedType());
   }
 
-  private void validatePropertiesAnnotation(DataSchema currentSchema, Object annotationObj, String pathStr) {
+  private void validatePropertiesAnnotation(
+      DataSchema currentSchema, Object annotationObj, String pathStr) {
 
     // If primitive, assume the annotation is well formed until resolvedProperties reflects it.
     if (currentSchema.isPrimitive()) {
@@ -87,20 +94,19 @@ public class RelationshipFieldSpecExtractor implements SchemaVisitor {
 
     // Required override case. If the annotation keys are not overrides, they are incorrect.
     if (!Map.class.isAssignableFrom(annotationObj.getClass())) {
-      throw new ModelValidationException(String.format(
-          "Failed to validate @%s annotation declared inside %s: Invalid value type provided (Expected Map)",
-          RelationshipAnnotation.ANNOTATION_NAME,
-          pathStr
-      ));
+      throw new ModelValidationException(
+          String.format(
+              "Failed to validate @%s annotation declared inside %s: Invalid value type provided (Expected Map)",
+              RelationshipAnnotation.ANNOTATION_NAME, pathStr));
     }
 
     Map<String, Object> annotationMap = (Map<String, Object>) annotationObj;
     for (String key : annotationMap.keySet()) {
       if (!key.startsWith(Character.toString(PathSpec.SEPARATOR))) {
         throw new ModelValidationException(
-            String.format("Invalid @Relationship Annotation at %s. Annotation placed on invalid field of type %s. Must be placed on primitive field.",
-                pathStr,
-                currentSchema.getType()));
+            String.format(
+                "Invalid @Relationship Annotation at %s. Annotation placed on invalid field of type %s. Must be placed on primitive field.",
+                pathStr, currentSchema.getType()));
       }
     }
   }

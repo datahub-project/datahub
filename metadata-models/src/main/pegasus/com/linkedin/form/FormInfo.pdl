@@ -1,0 +1,51 @@
+namespace com.linkedin.form
+
+import com.linkedin.common.Urn
+
+/**
+ * Information about a form to help with filling out metadata on entities.
+ */
+@Aspect = {
+  "name": "formInfo"
+}
+record FormInfo {
+  /**
+   * Display name of the form
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL"
+  }
+  name: string
+
+  /**
+   * Description of the form
+   */
+  description: optional string
+
+  /**
+   * The type of this form
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  type: enum FormType {
+    /**
+     * A form simply used for collecting metadata fields for an entity.
+     */
+    COMPLETION
+    /**
+     * This form is used for "verifying" that entities comply with a policy via presence of a specific set of metadata fields.
+     */
+    VERIFICATION
+  } = "COMPLETION"
+
+  /**
+   * List of prompts to present to the user to encourage filling out metadata
+   */
+  prompts: array[FormPrompt] = []
+
+  /**
+   * Who the form is assigned to, e.g. who should see the form when visiting the entity page or governance center
+   */
+  actors: FormActorAssignment = { "owners": true }
+}

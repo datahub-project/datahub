@@ -64,7 +64,7 @@ class PipelineContext:
         # TODO: Get rid of this function once lower-casing is the standard.
         if self.graph:
             server_config = self.graph.get_config()
-            if server_config and server_config.get("datasetUrnNameCasing"):
+            if server_config and server_config.get("datasetUrnNameCasing") is True:
                 set_dataset_urn_to_lower(True)
 
     def register_checkpointer(self, committable: Committable) -> None:

@@ -1,0 +1,114 @@
+{
+  "eventTime": "2023-09-27T10:22:12.391Z",
+  "producer": "https://github.com/OpenLineage/OpenLineage/tree/1.2.2/integration/spark",
+  "schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunEvent",
+  "eventType": "START",
+  "run": {
+    "runId": "580230ff-c2ef-47c3-bb5f-c395fc93ba56",
+    "facets": {
+      "spark_version": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.2.2/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "spark-version": "3.0.3"
+      },
+      "spark_properties": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.2.2/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "properties": {
+          "spark.master": "local[*]",
+          "spark.app.name": "SimpleAppJsonNew"
+        }
+      },
+      "processing_engine": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.2.2/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/facets/1-1-0/ProcessingEngineRunFacet.json#/$defs/ProcessingEngineRunFacet",
+        "version": "3.0.3",
+        "name": "spark"
+      },
+      "environment-properties": {
+        "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.2.2/integration/spark",
+        "_schemaURL": "https://openlineage.io/spec/2-0-2/OpenLineage.json#/$defs/RunFacet",
+        "environment-properties": {}
+      }
+    }
+  },
+  "job": {
+    "namespace": "default",
+    "name": "simple_app_json_new.execute_insert_into_hadoop_fs_relation_command.spark-test_result",
+    "facets": {}
+  },
+  "inputs": [
+    {
+      "namespace": "file",
+      "name": "/my_folder/spark-test/people.json",
+      "facets": {
+        "dataSource": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.2.2/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DatasourceDatasetFacet.json#/$defs/DatasourceDatasetFacet",
+          "name": "file",
+          "uri": "file"
+        },
+        "schema": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.2.2/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+          "fields": [
+            {
+              "name": "age",
+              "type": "long"
+            },
+            {
+              "name": "name",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "inputFacets": {}
+    }
+  ],
+  "outputs": [
+    {
+      "namespace": "file",
+      "name": "/my_folder/shadow/spark-test/result",
+      "facets": {
+        "dataSource": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.2.2/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/DatasourceDatasetFacet.json#/$defs/DatasourceDatasetFacet",
+          "name": "file",
+          "uri": "file"
+        },
+        "schema": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.2.2/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/SchemaDatasetFacet.json#/$defs/SchemaDatasetFacet",
+          "fields": [
+            {
+              "name": "name",
+              "type": "string"
+            }
+          ]
+        },
+        "columnLineage": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.2.2/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-1/ColumnLineageDatasetFacet.json#/$defs/ColumnLineageDatasetFacet",
+          "fields": {
+            "name": {
+              "inputFields": [
+                {
+                  "namespace": "file",
+                  "name": "/my_folder/spark-test/people.json",
+                  "field": "name"
+                }
+              ]
+            }
+          }
+        },
+        "lifecycleStateChange": {
+          "_producer": "https://github.com/OpenLineage/OpenLineage/tree/1.2.2/integration/spark",
+          "_schemaURL": "https://openlineage.io/spec/facets/1-0-0/LifecycleStateChangeDatasetFacet.json#/$defs/LifecycleStateChangeDatasetFacet",
+          "lifecycleStateChange": "OVERWRITE"
+        }
+      },
+      "outputFacets": {}
+    }
+  ]
+}

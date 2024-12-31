@@ -7,17 +7,14 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.boot.dependencies.BootstrapDependency;
 import com.linkedin.metadata.boot.steps.WaitForSystemUpdateStep;
 import com.linkedin.metadata.kafka.config.MetadataChangeProposalProcessorCondition;
+import java.util.List;
+import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Scope;
-
-import javax.annotation.Nonnull;
-import java.util.List;
-
 
 @Configuration
 @Conditional(MetadataChangeProposalProcessorCondition.class)
@@ -27,18 +24,14 @@ public class MCPBootstrapManagerFactory {
   @Qualifier("dataHubUpgradeKafkaListener")
   private BootstrapDependency _dataHubUpgradeKafkaListener;
 
-  @Autowired
-  private ConfigurationProvider _configurationProvider;
-
-  @Value("${bootstrap.upgradeDefaultBrowsePaths.enabled}")
-  private Boolean _upgradeDefaultBrowsePathsEnabled;
+  @Autowired private ConfigurationProvider _configurationProvider;
 
   @Bean(name = "mcpBootstrapManager")
   @Scope("singleton")
   @Nonnull
   protected BootstrapManager createInstance() {
-    final WaitForSystemUpdateStep waitForSystemUpdateStep = new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener,
-        _configurationProvider);
+    final WaitForSystemUpdateStep waitForSystemUpdateStep =
+        new WaitForSystemUpdateStep(_dataHubUpgradeKafkaListener, _configurationProvider);
 
     final List<BootstrapStep> finalSteps = ImmutableList.of(waitForSystemUpdateStep);
 

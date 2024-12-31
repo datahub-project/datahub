@@ -1,7 +1,6 @@
 import collections
 from typing import Iterable, List, Optional, Tuple
 
-import pydantic
 from ruamel.yaml import YAML
 from typing_extensions import Literal
 
@@ -11,7 +10,11 @@ from datahub.api.entities.datacontract.data_quality_assertion import (
 )
 from datahub.api.entities.datacontract.freshness_assertion import FreshnessAssertion
 from datahub.api.entities.datacontract.schema_assertion import SchemaAssertion
-from datahub.configuration.common import ConfigModel
+from datahub.configuration.pydantic_migration_helpers import (
+    v1_ConfigModel,
+    v1_Field,
+    v1_validator,
+)
 from datahub.emitter.mce_builder import datahub_guid, make_assertion_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.metadata.schema_classes import (
@@ -26,7 +29,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.urns.urn import guess_entity_type
 
 
-class DataContract(ConfigModel):
+class DataContract(v1_ConfigModel):
     """A yml representation of a Data Contract.
 
     This model is used as a simpler, Python-native representation of a DataHub data contract.
@@ -36,29 +39,27 @@ class DataContract(ConfigModel):
 
     version: Literal[1]
 
-    id: Optional[str] = pydantic.Field(
+    id: Optional[str] = v1_Field(
         default=None,
         alias="urn",
         description="The data contract urn. If not provided, one will be generated.",
     )
-    entity: str = pydantic.Field(
+    entity: str = v1_Field(
         description="The entity urn that the Data Contract is associated with"
     )
     # TODO: add support for properties
     # properties: Optional[Dict[str, str]] = None
 
-    schema_field: Optional[SchemaAssertion] = pydantic.Field(
-        default=None, alias="schema"
-    )
+    schema_field: Optional[SchemaAssertion] = v1_Field(default=None, alias="schema")
 
-    freshness: Optional[FreshnessAssertion] = pydantic.Field(default=None)
+    freshness: Optional[FreshnessAssertion] = v1_Field(default=None)
 
     # TODO: Add a validator to ensure that ids are unique
-    data_quality: Optional[List[DataQualityAssertion]] = pydantic.Field(default=None)
+    data_quality: Optional[List[DataQualityAssertion]] = v1_Field(default=None)
 
     _original_yaml_dict: Optional[dict] = None
 
-    @pydantic.validator("data_quality")
+    @v1_validator("data_quality")  # type: ignore
     def validate_data_quality(
         cls, data_quality: Optional[List[DataQualityAssertion]]
     ) -> Optional[List[DataQualityAssertion]]:
@@ -178,14 +179,16 @@ class DataContract(ConfigModel):
             aspects=[
                 DataContractPropertiesClass(
                     entity=self.entity,
-                    schema=[SchemaContractClass(assertion=schema_assertion_urn)]
-                    if schema_assertion_urn
-                    else None,
-                    freshness=[
-                        FreshnessContractClass(assertion=freshness_assertion_urn)
-                    ]
-                    if freshness_assertion_urn
-                    else None,
+                    schema=(
+                        [SchemaContractClass(assertion=schema_assertion_urn)]
+                        if schema_assertion_urn
+                        else None
+                    ),
+                    freshness=(
+                        [FreshnessContractClass(assertion=freshness_assertion_urn)]
+                        if freshness_assertion_urn
+                        else None
+                    ),
                     dataQuality=[
                         DataQualityContractClass(assertion=dq_assertion_urn)
                         for dq_assertion_urn in dq_assertions
@@ -194,9 +197,11 @@ class DataContract(ConfigModel):
                 # Also emit status.
                 StatusClass(removed=False),
                 # Emit the contract state as PENDING.
-                DataContractStatusClass(state=DataContractStateClass.PENDING)
-                if True
-                else None,
+                (
+                    DataContractStatusClass(state=DataContractStateClass.PENDING)
+                    if True
+                    else None
+                ),
             ],
         )
 

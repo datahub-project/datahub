@@ -1,0 +1,235 @@
+{
+  "bool" : {
+    "filter" : [
+      {
+        "bool" : {
+          "should" : [
+            {
+              "bool" : {
+                "should" : [
+                  {
+                    "bool" : {
+                      "must" : [
+                        {
+                          "terms" : {
+                            "source.urn" : [
+                              "urn:li:dataset:test-urn",
+                              "urn:li:dataset:test-urn2",
+                              "urn:li:dataset:test-urn3"
+                            ],
+                            "boost" : 1.0
+                          }
+                        },
+                        {
+                          "terms" : {
+                            "relationshipType" : [
+                              "DownstreamOf",
+                              "Consumes"
+                            ],
+                            "boost" : 1.0
+                          }
+                        }
+                      ],
+                      "adjust_pure_negative" : true,
+                      "boost" : 1.0
+                    }
+                  }
+                ],
+                "adjust_pure_negative" : true,
+                "minimum_should_match" : "1",
+                "boost" : 1.0
+              }
+            }
+          ],
+          "adjust_pure_negative" : true,
+          "minimum_should_match" : "1",
+          "boost" : 1.0
+        }
+      },
+      {
+        "terms" : {
+          "source.entityType" : [
+            "dataset",
+            "dashboard",
+            "dataJob"
+          ],
+          "boost" : 1.0
+        }
+      },
+      {
+        "terms" : {
+          "destination.entityType" : [
+            "dataset",
+            "dashboard",
+            "dataJob"
+          ],
+          "boost" : 1.0
+        }
+      },
+      {
+        "bool" : {
+          "should" : [
+            {
+              "bool" : {
+                "should" : [
+                  {
+                    "bool" : {
+                      "must" : [
+                        {
+                          "exists" : {
+                            "field" : "createdOn",
+                            "boost" : 1.0
+                          }
+                        },
+                        {
+                          "range" : {
+                            "createdOn" : {
+                              "from" : 0,
+                              "to" : 1,
+                              "include_lower" : true,
+                              "include_upper" : true,
+                              "boost" : 1.0
+                            }
+                          }
+                        }
+                      ],
+                      "adjust_pure_negative" : true,
+                      "boost" : 1.0
+                    }
+                  },
+                  {
+                    "bool" : {
+                      "must" : [
+                        {
+                          "exists" : {
+                            "field" : "updatedOn",
+                            "boost" : 1.0
+                          }
+                        },
+                        {
+                          "range" : {
+                            "updatedOn" : {
+                              "from" : 0,
+                              "to" : 1,
+                              "include_lower" : true,
+                              "include_upper" : true,
+                              "boost" : 1.0
+                            }
+                          }
+                        }
+                      ],
+                      "adjust_pure_negative" : true,
+                      "boost" : 1.0
+                    }
+                  }
+                ],
+                "adjust_pure_negative" : true,
+                "minimum_should_match" : "1",
+                "boost" : 1.0
+              }
+            },
+            {
+              "bool" : {
+                "must" : [
+                  {
+                    "bool" : {
+                      "should" : [
+                        {
+                          "bool" : {
+                            "must_not" : [
+                              {
+                                "exists" : {
+                                  "field" : "createdOn",
+                                  "boost" : 1.0
+                                }
+                              }
+                            ],
+                            "adjust_pure_negative" : true,
+                            "boost" : 1.0
+                          }
+                        },
+                        {
+                          "bool" : {
+                            "must" : [
+                              {
+                                "term" : {
+                                  "createdOn" : {
+                                    "value" : 0,
+                                    "boost" : 1.0
+                                  }
+                                }
+                              }
+                            ],
+                            "adjust_pure_negative" : true,
+                            "boost" : 1.0
+                          }
+                        }
+                      ],
+                      "adjust_pure_negative" : true,
+                      "minimum_should_match" : "1",
+                      "boost" : 1.0
+                    }
+                  },
+                  {
+                    "bool" : {
+                      "should" : [
+                        {
+                          "bool" : {
+                            "must_not" : [
+                              {
+                                "exists" : {
+                                  "field" : "updatedOn",
+                                  "boost" : 1.0
+                                }
+                              }
+                            ],
+                            "adjust_pure_negative" : true,
+                            "boost" : 1.0
+                          }
+                        },
+                        {
+                          "bool" : {
+                            "must" : [
+                              {
+                                "term" : {
+                                  "updatedOn" : {
+                                    "value" : 0,
+                                    "boost" : 1.0
+                                  }
+                                }
+                              }
+                            ],
+                            "adjust_pure_negative" : true,
+                            "boost" : 1.0
+                          }
+                        }
+                      ],
+                      "adjust_pure_negative" : true,
+                      "minimum_should_match" : "1",
+                      "boost" : 1.0
+                    }
+                  }
+                ],
+                "adjust_pure_negative" : true,
+                "boost" : 1.0
+              }
+            },
+            {
+              "term" : {
+                "properties.source" : {
+                  "value" : "UI",
+                  "boost" : 1.0
+                }
+              }
+            }
+          ],
+          "adjust_pure_negative" : true,
+          "minimum_should_match" : "1",
+          "boost" : 1.0
+        }
+      }
+    ],
+    "adjust_pure_negative" : true,
+    "boost" : 1.0
+  }
+}

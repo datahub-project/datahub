@@ -1,16 +1,14 @@
 package com.linkedin.metadata.entity;
 
+import static com.linkedin.metadata.Constants.*;
+import static org.testng.Assert.*;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.AspectIngestionUtils;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.key.CorpUserKey;
-import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
-import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.models.registry.EntityRegistryException;
-import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.service.UpdateIndicesService;
-import com.linkedin.metadata.snapshot.Snapshot;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -18,36 +16,23 @@ import java.util.stream.Collectors;
 import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
-import static com.linkedin.metadata.Constants.*;
-import static org.testng.Assert.*;
-
-
-abstract public class AspectMigrationsDaoTest<T extends AspectMigrationsDao> {
+public abstract class AspectMigrationsDaoTest<T extends AspectMigrationsDao> {
 
   protected T _migrationsDao;
-
-  protected final EntityRegistry _snapshotEntityRegistry;
-  protected final EntityRegistry _configEntityRegistry;
-  protected final EntityRegistry _testEntityRegistry;
   protected EventProducer _mockProducer;
-
   protected EntityServiceImpl _entityServiceImpl;
   protected RetentionService _retentionService;
   protected UpdateIndicesService _mockUpdateIndicesService;
-
-  protected AspectMigrationsDaoTest() throws EntityRegistryException {
-    _snapshotEntityRegistry = new TestEntityRegistry();
-    _configEntityRegistry = new ConfigEntityRegistry(Snapshot.class.getClassLoader().getResourceAsStream("entity-registry.yml"));
-    _testEntityRegistry = new MergedEntityRegistry(_snapshotEntityRegistry).apply(_configEntityRegistry);
-  }
 
   @Test
   public void testListAllUrns() throws AssertionError {
     final int totalAspects = 30;
     final int pageSize = 25;
     final int lastPageSize = 5;
-    Map<Urn, CorpUserKey> ingestedAspects = AspectIngestionUtils.ingestCorpUserKeyAspects(_entityServiceImpl, totalAspects);
-    List<String> ingestedUrns = ingestedAspects.keySet().stream().map(Urn::toString).collect(Collectors.toList());
+    Map<Urn, CorpUserKey> ingestedAspects =
+        AspectIngestionUtils.ingestCorpUserKeyAspects(_entityServiceImpl, totalAspects);
+    List<String> ingestedUrns =
+        ingestedAspects.keySet().stream().map(Urn::toString).collect(Collectors.toList());
     List<String> seenUrns = new ArrayList<>();
 
     Iterable<String> page1 = _migrationsDao.listAllUrns(0, pageSize);

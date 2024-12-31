@@ -1,0 +1,57 @@
+namespace com.linkedin.form
+
+import com.linkedin.common.Urn
+
+/**
+ * A prompt to present to the user to encourage filling out metadata
+ */
+record FormPrompt {
+  /**
+   * The unique id for this prompt. This must be GLOBALLY unique.
+   */
+  id: string
+
+  /**
+   * The title of this prompt
+   */
+  title: string
+
+  /**
+   * The description of this prompt
+   */
+  description: optional string
+
+  /**
+   * The type of prompt
+   */
+  type: enum FormPromptType {
+    /**
+     * This prompt is meant to apply a structured property to an entity
+     */
+    STRUCTURED_PROPERTY
+    /**
+     * This prompt is meant to apply a structured property to a schema fields entity
+     */
+    FIELDS_STRUCTURED_PROPERTY
+  }
+
+  /**
+   * An optional set of information specific to structured properties prompts.
+   * This should be filled out if the prompt is type STRUCTURED_PROPERTY or FIELDS_STRUCTURED_PROPERTY.
+   */
+  structuredPropertyParams: optional record StructuredPropertyParams {
+    /**
+     * The structured property that is required on this entity
+     */
+    @Searchable = {
+      "fieldType": "URN",
+      "fieldName": "structuredPropertyPromptUrns",
+    }
+    urn: Urn
+  }
+
+  /**
+   * Whether the prompt is required to be completed, in order for the form to be marked as complete.
+   */
+   required: boolean = false
+}

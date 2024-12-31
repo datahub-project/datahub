@@ -1,16 +1,14 @@
 package com.linkedin.metadata.kafka.elasticsearch;
 
 import com.linkedin.events.metadata.ChangeType;
-import javax.annotation.Nonnull;
-
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
+import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.delete.DeleteRequest;
 import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.common.xcontent.XContentType;
-
 
 @Slf4j
 public class ElasticsearchConnector {
@@ -29,7 +27,8 @@ public class ElasticsearchConnector {
   public void feedElasticEvent(@Nonnull ElasticEvent event) {
     if (event.getActionType().equals(ChangeType.DELETE)) {
       _bulkProcessor.add(createDeleteRequest(event));
-    } else if (event.getActionType().equals(ChangeType.CREATE)) {
+    } else if (event.getActionType().equals(ChangeType.CREATE)
+        || event.getActionType().equals(ChangeType.CREATE_ENTITY)) {
       _bulkProcessor.add(createIndexRequest(event));
     } else if (event.getActionType().equals(ChangeType.UPDATE)) {
       _bulkProcessor.add(createUpsertRequest(event));
@@ -38,7 +37,8 @@ public class ElasticsearchConnector {
 
   @Nonnull
   private static IndexRequest createIndexRequest(@Nonnull ElasticEvent event) {
-    return new IndexRequest(event.getIndex()).id(event.getId())
+    return new IndexRequest(event.getIndex())
+        .id(event.getId())
         .source(event.buildJson())
         .opType(DocWriteRequest.OpType.CREATE);
   }
@@ -50,12 +50,10 @@ public class ElasticsearchConnector {
 
   @Nonnull
   private UpdateRequest createUpsertRequest(@Nonnull ElasticEvent event) {
-    return new UpdateRequest(
-            event.getIndex(), event.getId())
-            .detectNoop(false)
-            .docAsUpsert(true)
-            .doc(event.buildJson(), XContentType.JSON)
-            .retryOnConflict(_numRetries);
+    return new UpdateRequest(event.getIndex(), event.getId())
+        .detectNoop(false)
+        .docAsUpsert(true)
+        .doc(event.buildJson(), XContentType.JSON)
+        .retryOnConflict(_numRetries);
   }
 }
-

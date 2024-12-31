@@ -1,8 +1,9 @@
-# Configuring Frontend to use a Proxy when communicating with SSO Provider
-*Authored on 22/08/2023*
+# OIDC Proxy Configuration
 
-The `datahub-frontend-react` server can be configured to use an http proxy when retrieving the openid-configuration. 
-This can be needed if your infrastructure is locked down and disallows connectivity by default, using proxies for fine-grained egress control. 
+_Authored on 22/08/2023_
+
+The `datahub-frontend-react` server can be configured to use an http proxy when retrieving the openid-configuration.
+This can be needed if your infrastructure is locked down and disallows connectivity by default, using proxies for fine-grained egress control.
 
 ## Configure http proxy and non proxy hosts
 
@@ -17,7 +18,8 @@ HTTP_NON_PROXY_HOSTS=localhost|datahub-gms (or any other hosts that you would li
 ```
 
 ## Optional: provide custom truststore
-If your upstream proxy performs SSL termination to inspect traffic, this will result in different (self-signed) certificates for HTTPS connections. 
+
+If your upstream proxy performs SSL termination to inspect traffic, this will result in different (self-signed) certificates for HTTPS connections.
 The default truststore used in the `datahub-frontend-react` docker image will not trust these kinds of connections.
 To address this, you can copy or mount your own truststore (provided by the proxy or network administrators) into the docker container.
 
@@ -32,12 +34,12 @@ To build a custom image for your frontend, with the certificates built-in, you c
 Example Dockerfile:
 
 ```dockerfile
-FROM linkedin/datahub-frontend-react:<version>
+FROM acryldata/datahub-frontend-react:<version>
 COPY /truststore-directory /certificates
 ```
 
-Building this Dockerfile will result in your own custom docker image on your local machine. 
-You will then be able to tag it, publish it to your own registry, etc. 
+Building this Dockerfile will result in your own custom docker image on your local machine.
+You will then be able to tag it, publish it to your own registry, etc.
 
 #### Option b) Mount truststore from your host machine using a docker volume
 
@@ -51,7 +53,7 @@ Adapt your docker-compose.yml to include a new volume mount in the `datahub-fron
       - /truststore-directory:/certificates
 ```
 
-### Reference new truststore 
+### Reference new truststore
 
 Add the following environment values to the `datahub-frontend-react` container:
 

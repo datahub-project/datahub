@@ -3,9 +3,7 @@ package com.linkedin.common.urn;
 import com.linkedin.data.template.Custom;
 import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
-
 import java.net.URISyntaxException;
-
 
 public final class DataPlatformUrn extends Urn {
 
@@ -50,18 +48,20 @@ public final class DataPlatformUrn extends Urn {
   }
 
   static {
-    Custom.registerCoercer(new DirectCoercer<DataPlatformUrn>() {
-      public Object coerceInput(DataPlatformUrn object) throws ClassCastException {
-        return object.toString();
-      }
+    Custom.registerCoercer(
+        new DirectCoercer<DataPlatformUrn>() {
+          public Object coerceInput(DataPlatformUrn object) throws ClassCastException {
+            return object.toString();
+          }
 
-      public DataPlatformUrn coerceOutput(Object object) throws TemplateOutputCastException {
-        try {
-          return DataPlatformUrn.createFromString((String) object);
-        } catch (URISyntaxException e) {
-          throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
-        }
-      }
-    }, DataPlatformUrn.class);
+          public DataPlatformUrn coerceOutput(Object object) throws TemplateOutputCastException {
+            try {
+              return DataPlatformUrn.createFromString((String) object);
+            } catch (URISyntaxException e) {
+              throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
+            }
+          }
+        },
+        DataPlatformUrn.class);
   }
 }

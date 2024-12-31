@@ -2,7 +2,7 @@ from typing import Optional, Union
 
 from typing_extensions import Literal, Protocol
 
-from datahub.configuration import ConfigModel
+from datahub.configuration.pydantic_migration_helpers import v1_ConfigModel
 from datahub.metadata.schema_classes import (
     AssertionStdOperatorClass,
     AssertionStdParameterClass,
@@ -58,7 +58,7 @@ def _generate_assertion_std_parameters(
     )
 
 
-class EqualToOperator(ConfigModel):
+class EqualToOperator(v1_ConfigModel):
     type: Literal["equal_to"]
     value: Union[str, int, float]
 
@@ -71,7 +71,7 @@ class EqualToOperator(ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class BetweenOperator(ConfigModel):
+class BetweenOperator(v1_ConfigModel):
     type: Literal["between"]
     min: Union[int, float]
     max: Union[int, float]
@@ -87,7 +87,7 @@ class BetweenOperator(ConfigModel):
         )
 
 
-class LessThanOperator(ConfigModel):
+class LessThanOperator(v1_ConfigModel):
     type: Literal["less_than"]
     value: Union[int, float]
 
@@ -100,7 +100,7 @@ class LessThanOperator(ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class GreaterThanOperator(ConfigModel):
+class GreaterThanOperator(v1_ConfigModel):
     type: Literal["greater_than"]
     value: Union[int, float]
 
@@ -113,7 +113,7 @@ class GreaterThanOperator(ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class LessThanOrEqualToOperator(ConfigModel):
+class LessThanOrEqualToOperator(v1_ConfigModel):
     type: Literal["less_than_or_equal_to"]
     value: Union[int, float]
 
@@ -126,7 +126,7 @@ class LessThanOrEqualToOperator(ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class GreaterThanOrEqualToOperator(ConfigModel):
+class GreaterThanOrEqualToOperator(v1_ConfigModel):
     type: Literal["greater_than_or_equal_to"]
     value: Union[int, float]
 
@@ -139,7 +139,7 @@ class GreaterThanOrEqualToOperator(ConfigModel):
         return _generate_assertion_std_parameters(value=self.value)
 
 
-class NotNullOperator(ConfigModel):
+class NotNullOperator(v1_ConfigModel):
     type: Literal["not_null"]
 
     operator: str = AssertionStdOperatorClass.NOT_NULL

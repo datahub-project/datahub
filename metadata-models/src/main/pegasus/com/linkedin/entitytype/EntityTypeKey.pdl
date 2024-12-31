@@ -1,0 +1,12 @@
+namespace com.linkedin.entitytype
+
+@Aspect = {
+    "name": "entityTypeKey"
+}
+record EntityTypeKey {
+    /**
+     * A unique id for an entity type. Usually this will be a unique namespace + entity name.
+     */
+    @Searchable = {}
+    id: string
+}

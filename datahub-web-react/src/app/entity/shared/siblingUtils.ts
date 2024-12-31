@@ -4,6 +4,8 @@ import { useLocation } from 'react-router-dom';
 import * as QueryString from 'query-string';
 import { Dataset, Entity, Maybe, SiblingProperties } from '../../../types.generated';
 import { GenericEntityProperties } from './types';
+import { useIsShowSeparateSiblingsEnabled } from '../../useAppConfig';
+import { downgradeV2FieldPath } from '../dataset/profile/schema/utils/utils';
 
 export function stripSiblingsFromEntity(entity: any) {
     return {
@@ -24,7 +26,9 @@ function cleanHelper(obj, visited) {
         if ((v && typeof v === 'object' && !Object.keys(v).length) || v === null || v === undefined || v === '') {
             if (Array.isArray(object)) {
                 object.splice(Number(k), 1);
-            } else {
+            } else if (Object.getOwnPropertyDescriptor(object, k)?.configurable) {
+                // TODO(hsheth2): Not sure why we needed to add the above "configurable" check.
+                // However, I was getting errors when it was not present in dev mode (but not in prod mode).
                 delete object[k];
             }
         }
@@ -52,16 +56,30 @@ const combineMerge = (target, source, options) => {
     return destination;
 };
 
-function convertObjectKeysToLowercase(object: Record<string, unknown>) {
-    return Object.fromEntries(Object.entries(object).map(([key, value]) => [key.toLowerCase(), value]));
+// this function is responsible for normalizing object keys to make sure merging on key matches keys appropriately
+function normalizeObjectKeys(object: Record<string, unknown>, isSchemaField = false) {
+    return Object.fromEntries(
+        Object.entries(object).map(([key, value]) => {
+            let normalizedKey = key.toLowerCase();
+            if (isSchemaField) {
+                normalizedKey = downgradeV2FieldPath(normalizedKey) || normalizedKey;
+            }
+            return [normalizedKey, value];
+        }),
+    );
 }
 
 // use when you want to merge an array of objects by key in the object as opposed to by index of array
-const mergeArrayOfObjectsByKey = (destinationArray: any[], sourceArray: any[], key: string) => {
-    const destination = convertObjectKeysToLowercase(keyBy(destinationArray, key));
-    const source = convertObjectKeysToLowercase(keyBy(sourceArray, key));
+const mergeArrayOfObjectsByKey = (destinationArray: any[], sourceArray: any[], key: string, isSchemaField = false) => {
+    const destination = normalizeObjectKeys(keyBy(destinationArray, key), isSchemaField);
+    const source = normalizeObjectKeys(keyBy(sourceArray, key), isSchemaField);
 
-    return values(merge(destination, source));
+    return values(
+        merge(destination, source, {
+            arrayMerge: combineMerge,
+            customMerge,
+        }),
+    );
 };
 
 const mergeTags = (destinationArray, sourceArray, _options) => {
@@ -85,7 +103,7 @@ const mergeOwners = (destinationArray, sourceArray, _options) => {
 };
 
 const mergeFields = (destinationArray, sourceArray, _options) => {
-    return mergeArrayOfObjectsByKey(destinationArray, sourceArray, 'fieldPath');
+    return mergeArrayOfObjectsByKey(destinationArray, sourceArray, 'fieldPath', true);
 };
 
 function getArrayMergeFunction(key) {
@@ -109,13 +127,16 @@ function getArrayMergeFunction(key) {
     }
 }
 
-const customMerge = (isPrimary, key) => {
+function customMerge(isPrimary, key) {
     if (key === 'upstream' || key === 'downstream') {
         return (_secondary, primary) => primary;
     }
     // take the platform & siblings of whichever entity we're merging with, rather than the primary
     if (key === 'platform' || key === 'siblings') {
         return (secondary, primary) => (isPrimary ? primary : secondary);
+    }
+    if (key === 'forms') {
+        return (_secondary, primary) => primary;
     }
     if (
         key === 'tags' ||
@@ -139,7 +160,7 @@ const customMerge = (isPrimary, key) => {
             customMerge: customMerge.bind({}, isPrimary),
         });
     };
-};
+}
 
 export const getEntitySiblingData = <T>(baseEntity: T): Maybe<SiblingProperties> => {
     if (!baseEntity) {
@@ -262,8 +283,9 @@ export const SEPARATE_SIBLINGS_URL_PARAM = 'separate_siblings';
 
 // used to determine whether sibling entities should be shown merged or not
 export function useIsSeparateSiblingsMode() {
+    const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
 
-    return params[SEPARATE_SIBLINGS_URL_PARAM] === 'true';
+    return showSeparateSiblings || params[SEPARATE_SIBLINGS_URL_PARAM] === 'true';
 }

@@ -11,6 +11,8 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab';
 import ChildrenTab from './ChildrenTab';
 import { Preview } from './preview/Preview';
+import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
     type: EntityType = EntityType.GlossaryNode;
@@ -48,6 +50,8 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
 
     getEntityName = () => 'Term Group';
 
+    useEntityQuery = useGetGlossaryNodeQuery;
+
     renderProfile = (urn: string) => {
         return (
             <EntityProfile
@@ -69,18 +73,12 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
                             hideLinksButton: true,
                         },
                     },
-                ]}
-                sidebarSections={[
                     {
-                        component: SidebarAboutSection,
-                        properties: {
-                            hideLinksButton: true,
-                        },
-                    },
-                    {
-                        component: SidebarOwnerSection,
+                        name: 'Properties',
+                        component: PropertiesTab,
                     },
                 ]}
+                sidebarSections={this.getSidebarSections()}
                 headerDropdownItems={
                     new Set([
                         EntityMenuItems.ADD_TERM_GROUP,
@@ -92,6 +90,21 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             />
         );
     };
+
+    getSidebarSections = () => [
+        {
+            component: SidebarAboutSection,
+            properties: {
+                hideLinksButton: true,
+            },
+        },
+        {
+            component: SidebarOwnerSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
+        },
+    ];
 
     displayName = (data: GlossaryNode) => {
         return data.properties?.name || data.urn;
@@ -138,6 +151,8 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             EntityCapabilityType.SOFT_DELETE,
         ]);
     };
+
+    getGraphName = () => this.getPathName();
 }
 
 export default GlossaryNodeEntity;

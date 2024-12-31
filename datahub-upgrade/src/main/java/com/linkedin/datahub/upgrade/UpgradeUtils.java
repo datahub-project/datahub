@@ -19,10 +19,12 @@ public class UpgradeUtils {
 
     for (final String arg : args) {
       List<String> parsedArg = Arrays.asList(arg.split(KEY_VALUE_DELIMITER, 2));
-      parsedArgs.put(parsedArg.get(0), parsedArg.size() > 1 ? Optional.of(parsedArg.get(1)) : Optional.empty());
+      parsedArgs.put(
+          parsedArg.get(0),
+          parsedArg.size() > 1 ? Optional.of(parsedArg.get(1)) : Optional.empty());
     }
     return parsedArgs;
   }
 
-  private UpgradeUtils() { }
+  private UpgradeUtils() {}
 }

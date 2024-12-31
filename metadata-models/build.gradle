@@ -1,41 +1,41 @@
 import io.datahubproject.GenerateJsonSchemaTask
 
-apply plugin: 'java-library'
-apply plugin: 'pegasus'
-apply plugin: 'org.hidetake.swagger.generator'
+plugins {
+  id 'pegasus'
+  id 'java-library'
+  id 'org.hidetake.swagger.generator'
+}
 
-tasks.withType(JavaCompile).configureEach {
-  javaCompiler = javaToolchains.compilerFor {
-    languageVersion = JavaLanguageVersion.of(8)
-  }
-}
-tasks.withType(Test).configureEach {
-  javaLauncher = javaToolchains.launcherFor {
-    languageVersion = JavaLanguageVersion.of(8)
-  }
-}
+apply from: '../gradle/coverage/java-coverage.gradle'
 
 dependencies {
-  api spec.product.pegasus.data
-    constraints {
-      implementation('org.apache.commons:commons-text:1.10.0') {
-        because 'Vulnerability Issue'
-      }
+  constraints {
+    implementation('org.apache.commons:commons-text:1.10.0') {
+      because 'Vulnerability Issue'
     }
+  }
+
+  api(spec.product.pegasus.data) {
+    exclude group: 'javax.servlet', module: 'javax.servlet-api'
+  }
   api project(':li-utils')
   api project(path: ':li-utils', configuration: "dataTemplate")
   dataModel project(':li-utils')
 
+  // Newer Spring libraries require JDK17 classes, allow for JDK11
+  compileOnly externalDependency.springBootAutoconfigureJdk11
+  compileOnly externalDependency.annotationApi
+  compileOnly externalDependency.javaxValidation
+
   compileOnly externalDependency.lombok
   annotationProcessor externalDependency.lombok
   compileOnly externalDependency.swaggerAnnotations
-  compileOnly externalDependency.springBootStarterValidation
   compileOnly externalDependency.jacksonCore
   compileOnly externalDependency.jacksonDataBind
 
   swaggerCodegen externalDependency.swaggerCli
   testImplementation externalDependency.guava
-  testImplementation externalDependency.testngJava8
+  testImplementation externalDependency.testng
 }
 
 sourceSets {
@@ -51,11 +51,10 @@ mainAvroSchemaJar.dependsOn generateAvroSchema
 pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGenerationMode.AVRO]
 
 
-tasks.register('generateJsonSchema', GenerateJsonSchemaTask) {
+task generateJsonSchema(type: GenerateJsonSchemaTask, dependsOn: 'generateAvroSchema') {
   it.setInputDirectory("$projectDir/src/mainGeneratedAvroSchema")
   it.setOutputDirectory("$projectDir/src/generatedJsonSchema")
   it.setEntityRegistryYaml("${project(':metadata-models').projectDir}/src/main/resources/entity-registry.yml")
-  dependsOn generateAvroSchema
 }
 
 // https://github.com/int128/gradle-swagger-generator-plugin#task-type-generateswaggercode
@@ -75,11 +74,7 @@ task openApiGenerate(type: GenerateSwaggerCode, dependsOn: 'generateJsonSchema')
 }
 tasks.getByName("compileJava").dependsOn(openApiGenerate)
 
-checkstyleMain.exclude '**/generated/**'
-
 task cleanExtraDirs {
   delete "$projectDir/src/generatedJsonSchema"
 }
 clean.finalizedBy(cleanExtraDirs)
-
-checkstyleMain.exclude '**/generated/**'

@@ -9,7 +9,6 @@
                         "customProperties": {},
                         "active": true,
                         "displayName": "Hester Bevan",
-                        "email": "hbevan",
                         "firstName": "Hester",
                         "lastName": "Bevan",
                         "fullName": "Hester Bevan"
@@ -28,7 +27,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -41,7 +41,6 @@
                         "customProperties": {},
                         "active": true,
                         "displayName": "Evalyn Haas",
-                        "email": "ehaas",
                         "firstName": "Evalyn",
                         "lastName": "Haas",
                         "fullName": "Evalyn Haas"
@@ -60,7 +59,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -75,7 +75,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 },
 {
@@ -90,7 +91,8 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "ldap-test"
+        "runId": "ldap-test",
+        "lastRunId": "no-run-id-provided"
     }
 }
 ]

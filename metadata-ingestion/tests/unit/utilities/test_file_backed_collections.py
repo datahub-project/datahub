@@ -1,6 +1,7 @@
 import dataclasses
 import json
 import pathlib
+import random
 import sqlite3
 from dataclasses import dataclass
 from typing import Counter, Dict
@@ -14,11 +15,13 @@ from datahub.utilities.file_backed_collections import (
 )
 
 
-def test_file_dict() -> None:
+@pytest.mark.parametrize("use_sqlite_on_conflict", [True, False])
+def test_file_dict(use_sqlite_on_conflict: bool) -> None:
     cache = FileBackedDict[int](
         tablename="cache",
         cache_max_size=10,
         cache_eviction_batch_size=10,
+        _use_sqlite_on_conflict=use_sqlite_on_conflict,
     )
 
     for i in range(100):
@@ -54,6 +57,12 @@ def test_file_dict() -> None:
     assert cache["key-3"] == 99
     cache["key-3"] = 3
 
+    # Test in operator
+    assert "key-3" in cache
+    assert "key-99" in cache
+    assert "missing" not in cache
+    assert "missing" not in cache
+
     # Test deleting keys, in and out of cache
     del cache["key-0"]
     del cache["key-99"]
@@ -85,7 +94,8 @@ def test_file_dict() -> None:
         cache["a"] = 1
 
 
-def test_custom_serde() -> None:
+@pytest.mark.parametrize("use_sqlite_on_conflict", [True, False])
+def test_custom_serde(use_sqlite_on_conflict: bool) -> None:
     @dataclass(frozen=True)
     class Label:
         a: str
@@ -132,6 +142,7 @@ def test_custom_serde() -> None:
         deserializer=deserialize,
         # Disable the in-memory cache to force all reads/writes to the DB.
         cache_max_size=0,
+        _use_sqlite_on_conflict=use_sqlite_on_conflict,
     )
     first = Main(3, {Label("one", 1): 0.1, Label("two", 2): 0.2})
     second = Main(-100, {Label("z", 26): 0.26})
@@ -155,21 +166,66 @@ def test_file_dict_stores_counter() -> None:
     )
 
     n = 5
+
+    # initialize
     in_memory_counters: Dict[int, Counter[str]] = {}
     for i in range(n):
         cache[str(i)] = Counter[str]()
         in_memory_counters[i] = Counter[str]()
-        for j in range(n):
-            if i == j:
-                cache[str(i)][str(j)] += 100
-                in_memory_counters[i][str(j)] += 100
-            cache[str(i)][str(j)] += j
+
+    # increment the counters
+    increments = [(i, j) for i in range(n) for j in range(n)]
+    random.shuffle(increments)
+    for i, j in increments:
+        if i == j:
+            cache[str(i)][str(j)] += 100 + j
             cache.mark_dirty(str(i))
+            in_memory_counters[i][str(j)] += 100 + j
+        else:
+            cache.for_mutation(str(i))[str(j)] += j
             in_memory_counters[i][str(j)] += j
 
     for i in range(n):
         assert in_memory_counters[i] == cache[str(i)]
         assert in_memory_counters[i].most_common(2) == cache[str(i)].most_common(2)
+
+
+@pytest.mark.parametrize("use_sqlite_on_conflict", [True, False])
+def test_file_dict_ordering(use_sqlite_on_conflict: bool) -> None:
+    """
+    We require that FileBackedDict maintains insertion order, similar to Python's
+    built-in dict. This test makes one of each and validates that they behave the same.
+    """
+
+    cache = FileBackedDict[int](
+        serializer=str,
+        deserializer=int,
+        cache_max_size=1,
+        _use_sqlite_on_conflict=use_sqlite_on_conflict,
+    )
+    data = {}
+
+    num_items = 14
+
+    for i in range(num_items):
+        cache[str(i)] = i
+        data[str(i)] = i
+
+    assert list(cache.items()) == list(data.items())
+
+    # Try some deletes.
+    for i in range(3, num_items, 3):
+        del cache[str(i)]
+        del data[str(i)]
+
+    assert list(cache.items()) == list(data.items())
+
+    # And some updates + inserts.
+    for i in range(2, num_items, 2):
+        cache[str(i)] = i * 10
+        data[str(i)] = i * 10
+
+    assert list(cache.items()) == list(data.items())
 
 
 @dataclass
@@ -179,12 +235,14 @@ class Pair:
 
 
 @pytest.mark.parametrize("cache_max_size", [0, 1, 10])
-def test_custom_column(cache_max_size: int) -> None:
+@pytest.mark.parametrize("use_sqlite_on_conflict", [True, False])
+def test_custom_column(cache_max_size: int, use_sqlite_on_conflict: bool) -> None:
     cache = FileBackedDict[Pair](
         extra_columns={
             "x": lambda m: m.x,
         },
         cache_max_size=cache_max_size,
+        _use_sqlite_on_conflict=use_sqlite_on_conflict,
     )
 
     cache["first"] = Pair(3, "a")
@@ -225,7 +283,8 @@ def test_custom_column(cache_max_size: int) -> None:
     ]
 
 
-def test_shared_connection() -> None:
+@pytest.mark.parametrize("use_sqlite_on_conflict", [True, False])
+def test_shared_connection(use_sqlite_on_conflict: bool) -> None:
     with ConnectionWrapper() as connection:
         cache1 = FileBackedDict[int](
             shared_connection=connection,
@@ -233,6 +292,7 @@ def test_shared_connection() -> None:
             extra_columns={
                 "v": lambda v: v,
             },
+            _use_sqlite_on_conflict=use_sqlite_on_conflict,
         )
         cache2 = FileBackedDict[Pair](
             shared_connection=connection,
@@ -241,6 +301,7 @@ def test_shared_connection() -> None:
                 "x": lambda m: m.x,
                 "y": lambda m: m.y,
             },
+            _use_sqlite_on_conflict=use_sqlite_on_conflict,
         )
 
         cache1["a"] = 3

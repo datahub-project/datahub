@@ -5,9 +5,9 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.metadata.entity.ebean.AspectStorageValidationUtil;
+import com.linkedin.upgrade.DataHubUpgradeState;
 import io.ebean.Database;
 import java.util.function.Function;
-
 
 public class NoCodeUpgradeQualificationStep implements UpgradeStep {
 
@@ -33,23 +33,19 @@ public class NoCodeUpgradeQualificationStep implements UpgradeStep {
       try {
         if (!AspectStorageValidationUtil.checkV2TableExists(_server)) {
           // Unqualified (V2 Table does not exist)
-          context.report().addLine("You have not successfully migrated yet. Aborting the cleanup...");
+          context
+              .report()
+              .addLine("You have not successfully migrated yet. Aborting the cleanup...");
           return new DefaultUpgradeStepResult(
-              id(),
-              UpgradeStepResult.Result.SUCCEEDED,
-              UpgradeStepResult.Action.ABORT);
+              id(), DataHubUpgradeState.SUCCEEDED, UpgradeStepResult.Action.ABORT);
         } else {
           // Qualified.
           context.report().addLine("Found qualified upgrade candidate. Proceeding with upgrade...");
-          return new DefaultUpgradeStepResult(
-              id(),
-              UpgradeStepResult.Result.SUCCEEDED);
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
         }
       } catch (Exception e) {
         context.report().addLine("Failed to check if metadata_aspect_v2 table exists: %s", e);
-        return new DefaultUpgradeStepResult(
-            id(),
-            UpgradeStepResult.Result.FAILED);
+        return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };
   }

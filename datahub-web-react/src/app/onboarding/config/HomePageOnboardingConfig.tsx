@@ -2,6 +2,7 @@ import React from 'react';
 import { Image, Typography } from 'antd';
 import { OnboardingStep } from '../OnboardingStep';
 import { ANTD_GRAY } from '../../entity/shared/constants';
+import dataHubFlowDiagram from '../../../images/datahub-flow-diagram-light.png';
 
 export const GLOBAL_WELCOME_TO_DATAHUB_ID = 'global-welcome-to-datahub';
 export const HOME_PAGE_INGESTION_ID = 'home-page-ingestion';
@@ -20,7 +21,7 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
                     height={184}
                     width={500}
                     style={{ marginLeft: '50px' }}
-                    src="https://datahubproject.io/assets/ideal-img/datahub-flow-diagram-light.5ce651b.1600.png"
+                    src={dataHubFlowDiagram}
                 />
                 <Typography.Title level={3}>Welcome to DataHub! 👋</Typography.Title>
                 <Typography.Paragraph style={{ lineHeight: '22px' }}>
@@ -94,8 +95,7 @@ export const HomePageOnboardingConfig: OnboardingStep[] = [
             <Typography.Paragraph>
                 Here are your organization&apos;s <strong>Data Platforms</strong>. Data Platforms represent specific
                 third-party Data Systems or Tools. Examples include Data Warehouses like <strong>Snowflake</strong>,
-                Orchestrators like
-                <strong>Airflow</strong>, and Dashboarding tools like <strong>Looker</strong>.
+                Orchestrators like <strong>Airflow</strong>, and Dashboarding tools like <strong>Looker</strong>.
             </Typography.Paragraph>
         ),
     },

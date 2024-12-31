@@ -31,7 +31,9 @@ record LineageRelationship {
 
   /**
    * Degree of relationship (number of hops to get to entity)
+   * Deprecated by degrees. degree field is populated by min(degrees) for backward compatibility.
    */
+  @deprecated
   degree: int = 1
 
   /**
@@ -58,4 +60,26 @@ record LineageRelationship {
    * Whether this lineage edge is a manual edge.
    */
   isManual: optional boolean
+
+  /**
+   * The different depths at which this entity is discovered in the lineage graph.
+   * Marked as optional to maintain backward compatibility, but is filled out by implementations. 
+   * Replaces the deprecated field "degree".
+   **/
+   degrees: optional array[int]
+
+   /**
+    * Marks this relationship as explored during the graph walk
+    */
+    explored: optional boolean
+
+    /**
+     * Indicates this destination node has additional unexplored child relationships
+     */
+    truncatedChildren: optional boolean
+
+   /**
+    * Whether this relationship was ignored as a hop while performing the graph walk
+    */
+    ignoredAsHop: optional boolean
 }

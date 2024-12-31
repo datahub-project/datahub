@@ -4,7 +4,8 @@ import dataclasses
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, FrozenSet, List, Optional, Set
+from enum import Enum
+from typing import Dict, FrozenSet, List, Optional, Set, Union
 
 from databricks.sdk.service.catalog import (
     CatalogType,
@@ -32,6 +33,7 @@ from datahub.metadata.schema_classes import (
 
 logger = logging.getLogger(__name__)
 
+# TODO: (maybe) Replace with standardized types in sql_types.py
 DATA_TYPE_REGISTRY: dict = {
     ColumnTypeName.BOOLEAN: BooleanTypeClass,
     ColumnTypeName.BYTE: BytesTypeClass,
@@ -75,6 +77,17 @@ ALLOWED_STATEMENT_TYPES = {*OPERATION_STATEMENT_TYPES.keys(), QueryStatementType
 NotebookId = int
 
 
+class CustomCatalogType(Enum):
+    HIVE_METASTORE_CATALOG = "HIVE_METASTORE_CATALOG"
+
+
+class HiveTableType(Enum):
+    HIVE_MANAGED_TABLE = "HIVE_MANAGED_TABLE"
+    HIVE_EXTERNAL_TABLE = "HIVE_EXTERNAL_TABLE"
+    HIVE_VIEW = "HIVE_VIEW"
+    UNKNOWN = "UNKNOWN"
+
+
 @dataclass
 class CommonProperty:
     id: str
@@ -84,8 +97,8 @@ class CommonProperty:
 
 @dataclass
 class Metastore(CommonProperty):
-    global_metastore_id: str  # Global across clouds and regions
-    metastore_id: str
+    global_metastore_id: Optional[str]  # Global across clouds and regions
+    metastore_id: Optional[str]
     owner: Optional[str]
     cloud: Optional[str]
     region: Optional[str]
@@ -95,7 +108,7 @@ class Metastore(CommonProperty):
 class Catalog(CommonProperty):
     metastore: Optional[Metastore]
     owner: Optional[str]
-    type: CatalogType
+    type: Optional[Union[CatalogType, CustomCatalogType]]
 
 
 @dataclass
@@ -107,11 +120,11 @@ class Schema(CommonProperty):
 @dataclass
 class Column(CommonProperty):
     type_text: str
-    type_name: ColumnTypeName
-    type_precision: int
-    type_scale: int
-    position: int
-    nullable: bool
+    type_name: Optional[ColumnTypeName]
+    type_precision: Optional[int]
+    type_scale: Optional[int]
+    position: Optional[int]
+    nullable: Optional[bool]
     comment: Optional[str]
 
 
@@ -139,9 +152,11 @@ class TableReference:
     @classmethod
     def create(cls, table: "Table") -> "TableReference":
         return cls(
-            table.schema.catalog.metastore.id
-            if table.schema.catalog.metastore
-            else None,
+            (
+                table.schema.catalog.metastore.id
+                if table.schema.catalog.metastore
+                else None
+            ),
             table.schema.catalog.name,
             table.schema.name,
             table.name,
@@ -212,14 +227,14 @@ class Table(CommonProperty):
     columns: List[Column]
     storage_location: Optional[str]
     data_source_format: Optional[DataSourceFormat]
-    table_type: TableType
+    table_type: Optional[Union[TableType, HiveTableType]]
     owner: Optional[str]
     generation: Optional[int]
-    created_at: datetime
-    created_by: str
+    created_at: Optional[datetime]
+    created_by: Optional[str]
     updated_at: Optional[datetime]
     updated_by: Optional[str]
-    table_id: str
+    table_id: Optional[str]
     view_definition: Optional[str]
     properties: Dict[str, str]
     upstreams: Dict[TableReference, Dict[str, List[str]]] = field(default_factory=dict)
@@ -231,21 +246,25 @@ class Table(CommonProperty):
 
     def __post_init__(self):
         self.ref = TableReference.create(self)
-        self.is_view = self.table_type in [TableType.VIEW, TableType.MATERIALIZED_VIEW]
+        self.is_view = self.table_type in [
+            TableType.VIEW,
+            TableType.MATERIALIZED_VIEW,
+            HiveTableType.HIVE_VIEW,
+        ]
 
 
 @dataclass
 class Query:
-    query_id: str
+    query_id: Optional[str]
     query_text: str
-    statement_type: QueryStatementType
+    statement_type: Optional[QueryStatementType]
     start_time: datetime
     end_time: datetime
     # User who ran the query
-    user_id: int
+    user_id: Optional[int]
     user_name: Optional[str]  # Email or username
     # User whose credentials were used to run the query
-    executed_as_user_id: int
+    executed_as_user_id: Optional[int]
     executed_as_user_name: Optional[str]
 
 
@@ -294,9 +313,9 @@ class ColumnProfile:
 class Notebook:
     id: NotebookId
     path: str
-    language: Language
-    created_at: datetime
-    modified_at: datetime
+    language: Optional[Language]
+    created_at: Optional[datetime]
+    modified_at: Optional[datetime]
 
     upstreams: FrozenSet[TableReference] = field(default_factory=frozenset)
 

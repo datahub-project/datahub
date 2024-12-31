@@ -1,6 +1,6 @@
 import React, { useContext, useState } from 'react';
 import { Button, Input } from 'antd';
-import { Group } from '@vx/group';
+import { Group } from '@visx/group';
 import styled from 'styled-components';
 import { DownOutlined, SearchOutlined, UpOutlined } from '@ant-design/icons';
 import { blue } from '@ant-design/colors';

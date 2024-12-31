@@ -1,9 +1,15 @@
-apply plugin: 'java-library'
+plugins {
+  id 'java-library'
+  id 'pegasus'
+}
+
+apply from: "../../gradle/coverage/java-coverage.gradle"
 
 dependencies {
   api project(':metadata-events:mxe-avro')
   api project(':metadata-models')
-  api spec.product.pegasus.dataAvro1_6
+  api project(path: ':metadata-models', configuration: "dataTemplate")
+  api spec.product.pegasus.dataAvro
 
   testImplementation externalDependency.testng
   testImplementation project(':test-models')

@@ -1,16 +1,12 @@
 # Override to use MariaDB as a backing store for datahub-gms.
 ---
-version: '3.8'
 services:
   mariadb:
-    container_name: mariadb
     hostname: mariadb
     image: mariadb:10.5
     env_file: env/docker.env
     ports:
       - '3306:3306'
-    volumes:
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
 
   datahub-gms:
     env_file: ../datahub-gms/env/dev.mariadb.env

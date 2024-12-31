@@ -2,7 +2,11 @@ import org.yaml.snakeyaml.Yaml
 
 buildscript {
     repositories{
-        mavenCentral()
+        if (project.hasProperty('apacheMavenRepositoryUrl')) {
+            maven { url project.getProperty('apacheMavenRepositoryUrl') }
+        } else {
+            mavenCentral()
+        }
     }
     dependencies {
         classpath("org.yaml:snakeyaml:1.33")
@@ -10,10 +14,12 @@ buildscript {
 }
 
 plugins {
-    id 'base'
+    id 'java'
     id 'maven-publish'
+    id 'pegasus'
 }
-apply plugin: 'pegasus'
+
+apply from: '../gradle/coverage/java-coverage.gradle'
 
 if (project.hasProperty('projVersion')) {
   project.version = project.projVersion
@@ -21,15 +27,16 @@ if (project.hasProperty('projVersion')) {
   project.version = '0.0.0-dev'
 }
 
-
 dependencies {
   implementation spec.product.pegasus.data
-  // Uncomment these if you want to depend on models defined in core datahub
-  //implementation project(':li-utils')
-  //dataModel project(':li-utils')
-  //implementation project(':metadata-models')
-  //dataModel project(':metadata-models')
 
+  // Core DataHub dependencies
+  implementation project(path: ':metadata-integration:java:custom-plugin-lib', configuration: 'shadow')
+  // DataModel DataHub dependencies
+  dataModel project(path: ':metadata-integration:java:custom-plugin-lib', configuration: 'shadow')
+
+  // Required for Spring-enabled plugins only
+  implementation externalDependency.springBootAutoconfigure
 }
 def deployBaseDir = findProperty('pluginModelsDir') ?: file(project.gradle.gradleUserHomeDir.parent + "/.datahub/plugins/models")
 
@@ -39,9 +46,10 @@ pegasus.main.generationModes = [PegasusGenerationMode.PEGASUS, PegasusGeneration
 
 
 task modelArtifact(type: Zip) {
+    dependsOn jar
 
     from(layout.buildDirectory.dir("libs")) {
-        include "*-data-template-*.jar"
+        include "*.jar"
         exclude "*-test-data-template-*.jar"
         into "libs"
     }

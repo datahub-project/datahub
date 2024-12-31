@@ -1,0 +1,56 @@
+{
+    "query_type": "CREATE_TABLE_AS_SELECT",
+    "query_type_props": {
+        "kind": "TABLE",
+        "temporary": true
+    },
+    "query_fingerprint": "55195d697586ac4fdf8a6df745cb158a38878c2d2bb3ab3950b13fa618f02491",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.other_schema.table1,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.my_schema.#my_custom_name,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.my_schema.#my_custom_name,PROD)",
+                "column": "col1",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INTEGER"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.other_schema.table1,PROD)",
+                    "column": "col1"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.my_schema.#my_custom_name,PROD)",
+                "column": "col2",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INTEGER"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:redshift,my_db.other_schema.table1,PROD)",
+                    "column": "col2"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.35,
+        "generalized_statement": "CREATE TABLE #my_custom_name DISTKEY(\"1\") SORTKEY(\"1\", \"2\") AS WITH cte AS (SELECT * FROM other_schema.table1) SELECT * FROM cte"
+    }
+}

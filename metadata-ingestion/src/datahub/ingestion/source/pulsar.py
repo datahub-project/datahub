@@ -53,7 +53,7 @@ from datahub.metadata.schema_classes import (
 logger = logging.getLogger(__name__)
 
 
-class PulsarTopic(object):
+class PulsarTopic:
     __slots__ = ["topic_parts", "fullname", "type", "tenant", "namespace", "topic"]
 
     def __init__(self, topic):
@@ -65,7 +65,7 @@ class PulsarTopic(object):
         self.topic = topic_parts[5]
 
 
-class PulsarSchema(object):
+class PulsarSchema:
     __slots__ = [
         "schema_version",
         "schema_name",
@@ -78,8 +78,27 @@ class PulsarSchema(object):
     def __init__(self, schema):
         self.schema_version = schema.get("version")
 
-        avro_schema = json.loads(schema.get("data"))
-        self.schema_name = avro_schema.get("namespace") + "." + avro_schema.get("name")
+        schema_data = schema.get("data")
+        if not schema_data:
+            logger.warning("Schema data is empty or None. Using default empty schema.")
+            schema_data = "{}"
+
+        try:
+            avro_schema = json.loads(schema_data)
+        except json.JSONDecodeError as e:
+            logger.error(f"Invalid JSON schema: {schema_data}. Error: {str(e)}")
+            avro_schema = {}
+
+        self.schema_name = "null"
+        if avro_schema.get("namespace") and avro_schema.get("name"):
+            self.schema_name = (
+                avro_schema.get("namespace") + "." + avro_schema.get("name")
+            )
+        elif avro_schema.get("namespace"):
+            self.schema_name = avro_schema.get("namespace")
+        elif avro_schema.get("name"):
+            self.schema_name = avro_schema.get("name")
+
         self.schema_description = avro_schema.get("doc")
         self.schema_type = schema.get("type")
         self.schema_str = schema.get("data")
@@ -91,6 +110,7 @@ class PulsarSchema(object):
 @config_class(PulsarSourceConfig)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
+@capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @dataclass
 class PulsarSource(StatefulIngestionSourceBase):
     def __init__(self, config: PulsarSourceConfig, ctx: PipelineContext):
@@ -116,7 +136,7 @@ class PulsarSource(StatefulIngestionSourceBase):
                 f"{self.config.issuer_url}/.well-known/openid-configuration"
             )
             oid_config_response = requests.get(
-                oid_config_url, verify=False, allow_redirects=False
+                oid_config_url, verify=self.session.verify, allow_redirects=False
             )
 
             if oid_config_response:
@@ -163,7 +183,7 @@ class PulsarSource(StatefulIngestionSourceBase):
                 token_response = requests.post(
                     url=token_endpoint,
                     data=data,
-                    verify=False,
+                    verify=self.session.verify,
                     allow_redirects=False,
                     auth=(
                         self.config.client_id,
@@ -416,19 +436,19 @@ class PulsarSource(StatefulIngestionSourceBase):
         # TODO Add topic properties (Pulsar 2.10.0 feature)
         # 3. Construct and emit dataset properties aspect
         if schema is not None:
+            # Add some static properties to the schema properties
             schema_properties = {
+                **schema.properties,
                 "schema_version": str(schema.schema_version),
                 "schema_type": schema.schema_type,
                 "partitioned": str(partitioned).lower(),
             }
-            # Add some static properties to the schema properties
-            schema.properties.update(schema_properties)
 
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn,
                 aspect=DatasetPropertiesClass(
                     description=schema.schema_description,
-                    customProperties=schema.properties,
+                    customProperties=schema_properties,
                 ),
             ).as_workunit()
 

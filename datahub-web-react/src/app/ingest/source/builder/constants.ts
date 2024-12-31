@@ -2,7 +2,7 @@ import snowflakeLogo from '../../../../images/snowflakelogo.png';
 import bigqueryLogo from '../../../../images/bigquerylogo.png';
 import redshiftLogo from '../../../../images/redshiftlogo.png';
 import kafkaLogo from '../../../../images/kafkalogo.png';
-import lookerLogo from '../../../../images/lookerlogo.png';
+import lookerLogo from '../../../../images/lookerlogo.svg';
 import tableauLogo from '../../../../images/tableaulogo.png';
 import mysqlLogo from '../../../../images/mysqllogo-2.png';
 import postgresLogo from '../../../../images/postgreslogo.png';
@@ -16,8 +16,10 @@ import supersetLogo from '../../../../images/supersetlogo.png';
 import athenaLogo from '../../../../images/awsathenalogo.png';
 import mssqlLogo from '../../../../images/mssqllogo.png';
 import clickhouseLogo from '../../../../images/clickhouselogo.png';
+import cockroachdbLogo from '../../../../images/cockroachdblogo.png';
 import trinoLogo from '../../../../images/trinologo.png';
 import dbtLogo from '../../../../images/dbtlogo.png';
+import dremioLogo from '../../../../images/dremiologo.png';
 import druidLogo from '../../../../images/druidlogo.png';
 import elasticsearchLogo from '../../../../images/elasticsearchlogo.png';
 import feastLogo from '../../../../images/feastlogo.png';
@@ -29,6 +31,14 @@ import databricksLogo from '../../../../images/databrickslogo.png';
 import verticaLogo from '../../../../images/verticalogo.png';
 import mlflowLogo from '../../../../images/mlflowlogo.png';
 import dynamodbLogo from '../../../../images/dynamodblogo.png';
+import fivetranLogo from '../../../../images/fivetranlogo.png';
+import csvLogo from '../../../../images/csv-logo.png';
+import qlikLogo from '../../../../images/qliklogo.png';
+import sigmaLogo from '../../../../images/sigmalogo.png';
+import sacLogo from '../../../../images/saclogo.svg';
+import cassandraLogo from '../../../../images/cassandralogo.png';
+import datahubLogo from '../../../../images/datahublogo.png';
+import neo4j from '../../../../images/neo4j.png';
 
 export const ATHENA = 'athena';
 export const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
@@ -41,8 +51,12 @@ export const BIGQUERY_URN = `urn:li:dataPlatform:${BIGQUERY}`;
 export const CLICKHOUSE = 'clickhouse';
 export const CLICKHOUSE_USAGE = 'clickhouse-usage';
 export const CLICKHOUSE_URN = `urn:li:dataPlatform:${CLICKHOUSE}`;
+export const COCKROACHDB = 'cockroachdb';
+export const COCKROACHDB_URN = `urn:li:dataPlatform:${COCKROACHDB}`;
 export const DBT = 'dbt';
 export const DBT_URN = `urn:li:dataPlatform:${DBT}`;
+export const DREMIO = 'dremio';
+export const DREMIO_URN = `urn:li:dataPlatform:${DREMIO}`;
 export const DRUID = 'druid';
 export const DRUID_URN = `urn:li:dataPlatform:${DRUID}`;
 export const DYNAMODB = 'dynamodb';
@@ -101,17 +115,40 @@ export const CUSTOM = 'custom';
 export const CUSTOM_URN = `urn:li:dataPlatform:${CUSTOM}`;
 export const UNITY_CATALOG = 'unity-catalog';
 export const UNITY_CATALOG_URN = `urn:li:dataPlatform:${UNITY_CATALOG}`;
+export const DATABRICKS = 'databricks';
+export const DATABRICKS_URN = `urn:li:dataPlatform:${DATABRICKS}`;
 export const DBT_CLOUD = 'dbt-cloud';
 export const DBT_CLOUD_URN = `urn:li:dataPlatform:dbt`;
 export const VERTICA = 'vertica';
 export const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
+export const FIVETRAN = 'fivetran';
+export const FIVETRAN_URN = `urn:li:dataPlatform:${FIVETRAN}`;
+export const CSV = 'csv-enricher';
+export const CSV_URN = `urn:li:dataPlatform:${CSV}`;
+export const QLIK_SENSE = 'qlik-sense';
+export const QLIK_SENSE_URN = `urn:li:dataPlatform:${QLIK_SENSE}`;
+export const SIGMA = 'sigma';
+export const SIGMA_URN = `urn:li:dataPlatform:${SIGMA}`;
+export const SAC = 'sac';
+export const SAC_URN = `urn:li:dataPlatform:${SAC}`;
+export const CASSANDRA = 'cassandra';
+export const CASSANDRA_URN = `urn:li:dataPlatform:${CASSANDRA}`;
+export const DATAHUB = 'datahub';
+export const DATAHUB_GC = 'datahub-gc';
+export const DATAHUB_LINEAGE_FILE = 'datahub-lineage-file';
+export const DATAHUB_BUSINESS_GLOSSARY = 'datahub-business-glossary';
+export const DATAHUB_URN = `urn:li:dataPlatform:${DATAHUB}`;
+export const NEO4J = 'neo4j';
+export const NEO4J_URN = `urn:li:dataPlatform:${NEO4J}`;
 
 export const PLATFORM_URN_TO_LOGO = {
     [ATHENA_URN]: athenaLogo,
     [AZURE_URN]: azureLogo,
     [BIGQUERY_URN]: bigqueryLogo,
     [CLICKHOUSE_URN]: clickhouseLogo,
+    [COCKROACHDB_URN]: cockroachdbLogo,
     [DBT_URN]: dbtLogo,
+    [DREMIO_URN]: dremioLogo,
     [DRUID_URN]: druidLogo,
     [DYNAMODB_URN]: dynamodbLogo,
     [ELASTICSEARCH_URN]: elasticsearchLogo,
@@ -137,7 +174,16 @@ export const PLATFORM_URN_TO_LOGO = {
     [TRINO_URN]: trinoLogo,
     [SUPERSET_URN]: supersetLogo,
     [UNITY_CATALOG_URN]: databricksLogo,
+    [DATABRICKS_URN]: databricksLogo,
     [VERTICA_URN]: verticaLogo,
+    [FIVETRAN_URN]: fivetranLogo,
+    [CSV_URN]: csvLogo,
+    [QLIK_SENSE_URN]: qlikLogo,
+    [SIGMA_URN]: sigmaLogo,
+    [SAC_URN]: sacLogo,
+    [CASSANDRA_URN]: cassandraLogo,
+    [DATAHUB_URN]: datahubLogo,
+    [NEO4J_URN]: neo4j,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {
@@ -151,5 +197,7 @@ export const SOURCE_TO_PLATFORM_URN = {
     [SNOWFLAKE_USAGE]: SNOWFLAKE_URN,
     [STARBURST_TRINO_USAGE]: TRINO_URN,
     [DBT_CLOUD]: DBT_URN,
-    [VERTICA]: VERTICA_URN,
+    [DATAHUB_GC]: DATAHUB_URN,
+    [DATAHUB_LINEAGE_FILE]: DATAHUB_URN,
+    [DATAHUB_BUSINESS_GLOSSARY]: DATAHUB_URN,
 };

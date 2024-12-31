@@ -1,4 +1,3 @@
 package com.linkedin.datahub.graphql.scalar;
 
-public class LongScalarType {
-}
+public class LongScalarType {}

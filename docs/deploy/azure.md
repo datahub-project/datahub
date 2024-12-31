@@ -165,7 +165,7 @@ In order to use the ingress controller to expose frontend pod, we need to update
 datahub-frontend:
   enabled: true
   image:
-    repository: linkedin/datahub-frontend-react
+    repository: acryldata/datahub-frontend-react
     # tag: "v0.10.0 # defaults to .global.datahub.version
 
   # Set up ingress to expose react front-end

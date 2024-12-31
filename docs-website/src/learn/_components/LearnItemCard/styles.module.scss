@@ -1,0 +1,53 @@
+.featureCol {
+  display: flex;
+}
+
+.card_date {
+  padding: 1rem 2rem;
+  font-size: 0.8rem;
+  font-style: italic;
+  color: gray;
+  margin-top: auto;
+}
+
+.card_feature {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.card {
+  color: var(--ifm-text-color);
+  text-decoration: none !important;
+  padding: 0rem;
+  margin-bottom: 2rem;
+  align-self: stretch;
+  flex-grow: 1;
+  &:hover {
+    border-color: var(--ifm-color-primary);
+  }
+  hr {
+    margin: 0;
+  }
+}
+
+.featureHeader {
+  h2 {
+    margin-bottom: 1rem !important;
+    font-size: 1.25rem;
+  }
+  padding: 1rem 2rem;
+}
+
+.featureBody {
+  padding: 0 2rem;
+}
+
+.card_image {
+  margin: 0;
+  margin-bottom: 0.5rem;
+
+  img {
+    width: 100%;
+    height: auto;
+  }
+}

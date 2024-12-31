@@ -3,7 +3,7 @@ import { render } from '@testing-library/react';
 import { Editor } from '../Editor';
 
 // setupTests mocks Editor for all tests. We want to use the actual editor for this test module
-jest.mock('../Editor', () => jest.requireActual('../Editor'));
+vi.mock('../Editor', async () => vi.importActual('../Editor'));
 
 describe('Editor', () => {
     it('should render the Editor and content without failure', () => {

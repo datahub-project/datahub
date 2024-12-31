@@ -1,0 +1,13 @@
+namespace com.linkedin.common
+
+record PropertyValue {
+    value: union [
+        string,
+        double
+    ]
+
+    /**
+    * Optional description of the property value
+    */
+    description: optional string
+}

@@ -1,4 +1,3 @@
-import re
 import subprocess
 
 import pytest
@@ -6,10 +5,15 @@ import requests
 from freezegun import freeze_time
 
 from datahub.configuration.common import AllowDenyPattern
+from datahub.ingestion.glossary.classifier import (
+    ClassificationConfig,
+    DynamicTypedClassifierConfig,
+)
+from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSinkConfig
 from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
-from datahub.ingestion.source.sql.trino import TrinoConfig
+from datahub.ingestion.source.sql.trino import ConnectorDetail, TrinoConfig
 from tests.test_helpers import fs_helpers, mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
@@ -53,7 +57,6 @@ def loaded_trino(trino_runner):
 
 
 @freeze_time(FROZEN_TIME)
-@pytest.mark.xfail
 def test_trino_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
@@ -70,11 +73,10 @@ def test_trino_ingest(
                 "config": TrinoConfig(
                     host_port="localhost:5300",
                     database="postgresqldb",
-                    database_alias="library_catalog",
                     username="foo",
                     schema_pattern=AllowDenyPattern(allow=["^librarydb"]),
                     profile_pattern=AllowDenyPattern(
-                        allow=["library_catalog.librarydb.*"]
+                        allow=["postgresqldb.librarydb.*"]
                     ),
                     profiling=GEProfilingConfig(
                         enabled=True,
@@ -90,6 +92,24 @@ def test_trino_ingest(
                         include_field_histogram=True,
                         include_field_sample_values=True,
                     ),
+                    classification=ClassificationConfig(
+                        enabled=True,
+                        classifiers=[
+                            DynamicTypedClassifierConfig(
+                                type="datahub",
+                                config=DataHubClassifierConfig(
+                                    minimum_values_threshold=1,
+                                ),
+                            )
+                        ],
+                        max_workers=1,
+                    ),
+                    catalog_to_connector_details={
+                        "postgresqldb": ConnectorDetail(
+                            connector_database="postgres",
+                            platform_instance="local_server",
+                        )
+                    },
                 ).dict(),
             },
             "sink": {
@@ -128,6 +148,18 @@ def test_trino_hive_ingest(
                 database="hivedb",
                 username="foo",
                 schema_pattern=AllowDenyPattern(allow=["^db1"]),
+                classification=ClassificationConfig(
+                    enabled=True,
+                    classifiers=[
+                        DynamicTypedClassifierConfig(
+                            type="datahub",
+                            config=DataHubClassifierConfig(
+                                minimum_values_threshold=1,
+                            ),
+                        )
+                    ],
+                    max_workers=1,
+                ),
             ).dict(),
         },
         "sink": {
@@ -170,8 +202,6 @@ def test_trino_hive_ingest(
 def test_trino_instance_ingest(
     loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
 ):
-    instance = "production_warehouse"
-    platform = "trino"
     mce_out_file = "trino_instance_mces.json"
     events_file = tmp_path / mce_out_file
     pipeline_config = {
@@ -184,6 +214,12 @@ def test_trino_instance_ingest(
                 username="foo",
                 platform_instance="production_warehouse",
                 schema_pattern=AllowDenyPattern(allow=["^db1"]),
+                catalog_to_connector_details={
+                    "hivedb": ConnectorDetail(
+                        connector_platform="glue",
+                        platform_instance="local_server",
+                    )
+                },
             ).dict(),
         },
         "sink": {
@@ -198,40 +234,12 @@ def test_trino_instance_ingest(
     pipeline.pretty_print_summary()
     pipeline.raise_from_status(raise_warnings=True)
 
-    # Assert that all events generated have instance specific urns
-    urn_pattern = "^" + re.escape(
-        f"urn:li:dataset:(urn:li:dataPlatform:{platform},{instance}."
-    )
-    assert (
-        mce_helpers.assert_mce_entity_urn(
-            "ALL",
-            entity_type="dataset",
-            regex_pattern=urn_pattern,
-            file=events_file,
-        )
-        >= 0
-    ), "There should be at least one match"
-
-    assert (
-        mce_helpers.assert_mcp_entity_urn(
-            "ALL",
-            entity_type="dataset",
-            regex_pattern=urn_pattern,
-            file=events_file,
-        )
-        >= 0
-    ), "There should be at least one MCP"
-
-    # all dataset entities emitted must have a dataPlatformInstance aspect emitted
-    # there must be at least one entity emitted
-    assert (
-        mce_helpers.assert_for_each_entity(
-            entity_type="dataset",
-            aspect_name="dataPlatformInstance",
-            aspect_field_matcher={
-                "instance": f"urn:li:dataPlatformInstance:(urn:li:dataPlatform:{platform},{instance})"
-            },
-            file=events_file,
-        )
-        >= 1
+    # Verify the output.
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=events_file,
+        golden_path=test_resources_dir / "trino_hive_instance_mces_golden.json",
+        ignore_paths=[
+            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastddltime'\]",
+        ],
     )

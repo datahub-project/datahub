@@ -1,9 +1,11 @@
+import React, { Fragment } from 'react';
+
 import { Button, Collapse, Form, message, Tooltip, Typography } from 'antd';
-import React from 'react';
 import { get } from 'lodash';
 import YAML from 'yamljs';
 import { ApiOutlined, FilterOutlined, QuestionCircleOutlined, SettingOutlined } from '@ant-design/icons';
 import styled from 'styled-components/macro';
+
 import { jsonToYaml } from '../../utils';
 import { CONNECTORS_WITH_TEST_CONNECTION, RecipeSections, RECIPE_FIELDS } from './constants';
 import FormField from './FormField';
@@ -11,6 +13,7 @@ import TestConnectionButton from './TestConnection/TestConnectionButton';
 import { useListSecretsQuery } from '../../../../../graphql/ingestion.generated';
 import { RecipeField, setFieldValueOnRecipe } from './common';
 import { SourceBuilderState, SourceConfig } from '../types';
+import { RequiredFieldForm } from '../../../../shared/form/RequiredFieldForm';
 
 export const ControlsContainer = styled.div`
     display: flex;
@@ -115,7 +118,7 @@ function RecipeForm(props: Props) {
         },
     });
     const secrets =
-        data?.listSecrets?.secrets.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
+        data?.listSecrets?.secrets?.sort((secretA, secretB) => secretA.name.localeCompare(secretB.name)) || [];
     const [form] = Form.useForm();
 
     function updateFormValues(changedValues: any, allValues: any) {
@@ -140,7 +143,7 @@ function RecipeForm(props: Props) {
     }
 
     return (
-        <Form
+        <RequiredFieldForm
             layout="vertical"
             initialValues={getInitialValues(displayRecipe, allFields)}
             onFinish={onClickNext}
@@ -151,6 +154,7 @@ function RecipeForm(props: Props) {
                 <Collapse.Panel forceRender header={<SectionHeader icon={<ApiOutlined />} text="Connection" />} key="0">
                     {fields.map((field, i) => (
                         <FormField
+                            key={field.name}
                             field={field}
                             secrets={secrets}
                             refetchSecrets={refetchSecrets}
@@ -183,7 +187,7 @@ function RecipeForm(props: Props) {
                         key="1"
                     >
                         {filterFields.map((field, i) => (
-                            <>
+                            <Fragment key={field.name}>
                                 {shouldRenderFilterSectionHeader(field, i, filterFields) && (
                                     <Typography.Title level={4}>{field.section}</Typography.Title>
                                 )}
@@ -196,7 +200,7 @@ function RecipeForm(props: Props) {
                                         updateFormValue={updateFormValue}
                                     />
                                 </MarginWrapper>
-                            </>
+                            </Fragment>
                         ))}
                     </Collapse.Panel>
                 </StyledCollapse>
@@ -207,7 +211,7 @@ function RecipeForm(props: Props) {
                     header={
                         <SectionHeader
                             icon={<SettingOutlined />}
-                            text="Advanced"
+                            text="Settings"
                             sectionTooltip={advancedSectionTooltip}
                         />
                     }
@@ -215,6 +219,7 @@ function RecipeForm(props: Props) {
                 >
                     {advancedFields.map((field, i) => (
                         <FormField
+                            key={field.name}
                             field={field}
                             secrets={secrets}
                             refetchSecrets={refetchSecrets}
@@ -228,9 +233,11 @@ function RecipeForm(props: Props) {
                 <Button disabled={isEditing} onClick={goToPrevious}>
                     Previous
                 </Button>
-                <Button htmlType="submit">Next</Button>
+                <Button type="primary" htmlType="submit">
+                    Next
+                </Button>
             </ControlsContainer>
-        </Form>
+        </RequiredFieldForm>
     );
 }
 

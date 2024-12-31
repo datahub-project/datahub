@@ -2,16 +2,15 @@ import dataclasses
 import json
 import logging
 import pprint
-import sys
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Any, Dict, Optional
+from typing import Any, Optional, runtime_checkable
 
 import humanfriendly
 import pydantic
 from pydantic import BaseModel
-from typing_extensions import Literal, Protocol, runtime_checkable
+from typing_extensions import Literal, Protocol
 
 from datahub.ingestion.api.report_helpers import format_datetime_relative
 from datahub.utilities.lossy_collections import LossyList
@@ -19,25 +18,11 @@ from datahub.utilities.lossy_collections import LossyList
 logger = logging.getLogger(__name__)
 LogLevel = Literal["ERROR", "WARNING", "INFO", "DEBUG"]
 
-# The sort_dicts option was added in Python 3.8.
-if sys.version_info >= (3, 8):
-    PPRINT_OPTIONS = {"sort_dicts": False}
-else:
-    PPRINT_OPTIONS: Dict = {}
-
 
 @runtime_checkable
 class SupportsAsObj(Protocol):
     def as_obj(self) -> dict:
         ...
-
-
-def _stacklevel_if_supported(level: int) -> dict:
-    # The logging module added support for stacklevel in Python 3.8.
-    if sys.version_info >= (3, 8):
-        return {"stacklevel": level}
-    else:
-        return {}
 
 
 @dataclass
@@ -56,8 +41,11 @@ class Report(SupportsAsObj):
         if isinstance(some_val, SupportsAsObj):
             return some_val.as_obj()
         elif isinstance(some_val, pydantic.BaseModel):
-            return some_val.dict()
-        elif dataclasses.is_dataclass(some_val):
+            return Report.to_pure_python_obj(some_val.dict())
+        elif dataclasses.is_dataclass(some_val) and not isinstance(some_val, type):
+            # The `is_dataclass` function returns `True` for both instances and classes.
+            # We need an extra check to ensure an instance was passed in.
+            # https://docs.python.org/3/library/dataclasses.html#dataclasses.is_dataclass
             return dataclasses.asdict(some_val)
         elif isinstance(some_val, list):
             return [Report.to_pure_python_obj(v) for v in some_val if v is not None]
@@ -95,7 +83,7 @@ class Report(SupportsAsObj):
         }
 
     def as_string(self) -> str:
-        return pprint.pformat(self.as_obj(), width=150, **PPRINT_OPTIONS)
+        return pprint.pformat(self.as_obj(), width=150, sort_dicts=False)
 
     def as_json(self) -> str:
         return json.dumps(self.as_obj())
@@ -118,7 +106,7 @@ class ReportAttribute(BaseModel):
         return log_levels[self.severity]
 
     def log(self, msg: str) -> None:
-        logger.log(level=self.logger_sev, msg=msg, **_stacklevel_if_supported(3))
+        logger.log(level=self.logger_sev, msg=msg, stacklevel=3)
 
 
 class EntityFilterReport(ReportAttribute):

@@ -1,5 +1,7 @@
 {
     "query_type": "UPDATE",
+    "query_type_props": {},
+    "query_fingerprint": "07c0bfecc799fac2e1e9bdbd29cc33688c797b4baaa54724555eacfce2e2bf57",
     "in_tables": [
         "urn:li:dataset:(urn:li:dataPlatform:snowflake,snowflake_sample_data.tpch_sf1.orders,PROD)"
     ],
@@ -25,5 +27,9 @@
                 }
             ]
         }
-    ]
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "UPDATE snowflake_sample_data.tpch_sf1.orders SET orderkey = orderkey + ?"
+    }
 }

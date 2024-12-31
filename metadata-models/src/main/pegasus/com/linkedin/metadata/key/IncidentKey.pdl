@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for an asset Incident
+ */
+@Aspect = {
+  "name": "incidentKey"
+}
+record IncidentKey {
+  /**
+   * A unique id for the incident. Generated on the server side at incident creation time.
+   */
+  id: string
+}

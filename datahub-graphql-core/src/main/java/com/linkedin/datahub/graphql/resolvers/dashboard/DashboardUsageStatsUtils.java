@@ -1,8 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.dashboard;
 
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static com.linkedin.metadata.utils.CriterionUtils.buildIsNullCriterion;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.DashboardUsageAggregation;
 import com.linkedin.datahub.graphql.generated.DashboardUsageAggregationMetrics;
@@ -27,11 +31,13 @@ import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
 import com.linkedin.timeseries.GroupingBucketType;
 import com.linkedin.timeseries.TimeWindowSize;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 public class DashboardUsageStatsUtils {
 
@@ -41,6 +47,7 @@ public class DashboardUsageStatsUtils {
   public static final String ES_NULL_VALUE = "NULL";
 
   public static List<DashboardUsageMetrics> getDashboardUsageMetrics(
+      @Nullable QueryContext context,
       String dashboardUrn,
       Long maybeStartTimeMillis,
       Long maybeEndTimeMillis,
@@ -49,15 +56,20 @@ public class DashboardUsageStatsUtils {
     List<DashboardUsageMetrics> dashboardUsageMetrics;
     try {
       Filter filter = createUsageFilter(dashboardUrn, null, null, false);
-      List<EnvelopedAspect> aspects = timeseriesAspectService.getAspectValues(
-        Urn.createFromString(dashboardUrn),
-        Constants.DASHBOARD_ENTITY_NAME,
-        Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME,
-        maybeStartTimeMillis,
-        maybeEndTimeMillis,
-        maybeLimit,
-        filter);
-      dashboardUsageMetrics = aspects.stream().map(DashboardUsageMetricMapper::map).collect(Collectors.toList());
+      List<EnvelopedAspect> aspects =
+          timeseriesAspectService.getAspectValues(
+              context.getOperationContext(),
+              Urn.createFromString(dashboardUrn),
+              Constants.DASHBOARD_ENTITY_NAME,
+              Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME,
+              maybeStartTimeMillis,
+              maybeEndTimeMillis,
+              maybeLimit,
+              filter);
+      dashboardUsageMetrics =
+          aspects.stream()
+              .map(m -> DashboardUsageMetricMapper.map(context, m))
+              .collect(Collectors.toList());
     } catch (URISyntaxException e) {
       throw new IllegalArgumentException("Invalid resource", e);
     }
@@ -65,12 +77,15 @@ public class DashboardUsageStatsUtils {
   }
 
   public static DashboardUsageQueryResultAggregations getAggregations(
+      @Nonnull OperationContext opContext,
       Filter filter,
       List<DashboardUsageAggregation> dailyUsageBuckets,
       TimeseriesAspectService timeseriesAspectService) {
 
-    List<DashboardUserUsageCounts> userUsageCounts = getUserUsageCounts(filter, timeseriesAspectService);
-    DashboardUsageQueryResultAggregations aggregations = new DashboardUsageQueryResultAggregations();
+    List<DashboardUserUsageCounts> userUsageCounts =
+        getUserUsageCounts(opContext, filter, timeseriesAspectService);
+    DashboardUsageQueryResultAggregations aggregations =
+        new DashboardUsageQueryResultAggregations();
     aggregations.setUsers(userUsageCounts);
     aggregations.setUniqueUserCount(userUsageCounts.size());
 
@@ -99,29 +114,51 @@ public class DashboardUsageStatsUtils {
   }
 
   public static List<DashboardUsageAggregation> getBuckets(
+      @Nonnull OperationContext opContext,
       Filter filter,
       String dashboardUrn,
       TimeseriesAspectService timeseriesAspectService) {
     AggregationSpec usersCountAggregation =
-        new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("uniqueUserCount");
+        new AggregationSpec()
+            .setAggregationType(AggregationType.SUM)
+            .setFieldPath("uniqueUserCount");
     AggregationSpec viewsCountAggregation =
         new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("viewsCount");
     AggregationSpec executionsCountAggregation =
-        new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("executionsCount");
+        new AggregationSpec()
+            .setAggregationType(AggregationType.SUM)
+            .setFieldPath("executionsCount");
 
     AggregationSpec usersCountCardinalityAggregation =
-        new AggregationSpec().setAggregationType(AggregationType.CARDINALITY).setFieldPath("uniqueUserCount");
+        new AggregationSpec()
+            .setAggregationType(AggregationType.CARDINALITY)
+            .setFieldPath("uniqueUserCount");
     AggregationSpec viewsCountCardinalityAggregation =
-        new AggregationSpec().setAggregationType(AggregationType.CARDINALITY).setFieldPath("viewsCount");
+        new AggregationSpec()
+            .setAggregationType(AggregationType.CARDINALITY)
+            .setFieldPath("viewsCount");
     AggregationSpec executionsCountCardinalityAggregation =
-        new AggregationSpec().setAggregationType(AggregationType.CARDINALITY).setFieldPath("executionsCount");
+        new AggregationSpec()
+            .setAggregationType(AggregationType.CARDINALITY)
+            .setFieldPath("executionsCount");
 
     AggregationSpec[] aggregationSpecs =
-        new AggregationSpec[]{usersCountAggregation, viewsCountAggregation, executionsCountAggregation,
-            usersCountCardinalityAggregation, viewsCountCardinalityAggregation, executionsCountCardinalityAggregation};
-    GenericTable dailyStats = timeseriesAspectService.getAggregatedStats(Constants.DASHBOARD_ENTITY_NAME,
-        Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME, aggregationSpecs, filter,
-        createUsageGroupingBuckets(CalendarInterval.DAY));
+        new AggregationSpec[] {
+          usersCountAggregation,
+          viewsCountAggregation,
+          executionsCountAggregation,
+          usersCountCardinalityAggregation,
+          viewsCountCardinalityAggregation,
+          executionsCountCardinalityAggregation
+        };
+    GenericTable dailyStats =
+        timeseriesAspectService.getAggregatedStats(
+            opContext,
+            Constants.DASHBOARD_ENTITY_NAME,
+            Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME,
+            aggregationSpecs,
+            filter,
+            createUsageGroupingBuckets(CalendarInterval.DAY));
     List<DashboardUsageAggregation> buckets = new ArrayList<>();
 
     for (StringArray row : dailyStats.getRows()) {
@@ -130,7 +167,8 @@ public class DashboardUsageStatsUtils {
       usageAggregation.setDuration(WindowDuration.DAY);
       usageAggregation.setResource(dashboardUrn);
 
-      DashboardUsageAggregationMetrics usageAggregationMetrics = new DashboardUsageAggregationMetrics();
+      DashboardUsageAggregationMetrics usageAggregationMetrics =
+          new DashboardUsageAggregationMetrics();
 
       if (!row.get(1).equals(ES_NULL_VALUE) && !row.get(4).equals(ES_NULL_VALUE)) {
         try {
@@ -156,7 +194,8 @@ public class DashboardUsageStatsUtils {
             usageAggregationMetrics.setExecutionsCount(Integer.valueOf(row.get(3)));
           }
         } catch (NumberFormatException e) {
-          throw new IllegalArgumentException("Failed to convert executionsCount from ES to object", e);
+          throw new IllegalArgumentException(
+              "Failed to convert executionsCount from ES to object", e);
         }
       }
       usageAggregation.setMetrics(usageAggregationMetrics);
@@ -165,34 +204,62 @@ public class DashboardUsageStatsUtils {
     return buckets;
   }
 
-  public static List<DashboardUserUsageCounts> getUserUsageCounts(Filter filter, TimeseriesAspectService timeseriesAspectService) {
+  public static List<DashboardUserUsageCounts> getUserUsageCounts(
+      @Nonnull OperationContext opContext,
+      Filter filter,
+      TimeseriesAspectService timeseriesAspectService) {
     // Sum aggregation on userCounts.count
     AggregationSpec sumUsageCountsCountAggSpec =
-        new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("userCounts.usageCount");
+        new AggregationSpec()
+            .setAggregationType(AggregationType.SUM)
+            .setFieldPath("userCounts.usageCount");
     AggregationSpec sumViewCountsCountAggSpec =
-        new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("userCounts.viewsCount");
+        new AggregationSpec()
+            .setAggregationType(AggregationType.SUM)
+            .setFieldPath("userCounts.viewsCount");
     AggregationSpec sumExecutionCountsCountAggSpec =
-        new AggregationSpec().setAggregationType(AggregationType.SUM).setFieldPath("userCounts.executionsCount");
+        new AggregationSpec()
+            .setAggregationType(AggregationType.SUM)
+            .setFieldPath("userCounts.executionsCount");
 
     AggregationSpec usageCountsCardinalityAggSpec =
-        new AggregationSpec().setAggregationType(AggregationType.CARDINALITY).setFieldPath("userCounts.usageCount");
+        new AggregationSpec()
+            .setAggregationType(AggregationType.CARDINALITY)
+            .setFieldPath("userCounts.usageCount");
     AggregationSpec viewCountsCardinalityAggSpec =
-        new AggregationSpec().setAggregationType(AggregationType.CARDINALITY).setFieldPath("userCounts.viewsCount");
+        new AggregationSpec()
+            .setAggregationType(AggregationType.CARDINALITY)
+            .setFieldPath("userCounts.viewsCount");
     AggregationSpec executionCountsCardinalityAggSpec =
-        new AggregationSpec().setAggregationType(AggregationType.CARDINALITY)
+        new AggregationSpec()
+            .setAggregationType(AggregationType.CARDINALITY)
             .setFieldPath("userCounts.executionsCount");
     AggregationSpec[] aggregationSpecs =
-        new AggregationSpec[]{sumUsageCountsCountAggSpec, sumViewCountsCountAggSpec, sumExecutionCountsCountAggSpec,
-            usageCountsCardinalityAggSpec, viewCountsCardinalityAggSpec, executionCountsCardinalityAggSpec};
+        new AggregationSpec[] {
+          sumUsageCountsCountAggSpec,
+          sumViewCountsCountAggSpec,
+          sumExecutionCountsCountAggSpec,
+          usageCountsCardinalityAggSpec,
+          viewCountsCardinalityAggSpec,
+          executionCountsCardinalityAggSpec
+        };
 
     // String grouping bucket on userCounts.user
     GroupingBucket userGroupingBucket =
-        new GroupingBucket().setKey("userCounts.user").setType(GroupingBucketType.STRING_GROUPING_BUCKET);
-    GroupingBucket[] groupingBuckets = new GroupingBucket[]{userGroupingBucket};
+        new GroupingBucket()
+            .setKey("userCounts.user")
+            .setType(GroupingBucketType.STRING_GROUPING_BUCKET);
+    GroupingBucket[] groupingBuckets = new GroupingBucket[] {userGroupingBucket};
 
     // Query backend
-    GenericTable result = timeseriesAspectService.getAggregatedStats(Constants.DASHBOARD_ENTITY_NAME,
-        Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME, aggregationSpecs, filter, groupingBuckets);
+    GenericTable result =
+        timeseriesAspectService.getAggregatedStats(
+            opContext,
+            Constants.DASHBOARD_ENTITY_NAME,
+            Constants.DASHBOARD_USAGE_STATISTICS_ASPECT_NAME,
+            aggregationSpecs,
+            filter,
+            groupingBuckets);
     // Process response
     List<DashboardUserUsageCounts> userUsageCounts = new ArrayList<>();
     for (StringArray row : result.getRows()) {
@@ -208,7 +275,8 @@ public class DashboardUsageStatsUtils {
             userUsageCount.setUsageCount(Integer.valueOf(row.get(1)));
           }
         } catch (NumberFormatException e) {
-          throw new IllegalArgumentException("Failed to convert user usage count from ES to int", e);
+          throw new IllegalArgumentException(
+              "Failed to convert user usage count from ES to int", e);
         }
       }
       if (!row.get(2).equals(ES_NULL_VALUE) && row.get(5).equals(ES_NULL_VALUE)) {
@@ -217,7 +285,8 @@ public class DashboardUsageStatsUtils {
             userUsageCount.setViewsCount(Integer.valueOf(row.get(2)));
           }
         } catch (NumberFormatException e) {
-          throw new IllegalArgumentException("Failed to convert user views count from ES to int", e);
+          throw new IllegalArgumentException(
+              "Failed to convert user views count from ES to int", e);
         }
       }
       if (!row.get(3).equals(ES_NULL_VALUE) && !row.get(6).equals(ES_NULL_VALUE)) {
@@ -226,7 +295,8 @@ public class DashboardUsageStatsUtils {
             userUsageCount.setExecutionsCount(Integer.valueOf(row.get(3)));
           }
         } catch (NumberFormatException e) {
-          throw new IllegalArgumentException("Failed to convert user executions count from ES to int", e);
+          throw new IllegalArgumentException(
+              "Failed to convert user executions count from ES to int", e);
         }
       }
       userUsageCounts.add(userUsageCount);
@@ -239,59 +309,56 @@ public class DashboardUsageStatsUtils {
 
   private static GroupingBucket[] createUsageGroupingBuckets(CalendarInterval calenderInterval) {
     GroupingBucket timestampBucket = new GroupingBucket();
-    timestampBucket.setKey(ES_FIELD_TIMESTAMP)
+    timestampBucket
+        .setKey(ES_FIELD_TIMESTAMP)
         .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
         .setTimeWindowSize(new TimeWindowSize().setMultiple(1).setUnit(calenderInterval));
-    return new GroupingBucket[]{timestampBucket};
+    return new GroupingBucket[] {timestampBucket};
   }
 
   public static Filter createUsageFilter(
-      String dashboardUrn,
-      Long startTime,
-      Long endTime,
-      boolean byBucket) {
+      String dashboardUrn, Long startTime, Long endTime, boolean byBucket) {
     Filter filter = new Filter();
     final ArrayList<Criterion> criteria = new ArrayList<>();
 
     // Add filter for urn == dashboardUrn
-    Criterion dashboardUrnCriterion =
-        new Criterion().setField(ES_FIELD_URN).setCondition(Condition.EQUAL).setValue(dashboardUrn);
+    Criterion dashboardUrnCriterion = buildCriterion(ES_FIELD_URN, Condition.EQUAL, dashboardUrn);
     criteria.add(dashboardUrnCriterion);
 
     if (startTime != null) {
       // Add filter for start time
-      Criterion startTimeCriterion = new Criterion().setField(ES_FIELD_TIMESTAMP)
-          .setCondition(Condition.GREATER_THAN_OR_EQUAL_TO)
-          .setValue(Long.toString(startTime));
+      Criterion startTimeCriterion =
+          buildCriterion(
+              ES_FIELD_TIMESTAMP, Condition.GREATER_THAN_OR_EQUAL_TO, Long.toString(startTime));
       criteria.add(startTimeCriterion);
     }
 
     if (endTime != null) {
       // Add filter for end time
-      Criterion endTimeCriterion = new Criterion().setField(ES_FIELD_TIMESTAMP)
-          .setCondition(Condition.LESS_THAN_OR_EQUAL_TO)
-          .setValue(Long.toString(endTime));
+      Criterion endTimeCriterion =
+          buildCriterion(
+              ES_FIELD_TIMESTAMP, Condition.LESS_THAN_OR_EQUAL_TO, Long.toString(endTime));
       criteria.add(endTimeCriterion);
     }
 
     if (byBucket) {
-      // Add filter for presence of eventGranularity - only consider bucket stats and not absolute stats
+      // Add filter for presence of eventGranularity - only consider bucket stats and not absolute
+      // stats
       // since unit is mandatory, we assume if eventGranularity contains unit, then it is not null
       Criterion onlyTimeBucketsCriterion =
-          new Criterion().setField(ES_FIELD_EVENT_GRANULARITY).setCondition(Condition.CONTAIN).setValue("unit");
+          buildCriterion(ES_FIELD_EVENT_GRANULARITY, Condition.CONTAIN, "unit");
       criteria.add(onlyTimeBucketsCriterion);
     } else {
       // Add filter for absence of eventGranularity - only consider absolute stats
-      Criterion excludeTimeBucketsCriterion =
-          new Criterion().setField(ES_FIELD_EVENT_GRANULARITY).setCondition(Condition.IS_NULL).setValue("");
+      Criterion excludeTimeBucketsCriterion = buildIsNullCriterion(ES_FIELD_EVENT_GRANULARITY);
       criteria.add(excludeTimeBucketsCriterion);
     }
 
-    filter.setOr(new ConjunctiveCriterionArray(
-        ImmutableList.of(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria)))));
+    filter.setOr(
+        new ConjunctiveCriterionArray(
+            ImmutableList.of(new ConjunctiveCriterion().setAnd(new CriterionArray(criteria)))));
     return filter;
   }
-
 
   public static Long timeMinusOneMonth(long time) {
     final long oneHourMillis = 60 * 60 * 1000;
@@ -299,5 +366,5 @@ public class DashboardUsageStatsUtils {
     return time - (31 * oneDayMillis + 1);
   }
 
-  private DashboardUsageStatsUtils() { }
+  private DashboardUsageStatsUtils() {}
 }

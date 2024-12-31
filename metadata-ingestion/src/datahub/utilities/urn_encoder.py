@@ -3,7 +3,9 @@ from typing import List
 
 # NOTE: Frontend relies on encoding these three characters. Specifically, we decode and encode schema fields for column level lineage.
 # If this changes, make appropriate changes to datahub-web-react/src/app/lineage/utils/columnLineageUtils.ts
-RESERVED_CHARS = {",", "(", ")"}
+# We also rely on encoding these exact three characters when generating schemaField urns in our graphQL layer. Update SchemaFieldUtils if this changes.
+# Also see https://datahubproject.io/docs/what/urn/#restrictions
+RESERVED_CHARS = {",", "(", ")", "␟"}
 RESERVED_CHARS_EXTENDED = RESERVED_CHARS.union({"%"})
 
 
@@ -14,7 +16,10 @@ class UrnEncoder:
 
     @staticmethod
     def encode_string(s: str) -> str:
-        return "".join([UrnEncoder.encode_char(c) for c in s])
+        if not UrnEncoder.contains_reserved_char(s):
+            # Fast path for the common case, where no encoding is needed.
+            return s
+        return "".join(UrnEncoder.encode_char(c) for c in s)
 
     @staticmethod
     def encode_char(c: str) -> str:
@@ -23,4 +28,8 @@ class UrnEncoder:
 
     @staticmethod
     def contains_reserved_char(value: str) -> bool:
+        return bool(set(value).intersection(RESERVED_CHARS))
+
+    @staticmethod
+    def contains_extended_reserved_char(value: str) -> bool:
         return bool(set(value).intersection(RESERVED_CHARS_EXTENDED))

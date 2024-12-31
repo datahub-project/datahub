@@ -10,7 +10,14 @@ source:
       deny:
         - source_mongodb_connector
         - confluent_s3_sink_connector
+        - bigquery-sink-connector
     provided_configs:
+      - provider: env
+        path_key: MYSQL_PORT
+        value: 3306
+      - provider: env
+        path_key: MYSQL_DB
+        value: librarydb
       - provider: env
         path_key: MYSQL_CONNECTION_URL
         value: jdbc:mysql://test_mysql:3306/librarydb

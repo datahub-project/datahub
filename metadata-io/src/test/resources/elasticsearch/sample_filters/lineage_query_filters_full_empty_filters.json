@@ -1,0 +1,62 @@
+{
+  "bool" : {
+    "filter" : [
+      {
+        "bool" : {
+          "should" : [
+            {
+              "bool" : {
+                "should" : [
+                  {
+                    "bool" : {
+                      "must" : [
+                        {
+                          "terms" : {
+                            "destination.urn" : [
+                              "urn:li:dataset:test-urn"
+                            ],
+                            "boost" : 1.0
+                          }
+                        },
+                        {
+                          "terms" : {
+                            "relationshipType" : [
+                              "DownstreamOf"
+                            ],
+                            "boost" : 1.0
+                          }
+                        }
+                      ],
+                      "adjust_pure_negative" : true,
+                      "boost" : 1.0
+                    }
+                  }
+                ],
+                "adjust_pure_negative" : true,
+                "minimum_should_match" : "1",
+                "boost" : 1.0
+              }
+            }
+          ],
+          "adjust_pure_negative" : true,
+          "minimum_should_match" : "1",
+          "boost" : 1.0
+        }
+      },
+      {
+        "terms" : {
+          "source.entityType" : [ ],
+          "boost" : 1.0
+        }
+      },
+      {
+        "terms" : {
+          "destination.entityType" : [ ],
+          "boost" : 1.0
+        }
+      }
+    ],
+    "adjust_pure_negative" : true,
+    "boost" : 1.0
+  }
+}

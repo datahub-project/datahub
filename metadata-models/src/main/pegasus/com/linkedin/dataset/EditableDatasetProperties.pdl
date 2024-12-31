@@ -19,4 +19,13 @@ record EditableDatasetProperties includes ChangeAuditStamps {
     "fieldName": "editedDescription",
   }
   description: optional string
+
+  /**
+   * Editable display name of the Dataset
+   */
+  @Searchable = {
+    "fieldType": "TEXT_PARTIAL",
+    "fieldName": "editedName",
+  }
+  name: optional string
 }

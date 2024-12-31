@@ -1,0 +1,75 @@
+{
+    "data": {
+        "fieldsConnection": {
+            "nodes":  [
+                {
+                    "id": "04151303-bd09-aff5-b9ee-e4948c2cb4f0",
+                    "upstreamFields": []
+                },
+                {
+                    "id": "0a0bd261-effc-6d14-3e7a-bc0b214455d4",
+                    "upstreamFields": []
+                },
+                {
+                    "id": "27a9fbc1-1290-d570-d88b-149d83d4b113",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "2dd4db27-740f-7cc7-b36e-09564d556cb3",
+                    "upstreamFields": []
+                },
+                {
+                    "id": "3146b9b4-eb1f-ae91-804f-e5b157cf0eb7",
+                    "upstreamFields": []
+                },
+                {
+                    "id": "31811e0f-9fd3-dad5-6093-aab2de26e470",
+                    "upstreamFields": []
+                },
+                {
+                    "id": "3c8d999a-85c2-9f62-17e0-e7e3b4fc59c1",
+                    "upstreamFields": []
+                },
+                {
+                    "id": "4ad28d4f-8e39-429d-5b42-8bdd5ae90734",
+                    "upstreamFields": []
+                },
+                {
+                    "id": "67a5460e-d59a-1aa5-d999-7a945c3ac781",
+                    "upstreamFields": []
+                },
+                {
+                    "id": "7cbb7bd2-85d6-1a27-b21a-b93104c5fbf7",
+                    "upstreamFields": []
+                },
+                {
+                    "id": "917735d1-6fd5-536e-cc19-52eb04b6e954",
+                    "upstreamFields": []
+                },
+                {
+                    "id": "aee7feaf-f094-7601-e798-ba92e414a964",
+                    "upstreamFields": []
+                },
+                {
+                    "id": "dde631d5-9f2b-5413-e3d7-74b6494c1d75",
+                    "upstreamFields": [],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "e2da5ba0-5e55-013a-3c2d-fbd975331a3c",
+                    "upstreamFields": []
+                },
+                {
+                    "id": "fb549c29-1158-1073-98e3-040086d127e8",
+                    "upstreamFields": []
+                }
+            ],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": null
+            },
+            "totalCount": 8
+        }
+    }
+}

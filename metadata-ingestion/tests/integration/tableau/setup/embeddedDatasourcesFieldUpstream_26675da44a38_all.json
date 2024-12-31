@@ -1,0 +1,109 @@
+{
+    "data": {
+        "fieldsConnection": {
+            "nodes": [
+                {
+                    "id": "0235103b-b83a-1380-8357-45b6e458202d",
+                    "upstreamFields": [
+                        {
+                            "name": "customer_id",
+                            "datasource": {
+                                "id": "00cce29f-b561-bb41-3557-8e19660bb5dd"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "494eb750-ceb8-5000-e42b-f5889389c62b",
+                    "upstreamFields": [
+                        {
+                            "name": "Custom SQL Query",
+                            "datasource": {
+                                "id": "00cce29f-b561-bb41-3557-8e19660bb5dd"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "60ca9dc0-f867-01a1-6d9f-e196636c0f08",
+                    "upstreamFields": [
+                        {
+                            "name": "staff_last_name",
+                            "datasource": {
+                                "id": "00cce29f-b561-bb41-3557-8e19660bb5dd"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "79ab36f4-e1f3-ec9a-13c6-e7658f3ed563",
+                    "upstreamFields": [
+                        {
+                            "name": "staff_first_name",
+                            "datasource": {
+                                "id": "00cce29f-b561-bb41-3557-8e19660bb5dd"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "8dbd31bb-460f-bb52-3b26-d0b4b5df875e",
+                    "upstreamFields": [
+                        {
+                            "name": "customer_last_name",
+                            "datasource": {
+                                "id": "00cce29f-b561-bb41-3557-8e19660bb5dd"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "c058d792-9f88-8642-4e63-682cfb6382af",
+                    "upstreamFields": [
+                        {
+                            "name": "amount",
+                            "datasource": {
+                                "id": "00cce29f-b561-bb41-3557-8e19660bb5dd"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "d432bec7-b5cf-7891-3a47-087a65f3679b",
+                    "upstreamFields": [
+                        {
+                            "name": "customer_first_name",
+                            "datasource": {
+                                "id": "00cce29f-b561-bb41-3557-8e19660bb5dd"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                },
+                {
+                    "id": "ddadd012-bcdb-2ddd-9021-c590410c3e59",
+                    "upstreamFields": [
+                        {
+                            "name": "payment_date",
+                            "datasource": {
+                                "id": "00cce29f-b561-bb41-3557-8e19660bb5dd"
+                            }
+                        }
+                    ],
+                    "upstreamColumns": []
+                }
+            ],
+            "pageInfo": {
+                "hasNextPage": false,
+                "endCursor": null
+            },
+            "totalCount": 8
+        }
+    }
+}

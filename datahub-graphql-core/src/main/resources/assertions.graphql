@@ -1,0 +1,1066 @@
+extend type Mutation {
+  """
+  Upsert a Custom Assertion
+  """
+  upsertCustomAssertion(
+    """
+    Urn of custom assertion. If not provided, one will be generated.
+    """
+    urn: String
+
+    """
+    Input for upserting a custom assertion.
+    """
+    input: UpsertCustomAssertionInput!
+  ): Assertion!
+
+  """
+  Report result for an assertion
+  """
+  reportAssertionResult(
+    """
+    Urn of custom assertion.
+    """
+    urn: String!
+
+    """
+    Input for reporting result of the assertion
+    """
+    result: AssertionResultInput!
+  ): Boolean!
+}
+
+"""
+Input for upserting a Custom Assertion.
+"""
+input UpsertCustomAssertionInput {
+  """
+  The entity targeted by this assertion.
+  """
+  entityUrn: String!
+
+  """
+  The type of the custom assertion.
+  """
+  type: String!
+
+  """
+  The description of this assertion.
+  """
+  description: String!
+
+  """
+  The dataset field targeted by this assertion, if any.
+  """
+  fieldPath: String
+
+  """
+  The external Platform associated with the assertion
+  """
+  platform: PlatformInput!
+
+  """
+  Native platform URL of the Assertion
+  """
+  externalUrl: String
+
+  """
+  Logic comprising a raw, unstructured assertion. for example - custom SQL query for the assertion.
+  """
+  logic: String
+
+}
+
+"""
+Input for reporting result of the assertion
+"""
+input AssertionResultInput {
+  """
+  Optional: Provide a timestamp associated with the run event. If not provided, one will be generated for you based
+  on the current time.
+  """
+  timestampMillis: Long
+
+  """
+  The final result of assertion, e.g. either SUCCESS or FAILURE.
+  """
+  type: AssertionResultType!
+
+  """
+  Additional metadata representing about the native results of the assertion.
+  These will be displayed alongside the result.
+  It should be used to capture additional context that is useful for the user.
+  """
+  properties: [StringMapEntryInput!]
+
+  """
+  Native platform URL of the Assertion Run Event
+  """
+  externalUrl: String
+
+  """
+  Error details, if type is ERROR
+  """
+  error: AssertionResultErrorInput
+}
+
+"""
+Input for reporting an Error during Assertion Run
+"""
+input AssertionResultErrorInput {
+  """
+  The type of error encountered
+  """
+  type: AssertionResultErrorType!
+
+  """
+  The error message with details of error encountered
+  """
+  message: String!
+}
+"""
+Input representing A Data Platform
+"""
+input PlatformInput {
+  """
+  Urn of platform
+  """
+  urn: String
+
+  """
+  Name of platform
+  """
+  name: String
+}
+
+"""
+Defines a schema field, each with a specified path and type.
+"""
+type SchemaAssertionField {
+  """
+  The standard V1 path of the field within the schema.
+  """
+  path: String!
+
+  """
+  The std type of the field
+  """
+  type: SchemaFieldDataType!
+
+  """
+  Optional: The specific native or standard type of the field.
+  """
+  nativeType: String
+}
+
+"""
+Defines the required compatibility level for the schema assertion to pass.
+"""
+enum SchemaAssertionCompatibility {
+  """
+  The schema must be exactly the same as the expected schema.
+  """
+  EXACT_MATCH
+
+  """
+  The schema must be a superset of the expected schema.
+  """
+  SUPERSET
+
+  """
+  The schema must be a subset of the expected schema.
+  """
+  SUBSET
+}
+
+"""
+The source of an assertion
+"""
+enum AssertionSourceType {
+  """
+  The assertion was defined natively on DataHub by a user.
+  """
+  NATIVE
+  """
+  The assertion was defined and managed externally of DataHub.
+  """
+  EXTERNAL
+  """
+  The assertion was inferred, e.g. from offline AI / ML models.
+  """
+  INFERRED
+}
+
+"""
+The type of an Freshness assertion
+"""
+enum FreshnessAssertionType {
+  """
+  An assertion defined against a Dataset Change Operation - insert, update, delete, etc
+  """
+  DATASET_CHANGE
+  """
+  An assertion defined against a Data Job run
+  """
+  DATA_JOB_RUN
+}
+
+extend type AssertionInfo {
+  """
+  Information about an Freshness Assertion
+  """
+  freshnessAssertion: FreshnessAssertionInfo
+
+  """
+  Information about an Volume Assertion
+  """
+  volumeAssertion: VolumeAssertionInfo
+
+  """
+  Information about a SQL Assertion
+  """
+  sqlAssertion: SqlAssertionInfo
+
+  """
+  Information about a Field Assertion
+  """
+  fieldAssertion: FieldAssertionInfo
+
+  """
+  Schema assertion, e.g. defining the expected structure for an asset.
+  """
+  schemaAssertion: SchemaAssertionInfo
+
+  """
+  Information about Custom assertion
+  """
+  customAssertion: CustomAssertionInfo
+
+  """
+  The source or origin of the Assertion definition.
+  """
+  source: AssertionSource
+
+  """
+  The time that the status last changed and the actor who changed it
+  """
+  lastUpdated: AuditStamp
+}
+
+extend type Assertion {
+  """
+  The actions associated with the Assertion
+  """
+  actions: AssertionActions
+}
+
+"""
+Some actions associated with an assertion
+"""
+type AssertionActions {
+  """
+  Actions to be executed on successful assertion run.
+  """
+  onSuccess: [AssertionAction!]!
+
+  """
+  Actions to be executed on failed assertion run.
+  """
+  onFailure: [AssertionAction!]!
+}
+
+"""
+An action associated with an assertion
+"""
+type AssertionAction {
+  """
+  The type of the actions
+  """
+  type: AssertionActionType!
+}
+
+
+"""
+The type of the Action
+"""
+enum AssertionActionType {
+  """
+  Raise an incident.
+  """
+  RAISE_INCIDENT
+  """
+  Resolve open incidents related to the assertion.
+  """
+  RESOLVE_INCIDENT
+}
+
+
+"""
+Information about an Freshness assertion.
+"""
+type FreshnessAssertionInfo {
+  """
+  The urn of the entity that the Freshness assertion is related to
+  """
+  entityUrn: String!
+
+  """
+  The type of the Freshness Assertion
+  """
+  type: FreshnessAssertionType!
+
+  """
+  Produce FAIL Assertion Result if the asset is not updated on the cadence and within the time range described by the schedule.
+  """
+  schedule: FreshnessAssertionSchedule!
+
+  """
+  A filter applied when querying an external Dataset or Table
+  """
+  filter: DatasetFilter
+}
+
+"""
+Attributes defining a single Freshness schedule.
+"""
+type FreshnessAssertionSchedule {
+  """
+  The type of schedule
+  """
+  type: FreshnessAssertionScheduleType!
+
+  """
+  A cron schedule. This is populated if the type is CRON.
+  """
+  cron: FreshnessCronSchedule
+
+  """
+  A fixed interval schedule. This is populated if the type is FIXED_INTERVAL.
+  """
+  fixedInterval: FixedIntervalSchedule
+}
+
+"""
+The type of an Freshness assertion
+"""
+enum FreshnessAssertionScheduleType {
+  """
+  An schedule based on a CRON schedule representing the expected event times.
+  """
+  CRON
+
+  """
+  A scheduled based on a recurring fixed schedule which is used to compute the expected operation window. E.g. "every 24 hours".
+  """
+  FIXED_INTERVAL
+
+  """
+  A schedule computed based on when the assertion was last evaluated, to the current moment in time.
+  """
+  SINCE_THE_LAST_CHECK
+}
+
+"""
+A cron-formatted schedule
+"""
+type FreshnessCronSchedule {
+  """
+  A cron-formatted execution interval, as a cron string, e.g. 1 * * * *
+  """
+  cron: String!
+
+  """
+  Timezone in which the cron interval applies, e.g. America/Los Angeles
+  """
+  timezone: String!
+
+  """
+  An optional offset in milliseconds to SUBTRACT from the timestamp generated by the cron schedule
+  to generate the lower bounds of the "Freshness window", or the window of time in which an event must have occurred in order for the Freshness
+  to be considering passing.
+  If left empty, the start of the Freshness window will be the _end_ of the previously evaluated Freshness window.
+  """
+  windowStartOffsetMs: Long
+}
+
+"""
+A fixed interval schedule.
+"""
+type FixedIntervalSchedule {
+  """
+  Interval unit such as minute/hour/day etc.
+  """
+  unit: DateInterval!
+
+  """
+  How many units. Defaults to 1.
+  """
+  multiple: Int!
+}
+
+"""
+The source of an Assertion
+"""
+type AssertionSource {
+  """
+  The source type
+  """
+  type: AssertionSourceType!
+  """
+  The time at which the assertion was initially created and the actor who created it
+  """
+  created: AuditStamp
+}
+
+"""
+Information about the field to use in an assertion
+"""
+type SchemaFieldSpec {
+  """
+  The field path
+  """
+  path: String!
+
+  """
+  The DataHub standard schema field type.
+  """
+  type: String!
+
+  """
+  The native field type
+  """
+  nativeType: String!
+}
+
+"""
+An enum to represent a type of change in an assertion value, metric, or measurement.
+"""
+enum AssertionValueChangeType {
+  """
+  A change that is defined in absolute terms.
+  """
+  ABSOLUTE
+
+  """
+  A change that is defined in relative terms using percentage change
+  from the original value.
+  """
+  PERCENTAGE
+}
+
+"""
+A type of volume (row count) assertion
+"""
+enum VolumeAssertionType {
+  """
+  A volume assertion that is evaluated against the total row count of a dataset.
+  """
+  ROW_COUNT_TOTAL
+
+  """
+  A volume assertion that is evaluated against an incremental row count of a dataset,
+  or a row count change.
+  """
+  ROW_COUNT_CHANGE
+
+  """
+  A volume assertion that checks the latest "segment" in a table based on an incrementing
+  column to check whether it's row count falls into a particular range.
+  This can be used to monitor the row count of an incrementing date-partition column segment.
+  """
+  INCREMENTING_SEGMENT_ROW_COUNT_TOTAL
+
+  """
+  A volume assertion that compares the row counts in neighboring "segments" or "partitions"
+  of an incrementing column. This can be used to track changes between subsequent date partition
+  in a table, for example.
+  """
+  INCREMENTING_SEGMENT_ROW_COUNT_CHANGE
+}
+
+"""
+Attributes defining an ROW_COUNT_TOTAL volume assertion.
+"""
+type RowCountTotal {
+  """
+  The operator you'd like to apply.
+  Note that only numeric operators are valid inputs:
+  GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,
+  BETWEEN.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  Note that only numeric parameter types are valid inputs: NUMBER.
+  """
+  parameters: AssertionStdParameters!
+}
+
+"""
+Attributes defining an ROW_COUNT_CHANGE volume assertion.
+"""
+type RowCountChange {
+  """
+  The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+  """
+  type: AssertionValueChangeType!
+
+  """
+  The operator you'd like to apply.
+  Note that only numeric operators are valid inputs:
+  GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,
+  BETWEEN.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  Note that only numeric parameter types are valid inputs: NUMBER.
+  """
+  parameters: AssertionStdParameters!
+}
+
+"""
+Attributes defining an INCREMENTING_SEGMENT_ROW_COUNT_TOTAL volume assertion.
+"""
+type IncrementingSegmentRowCountTotal {
+  """
+  A specification of how the 'segment' can be derived using a column and an optional transformer function.
+  """
+  segment: IncrementingSegmentSpec!
+
+  """
+  The operator you'd like to apply.
+  Note that only numeric operators are valid inputs:
+  GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,
+  BETWEEN.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  Note that only numeric parameter types are valid inputs: NUMBER.
+  """
+  parameters: AssertionStdParameters!
+}
+
+"""
+Attributes defining an INCREMENTING_SEGMENT_ROW_COUNT_CHANGE volume assertion.
+"""
+type IncrementingSegmentRowCountChange {
+  """
+  A specification of how the 'segment' can be derived using a column and an optional transformer function.
+  """
+  segment: IncrementingSegmentSpec!
+
+  """
+  The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+  """
+  type: AssertionValueChangeType!
+
+  """
+  The operator you'd like to apply to the row count value
+  Note that only numeric operators are valid inputs:
+  GREATER_THAN, GREATER_THAN_OR_EQUAL_TO, EQUAL_TO, LESS_THAN, LESS_THAN_OR_EQUAL_TO,
+  BETWEEN.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  Note that only numeric parameter types are valid inputs: NUMBER.
+  """
+  parameters: AssertionStdParameters!
+}
+
+"""
+Core attributes required to identify an incrementing segment in a table. This type is mainly useful
+for tables that constantly increase with new rows being added on a particular cadence (e.g. fact or event tables).
+
+An incrementing segment represents a logical chunk of data which is INSERTED
+into a dataset on a regular interval, along with the presence of a constantly-incrementing column
+value such as an event time, date partition, or last modified column.
+
+An incrementing segment is principally identified by 2 key attributes combined:
+
+1. A field or column that represents the incrementing value. New rows that are inserted will be identified using this column.
+   Note that the value of this column may not by itself represent the "bucket" or the "segment" in which the row falls.
+
+2. [Optional] An transformer function that may be applied to the selected column value in order
+   to obtain the final "segment identifier" or "bucket identifier". Rows that have the same value after applying the transformation
+   will be grouped into the same segment, using which the final value (e.g. row count) will be determined.
+"""
+type IncrementingSegmentSpec {
+  """
+  The field to use to generate segments. It must be constantly incrementing as new rows are inserted.
+  """
+  field: SchemaFieldSpec!
+
+  """
+  Optional transformer function to apply to the field in order to obtain the final segment or bucket identifier.
+  If not provided, then no operator will be applied to the field. (identity function)
+  """
+  transformer: IncrementingSegmentFieldTransformer
+}
+
+"""
+The definition of the transformer function that should be applied to a given field / column value in a dataset
+in order to determine the segment or bucket that it belongs to, which in turn is used to evaluate
+volume assertions.
+"""
+type IncrementingSegmentFieldTransformer {
+  """
+  The 'standard' operator type. Note that not all source systems will support all operators.
+  """
+  type: IncrementingSegmentFieldTransformerType!
+
+  """
+  The 'native' transformer type, useful as a back door if a custom transformer is required.
+  This field is required if the type is NATIVE.
+  """
+  nativeType: String
+}
+
+"""
+The 'standard' transformer type. Note that not all source systems will support all operators.
+"""
+enum IncrementingSegmentFieldTransformerType {
+  """
+  Rounds a timestamp (in seconds) down to the start of the month.
+  """
+  TIMESTAMP_MS_TO_MINUTE
+
+  """
+  Rounds a timestamp (in milliseconds) down to the nearest hour.
+  """
+  TIMESTAMP_MS_TO_HOUR
+
+  """
+  Rounds a timestamp (in milliseconds) down to the start of the day.
+  """
+  TIMESTAMP_MS_TO_DATE
+
+  """
+  Rounds a timestamp (in milliseconds) down to the start of the month
+  """
+  TIMESTAMP_MS_TO_MONTH
+
+  """
+  Rounds a timestamp (in milliseconds) down to the start of the year
+  """
+  TIMESTAMP_MS_TO_YEAR
+
+  """
+  Rounds a numeric value down to the nearest integer.
+  """
+  FLOOR
+
+  """
+  Rounds a numeric value up to the nearest integer.
+  """
+  CEILING
+
+  """
+  A backdoor to provide a native operator type specific to a given source system like
+  Snowflake, Redshift, BQ, etc.
+  """
+  NATIVE
+}
+
+"""
+A definition of a Volume (row count) assertion.
+"""
+type VolumeAssertionInfo {
+  """
+  The entity targeted by this Volume check.
+  """
+  entityUrn: String!
+
+  """
+  The type of the freshness assertion being monitored.
+  """
+  type: VolumeAssertionType!
+
+  """
+  Produce FAILURE Assertion Result if the row count of the asset does not meet specific requirements.
+  Required if type is 'ROW_COUNT_TOTAL'.
+  """
+  rowCountTotal: RowCountTotal
+
+  """
+  Produce FAILURE Assertion Result if the row count delta of the asset does not meet specific requirements.
+  Required if type is 'ROW_COUNT_CHANGE'.
+  """
+  rowCountChange: RowCountChange
+
+  """
+  Produce FAILURE Assertion Result if the latest incrementing segment row count total of the asset
+  does not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_TOTAL'.
+  """
+  incrementingSegmentRowCountTotal: IncrementingSegmentRowCountTotal
+
+  """
+  Produce FAILURE Assertion Result if the incrementing segment row count delta of the asset
+  does not meet specific requirements. Required if type is 'INCREMENTING_SEGMENT_ROW_COUNT_CHANGE'.
+  """
+  incrementingSegmentRowCountChange: IncrementingSegmentRowCountChange
+
+  """
+  A definition of the specific filters that should be applied, when performing monitoring.
+  If not provided, there is no filter, and the full table is under consideration.
+  """
+  filter: DatasetFilter
+}
+
+"""
+The type of the SQL assertion being monitored.
+"""
+enum SqlAssertionType {
+  """
+  A SQL Metric Assertion, e.g. one based on a numeric value returned by an arbitrary SQL query.
+  """
+  METRIC
+
+  """
+  A SQL assertion that is evaluated against the CHANGE in a metric assertion over time.
+  """
+  METRIC_CHANGE
+}
+
+"""
+Attributes defining a SQL Assertion
+"""
+type SqlAssertionInfo {
+  """
+  The type of the SQL assertion being monitored.
+  """
+  type: SqlAssertionType!
+
+  """
+  The entity targeted by this SQL check.
+  """
+  entityUrn: String!
+
+  """
+  The SQL statement to be executed when evaluating the assertion.
+  """
+  statement: String!
+
+  """
+  The type of the value used to evaluate the assertion: a fixed absolute value or a relative percentage.
+  Required if the type is METRIC_CHANGE.
+  """
+  changeType: AssertionValueChangeType
+
+  """
+  The operator you'd like to apply to the result of the SQL query.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  The parameters you'd like to provide as input to the operator.
+  """
+  parameters: AssertionStdParameters!
+}
+
+"""
+The type of a Field assertion
+"""
+enum FieldAssertionType {
+  """
+  An assertion used to validate the values contained with a field / column given a set of rows.
+  """
+  FIELD_VALUES
+
+  """
+  An assertion used to validate the value of a common field / column metric (e.g. aggregation)
+  such as null count + percentage, min, max, median, and more.
+  """
+  FIELD_METRIC
+}
+
+"""
+The type of the Field Transform
+"""
+enum FieldTransformType {
+  """
+  Obtain the length of a string field / column (applicable to string types)
+  """
+  LENGTH
+}
+
+"""
+The type of failure threshold.
+"""
+enum FieldValuesFailThresholdType {
+  """
+  The maximum number of column values (i.e. rows) that are allowed
+  to fail the defined expectations before the assertion officially fails.
+  """
+  COUNT
+
+  """
+  The maximum percentage of rows that are allowed
+  to fail the defined column expectations before the assertion officially fails.
+  """
+  PERCENTAGE
+}
+
+"""
+A standard metric that can be derived from the set of values
+for a specific field / column of a dataset / table.
+"""
+enum FieldMetricType {
+  """
+  The number of unique values found in the column value set
+  """
+  UNIQUE_COUNT
+
+  """
+  The percentage of unique values to total rows for the dataset
+  """
+  UNIQUE_PERCENTAGE
+
+  """
+  The number of null values found in the column value set
+  """
+  NULL_COUNT
+
+  """
+  The percentage of null values to total rows for the dataset
+  """
+  NULL_PERCENTAGE
+
+  """
+  The minimum value in the column set (applies to numeric columns)
+  """
+  MIN
+
+  """
+  The maximum value in the column set (applies to numeric columns)
+  """
+  MAX
+
+  """
+  The mean length found in the column set (applies to numeric columns)
+  """
+  MEAN
+
+  """
+  The median length found in the column set (applies to numeric columns)
+  """
+  MEDIAN
+
+  """
+  The stddev length found in the column set (applies to numeric columns)
+  """
+  STDDEV
+
+  """
+  The number of negative values found in the value set (applies to numeric columns)
+  """
+  NEGATIVE_COUNT
+
+  """
+  The percentage of negative values to total rows for the dataset (applies to numeric columns)
+  """
+  NEGATIVE_PERCENTAGE
+
+  """
+  The number of zero values found in the value set (applies to numeric columns)
+  """
+  ZERO_COUNT
+
+  """
+  The percentage of zero values to total rows for the dataset (applies to numeric columns)
+  """
+  ZERO_PERCENTAGE
+
+  """
+  The minimum length found in the column set (applies to string columns)
+  """
+  MIN_LENGTH
+
+  """
+  The maximum length found in the column set (applies to string columns)
+  """
+  MAX_LENGTH
+
+  """
+  The number of empty string values found in the value set (applies to string columns).
+  Note: This is a completely different metric different from NULL_COUNT!
+  """
+  EMPTY_COUNT
+
+  """
+  The percentage of empty string values to total rows for the dataset (applies to string columns).
+  Note: This is a completely different metric different from NULL_PERCENTAGE!
+  """
+  EMPTY_PERCENTAGE
+}
+
+"""
+A definition of a Field (Column) assertion.
+"""
+type FieldAssertionInfo {
+  """
+  The type of the field assertion being monitored.
+  """
+  type: FieldAssertionType!
+
+  """
+  The entity targeted by this Field check.
+  """
+  entityUrn: String!
+
+  """
+  The definition of an assertion that validates individual values of a field / column for a set of rows.
+  """
+  fieldValuesAssertion: FieldValuesAssertion
+
+  """
+  The definition of an assertion that validates a common metric obtained about a field / column for a set of rows.
+  """
+  fieldMetricAssertion: FieldMetricAssertion
+
+  """
+  A definition of the specific filters that should be applied, when performing monitoring.
+  If not provided, there is no filter, and the full table is under consideration.
+  """
+  filter: DatasetFilter
+}
+
+"""
+A definition of a Field Values assertion.
+"""
+type FieldValuesAssertion {
+  """
+  The field under evaluation.
+  """
+  field: SchemaFieldSpec!
+
+  """
+  An optional transform to apply to field values before evaluating the operator.
+  """
+  transform: FieldTransform
+
+  """
+  The predicate to evaluate against a single value of the field.
+  Depending on the operator, parameters may be required
+  """
+  operator: AssertionStdOperator!
+
+  """
+  Standard parameters required for the assertion.
+  """
+  parameters: AssertionStdParameters
+
+  """
+  Additional customization about when the assertion should be officially considered failing.
+  """
+  failThreshold: FieldValuesFailThreshold!
+
+  """
+  Whether to ignore or allow nulls when running the values assertion.
+  """
+  excludeNulls: Boolean!
+}
+
+"""
+Definition of a transform applied to the values of a column / field.
+"""
+type FieldTransform {
+  """
+  The type of the field transform.
+  """
+  type: FieldTransformType!
+}
+
+type FieldValuesFailThreshold {
+  """
+  The type of failure threshold.
+  """
+  type: FieldValuesFailThresholdType!
+
+  """
+  The value of the threshold, either representing a count or percentage.
+  """
+  value: Long!
+}
+
+"""
+A definition of a Field Metric assertion.
+"""
+type FieldMetricAssertion {
+  """
+  The field under evaluation
+  """
+  field: SchemaFieldSpec!
+
+  """
+  The specific metric to assert against.
+  """
+  metric: FieldMetricType!
+
+  """
+  The predicate to evaluate against the metric for the field / column.
+  """
+  operator: AssertionStdOperator!
+
+  """
+  Standard parameters required for the assertion.
+  """
+  parameters: AssertionStdParameters
+}
+
+"""
+Information about an Schema assertion
+"""
+type SchemaAssertionInfo {
+  """
+  The entity targeted by this schema assertion.
+  """
+  entityUrn: String!
+
+  """
+  A single field in the schema assertion.
+  """
+  fields: [SchemaAssertionField!]!
+
+  """
+  A definition of the expected structure for the asset
+  Deprecated! Use the simpler 'fields' instead.
+  """
+  schema: SchemaMetadata
+
+  """
+  The compatibility level required for the assertion to pass.
+  """
+  compatibility: SchemaAssertionCompatibility!
+}
+
+"""
+Information about a custom assertion
+"""
+type CustomAssertionInfo {
+  """
+  The type of custom assertion.
+  """
+  type: String!
+
+  """
+  The entity targeted by this custom assertion.
+  """
+  entityUrn: String!
+
+  """
+  The field serving as input to the assertion, if any.
+  """
+  field: SchemaFieldRef
+
+  """
+  Logic comprising a raw, unstructured assertion.
+  """
+  logic: String
+}

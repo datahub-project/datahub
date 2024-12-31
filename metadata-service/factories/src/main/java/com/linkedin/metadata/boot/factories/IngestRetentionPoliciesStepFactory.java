@@ -1,7 +1,6 @@
 package com.linkedin.metadata.boot.factories;
 
 import com.linkedin.gms.factory.entity.RetentionServiceFactory;
-import com.linkedin.metadata.spring.YamlPropertySourceFactory;
 import com.linkedin.metadata.boot.steps.IngestRetentionPoliciesStep;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.RetentionService;
@@ -12,13 +11,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.annotation.PropertySource;
 import org.springframework.context.annotation.Scope;
-
 
 @Configuration
 @Import({RetentionServiceFactory.class})
-@PropertySource(value = "classpath:/application.yml", factory = YamlPropertySourceFactory.class)
 public class IngestRetentionPoliciesStepFactory {
 
   @Autowired
@@ -27,7 +23,7 @@ public class IngestRetentionPoliciesStepFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService _entityService;
+  private EntityService<?> _entityService;
 
   @Value("${entityService.retention.enabled}")
   private Boolean _enableRetention;
@@ -42,6 +38,11 @@ public class IngestRetentionPoliciesStepFactory {
   @Scope("singleton")
   @Nonnull
   protected IngestRetentionPoliciesStep createInstance() {
-    return new IngestRetentionPoliciesStep(_retentionService, _entityService, _enableRetention, _applyOnBootstrap, _pluginRegistryPath);
+    return new IngestRetentionPoliciesStep(
+        _retentionService,
+        _entityService,
+        _enableRetention,
+        _applyOnBootstrap,
+        _pluginRegistryPath);
   }
 }

@@ -1,0 +1,19 @@
+- id: user.clicks
+  platform: hive
+  # urn: urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD) # use urn instead of id and platform
+  subtype: table
+  schema:
+    file: tests/structured_properties/click_event.avsc
+    fields:
+      # - id: ip
+      - urn: urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,user.clicks,PROD),ip)
+        structured_properties:
+          io.acryl.dataManagement.deprecationDate: "2023-01-01"
+  properties:
+    retention: 365
+  structured_properties:
+    clusterType: primary
+    clusterName: gold
+    projectNames:
+      - Tracking
+      - DataHub

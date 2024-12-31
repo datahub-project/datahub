@@ -5,6 +5,7 @@ import { DEFAULT_BUILDER_STATE, ViewBuilderState } from '../types';
 import { ViewBuilderForm } from './ViewBuilderForm';
 import ClickOutside from '../../../shared/ClickOutside';
 import { ViewBuilderMode } from './types';
+import { getModalDomContainer } from '../../../../utils/focus';
 
 const modalWidth = 700;
 const modalStyle = { top: 40 };
@@ -76,10 +77,11 @@ export const ViewBuilderModal = ({ mode, urn, initialState, onSubmit, onCancel }
                 }
                 style={modalStyle}
                 bodyStyle={modalBodyStyle}
-                visible
+                open
                 width={modalWidth}
                 onCancel={onCancel}
                 data-testid="view-modal"
+                getContainer={getModalDomContainer}
             >
                 <ViewBuilderForm urn={urn} mode={mode} state={viewBuilderState} updateState={setViewBuilderState} />
                 <SaveButtonContainer>

@@ -1,0 +1,24 @@
+plugins {
+  id 'java-library'
+}
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
+
+dependencies {
+  implementation project(':entity-registry')
+  implementation project(':metadata-service:services')
+  implementation project(':metadata-utils')
+  compileOnly externalDependency.lombok
+  annotationProcessor externalDependency.lombok
+
+  testImplementation(externalDependency.testng)
+  testImplementation(externalDependency.mockito)
+  testImplementation(testFixtures(project(":entity-registry")))
+  testImplementation project(':metadata-operation-context')
+  testImplementation externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
+}
+
+test {
+  environment 'STRICT_URN_VALIDATION_ENABLED', 'true'
+}

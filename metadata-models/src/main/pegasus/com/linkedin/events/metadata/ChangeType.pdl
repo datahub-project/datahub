@@ -10,7 +10,6 @@ enum ChangeType {
   UPSERT
 
   /**
-   * NOT SUPPORTED YET
    * insert if not exists. otherwise fail
    */
   CREATE
@@ -22,13 +21,11 @@ enum ChangeType {
   UPDATE
 
   /**
-   * NOT SUPPORTED YET
    * delete action
    */
   DELETE
 
   /**
-   * NOT SUPPORTED YET
    * patch the changes instead of full replace
    */
   PATCH
@@ -37,4 +34,9 @@ enum ChangeType {
    * Restate an aspect, eg. in a index refresh.
    */
   RESTATE
+
+  /**
+   * insert if entity not exists. otherwise fail
+   */
+  CREATE_ENTITY
 }

@@ -9,10 +9,11 @@ from pydantic.fields import Field
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.datetimes import parse_absolute_time, parse_relative_timespan
 from datahub.metadata.schema_classes import CalendarIntervalClass
+from datahub.utilities.str_enum import StrEnum
 
 
 @enum.unique
-class BucketDuration(str, enum.Enum):
+class BucketDuration(StrEnum):
     DAY = CalendarIntervalClass.DAY
     HOUR = CalendarIntervalClass.HOUR
 
@@ -68,6 +69,12 @@ class BaseTimeWindowConfig(ConfigModel):
                 assert abs(delta) >= get_bucket_duration_delta(
                     values["bucket_duration"]
                 ), "Relative start time should be in terms of configured bucket duration. e.g '-2 days' or '-2 hours'."
+
+                # The end_time's default value is not yet populated, in which case
+                # we can just manually generate it here.
+                if "end_time" not in values:
+                    values["end_time"] = datetime.now(tz=timezone.utc)
+
                 return get_time_bucket(
                     values["end_time"] + delta, values["bucket_duration"]
                 )
@@ -80,9 +87,13 @@ class BaseTimeWindowConfig(ConfigModel):
 
     @pydantic.validator("start_time", "end_time")
     def ensure_timestamps_in_utc(cls, v: datetime) -> datetime:
-        assert (
-            v.tzinfo == timezone.utc
-        ), 'timezone is not UTC; try adding a "Z" to the value e.g. "2021-07-20T00:00:00Z"'
+        if v.tzinfo is None:
+            raise ValueError(
+                "Timestamps must be in UTC. Try adding a 'Z' to the value e.g. '2021-07-20T00:00:00Z'"
+            )
+
+        # If the timestamp is timezone-aware but not in UTC, convert it to UTC.
+        v = v.astimezone(timezone.utc)
 
         return v
 

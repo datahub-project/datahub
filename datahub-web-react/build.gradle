@@ -1,8 +1,8 @@
 plugins {
   id 'java'
+  id 'distribution'
+  id 'com.github.node-gradle.node'
 }
-apply plugin: 'distribution'
-apply plugin: 'com.github.node-gradle.node'
 
 node {
 
@@ -16,10 +16,10 @@ node {
   }
 
   // Version of node to use.
-  version = '16.8.0'
+  version = '22.12.0'
 
   // Version of Yarn to use.
-  yarnVersion = '1.22.0'
+  yarnVersion = '1.22.22'
 
   // Base URL for fetching node distributions (set nodeDistBaseUrl if you have a mirror).
   if (project.hasProperty('nodeDistBaseUrl')) {
@@ -35,7 +35,7 @@ node {
   yarnWorkDir = file("${project.projectDir}/.gradle/yarn")
 
   // Set the work directory where node_modules should be located
-  nodeModulesDir = file("${project.projectDir}")
+  nodeProjectDir = file("${project.projectDir}")
 
 }
 
@@ -43,11 +43,34 @@ node {
   Wrappers around Yarn Tasks.
  */
 task yarnInstall(type: YarnTask) {
-  args = ['install']
+  args = ['install', '--network-timeout', '300000']
+
+  // The node_modules directory can contain built artifacts, so
+  // it's not really safe to cache it.
+  outputs.cacheIf { false }
+
+  inputs.files(
+    file('yarn.lock'),
+    file('package.json'),
+  )
+  outputs.dir('node_modules')
 }
 
 task yarnGenerate(type: YarnTask, dependsOn: yarnInstall) {
   args = ['run', 'generate']
+
+  outputs.cacheIf { true }
+
+  inputs.files(
+    yarnInstall.inputs.files,
+    file('codegen.yml'),
+    project.fileTree(dir: "../datahub-graphql-core/src/main/resources/", include: "*.graphql"),
+    project.fileTree(dir: "src", include: "**/*.graphql"),
+  )
+
+  outputs.files(
+    project.fileTree(dir: "src", include: "**/*.generated.ts"),
+  )
 }
 
 task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
@@ -55,7 +78,8 @@ task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
 }
 
 task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
-  args = ['run', 'test', '--watchAll', 'false']
+  // Explicitly runs in non-watch mode.
+  args = ['run', 'test', 'run']
 }
 
 task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
@@ -68,13 +92,23 @@ task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'lint-fix']
 }
 
-task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnTest, yarnLint]) {
+task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   args = ['run', 'build']
-}
 
-task yarnQuickBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
-  environment = [NODE_OPTIONS: "--max-old-space-size=3072"]
-  args = ['run', 'build']
+  outputs.cacheIf { true }
+  inputs.files(
+    file('index.html'),
+    project.fileTree(dir: "src"),
+    project.fileTree(dir: "public"),
+
+    yarnInstall.inputs.files,
+    yarnGenerate.outputs.files,
+
+    file('.env'),
+    file('vite.config.ts'),
+    file('tsconfig.json'),
+  )
+  outputs.dir('dist')
 }
 
 task cleanExtraDirs {
@@ -82,9 +116,7 @@ task cleanExtraDirs {
   delete 'dist'
   delete 'tmp'
   delete 'just'
-  delete 'src/types.generated.ts'
-  delete fileTree('../datahub-frontend/public')
-  delete fileTree(dir: 'src/graphql', include: '*.generated.ts')
+  delete fileTree(dir: 'src', include: '*.generated.ts')
 }
 clean.finalizedBy(cleanExtraDirs)
 
@@ -93,24 +125,16 @@ configurations {
 }
 
 distZip {
-  dependsOn yarnQuickBuild
-  baseName 'datahub-web-react'
+  dependsOn yarnBuild
+  archiveFileName = "datahub-web-react-${archiveVersion}.${archiveExtension}"
   from 'dist'
 }
 
-task copyAssets(dependsOn: distZip) {
-  doLast {
-    copy {
-      from zipTree(distZip.outputs.files.first())
-      into "../datahub-frontend/public"
-    }
-  }
-}
-
 jar {
-  dependsOn distZip, copyAssets
+  dependsOn distZip
   into('public') {
     from zipTree(distZip.outputs.files.first())
   }
-  classifier = 'assets'
+  archiveClassifier = 'assets'
 }
+build.dependsOn jar

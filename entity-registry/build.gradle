@@ -1,22 +1,34 @@
-apply plugin: 'pegasus'
-apply plugin: 'java-library'
+plugins {
+  id 'pegasus'
+  id 'java-library'
+  id 'java-test-fixtures'
+}
+
+apply from: "../gradle/coverage/java-coverage.gradle"
 
 dependencies {
   implementation spec.product.pegasus.data
-  implementation spec.product.pegasus.generator
+  compileOnly spec.product.pegasus.generator
   api project(path: ':metadata-models')
+  api project(path: ':metadata-models', configuration: "dataTemplate")
+  api externalDependency.classGraph
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
   implementation externalDependency.guava
   implementation externalDependency.jacksonDataBind
   implementation externalDependency.jacksonDataFormatYaml
   implementation externalDependency.reflections
-  implementation externalDependency.jsonPatch
+
+  api externalDependency.jsonPatch
+  implementation externalDependency.jsonPathImpl
+
   constraints {
     implementation(externalDependency.snakeYaml) {
       because("previous versions are vulnerable to CVE-2022-25857")
     }
   }
+  api project(path: ':li-utils')
+  api project(path: ':li-utils', configuration: "dataTemplate")
   dataModel project(':li-utils')
   annotationProcessor externalDependency.lombok
 
@@ -24,9 +36,23 @@ dependencies {
 
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')
+  testImplementation project(':metadata-utils')
   testImplementation externalDependency.testng
   testImplementation externalDependency.mockito
   testImplementation externalDependency.mockitoInline
+  testCompileOnly externalDependency.lombok
+  testAnnotationProcessor externalDependency.lombok
+  testImplementation externalDependency.classGraph
 
+  testImplementation externalDependency.swaggerCore
+  testImplementation spec.product.pegasus.dataAvro
+  testImplementation('io.acryl:json-schema-avro:0.2.2') {
+    exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
+  }
+
+  testFixturesImplementation externalDependency.mockito
+  testFixturesCompileOnly externalDependency.lombok
+  testFixturesAnnotationProcessor externalDependency.lombok
 }
 compileTestJava.dependsOn tasks.getByPath(':entity-registry:custom-test-model:modelDeploy')
+

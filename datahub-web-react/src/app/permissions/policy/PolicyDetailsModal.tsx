@@ -3,10 +3,16 @@ import { Link } from 'react-router-dom';
 import { Button, Divider, Modal, Tag, Typography } from 'antd';
 import styled from 'styled-components';
 import { useEntityRegistry } from '../../useEntityRegistry';
-import { Maybe, Policy, PolicyState, PolicyType } from '../../../types.generated';
+import { Maybe, Policy, PolicyMatchCondition, PolicyState, PolicyType } from '../../../types.generated';
 import { useAppConfig } from '../../useAppConfig';
-import { convertLegacyResourceFilter, getFieldValues, mapResourceTypeToDisplayName } from './policyUtils';
+import {
+    convertLegacyResourceFilter,
+    getFieldValues,
+    getFieldCondition,
+    mapResourceTypeToDisplayName,
+} from './policyUtils';
 import AvatarsGroup from '../AvatarsGroup';
+import { RESOURCE_TYPE, RESOURCE_URN, TYPE, URN } from './constants';
 
 type PrivilegeOptionType = {
     type?: string;
@@ -15,7 +21,7 @@ type PrivilegeOptionType = {
 
 type Props = {
     policy: Omit<Policy, 'urn'>;
-    visible: boolean;
+    open: boolean;
     onClose: () => void;
     privileges: PrivilegeOptionType[] | undefined;
 };
@@ -60,15 +66,18 @@ const Privileges = styled.div`
 /**
  * Component used for displaying the details about an existing Policy.
  */
-export default function PolicyDetailsModal({ policy, visible, onClose, privileges }: Props) {
+export default function PolicyDetailsModal({ policy, open, onClose, privileges }: Props) {
     const entityRegistry = useEntityRegistry();
 
     const isActive = policy?.state === PolicyState.Active;
     const isMetadataPolicy = policy?.type === PolicyType.Metadata;
 
     const resources = convertLegacyResourceFilter(policy?.resources);
-    const resourceTypes = getFieldValues(resources?.filter, 'TYPE') || [];
-    const resourceEntities = getFieldValues(resources?.filter, 'URN') || [];
+    const resourceTypes = getFieldValues(resources?.filter, TYPE, RESOURCE_TYPE) || [];
+    const dataPlatformInstances = getFieldValues(resources?.filter, 'DATA_PLATFORM_INSTANCE') || [];
+    const resourceEntities = getFieldValues(resources?.filter, URN, RESOURCE_URN) || [];
+    const resourceFilterCondition =
+        getFieldCondition(resources?.filter, URN, RESOURCE_URN) || PolicyMatchCondition.Equals;
     const domains = getFieldValues(resources?.filter, 'DOMAIN') || [];
 
     const {
@@ -103,6 +112,10 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
         );
     };
 
+    const getWildcardUrnTag = (criterionValue) => {
+        return <Typography.Text>{criterionValue.value}*</Typography.Text>;
+    };
+
     const resourceOwnersField = (actors) => {
         if (!actors?.resourceOwners) {
             return <PoliciesTag>No</PoliciesTag>;
@@ -120,7 +133,7 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
     };
 
     return (
-        <Modal title={policy?.name} visible={visible} onCancel={onClose} closable width={800} footer={actionButtons}>
+        <Modal title={policy?.name} open={open} onCancel={onClose} closable width={800} footer={actionButtons}>
             <PolicyContainer>
                 <div>
                     <Typography.Title level={5}>Type</Typography.Title>
@@ -165,11 +178,28 @@ export default function PolicyDetailsModal({ policy, visible, onClose, privilege
                                     return (
                                         // eslint-disable-next-line react/no-array-index-key
                                         <PoliciesTag key={`resource-${value.value}-${key}`}>
-                                            {getEntityTag(value)}
+                                            {resourceFilterCondition &&
+                                            resourceFilterCondition === PolicyMatchCondition.StartsWith
+                                                ? getWildcardUrnTag(value)
+                                                : getEntityTag(value)}
                                         </PoliciesTag>
                                     );
                                 })) || <PoliciesTag>All</PoliciesTag>}
                         </div>
+                        {dataPlatformInstances?.length > 0 && (
+                            <div>
+                                <Typography.Title level={5}>Data Platform Instances</Typography.Title>
+                                <ThinDivider />
+                                {dataPlatformInstances.map((value, key) => {
+                                    return (
+                                        // eslint-disable-next-line react/no-array-index-key
+                                        <PoliciesTag key={`dataPlatformInstance-${value.value}-${key}`}>
+                                            <Typography.Text>{getDisplayName(value.entity)}</Typography.Text>
+                                        </PoliciesTag>
+                                    );
+                                })}
+                            </div>
+                        )}
                         <div>
                             <Typography.Title level={5}>Domains</Typography.Title>
                             <ThinDivider />

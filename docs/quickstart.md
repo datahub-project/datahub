@@ -3,11 +3,11 @@ import TabItem from '@theme/TabItem';
 
 # DataHub Quickstart Guide
 
-:::tip Managed DataHub
+:::tip DataHub Cloud
 
 This guide provides instructions on deploying the open source DataHub locally.
-If you're interested in a managed version, [Acryl Data](https://www.acryldata.io/product) provides a fully managed, premium version of DataHub. <br />
-**[Get Started with Managed DataHub](./managed-datahub/welcome-acryl.md)**
+If you're interested in a managed version, [Acryl Data](https://www.acryldata.io) provides a fully managed, premium version of DataHub. <br />
+**[Get Started with DataHub Cloud](./managed-datahub/welcome-acryl.md)**
 
 :::
 
@@ -22,7 +22,7 @@ If you're interested in a managed version, [Acryl Data](https://www.acryldata.io
   | Linux    | [Docker for Linux](https://docs.docker.com/desktop/install/linux-install/) and [Docker Compose](https://docs.docker.com/compose/install/linux/) |
 
 - **Launch the Docker engine** from command line or the desktop app.
-- Ensure you have **Python 3.7+** installed & configured. (Check using `python3 --version`).
+- Ensure you have **Python 3.8+** installed & configured. (Check using `python3 --version`).
 
 :::note Docker Resource Allocation
 
@@ -274,7 +274,7 @@ It is not intended for a production environment. This recommendation is based on
 
 #### Default Credentials
 
-`quickstart` uses docker-compose configuration which includes default credentials for both DataHub, and it's underlying
+`quickstart` uses docker compose configuration which includes default credentials for both DataHub, and it's underlying
 prerequisite data stores, such as MySQL. Additionally, other components are unauthenticated out of the box. This is a
 design choice to make development easier and is not best practice for a production environment.
 

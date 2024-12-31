@@ -15,7 +15,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-
 /**
  * Implementation of {@link SchemaVisitor} responsible for extracting {@link SearchScoreFieldSpec}s
  * from an aspect schema.
@@ -24,7 +23,8 @@ public class SearchScoreFieldSpecExtractor implements SchemaVisitor {
 
   private final List<SearchScoreFieldSpec> _specs = new ArrayList<>();
   private static final Set<DataSchema.Type> NUMERIC_TYPES =
-      ImmutableSet.of(DataSchema.Type.INT, DataSchema.Type.LONG, DataSchema.Type.FLOAT, DataSchema.Type.DOUBLE);
+      ImmutableSet.of(
+          DataSchema.Type.INT, DataSchema.Type.LONG, DataSchema.Type.FLOAT, DataSchema.Type.DOUBLE);
 
   public List<SearchScoreFieldSpec> getSpecs() {
     return _specs;
@@ -46,9 +46,10 @@ public class SearchScoreFieldSpecExtractor implements SchemaVisitor {
         if (currentSchema.isPrimitive() && isNumericType((PrimitiveDataSchema) currentSchema)) {
           extractAnnotation(annotationObj, currentSchema, context);
         } else {
-          throw new ModelValidationException(String.format(
-              "Invalid @SearchScore Annotation at %s. This annotation can only be put in on a numeric singular (non-array) field",
-              context.getSchemaPathSpec().toString()));
+          throw new ModelValidationException(
+              String.format(
+                  "Invalid @SearchScore Annotation at %s. This annotation can only be put in on a numeric singular (non-array) field",
+                  context.getSchemaPathSpec().toString()));
         }
       }
     }
@@ -59,19 +60,21 @@ public class SearchScoreFieldSpecExtractor implements SchemaVisitor {
     return properties.get(SearchScoreAnnotation.ANNOTATION_NAME);
   }
 
-  private void extractAnnotation(final Object annotationObj, final DataSchema currentSchema,
-      final TraverserContext context) {
+  private void extractAnnotation(
+      final Object annotationObj, final DataSchema currentSchema, final TraverserContext context) {
     final PathSpec path = new PathSpec(context.getSchemaPathSpec());
     final Optional<PathSpec> fullPath = FieldSpecUtils.getPathSpecWithAspectName(context);
     if (context.getSchemaPathSpec().contains(PathSpec.WILDCARD)) {
       throw new ModelValidationException(
-          String.format("SearchScore annotation can only be put on singular fields (non-arrays): path %s",
+          String.format(
+              "SearchScore annotation can only be put on singular fields (non-arrays): path %s",
               fullPath.orElse(path)));
     }
     final SearchScoreAnnotation annotation =
-        SearchScoreAnnotation.fromPegasusAnnotationObject(annotationObj, FieldSpecUtils.getSchemaFieldName(path),
-            path.toString());
-    final SearchScoreFieldSpec fieldSpec = new SearchScoreFieldSpec(path, annotation, currentSchema);
+        SearchScoreAnnotation.fromPegasusAnnotationObject(
+            annotationObj, FieldSpecUtils.getSchemaFieldName(path), path.toString());
+    final SearchScoreFieldSpec fieldSpec =
+        new SearchScoreFieldSpec(path, annotation, currentSchema);
     _specs.add(fieldSpec);
   }
 

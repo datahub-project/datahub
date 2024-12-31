@@ -143,6 +143,72 @@ input  SearchFlags {
   Whether to request for search suggestions on the _entityName virtualized field
   """
   getSuggestions: Boolean
+
+  """
+  Additional grouping specifications to apply to the search results
+  Grouping specifications will control how search results are grouped together
+  in the response. This is currently being used to group schema fields (columns)
+  as datasets, and in the future will be used to group other entities as well.
+  Note: This is an experimental feature and is subject to change.
+  """
+  groupingSpec: GroupingSpec
+
+  """
+  Whether to include soft deleted entities
+  """
+  includeSoftDeleted: Boolean
+
+  """
+  Whether to include restricted entities
+  """
+  includeRestricted: Boolean
+
+  """
+  fields to include for custom Highlighting
+  """
+  customHighlightingFields: [String!]
+
+  """
+  Whether or not to fetch and request for structured property facets when doing a search
+  """
+  includeStructuredPropertyFacets: Boolean
+}
+
+"""
+Flags to control lineage behavior
+"""
+input LineageFlags {
+  """
+  Limits the number of results explored per hop, still gets all edges each time a hop happens
+  """
+  entitiesExploredPerHopLimit: Int
+
+  """
+  An optional starting time to filter on
+  """
+  startTimeMillis: Long
+  """
+  An optional ending time to filter on
+  """
+  endTimeMillis: Long
+
+  """
+  Map of entity types to platforms to ignore when counting hops during graph walk. Note: this can potentially cause
+  a large amount of additional hops to occur and should be used with caution.
+  """
+  ignoreAsHops: [EntityTypeToPlatforms!]
+}
+
+input EntityTypeToPlatforms {
+  """
+  Entity type to ignore as hops, if no platform is applied applies to all entities of this type.
+  """
+  entityType: EntityType!
+
+  """
+  List of platforms to ignore as hops, empty implies all. Must be a valid platform urn
+  """
+  platforms: [String!]
 }
 
 """
@@ -278,6 +344,7 @@ input ScrollAcrossEntitiesInput {
   searchFlags: SearchFlags
 }
 
+
 """
 Input arguments for a search query over the results of a multi-hop graph query
 """
@@ -325,16 +392,21 @@ input SearchAcrossLineageInput {
   """
   An optional starting time to filter on
   """
-  startTimeMillis: Long
+  startTimeMillis: Long @deprecated(reason: "Use LineageFlags instead")
   """
   An optional ending time to filter on
   """
-  endTimeMillis: Long
+  endTimeMillis: Long @deprecated(reason: "Use LineageFlags instead")
 
   """
   Flags controlling search options
   """
   searchFlags: SearchFlags
+
+  """
+  Flags controlling the lineage query
+  """
+  lineageFlags: LineageFlags
 }
 
 """
@@ -395,6 +467,11 @@ input ScrollAcrossLineageInput {
   Flags controlling search options
   """
   searchFlags: SearchFlags
+
+  """
+  Flags controlling the lineage query
+  """
+  lineageFlags: LineageFlags
 }
 
 """
@@ -450,6 +527,11 @@ enum FilterOperator {
   EQUAL
 
   """
+  Represent the relation: field = value (case-insensitive), e.g. platform = HDFS
+  """
+  IEQUAL
+
+  """
   * Represent the relation: String field is one of the array values to, e.g. name in ["Profile", "Event"]
   """
   IN
@@ -478,6 +560,32 @@ enum FilterOperator {
   Represent the relation less than or equal to, e.g. ownerCount <= 3
   """
   LESS_THAN_OR_EQUAL_TO
+
+  """
+  Represent the relation: String field starts with value, e.g. name starts with PageView
+  """
+  START_WITH
+
+  """
+  Represent the relation: String field ends with value, e.g. name ends with Event
+  """
+  END_WITH
+
+  """
+  Represent the relation: URN field any nested children in addition to the given URN
+  """
+  DESCENDANTS_INCL
+
+  """
+  Represent the relation: URN field matches any nested parent in addition to the given URN
+  """
+  ANCESTORS_INCL
+
+  """
+  Represent the relation: URN field matches any nested child or parent in addition to the given URN
+  """
+  RELATED_INCL
+
 }
 
 """
@@ -515,6 +623,18 @@ type SearchResults {
   suggestions: [SearchSuggestion!]
 }
 
+type ExtraProperty {
+  """
+  Name of the extra property
+  """
+  name: String!
+
+  """
+  Value of the extra property
+  """
+  value: String!
+}
+
 """
 An individual search result hit
 """
@@ -533,6 +653,11 @@ type SearchResult {
   Matched field hint
   """
   matchedFields: [MatchedField!]!
+
+  """
+  Additional properties about the search result. Used for rendering in the UI
+  """
+  extraProperties: [ExtraProperty!]
 }
 
 """
@@ -577,7 +702,7 @@ type ScrollResults {
 }
 
 """
-Results returned by issueing a search across relationships query
+Results returned by issuing a search across relationships query
 """
 type SearchAcrossLineageResults {
   """
@@ -612,7 +737,7 @@ type SearchAcrossLineageResults {
 }
 
 """
-Results returned by issueing a search across relationships query using scroll API
+Results returned by issuing a search across relationships query using scroll API
 """
 type ScrollAcrossLineageResults {
   """
@@ -669,6 +794,27 @@ type SearchAcrossLineageResult {
   Degree of relationship (number of hops to get to entity)
   """
   degree: Int!
+
+  """
+  Degrees of relationship (for entities discoverable at multiple degrees)
+  """
+  degrees: [Int!]
+
+  """
+  Marks whether or not this entity was explored further for lineage
+  """
+  explored: Boolean!
+
+  """
+  Indicates this destination node has additional unexplored child relationships
+  """
+  truncatedChildren: Boolean!
+
+  """
+  Whether this relationship was ignored as a hop
+  """
+  ignoredAsHop: Boolean!
+
 }
 
 """
@@ -730,6 +876,11 @@ type FacetMetadata {
   Display name of the field
   """
   displayName: String
+
+  """
+  Entity corresponding to the facet
+  """
+  entity: Entity
 
   """
   Aggregated search result counts by value of the field
@@ -1139,7 +1290,7 @@ type QuickFilter {
 }
 
 """
-Freshness stats for a query result. 
+Freshness stats for a query result.
 Captures whether the query was served out of a cache, what the staleness was, etc.
 """
 type FreshnessStats {
@@ -1154,7 +1305,7 @@ type FreshnessStats {
   In case an index was consulted, this reflects the freshness of the index
   """
   systemFreshness: [SystemFreshness]
-  
+
 }
 
 type SystemFreshness {
@@ -1176,9 +1327,14 @@ Input required for browse queries
 """
 input BrowseV2Input {
   """
-  The browse entity type
+  The browse entity type - deprecated use types instead
   """
-  type: EntityType!
+  type: EntityType
+
+  """
+  The browse entity type - deprecated use types instead. If not provided, all types will be used.
+  """
+  types: [EntityType!]
 
   """
   The browse path V2 - a list with each entry being part of the browse path V2
@@ -1209,6 +1365,11 @@ input BrowseV2Input {
   The search query string
   """
   query: String
+
+  """
+  Flags controlling search options
+  """
+  searchFlags: SearchFlags
 }
 
 """
@@ -1274,7 +1435,12 @@ input SearchSortInput {
   """
   A criterion to sort search results on
   """
-  sortCriterion: SortCriterion!
+  sortCriterion: SortCriterion @deprecated(reason: "Use sortCriteria instead")
+
+  """
+  A list of values to sort search results on
+  """
+  sortCriteria: [SortCriterion!]
 }
 
 """
@@ -1298,4 +1464,37 @@ input SortCriterion {
   The order in which we will be sorting
   """
   sortOrder: SortOrder!
+}
+
+"""
+A grouping specification for search results.
+"""
+input GroupingSpec {
+
+  """
+  A list of grouping criteria for grouping search results.
+  There is no implied order in the grouping criteria.
+  """
+  groupingCriteria: [GroupingCriterion!]
+
+}
+
+"""
+A single grouping criterion for grouping search results
+"""
+input GroupingCriterion {
+
+  """
+  The base entity type that needs to be grouped
+  e.g. schemaField
+  Omitting this field will result in all base entities being grouped into the groupingEntityType.
+  """
+  baseEntityType: EntityType
+
+  """
+  The type of entity being grouped into
+  e.g. dataset, domain, etc.
+  """
+  groupingEntityType: EntityType!
+
 }

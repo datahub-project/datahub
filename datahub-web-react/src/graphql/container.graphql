@@ -1,6 +1,7 @@
 query getContainer($urn: String!) {
     container(urn: $urn) {
         urn
+        type
         exists
         lastIngested
         platform {
@@ -9,10 +10,14 @@ query getContainer($urn: String!) {
         properties {
             name
             description
+            externalUrl
             customProperties {
                 key
                 value
             }
+        }
+        privileges {
+            ...entityPrivileges
         }
         editableProperties {
             description
@@ -53,6 +58,24 @@ query getContainer($urn: String!) {
         }
         status {
             removed
+        }
+        access {
+            roles {
+                role {
+                    urn
+                }
+            }
+        }
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
         }
     }
 }

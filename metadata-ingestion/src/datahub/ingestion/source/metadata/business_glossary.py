@@ -10,7 +10,12 @@ from pydantic.fields import Field
 import datahub.metadata.schema_classes as models
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.config_loader import load_config_file
-from datahub.emitter.mce_builder import datahub_guid, make_group_urn, make_user_urn
+from datahub.emitter.mce_builder import (
+    datahub_guid,
+    make_group_urn,
+    make_user_urn,
+    validate_ownership_type,
+)
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -34,43 +39,49 @@ GlossaryNodeInterface = TypeVar(
 
 
 class Owners(ConfigModel):
-    users: Optional[List[str]]
-    groups: Optional[List[str]]
+    type: str = models.OwnershipTypeClass.DEVELOPER
+    typeUrn: Optional[str] = None
+    users: Optional[List[str]] = None
+    groups: Optional[List[str]] = None
+
+
+OwnersMultipleTypes = Union[List[Owners], Owners]
 
 
 class KnowledgeCard(ConfigModel):
-    url: Optional[str]
-    label: Optional[str]
+    url: Optional[str] = None
+    label: Optional[str] = None
 
 
 class GlossaryTermConfig(ConfigModel):
-    id: Optional[str]
+    id: Optional[str] = None
     name: str
     description: str
-    term_source: Optional[str]
-    source_ref: Optional[str]
-    source_url: Optional[str]
-    owners: Optional[Owners]
-    inherits: Optional[List[str]]
-    contains: Optional[List[str]]
-    values: Optional[List[str]]
-    related_terms: Optional[List[str]]
-    custom_properties: Optional[Dict[str, str]]
-    knowledge_links: Optional[List[KnowledgeCard]]
-    domain: Optional[str]
+    term_source: Optional[str] = None
+    source_ref: Optional[str] = None
+    source_url: Optional[str] = None
+    owners: Optional[OwnersMultipleTypes] = None
+    inherits: Optional[List[str]] = None
+    contains: Optional[List[str]] = None
+    values: Optional[List[str]] = None
+    related_terms: Optional[List[str]] = None
+    custom_properties: Optional[Dict[str, str]] = None
+    knowledge_links: Optional[List[KnowledgeCard]] = None
+    domain: Optional[str] = None
 
     # Private fields.
     _urn: str
 
 
 class GlossaryNodeConfig(ConfigModel):
-    id: Optional[str]
+    id: Optional[str] = None
     name: str
     description: str
-    owners: Optional[Owners]
-    terms: Optional[List["GlossaryTermConfig"]]
-    nodes: Optional[List["GlossaryNodeConfig"]]
-    knowledge_links: Optional[List[KnowledgeCard]]
+    owners: Optional[OwnersMultipleTypes] = None
+    terms: Optional[List["GlossaryTermConfig"]] = None
+    nodes: Optional[List["GlossaryNodeConfig"]] = None
+    knowledge_links: Optional[List[KnowledgeCard]] = None
+    custom_properties: Optional[Dict[str, str]] = None
 
     # Private fields.
     _urn: str
@@ -79,8 +90,8 @@ class GlossaryNodeConfig(ConfigModel):
 class DefaultConfig(ConfigModel):
     """Holds defaults for populating fields in glossary terms"""
 
-    source: Optional[str]
-    owners: Owners
+    source: Optional[str] = None
+    owners: OwnersMultipleTypes
     url: Optional[str] = None
     source_type: str = "INTERNAL"
 
@@ -97,8 +108,8 @@ class BusinessGlossarySourceConfig(ConfigModel):
 
 class BusinessGlossaryConfig(DefaultConfig):
     version: str
-    terms: Optional[List["GlossaryTermConfig"]]
-    nodes: Optional[List["GlossaryNodeConfig"]]
+    terms: Optional[List["GlossaryTermConfig"]] = None
+    nodes: Optional[List["GlossaryNodeConfig"]] = None
 
     @validator("version")
     def version_must_be_1(cls, v):
@@ -113,7 +124,7 @@ def create_id(path: List[str], default_id: Optional[str], enable_auto_id: bool) 
 
     id_: str = ".".join(path)
 
-    if UrnEncoder.contains_reserved_char(id_):
+    if UrnEncoder.contains_extended_reserved_char(id_):
         enable_auto_id = True
 
     if enable_auto_id:
@@ -145,25 +156,44 @@ def make_glossary_term_urn(
     return "urn:li:glossaryTerm:" + create_id(path, default_id, enable_auto_id)
 
 
-def get_owners(owners: Owners) -> models.OwnershipClass:
+def get_owners_multiple_types(owners: OwnersMultipleTypes) -> models.OwnershipClass:
+    """Allows owner types to be a list and maintains backward compatibility"""
+    if isinstance(owners, Owners):
+        return models.OwnershipClass(owners=list(get_owners(owners)))
+
     owners_meta: List[models.OwnerClass] = []
-    if owners.users is not None:
-        owners_meta = owners_meta + [
-            models.OwnerClass(
-                owner=make_user_urn(o),
-                type=models.OwnershipTypeClass.DEVELOPER,
-            )
-            for o in owners.users
-        ]
-    if owners.groups is not None:
-        owners_meta = owners_meta + [
-            models.OwnerClass(
-                owner=make_group_urn(o),
-                type=models.OwnershipTypeClass.DEVELOPER,
-            )
-            for o in owners.groups
-        ]
+    for owner in owners:
+        owners_meta.extend(get_owners(owner))
+
     return models.OwnershipClass(owners=owners_meta)
+
+
+def get_owners(owners: Owners) -> Iterable[models.OwnerClass]:
+    actual_type = owners.type or models.OwnershipTypeClass.DEVELOPER
+
+    if actual_type.startswith("urn:li:ownershipType:"):
+        ownership_type: str = "CUSTOM"
+        ownership_type_urn: Optional[str] = actual_type
+    else:
+        ownership_type, ownership_type_urn = validate_ownership_type(actual_type)
+
+    if owners.typeUrn is not None:
+        ownership_type_urn = owners.typeUrn
+
+    if owners.users is not None:
+        for o in owners.users:
+            yield models.OwnerClass(
+                owner=make_user_urn(o),
+                type=ownership_type,
+                typeUrn=ownership_type_urn,
+            )
+    if owners.groups is not None:
+        for o in owners.groups:
+            yield models.OwnerClass(
+                owner=make_group_urn(o),
+                type=ownership_type,
+                typeUrn=ownership_type_urn,
+            )
 
 
 def get_mces(
@@ -172,7 +202,7 @@ def get_mces(
     ingestion_config: BusinessGlossarySourceConfig,
     ctx: PipelineContext,
 ) -> Iterable[Union[MetadataChangeProposalWrapper, models.MetadataChangeEventClass]]:
-    root_owners = get_owners(glossary.owners)
+    root_owners = get_owners_multiple_types(glossary.owners)
 
     if glossary.nodes:
         for node in glossary.nodes:
@@ -252,11 +282,12 @@ def get_mces_from_node(
         definition=glossaryNode.description,
         parentNode=parentNode,
         name=glossaryNode.name,
+        customProperties=glossaryNode.custom_properties,
     )
     node_owners = parentOwners
     if glossaryNode.owners is not None:
         assert glossaryNode.owners is not None
-        node_owners = get_owners(glossaryNode.owners)
+        node_owners = get_owners_multiple_types(glossaryNode.owners)
 
     node_snapshot = models.GlossaryNodeSnapshotClass(
         urn=node_urn,
@@ -335,12 +366,14 @@ def get_mces_from_term(
     ] = []
     term_info = models.GlossaryTermInfoClass(
         definition=glossaryTerm.description,
-        termSource=glossaryTerm.term_source
-        if glossaryTerm.term_source is not None
-        else defaults.source_type,
-        sourceRef=glossaryTerm.source_ref
-        if glossaryTerm.source_ref
-        else defaults.source,
+        termSource=(
+            glossaryTerm.term_source
+            if glossaryTerm.term_source is not None
+            else defaults.source_type
+        ),
+        sourceRef=(
+            glossaryTerm.source_ref if glossaryTerm.source_ref else defaults.source
+        ),
         sourceUrl=glossaryTerm.source_url if glossaryTerm.source_url else defaults.url,
         parentNode=parentNode,
         customProperties=glossaryTerm.custom_properties,
@@ -410,7 +443,7 @@ def get_mces_from_term(
     ownership: models.OwnershipClass = parentOwnership
     if glossaryTerm.owners is not None:
         assert glossaryTerm.owners is not None
-        ownership = get_owners(glossaryTerm.owners)
+        ownership = get_owners_multiple_types(glossaryTerm.owners)
     aspects.append(ownership)
 
     if glossaryTerm.domain is not None:
@@ -495,7 +528,7 @@ class BusinessGlossaryFileSource(Source):
     def load_glossary_config(
         cls, file_name: Union[str, pathlib.Path]
     ) -> BusinessGlossaryConfig:
-        config = load_config_file(file_name)
+        config = load_config_file(file_name, resolve_env_vars=True)
         glossary_cfg = BusinessGlossaryConfig.parse_obj(config)
         return glossary_cfg
 
@@ -507,12 +540,11 @@ class BusinessGlossaryFileSource(Source):
         materialize_all_node_urns(glossary_config, self.config.enable_auto_id)
         path_vs_id = populate_path_vs_id(glossary_config)
 
-        for event in auto_workunit(
+        yield from auto_workunit(
             get_mces(
                 glossary_config, path_vs_id, ingestion_config=self.config, ctx=self.ctx
             )
-        ):
-            yield event
+        )
 
     def get_report(self):
         return self.report

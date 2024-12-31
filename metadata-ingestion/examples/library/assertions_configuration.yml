@@ -1,0 +1,76 @@
+version: 1
+namespace: test-config-id-1
+assertions:
+  # Freshness Assertion
+  - entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.test_assertions_all_times,PROD)
+    type: freshness
+    lookback_interval: "1 hour"
+    last_modified_field: col_timestamp
+    schedule:
+      type: cron
+      cron: 0 * * * *
+    meta:
+      entity_qualified_name: TEST_DB.PUBLIC.TEST_ASSERTIONS_ALL_TIMES
+      entity_schema:
+        - col: col_date
+          native_type: DATE
+  # Volume Assertion
+  - type: volume
+    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.test_assertions_all_times,PROD)
+    metric: row_count
+    condition:
+      type: less_than_or_equal_to
+      value: 1000
+    schedule:
+      type: cron
+      cron: 0 * * * *
+    meta:
+      entity_qualified_name: TEST_DB.PUBLIC.TEST_ASSERTIONS_ALL_TIMES
+      entity_schema:
+        - col: col_date
+          native_type: DATE
+  # Field Metric Assertion
+  - type: field
+    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.test_assertions_all_times,PROD)
+    field: col_date
+    metric: null_count
+    condition:
+      type: equal_to
+      value: 0
+    schedule:
+      type: cron
+      cron: 0 * * * *
+    meta:
+      entity_qualified_name: TEST_DB.PUBLIC.TEST_ASSERTIONS_ALL_TIMES
+      entity_schema:
+        - col: col_date
+          native_type: DATE
+  # Field Value Assertion
+  - type: field
+    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_event,PROD)
+    field: quantity
+    condition:
+      type: between
+      min: 0
+      max: 10
+    schedule:
+      type: on_table_change
+    meta:
+      entity_qualified_name: TEST_DB.PUBLIC.PURCHASE_EVENT
+      entity_schema:
+        - col: quantity
+          native_type: FLOAT
+  # Custom SQL Metric Assertion
+  - type: sql
+    entity: urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.public.purchase_event,PROD)
+    statement: select mode(quantity) from test_db.public.purchase_event
+    condition:
+      type: equal_to
+      value: 5
+    schedule:
+      type: on_table_change
+    meta:
+      entity_qualified_name: TEST_DB.PUBLIC.PURCHASE_EVENT
+      entity_schema:
+        - col: quantity
+          native_type: FLOAT

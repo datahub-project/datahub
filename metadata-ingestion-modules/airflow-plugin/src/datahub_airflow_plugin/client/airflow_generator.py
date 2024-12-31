@@ -13,6 +13,7 @@ from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 
 from datahub_airflow_plugin._airflow_compat import AIRFLOW_PATCHED
+from datahub_airflow_plugin._config import DatahubLineageConfig, DatajobUrl
 
 assert AIRFLOW_PATCHED
 
@@ -106,9 +107,9 @@ class AirflowGenerator:
                         job_id=task.external_task_id,
                         data_flow_urn=str(
                             DataFlowUrn.create_from_ids(
-                                orchestrator=flow_urn.get_orchestrator_name(),
+                                orchestrator=flow_urn.orchestrator,
                                 flow_id=task.external_dag_id,
-                                env=flow_urn.get_env(),
+                                env=flow_urn.cluster,
                             )
                         ),
                     )
@@ -127,11 +128,13 @@ class AirflowGenerator:
         return upstream_tasks
 
     @staticmethod
+    def _extract_owners(dag: "DAG") -> List[str]:
+        return [owner.strip() for owner in dag.owner.split(",")]
+
+    @staticmethod
     def generate_dataflow(
-        cluster: str,
+        config: DatahubLineageConfig,
         dag: "DAG",
-        capture_owner: bool = True,
-        capture_tags: bool = True,
     ) -> DataFlow:
         """
         Generates a Dataflow object from an Airflow DAG
@@ -145,7 +148,10 @@ class AirflowGenerator:
         orchestrator = "airflow"
         description = "\n\n".join(filter(None, [dag.description, dag.doc_md])) or None
         data_flow = DataFlow(
-            env=cluster, id=id, orchestrator=orchestrator, description=description
+            env=config.cluster,
+            id=id,
+            orchestrator=orchestrator,
+            description=description,
         )
 
         flow_property_bag: Dict[str, str] = {}
@@ -172,10 +178,14 @@ class AirflowGenerator:
         base_url = conf.get("webserver", "base_url")
         data_flow.url = f"{base_url}/tree?dag_id={dag.dag_id}"
 
-        if capture_owner and dag.owner:
-            data_flow.owners.update(owner.strip() for owner in dag.owner.split(","))
+        if config.capture_ownership_info and dag.owner:
+            owners = AirflowGenerator._extract_owners(dag)
+            if config.capture_ownership_as_group:
+                data_flow.group_owners.update(owners)
+            else:
+                data_flow.owners.update(owners)
 
-        if capture_tags and dag.tags:
+        if config.capture_tags_info and dag.tags:
             data_flow.tags.update(dag.tags)
 
         return data_flow
@@ -208,6 +218,7 @@ class AirflowGenerator:
         set_dependencies: bool = True,
         capture_owner: bool = True,
         capture_tags: bool = True,
+        config: Optional[DatahubLineageConfig] = None,
     ) -> DataJob:
         """
 
@@ -217,6 +228,7 @@ class AirflowGenerator:
         :param set_dependencies: bool - whether to extract dependencies from airflow task
         :param capture_owner: bool - whether to extract owner from airflow task
         :param capture_tags: bool - whether to set tags automatically from airflow task
+        :param config: DatahubLineageConfig
         :return: DataJob - returns the generated DataJob object
         """
         dataflow_urn = DataFlowUrn.create_from_ids(
@@ -267,10 +279,19 @@ class AirflowGenerator:
 
         datajob.properties = job_property_bag
         base_url = conf.get("webserver", "base_url")
-        datajob.url = f"{base_url}/taskinstance/list/?flt1_dag_id_equals={datajob.flow_urn.get_flow_id()}&_flt_3_task_id={task.task_id}"
+
+        if config and config.datajob_url_link == DatajobUrl.GRID:
+            datajob.url = f"{base_url}/dags/{datajob.flow_urn.get_flow_id()}/grid?task_id={task.task_id}"
+        else:
+            datajob.url = f"{base_url}/taskinstance/list/?flt1_dag_id_equals={datajob.flow_urn.flow_id}&_flt_3_task_id={task.task_id}"
 
         if capture_owner and dag.owner:
-            datajob.owners.add(dag.owner)
+            if config and config.capture_ownership_info:
+                owners = AirflowGenerator._extract_owners(dag)
+                if config.capture_ownership_as_group:
+                    datajob.group_owners.update(owners)
+                else:
+                    datajob.owners.update(owners)
 
         if capture_tags and dag.tags:
             datajob.tags.update(dag.tags)
@@ -290,9 +311,12 @@ class AirflowGenerator:
         task: "Operator",
         dag: "DAG",
         data_job: Optional[DataJob] = None,
+        config: Optional[DatahubLineageConfig] = None,
     ) -> DataProcessInstance:
         if data_job is None:
-            data_job = AirflowGenerator.generate_datajob(cluster, task=task, dag=dag)
+            data_job = AirflowGenerator.generate_datajob(
+                cluster, task=task, dag=dag, config=config
+            )
         dpi = DataProcessInstance.from_datajob(
             datajob=data_job, id=task.task_id, clone_inlets=True, clone_outlets=True
         )
@@ -301,14 +325,14 @@ class AirflowGenerator:
     @staticmethod
     def run_dataflow(
         emitter: Emitter,
-        cluster: str,
+        config: DatahubLineageConfig,
         dag_run: "DagRun",
         start_timestamp_millis: Optional[int] = None,
         dataflow: Optional[DataFlow] = None,
     ) -> None:
         if dataflow is None:
             assert dag_run.dag
-            dataflow = AirflowGenerator.generate_dataflow(cluster, dag_run.dag)
+            dataflow = AirflowGenerator.generate_dataflow(config, dag_run.dag)
 
         if start_timestamp_millis is None:
             assert dag_run.execution_date
@@ -347,13 +371,15 @@ class AirflowGenerator:
         dpi.properties.update(property_bag)
 
         dpi.emit_process_start(
-            emitter=emitter, start_timestamp_millis=start_timestamp_millis
+            emitter=emitter,
+            start_timestamp_millis=start_timestamp_millis,
+            materialize_iolets=config.materialize_iolets,
         )
 
     @staticmethod
     def complete_dataflow(
         emitter: Emitter,
-        cluster: str,
+        config: DatahubLineageConfig,
         dag_run: "DagRun",
         end_timestamp_millis: Optional[int] = None,
         dataflow: Optional[DataFlow] = None,
@@ -368,7 +394,7 @@ class AirflowGenerator:
         """
         if dataflow is None:
             assert dag_run.dag
-            dataflow = AirflowGenerator.generate_dataflow(cluster, dag_run.dag)
+            dataflow = AirflowGenerator.generate_dataflow(config, dag_run.dag)
 
         assert dag_run.run_id
         dpi = DataProcessInstance.from_dataflow(dataflow=dataflow, id=dag_run.run_id)
@@ -399,17 +425,20 @@ class AirflowGenerator:
     @staticmethod
     def run_datajob(
         emitter: Emitter,
-        cluster: str,
         ti: "TaskInstance",
         dag: "DAG",
         dag_run: "DagRun",
+        config: DatahubLineageConfig,
         start_timestamp_millis: Optional[int] = None,
         datajob: Optional[DataJob] = None,
         attempt: Optional[int] = None,
         emit_templates: bool = True,
     ) -> DataProcessInstance:
         if datajob is None:
-            datajob = AirflowGenerator.generate_datajob(cluster, ti.task, dag)
+            assert ti.task is not None
+            datajob = AirflowGenerator.generate_datajob(
+                config.cluster, ti.task, dag, config=config
+            )
 
         assert dag_run.run_id
         dpi = DataProcessInstance.from_datajob(
@@ -467,6 +496,7 @@ class AirflowGenerator:
             start_timestamp_millis=start_timestamp_millis,
             attempt=attempt,
             emit_template=emit_templates,
+            materialize_iolets=config.materialize_iolets,
         )
         return dpi
 
@@ -480,6 +510,7 @@ class AirflowGenerator:
         end_timestamp_millis: Optional[int] = None,
         result: Optional[InstanceRunResult] = None,
         datajob: Optional[DataJob] = None,
+        config: Optional[DatahubLineageConfig] = None,
     ) -> DataProcessInstance:
         """
 
@@ -491,10 +522,14 @@ class AirflowGenerator:
         :param end_timestamp_millis: Optional[int]
         :param result: Optional[str] One of the result from datahub.metadata.schema_class.RunResultTypeClass
         :param datajob: Optional[DataJob]
+        :param config: Optional[DatahubLineageConfig]
         :return: DataProcessInstance
         """
         if datajob is None:
-            datajob = AirflowGenerator.generate_datajob(cluster, ti.task, dag)
+            assert ti.task is not None
+            datajob = AirflowGenerator.generate_datajob(
+                cluster, ti.task, dag, config=config
+            )
 
         if end_timestamp_millis is None:
             if ti.end_date:
@@ -513,6 +548,7 @@ class AirflowGenerator:
                     f"Result should be either success or failure and it was {ti.state}"
                 )
 
+        assert datajob is not None
         dpi = DataProcessInstance.from_datajob(
             datajob=datajob,
             id=f"{dag.dag_id}_{ti.task_id}_{dag_run.run_id}",

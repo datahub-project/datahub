@@ -1,6 +1,7 @@
 namespace com.linkedin.domain
 
 import com.linkedin.common.AuditStamp
+import com.linkedin.common.CustomProperties
 import com.linkedin.common.Urn
 
 /**
@@ -9,7 +10,7 @@ import com.linkedin.common.Urn
 @Aspect = {
   "name": "domainProperties"
 }
-record DomainProperties {
+record DomainProperties includes CustomProperties {
 
   /**
    * Display name of the Domain
@@ -25,6 +26,10 @@ record DomainProperties {
   /**
    * Description of the Domain
    */
+   @Searchable = {
+    "fieldType": "TEXT",
+    "hasValuesFieldName": "hasDescription"
+  }
   description: optional string
 
   /**

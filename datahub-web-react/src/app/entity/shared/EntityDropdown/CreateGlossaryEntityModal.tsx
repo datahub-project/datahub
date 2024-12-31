@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import styled from 'styled-components/macro';
 import { EditOutlined } from '@ant-design/icons';
 import { message, Button, Input, Modal, Typography, Form, Collapse } from 'antd';
 import DOMPurify from 'dompurify';
+import { useHistory } from 'react-router';
 import {
     useCreateGlossaryTermMutation,
     useCreateGlossaryNodeMutation,
@@ -16,6 +17,7 @@ import DescriptionModal from '../components/legacy/DescriptionModal';
 import { validateCustomUrnId } from '../../../shared/textUtil';
 import { useGlossaryEntityData } from '../GlossaryEntityContext';
 import { getGlossaryRootToUpdate, updateGlossarySidebar } from '../../../glossary/utils';
+import { getEntityPath } from '../containers/profile/utils';
 
 const StyledItem = styled(Form.Item)`
     margin-bottom: 0;
@@ -33,6 +35,7 @@ interface Props {
     entityType: EntityType;
     onClose: () => void;
     refetchData?: () => void;
+    isCloning?: boolean;
 }
 
 function CreateGlossaryEntityModal(props: Props) {
@@ -43,14 +46,30 @@ function CreateGlossaryEntityModal(props: Props) {
     const entityRegistry = useEntityRegistry();
     const [stagedId, setStagedId] = useState<string | undefined>(undefined);
     const [stagedName, setStagedName] = useState('');
-    const [selectedParentUrn, setSelectedParentUrn] = useState(entityData.urn);
+    const [selectedParentUrn, setSelectedParentUrn] = useState<string>(props.isCloning ? '' : entityData.urn);
     const [documentation, setDocumentation] = useState('');
     const [isDocumentationModalVisible, setIsDocumentationModalVisible] = useState(false);
     const [createButtonDisabled, setCreateButtonDisabled] = useState(true);
     const refetch = useRefetch();
+    const history = useHistory();
 
     const [createGlossaryTermMutation] = useCreateGlossaryTermMutation();
     const [createGlossaryNodeMutation] = useCreateGlossaryNodeMutation();
+
+    useEffect(() => {
+        if (props.isCloning && entityData.entityData) {
+            const { properties } = entityData.entityData;
+
+            if (properties?.name) {
+                setStagedName(properties.name);
+                form.setFieldValue('name', properties.name);
+            }
+
+            if (properties?.description) {
+                setDocumentation(properties.description);
+            }
+        }
+    }, [props.isCloning, entityData.entityData, form]);
 
     function createGlossaryEntity() {
         const mutation =
@@ -67,7 +86,7 @@ function CreateGlossaryEntityModal(props: Props) {
                 },
             },
         })
-            .then(() => {
+            .then((res) => {
                 message.loading({ content: 'Updating...', duration: 2 });
                 setTimeout(() => {
                     analytics.event({
@@ -82,11 +101,18 @@ function CreateGlossaryEntityModal(props: Props) {
                     refetch();
                     if (isInGlossaryContext) {
                         // either refresh this current glossary node or the root nodes or root terms
-                        const nodeToUpdate = entityData?.urn || getGlossaryRootToUpdate(entityType);
+                        const nodeToUpdate = selectedParentUrn || getGlossaryRootToUpdate(entityType);
                         updateGlossarySidebar([nodeToUpdate], urnsToUpdate, setUrnsToUpdate);
                     }
                     if (refetchData) {
                         refetchData();
+                    }
+                    if (props.isCloning) {
+                        const redirectUrn =
+                            entityType === EntityType.GlossaryTerm
+                                ? res.data?.createGlossaryTerm
+                                : res.data?.createGlossaryNode;
+                        history.push(getEntityPath(entityType, redirectUrn, entityRegistry, false, false));
                     }
                 }, 2000);
             })
@@ -105,7 +131,7 @@ function CreateGlossaryEntityModal(props: Props) {
     return (
         <Modal
             title={`Create ${entityRegistry.getEntityName(entityType)}`}
-            visible
+            open
             onCancel={onClose}
             footer={
                 <>

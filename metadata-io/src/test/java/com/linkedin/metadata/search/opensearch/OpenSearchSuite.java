@@ -10,22 +10,23 @@ import org.testng.annotations.AfterSuite;
 @TestConfiguration
 public class OpenSearchSuite extends AbstractTestNGSpringContextTests {
 
-    private static final OpenSearchTestContainer OPENSEARCH_TEST_CONTAINER;
-    private static GenericContainer<?> container;
-    static {
-        OPENSEARCH_TEST_CONTAINER = new OpenSearchTestContainer();
-    }
+  private static final OpenSearchTestContainer OPENSEARCH_TEST_CONTAINER;
+  private static GenericContainer<?> container;
 
-    @AfterSuite
-    public void after() {
-        OPENSEARCH_TEST_CONTAINER.stopContainer();
-    }
+  static {
+    OPENSEARCH_TEST_CONTAINER = new OpenSearchTestContainer();
+  }
 
-    @Bean(name = "testSearchContainer")
-    public GenericContainer<?> testSearchContainer() {
-        if (container == null) {
-            container = OPENSEARCH_TEST_CONTAINER.startContainer();
-        }
-        return container;
+  @AfterSuite
+  public void after() {
+    OPENSEARCH_TEST_CONTAINER.stopContainer();
+  }
+
+  @Bean(name = "testSearchContainer")
+  public GenericContainer<?> testSearchContainer() {
+    if (container == null) {
+      container = OPENSEARCH_TEST_CONTAINER.startContainer();
     }
+    return container;
+  }
 }

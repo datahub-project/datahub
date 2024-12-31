@@ -117,7 +117,7 @@ export default function ManageLineageModal({
     return (
         <StyledModal
             title={<TitleText>Manage {lineageDirection} Lineage</TitleText>}
-            visible
+            open
             onCancel={closeModal}
             keyboard
             footer={

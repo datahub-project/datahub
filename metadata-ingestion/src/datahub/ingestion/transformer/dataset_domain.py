@@ -1,5 +1,8 @@
-from typing import Callable, List, Optional, Union, cast
+import logging
+from enum import auto
+from typing import Callable, Dict, List, Optional, Sequence, Union, cast
 
+from datahub.configuration._config_enum import ConfigEnum
 from datahub.configuration.common import (
     ConfigurationError,
     KeyValuePattern,
@@ -8,11 +11,25 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.import_resolver import pydantic_resolve_key
 from datahub.emitter.mce_builder import Aspect
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.transformer.dataset_transformer import DatasetDomainTransformer
-from datahub.metadata.schema_classes import DomainsClass
+from datahub.metadata.schema_classes import (
+    BrowsePathsV2Class,
+    DomainsClass,
+    MetadataChangeProposalClass,
+)
 from datahub.utilities.registries.domain_registry import DomainRegistry
+
+logger = logging.getLogger(__name__)
+
+
+class TransformerOnConflict(ConfigEnum):
+    """Describes the behavior of the transformer when writing an aspect that already exists."""
+
+    DO_UPDATE = auto()  # On conflict, apply the new aspect
+    DO_NOTHING = auto()  # On conflict, do not apply the new aspect
 
 
 class AddDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
@@ -23,13 +40,18 @@ class AddDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
 
     _resolve_domain_fn = pydantic_resolve_key("get_domains_to_add")
 
+    is_container: bool = False
+    on_conflict: TransformerOnConflict = TransformerOnConflict.DO_UPDATE
+
 
 class SimpleDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
     domains: List[str]
+    on_conflict: TransformerOnConflict = TransformerOnConflict.DO_UPDATE
 
 
 class PatternDatasetDomainSemanticsConfig(TransformerSemanticsConfigModel):
     domain_pattern: KeyValuePattern = KeyValuePattern.all()
+    is_container: bool = False
 
 
 class AddDatasetDomain(DatasetDomainTransformer):
@@ -69,12 +91,13 @@ class AddDatasetDomain(DatasetDomainTransformer):
 
     @staticmethod
     def _merge_with_server_domains(
-        graph: DataHubGraph, urn: str, mce_domain: Optional[DomainsClass]
+        graph: Optional[DataHubGraph], urn: str, mce_domain: Optional[DomainsClass]
     ) -> Optional[DomainsClass]:
         if not mce_domain or not mce_domain.domains:
             # nothing to add, no need to consult server
             return None
 
+        assert graph
         server_domain = graph.get_domain(entity_urn=urn)
         if server_domain:
             # compute patch
@@ -90,11 +113,61 @@ class AddDatasetDomain(DatasetDomainTransformer):
 
         return mce_domain
 
+    def handle_end_of_stream(
+        self,
+    ) -> Sequence[Union[MetadataChangeProposalWrapper, MetadataChangeProposalClass]]:
+        domain_mcps: List[MetadataChangeProposalWrapper] = []
+        container_domain_mapping: Dict[str, List[str]] = {}
+
+        logger.debug("Generating Domains for containers")
+
+        if not self.config.is_container:
+            return domain_mcps
+
+        for entity_urn, domain_to_add in (
+            (urn, self.config.get_domains_to_add(urn)) for urn in self.entity_map.keys()
+        ):
+            if not domain_to_add or not domain_to_add.domains:
+                continue
+
+            assert self.ctx.graph
+            browse_paths = self.ctx.graph.get_aspect(entity_urn, BrowsePathsV2Class)
+            if not browse_paths:
+                continue
+
+            for path in browse_paths.path:
+                container_urn = path.urn
+
+                if not container_urn or not container_urn.startswith(
+                    "urn:li:container:"
+                ):
+                    continue
+
+                if container_urn not in container_domain_mapping:
+                    container_domain_mapping[container_urn] = domain_to_add.domains
+                else:
+                    container_domain_mapping[container_urn] = list(
+                        set(
+                            container_domain_mapping[container_urn]
+                            + domain_to_add.domains
+                        )
+                    )
+
+        for urn, domains in container_domain_mapping.items():
+            domain_mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=DomainsClass(domains=domains),
+                )
+            )
+
+        return domain_mcps
+
     def transform_aspect(
         self, entity_urn: str, aspect_name: str, aspect: Optional[Aspect]
     ) -> Optional[Aspect]:
         in_domain_aspect: DomainsClass = cast(DomainsClass, aspect)
-        domain_aspect = DomainsClass(domains=[])
+        domain_aspect: DomainsClass = DomainsClass(domains=[])
         # Check if we have received existing aspect
         if in_domain_aspect is not None and self.config.replace_existing is False:
             domain_aspect.domains.extend(in_domain_aspect.domains)
@@ -103,16 +176,18 @@ class AddDatasetDomain(DatasetDomainTransformer):
 
         domain_aspect.domains.extend(domain_to_add.domains)
 
-        if self.config.semantics == TransformerSemantics.PATCH:
-            assert self.ctx.graph
-            patch_domain_aspect: Optional[
-                DomainsClass
-            ] = AddDatasetDomain._merge_with_server_domains(
-                self.ctx.graph, entity_urn, domain_aspect
-            )
-            return cast(Optional[Aspect], patch_domain_aspect)
-
-        return cast(Optional[Aspect], domain_aspect)
+        final_aspect: Optional[DomainsClass] = domain_aspect
+        if domain_aspect.domains:
+            if self.config.on_conflict == TransformerOnConflict.DO_NOTHING:
+                assert self.ctx.graph
+                server_domain = self.ctx.graph.get_domain(entity_urn)
+                if server_domain and server_domain.domains:
+                    return None
+            if self.config.semantics == TransformerSemantics.PATCH:
+                final_aspect = AddDatasetDomain._merge_with_server_domains(
+                    self.ctx.graph, entity_urn, domain_aspect
+                )
+        return cast(Optional[Aspect], final_aspect)
 
 
 class SimpleAddDatasetDomain(AddDatasetDomain):
@@ -125,8 +200,7 @@ class SimpleAddDatasetDomain(AddDatasetDomain):
         domains = AddDatasetDomain.get_domain_class(ctx.graph, config.domains)
         generic_config = AddDatasetDomainSemanticsConfig(
             get_domains_to_add=lambda _: domains,
-            semantics=config.semantics,
-            replace_existing=config.replace_existing,
+            **config.dict(exclude={"domains"}),
         )
         super().__init__(generic_config, ctx)
 
@@ -156,6 +230,7 @@ class PatternAddDatasetDomain(AddDatasetDomain):
             get_domains_to_add=resolve_domain,
             semantics=config.semantics,
             replace_existing=config.replace_existing,
+            is_container=config.is_container,
         )
         super().__init__(generic_config, ctx)
 

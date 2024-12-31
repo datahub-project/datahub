@@ -1,22 +1,23 @@
 package com.linkedin.datahub.graphql.resolvers.view;
 
-import com.datahub.authentication.Authentication;
+import static com.linkedin.datahub.graphql.TestUtils.*;
+import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
+import static org.mockito.ArgumentMatchers.any;
+import static org.testng.Assert.*;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubViewType;
 import com.linkedin.datahub.graphql.generated.ListGlobalViewsInput;
 import com.linkedin.datahub.graphql.generated.ListViewsResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
@@ -28,53 +29,46 @@ import java.util.concurrent.CompletionException;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
 
-import static com.linkedin.datahub.graphql.TestUtils.*;
-import static org.testng.Assert.*;
-
-
 public class ListGlobalViewsResolverTest {
 
   private static final Urn TEST_URN = Urn.createFromTuple("dataHubView", "test-id");
   private static final Urn TEST_USER = UrnUtils.getUrn("urn:li:corpuser:test");
 
-  private static final ListGlobalViewsInput TEST_INPUT = new ListGlobalViewsInput(
-      0, 20, ""
-  );
+  private static final ListGlobalViewsInput TEST_INPUT = new ListGlobalViewsInput(0, 20, "");
 
   @Test
   public void testGetSuccessInput() throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
-    Mockito.when(mockClient.search(
-            Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
-            Mockito.eq(""),
-            Mockito.eq(
+    Mockito.when(
+            mockClient.search(
+                any(),
+                Mockito.eq(Constants.DATAHUB_VIEW_ENTITY_NAME),
+                Mockito.eq(""),
+                Mockito.eq(
                     new Filter()
-                            .setOr(new ConjunctiveCriterionArray(ImmutableList.of(
+                        .setOr(
+                            new ConjunctiveCriterionArray(
+                                ImmutableList.of(
                                     new ConjunctiveCriterion()
-                                            .setAnd(new CriterionArray(ImmutableList.of(
-                                                    new Criterion()
-                                                            .setField("type.keyword")
-                                                            .setValue(DataHubViewType.GLOBAL.toString())
-                                                            .setValues(new StringArray(
-                                                                    ImmutableList.of(DataHubViewType.GLOBAL.toString())))
-                                                            .setCondition(Condition.EQUAL)
-                                                            .setNegated(false)
-                                            )))
-                            )))
-            ),
-            Mockito.any(),
-            Mockito.eq(0),
-            Mockito.eq(20),
-            Mockito.any(Authentication.class),
-            Mockito.eq(new SearchFlags().setFulltext(true))
-    )).thenReturn(
-        new SearchResult()
-            .setFrom(0)
-            .setPageSize(1)
-            .setNumEntities(1)
-            .setEntities(new SearchEntityArray(ImmutableSet.of(new SearchEntity().setEntity(TEST_URN))))
-    );
+                                        .setAnd(
+                                            new CriterionArray(
+                                                ImmutableList.of(
+                                                    buildCriterion(
+                                                        "type",
+                                                        Condition.EQUAL,
+                                                        DataHubViewType.GLOBAL.toString())))))))),
+                Mockito.any(),
+                Mockito.eq(0),
+                Mockito.eq(20)))
+        .thenReturn(
+            new SearchResult()
+                .setFrom(0)
+                .setPageSize(1)
+                .setNumEntities(1)
+                .setEntities(
+                    new SearchEntityArray(
+                        ImmutableSet.of(new SearchEntity().setEntity(TEST_URN)))));
 
     ListGlobalViewsResolver resolver = new ListGlobalViewsResolver(mockClient);
 
@@ -107,28 +101,29 @@ public class ListGlobalViewsResolverTest {
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
-    Mockito.verify(mockClient, Mockito.times(0)).search(
+    Mockito.verify(mockClient, Mockito.times(0))
+        .search(
+            any(),
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.eq(new SearchFlags().setFulltext(true)));
+            Mockito.anyInt());
   }
 
   @Test
   public void testGetEntityClientException() throws Exception {
     // Create resolver
     EntityClient mockClient = Mockito.mock(EntityClient.class);
-    Mockito.doThrow(RemoteInvocationException.class).when(mockClient).search(
+    Mockito.doThrow(RemoteInvocationException.class)
+        .when(mockClient)
+        .search(
+            any(),
             Mockito.any(),
             Mockito.eq(""),
             Mockito.anyMap(),
             Mockito.anyInt(),
-            Mockito.anyInt(),
-            Mockito.any(Authentication.class),
-            Mockito.eq(new SearchFlags().setFulltext(true)));
+            Mockito.anyInt());
     ListMyViewsResolver resolver = new ListMyViewsResolver(mockClient);
 
     // Execute resolver

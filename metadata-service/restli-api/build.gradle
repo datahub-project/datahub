@@ -1,4 +1,8 @@
-apply plugin: 'pegasus'
+plugins {
+  id 'pegasus'
+}
+
+apply from: '../../gradle/coverage/java-coverage.gradle'
 
 dependencies {
   dataModel project(':metadata-models')
@@ -8,4 +12,13 @@ dependencies {
 
   restClientCompile spec.product.pegasus.d2
   restClientCompile spec.product.pegasus.restliClient
+
+  constraints {
+    restClientCompile(externalDependency.zookeeper) {
+      because("CVE-2023-44981")
+    }
+    restClientCompile(externalDependency.grpcProtobuf) {
+      because("CVE-2023-1428, CVE-2023-32731")
+    }
+  }
 }

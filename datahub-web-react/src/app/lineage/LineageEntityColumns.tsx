@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { Group } from '@vx/group';
+import { Group } from '@visx/group';
 import { Pagination } from 'antd';
 import styled from 'styled-components';
 import { NodeData, EntitySelectParams } from './types';
@@ -67,7 +67,7 @@ export default function LineageEntityColumns({ node, onHover }: Props) {
     }, [displayedFields, node?.data?.urn, setVisibleColumnsByUrn, previousDisplayedFields]);
 
     const hasColumnPagination =
-        (node.data.schemaMetadata?.fields && node.data.schemaMetadata?.fields.length > NUM_COLUMNS_PER_PAGE) ||
+        (node.data.schemaMetadata?.fields && node.data.schemaMetadata?.fields?.length > NUM_COLUMNS_PER_PAGE) ||
         (node.data.inputFields?.fields && node.data.inputFields.fields.length > NUM_COLUMNS_PER_PAGE);
 
     return (

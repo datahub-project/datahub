@@ -1,6 +1,6 @@
 import React, { useContext, useEffect, useMemo, useState } from 'react';
-import { Group } from '@vx/group';
-import { LinkHorizontal } from '@vx/shape';
+import { Group } from '@visx/group';
+import { LinkHorizontal } from '@visx/shape';
 import styled from 'styled-components';
 
 import { useEntityRegistry } from '../useEntityRegistry';
@@ -18,6 +18,11 @@ import { convertInputFieldsToSchemaFields } from './utils/columnLineageUtils';
 import ManageLineageMenu from './manage/ManageLineageMenu';
 import { useGetLineageTimeParams } from './utils/useGetLineageTimeParams';
 import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
+import { EntityType } from '../../types.generated';
+import StructuredPropertyBadge, {
+    MAX_PROP_BADGE_WIDTH,
+} from '../entity/shared/containers/profile/header/StructuredPropertyBadge';
+import { filterForAssetBadge } from '../entity/shared/containers/profile/header/utils';
 
 const CLICK_DELAY_THRESHOLD = 1000;
 const DRAG_DISTANCE_THRESHOLD = 20;
@@ -35,6 +40,11 @@ const MultilineTitleText = styled.p`
     font-size: 14px;
     width: 125px;
     word-break: break-all;
+`;
+
+const PropertyBadgeWrapper = styled.div`
+    display: flex;
+    justify-content: flex-end;
 `;
 
 export default function LineageEntityNode({
@@ -71,6 +81,7 @@ export default function LineageEntityNode({
     const [getAsyncEntityLineage, { data: asyncLineageData, loading }] = useGetEntityLineageLazyQuery();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
     const areColumnsCollapsed = !!collapsedColumnsNodes[node?.data?.urn || 'noop'];
+    const isRestricted = node.data.type === EntityType.Restricted;
 
     function fetchEntityLineage() {
         if (node.data.urn) {
@@ -91,6 +102,12 @@ export default function LineageEntityNode({
             }
         }
     }
+
+    const centerEntity = () => {
+        if (!isRestricted) {
+            onEntityCenter({ urn: node.data.urn, type: node.data.type });
+        }
+    };
 
     useEffect(() => {
         if (asyncLineageData && asyncLineageData.entity && !hasExpanded && !loading) {
@@ -141,6 +158,11 @@ export default function LineageEntityNode({
     const { health } = node.data;
     const baseUrl = node.data.type && node.data.urn && entityRegistry.getEntityUrl(node.data.type, node.data.urn);
     const hasHealth = (health && baseUrl) || false;
+
+    const entityStructuredProps = node.data.structuredProperties;
+    const hasAssetBadge = entityStructuredProps?.properties?.find(filterForAssetBadge);
+    const siblingStructuredProps = node.data.siblingStructuredProperties;
+    const siblingHasAssetBadge = siblingStructuredProps?.properties?.find(filterForAssetBadge);
 
     return (
         <PointerGroup data-testid={`node-${node.data.urn}-${direction}`} top={node.x} left={node.y}>
@@ -231,7 +253,7 @@ export default function LineageEntityNode({
                     </g>
                 ))}
             <Group
-                onDoubleClick={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
+                onDoubleClick={centerEntity}
                 onClick={(event) => {
                     if (
                         event.timeStamp < lastMouseDownCoordinates.ts + CLICK_DELAY_THRESHOLD &&
@@ -311,25 +333,53 @@ export default function LineageEntityNode({
                         {entityRegistry.getIcon(node.data.type, 16, IconStyleType.SVG)}
                     </svg>
                 )}
-                <foreignObject
-                    x={-centerX - 25}
-                    y={centerY + 20}
-                    width={20}
-                    height={20}
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <ManageLineageMenu
-                        entityUrn={node.data.urn || ''}
-                        refetchEntity={fetchEntityLineage}
-                        setUpdatedLineages={setUpdatedLineages}
-                        disableUpstream={!isCenterNode && direction === Direction.Downstream}
-                        disableDownstream={!isCenterNode && direction === Direction.Upstream}
-                        centerEntity={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
-                        entityType={node.data.type}
-                        entityPlatform={node.data.platform?.name}
-                        canEditLineage={node.data.canEditLineage}
-                    />
-                </foreignObject>
+                {!isRestricted && (
+                    <foreignObject
+                        x={-centerX - 25}
+                        y={centerY + 20}
+                        width={20}
+                        height={20}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <ManageLineageMenu
+                            entityUrn={node.data.urn || ''}
+                            refetchEntity={fetchEntityLineage}
+                            setUpdatedLineages={setUpdatedLineages}
+                            disableUpstream={!isCenterNode && direction === Direction.Downstream}
+                            disableDownstream={!isCenterNode && direction === Direction.Upstream}
+                            centerEntity={() => onEntityCenter({ urn: node.data.urn, type: node.data.type })}
+                            entityType={node.data.type}
+                            entityPlatform={node.data.platform?.name}
+                            canEditLineage={node.data.canEditLineage}
+                        />
+                    </foreignObject>
+                )}
+                {hasAssetBadge && (
+                    <foreignObject
+                        x={-centerX - MAX_PROP_BADGE_WIDTH - 8}
+                        y={centerY - 15}
+                        width={MAX_PROP_BADGE_WIDTH}
+                        height={30}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <PropertyBadgeWrapper>
+                            <StructuredPropertyBadge structuredProperties={entityStructuredProps ?? undefined} />
+                        </PropertyBadgeWrapper>
+                    </foreignObject>
+                )}
+                {!hasAssetBadge && siblingHasAssetBadge && (
+                    <foreignObject
+                        x={-centerX - MAX_PROP_BADGE_WIDTH - 8}
+                        y={centerY - 15}
+                        width={MAX_PROP_BADGE_WIDTH}
+                        height={30}
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <PropertyBadgeWrapper>
+                            <StructuredPropertyBadge structuredProperties={siblingStructuredProps ?? undefined} />
+                        </PropertyBadgeWrapper>
+                    </foreignObject>
+                )}
                 <Group>
                     <UnselectableText
                         dy="-1em"
@@ -340,11 +390,15 @@ export default function LineageEntityNode({
                         textAnchor="start"
                         fill="#8C8C8C"
                     >
-                        <tspan>{getShortenedTitle(platformDisplayText || '', width)}</tspan>
-                        <tspan dx=".25em" dy="2px" fill="#dadada" fontSize={12} fontWeight="normal">
-                            {' '}
-                            |{' '}
-                        </tspan>
+                        {platformDisplayText && (
+                            <>
+                                <tspan>{getShortenedTitle(platformDisplayText || '', width)}</tspan>
+                                <tspan dx=".25em" dy="2px" fill="#dadada" fontSize={12} fontWeight="normal">
+                                    {' '}
+                                    |{' '}
+                                </tspan>
+                            </>
+                        )}
                         <tspan dx=".25em" dy="-2px" data-testid={entityName}>
                             {entityName}
                         </tspan>
@@ -371,7 +425,7 @@ export default function LineageEntityNode({
                                 health={health as any}
                                 baseUrl={baseUrl as any}
                                 fontSize={20}
-                                tooltipPlacement="left"
+                                tooltipPlacement="top"
                             />
                         )}
                     </foreignObject>

@@ -3,6 +3,7 @@ import os
 import tarfile
 import time
 import urllib.request
+import shutil
 
 repo_url = "https://api.github.com/repos/datahub-project/static-assets"
 
@@ -18,7 +19,7 @@ def download_file(url, destination):
 
 
 def fetch_urls(
-    repo_url: str, folder_path: str, file_format: str, max_retries=3, retry_delay=5
+    repo_url: str, folder_path: str, file_format: str, active_versions: list, max_retries=3, retry_delay=5
 ):
     api_url = f"{repo_url}/contents/{folder_path}"
     for attempt in range(max_retries + 1):
@@ -30,16 +31,16 @@ def fetch_urls(
             urls = [
                 file["download_url"]
                 for file in json.loads(data)
-                if file["name"].endswith(file_format)
+                if file["name"].endswith(file_format) and any(version in file["name"] for version in active_versions)
             ]
             print(urls)
             return urls
         except Exception as e:
             if attempt < max_retries:
                 print(f"Attempt {attempt + 1}/{max_retries}: {e}")
-                time.sleep(retry_delay)
+                time.sleep(retry_delay * 2**attempt)
             else:
-                print(f"Max retries reached. Unable to fetch data.")
+                print("Max retries reached. Unable to fetch data.")
                 raise
 
 
@@ -48,12 +49,22 @@ def extract_tar_file(destination_path):
         tar.extractall()
     os.remove(destination_path)
 
+def get_active_versions():
+    # read versions.json
+    with open("versions.json") as f:
+        versions = json.load(f)
+    return versions
+
+def clear_directory(directory):
+    if os.path.exists(directory):
+        shutil.rmtree(directory)
+    os.makedirs(directory)
 
 def download_versioned_docs(folder_path: str, destination_dir: str, file_format: str):
-    if not os.path.exists(destination_dir):
-        os.makedirs(destination_dir)
+    clear_directory(destination_dir)  # Clear the directory before downloading
 
-    urls = fetch_urls(repo_url, folder_path, file_format)
+    active_versions = get_active_versions()
+    urls = fetch_urls(repo_url, folder_path, file_format, active_versions)
 
     for url in urls:
         filename = os.path.basename(url)

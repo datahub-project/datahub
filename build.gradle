@@ -1,45 +1,88 @@
 buildscript {
+  ext.jdkVersionDefault = 17
+  ext.javaClassVersionDefault = 11
+
+  def springModules = ['mae-consumer', 'mce-consumer', 'pe-consumer']
+
+  ext.jdkVersion = { p ->
+    // If Spring 6 is present, hard dependency on jdk17
+    if (p.configurations.any { it.getDependencies().any{
+      (it.getGroup().equals("org.springframework") && it.getVersion().startsWith("6."))
+      || (it.getGroup().equals("org.springframework.boot") && it.getVersion().startsWith("3.") && !it.getName().equals("spring-boot-starter-test"))
+    }} || springModules.contains(p.name)) {
+      return 17
+    } else {
+      // otherwise we can use the preferred default which can be overridden with a property: -PjdkVersionDefault
+      return p.hasProperty('jdkVersionDefault') ? Integer.valueOf((String) p.getProperty('jdkVersionDefault')) : ext.jdkVersionDefault
+    }
+  }
+
+  ext.javaClassVersion = { p ->
+    // If Spring 6 is present, hard dependency on jdk17
+    if (p.configurations.any { it.getDependencies().any {
+      (it.getGroup().equals("org.springframework") && it.getVersion().startsWith("6."))
+              || (it.getGroup().equals("org.springframework.boot") && it.getVersion().startsWith("3.") && !it.getName().equals("spring-boot-starter-test"))
+    }} || springModules.contains(p.name)) {
+      return 17
+    } else {
+      // otherwise we can use the preferred default which can be overridden with a property: -PjavaClassVersionDefault
+      return p.hasProperty('javaClassVersionDefault') ? Integer.valueOf((String) p.getProperty('javaClassVersionDefault')) : ext.javaClassVersionDefault
+    }
+  }
+
   ext.junitJupiterVersion = '5.6.1'
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
-  ext.pegasusVersion = '29.45.0'
+  ext.pegasusVersion = '29.57.0'
   ext.mavenVersion = '3.6.3'
-  ext.springVersion = '5.3.29'
-  ext.springBootVersion = '2.7.14'
+  ext.versionGradle = '8.11.1'
+  ext.springVersion = '6.1.14'
+  ext.springBootVersion = '3.2.9'
+  ext.springKafkaVersion = '3.1.6'
   ext.openTelemetryVersion = '1.18.0'
-  ext.neo4jVersion = '4.4.9'
+  ext.neo4jVersion = '5.14.0'
+  ext.neo4jTestVersion = '5.14.0'
+  ext.neo4jApocVersion = '5.14.0'
   ext.testContainersVersion = '1.17.4'
-  ext.elasticsearchVersion = '2.9.0' // ES 7.10, Opensearch 1.x, 2.x
-  ext.jacksonVersion = '2.15.2'
-  ext.jettyVersion = '9.4.46.v20220331'
-  ext.playVersion = '2.8.18'
-  ext.log4jVersion = '2.19.0'
+  ext.elasticsearchVersion = '2.11.1' // ES 7.10, Opensearch 1.x, 2.x
+  ext.jacksonVersion = '2.15.3'
+  ext.jettyVersion = '11.0.21'
+  // see also datahub-frontend/play.gradle
+  ext.playVersion = '2.8.22'
+  ext.playScalaVersion = '2.13'
+  ext.akkaVersion = '2.6.21' // 2.7.0+ has incompatible license
+  ext.log4jVersion = '2.23.1'
   ext.slf4jVersion = '1.7.36'
-  ext.logbackClassic = '1.2.12'
-  ext.hadoop3Version = '3.3.5'
-  ext.kafkaVersion = '2.3.0'
-  ext.hazelcastVersion = '5.3.1'
-  ext.ebeanVersion = '12.16.1'
+  ext.logbackClassic = '1.4.14'
+  ext.hadoop3Version = '3.3.6'
+  ext.kafkaVersion = '5.5.15'
+  ext.hazelcastVersion = '5.3.6'
+  ext.ebeanVersion = '15.5.2'
+  ext.googleJavaFormatVersion = '1.18.1'
+  ext.openLineageVersion = '1.25.0'
+  ext.logbackClassicJava8 = '1.2.12'
 
-  ext.docker_registry = 'linkedin'
+  ext.docker_registry = 'acryldata'
 
   apply from: './repositories.gradle'
   buildscript.repositories.addAll(project.repositories)
   dependencies {
     classpath 'com.linkedin.pegasus:gradle-plugins:' + pegasusVersion
-    classpath 'com.github.node-gradle:gradle-node-plugin:2.2.4'
+    classpath 'com.github.node-gradle:gradle-node-plugin:7.0.2'
     classpath 'io.acryl.gradle.plugin:gradle-avro-plugin:0.2.0'
     classpath 'org.springframework.boot:spring-boot-gradle-plugin:' + springBootVersion
     classpath "io.codearte.gradle.nexus:gradle-nexus-staging-plugin:0.30.0"
     classpath "com.palantir.gradle.gitversion:gradle-git-version:3.0.0"
     classpath "org.gradle.playframework:gradle-playframework:0.14"
-    classpath "gradle.plugin.org.hidetake:gradle-swagger-generator-plugin:2.19.1"
+    classpath "gradle.plugin.org.hidetake:gradle-swagger-generator-plugin:2.19.2"
   }
 }
 
 plugins {
-  id 'com.gorylenko.gradle-git-properties' version '2.4.0-rc2'
-  id 'com.github.johnrengelman.shadow' version '6.1.0'
+  id 'com.gorylenko.gradle-git-properties' version '2.4.1'
+  id 'com.gradleup.shadow' version '8.3.5' apply false
   id 'com.palantir.docker' version '0.35.0' apply false
+  id 'com.avast.gradle.docker-compose' version '0.17.6'
+  id "com.diffplug.spotless" version "6.23.3"
   // https://blog.ltgt.net/javax-jakarta-mess-and-gradle-solution/
   // TODO id "org.gradlex.java-ecosystem-capabilities" version "1.0"
 }
@@ -51,53 +94,65 @@ project.ext.spec = [
         'pegasus' : [
             'd2' : 'com.linkedin.pegasus:d2:' + pegasusVersion,
             'data' : 'com.linkedin.pegasus:data:' + pegasusVersion,
-            'dataAvro1_6' : 'com.linkedin.pegasus:data-avro-1_6:' + pegasusVersion,
+            'dataAvro': 'com.linkedin.pegasus:data-avro:' + pegasusVersion,
             'generator': 'com.linkedin.pegasus:generator:' + pegasusVersion,
             'restliCommon' : 'com.linkedin.pegasus:restli-common:' + pegasusVersion,
             'restliClient' : 'com.linkedin.pegasus:restli-client:' + pegasusVersion,
             'restliDocgen' : 'com.linkedin.pegasus:restli-docgen:' + pegasusVersion,
             'restliServer' : 'com.linkedin.pegasus:restli-server:' + pegasusVersion,
             'restliSpringBridge': 'com.linkedin.pegasus:restli-spring-bridge:' + pegasusVersion,
+            'restliTestUtils' : 'com.linkedin.pegasus:restli-client-testutils:' + pegasusVersion,
         ]
     ]
 ]
 
 project.ext.externalDependency = [
-    'akkaHttp': 'com.typesafe.akka:akka-http-core_2.12:10.2.10',
-    'antlr4Runtime': 'org.antlr:antlr4-runtime:4.7.2',
-    'antlr4': 'org.antlr:antlr4:4.7.2',
+    'akkaHttp': "com.typesafe.akka:akka-http-core_$playScalaVersion:10.2.10", // max version due to licensing
+    'akkaActor': "com.typesafe.akka:akka-actor_$playScalaVersion:$akkaVersion",
+    'akkaStream': "com.typesafe.akka:akka-stream_$playScalaVersion:$akkaVersion",
+    'akkaActorTyped': "com.typesafe.akka:akka-actor-typed_$playScalaVersion:$akkaVersion",
+    'akkaSlf4j': "com.typesafe.akka:akka-slf4j_$playScalaVersion:$akkaVersion",
+    'akkaJackson': "com.typesafe.akka:akka-serialization-jackson_$playScalaVersion:$akkaVersion",
+    'akkaParsing': "com.typesafe.akka:akka-parsing_$playScalaVersion:$akkaVersion",
+    'akkaProtobuf': "com.typesafe.akka:akka-protobuf-v3_$playScalaVersion:$akkaVersion",
+    'antlr4Runtime': 'org.antlr:antlr4-runtime:4.9.3',
+    'antlr4': 'org.antlr:antlr4:4.9.3',
     'assertJ': 'org.assertj:assertj-core:3.11.1',
-    'avro': 'org.apache.avro:avro:1.11.3',
-    'avroCompiler': 'org.apache.avro:avro-compiler:1.11.3',
-    'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.10',
-    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:1.1.1',
-    'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.8',
-    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:1.0.0',
+    'avro': 'org.apache.avro:avro:1.11.4',
+    'avroCompiler': 'org.apache.avro:avro-compiler:1.11.4',
+    'awsGlueSchemaRegistrySerde': 'software.amazon.glue:schema-registry-serde:1.1.17',
+    'awsMskIamAuth': 'software.amazon.msk:aws-msk-iam-auth:2.0.3',
+    'awsS3': 'software.amazon.awssdk:s3:2.26.21',
+    'awsSecretsManagerJdbc': 'com.amazonaws.secretsmanager:aws-secretsmanager-jdbc:1.0.13',
+    'awsPostgresIamAuth': 'software.amazon.jdbc:aws-advanced-jdbc-wrapper:1.0.2',
     'awsRds':'software.amazon.awssdk:rds:2.18.24',
-    'cacheApi' : 'javax.cache:cache-api:1.1.0',
+    'cacheApi': 'javax.cache:cache-api:1.1.0',
     'commonsCli': 'commons-cli:commons-cli:1.5.0',
-    'commonsIo': 'commons-io:commons-io:2.4',
+    'commonsIo': 'commons-io:commons-io:2.17.0',
     'commonsLang': 'commons-lang:commons-lang:2.6',
-    'commonsText': 'org.apache.commons:commons-text:1.10.0',
+    'commonsText': 'org.apache.commons:commons-text:1.12.0',
     'commonsCollections': 'commons-collections:commons-collections:3.2.2',
-    'data' : 'com.linkedin.pegasus:data:' + pegasusVersion,
+    'caffeine': 'com.github.ben-manes.caffeine:caffeine:3.1.8',
     'datastaxOssNativeProtocol': 'com.datastax.oss:native-protocol:1.5.1',
     'datastaxOssCore': 'com.datastax.oss:java-driver-core:4.14.1',
     'datastaxOssQueryBuilder': 'com.datastax.oss:java-driver-query-builder:4.14.1',
-    'dgraph4j' : 'io.dgraph:dgraph4j:21.03.1',
+    'dgraph4j' : 'io.dgraph:dgraph4j:21.12.0',
     'dropwizardMetricsCore': 'io.dropwizard.metrics:metrics-core:4.2.3',
     'dropwizardMetricsJmx': 'io.dropwizard.metrics:metrics-jmx:4.2.3',
     'ebean': 'io.ebean:ebean:' + ebeanVersion,
+    'ebeanTest': 'io.ebean:ebean-test:' + ebeanVersion,
     'ebeanAgent': 'io.ebean:ebean-agent:' + ebeanVersion,
     'ebeanDdl': 'io.ebean:ebean-ddl-generator:' + ebeanVersion,
+    'ebeanQueryBean': 'io.ebean:querybean-generator:' + ebeanVersion,
     'elasticSearchRest': 'org.opensearch.client:opensearch-rest-high-level-client:' + elasticsearchVersion,
     'elasticSearchJava': 'org.opensearch.client:opensearch-java:2.6.0',
     'findbugsAnnotations': 'com.google.code.findbugs:annotations:3.0.1',
-    'graphqlJava': 'com.graphql-java:graphql-java:19.5',
-    'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:19.1',
+    'graphqlJava': 'com.graphql-java:graphql-java:21.5',
+    'graphqlJavaScalars': 'com.graphql-java:graphql-java-extended-scalars:21.0',
     'gson': 'com.google.code.gson:gson:2.8.9',
-    'guice': 'com.google.inject:guice:4.2.3',
-    'guava': 'com.google.guava:guava:32.1.2-jre',
+    'guice': 'com.google.inject:guice:7.0.0',
+    'guicePlay': 'com.google.inject:guice:5.0.1', // Used for frontend while still on old Play version
+    'guava': 'com.google.guava:guava:32.1.3-jre',
     'h2': 'com.h2database:h2:2.2.224',
     'hadoopCommon':'org.apache.hadoop:hadoop-common:2.7.2',
     'hadoopMapreduceClient':'org.apache.hadoop:hadoop-mapreduce-client-core:2.7.2',
@@ -107,8 +162,7 @@ project.ext.externalDependency = [
     'hazelcastSpring':"com.hazelcast:hazelcast-spring:$hazelcastVersion",
     'hazelcastTest':"com.hazelcast:hazelcast:$hazelcastVersion:tests",
     'hibernateCore': 'org.hibernate:hibernate-core:5.2.16.Final',
-    'httpClient': 'org.apache.httpcomponents:httpclient:4.5.9',
-    'httpAsyncClient': 'org.apache.httpcomponents:httpasyncclient:4.1.5',
+    'httpClient': 'org.apache.httpcomponents.client5:httpclient5:5.3',
     'iStackCommons': 'com.sun.istack:istack-commons-runtime:4.0.1',
     'jacksonJDK8': "com.fasterxml.jackson.datatype:jackson-datatype-jdk8:$jacksonVersion",
     'jacksonDataPropertyFormat': "com.fasterxml.jackson.dataformat:jackson-dataformat-properties:$jacksonVersion",
@@ -119,74 +173,84 @@ project.ext.externalDependency = [
     'javatuples': 'org.javatuples:javatuples:1.2',
     'javaxInject' : 'javax.inject:javax.inject:1',
     'javaxValidation' : 'javax.validation:validation-api:2.0.1.Final',
-    'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.25.1',
+    'jakartaValidation': 'jakarta.validation:jakarta.validation-api:3.1.0-M2',
+    'jerseyCore': 'org.glassfish.jersey.core:jersey-client:2.41',
     'jerseyGuava': 'org.glassfish.jersey.bundles.repackaged:jersey-guava:2.25.1',
     'jettyJaas': "org.eclipse.jetty:jetty-jaas:$jettyVersion",
     'jettyClient': "org.eclipse.jetty:jetty-client:$jettyVersion",
     'jettison': 'org.codehaus.jettison:jettison:1.5.4',
     'jgrapht': 'org.jgrapht:jgrapht-core:1.5.1',
     'jna': 'net.java.dev.jna:jna:5.12.1',
-    'jsonPatch': 'com.github.java-json-tools:json-patch:1.13',
+    'jsonPatch': 'jakarta.json:jakarta.json-api:2.1.3',
+    'jsonPathImpl': 'org.eclipse.parsson:parsson:1.1.6',
     'jsonSimple': 'com.googlecode.json-simple:json-simple:1.1.1',
     'jsonSmart': 'net.minidev:json-smart:2.4.9',
-    'json': 'org.json:json:20230227',
+    'json': 'org.json:json:20231013',
+    'jsonSchemaValidator': 'com.github.java-json-tools:json-schema-validator:2.2.14',
     'junit': 'junit:junit:4.13.2',
     'junitJupiterApi': "org.junit.jupiter:junit-jupiter-api:$junitJupiterVersion",
     'junitJupiterParams': "org.junit.jupiter:junit-jupiter-params:$junitJupiterVersion",
     'junitJupiterEngine': "org.junit.jupiter:junit-jupiter-engine:$junitJupiterVersion",
     // avro-serde includes dependencies for `kafka-avro-serializer` `kafka-schema-registry-client` and `avro`
-    'kafkaAvroSerde': 'io.confluent:kafka-streams-avro-serde:5.5.1',
+    'kafkaAvroSerde': "io.confluent:kafka-streams-avro-serde:$kafkaVersion",
     'kafkaAvroSerializer': 'io.confluent:kafka-avro-serializer:5.1.4',
-    'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion",
-    'snappy': 'org.xerial.snappy:snappy-java:1.1.10.3',
+    'kafkaClients': "org.apache.kafka:kafka-clients:$kafkaVersion-ccs",
+    'snappy': 'org.xerial.snappy:snappy-java:1.1.10.4',
     'logbackClassic': "ch.qos.logback:logback-classic:$logbackClassic",
+    'logbackClassicJava8' : "ch.qos.logback:logback-classic:$logbackClassicJava8",
     'slf4jApi': "org.slf4j:slf4j-api:$slf4jVersion",
     'log4jCore': "org.apache.logging.log4j:log4j-core:$log4jVersion",
     'log4jApi': "org.apache.logging.log4j:log4j-api:$log4jVersion",
     'log4j12Api': "org.slf4j:log4j-over-slf4j:$slf4jVersion",
     'log4j2Api': "org.apache.logging.log4j:log4j-to-slf4j:$log4jVersion",
-    'lombok': 'org.projectlombok:lombok:1.18.16',
+    'lombok': 'org.projectlombok:lombok:1.18.30',
     'mariadbConnector': 'org.mariadb.jdbc:mariadb-java-client:2.6.0',
     'mavenArtifact': "org.apache.maven:maven-artifact:$mavenVersion",
     'mixpanel': 'com.mixpanel:mixpanel-java:1.4.4',
-    'mockito': 'org.mockito:mockito-core:3.0.0',
-    'mockitoInline': 'org.mockito:mockito-inline:3.0.0',
+    'mockito': 'org.mockito:mockito-core:4.11.0',
+    'mockitoInline': 'org.mockito:mockito-inline:4.11.0',
     'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
     'mockServerClient': 'org.mock-server:mockserver-client-java:5.11.2',
-    'mysqlConnector': 'mysql:mysql-connector-java:8.0.20',
-    'neo4jHarness': 'org.neo4j.test:neo4j-harness:' + neo4jVersion,
+    'mysqlConnector': 'mysql:mysql-connector-java:8.0.28',
+    'neo4jHarness': 'org.neo4j.test:neo4j-harness:' + neo4jTestVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
+    'neo4jTestJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jTestVersion,
+    'neo4jApocCore': 'org.neo4j.procedure:apoc-core:' + neo4jApocVersion,
+    'neo4jApocCommon': 'org.neo4j.procedure:apoc-common:' + neo4jApocVersion,
     'opentelemetryApi': 'io.opentelemetry:opentelemetry-api:' + openTelemetryVersion,
     'opentelemetryAnnotations': 'io.opentelemetry:opentelemetry-extension-annotations:' + openTelemetryVersion,
     'opentracingJdbc':'io.opentracing.contrib:opentracing-jdbc:0.2.15',
     'parquet': 'org.apache.parquet:parquet-avro:1.12.3',
+    'parquetHadoop': 'org.apache.parquet:parquet-hadoop:1.13.1',
     'picocli': 'info.picocli:picocli:4.5.0',
-    'playCache': "com.typesafe.play:play-cache_2.12:$playVersion",
-    'playWs': 'com.typesafe.play:play-ahc-ws-standalone_2.12:2.1.10',
-    'playDocs': "com.typesafe.play:play-docs_2.12:$playVersion",
-    'playGuice': "com.typesafe.play:play-guice_2.12:$playVersion",
-    'playJavaJdbc': "com.typesafe.play:play-java-jdbc_2.12:$playVersion",
-    'playAkkaHttpServer': "com.typesafe.play:play-akka-http-server_2.12:$playVersion",
-    'playServer': "com.typesafe.play:play-server_2.12:$playVersion",
-    'playTest': "com.typesafe.play:play-test_2.12:$playVersion",
-    'playFilters': "com.typesafe.play:filters-helpers_2.12:$playVersion",
-    'pac4j': 'org.pac4j:pac4j-oidc:4.5.7',
-    'playPac4j': 'org.pac4j:play-pac4j_2.12:9.0.2',
-    'postgresql': 'org.postgresql:postgresql:42.3.8',
-    'protobuf': 'com.google.protobuf:protobuf-java:3.19.6',
+    'playCache': "com.typesafe.play:play-cache_$playScalaVersion:$playVersion",
+    'playCaffeineCache': "com.typesafe.play:play-caffeine-cache_$playScalaVersion:$playVersion",
+    'playWs': "com.typesafe.play:play-ahc-ws-standalone_$playScalaVersion:2.1.10",
+    'playDocs': "com.typesafe.play:play-docs_$playScalaVersion:$playVersion",
+    'playGuice': "com.typesafe.play:play-guice_$playScalaVersion:$playVersion",
+    'playJavaJdbc': "com.typesafe.play:play-java-jdbc_$playScalaVersion:$playVersion",
+    'playAkkaHttpServer': "com.typesafe.play:play-akka-http-server_$playScalaVersion:$playVersion",
+    'playServer': "com.typesafe.play:play-server_$playScalaVersion:$playVersion",
+    'playTest': "com.typesafe.play:play-test_$playScalaVersion:$playVersion",
+    'playFilters': "com.typesafe.play:filters-helpers_$playScalaVersion:$playVersion",
+    'pac4j': 'org.pac4j:pac4j-oidc:6.0.6',
+    'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:12.0.0-PLAY2.8",
+    'postgresql': 'org.postgresql:postgresql:42.3.9',
+    'protobuf': 'com.google.protobuf:protobuf-java:3.25.5',
+    'grpcProtobuf': 'io.grpc:grpc-protobuf:1.53.0',
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
     'reflections': 'org.reflections:reflections:0.9.9',
     'resilience4j': 'io.github.resilience4j:resilience4j-retry:1.7.1',
     'rythmEngine': 'org.rythmengine:rythm-engine:1.3.0',
-    'servletApi': 'javax.servlet:javax.servlet-api:3.1.0',
-    'shiroCore': 'org.apache.shiro:shiro-core:1.11.0',
+    'servletApi': 'jakarta.servlet:jakarta.servlet-api:6.0.0',
+    'shiroCore': 'org.apache.shiro:shiro-core:1.13.0',
     'snakeYaml': 'org.yaml:snakeyaml:2.0',
-    'sparkSql' : 'org.apache.spark:spark-sql_2.11:2.4.8',
-    'sparkHive' : 'org.apache.spark:spark-hive_2.11:2.4.8',
+    'sparkSql' : 'org.apache.spark:spark-sql_2.12:3.0.3',
+    'sparkHive' : 'org.apache.spark:spark-hive_2.12:3.0.3',
     'springBeans': "org.springframework:spring-beans:$springVersion",
     'springContext': "org.springframework:spring-context:$springVersion",
     'springCore': "org.springframework:spring-core:$springVersion",
-    'springDocUI': 'org.springdoc:springdoc-openapi-ui:1.6.14',
+    'springDocUI': 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.3.0',
     'springJdbc': "org.springframework:spring-jdbc:$springVersion",
     'springWeb': "org.springframework:spring-web:$springVersion",
     'springWebMVC': "org.springframework:spring-webmvc:$springVersion",
@@ -197,11 +261,13 @@ project.ext.externalDependency = [
     'springBootStarterJetty': "org.springframework.boot:spring-boot-starter-jetty:$springBootVersion",
     'springBootStarterCache': "org.springframework.boot:spring-boot-starter-cache:$springBootVersion",
     'springBootStarterValidation': "org.springframework.boot:spring-boot-starter-validation:$springBootVersion",
-    'springKafka': 'org.springframework.kafka:spring-kafka:2.8.11',
+    'springKafka': "org.springframework.kafka:spring-kafka:$springKafkaVersion",
     'springActuator': "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion",
+    'springRetry': "org.springframework.retry:spring-retry:2.0.6",
     'swaggerAnnotations': 'io.swagger.core.v3:swagger-annotations:2.2.15',
     'swaggerCli': 'io.swagger.codegen.v3:swagger-codegen-cli:3.0.46',
-    'testngJava8': 'org.testng:testng:7.5.1',
+    'swaggerCore': 'io.swagger.core.v3:swagger-core:2.2.7',
+    'springBootAutoconfigureJdk11': 'org.springframework.boot:spring-boot-autoconfigure:2.7.18',
     'testng': 'org.testng:testng:7.8.0',
     'testContainers': 'org.testcontainers:testcontainers:' + testContainersVersion,
     'testContainersJunit': 'org.testcontainers:junit-jupiter:' + testContainersVersion,
@@ -212,20 +278,88 @@ project.ext.externalDependency = [
     'testContainersOpenSearch': 'org.opensearch:opensearch-testcontainers:2.0.0',
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
-    'zookeeper': 'org.apache.zookeeper:zookeeper:3.4.14',
+    'zookeeper': 'org.apache.zookeeper:zookeeper:3.8.4',
     'wire': 'com.squareup.wire:wire-compiler:3.7.1',
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
-    'common': 'commons-io:commons-io:2.7',
     'jline':'jline:jline:1.4.1',
-    'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0'
-    
+    'jetbrains':' org.jetbrains.kotlin:kotlin-stdlib:1.6.0',
+    'annotationApi': 'javax.annotation:javax.annotation-api:1.3.2',
+    'jakartaAnnotationApi': 'jakarta.annotation:jakarta.annotation-api:3.0.0',
+    'classGraph': 'io.github.classgraph:classgraph:4.8.172',
+    'mustache': 'com.github.spullara.mustache.java:compiler:0.9.14'
 ]
 
 allprojects {
   apply plugin: 'idea'
   apply plugin: 'eclipse'
-  apply plugin: 'checkstyle'
   // apply plugin: 'org.gradlex.java-ecosystem-capabilities'
+
+  tasks.withType(Test).configureEach { task -> if (task.project.name != "metadata-io") {
+      // https://docs.gradle.org/current/userguide/performance.html
+      maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+
+      if (project.configurations.getByName("testImplementation").getDependencies()
+              .any { it.getName().contains("testng") }) {
+        useTestNG()
+      }
+    }
+  }
+
+  /**
+   * If making changes to this section also see the sections for pegasus below
+   * which use project.plugins.hasPlugin('pegasus')
+   **/
+  if (!project.plugins.hasPlugin('pegasus') && (project.plugins.hasPlugin('java')
+          || project.plugins.hasPlugin('java-library')
+          || project.plugins.hasPlugin('application'))) {
+
+    java {
+      toolchain {
+        languageVersion = JavaLanguageVersion.of(jdkVersion(project))
+      }
+    }
+
+    compileJava {
+      options.release = javaClassVersion(project)
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+      javaCompiler = javaToolchains.compilerFor {
+        languageVersion = JavaLanguageVersion.of(jdkVersion(project))
+      }
+      // Puts parameter names into compiled class files, necessary for Spring 6
+      options.compilerArgs.add("-parameters")
+    }
+
+    tasks.withType(JavaExec).configureEach {
+      javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(jdkVersion(project))
+      }
+    }
+  }
+
+  // not duplicated, need to set this outside and inside afterEvaluate
+  afterEvaluate {
+    /**
+     * If making changes to this section also see the sections for pegasus below
+     * which use project.plugins.hasPlugin('pegasus')
+     **/
+    if (!project.plugins.hasPlugin('pegasus') && (project.plugins.hasPlugin('java')
+            || project.plugins.hasPlugin('java-library')
+            || project.plugins.hasPlugin('application'))) {
+
+      compileJava {
+        options.release = javaClassVersion(project)
+      }
+
+      tasks.withType(JavaExec).configureEach {
+        javaLauncher = javaToolchains.launcherFor {
+          languageVersion = JavaLanguageVersion.of(jdkVersion(project))
+        }
+      }
+    }
+  }
+
 }
 
 configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
@@ -239,6 +373,10 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "org.slf4j", module: "slf4j-nop"
     exclude group: "org.slf4j", module: "slf4j-ext"
+    exclude group: "org.codehaus.jackson", module: "jackson-mapper-asl"
+
+    resolutionStrategy.force externalDependency.antlr4Runtime
+    resolutionStrategy.force externalDependency.antlr4
   }
 }
 
@@ -246,6 +384,7 @@ subprojects {
 
   apply plugin: 'maven-publish'
   apply plugin: 'com.gorylenko.gradle-git-properties'
+  apply plugin: 'com.diffplug.spotless'
 
   gitProperties {
     keys = ['git.commit.id','git.commit.id.describe','git.commit.time']
@@ -256,42 +395,89 @@ subprojects {
     failOnNoGitDirectory = false
   }
 
-  plugins.withType(JavaPlugin) {
+  plugins.withType(JavaPlugin).configureEach {
+    if (project.name == 'datahub-web-react') {
+      return
+    }
+
     dependencies {
+      implementation externalDependency.annotationApi
       constraints {
-        implementation('io.netty:netty-all:4.1.86.Final')
-        implementation('org.apache.commons:commons-compress:1.21')
-        implementation('org.apache.velocity:velocity-engine-core:2.3')
+        implementation("com.google.googlejavaformat:google-java-format:$googleJavaFormatVersion")
+        implementation('io.netty:netty-all:4.1.115.Final')
+        implementation('org.apache.commons:commons-compress:1.27.1')
+        implementation('org.apache.velocity:velocity-engine-core:2.4')
         implementation('org.hibernate:hibernate-validator:6.0.20.Final')
         implementation("com.fasterxml.jackson.core:jackson-databind:$jacksonVersion")
         implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
+        implementation(externalDependency.commonsIo)
+        implementation(externalDependency.protobuf)
       }
     }
 
-    checkstyle {
-      configDirectory = file("${project.rootDir}/gradle/checkstyle")
-      sourceSets = [ getProject().sourceSets.main, getProject().sourceSets.test ]
-      toolVersion = "8.0"
-      maxWarnings = 0
-      ignoreFailures = false
+    spotless {
+      java {
+        googleJavaFormat()
+        target project.fileTree(project.projectDir) {
+          include 'src/**/*.java'
+          include 'app/**/*.java'
+          include 'test/**/*.java'
+          exclude 'src/**/resources/'
+          exclude 'src/**/generated/'
+          exclude 'src/**/mainGeneratedDataTemplate/'
+          exclude 'src/**/mainGeneratedRest/'
+          exclude 'src/renamed/avro/'
+          exclude 'src/test/sample-test-plugins/'
+        }
+      }
     }
-  }
 
-  tasks.withType(JavaCompile).configureEach {
-    javaCompiler = javaToolchains.compilerFor {
-      languageVersion = JavaLanguageVersion.of(11)
-    }
-  }
-  tasks.withType(Test).configureEach {
-    javaLauncher = javaToolchains.launcherFor {
-      languageVersion = JavaLanguageVersion.of(11)
-    }
-    // https://docs.gradle.org/current/userguide/performance.html
-    maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+    if (project.plugins.hasPlugin('pegasus')) {
+      dependencies {
+        dataTemplateCompile spec.product.pegasus.data
+        dataTemplateCompile externalDependency.annotationApi // support > jdk8
+        restClientCompile spec.product.pegasus.restliClient
+      }
 
-    if (project.configurations.getByName("testImplementation").getDependencies()
-            .any{ it.getName().contains("testng") }) {
-      useTestNG()
+      java {
+        toolchain {
+          languageVersion = JavaLanguageVersion.of(jdkVersion(project))
+        }
+      }
+
+      compileJava {
+        options.release = javaClassVersion(project)
+      }
+
+      tasks.withType(JavaCompile).configureEach {
+        javaCompiler = javaToolchains.compilerFor {
+          languageVersion = JavaLanguageVersion.of(jdkVersion(project))
+        }
+        // Puts parameter names into compiled class files, necessary for Spring 6
+        options.compilerArgs.add("-parameters")
+      }
+
+      tasks.withType(JavaExec).configureEach {
+        javaLauncher = javaToolchains.launcherFor {
+          languageVersion = JavaLanguageVersion.of(jdkVersion(project))
+        }
+      }
+    }
+
+    afterEvaluate {
+      def spotlessJavaTask = tasks.findByName('spotlessJava')
+      def processTask = tasks.findByName('processResources')
+      if (processTask != null) {
+        spotlessJavaTask.dependsOn processTask
+      }
+      def compileJavaTask = tasks.findByName('compileJava')
+      if (compileJavaTask != null) {
+        spotlessJavaTask.dependsOn compileJavaTask
+      }
+      // TODO - Do not run this in CI. How?
+      // tasks.withType(JavaCompile) {
+      //   finalizedBy(tasks.findByName('spotlessApply'))
+      // }
     }
   }
 
@@ -299,8 +485,24 @@ subprojects {
     if (project.plugins.hasPlugin('pegasus')) {
       dependencies {
         dataTemplateCompile spec.product.pegasus.data
+        dataTemplateCompile externalDependency.annotationApi // support > jdk8
         restClientCompile spec.product.pegasus.restliClient
+      }
+
+      compileJava {
+        options.release = javaClassVersion(project)
+      }
+
+      tasks.withType(JavaExec).configureEach {
+        javaLauncher = javaToolchains.launcherFor {
+          languageVersion = JavaLanguageVersion.of(jdkVersion(project))
+        }
       }
     }
   }
+}
+
+wrapper {
+  gradleVersion = project.versionGradle
+  distributionType = Wrapper.DistributionType.ALL
 }

@@ -5,6 +5,7 @@ import { useEntityData, useMutationUrn } from '../../EntityContext';
 import { useAddLinkMutation } from '../../../../../graphql/mutations.generated';
 import analytics, { EventType, EntityActionType } from '../../../../analytics';
 import { useUserContext } from '../../../../context/useUserContext';
+import { getModalDomContainer } from '../../../../../utils/focus';
 
 type AddLinkProps = {
     buttonProps?: Record<string, unknown>;
@@ -62,7 +63,7 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
             </Button>
             <Modal
                 title="Add Link"
-                visible={isModalVisible}
+                open={isModalVisible}
                 destroyOnClose
                 onCancel={handleClose}
                 footer={[
@@ -73,6 +74,7 @@ export const AddLinkModal = ({ buttonProps, refetch }: AddLinkProps) => {
                         Add
                     </Button>,
                 ]}
+                getContainer={getModalDomContainer}
             >
                 <Form form={form} name="addLinkForm" onFinish={handleAdd} layout="vertical">
                     <Form.Item

@@ -3,6 +3,7 @@ import { DatabaseOutlined } from '@ant-design/icons';
 import { DataPlatform, EntityType, SearchResult } from '../../../types.generated';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
 import { GenericEntityProperties } from '../shared/types';
+import { useGetDataPlatformQuery } from '../../../graphql/dataPlatform.generated';
 
 const getDisplayName = (data?: DataPlatform): string => {
     return data?.properties?.displayName || data?.name || '';
@@ -43,6 +44,8 @@ export class DataPlatformEntity implements Entity<DataPlatform> {
     // Currently unused.
     getCollectionName = () => 'Data Platforms';
 
+    useEntityQuery = useGetDataPlatformQuery;
+
     // Currently unused.
     renderProfile = (_: string) => <></>;
 
@@ -67,5 +70,9 @@ export class DataPlatformEntity implements Entity<DataPlatform> {
 
     supportedCapabilities = () => {
         return new Set([]);
+    };
+
+    getGraphName = () => {
+        return 'dataPlatform';
     };
 }

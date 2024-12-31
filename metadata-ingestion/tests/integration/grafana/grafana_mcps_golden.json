@@ -1,0 +1,56 @@
+[
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(grafana,default)",
+    "changeType": "UPSERT",
+    "aspectName": "dashboardInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "displayName": "Default Dashboard",
+                "id": "1",
+                "uid": "default",
+                "title": "Default Dashboard",
+                "uri": "db/default-dashboard",
+                "type": "dash-db"
+            },
+            "externalUrl": "http://localhost:3000/d/default/default-dashboard",
+            "title": "Default Dashboard",
+            "description": "",
+            "charts": [],
+            "datasets": [],
+            "lastModified": {
+                "created": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                },
+                "lastModified": {
+                    "time": 0,
+                    "actor": "urn:li:corpuser:unknown"
+                }
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test-simple",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(grafana,default)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720785600000,
+        "runId": "grafana-test-simple",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

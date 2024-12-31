@@ -14,9 +14,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 
-
 @Configuration
-@Import({RestHighLevelClientFactory.class, IndexConventionFactory.class, EntityServiceFactory.class})
+@Import({
+  RestHighLevelClientFactory.class,
+  IndexConventionFactory.class,
+  EntityServiceFactory.class
+})
 public class MostPopularCandidateSourceFactory {
   @Autowired
   @Qualifier("elasticSearchRestHighLevelClient")
@@ -28,7 +31,7 @@ public class MostPopularCandidateSourceFactory {
 
   @Autowired
   @Qualifier("entityService")
-  private EntityService entityService;
+  private EntityService<?> entityService;
 
   @Bean(name = "mostPopularCandidateSource")
   @Nonnull

@@ -1,4 +1,4 @@
-import { Button } from 'antd';
+import { Button, Typography } from 'antd';
 import styled from 'styled-components';
 import { ANTD_GRAY } from '../../entity/shared/constants';
 
@@ -45,4 +45,12 @@ export const TextButton = styled(Button)<{ marginTop?: number; height?: number }
     &:hover {
         background-color: white;
     }
+`;
+
+export const Label = styled(Typography.Text)`
+    max-width: 125px;
+`;
+
+export const IconSpacer = styled.span`
+    width: 4px;
 `;

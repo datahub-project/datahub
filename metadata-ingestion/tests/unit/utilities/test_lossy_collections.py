@@ -55,7 +55,7 @@ def test_lossydict_sampling(length, sampling, sub_length):
     for i in range(0, length):
         list_length = random.choice(range(1, sub_length))
         element_length_map[i] = 0
-        for num_elements in range(0, list_length):
+        for _num_elements in range(0, list_length):
             if not l.get(i):
                 elements_added += 1
                 # reset to 0 until we get it back

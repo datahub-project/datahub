@@ -1,4 +1,8 @@
-apply plugin: 'java'
+plugins {
+    id 'java'
+}
+
+apply from: "../gradle/coverage/java-coverage.gradle"
 
 dependencies {
     implementation project(path: ':metadata-models')
@@ -7,6 +11,7 @@ dependencies {
     implementation project(':metadata-service:configuration')
 
     implementation externalDependency.slf4jApi
+    implementation externalDependency.springContext
     compileOnly externalDependency.lombok
     annotationProcessor externalDependency.lombok
 

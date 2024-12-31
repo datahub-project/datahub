@@ -33,6 +33,9 @@ from datahub.emitter.rest_emitter import DatahubRestEmitter
 # Create an emitter to DataHub over REST
 emitter = DatahubRestEmitter(gms_server="http://localhost:8080", extra_headers={})
 
+# For Acryl, you will want to point to your Acryl server's GMS endpoint
+# emitter = DatahubRestEmitter(gms_server="https://<your-domain>.acryl.io/gms", token="<your token>", extra_headers={})
+
 # Test the connection
 emitter.test_connection()
 

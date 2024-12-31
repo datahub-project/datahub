@@ -21,9 +21,14 @@ import { StyledTable } from '../../../components/styled/StyledTable';
 import { SchemaRow } from './components/SchemaRow';
 import { FkContext } from './utils/selectedFkContext';
 import useSchemaBlameRenderer from './utils/useSchemaBlameRenderer';
-import { ANTD_GRAY } from '../../../constants';
-import MenuColumn from './components/MenuColumn';
+import { ANTD_GRAY, ANTD_GRAY_V2 } from '../../../constants';
 import translateFieldPath from '../../../../dataset/profile/schema/utils/translateFieldPath';
+import PropertiesColumn from './components/PropertiesColumn';
+import SchemaFieldDrawer from './components/SchemaFieldDrawer/SchemaFieldDrawer';
+import useBusinessAttributeRenderer from './utils/useBusinessAttributeRenderer';
+import { useBusinessAttributesFlag } from '../../../../../useAppConfig';
+import { useGetTableColumnProperties } from './useGetTableColumnProperties';
+import { useGetStructuredPropColumns } from './useGetStructuredPropColumns';
 
 const TableContainer = styled.div`
     overflow: inherit;
@@ -41,18 +46,36 @@ const TableContainer = styled.div`
         padding-bottom: 600px;
         vertical-align: top;
     }
+
+    &&& .ant-table-cell {
+        background-color: inherit;
+        cursor: pointer;
+    }
+
+    &&& tbody > tr:hover > td {
+        background-color: ${ANTD_GRAY_V2[2]};
+    }
+
+    &&& .expanded-row {
+        background-color: ${(props) => props.theme.styles['highlight-color']} !important;
+
+        td {
+            background-color: ${(props) => props.theme.styles['highlight-color']} !important;
+        }
+    }
 `;
 
 export type Props = {
     rows: Array<ExtendedSchemaFields>;
     schemaMetadata: SchemaMetadata | undefined | null;
     editableSchemaMetadata?: EditableSchemaMetadata | null;
-    editMode?: boolean;
     usageStats?: UsageQueryResult | null;
     schemaFieldBlameList?: Array<SchemaFieldBlame> | null;
     showSchemaAuditView: boolean;
     expandedRowsFromFilter?: Set<string>;
     filterText?: string;
+    hasProperties?: boolean;
+    inputFields?: SchemaField[];
 };
 
 const EMPTY_SET: Set<string> = new Set();
@@ -63,55 +86,50 @@ export default function SchemaTable({
     schemaMetadata,
     editableSchemaMetadata,
     usageStats,
-    editMode = true,
     schemaFieldBlameList,
     showSchemaAuditView,
     expandedRowsFromFilter = EMPTY_SET,
     filterText = '',
+    hasProperties,
+    inputFields,
 }: Props): JSX.Element {
+    const businessAttributesFlag = useBusinessAttributesFlag();
     const hasUsageStats = useMemo(() => (usageStats?.aggregations?.fields?.length || 0) > 0, [usageStats]);
     const [tableHeight, setTableHeight] = useState(0);
-    const [tagHoveredIndex, setTagHoveredIndex] = useState<string | undefined>(undefined);
-    const [selectedFkFieldPath, setSelectedFkFieldPath] =
-        useState<null | { fieldPath: string; constraint?: ForeignKeyConstraint | null }>(null);
+    const [selectedFkFieldPath, setSelectedFkFieldPath] = useState<null | {
+        fieldPath: string;
+        constraint?: ForeignKeyConstraint | null;
+    }>(null);
+    const [expandedDrawerFieldPath, setExpandedDrawerFieldPath] = useState<string | null>(null);
+
+    const schemaFields = schemaMetadata ? schemaMetadata.fields : inputFields;
 
     const descriptionRender = useDescriptionRenderer(editableSchemaMetadata);
     const usageStatsRenderer = useUsageStatsRenderer(usageStats);
     const tagRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,
-        tagHoveredIndex,
-        setTagHoveredIndex,
         {
             showTags: true,
             showTerms: false,
         },
         filterText,
+        false,
     );
     const termRenderer = useTagsAndTermsRenderer(
         editableSchemaMetadata,
-        tagHoveredIndex,
-        setTagHoveredIndex,
         {
             showTags: false,
             showTerms: true,
         },
         filterText,
+        false,
     );
+    const businessAttributeRenderer = useBusinessAttributeRenderer(filterText, false);
     const schemaTitleRenderer = useSchemaTitleRenderer(schemaMetadata, setSelectedFkFieldPath, filterText);
     const schemaBlameRenderer = useSchemaBlameRenderer(schemaFieldBlameList);
 
-    const onTagTermCell = (record: SchemaField) => ({
-        onMouseEnter: () => {
-            if (editMode) {
-                setTagHoveredIndex(record.fieldPath);
-            }
-        },
-        onMouseLeave: () => {
-            if (editMode) {
-                setTagHoveredIndex(undefined);
-            }
-        },
-    });
+    const tableColumnStructuredProps = useGetTableColumnProperties();
+    const structuredPropColumns = useGetStructuredPropColumns(tableColumnStructuredProps);
 
     const fieldColumn = {
         width: '22%',
@@ -139,7 +157,6 @@ export default function SchemaTable({
         dataIndex: 'globalTags',
         key: 'tag',
         render: tagRenderer,
-        onCell: onTagTermCell,
     };
 
     const termColumn = {
@@ -148,7 +165,14 @@ export default function SchemaTable({
         dataIndex: 'globalTags',
         key: 'tag',
         render: termRenderer,
-        onCell: onTagTermCell,
+    };
+
+    const businessAttributeColumn = {
+        width: '18%',
+        title: 'Business Attribute',
+        dataIndex: 'businessAttribute',
+        key: 'businessAttribute',
+        render: businessAttributeRenderer,
     };
 
     const blameColumn = {
@@ -169,7 +193,7 @@ export default function SchemaTable({
     function getCount(fieldPath: any) {
         const data: any =
             usageStats?.aggregations?.fields &&
-            usageStats?.aggregations?.fields.find((field) => {
+            usageStats?.aggregations?.fields?.find((field) => {
                 return field?.fieldName === fieldPath;
             });
         return data && data.count;
@@ -184,15 +208,27 @@ export default function SchemaTable({
         sorter: (sourceA, sourceB) => getCount(sourceA.fieldPath) - getCount(sourceB.fieldPath),
     };
 
-    const menuColumn = {
-        width: '5%',
-        title: '',
+    const propertiesColumn = {
+        width: '13%',
+        title: 'Properties',
         dataIndex: '',
         key: 'menu',
-        render: (field: SchemaField) => <MenuColumn field={field} />,
+        render: (field: SchemaField) => <PropertiesColumn field={field} />,
     };
 
     let allColumns: ColumnsType<ExtendedSchemaFields> = [fieldColumn, descriptionColumn, tagColumn, termColumn];
+
+    if (businessAttributesFlag) {
+        allColumns = [...allColumns, businessAttributeColumn];
+    }
+
+    if (hasProperties) {
+        allColumns = [...allColumns, propertiesColumn];
+    }
+
+    if (structuredPropColumns) {
+        allColumns = [...allColumns, ...structuredPropColumns];
+    }
 
     if (hasUsageStats) {
         allColumns = [...allColumns, usageColumn];
@@ -201,8 +237,6 @@ export default function SchemaTable({
     if (showSchemaAuditView) {
         allColumns = [...allColumns, blameColumn];
     }
-
-    allColumns = [...allColumns, menuColumn];
 
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
@@ -224,9 +258,15 @@ export default function SchemaTable({
             <TableContainer>
                 <ResizeObserver onResize={(dimensions) => setTableHeight(dimensions.height - TABLE_HEADER_HEIGHT)}>
                     <StyledTable
-                        rowClassName={(record) =>
-                            record.fieldPath === selectedFkFieldPath?.fieldPath ? 'open-fk-row' : ''
-                        }
+                        rowClassName={(record) => {
+                            if (record.fieldPath === selectedFkFieldPath?.fieldPath) {
+                                return 'open-fk-row';
+                            }
+                            if (expandedDrawerFieldPath === record.fieldPath) {
+                                return 'expanded-row';
+                            }
+                            return '';
+                        }}
                         columns={allColumns}
                         dataSource={rows}
                         rowKey="fieldPath"
@@ -250,9 +290,27 @@ export default function SchemaTable({
                             indentSize: 0,
                         }}
                         pagination={false}
+                        onRow={(record) => ({
+                            onClick: () => {
+                                setExpandedDrawerFieldPath(
+                                    expandedDrawerFieldPath === record.fieldPath ? null : record.fieldPath,
+                                );
+                            },
+                            style: {
+                                backgroundColor: expandedDrawerFieldPath === record.fieldPath ? `` : 'white',
+                            },
+                        })}
                     />
                 </ResizeObserver>
             </TableContainer>
+            {!!schemaFields && (
+                <SchemaFieldDrawer
+                    schemaFields={schemaFields}
+                    expandedDrawerFieldPath={expandedDrawerFieldPath}
+                    editableSchemaMetadata={editableSchemaMetadata}
+                    setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
+                />
+            )}
         </FkContext.Provider>
     );
 }

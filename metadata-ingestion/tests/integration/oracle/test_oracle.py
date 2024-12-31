@@ -21,11 +21,10 @@ class OracleIntegrationTestCase(OracleTestCaseBase):
         inspector_magic_mock.engine.url.database = self.get_database_name()
         inspector_magic_mock.dialect.normalize_name.side_effect = lambda x: x
         inspector_magic_mock.dialect.denormalize_name.side_effect = lambda x: x
-
-        inspector_magic_mock.get_table_comment.return_value = {
-            "text": "fake_comments",
-            "properties": {"p1": "property1"},
-        }
+        inspector_magic_mock.dialect.server_version_info = (
+            self.get_server_version_info()
+        )
+        inspector_magic_mock.dialect.type_compiler.process = lambda x: "NUMBER"
 
         mock_inspect.return_value = inspector_magic_mock
         mock_create_engine.connect.return_value = connection_magic_mock

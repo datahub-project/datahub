@@ -1,10 +1,11 @@
-import os
-from typing import Any, Dict, Optional
+import pathlib
+from typing import Any, Dict, Optional, Union
 
 from pydantic import Field, FilePath, SecretStr, validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.configuration.validate_multiline_string import pydantic_multiline_string
 
 _GITHUB_PREFIX = "https://github.com/"
 _GITLAB_PREFIX = "https://gitlab.com/"
@@ -23,7 +24,11 @@ class GitReference(ConfigModel):
         "main",
         description="Branch on which your files live by default. Typically main or master. This can also be a commit hash.",
     )
-
+    url_subdir: Optional[str] = Field(
+        default=None,
+        description="Prefix to prepend when generating URLs for files - useful when files are in a subdirectory. "
+        "Only affects URL generation, not git operations.",
+    )
     url_template: Optional[str] = Field(
         None,
         description=f"Template for generating a URL to a file in the repo e.g. '{_GITHUB_URL_TEMPLATE}'. We can infer this for GitHub and GitLab repos, and it is otherwise required."
@@ -67,6 +72,8 @@ class GitReference(ConfigModel):
 
     def get_url_for_file_path(self, file_path: str) -> str:
         assert self.url_template
+        if self.url_subdir:
+            file_path = f"{self.url_subdir}/{file_path}"
         return self.url_template.format(
             repo_url=self.repo, branch=self.branch, file_path=file_path
         )
@@ -77,7 +84,9 @@ class GitInfo(GitReference):
 
     deploy_key_file: Optional[FilePath] = Field(
         None,
-        description="A private key file that contains an ssh key that has been configured as a deploy key for this repository. Use a file where possible, else see deploy_key for a config field that accepts a raw string.",
+        description="A private key file that contains an ssh key that has been configured as a deploy key for this repository. "
+        "Use a file where possible, else see deploy_key for a config field that accepts a raw string. "
+        "We expect the key not have a passphrase.",
     )
     deploy_key: Optional[SecretStr] = Field(
         None,
@@ -89,15 +98,7 @@ class GitInfo(GitReference):
         description="The url to call `git clone` on. We infer this for github and gitlab repos, but it is required for other hosts.",
     )
 
-    @validator("deploy_key_file")
-    def deploy_key_file_should_be_readable(
-        cls, v: Optional[FilePath]
-    ) -> Optional[FilePath]:
-        if v is not None:
-            # pydantic does existence checks, we just need to check if we can read it
-            if not os.access(v, os.R_OK):
-                raise ValueError(f"Unable to read deploy key file {v}")
-        return v
+    _fix_deploy_key_newlines = pydantic_multiline_string("deploy_key")
 
     @validator("deploy_key", pre=True, always=True)
     def deploy_key_filled_from_deploy_key_file(
@@ -106,7 +107,7 @@ class GitInfo(GitReference):
         if v is None:
             deploy_key_file = values.get("deploy_key_file")
             if deploy_key_file is not None:
-                with open(deploy_key_file, "r") as fp:
+                with open(deploy_key_file) as fp:
                     deploy_key = SecretStr(fp.read())
                     return deploy_key
         return v
@@ -139,3 +140,25 @@ class GitInfo(GitReference):
         if "branch" in self.__fields_set__:
             return self.branch
         return None
+
+    def clone(
+        self,
+        tmp_path: Union[pathlib.Path, str],
+        fallback_deploy_key: Optional[SecretStr] = None,
+    ) -> pathlib.Path:
+        """Clones the repo into a temporary directory and returns the path to the checkout."""
+
+        # We import this here to avoid a hard dependency on gitpython.
+        from datahub.ingestion.source.git.git_import import GitClone
+
+        assert self.repo_ssh_locator
+
+        git_clone = GitClone(str(tmp_path))
+
+        checkout_dir = git_clone.clone(
+            ssh_key=self.deploy_key or fallback_deploy_key,
+            repo_url=self.repo_ssh_locator,
+            branch=self.branch_for_clone,
+        )
+
+        return checkout_dir

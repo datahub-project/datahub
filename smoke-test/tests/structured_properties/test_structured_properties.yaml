@@ -1,0 +1,33 @@
+- id: clusterType
+  type: STRING
+  display_name: Cluster's type
+  description: 'Test Cluster Type Property'
+  entity_types:
+    - dataset
+- id: clusterName
+  type: STRING
+  display_name: Cluster's name
+  description: 'Test Cluster Name Property'
+  entity_types:
+    - dataset
+- id: projectNames
+  type: STRING
+  cardinality: MULTIPLE
+  display_name: Project Name
+  entity_types:
+    - dataset # or urn:li:entityType:datahub.dataset
+    - dataFlow
+  description: 'Test property for project name'
+  allowed_values:
+    - value: Tracking
+      description: test value 1 for project
+    - value: DataHub
+      description: test value 2 for project
+- id: io.acryl.dataManagement.deprecationDate
+  type: DATE
+  display_name: Deprecation Date
+  entity_types:
+    - dataset
+    - dataFlow
+    - dataJob
+    - schemaField

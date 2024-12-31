@@ -19,6 +19,9 @@ fragment dataFlowFields on DataFlow {
             value
         }
     }
+    privileges {
+        ...entityPrivileges
+    }
     editableProperties {
         description
     }
@@ -50,6 +53,12 @@ fragment dataFlowFields on DataFlow {
     browsePathV2 {
         ...browsePathV2Fields
     }
+    health {
+        ...entityHealth
+    }
+    activeIncidents: incidents(start: 0, count: 1, state: ACTIVE) {
+        total
+    }
 }
 
 query getDataFlow($urn: String!) {
@@ -61,7 +70,24 @@ query getDataFlow($urn: String!) {
         downstream: lineage(input: { direction: DOWNSTREAM, start: 0, count: 100 }) {
             ...partialLineageResults
         }
-        childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: 0, count: 100 }) {
+        autoRenderAspects: aspects(input: { autoRenderOnly: true }) {
+            ...autoRenderAspectFields
+        }
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+        forms {
+            ...formsFields
+        }
+    }
+}
+
+query getDataFlowChildJobs($urn: String!, $start: Int, $count: Int) {
+    dataFlow(urn: $urn) {
+        ...dataFlowFields
+        childJobs: relationships(input: { types: ["IsPartOf"], direction: INCOMING, start: $start, count: $count }) {
             start
             count
             total

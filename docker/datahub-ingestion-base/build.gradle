@@ -9,20 +9,40 @@ ext {
     docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
     docker_repo = 'datahub-ingestion-base'
     docker_dir = 'datahub-ingestion-base'
+    docker_target = project.getProperties().getOrDefault("dockerTarget", "slim")
+    docker_version = "${version}${docker_target == 'slim' ? '-slim' : ''}"
 
-    revision = 2 // increment to trigger rebuild
+    revision = 8 // increment to trigger rebuild
 }
 
 docker {
-    name "${docker_registry}/${docker_repo}:v${version}-slim"
-    version "v${version}-slim"
+    name "${docker_registry}/${docker_repo}:v${docker_version}"
+    version "v${docker_version}"
     dockerfile file("${rootProject.projectDir}/docker/${docker_dir}/Dockerfile")
     files fileTree(rootProject.projectDir) {
+        include '.dockerignore'
         include "docker/${docker_dir}/*"
     }.exclude {
-        i -> i.file.isHidden() || i.file == buildDir
+        i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
     }
-    buildArgs([APP_ENV: 'slim'])
+
+    def dockerBuildArgs = [APP_ENV: docker_target]
+
+    // Add build args if they are defined (needed for some CI or enterprise environments)
+    if (project.hasProperty('alpineApkRepositoryUrl')) {
+        dockerBuildArgs.ALPINE_REPO_URL = project.getProperty('alpineApkRepositoryUrl')
+    }
+    if (project.hasProperty('githubMirrorUrl')) {
+        dockerBuildArgs.GITHUB_REPO_URL = project.getProperty('githubMirrorUrl')
+    }
+    if (project.hasProperty('debianAptRepositoryUrl')) {
+        dockerBuildArgs.DEBIAN_REPO_URL = project.getProperty('debianAptRepositoryUrl')
+    }
+    if (project.hasProperty('pipMirrorUrl')) {
+        dockerBuildArgs.PIP_MIRROR_URL = project.getProperty('pipMirrorUrl')
+    }
+
+    buildArgs(dockerBuildArgs)
 }
 tasks.getByName('docker').dependsOn('build')
 

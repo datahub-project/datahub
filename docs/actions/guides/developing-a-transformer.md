@@ -23,7 +23,7 @@ print the configuration that is provided when it is created, and print any Event
 ```python
 # custom_transformer.py
 from datahub_actions.transform.transformer import Transformer
-from datahub_actions.event.event import EventEnvelope
+from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.pipeline.pipeline_context import PipelineContext
 from typing import Optional
 
@@ -75,7 +75,7 @@ Next, install the package
 pip install -e .
 ```
 
-inside the module. (alt.`python setup.py`). 
+inside the module. (alt.`python setup.py`).
 
 Once we have done this, our class will be referencable via `custom_transformer_example.custom_transformer:CustomTransformer`.
 
@@ -96,7 +96,7 @@ source:
     connection:
       bootstrap: ${KAFKA_BOOTSTRAP_SERVER:-localhost:9092}
       schema_registry_url: ${SCHEMA_REGISTRY_URL:-http://localhost:8081}
-transform: 
+transform:
   - type: "custom_transformer_example.custom_transformer:CustomTransformer"
     config:
       # Some sample configuration which should be printed on create.

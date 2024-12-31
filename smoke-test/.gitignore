@@ -29,6 +29,8 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+**/cypress/node_modules
+
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -127,6 +129,7 @@ venv.bak/
 .mypy_cache/
 .dmypy.json
 dmypy.json
+.ruff_cache/
 
 # Pyre type checker
 .pyre/

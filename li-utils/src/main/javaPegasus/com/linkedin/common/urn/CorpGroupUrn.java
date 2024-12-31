@@ -5,7 +5,6 @@ import com.linkedin.data.template.DirectCoercer;
 import com.linkedin.data.template.TemplateOutputCastException;
 import java.net.URISyntaxException;
 
-
 public final class CorpGroupUrn extends Urn {
 
   public static final String ENTITY_TYPE = "corpGroup";
@@ -31,7 +30,7 @@ public final class CorpGroupUrn extends Urn {
   }
 
   private static CorpGroupUrn decodeUrn(String groupName) throws Exception {
-    return new CorpGroupUrn(TupleKey.create(new Object[]{groupName}), groupName);
+    return new CorpGroupUrn(TupleKey.create(new Object[] {groupName}), groupName);
   }
 
   public static CorpGroupUrn createFromUrn(Urn urn) throws URISyntaxException {
@@ -45,9 +44,10 @@ public final class CorpGroupUrn extends Urn {
         throw new URISyntaxException(urn.toString(), "Invalid number of keys.");
       } else {
         try {
-          return decodeUrn((String)key.getAs(0, String.class));
+          return decodeUrn((String) key.getAs(0, String.class));
         } catch (Exception var3) {
-          throw new URISyntaxException(urn.toString(), "Invalid URN Parameter: '" + var3.getMessage());
+          throw new URISyntaxException(
+              urn.toString(), "Invalid URN Parameter: '" + var3.getMessage());
         }
       }
     }
@@ -58,18 +58,20 @@ public final class CorpGroupUrn extends Urn {
   }
 
   static {
-    Custom.registerCoercer(new DirectCoercer<CorpGroupUrn>() {
-      public Object coerceInput(CorpGroupUrn object) throws ClassCastException {
-        return object.toString();
-      }
+    Custom.registerCoercer(
+        new DirectCoercer<CorpGroupUrn>() {
+          public Object coerceInput(CorpGroupUrn object) throws ClassCastException {
+            return object.toString();
+          }
 
-      public CorpGroupUrn coerceOutput(Object object) throws TemplateOutputCastException {
-        try {
-          return CorpGroupUrn.createFromString((String) object);
-        } catch (URISyntaxException e) {
-          throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
-        }
-      }
-    }, CorpGroupUrn.class);
+          public CorpGroupUrn coerceOutput(Object object) throws TemplateOutputCastException {
+            try {
+              return CorpGroupUrn.createFromString((String) object);
+            } catch (URISyntaxException e) {
+              throw new TemplateOutputCastException("Invalid URN syntax: " + e.getMessage(), e);
+            }
+          }
+        },
+        CorpGroupUrn.class);
   }
 }

@@ -1,8 +1,13 @@
 package com.linkedin.datahub.graphql.resolvers.ingest;
 
-import com.datahub.authentication.Authentication;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.nullable;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.*;
+
 import com.datahub.authorization.AuthorizationResult;
-import com.datahub.plugins.auth.authorization.Authorizer;
+import com.datahub.authorization.EntitySpec;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.StringMap;
@@ -19,29 +24,25 @@ import com.linkedin.ingestion.DataHubIngestionSourceInfo;
 import com.linkedin.ingestion.DataHubIngestionSourceSchedule;
 import com.linkedin.metadata.Constants;
 import com.linkedin.secret.DataHubSecretValue;
+import io.datahubproject.metadata.context.OperationContext;
 import org.mockito.Mockito;
-
-import static org.testng.Assert.*;
-
 
 public class IngestTestUtils {
 
-  public static final Urn TEST_INGESTION_SOURCE_URN = Urn.createFromTuple(Constants.INGESTION_SOURCE_ENTITY_NAME, "test");
-  public static final Urn TEST_SECRET_URN = Urn.createFromTuple(Constants.SECRETS_ENTITY_NAME, "TEST_SECRET");
-  public static final Urn TEST_EXECUTION_REQUEST_URN = Urn.createFromTuple(Constants.EXECUTION_REQUEST_ENTITY_NAME, "1234");
-
+  public static final Urn TEST_INGESTION_SOURCE_URN =
+      Urn.createFromTuple(Constants.INGESTION_SOURCE_ENTITY_NAME, "test");
+  public static final Urn TEST_SECRET_URN =
+      Urn.createFromTuple(Constants.SECRETS_ENTITY_NAME, "TEST_SECRET");
+  public static final Urn TEST_EXECUTION_REQUEST_URN =
+      Urn.createFromTuple(Constants.EXECUTION_REQUEST_ENTITY_NAME, "1234");
 
   public static QueryContext getMockAllowContext() {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
 
-    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.ALLOW);
-    Mockito.when(mockAuthorizer.authorize(Mockito.any())).thenReturn(result);
-
-    Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
-    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    when(mockContext.getOperationContext().authorize(any(), nullable(EntitySpec.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, ""));
     return mockContext;
   }
 
@@ -49,13 +50,9 @@ public class IngestTestUtils {
     QueryContext mockContext = Mockito.mock(QueryContext.class);
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:test");
 
-    Authorizer mockAuthorizer = Mockito.mock(Authorizer.class);
-    AuthorizationResult result = Mockito.mock(AuthorizationResult.class);
-    Mockito.when(result.getType()).thenReturn(AuthorizationResult.Type.DENY);
-    Mockito.when(mockAuthorizer.authorize(Mockito.any())).thenReturn(result);
-
-    Mockito.when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
-    Mockito.when(mockContext.getAuthentication()).thenReturn(Mockito.mock(Authentication.class));
+    when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
+    when(mockContext.getOperationContext().authorize(any(), nullable(EntitySpec.class)))
+        .thenReturn(new AuthorizationResult(null, AuthorizationResult.Type.DENY, ""));
     return mockContext;
   }
 
@@ -63,8 +60,13 @@ public class IngestTestUtils {
     DataHubIngestionSourceInfo info = new DataHubIngestionSourceInfo();
     info.setName("My Test Source");
     info.setType("mysql");
-    info.setSchedule(new DataHubIngestionSourceSchedule().setTimezone("UTC").setInterval("* * * * *"));
-    info.setConfig(new DataHubIngestionSourceConfig().setVersion("0.8.18").setRecipe("{}").setExecutorId("executor id"));
+    info.setSchedule(
+        new DataHubIngestionSourceSchedule().setTimezone("UTC").setInterval("* * * * *"));
+    info.setConfig(
+        new DataHubIngestionSourceConfig()
+            .setVersion("0.8.18")
+            .setRecipe("{}")
+            .setExecutorId("executor id"));
     return info;
   }
 
@@ -78,15 +80,18 @@ public class IngestTestUtils {
 
   public static ExecutionRequestInput getTestExecutionRequestInput() {
     ExecutionRequestInput input = new ExecutionRequestInput();
-    input.setArgs(new StringMap(
-        ImmutableMap.of(
-            "recipe", "my-custom-recipe",
-            "version", "0.8.18")
-    ));
+    input.setArgs(
+        new StringMap(
+            ImmutableMap.of(
+                "recipe", "my-custom-recipe",
+                "version", "0.8.18")));
     input.setTask("RUN_INGEST");
     input.setExecutorId("default");
     input.setRequestedAt(0L);
-    input.setSource(new ExecutionRequestSource().setIngestionSource(TEST_INGESTION_SOURCE_URN).setType("SCHEDULED_INGESTION"));
+    input.setSource(
+        new ExecutionRequestSource()
+            .setIngestionSource(TEST_INGESTION_SOURCE_URN)
+            .setType("SCHEDULED_INGESTION"));
     return input;
   }
 
@@ -99,7 +104,8 @@ public class IngestTestUtils {
     return result;
   }
 
-  public static void verifyTestIngestionSourceGraphQL(IngestionSource ingestionSource, DataHubIngestionSourceInfo info) {
+  public static void verifyTestIngestionSourceGraphQL(
+      IngestionSource ingestionSource, DataHubIngestionSourceInfo info) {
     assertEquals(ingestionSource.getUrn(), TEST_INGESTION_SOURCE_URN.toString());
     assertEquals(ingestionSource.getName(), info.getName());
     assertEquals(ingestionSource.getType(), info.getType());
@@ -134,5 +140,5 @@ public class IngestTestUtils {
     assertEquals(executionRequest.getResult().getStartTimeMs(), result.getStartTimeMs());
   }
 
-  private IngestTestUtils() { }
+  private IngestTestUtils() {}
 }

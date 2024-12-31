@@ -35,4 +35,4 @@ If you're looking to do something more in-depth, want to use CLI instead of the 
 * Learn about CLI Ingestion in the [Introduction to Metadata Ingestion](../../../metadata-ingestion/README.md)
 * [Redshift Ingestion Reference Guide](https://datahubproject.io/docs/generated/ingestion/sources/redshift/#module-redshift)
 
-*Need more help? Join the conversation in [Slack](http://slack.datahubproject.io)!*
+

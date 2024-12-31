@@ -23,6 +23,8 @@ import { navigateToSearchUrl } from './utils/navigateToSearchUrl';
 import ViewAllSearchItem from './ViewAllSearchItem';
 import { ViewSelect } from '../entity/view/select/ViewSelect';
 import { combineSiblingsInAutoComplete } from './utils/combineSiblingsInAutoComplete';
+import { CommandK } from './CommandK';
+import { useIsShowSeparateSiblingsEnabled } from '../useAppConfig';
 
 const StyledAutoComplete = styled(AutoComplete)`
     width: 100%;
@@ -44,7 +46,7 @@ const StyledSearchBar = styled(Input)`
         border: 2px solid transparent;
 
         &:focus-within {
-            border: 1.5px solid ${REDESIGN_COLORS.BLUE};
+            border: 2px solid ${REDESIGN_COLORS.BLUE};
         }
     }
     > .ant-input::placeholder {
@@ -114,6 +116,7 @@ interface Props {
     fixAutoComplete?: boolean;
     hideRecommendations?: boolean;
     showQuickFilters?: boolean;
+    showCommandK?: boolean;
     viewsEnabled?: boolean;
     combineSiblings?: boolean;
     setIsSearchBarFocused?: (isSearchBarFocused: boolean) => void;
@@ -142,6 +145,7 @@ export const SearchBar = ({
     fixAutoComplete,
     hideRecommendations,
     showQuickFilters,
+    showCommandK = false,
     viewsEnabled = false,
     combineSiblings = false,
     setIsSearchBarFocused,
@@ -153,6 +157,10 @@ export const SearchBar = ({
     const [searchQuery, setSearchQuery] = useState<string | undefined>(initialQuery);
     const [selected, setSelected] = useState<string>();
     const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+    const [isFocused, setIsFocused] = useState(false);
+    const isShowSeparateSiblingsEnabled = useIsShowSeparateSiblingsEnabled();
+    const finalCombineSiblings = isShowSeparateSiblingsEnabled ? false : combineSiblings;
+
     useEffect(() => setSelected(initialQuery), [initialQuery]);
 
     const searchEntityTypes = entityRegistry.getSearchEntityTypes();
@@ -180,7 +188,7 @@ export const SearchBar = ({
 
     const emptyQueryOptions = useMemo(() => {
         const moduleOptions =
-            data?.listRecommendations?.modules.map((module) => ({
+            data?.listRecommendations?.modules?.map((module) => ({
                 label: <EntityTypeLabel>{module.title}</EntityTypeLabel>,
                 options: [...module.content.map((content) => renderRecommendedQuery(content.value))],
             })) || [];
@@ -218,7 +226,9 @@ export const SearchBar = ({
 
     const autoCompleteEntityOptions = useMemo(() => {
         return suggestions.map((suggestion: AutoCompleteResultForEntity) => {
-            const combinedSuggestion = combineSiblingsInAutoComplete(suggestion, { combineSiblings });
+            const combinedSuggestion = combineSiblingsInAutoComplete(suggestion, {
+                combineSiblings: finalCombineSiblings,
+            });
             return {
                 label: <SectionHeader entityType={combinedSuggestion.type} />,
                 options: combinedSuggestion.combinedEntities.map((combinedEntity) => ({
@@ -227,7 +237,7 @@ export const SearchBar = ({
                         <AutoCompleteItem
                             query={effectiveQuery}
                             entity={combinedEntity.entity}
-                            siblings={combineSiblings ? combinedEntity.matchedEntities : undefined}
+                            siblings={finalCombineSiblings ? combinedEntity.matchedEntities : undefined}
                         />
                     ),
                     type: combinedEntity.entity.type,
@@ -235,7 +245,7 @@ export const SearchBar = ({
                 })),
             };
         });
-    }, [combineSiblings, effectiveQuery, suggestions]);
+    }, [finalCombineSiblings, effectiveQuery, suggestions]);
 
     const previousSelectedQuickFilterValue = usePrevious(selectedQuickFilter?.value);
     useEffect(() => {
@@ -277,11 +287,13 @@ export const SearchBar = ({
     function handleFocus() {
         if (onFocus) onFocus();
         handleSearchBarClick(true);
+        setIsFocused(true);
     }
 
     function handleBlur() {
         if (onBlur) onBlur();
         handleSearchBarClick(false);
+        setIsFocused(false);
     }
 
     function handleSearch(query: string, type?: EntityType, appliedQuickFilters?: FacetFilterInput[]) {
@@ -294,18 +306,21 @@ export const SearchBar = ({
     const searchInputRef = useRef(null);
 
     useEffect(() => {
-        const handleKeyDown = (event) => {
-            // Support command-k to select the search bar.
-            // 75 is the keyCode for 'k'
-            if ((event.metaKey || event.ctrlKey) && event.keyCode === 75) {
-                (searchInputRef?.current as any)?.focus();
-            }
-        };
-        document.addEventListener('keydown', handleKeyDown);
-        return () => {
-            document.removeEventListener('keydown', handleKeyDown);
-        };
-    }, []);
+        if (showCommandK) {
+            const handleKeyDown = (event) => {
+                // Support command-k to select the search bar.
+                // 75 is the keyCode for 'k'
+                if ((event.metaKey || event.ctrlKey) && event.keyCode === 75) {
+                    (searchInputRef?.current as any)?.focus();
+                }
+            };
+            document.addEventListener('keydown', handleKeyDown);
+            return () => {
+                document.removeEventListener('keydown', handleKeyDown);
+            };
+        }
+        return () => null;
+    }, [showCommandK]);
 
     return (
         <AutoCompleteContainer style={style} ref={searchBarWrapperRef}>
@@ -377,7 +392,7 @@ export const SearchBar = ({
                     data-testid="search-input"
                     onFocus={handleFocus}
                     onBlur={handleBlur}
-                    allowClear={{ clearIcon: <ClearIcon /> }}
+                    allowClear={(isFocused && { clearIcon: <ClearIcon /> }) || false}
                     prefix={
                         <>
                             {viewsEnabled && (
@@ -411,6 +426,7 @@ export const SearchBar = ({
                         </>
                     }
                     ref={searchInputRef}
+                    suffix={(showCommandK && !isFocused && <CommandK />) || null}
                 />
             </StyledAutoComplete>
         </AutoCompleteContainer>

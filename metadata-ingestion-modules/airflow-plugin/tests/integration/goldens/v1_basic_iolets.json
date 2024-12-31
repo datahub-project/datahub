@@ -11,14 +11,26 @@
                 "catchup": "False",
                 "description": "None",
                 "doc_md": "None",
-                "fileloc": "'/Users/hsheth/projects/datahub/metadata-ingestion-modules/airflow-plugin/tests/integration/dags/basic_iolets.py'",
+                "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "None",
                 "start_date": "DateTime(2023, 1, 1, 0, 0, 0, tzinfo=Timezone('UTC'))",
-                "tags": "None",
+                "tags": "[]",
                 "timezone": "Timezone('UTC')"
             },
             "externalUrl": "http://airflow.example.com/tree?dag_id=basic_iolets",
-            "name": "basic_iolets"
+            "name": "basic_iolets",
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,basic_iolets,prod)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     }
 },
@@ -38,6 +50,7 @@
                     }
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:airflow"
@@ -70,7 +83,7 @@
                 "execution_timeout": "None",
                 "sla": "None",
                 "task_id": "'run_data_task'",
-                "trigger_rule": "'all_success'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
                 "wait_for_downstream": "False",
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
@@ -80,7 +93,19 @@
             "name": "run_data_task",
             "type": {
                 "string": "COMMAND"
-            }
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,basic_iolets,prod),run_data_task)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     }
 },
@@ -101,7 +126,9 @@
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableE,PROD)"
             ],
-            "inputDatajobs": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)"
+            ],
             "fineGrainedLineages": []
         }
     }
@@ -110,10 +137,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "mydb.schema.tableA",
+            "origin": "PROD"
         }
     }
 },
@@ -121,10 +150,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableB,DEV)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "mydb.schema.tableB",
+            "origin": "DEV"
         }
     }
 },
@@ -132,10 +163,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cloud.mydb.schema.tableC,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "cloud.mydb.schema.tableC",
+            "origin": "PROD"
         }
     }
 },
@@ -143,10 +176,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "mydb.schema.tableC",
+            "origin": "PROD"
         }
     }
 },
@@ -154,10 +189,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "mydb.schema.tableD",
+            "origin": "PROD"
         }
     }
 },
@@ -165,10 +202,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableE,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "mydb.schema.tableE",
+            "origin": "PROD"
         }
     }
 },
@@ -188,6 +227,7 @@
                     }
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:airflow"
@@ -220,7 +260,7 @@
                 "execution_timeout": "None",
                 "sla": "None",
                 "task_id": "'run_data_task'",
-                "trigger_rule": "'all_success'",
+                "trigger_rule": "<TriggerRule.ALL_SUCCESS: 'all_success'>",
                 "wait_for_downstream": "False",
                 "downstream_task_ids": "[]",
                 "inlets": "[]",
@@ -230,7 +270,19 @@
             "name": "run_data_task",
             "type": {
                 "string": "COMMAND"
-            }
+            },
+            "env": "PROD"
+        }
+    }
+},
+{
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,basic_iolets,prod),run_data_task)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
         }
     }
 },
@@ -251,7 +303,9 @@
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)",
                 "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableE,PROD)"
             ],
-            "inputDatajobs": [],
+            "inputDatajobs": [
+                "urn:li:dataJob:(urn:li:dataFlow:(airflow,test_dag,PROD),test_task)"
+            ],
             "fineGrainedLineages": []
         }
     }
@@ -260,10 +314,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "mydb.schema.tableA",
+            "origin": "PROD"
         }
     }
 },
@@ -271,10 +327,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableB,DEV)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "mydb.schema.tableB",
+            "origin": "DEV"
         }
     }
 },
@@ -282,10 +340,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cloud.mydb.schema.tableC,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "cloud.mydb.schema.tableC",
+            "origin": "PROD"
         }
     }
 },
@@ -293,10 +353,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "mydb.schema.tableC",
+            "origin": "PROD"
         }
     }
 },
@@ -304,10 +366,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "mydb.schema.tableD",
+            "origin": "PROD"
         }
     }
 },
@@ -315,10 +379,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableE,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "mydb.schema.tableE",
+            "origin": "PROD"
         }
     }
 },
@@ -338,6 +404,7 @@
                     }
                 }
             ],
+            "ownerTypes": {},
             "lastModified": {
                 "time": 0,
                 "actor": "urn:li:corpuser:airflow"
@@ -365,9 +432,9 @@
         "json": {
             "customProperties": {
                 "run_id": "manual_run_test",
-                "duration": "0.176536",
-                "start_date": "2023-09-30 00:49:56.670239+00:00",
-                "end_date": "2023-09-30 00:49:56.846775+00:00",
+                "duration": "<duration>",
+                "start_date": "<start_date>",
+                "end_date": "<end_date>",
                 "execution_date": "2023-09-27 21:34:38+00:00",
                 "try_number": "1",
                 "max_tries": "0",
@@ -375,16 +442,16 @@
                 "state": "success",
                 "operator": "BashOperator",
                 "priority_weight": "1",
-                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_data_task&dag_id=basic_iolets",
+                "log_url": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_data_task&dag_id=basic_iolets&map_index=-1",
                 "orchestrator": "airflow",
                 "dag_id": "basic_iolets",
                 "task_id": "run_data_task"
             },
-            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_data_task&dag_id=basic_iolets",
+            "externalUrl": "http://airflow.example.com/log?execution_date=2023-09-27T21%3A34%3A38%2B00%3A00&task_id=run_data_task&dag_id=basic_iolets&map_index=-1",
             "name": "basic_iolets_run_data_task_manual_run_test",
             "type": "BATCH_AD_HOC",
             "created": {
-                "time": 1696034996670,
+                "time": 1733529136396,
                 "actor": "urn:li:corpuser:datahub"
             }
         }
@@ -436,10 +503,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableA,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "mydb.schema.tableA",
+            "origin": "PROD"
         }
     }
 },
@@ -447,10 +516,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableB,DEV)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "mydb.schema.tableB",
+            "origin": "DEV"
         }
     }
 },
@@ -458,10 +529,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,cloud.mydb.schema.tableC,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "cloud.mydb.schema.tableC",
+            "origin": "PROD"
         }
     }
 },
@@ -469,10 +542,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableC,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "mydb.schema.tableC",
+            "origin": "PROD"
         }
     }
 },
@@ -480,10 +555,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableD,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "mydb.schema.tableD",
+            "origin": "PROD"
         }
     }
 },
@@ -491,10 +568,12 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,mydb.schema.tableE,PROD)",
     "changeType": "UPSERT",
-    "aspectName": "status",
+    "aspectName": "datasetKey",
     "aspect": {
         "json": {
-            "removed": false
+            "platform": "urn:li:dataPlatform:snowflake",
+            "name": "mydb.schema.tableE",
+            "origin": "PROD"
         }
     }
 },
@@ -505,10 +584,10 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696034996670,
+            "timestampMillis": 1733529136396,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "STARTED",
             "attempt": 2
@@ -522,10 +601,10 @@
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
         "json": {
-            "timestampMillis": 1696034996846,
+            "timestampMillis": 1733529137385,
             "partitionSpec": {
-                "type": "FULL_TABLE",
-                "partition": "FULL_TABLE_SNAPSHOT"
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
             },
             "status": "COMPLETE",
             "result": {

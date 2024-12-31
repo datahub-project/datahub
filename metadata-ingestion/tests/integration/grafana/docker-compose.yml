@@ -1,0 +1,32 @@
+version: '3.7'
+
+services:
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./provisioning:/etc/grafana/provisioning
+      - ./default-dashboard.json:/var/lib/grafana/dashboards/default-dashboard.json
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:13
+    container_name: grafana-postgres
+    environment:
+      POSTGRES_DB: grafana
+      POSTGRES_USER: grafana
+      POSTGRES_PASSWORD: grafana
+    volumes:
+      - postgres-storage:/var/lib/postgresql/data
+
+volumes:
+  grafana-storage:
+  postgres-storage:

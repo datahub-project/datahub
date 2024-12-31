@@ -1,0 +1,43 @@
+@media (min-width: 997px) and (max-width: 1465px) {
+  .feature {
+    min-height: 20rem !important;
+    max-height: 30rem !important;
+  }
+}
+.feature {
+  flex-direction: row;
+  color: var(--ifm-hero-text-color);
+  margin: 0rem 2rem 1rem 0rem;
+  min-height: 15rem;
+  max-height: 15rem;
+  text-decoration: none !important;
+
+  img {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-right: 0.75rem;
+  }
+  svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    margin-right: 0.75rem;
+  }
+  strong,
+  span {
+    display: block;
+    margin-bottom: 0.75rem;
+  }
+  strong {
+    font-weight: 600;
+    font-size: 1.1rem;
+  }
+
+  span {
+    font-size: 1rem;
+    line-height: 1.25em;
+  }
+  &:hover {
+    border-color: var(--ifm-color-primary);
+  }
+}
+

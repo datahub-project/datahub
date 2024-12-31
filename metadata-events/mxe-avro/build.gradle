@@ -1,9 +1,11 @@
+plugins {
+  id 'java-library'
+  id 'io.acryl.gradle.plugin.avro'
+}
+
 configurations {
   avsc
 }
-
-apply plugin: 'io.acryl.gradle.plugin.avro'
-apply plugin: 'java-library'
 
 dependencies {
   api externalDependency.avro

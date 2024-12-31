@@ -17,6 +17,11 @@ extend type Query {
     Requires the 'Manage Global Views' Platform Privilege.
     """
     globalViewsSettings: GlobalViewsSettings
+
+    """
+    Fetch the global settings related to the docs propagation feature.
+    """
+    docPropagationSettings: DocPropagationSettings
 }
 
 extend type Mutation {
@@ -25,6 +30,11 @@ extend type Mutation {
   Requires the 'Manage Global Views' Platform Privilege.
   """
   updateGlobalViewsSettings(input: UpdateGlobalViewsSettingsInput!): Boolean!
+
+  """
+  Update the doc propagation settings.
+  """
+  updateDocPropagationSettings(input: UpdateDocPropagationSettingsInput!): Boolean!
 }
 
 """
@@ -92,6 +102,11 @@ type PlatformPrivileges {
   manageTokens: Boolean!
 
   """
+  Whether the user is able to view Tests
+  """
+  viewTests: Boolean!
+
+  """
   Whether the user is able to manage Tests
   """
   manageTests: Boolean!
@@ -130,6 +145,26 @@ type PlatformPrivileges {
   Whether the user can create and delete posts pinned to the home page.
   """
   manageGlobalAnnouncements: Boolean!
+
+  """
+  Whether the user can create Business Attributes.
+  """
+  createBusinessAttributes: Boolean!
+
+  """
+  Whether the user can manage Business Attributes.
+  """
+  manageBusinessAttributes: Boolean!
+
+  """
+  Whether the user can create, edit, and delete structured properties.
+  """
+  manageStructuredProperties: Boolean!
+
+  """
+  Whether the user can view the manage structured properties page.
+  """
+  viewStructuredPropertiesPage: Boolean!
 }
 
 """
@@ -211,6 +246,16 @@ type VisualConfig {
   Custom favicon url for the homepage & top banner
   """
   faviconUrl: String
+
+  """
+  Custom app title to show in the browser tab
+  """
+  appTitle: String
+
+  """
+  Boolean flag disabling viewing the Business Glossary page for users without the 'Manage Glossaries' privilege
+  """
+  hideGlossary: Boolean
 
   """
   Configuration for the queries tab
@@ -438,9 +483,18 @@ type FeatureFlagsConfig {
   showBrowseV2: Boolean!
 
   """
-  Whether we should show CTAs in the UI related to moving to Managed DataHub by Acryl.
+  Whether browse v2 is platform mode, which means that platforms are displayed instead of entity types at the root.
+  """
+  platformBrowseV2: Boolean!
+
+  """
+  Whether we should show CTAs in the UI related to moving to DataHub Cloud by Acryl.
   """
   showAcrylInfo: Boolean!
+  """
+  Whether ERModelRelationship Tables Feature should be shown.
+  """
+  erModelRelationshipFeatureEnabled: Boolean!
 
   """
   Whether we should show AccessManagement tab in the datahub UI.
@@ -452,6 +506,31 @@ type FeatureFlagsConfig {
   If this is off, Domains appear "flat" again.
   """
   nestedDomainsEnabled: Boolean!
+
+  """
+  Whether business attribute entity should be shown
+  """
+  businessAttributeEntityEnabled: Boolean!
+
+  """
+  Whether data contracts should be enabled
+  """
+  dataContractsEnabled: Boolean!
+
+  """
+  Whether dataset names are editable
+  """
+  editableDatasetNameEnabled: Boolean!
+
+  """
+  If turned on, all siblings will be separated with no way to get to a "combined" sibling view
+  """
+  showSeparateSiblings: Boolean!
+
+  """
+  If turned on, show the manage structured properties tab in the govern dropdown
+  """
+  showManageStructuredProperties: Boolean!
 }
 
 """
@@ -474,4 +553,24 @@ type GlobalViewsSettings {
   this will be the default view.
   """
   defaultView: String
+}
+
+"""
+Input required to update doc propagation settings.
+"""
+input UpdateDocPropagationSettingsInput {
+  """
+  The default doc propagation setting for the platform.
+  """
+  docColumnPropagation: Boolean
+}
+
+"""
+Global (platform-level) settings related to the doc propagation feature
+"""
+type DocPropagationSettings {
+  """
+  The default doc propagation setting for the platform.
+  """
+  docColumnPropagation: Boolean
 }

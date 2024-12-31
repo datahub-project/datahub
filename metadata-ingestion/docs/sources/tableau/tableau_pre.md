@@ -81,3 +81,12 @@ This may happen when the Tableau API returns NODE_LIMIT_EXCEEDED error in respon
 
 - reducing the page size using the `page_size` config param in datahub recipe (Defaults to 10).
 - increasing tableau configuration [metadata query node limit](https://help.tableau.com/current/server/en-us/cli_configuration-set_tsm.htm#metadata_nodelimit) to higher value.
+
+### `PERMISSIONS_MODE_SWITCHED` error in ingestion report 
+This error occurs if the Tableau site is using external assets. For more detail, refer to the Tableau documentation [Manage Permissions for External Assets](https://help.tableau.com/current/online/en-us/dm_perms_assets.htm).
+
+Follow the below steps to enable the derived permissions:
+
+1.  Sign in to Tableau Cloud or Tableau Server as an admin.
+2.  From the left navigation pane, click Settings.
+3.  On the General tab, under Automatic Access to Metadata about Databases and Tables, select the `Automatically grant authorized users access to metadata about databases and tables` check box.

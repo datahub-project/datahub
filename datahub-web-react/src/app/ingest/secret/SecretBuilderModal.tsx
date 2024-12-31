@@ -1,5 +1,5 @@
 import { Button, Form, Input, Modal, Typography } from 'antd';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useEnterKeyListener } from '../../shared/useEnterKeyListener';
 import { SecretBuilderState } from './types';
 
@@ -9,12 +9,14 @@ const VALUE_FIELD_NAME = 'value';
 
 type Props = {
     initialState?: SecretBuilderState;
-    visible: boolean;
+    editSecret?: SecretBuilderState;
+    open: boolean;
     onSubmit?: (source: SecretBuilderState, resetState: () => void) => void;
+    onUpdate?: (source: SecretBuilderState, resetState: () => void) => void;
     onCancel?: () => void;
 };
 
-export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }: Props) => {
+export const SecretBuilderModal = ({ initialState, editSecret, open, onSubmit, onUpdate, onCancel }: Props) => {
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
     const [form] = Form.useForm();
 
@@ -23,38 +25,69 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
         querySelectorToExecuteClick: '#createSecretButton',
     });
 
+    useEffect(() => {
+        if (editSecret) {
+            form.setFieldsValue({
+                name: editSecret.name,
+                description: editSecret.description,
+                value: editSecret.value,
+            });
+        }
+    }, [editSecret, form]);
+
     function resetValues() {
+        setCreateButtonEnabled(false);
         form.resetFields();
     }
+
+    const onCloseModal = () => {
+        setCreateButtonEnabled(false);
+        form.resetFields();
+        onCancel?.();
+    };
+
+    const titleText = editSecret ? 'Edit Secret' : 'Create a new Secret';
 
     return (
         <Modal
             width={540}
-            title={<Typography.Text>Create a new Secret</Typography.Text>}
-            visible={visible}
-            onCancel={onCancel}
+            title={<Typography.Text>{titleText}</Typography.Text>}
+            open={open}
+            onCancel={onCloseModal}
             zIndex={1051} // one higher than other modals - needed for managed ingestion forms
             footer={
                 <>
-                    <Button onClick={onCancel} type="text">
+                    <Button onClick={onCloseModal} type="text">
                         Cancel
                     </Button>
                     <Button
                         data-testid="secret-modal-create-button"
                         id="createSecretButton"
-                        onClick={() =>
-                            onSubmit?.(
-                                {
-                                    name: form.getFieldValue(NAME_FIELD_NAME),
-                                    description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
-                                    value: form.getFieldValue(VALUE_FIELD_NAME),
-                                },
-                                resetValues,
-                            )
-                        }
+                        onClick={() => {
+                            if (!editSecret) {
+                                onSubmit?.(
+                                    {
+                                        name: form.getFieldValue(NAME_FIELD_NAME),
+                                        description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
+                                        value: form.getFieldValue(VALUE_FIELD_NAME),
+                                    },
+                                    resetValues,
+                                );
+                            } else {
+                                onUpdate?.(
+                                    {
+                                        urn: editSecret?.urn,
+                                        name: form.getFieldValue(NAME_FIELD_NAME),
+                                        description: form.getFieldValue(DESCRIPTION_FIELD_NAME),
+                                        value: form.getFieldValue(VALUE_FIELD_NAME),
+                                    },
+                                    resetValues,
+                                );
+                            }
+                        }}
                         disabled={!createButtonEnabled}
                     >
-                        Create
+                        {!editSecret ? 'Create' : 'Update'}
                     </Button>
                 </>
             }
@@ -81,11 +114,15 @@ export const SecretBuilderModal = ({ initialState, visible, onSubmit, onCancel }
                             },
                             { whitespace: false },
                             { min: 1, max: 50 },
-                            { pattern: /^[^\s\t${}\\,'"]+$/, message: 'This secret name is not allowed.' },
+                            {
+                                pattern: /^[a-zA-Z_]+[a-zA-Z0-9_]*$/,
+                                message:
+                                    'Please start the secret name with a letter, followed by letters, digits, or underscores only.',
+                            },
                         ]}
                         hasFeedback
                     >
-                        <Input placeholder="A name for your secret" />
+                        <Input placeholder="A name for your secret" disabled={editSecret !== undefined} />
                     </Form.Item>
                 </Form.Item>
                 <Form.Item label={<Typography.Text strong>Value</Typography.Text>}>

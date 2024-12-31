@@ -39,7 +39,11 @@ const AppConfigProvider = ({ children }: { children: React.ReactNode }) => {
 
     return (
         <AppConfigContext.Provider
-            value={{ config: appConfigData?.appConfig || DEFAULT_APP_CONFIG, refreshContext: refreshAppConfig }}
+            value={{
+                config: appConfigData?.appConfig || DEFAULT_APP_CONFIG,
+                loaded: !!appConfigData,
+                refreshContext: refreshAppConfig,
+            }}
         >
             {children}
         </AppConfigContext.Provider>

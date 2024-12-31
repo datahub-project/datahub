@@ -1,7 +1,9 @@
-apply plugin: 'java'
-
 buildscript {
   apply from: '../repositories.gradle'
+}
+
+plugins {
+  id 'java'
 }
 
 dependencies {
@@ -12,15 +14,16 @@ dependencies {
    * Other companies are also separately maintaining forks (like: https://github.com/java-json-tools/json-schema-avro).
    * We have built several customizations on top of it for various bug fixes, especially around union scheams
    */
-  implementation('io.acryl:json-schema-avro:0.2.2') {
+  implementation('io.acryl:json-schema-avro:0.2.3') {
     exclude group: 'com.fasterxml.jackson.core', module: 'jackson-databind'
     exclude group: 'com.google.guava', module: 'guava'
   }
+  implementation 'com.github.java-json-tools:json-schema-validator:2.2.14'
   implementation 'com.google.guava:guava:32.1.2-jre'
   implementation 'com.fasterxml.jackson.core:jackson-databind:2.13.5'
   implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.13.5'
-  implementation 'commons-io:commons-io:2.11.0'
+  implementation 'commons-io:commons-io:2.17.0'
 
-  compileOnly 'org.projectlombok:lombok:1.18.14'
-  annotationProcessor 'org.projectlombok:lombok:1.18.14'
+  compileOnly 'org.projectlombok:lombok:1.18.30'
+  annotationProcessor 'org.projectlombok:lombok:1.18.30'
 }

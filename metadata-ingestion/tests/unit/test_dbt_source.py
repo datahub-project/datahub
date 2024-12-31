@@ -1,17 +1,27 @@
+from datetime import timedelta
 from typing import Dict, List, Union
 from unittest import mock
 
+import pytest
 from pydantic import ValidationError
 
 from datahub.emitter import mce_builder
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.dbt.dbt_core import DBTCoreConfig, DBTCoreSource
+from datahub.ingestion.source.dbt import dbt_cloud
+from datahub.ingestion.source.dbt.dbt_cloud import DBTCloudConfig
+from datahub.ingestion.source.dbt.dbt_common import DBTNode
+from datahub.ingestion.source.dbt.dbt_core import (
+    DBTCoreConfig,
+    DBTCoreSource,
+    parse_dbt_timestamp,
+)
 from datahub.metadata.schema_classes import (
     OwnerClass,
     OwnershipSourceClass,
     OwnershipSourceTypeClass,
     OwnershipTypeClass,
 )
+from datahub.testing.doctest import assert_doctest
 
 
 def create_owners_list_from_urn_list(
@@ -32,7 +42,7 @@ def create_owners_list_from_urn_list(
 
 
 def create_mocked_dbt_source() -> DBTCoreSource:
-    ctx = PipelineContext("test-run-id")
+    ctx = PipelineContext(run_id="test-run-id", pipeline_name="dbt-source")
     graph = mock.MagicMock()
     graph.get_ownership.return_value = mce_builder.make_ownership_aspect_from_urn_list(
         ["urn:li:corpuser:test_user"], "AUDIT"
@@ -141,7 +151,7 @@ def test_dbt_source_patching_tags():
         ["new_non_dbt", "dbt:new_dbt"]
     )
     transformed_tags = source.get_transformed_tags_by_prefix(
-        new_tag_aspect.tags, "urn:li:dataset:dummy", "urn:li:tag:dbt:"
+        new_tag_aspect.tags, "urn:li:dataset:dummy", "dbt:"
     )
     expected_tags = {
         "urn:li:tag:new_non_dbt",
@@ -179,20 +189,128 @@ def test_dbt_entity_emission_configuration():
         "target_platform": "dummy_platform",
         "entities_enabled": {"models": "Only", "seeds": "Only"},
     }
-    try:
+    with pytest.raises(
+        ValidationError,
+        match="Cannot have more than 1 type of entity emission set to ONLY",
+    ):
         DBTCoreConfig.parse_obj(config_dict)
-    except ValidationError as ve:
-        assert len(ve.errors()) == 1
-        assert (
-            "Cannot have more than 1 type of entity emission set to ONLY"
-            in ve.errors()[0]["msg"]
-        )
+
     # valid config
     config_dict = {
         "manifest_path": "dummy_path",
         "catalog_path": "dummy_path",
         "target_platform": "dummy_platform",
         "entities_enabled": {"models": "Yes", "seeds": "Only"},
+    }
+    DBTCoreConfig.parse_obj(config_dict)
+
+
+def test_dbt_config_skip_sources_in_lineage():
+    with pytest.raises(
+        ValidationError,
+        match="skip_sources_in_lineage.*entities_enabled.sources.*set to NO",
+    ):
+        config_dict = {
+            "manifest_path": "dummy_path",
+            "catalog_path": "dummy_path",
+            "target_platform": "dummy_platform",
+            "skip_sources_in_lineage": True,
+        }
+        config = DBTCoreConfig.parse_obj(config_dict)
+
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "skip_sources_in_lineage": True,
+        "entities_enabled": {"sources": "NO"},
+    }
+    config = DBTCoreConfig.parse_obj(config_dict)
+    assert config.skip_sources_in_lineage is True
+
+
+def test_dbt_config_prefer_sql_parser_lineage():
+    with pytest.raises(
+        ValidationError,
+        match="prefer_sql_parser_lineage.*requires.*skip_sources_in_lineage",
+    ):
+        config_dict = {
+            "manifest_path": "dummy_path",
+            "catalog_path": "dummy_path",
+            "target_platform": "dummy_platform",
+            "prefer_sql_parser_lineage": True,
+        }
+        config = DBTCoreConfig.parse_obj(config_dict)
+
+    config_dict = {
+        "manifest_path": "dummy_path",
+        "catalog_path": "dummy_path",
+        "target_platform": "dummy_platform",
+        "skip_sources_in_lineage": True,
+        "prefer_sql_parser_lineage": True,
+    }
+    config = DBTCoreConfig.parse_obj(config_dict)
+    assert config.skip_sources_in_lineage is True
+    assert config.prefer_sql_parser_lineage is True
+
+
+def test_dbt_prefer_sql_parser_lineage_no_self_reference():
+    ctx = PipelineContext(run_id="test-run-id")
+    config = DBTCoreConfig.parse_obj(
+        {
+            **create_base_dbt_config(),
+            "skip_sources_in_lineage": True,
+            "prefer_sql_parser_lineage": True,
+        }
+    )
+    source: DBTCoreSource = DBTCoreSource(config, ctx, "dbt")
+    all_nodes_map = {
+        "model1": DBTNode(
+            name="model1",
+            database=None,
+            schema=None,
+            alias=None,
+            comment="",
+            description="",
+            language=None,
+            raw_code=None,
+            dbt_adapter="postgres",
+            dbt_name="model1",
+            dbt_file_path=None,
+            dbt_package_name=None,
+            node_type="model",
+            materialization="table",
+            max_loaded_at=None,
+            catalog_type=None,
+            missing_from_catalog=False,
+            owner=None,
+            compiled_code="SELECT d FROM results WHERE d > (SELECT MAX(d) FROM model1)",
+        ),
+    }
+    source._infer_schemas_and_update_cll(all_nodes_map)
+    upstream_lineage = source._create_lineage_aspect_for_dbt_node(
+        all_nodes_map["model1"], all_nodes_map
+    )
+    assert upstream_lineage is not None
+    assert len(upstream_lineage.upstreams) == 1
+
+
+def test_dbt_s3_config():
+    # test missing aws config
+    config_dict: dict = {
+        "manifest_path": "s3://dummy_path",
+        "catalog_path": "s3://dummy_path",
+        "target_platform": "dummy_platform",
+    }
+    with pytest.raises(ValidationError, match="provide aws_connection"):
+        DBTCoreConfig.parse_obj(config_dict)
+
+    # valid config
+    config_dict = {
+        "manifest_path": "s3://dummy_path",
+        "catalog_path": "s3://dummy_path",
+        "target_platform": "dummy_platform",
+        "aws_connection": {},
     }
     DBTCoreConfig.parse_obj(config_dict)
 
@@ -236,6 +354,8 @@ def test_dbt_entity_emission_configuration_helpers():
     assert not config.entities_enabled.can_emit_node_type("source")
     assert not config.entities_enabled.can_emit_node_type("test")
     assert not config.entities_enabled.can_emit_test_results
+    assert not config.entities_enabled.can_emit_model_performance
+    assert not config.entities_enabled.is_only_test_results()
 
     config_dict = {
         "manifest_path": "dummy_path",
@@ -247,6 +367,8 @@ def test_dbt_entity_emission_configuration_helpers():
     assert config.entities_enabled.can_emit_node_type("source")
     assert config.entities_enabled.can_emit_node_type("test")
     assert config.entities_enabled.can_emit_test_results
+    assert config.entities_enabled.can_emit_model_performance
+    assert not config.entities_enabled.is_only_test_results()
 
     config_dict = {
         "manifest_path": "dummy_path",
@@ -261,6 +383,8 @@ def test_dbt_entity_emission_configuration_helpers():
     assert not config.entities_enabled.can_emit_node_type("source")
     assert not config.entities_enabled.can_emit_node_type("test")
     assert config.entities_enabled.can_emit_test_results
+    assert not config.entities_enabled.can_emit_model_performance
+    assert config.entities_enabled.is_only_test_results()
 
     config_dict = {
         "manifest_path": "dummy_path",
@@ -269,6 +393,7 @@ def test_dbt_entity_emission_configuration_helpers():
         "entities_enabled": {
             "test_results": "Yes",
             "test_definitions": "Yes",
+            "model_performance": "Yes",
             "models": "No",
             "sources": "No",
         },
@@ -278,3 +403,61 @@ def test_dbt_entity_emission_configuration_helpers():
     assert not config.entities_enabled.can_emit_node_type("source")
     assert config.entities_enabled.can_emit_node_type("test")
     assert config.entities_enabled.can_emit_test_results
+    assert config.entities_enabled.can_emit_model_performance
+    assert not config.entities_enabled.is_only_test_results()
+
+
+def test_dbt_cloud_config_access_url():
+    config_dict = {
+        "access_url": "https://emea.getdbt.com",
+        "token": "dummy_token",
+        "account_id": "123456",
+        "project_id": "1234567",
+        "job_id": "12345678",
+        "run_id": "123456789",
+        "target_platform": "dummy_platform",
+    }
+    config = DBTCloudConfig.parse_obj(config_dict)
+    assert config.access_url == "https://emea.getdbt.com"
+    assert config.metadata_endpoint == "https://metadata.emea.getdbt.com/graphql"
+
+
+def test_dbt_cloud_config_with_defined_metadata_endpoint():
+    config_dict = {
+        "access_url": "https://my-dbt-cloud.dbt.com",
+        "token": "dummy_token",
+        "account_id": "123456",
+        "project_id": "1234567",
+        "job_id": "12345678",
+        "run_id": "123456789",
+        "target_platform": "dummy_platform",
+        "metadata_endpoint": "https://my-metadata-endpoint.my-dbt-cloud.dbt.com/graphql",
+    }
+    config = DBTCloudConfig.parse_obj(config_dict)
+    assert config.access_url == "https://my-dbt-cloud.dbt.com"
+    assert (
+        config.metadata_endpoint
+        == "https://my-metadata-endpoint.my-dbt-cloud.dbt.com/graphql"
+    )
+
+
+def test_infer_metadata_endpoint() -> None:
+    assert_doctest(dbt_cloud)
+
+
+def test_dbt_time_parsing() -> None:
+    time_formats = [
+        "2024-03-28T05:56:15.236210Z",
+        "2024-04-04T11:55:28Z",
+        "2024-04-04T12:55:28Z",
+        "2024-03-25T00:52:14Z",
+    ]
+
+    for time_format in time_formats:
+        # Check that it parses without an error.
+        timestamp = parse_dbt_timestamp(time_format)
+
+        # Ensure that we get an object with tzinfo set to UTC.
+        assert timestamp.tzinfo is not None and timestamp.tzinfo.utcoffset(
+            timestamp
+        ) == timedelta(0)

@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass, field
 from typing import Callable, Dict, Iterable, List, Optional, Set
 
@@ -23,6 +24,8 @@ from datahub.utilities.urns.data_flow_urn import DataFlowUrn
 from datahub.utilities.urns.data_job_urn import DataJobUrn
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class DataJob:
@@ -40,7 +43,8 @@ class DataJob:
         group_owners Set[str]): A list of group ids that own this job.
         inlets (List[str]): List of urns the DataProcessInstance consumes
         outlets (List[str]): List of urns the DataProcessInstance produces
-        input_datajob_urns: List[DataJobUrn] = field(default_factory=list)
+        fine_grained_lineages: Column lineage for the inlets and outlets
+        upstream_urns: List[DataJobUrn] = field(default_factory=list)
     """
 
     id: str
@@ -60,18 +64,18 @@ class DataJob:
 
     def __post_init__(self):
         job_flow_urn = DataFlowUrn.create_from_ids(
-            env=self.flow_urn.get_env(),
-            orchestrator=self.flow_urn.get_orchestrator_name(),
-            flow_id=self.flow_urn.get_flow_id(),
+            env=self.flow_urn.cluster,
+            orchestrator=self.flow_urn.orchestrator,
+            flow_id=self.flow_urn.flow_id,
         )
         self.urn = DataJobUrn.create_from_ids(
             data_flow_urn=str(job_flow_urn), job_id=self.id
         )
 
     def generate_ownership_aspect(self) -> Iterable[OwnershipClass]:
-        owners = set([builder.make_user_urn(owner) for owner in self.owners]) | set(
-            [builder.make_group_urn(owner) for owner in self.group_owners]
-        )
+        owners = {builder.make_user_urn(owner) for owner in self.owners} | {
+            builder.make_group_urn(owner) for owner in self.group_owners
+        }
         ownership = OwnershipClass(
             owners=[
                 OwnerClass(
@@ -86,7 +90,7 @@ class DataJob:
             ],
             lastModified=AuditStampClass(
                 time=0,
-                actor=builder.make_user_urn(self.flow_urn.get_orchestrator_name()),
+                actor=builder.make_user_urn(self.flow_urn.orchestrator),
             ),
         )
         return [ownership]
@@ -100,7 +104,16 @@ class DataJob:
         )
         return [tags]
 
-    def generate_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
+    def generate_mcp(
+        self, materialize_iolets: bool = True
+    ) -> Iterable[MetadataChangeProposalWrapper]:
+        env: Optional[str] = None
+        if self.flow_urn.cluster.upper() in builder.ALL_ENV_TYPES:
+            env = self.flow_urn.cluster.upper()
+        else:
+            logger.debug(
+                f"cluster {self.flow_urn.cluster} is not a valid environment type so Environment filter won't work."
+            )
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataJobInfoClass(
@@ -109,11 +122,22 @@ class DataJob:
                 description=self.description,
                 customProperties=self.properties,
                 externalUrl=self.url,
+                env=env,
             ),
         )
         yield mcp
 
-        yield from self.generate_data_input_output_mcp()
+        mcp = MetadataChangeProposalWrapper(
+            entityUrn=str(self.urn),
+            aspect=StatusClass(
+                removed=False,
+            ),
+        )
+        yield mcp
+
+        yield from self.generate_data_input_output_mcp(
+            materialize_iolets=materialize_iolets
+        )
 
         for owner in self.generate_ownership_aspect():
             mcp = MetadataChangeProposalWrapper(
@@ -144,7 +168,9 @@ class DataJob:
         for mcp in self.generate_mcp():
             emitter.emit(mcp, callback)
 
-    def generate_data_input_output_mcp(self) -> Iterable[MetadataChangeProposalWrapper]:
+    def generate_data_input_output_mcp(
+        self, materialize_iolets: bool
+    ) -> Iterable[MetadataChangeProposalWrapper]:
         mcp = MetadataChangeProposalWrapper(
             entityUrn=str(self.urn),
             aspect=DataJobInputOutputClass(
@@ -157,10 +183,9 @@ class DataJob:
         yield mcp
 
         # Force entity materialization
-        for iolet in self.inlets + self.outlets:
-            mcp = MetadataChangeProposalWrapper(
-                entityUrn=str(iolet),
-                aspect=StatusClass(removed=False),
-            )
-
-            yield mcp
+        if materialize_iolets:
+            for iolet in self.inlets + self.outlets:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=str(iolet),
+                    aspect=iolet.to_key_aspect(),
+                )

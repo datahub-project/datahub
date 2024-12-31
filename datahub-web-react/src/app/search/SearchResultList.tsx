@@ -54,6 +54,7 @@ const ListItem = styled.div<{ isSelectMode: boolean }>`
 `;
 
 type Props = {
+    loading: boolean;
     query: string;
     searchResults: CombinedSearchResult[];
     totalResultCount: number;
@@ -61,9 +62,11 @@ type Props = {
     selectedEntities: EntityAndType[];
     setSelectedEntities: (entities: EntityAndType[]) => any;
     suggestions: SearchSuggestion[];
+    pageNumber: number;
 };
 
 export const SearchResultList = ({
+    loading,
     query,
     searchResults,
     totalResultCount,
@@ -71,6 +74,7 @@ export const SearchResultList = ({
     selectedEntities,
     setSelectedEntities,
     suggestions,
+    pageNumber,
 }: Props) => {
     const entityRegistry = useEntityRegistry();
     const selectedEntityUrns = selectedEntities.map((entity) => entity.urn);
@@ -84,6 +88,7 @@ export const SearchResultList = ({
             entityType: result.entity.type,
             index,
             total: totalResultCount,
+            pageNumber,
         });
     };
 
@@ -104,7 +109,7 @@ export const SearchResultList = ({
                 id="search-result-list"
                 dataSource={searchResults}
                 split={false}
-                locale={{ emptyText: <EmptySearchResults suggestions={suggestions} /> }}
+                locale={{ emptyText: (!loading && <EmptySearchResults suggestions={suggestions} />) || <></> }}
                 renderItem={(item, index) => (
                     <ResultWrapper showUpdatedStyles={showSearchFiltersV2} className={`entityUrn-${item.entity.urn}`}>
                         <ListItem

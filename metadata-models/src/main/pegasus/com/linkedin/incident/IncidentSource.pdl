@@ -1,0 +1,39 @@
+namespace com.linkedin.incident
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.Urn
+
+/**
+ * Information about the source of an incident raised on an asset.
+ */
+@Aspect = {
+  "name": "incidentSource"
+}
+record IncidentSource {
+  /**
+  * Message associated with the incident
+  */
+  @Searchable = {
+    "addToFilters": true,
+    "filterNameOverride": "Source"
+  }
+  type: enum IncidentSourceType {
+    /**
+     * Manually created incident, via UI or API.
+     */
+     MANUAL
+
+    /**
+     * An assertion has failed, triggering the incident.
+     */
+     ASSERTION_FAILURE
+  }
+
+  /**
+  * Reference to an URN related to the source of an incident.
+  */
+  @Searchable = {
+    "fieldType": "URN"
+  }
+  sourceUrn: optional Urn
+}

@@ -1,0 +1,87 @@
+namespace com.linkedin.datahub
+
+/**
+* Configuration for how any given field should be indexed and matched in the DataHub search index.
+**/
+record DataHubSearchConfig {
+
+    /**
+    * Name of the field in the search index. Defaults to the field name otherwise
+    **/
+    fieldName: optional string
+
+    /**
+    * Type of the field. Defines how the field is indexed and matched
+    **/
+    fieldType: optional enum SearchFieldType {
+        KEYWORD,
+        TEXT,
+        TEXT_PARTIAL,
+        BROWSE_PATH,
+        URN,
+        URN_PARTIAL,
+        BOOLEAN,
+        COUNT,
+        DATETIME,
+        OBJECT,
+        BROWSE_PATH_V2,
+        WORD_GRAM 
+    }
+
+    /**
+    * Whether we should match the field for the default search query
+    **/
+    queryByDefault: boolean = false
+
+    /** 
+    * Whether we should use the field for default autocomplete
+    **/
+    enableAutocomplete: boolean = false
+  
+    /** 
+    * Whether or not to add field to filters.
+    **/
+    addToFilters: boolean = false
+
+    /**
+    * Whether or not to add the "has values" to filters.
+    * check if this is conditional on addToFilters being true
+    **/
+    addHasValuesToFilters: boolean = true
+
+    /**
+    * Display name of the filter
+    **/
+    filterNameOverride: optional string
+
+    /**
+    * Display name of the has values filter
+    **/
+    hasValuesFilterNameOverride: optional string
+
+    /**
+    * Boost multiplier to the match score. Matches on fields with higher boost score ranks higher
+    **/
+    boostScore: double = 1.0
+
+    /**
+    * If set, add a index field of the given name that checks whether the field exists
+    **/
+    hasValuesFieldName: optional string
+  
+    /**
+    * If set, add a index field of the given name that checks the number of elements
+    **/
+    numValuesFieldName: optional string
+
+    /**
+    * (Optional) Weights to apply to score for a given value
+    **/
+    weightsPerFieldValue: optional map[string, double]
+
+    /**
+    * (Optional) Aliases for this given field that can be used for sorting etc.
+    **/
+    fieldNameAliases: optional array[string]
+
+}

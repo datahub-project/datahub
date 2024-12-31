@@ -7,6 +7,7 @@ from typing import List
 import pytest
 
 os.environ["DATAHUB_SUPPRESS_LOGGING_MANAGER"] = "1"
+os.environ["DATAHUB_TEST_MODE"] = "1"
 
 # Enable debug logging.
 logging.getLogger().setLevel(logging.DEBUG)
@@ -25,13 +26,22 @@ from tests.test_helpers.docker_helpers import (  # noqa: F401,E402
     docker_compose_command,
     docker_compose_runner,
 )
-from tests.test_helpers.state_helpers import mock_datahub_graph  # noqa: F401,E402
+from tests.test_helpers.state_helpers import (  # noqa: F401,E402
+    mock_datahub_graph,
+    mock_datahub_graph_instance,
+)
 
 try:
     # See https://github.com/spulec/freezegun/issues/98#issuecomment-590553475.
     import pandas  # noqa: F401
 except ImportError:
     pass
+
+import freezegun  # noqa: F401,E402
+
+# The freezegun library has incomplete type annotations.
+# See https://github.com/spulec/freezegun/issues/469
+freezegun.configure(extend_ignore_list=["datahub.utilities.cooperative_timeout"])  # type: ignore[attr-defined]
 
 
 @pytest.fixture
@@ -63,7 +73,7 @@ def pytest_collection_modifyitems(
     integration_path = root / "tests/integration"
 
     for item in items:
-        test_path = pathlib.Path(item.fspath)
+        test_path = item.path
 
         if (
             "docker_compose_runner" in item.fixturenames  # type: ignore[attr-defined]

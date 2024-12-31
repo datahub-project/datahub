@@ -1,204 +1,15 @@
-import React from "react";
 import clsx from "clsx";
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
-
+import React from "react";
+import { Swiper, SwiperSlide } from "swiper/react";
+import "swiper/css";
+import "swiper/css/pagination";
+import { Pagination } from "swiper/modules";
 import styles from "./logos.module.scss";
+const companyIndexes = require("../../../../adoptionStoriesIndexes.json");
+const companies = companyIndexes.companies;
 
-const companiesByIndustry = [
-  {
-    name: "B2B & B2C",
-    companies: [
-      {
-        name: "LinkedIn",
-        imageUrl: "/img/logos/companies/linkedin.svg",
-        imageSize: "medium",
-      },
-      {
-        name: "Udemy",
-        imageUrl: "/img/logos/companies/udemy.png",
-        imageSize: "medium",
-      },
-      {
-        name: "Airtel",
-        imageUrl: "/img/logos/companies/airtel.png",
-        imageSize: "large",
-      },
-      {
-        name: "Coursera",
-        imageUrl: "/img/logos/companies/coursera.svg",
-        imageSize: "small",
-      },
-      {
-        name: "Geotab",
-        imageUrl: "/img/logos/companies/geotab.jpg",
-        imageSize: "small",
-      },
-      {
-        name: "ThoughtWorks",
-        imageUrl: "/img/logos/companies/thoughtworks.png",
-        imageSize: "medium",
-      },
-      {
-        name: "Expedia Group",
-        imageUrl: "/img/logos/companies/expedia.svg",
-        imageSize: "medium",
-      },
-      {
-        name: "Typeform",
-        imageUrl: "/img/logos/companies/typeform.svg",
-        imageSize: "medium",
-      },
-      {
-        name: "Peloton",
-        imageUrl: "/img/logos/companies/peloton.png",
-        imageSize: "default",
-      },
-      {
-        name: "Zynga",
-        imageUrl: "/img/logos/companies/zynga.png",
-        imageSize: "default",
-      },
-      {
-        name: "Hurb",
-        imageUrl: "/img/logos/companies/hurb.png",
-        imageSize: "medium",
-      },
-      {
-        name: "Razer",
-        imageUrl: "/img/logos/companies/razer.jpeg",
-        imageSize: "large",
-      },
-      {
-        name: "ClassDojo",
-        imageUrl: "/img/logos/companies/classdojo.png",
-        imageSize: "medium",
-      },
-    ],
-  },
-  {
-    name: "Financial & Fintech",
-    companies: [
-      {
-        name: "Saxo Bank",
-        imageUrl: "/img/logos/companies/saxobank.svg",
-        imageSize: "default",
-      },
-      {
-        name: "Klarna",
-        imageUrl: "/img/logos/companies/klarna.svg",
-        imageSize: "medium",
-      },
-      {
-        name: "N26",
-        imageUrl: "/img/logos/companies/n26.svg",
-        imageSize: "medium",
-      },
-      {
-        name: "BankSalad",
-        imageUrl: "/img/logos/companies/banksalad.png",
-        imageSize: "default",
-      },
-      {
-        name: "Uphold",
-        imageUrl: "/img/logos/companies/uphold.png",
-        imageSize: "default",
-      },
-      {
-        name: "Stash",
-        imageUrl: "/img/logos/companies/stash.svg",
-        imageSize: "medium",
-      },
-      {
-        name: "SumUp",
-        imageUrl: "/img/logos/companies/sumup.png",
-        imageSize: "medium",
-      },
-    ],
-  },
-  {
-    name: "E-Commerce",
-    companies: [
-      {
-        name: "Adevinta",
-        imageUrl: "/img/logos/companies/adevinta.png",
-        imageSize: "medium",
-      },
-      {
-        name: "VanMoof",
-        imageUrl: "/img/logos/companies/vanmoof.png",
-        imageSize: "small",
-      },
-      {
-        name: "Grofers",
-        imageUrl: "/img/logos/companies/grofers.png",
-        imageSize: "medium",
-      },
-      {
-        name: "SpotHero",
-        imageUrl: "/img/logos/companies/spothero.png",
-        imageSize: "default",
-      },
-      {
-        name: "hipages",
-        imageUrl: "/img/logos/companies/hipages.png",
-        imageSize: "medium",
-      },
-      {
-        name: "Wolt",
-        imageUrl: "/img/logos/companies/wolt.png",
-        imageSize: "default",
-      },
-      {
-        name: "Showroomprive.com",
-        imageUrl: "/img/logos/companies/showroomprive.png",
-        imageSize: "small",
-      },
-    ],
-  },
-  {
-    name: "And More",
-    companies: [
-      {
-        name: "Wikimedia Foundation",
-        imageUrl: "/img/logos/companies/wikimedia-foundation.png",
-        imageSize: "medium",
-      },
-      {
-        name: "Cabify",
-        imageUrl: "/img/logos/companies/cabify.png",
-        imageSize: "medium",
-      },
-      {
-        name: "Digital Turbine",
-        imageUrl: "/img/logos/companies/digitalturbine.svg",
-        imageSize: "medium",
-      },
-      {
-        name: "Viasat",
-        imageUrl: "/img/logos/companies/viasat.png",
-        imageSize: "medium",
-      },
-      {
-        name: "DFDS",
-        imageUrl: "/img/logos/companies/dfds.png",
-        imageSize: "medium",
-      },
-      {
-        name: "Moloco",
-        imageUrl: "/img/logos/companies/moloco.png",
-        imageSize: "medium",
-      },
-      {
-        name: "Optum",
-        imageUrl: "/img/logos/companies/optum.jpg",
-        imageSize: "medium",
-      },
-    ],
-  },
-];
 
 const platformLogos = [
   {
@@ -229,6 +40,7 @@ const platformLogos = [
     name: "CouchBase",
     imageUrl: "/img/logos/platforms/couchbase.svg",
   },
+  { name: "Dagster", imageUrl: "/img/logos/platforms/dagster.png" },
   { name: "Databricks", imageUrl: "/img/logos/platforms/databricks.png" },
   { name: "DBT", imageUrl: "/img/logos/platforms/dbt.svg" },
   { name: "Deltalake", imageUrl: "/img/logos/platforms/deltalake.svg" },
@@ -276,6 +88,7 @@ const platformLogos = [
   { name: "Pinot", imageUrl: "/img/logos/platforms/pinot.svg" },
   { name: "PostgreSQL", imageUrl: "/img/logos/platforms/postgres.svg" },
   { name: "PowerBI", imageUrl: "/img/logos/platforms/powerbi.png" },
+  { name: "Prefect", imageUrl: "/img/logos/platforms/prefect.svg" },
   { name: "Presto", imageUrl: "/img/logos/platforms/presto.svg" },
   { name: "Protobuf", imageUrl: "/img/logos/platforms/protobuf.png" },
   { name: "Pulsar", imageUrl: "/img/logos/platforms/pulsar.png" },
@@ -315,10 +128,19 @@ const platformLogos = [
 ];
 
 export const PlatformLogos = () => (
-  <Link to={useBaseUrl("docs/metadata-ingestion#installing-plugins/")} className={styles.marquee}>
+  <Link
+    to={useBaseUrl("docs/metadata-ingestion#installing-plugins/")}
+    className={styles.marquee}
+  >
     <div>
       {[...platformLogos, ...platformLogos].map((logo, idx) => (
-        <img src={useBaseUrl(logo.imageUrl)} alt={logo.name} title={logo.name} key={idx} className={styles.platformLogo} />
+        <img
+          src={useBaseUrl(logo.imageUrl)}
+          alt={logo.name}
+          title={logo.name}
+          key={idx}
+          className={styles.platformLogo}
+        />
       ))}
     </div>
   </Link>
@@ -326,22 +148,58 @@ export const PlatformLogos = () => (
 
 export const CompanyLogos = () => (
   <div className={clsx("container", styles.companyLogoContainer)}>
-    <Tabs className="pillTabs">
-      {companiesByIndustry.map((industry, idx) => (
-        <TabItem value={`industry-${idx}`} label={industry.name} key={idx} default={idx === 0}>
-          <div className={styles.companyWrapper}>
-            {industry.companies.map((company, idx) => (
+    <Swiper
+      slidesPerView={8}
+      spaceBetween={30}
+      slidesPerGroup={6}
+      breakpoints={{
+        320: {
+          slidesPerView: 2,
+          spaceBetween: 10,
+        },
+        480: {
+          slidesPerView: 4,
+          spaceBetween: 20,
+        },
+        960: {
+          slidesPerView: 8,
+          spaceBetween: 30,
+        },
+      }}
+      pagination={{ clickable: true }}
+      modules={[Pagination]}
+      className={clsx("mySwiper", styles.companyWrapper)}
+    >
+      {companies
+        .filter((company) => company.imageUrl && company.link) // Filter companies with imageUrl and link
+        .map((company, idx) => (
+          <SwiperSlide key={idx}>
+            {company.link ? (
+              <a href={`/adoption-stories#${company.slug}`}>
+                <img
+                  src={useBaseUrl(company.imageUrl)}
+                  alt={company.name}
+                  title={company.name}
+                  className={clsx(
+                    styles.companyLogo,
+                    styles.companyLogoWithLink,
+                    styles[company.imageSize]
+                  )}
+                />
+              </a>
+            ) : (
               <img
                 src={useBaseUrl(company.imageUrl)}
                 alt={company.name}
                 title={company.name}
-                key={idx}
-                className={clsx(styles.companyLogo, styles[company.imageSize])}
+                className={clsx(
+                  styles.companyLogo,
+                  styles[company.imageSize]
+                )}
               />
-            ))}
-          </div>
-        </TabItem>
-      ))}
-    </Tabs>
+            )}
+          </SwiperSlide>
+        ))}
+    </Swiper>
   </div>
 );

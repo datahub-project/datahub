@@ -66,8 +66,13 @@ export default function AutoCompleteEntity({ query, entity, siblings, hasParentT
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
     const { matchedText, unmatchedText } = getAutoCompleteEntityText(displayName, query);
     const entities = siblings?.length ? siblings : [entity];
+    const platformsToShow =
+        /* Only show sibling platforms if there are > 0 explicitly included siblings */
+        siblings?.length
+            ? genericEntityProps?.siblingPlatforms
+            : (genericEntityProps?.platform && [genericEntityProps?.platform]) || undefined;
     const platforms =
-        genericEntityProps?.siblingPlatforms
+        platformsToShow
             ?.map(
                 (platform) =>
                     getPlatformName(entityRegistry.getGenericEntityProperties(EntityType.DataPlatform, platform)) || '',

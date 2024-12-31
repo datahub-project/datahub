@@ -9,6 +9,7 @@ import {
     GlossaryTerms,
     SearchInsight,
     Container,
+    Dataset,
     ParentContainersResult,
     Maybe,
     CorpUser,
@@ -36,6 +37,8 @@ import { DataProductLink } from '../shared/tags/DataProductLink';
 import { EntityHealth } from '../entity/shared/containers/profile/header/EntityHealth';
 import SearchTextHighlighter from '../search/matches/SearchTextHighlighter';
 import { getUniqueOwners } from './utils';
+import StructuredPropertyBadge from '../entity/shared/containers/profile/header/StructuredPropertyBadge';
+import { usePreviewData } from '../entity/shared/PreviewContext';
 
 const PreviewContainer = styled.div`
     display: flex;
@@ -65,6 +68,7 @@ const TitleContainer = styled.div`
 const EntityTitleContainer = styled.div`
     display: flex;
     align-items: center;
+    gap: 8px;
 `;
 
 const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
@@ -74,7 +78,6 @@ const EntityTitle = styled(Typography.Text)<{ $titleSizePx?: number }>`
     }
 
     &&& {
-        margin-right 8px;
         font-size: ${(props) => props.$titleSizePx || 16}px;
         font-weight: 600;
         vertical-align: middle;
@@ -114,6 +117,7 @@ const TagContainer = styled.div`
     margin-left: 0px;
     margin-top: 3px;
     flex-wrap: wrap;
+    margin-right: 8px;
 `;
 
 const TagSeparator = styled.div`
@@ -195,6 +199,7 @@ interface Props {
     previewType?: Maybe<PreviewType>;
     paths?: EntityPath[];
     health?: Health[];
+    parentDataset?: Dataset;
 }
 
 export default function DefaultPreviewCard({
@@ -237,10 +242,12 @@ export default function DefaultPreviewCard({
     previewType,
     paths,
     health,
+    parentDataset,
 }: Props) {
     // sometimes these lists will be rendered inside an entity container (for example, in the case of impact analysis)
     // in those cases, we may want to enrich the preview w/ context about the container entity
     const { entityData } = useEntityData();
+    const previewData = usePreviewData();
     const insightViews: Array<ReactNode> = [
         ...(insights?.map((insight) => (
             <>
@@ -268,7 +275,7 @@ export default function DefaultPreviewCard({
 
     return (
         <PreviewContainer data-testid={dataTestID} onMouseDown={onPreventMouseDown}>
-            <LeftColumn expandWidth={!shouldShowRightColumn}>
+            <LeftColumn key="left-column" expandWidth={!shouldShowRightColumn}>
                 <TitleContainer>
                     <PlatformContentView
                         platformName={platform}
@@ -283,6 +290,7 @@ export default function DefaultPreviewCard({
                         parentEntities={parentEntities}
                         parentContainersRef={contentRef}
                         areContainersTruncated={isContentTruncated}
+                        parentDataset={parentDataset}
                     />
                     <EntityTitleContainer>
                         <Link to={url}>
@@ -300,6 +308,7 @@ export default function DefaultPreviewCard({
                             <DeprecationPill deprecation={deprecation} urn="" showUndeprecate={false} />
                         )}
                         {health && health.length > 0 ? <EntityHealth baseUrl={url} health={health} /> : null}
+                        <StructuredPropertyBadge structuredProperties={previewData?.structuredProperties} />
                         {externalUrl && (
                             <ExternalUrlButton
                                 externalUrl={externalUrl}
@@ -370,7 +379,7 @@ export default function DefaultPreviewCard({
                 )}
             </LeftColumn>
             {shouldShowRightColumn && (
-                <RightColumn>
+                <RightColumn key="right-column">
                     {topUsers && topUsers?.length > 0 && (
                         <>
                             <UserListContainer>

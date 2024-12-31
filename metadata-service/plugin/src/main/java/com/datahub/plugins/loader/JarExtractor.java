@@ -8,15 +8,14 @@ import java.nio.file.Path;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 
-
 @Slf4j
 class JarExtractor {
 
-  private JarExtractor() {
-  }
+  private JarExtractor() {}
 
   /**
    * Write url content to destinationFilePath
+   *
    * @param url
    * @param destinationFilePath
    * @throws IOException

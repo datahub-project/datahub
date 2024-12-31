@@ -13,8 +13,10 @@ import {
     ChartStatsSummary,
     DataProduct,
     EntityPath,
+    Health,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
+import { capitalizeFirstLetterOnly } from '../../../shared/textUtil';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
 import { ChartStatsSummary as ChartStatsSummaryView } from '../shared/ChartStatsSummary';
@@ -43,6 +45,8 @@ export const ChartPreview = ({
     snippet,
     degree,
     paths,
+    subType,
+    health,
 }: {
     urn: string;
     platform?: string;
@@ -67,6 +71,8 @@ export const ChartPreview = ({
     snippet?: React.ReactNode | null;
     degree?: number;
     paths?: EntityPath[];
+    subType?: string | null;
+    health?: Health[] | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
 
@@ -76,7 +82,7 @@ export const ChartPreview = ({
             name={name || ''}
             urn={urn}
             description={description || ''}
-            type="Chart"
+            type={capitalizeFirstLetterOnly(subType) || 'Chart'}
             typeIcon={entityRegistry.getIcon(EntityType.Chart, 14, IconStyleType.ACCENT)}
             logoUrl={logoUrl || ''}
             platform={platform}
@@ -103,6 +109,7 @@ export const ChartPreview = ({
             }
             degree={degree}
             paths={paths}
+            health={health || undefined}
         />
     );
 };

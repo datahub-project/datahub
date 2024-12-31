@@ -10,11 +10,7 @@ public class TimeSeriesAspectArgs {
   private Long count;
   private TimeRange timeRange;
 
-  public TimeSeriesAspectArgs(
-      String urn,
-      String aspectName,
-      Long count,
-      TimeRange timeRange) {
+  public TimeSeriesAspectArgs(String urn, String aspectName, Long count, TimeRange timeRange) {
     this.urn = urn;
     this.aspectName = aspectName;
     this.count = count;

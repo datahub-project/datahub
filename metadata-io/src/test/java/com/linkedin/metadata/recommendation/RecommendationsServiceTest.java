@@ -1,44 +1,71 @@
 package com.linkedin.metadata.recommendation;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.TestEntityUtil;
 import com.linkedin.metadata.recommendation.candidatesource.TestSource;
 import com.linkedin.metadata.recommendation.ranker.RecommendationModuleRanker;
 import com.linkedin.metadata.recommendation.ranker.SimpleRecommendationRanker;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.nio.file.AccessDeniedException;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.testng.annotations.Test;
 
-import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
-
-
 public class RecommendationsServiceTest {
 
   private final TestSource nonEligibleSource =
-      new TestSource("not eligible", "nonEligible", RecommendationRenderType.ENTITY_NAME_LIST, false,
+      new TestSource(
+          "not eligible",
+          "nonEligible",
+          RecommendationRenderType.ENTITY_NAME_LIST,
+          false,
           getContentFromString(ImmutableList.of("test")));
   private final TestSource emptySource =
-      new TestSource("empty", "empty", RecommendationRenderType.ENTITY_NAME_LIST, true, ImmutableList.of());
+      new TestSource(
+          "empty", "empty", RecommendationRenderType.ENTITY_NAME_LIST, true, ImmutableList.of());
   private final TestSource valuesSource =
-      new TestSource("values", "values", RecommendationRenderType.ENTITY_NAME_LIST, true,
+      new TestSource(
+          "values",
+          "values",
+          RecommendationRenderType.ENTITY_NAME_LIST,
+          true,
           getContentFromString(ImmutableList.of("test")));
   private final TestSource multiValuesSource =
-      new TestSource("multiValues", "multiValues", RecommendationRenderType.ENTITY_NAME_LIST, true,
+      new TestSource(
+          "multiValues",
+          "multiValues",
+          RecommendationRenderType.ENTITY_NAME_LIST,
+          true,
           getContentFromString(ImmutableList.of("test1", "test2", "test3", "test4")));
   private final TestSource urnsSource =
-      new TestSource("urns", "urns", RecommendationRenderType.ENTITY_NAME_LIST, true,
+      new TestSource(
+          "urns",
+          "urns",
+          RecommendationRenderType.ENTITY_NAME_LIST,
+          true,
           getContentFromUrns(ImmutableList.of(TestEntityUtil.getTestEntityUrn())));
   private final TestSource multiUrnsSource =
-      new TestSource("multiUrns", "multiUrns", RecommendationRenderType.ENTITY_NAME_LIST, true,
-          getContentFromUrns(ImmutableList.of(TestEntityUtil.getTestEntityUrn(), TestEntityUtil.getTestEntityUrn(),
-              TestEntityUtil.getTestEntityUrn())));
+      new TestSource(
+          "multiUrns",
+          "multiUrns",
+          RecommendationRenderType.ENTITY_NAME_LIST,
+          true,
+          getContentFromUrns(
+              ImmutableList.of(
+                  TestEntityUtil.getTestEntityUrn(),
+                  TestEntityUtil.getTestEntityUrn(),
+                  TestEntityUtil.getTestEntityUrn())));
   private final RecommendationModuleRanker ranker = new SimpleRecommendationRanker();
 
   private List<RecommendationContent> getContentFromString(List<String> values) {
-    return values.stream().map(value -> new RecommendationContent().setValue(value)).collect(Collectors.toList());
+    return values.stream()
+        .map(value -> new RecommendationContent().setValue(value))
+        .collect(Collectors.toList());
   }
 
   private List<RecommendationContent> getContentFromUrns(List<Urn> urns) {
@@ -48,17 +75,30 @@ public class RecommendationsServiceTest {
   }
 
   @Test
-  public void testService() throws URISyntaxException {
+  public void testService() throws URISyntaxException, AccessDeniedException {
     // Test non-eligible and empty
-    RecommendationsService service = new RecommendationsService(ImmutableList.of(nonEligibleSource, emptySource), ranker);
-    List<RecommendationModule> result = service.listRecommendations(Urn.createFromString("urn:li:corpuser:me"),
-        new RecommendationRequestContext().setScenario(ScenarioType.HOME), 10);
+    RecommendationsService service =
+        new RecommendationsService(ImmutableList.of(nonEligibleSource, emptySource), ranker);
+    List<RecommendationModule> result =
+        service.listRecommendations(
+            TestOperationContexts.userContextNoSearchAuthorization(
+                Urn.createFromString("urn:li:corpuser:me")),
+            new RecommendationRequestContext().setScenario(ScenarioType.HOME),
+            null,
+            10);
     assertTrue(result.isEmpty());
 
     // Test empty with one valid source
-    service = new RecommendationsService(ImmutableList.of(nonEligibleSource, emptySource, valuesSource), ranker);
-    result = service.listRecommendations(Urn.createFromString("urn:li:corpuser:me"),
-        new RecommendationRequestContext().setScenario(ScenarioType.HOME), 10);
+    service =
+        new RecommendationsService(
+            ImmutableList.of(nonEligibleSource, emptySource, valuesSource), ranker);
+    result =
+        service.listRecommendations(
+            TestOperationContexts.userContextNoSearchAuthorization(
+                Urn.createFromString("urn:li:corpuser:me")),
+            new RecommendationRequestContext().setScenario(ScenarioType.HOME),
+            null,
+            10);
     assertEquals(result.size(), 1);
     RecommendationModule module = result.get(0);
     assertEquals(module.getTitle(), "values");
@@ -67,10 +107,16 @@ public class RecommendationsServiceTest {
     assertEquals(module.getContent(), valuesSource.getContents());
 
     // Test multiple sources
-    service = new RecommendationsService(ImmutableList.of(valuesSource, multiValuesSource, urnsSource, multiUrnsSource),
-        ranker);
-    result = service.listRecommendations(Urn.createFromString("urn:li:corpuser:me"),
-        new RecommendationRequestContext().setScenario(ScenarioType.HOME), 10);
+    service =
+        new RecommendationsService(
+            ImmutableList.of(valuesSource, multiValuesSource, urnsSource, multiUrnsSource), ranker);
+    result =
+        service.listRecommendations(
+            TestOperationContexts.userContextNoSearchAuthorization(
+                Urn.createFromString("urn:li:corpuser:me")),
+            new RecommendationRequestContext().setScenario(ScenarioType.HOME),
+            null,
+            10);
     assertEquals(result.size(), 4);
     module = result.get(0);
     assertEquals(module.getTitle(), "values");
@@ -94,8 +140,13 @@ public class RecommendationsServiceTest {
     assertEquals(module.getContent(), multiUrnsSource.getContents());
 
     // Test limit
-    result = service.listRecommendations(Urn.createFromString("urn:li:corpuser:me"),
-        new RecommendationRequestContext().setScenario(ScenarioType.HOME), 2);
+    result =
+        service.listRecommendations(
+            TestOperationContexts.userContextNoSearchAuthorization(
+                Urn.createFromString("urn:li:corpuser:me")),
+            new RecommendationRequestContext().setScenario(ScenarioType.HOME),
+            null,
+            2);
     assertEquals(result.size(), 2);
     module = result.get(0);
     assertEquals(module.getTitle(), "values");

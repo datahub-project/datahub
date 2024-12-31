@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import partial
 from typing import Dict, Iterable, List, Optional
 
@@ -26,6 +26,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.schema_classes import ChangeTypeClass
+from datahub.utilities.progress_timer import ProgressTimer
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,10 @@ class DataHubSource(StatefulIngestionSourceBase):
     def __init__(self, config: DataHubSourceConfig, ctx: PipelineContext):
         super().__init__(config, ctx)
         self.config = config
+
+        if self.config.urn_pattern:
+            self.urn_pattern = self.config.urn_pattern
+
         self.report: DataHubSourceReport = DataHubSourceReport()
         self.stateful_ingestion_handler = StatefulDataHubIngestionHandler(self)
 
@@ -58,13 +63,18 @@ class DataHubSource(StatefulIngestionSourceBase):
         self.report.stop_time = datetime.now(tz=timezone.utc)
         logger.info(f"Ingesting DataHub metadata up until {self.report.stop_time}")
         state = self.stateful_ingestion_handler.get_last_run_state()
+        database_reader: Optional[DataHubDatabaseReader] = None
 
         if self.config.pull_from_datahub_api:
             yield from self._get_api_workunits()
 
         if self.config.database_connection is not None:
+            database_reader = DataHubDatabaseReader(
+                self.config, self.config.database_connection, self.report
+            )
+
             yield from self._get_database_workunits(
-                from_createdon=state.database_createdon_datetime
+                from_createdon=state.database_createdon_datetime, reader=database_reader
             )
             self._commit_progress()
         else:
@@ -73,7 +83,19 @@ class DataHubSource(StatefulIngestionSourceBase):
             )
 
         if self.config.kafka_connection is not None:
-            yield from self._get_kafka_workunits(from_offsets=state.kafka_offsets)
+            soft_deleted_urns = []
+            if not self.config.include_soft_deleted_entities:
+                if database_reader is None:
+                    raise ValueError(
+                        "Cannot exclude soft deleted entities without a database connection"
+                    )
+                soft_deleted_urns = [
+                    row["urn"] for row in database_reader.get_soft_deleted_rows()
+                ]
+
+            yield from self._get_kafka_workunits(
+                from_offsets=state.kafka_offsets, soft_deleted_urns=soft_deleted_urns
+            )
             self._commit_progress()
         else:
             logger.info(
@@ -81,17 +103,20 @@ class DataHubSource(StatefulIngestionSourceBase):
             )
 
     def _get_database_workunits(
-        self, from_createdon: datetime
+        self, from_createdon: datetime, reader: DataHubDatabaseReader
     ) -> Iterable[MetadataWorkUnit]:
-        if self.config.database_connection is None:
-            return
-
         logger.info(f"Fetching database aspects starting from {from_createdon}")
-        reader = DataHubDatabaseReader(
-            self.config, self.config.database_connection, self.report
-        )
+        progress = ProgressTimer(report_every=timedelta(seconds=60))
         mcps = reader.get_aspects(from_createdon, self.report.stop_time)
         for i, (mcp, createdon) in enumerate(mcps):
+            if not self.urn_pattern.allowed(str(mcp.entityUrn)):
+                continue
+
+            if progress.should_report():
+                logger.info(
+                    f"Ingested {i} database aspects so far, currently at {createdon}"
+                )
+
             yield mcp.as_workunit()
             self.report.num_database_aspects_ingested += 1
 
@@ -105,25 +130,37 @@ class DataHubSource(StatefulIngestionSourceBase):
             self._commit_progress(i)
 
     def _get_kafka_workunits(
-        self, from_offsets: Dict[int, int]
+        self, from_offsets: Dict[int, int], soft_deleted_urns: List[str] = []
     ) -> Iterable[MetadataWorkUnit]:
         if self.config.kafka_connection is None:
             return
 
         logger.info("Fetching timeseries aspects from kafka")
         with DataHubKafkaReader(
-            self.config, self.config.kafka_connection, self.report, self.ctx
+            self.config,
+            self.config.kafka_connection,
+            self.report,
+            self.ctx,
         ) as reader:
             mcls = reader.get_mcls(
                 from_offsets=from_offsets, stop_time=self.report.stop_time
             )
             for i, (mcl, offset) in enumerate(mcls):
                 mcp = MetadataChangeProposalWrapper.try_from_mcl(mcl)
+                if mcp.entityUrn in soft_deleted_urns:
+                    self.report.num_timeseries_soft_deleted_aspects_dropped += 1
+                    logger.debug(
+                        f"Dropping soft-deleted aspect of {mcp.aspectName} on {mcp.entityUrn}"
+                    )
+                    continue
                 if mcp.changeType == ChangeTypeClass.DELETE:
                     self.report.num_timeseries_deletions_dropped += 1
                     logger.debug(
                         f"Dropping timeseries deletion of {mcp.aspectName} on {mcp.entityUrn}"
                     )
+                    continue
+
+                if not self.urn_pattern.allowed(str(mcp.entityUrn)):
                     continue
 
                 if isinstance(mcp, MetadataChangeProposalWrapper):
@@ -153,6 +190,8 @@ class DataHubSource(StatefulIngestionSourceBase):
 
         reader = DataHubApiReader(self.config, self.report, self.ctx.graph)
         for mcp in reader.get_aspects():
+            if not self.urn_pattern.allowed(str(mcp.entityUrn)):
+                continue
             yield mcp.as_workunit()
 
     def _commit_progress(self, i: Optional[int] = None) -> None:

@@ -1,29 +1,39 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass
-from enum import Enum
-from typing import Dict, List, Optional, Set, cast
+from typing import Dict, List, Optional, Set
 
+import pydantic
 from pydantic import Field, SecretStr, root_validator, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.pattern_utils import UUID_REGEX
+from datahub.configuration.source_common import (
+    EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
+    PlatformInstanceConfigMixin,
+)
+from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.ingestion.api.incremental_properties_helper import (
+    IncrementalPropertiesConfigMixin,
+)
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
+from datahub.ingestion.source.snowflake.snowflake_connection import (
+    SnowflakeConnectionConfig,
+)
+from datahub.ingestion.source.sql.sql_config import SQLCommonConfig, SQLFilterConfig
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulLineageConfigMixin,
     StatefulProfilingConfigMixin,
     StatefulUsageConfigMixin,
 )
-from datahub.ingestion.source_config.sql.snowflake import (
-    BaseSnowflakeConfig,
-    SnowflakeConfig,
-)
-from datahub.ingestion.source_config.usage.snowflake_usage import SnowflakeUsageConfig
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 from datahub.utilities.global_warning_util import add_global_warning
+from datahub.utilities.str_enum import StrEnum
 
 logger = logging.Logger(__name__)
 
@@ -32,15 +42,16 @@ logger = logging.Logger(__name__)
 #
 # DBT incremental models create temporary tables ending with __dbt_tmp
 # Ref - https://discourse.getdbt.com/t/handling-bigquery-incremental-dbt-tmp-tables/7540
-DEFAULT_TABLES_DENY_LIST = [
+DEFAULT_TEMP_TABLES_PATTERNS = [
     r".*\.FIVETRAN_.*_STAGING\..*",  # fivetran
     r".*__DBT_TMP$",  # dbt
     rf".*\.SEGMENT_{UUID_REGEX}",  # segment
     rf".*\.STAGING_.*_{UUID_REGEX}",  # stitch
+    r".*\.(GE_TMP_|GE_TEMP_|GX_TEMP_)[0-9A-F]{8}",  # great expectations
 ]
 
 
-class TagOption(str, Enum):
+class TagOption(StrEnum):
     with_lineage = "with_lineage"
     without_lineage = "without_lineage"
     skip = "skip"
@@ -73,6 +84,101 @@ class SnowflakeShareConfig(ConfigModel):
         return DatabaseId(self.database, self.platform_instance)
 
 
+class SnowflakeFilterConfig(SQLFilterConfig):
+    database_pattern: AllowDenyPattern = Field(
+        AllowDenyPattern(
+            deny=[r"^UTIL_DB$", r"^SNOWFLAKE$", r"^SNOWFLAKE_SAMPLE_DATA$"],
+        ),
+        description="Regex patterns for databases to filter in ingestion.",
+    )
+
+    schema_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for schemas to filter in ingestion. Will match against the full `database.schema` name if `match_fully_qualified_names` is enabled.",
+    )
+    # table_pattern and view_pattern are inherited from SQLFilterConfig
+
+    match_fully_qualified_names: bool = Field(
+        default=False,
+        description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
+    )
+
+    @root_validator(pre=False, skip_on_failure=True)
+    def validate_legacy_schema_pattern(cls, values: Dict) -> Dict:
+        schema_pattern: Optional[AllowDenyPattern] = values.get("schema_pattern")
+        match_fully_qualified_names = values.get("match_fully_qualified_names")
+
+        if (
+            schema_pattern is not None
+            and schema_pattern != AllowDenyPattern.allow_all()
+            and match_fully_qualified_names is not None
+            and not match_fully_qualified_names
+        ):
+            logger.warning(
+                "Please update `schema_pattern` to match against fully qualified schema name `<catalog_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
+                "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
+                "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
+            )
+
+        # Always exclude reporting metadata for INFORMATION_SCHEMA schema
+        if schema_pattern:
+            logger.debug("Adding deny for INFORMATION_SCHEMA to schema_pattern.")
+            assert isinstance(schema_pattern, AllowDenyPattern)
+            schema_pattern.deny.append(r".*INFORMATION_SCHEMA$")
+
+        return values
+
+
+class SnowflakeIdentifierConfig(
+    PlatformInstanceConfigMixin, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
+):
+    # Changing default value here.
+    convert_urns_to_lowercase: bool = Field(
+        default=True,
+        description="Whether to convert dataset urns to lowercase.",
+    )
+
+    email_domain: Optional[str] = pydantic.Field(
+        default=None,
+        description="Email domain of your organization so users can be displayed on UI appropriately.",
+    )
+
+    email_as_user_identifier: bool = Field(
+        default=True,
+        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is "
+        "provided, generates email addresses for snowflake users with unset emails, based on their "
+        "username.",
+    )
+
+
+class SnowflakeUsageConfig(BaseUsageConfig):
+    apply_view_usage_to_tables: bool = pydantic.Field(
+        default=False,
+        description="Whether to apply view's usage to its base tables. If set to True, usage is applied to base tables only.",
+    )
+
+
+# TODO: SnowflakeConfig is unused except for this inheritance. We should collapse the config inheritance hierarchy.
+class SnowflakeConfig(
+    SnowflakeIdentifierConfig,
+    SnowflakeFilterConfig,
+    # SnowflakeFilterConfig must come before (higher precedence) the SQLCommon config, so that the documentation overrides are applied.
+    SnowflakeConnectionConfig,
+    BaseTimeWindowConfig,
+    SQLCommonConfig,
+):
+    include_table_lineage: bool = pydantic.Field(
+        default=True,
+        description="If enabled, populates the snowflake table-to-table and s3-to-snowflake table lineage. Requires appropriate grants given to the role and Snowflake Enterprise Edition or above.",
+    )
+
+    _include_view_lineage = pydantic_removed_field("include_view_lineage")
+    _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
+
+    ignore_start_time_lineage: bool = False
+    upstream_lineage_in_report: bool = False
+
+
 class SnowflakeV2Config(
     SnowflakeConfig,
     SnowflakeUsageConfig,
@@ -80,14 +186,16 @@ class SnowflakeV2Config(
     StatefulUsageConfigMixin,
     StatefulProfilingConfigMixin,
     ClassificationSourceConfigMixin,
+    IncrementalPropertiesConfigMixin,
 ):
-    convert_urns_to_lowercase: bool = Field(
-        default=True,
-    )
-
     include_usage_stats: bool = Field(
         default=True,
         description="If enabled, populates the snowflake usage statistics. Requires appropriate grants given to the role.",
+    )
+
+    include_view_definitions: bool = Field(
+        default=True,
+        description="If enabled, populates the ingested views' definitions.",
     )
 
     include_technical_schema: bool = Field(
@@ -95,14 +203,29 @@ class SnowflakeV2Config(
         description="If enabled, populates the snowflake technical schema and descriptions.",
     )
 
+    include_primary_keys: bool = Field(
+        default=True,
+        description="If enabled, populates the snowflake primary keys.",
+    )
+    include_foreign_keys: bool = Field(
+        default=True,
+        description="If enabled, populates the snowflake foreign keys.",
+    )
+
     include_column_lineage: bool = Field(
         default=True,
         description="Populates table->table and view->table column lineage. Requires appropriate grants given to the role and the Snowflake Enterprise Edition or above.",
     )
 
-    include_view_column_lineage: bool = Field(
+    use_queries_v2: bool = Field(
+        default=False,
+        description="If enabled, uses the new queries extractor to extract queries from snowflake.",
+    )
+
+    lazy_schema_resolver: bool = Field(
         default=True,
-        description="Populates view->view and table->view column lineage using DataHub's sql parser.",
+        description="If enabled, uses lazy schema resolver to resolve schemas for tables and views. "
+        "This is useful if you have a large number of schemas and want to avoid bulk fetching the schema for each table/view.",
     )
 
     _check_role_grants_removed = pydantic_removed_field("check_role_grants")
@@ -116,11 +239,6 @@ class SnowflakeV2Config(
     include_external_url: bool = Field(
         default=True,
         description="Whether to populate Snowsight url for Snowflake Objects",
-    )
-
-    match_fully_qualified_names: bool = Field(
-        default=False,
-        description="Whether `schema_pattern` is matched against fully qualified schema name `<catalog>.<schema>`.",
     )
 
     _use_legacy_lineage_method_removed = pydantic_removed_field(
@@ -139,8 +257,10 @@ class SnowflakeV2Config(
 
     # This is required since access_history table does not capture whether the table was temporary table.
     temporary_tables_pattern: List[str] = Field(
-        default=DEFAULT_TABLES_DENY_LIST,
-        description="[Advanced] Regex patterns for temporary tables to filter in lineage ingestion. Specify regex to match the entire table name in database.schema.table format. Defaults are to set in such a way to ignore the temporary staging tables created by known ETL tools.",
+        default=DEFAULT_TEMP_TABLES_PATTERNS,
+        description="[Advanced] Regex patterns for temporary tables to filter in lineage ingestion. Specify regex to "
+        "match the entire table name in database.schema.table format. Defaults are to set in such a way "
+        "to ignore the temporary staging tables created by known ETL tools.",
     )
 
     rename_upstreams_deny_pattern_to_temporary_table_pattern = pydantic_renamed_field(
@@ -150,13 +270,15 @@ class SnowflakeV2Config(
     shares: Optional[Dict[str, SnowflakeShareConfig]] = Field(
         default=None,
         description="Required if current account owns or consumes snowflake share."
-        " If specified, connector creates lineage and siblings relationship between current account's database tables and consumer/producer account's database tables."
+        "If specified, connector creates lineage and siblings relationship between current account's database tables "
+        "and consumer/producer account's database tables."
         " Map of share name -> details of share.",
     )
 
-    email_as_user_identifier: bool = Field(
-        default=True,
-        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is provided, generates email addresses for snowflake users with unset emails, based on their username.",
+    include_assertion_results: bool = Field(
+        default=False,
+        description="Whether to ingest assertion run results for assertions created using Datahub"
+        " assertions CLI in snowflake",
     )
 
     @validator("convert_urns_to_lowercase")
@@ -176,34 +298,13 @@ class SnowflakeV2Config(
             )
         return v
 
-    @root_validator(pre=False)
+    @root_validator(pre=False, skip_on_failure=True)
     def validate_unsupported_configs(cls, values: Dict) -> Dict:
         value = values.get("include_read_operational_stats")
         if value is not None and value:
             raise ValueError(
                 "include_read_operational_stats is not supported. Set `include_read_operational_stats` to False.",
             )
-
-        match_fully_qualified_names = values.get("match_fully_qualified_names")
-
-        schema_pattern: Optional[AllowDenyPattern] = values.get("schema_pattern")
-
-        if (
-            schema_pattern is not None
-            and schema_pattern != AllowDenyPattern.allow_all()
-            and match_fully_qualified_names is not None
-            and not match_fully_qualified_names
-        ):
-            logger.warning(
-                "Please update `schema_pattern` to match against fully qualified schema name `<catalog_name>.<schema_name>` and set config `match_fully_qualified_names : True`."
-                "Current default `match_fully_qualified_names: False` is only to maintain backward compatibility. "
-                "The config option `match_fully_qualified_names` will be deprecated in future and the default behavior will assume `match_fully_qualified_names: True`."
-            )
-
-        # Always exclude reporting metadata for INFORMATION_SCHEMA schema
-        if schema_pattern is not None and schema_pattern:
-            logger.debug("Adding deny for INFORMATION_SCHEMA to schema_pattern.")
-            cast(AllowDenyPattern, schema_pattern).deny.append(r".*INFORMATION_SCHEMA$")
 
         include_technical_schema = values.get("include_technical_schema")
         include_profiles = (
@@ -215,7 +316,7 @@ class SnowflakeV2Config(
             and values["stateful_ingestion"].remove_stale_metadata
         )
 
-        # TODO: Allow lineage extraction and profiling irrespective of basic schema extraction,
+        # TODO: Allow profiling irrespective of basic schema extraction,
         # as it seems possible with some refactor
         if not include_technical_schema and any(
             [include_profiles, delete_detection_enabled]
@@ -233,13 +334,9 @@ class SnowflakeV2Config(
         password: Optional[SecretStr] = None,
         role: Optional[str] = None,
     ) -> str:
-        return BaseSnowflakeConfig.get_sql_alchemy_url(
+        return SnowflakeConnectionConfig.get_sql_alchemy_url(
             self, database=database, username=username, password=password, role=role
         )
-
-    @property
-    def parse_view_ddl(self) -> bool:
-        return self.include_view_column_lineage
 
     @validator("shares")
     def validate_shares(

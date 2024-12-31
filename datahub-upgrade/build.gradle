@@ -5,6 +5,7 @@ plugins {
 }
 
 apply from: "../gradle/versioning/versioning.gradle"
+apply from: "../gradle/coverage/java-coverage.gradle"
 
 ext {
   docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
@@ -14,17 +15,18 @@ ext {
 dependencies {
   implementation project(':metadata-io')
   implementation project(':metadata-service:factories')
-  implementation project(':metadata-service:restli-client')
+  implementation project(':metadata-service:restli-client-api')
   implementation project(':metadata-service:configuration')
   implementation project(':metadata-dao-impl:kafka-producer')
   implementation externalDependency.charle
 
+  implementation externalDependency.mustache
   implementation externalDependency.javaxInject
   implementation(externalDependency.hadoopClient) {
     exclude group: 'net.minidev', module: 'json-smart'
     exclude group: 'com.nimbusds', module: 'nimbus-jose-jwt'
     exclude group: "org.apache.htrace", module: "htrace-core4"
-    exclude group: "org.eclipse.jetty", module: "jetty-util"
+    exclude group: "org.eclipse.jetty"
     exclude group: "org.apache.hadoop.thirdparty", module: "hadoop-shaded-protobuf_3_7"
     exclude group: "com.charleskorn.kaml", module:"kaml"
 
@@ -43,13 +45,22 @@ dependencies {
     implementation(externalDependency.jettison) {
       because("previous versions are vulnerable")
     }
+    implementation(externalDependency.guava) {
+      because("CVE-2023-2976")
+    }
+    implementation('io.airlift:aircompressor:0.27') {
+      because("CVE-2024-36114")
+    }
+    implementation('dnsjava:dnsjava:3.6.1') {
+      because("CVE-2024-25638")
+    }
   }
 
 
   // mock internal schema registry
   implementation externalDependency.kafkaAvroSerde
   implementation externalDependency.kafkaAvroSerializer
-  implementation "org.apache.kafka:kafka_2.12:$kafkaVersion"
+  implementation "org.apache.kafka:kafka_2.13:3.7.2"
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
@@ -74,12 +85,71 @@ dependencies {
   testImplementation externalDependency.springBootTest
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
+  testImplementation 'uk.org.webcompere:system-stubs-testng:2.1.7'
   testRuntimeOnly externalDependency.logbackClassic
+
+  constraints {
+    implementation(implementation externalDependency.parquetHadoop) {
+      because("CVE-2022-42003")
+    }
+  }
 }
 
 bootJar {
   mainClass = 'com.linkedin.datahub.upgrade.UpgradeCliApplication'
   archiveFileName = "${project.name}.jar"
+}
+
+bootRun {
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"
+  environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
+  environment "SERVER_PORT", "8083"
+  args += ["-u", "SystemUpdate"]
+}
+
+/**
+ * Runs SystemUpdate on locally running system
+ */
+task run(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the datahub-upgrade SystemUpdate process locally."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  environment "ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE", "true"
+  environment "ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX", "true"
+  commandLine "java",
+          "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dserver.port=8083", bootJar.getArchiveFile().get(), "-u", "SystemUpdate"
+}
+
+/**
+ * Runs RestoreIndices on locally running system. The batchSize are set to
+ * test the process with pagination and not designed for optimal performance.
+ */
+task runRestoreIndices(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the restore indices process locally."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  commandLine "java", "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dkafka.schemaRegistry.url=http://localhost:8080/schema-registry/api",
+          "-Dserver.port=8083",
+          bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100"
+}
+
+task runRestoreIndicesUrn(type: Exec) {
+  dependsOn bootJar
+  group = "Execution"
+  description = "Run the restore indices process locally."
+  environment "ENTITY_REGISTRY_CONFIG_PATH", "../metadata-models/src/main/resources/entity-registry.yml"
+  commandLine "java", "-agentlib:jdwp=transport=dt_socket,address=5003,server=y,suspend=n",
+          "-jar",
+          "-Dkafka.schemaRegistry.url=http://localhost:8080/schema-registry/api",
+          "-Dserver.port=8083",
+          bootJar.getArchiveFile().get(), "-u", "RestoreIndices", "-a", "batchSize=100", "-a", "urnBasedPagination=true"
 }
 
 docker {
@@ -88,10 +158,11 @@ docker {
   dockerfile file("${rootProject.projectDir}/docker/${docker_repo}/Dockerfile")
   files bootJar.outputs.files
   files fileTree(rootProject.projectDir) {
+    include '.dockerignore'
     include "docker/${docker_repo}/*"
     include 'metadata-models/src/main/resources/*'
   }.exclude {
-    i -> i.file.isHidden() || i.file == buildDir
+    i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
   }
   tag("Debug", "${docker_registry}/${docker_repo}:debug")
 
@@ -99,6 +170,22 @@ docker {
   buildx(true)
   load(true)
   push(false)
+
+  // Add build args if they are defined (needed for some CI or enterprise environments)
+  def dockerBuildArgs = [:]
+  if (project.hasProperty('alpineApkRepositoryUrl')) {
+    dockerBuildArgs.ALPINE_REPO_URL = project.getProperty('alpineApkRepositoryUrl')
+  }
+  if (project.hasProperty('githubMirrorUrl')) {
+    dockerBuildArgs.GITHUB_REPO_URL = project.getProperty('githubMirrorUrl')
+  }
+  if (project.hasProperty('mavenCentralRepositoryUrl')) {
+    dockerBuildArgs.MAVEN_CENTRAL_REPO_URL = project.getProperty('mavenCentralRepositoryUrl')
+  }
+
+  if (dockerBuildArgs.size() > 0) {
+    buildArgs(dockerBuildArgs)
+  }
 }
 tasks.getByPath(":datahub-upgrade:docker").dependsOn([bootJar])
 

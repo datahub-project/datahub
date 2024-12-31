@@ -102,6 +102,14 @@ mutation batchUpdateSoftDeleted($input: BatchUpdateSoftDeletedInput!) {
     batchUpdateSoftDeleted(input: $input)
 }
 
+mutation raiseIncident($input: RaiseIncidentInput!) {
+    raiseIncident(input: $input)
+}
+
+mutation updateIncidentStatus($urn: String!, $input: UpdateIncidentStatusInput!) {
+    updateIncidentStatus(urn: $urn, input: $input)
+}
+
 mutation batchAssignRole($input: BatchAssignRoleInput!) {
     batchAssignRole(input: $input)
 }
@@ -120,10 +128,22 @@ mutation createPost($input: CreatePostInput!) {
     createPost(input: $input)
 }
 
+mutation updatePost($input: UpdatePostInput!) {
+    updatePost(input: $input)
+}
+
 mutation updateLineage($input: UpdateLineageInput!) {
     updateLineage(input: $input)
 }
 
 mutation updateEmbed($input: UpdateEmbedInput!) {
     updateEmbed(input: $input)
+}
+
+mutation addBusinessAttribute($input: AddBusinessAttributeInput!) {
+    addBusinessAttribute(input: $input)
+}
+
+mutation removeBusinessAttribute($input: AddBusinessAttributeInput!) {
+    removeBusinessAttribute(input: $input)
 }

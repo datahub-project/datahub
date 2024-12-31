@@ -8,6 +8,7 @@
 
 .companyLogoWrapper {
   background: #fff;
+  height: 100px;
   html[data-theme="dark"] & {
     filter: invert(1);
     mix-blend-mode: exclusion;

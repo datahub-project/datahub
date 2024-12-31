@@ -1,0 +1,17 @@
+namespace com.datahub.test
+
+import com.linkedin.common.Urn
+
+/**
+ * Key for Test Entity entity
+ */
+@Aspect = {
+ "name": "refEntityKey"
+}
+record RefEntityKey {
+
+  /**
+    * A unique id
+    */
+    id: string
+}

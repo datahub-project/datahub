@@ -3,55 +3,63 @@
         "urn": "urn:li:dataPlatform:bigquery",
         "name": "bigquery",
         "displayName": "BigQuery",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/bigquery/",
+        "description": "Import Projects, Datasets, Tables, Views, lineage, queries, and statistics from BigQuery.",
+        "docsUrl": "https://datahubproject.io/docs/quick-ingestion-guides/bigquery/overview",
         "recipe": "source:\n    type: bigquery\n    config:\n        include_table_lineage: true\n        include_usage_statistics: true\n        include_tables: true\n        include_views: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:redshift",
         "name": "redshift",
         "displayName": "Redshift",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/redshift/",
+        "description": "Import Tables, Views, Databases, Schemas, lineage, queries, and statistics from Redshift.",
+        "docsUrl": "https://datahubproject.io/docs/quick-ingestion-guides/redshift/overview",
         "recipe": "source: \n    type: redshift\n    config:\n        # Coordinates\n        host_port: # Your Redshift host and post, e.g. example.something.us-west-2.redshift.amazonaws.com:5439\n        database: # Your Redshift database, e.g. SampleDatabase\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Redshift username, e.g. admin\n\n        table_lineage_mode: stl_scan_based\n        include_table_lineage: true\n        include_tables: true\n        include_views: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:snowflake",
         "name": "snowflake",
         "displayName": "Snowflake",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/snowflake/",
+        "description": "Import Tables, Views, Databases, Schemas, lineage, queries, and statistics from Snowflake.",
+        "docsUrl": "https://datahubproject.io/docs/quick-ingestion-guides/snowflake/overview",
         "recipe": "source: \n    type: snowflake\n    config:\n        account_id: null\n        include_table_lineage: true\n        include_view_lineage: true\n        include_tables: true\n        include_views: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
-        "urn": "urn:li:dataPlatform:kafka",
-        "name": "kafka",
-        "displayName": "Kafka",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/kafka/",
-        "recipe": "source:\n    type: kafka\n    config:\n        connection:\n            consumer_config:\n                security.protocol: \"PLAINTEXT\"\n        stateful_ingestion:\n            enabled: false"
+        "urn": "urn:li:dataPlatform:unity-catalog",
+        "name": "unity-catalog",
+        "displayName": "Databricks",
+        "description": "Import Metastores, Schemas, Tables, lineage, queries, and statistics from Databricks Unity Catalog.",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/databricks/#module-unity-catalog",
+        "recipe": "source:\n    type: unity-catalog\n    config:\n        # Coordinates\n        workspace_url: null\n        include_table_lineage: true\n        include_column_lineage: false\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:looker",
         "name": "looker",
         "displayName": "Looker",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/looker/",
-        "recipe": "source:\n    type: looker\n    config:\n        # Coordinates\n        base_url: # Your Looker instance URL, e.g. https://company.looker.com:19999\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: null # Your Looker client id, e.g. admin\n        stateful_ingestion:\n            enabled: true"
+        "description": "Import Models, Explores, Views, Looks, Dashboards, and lineage from Looker.",
+        "docsUrl": "https://datahubproject.io/docs/quick-ingestion-guides/looker/overview#looker",
+        "recipe": "source:\n    type: looker\n    config:\n        # Coosrdinates\n        base_url: # Your Looker instance URL, e.g. https://company.looker.com:19999\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: null # Your Looker client id, e.g. admin\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:lookml",
         "name": "lookml",
         "displayName": "LookML",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/looker/#module-lookml",
+        "description": "Import Models, Explores, Views, Looks, Dashboards, and lineage from LookML files.",
+        "docsUrl": "https://datahubproject.io/docs/quick-ingestion-guides/looker/overview#lookml",
         "recipe": "source:\n    type: lookml\n    config:\n        parse_table_names_from_sql: true\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:tableau",
         "name": "tableau",
         "displayName": "Tableau",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/tableau/",
+        "description": "Import Data Sources, Workbooks, Worksheets, Tags, Dashboards, and lineage from Tableau.",
+        "docsUrl": "https://datahubproject.io/docs/quick-ingestion-guides/tableau/overview",
         "recipe": "source:\n    type: tableau\n    config:\n        # Coordinates\n        connect_uri: null\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:powerbi",
         "name": "powerbi",
         "displayName": "PowerBI",
+        "description": "Import  Dashboards, Tiles, Datasets, and lineage from PowerBI.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/powerbi/",
         "recipe": "source:\n  type: \"powerbi\"\n  config:\n    # Your Power BI tenant identifier\n    tenant_id: null\n    # Your Power BI client id\n    client_id: null\n    # Your Power BI client secret\n    client_secret: null\n    stateful_ingestion:\n        enabled: true"
     },
@@ -59,6 +67,7 @@
         "urn": "urn:li:dataPlatform:dbt",
         "name": "dbt-cloud",
         "displayName": "dbt Cloud",
+        "description": "Import Sources, Seeds, Models, Snapshots, Tests, and lineage from dbt cloud.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/dbt/#module-dbt-cloud",
         "recipe": "source:\n  type: dbt-cloud\n  config:\n    account_id: null\n    project_id: null\n    job_id: null\n    target_platform: null\n    stateful_ingestion:\n      enabled: true"
     },
@@ -66,6 +75,7 @@
         "urn": "urn:li:dataPlatform:mysql",
         "name": "mysql",
         "displayName": "MySQL",
+        "description": "Import Tables, Views, Databases, Schemas, and statistics from MySQL.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mysql/",
         "recipe": "source: \n    type: mysql\n    config: \n        # Coordinates\n        host_port: # Your MySQL host and post, e.g. mysql:3306\n        database: # Your MySQL database name, e.g. datahub\n    \n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your MySQL username, e.g. admin\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
@@ -73,13 +83,23 @@
         "urn": "urn:li:dataPlatform:postgres",
         "name": "postgres",
         "displayName": "Postgres",
+        "description": "Import Tables, Views, Databases, Schemas, and statistics from Postgres.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/postgres/",
         "recipe": "source: \n    type: postgres\n    config:\n        # Coordinates\n        host_port: # Your Postgres host and port, e.g. postgres:5432\n        database: # Your Postgres Database, e.g. sample_db\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Postgres username, e.g. admin\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:kafka",
+        "name": "kafka",
+        "displayName": "Kafka",
+        "description": "Import streaming topics from Kafka.",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/kafka/",
+        "recipe": "source:\n    type: kafka\n    config:\n        connection:\n            consumer_config:\n                security.protocol: \"PLAINTEXT\"\n        stateful_ingestion:\n            enabled: false"
     },
     {
         "urn": "urn:li:dataPlatform:hive",
         "name": "hive",
         "displayName": "Hive",
+        "description": "Import Tables, Views, Databases, Schemas, and statistics from Hive.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/hive/",
         "recipe": "source: \n    type: hive\n    config:\n        # Coordinates\n        host_port: # Your Hive host and port, e.g. hive:10000\n        database: # Your Hive database name, e.g. SampleDatabase (Optional, if not specified, ingests from all databases)\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Hive username, e.g. admin\n        stateful_ingestion:\n            enabled: true"
     },
@@ -87,6 +107,7 @@
         "urn": "urn:li:dataPlatform:presto",
         "name": "presto",
         "displayName": "Presto",
+        "description": "Import Tables, Databases, Schemas, and statistics from Presto.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/presto/",
         "recipe": "source:\n    type: presto\n    config:\n        # Coordinates\n        host_port: null\n        # The name of the catalog from getting the usage\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
@@ -94,13 +115,23 @@
         "urn": "urn:li:dataPlatform:trino",
         "name": "trino",
         "displayName": "Trino",
+        "description": "Import Tables, Databases, Schemas, and statistics from Trino.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/trino/",
         "recipe": "source:\n    type: trino\n    config:\n        # Coordinates\n        host_port: null\n        # The name of the catalog from getting the usage\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:glue",
+        "name": "glue",
+        "displayName": "Glue",
+        "description": "Import Tables, Databases, Jobs, statistics, and lineage to S3 from AWS Glue.",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/glue/",
+        "recipe": "source:\n    type: glue\n    config:\n        # AWS credentials. \n        aws_region: # The region for your AWS Glue instance. \n        # Add secret in Secrets Tab with relevant names for each variable\n        # The access key for your AWS account.\n        aws_access_key_id: \"${AWS_ACCESS_KEY_ID}\"\n        # The secret key for your AWS account.\n        aws_secret_access_key: \"${AWS_SECRET_KEY}\"\n        aws_session_token: # The session key for your AWS account. This is only needed when you are using temporary credentials.\n        # aws_role: # (Optional) The role to assume (Role chaining supported by using a sorted list).\n\n        # Allow / Deny specific databases & tables\n        # database_pattern:\n        #    allow:\n        #        - \"flights-database\"\n        # table_pattern:\n        #    allow:\n        #        - \"avro\""
     },
     {
         "urn": "urn:li:dataPlatform:mssql",
         "name": "mssql",
         "displayName": "Microsoft SQL Server",
+        "description": "Import Tables, Views, Databases, Schemas, and statistics from SQL Server.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mssql/",
         "recipe": "source:\n    type: mssql\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
     },
@@ -108,20 +139,15 @@
         "urn": "urn:li:dataPlatform:mariadb",
         "name": "mariadb",
         "displayName": "MariaDB",
+        "description": "Import Tables, Views, Databases, Schemas, and statistics from MariaDB.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mariadb/",
         "recipe": "source:\n    type: mariadb\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
-    },
-    {
-        "urn": "urn:li:dataPlatform:unity-catalog",
-        "name": "unity-catalog",
-        "displayName": "Databricks Unity Catalog",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/databricks/#module-unity-catalog",
-        "recipe": "source:\n    type: unity-catalog\n    config:\n        # Coordinates\n        workspace_url: null\n        include_table_lineage: true\n        include_column_lineage: false\n        stateful_ingestion:\n            enabled: true"
     },
     {
         "urn": "urn:li:dataPlatform:mongodb",
         "name": "mongodb",
         "displayName": "MongoDB",
+        "description": "Import Databases and Collections from MongoDB.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mongodb/",
         "recipe": "source:\n    type: mongodb\n    config:\n        # Coordinates\n        connect_uri: # Your MongoDB connect URI, e.g. \"mongodb://localhost\"\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${MONGO_USERNAME}\" # Your MongoDB username, e.g. admin\n        password: \"${MONGO_PASSWORD}\" # Your MongoDB password, e.g. password_01\n\n        # Options (recommended)\n        enableSchemaInference: True\n        useRandomSampling: True\n        maxSchemaSize: 300"
     },
@@ -129,20 +155,15 @@
         "urn": "urn:li:dataPlatform:dynamodb",
         "name": "dynamodb",
         "displayName": "DynamoDB",
+        "description": "Import Tables from DynamoDB.",
         "docsUrl": "https://datahubproject.io/docs/metadata-ingestion/",
         "recipe": "source:\n    type: dynamodb\n    config:\n        platform_instance: \"AWS_ACCOUNT_ID\"\n        aws_access_key_id : '${AWS_ACCESS_KEY_ID}'\n        aws_secret_access_key : '${AWS_SECRET_ACCESS_KEY}'\n        # If there are items that have most representative fields of the table, users could use the\n        # `include_table_item` option to provide a list of primary keys of the table in dynamodb format.\n        # For each `region.table`, the list of primary keys can be at most 100.\n        # We include these items in addition to the first 100 items in the table when we scan it.\n        # include_table_item:\n        #   region.table_name:\n        #     [\n        #       {\n        #         'partition_key_name': { 'attribute_type': 'attribute_value' },\n        #         'sort_key_name': { 'attribute_type': 'attribute_value' },\n        #       },\n        #     ]"
-    },
-    {
-        "urn": "urn:li:dataPlatform:glue",
-        "name": "glue",
-        "displayName": "Glue",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/glue/",
-        "recipe": "source:\n    type: glue\n    config:\n        # AWS credentials. \n        aws_region: # The region for your AWS Glue instance. \n        # Add secret in Secrets Tab with relevant names for each variable\n        # The access key for your AWS account.\n        aws_access_key_id: \"${AWS_ACCESS_KEY_ID}\"\n        # The secret key for your AWS account.\n        aws_secret_access_key: \"${AWS_SECRET_KEY}\"\n        aws_session_token: # The session key for your AWS account. This is only needed when you are using temporary credentials.\n        # aws_role: # (Optional) The role to assume (Role chaining supported by using a sorted list).\n\n        # Allow / Deny specific databases & tables\n        # database_pattern:\n        #    allow:\n        #        - \"flights-database\"\n        # table_pattern:\n        #    allow:\n        #        - \"avro\""
     },
     {
         "urn": "urn:li:dataPlatform:oracle",
         "name": "oracle",
         "displayName": "Oracle",
+        "description": "Import Databases, Schemas, Tables, Views, statistics, and lineage from Oracle.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/oracle/",
         "recipe": "source: \n    type: oracle\n    config:\n        # Coordinates\n        host_port: # Your Oracle host and port, e.g. oracle:5432\n        database: # Your Oracle database name, e.g. sample_db\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${ORACLE_USERNAME}\" # Your Oracle username, e.g. admin\n        password: \"${ORACLE_PASSWORD}\" # Your Oracle password, e.g. password_01\n\n        # Optional service name\n        # service_name: # Your service name, e.g. svc # omit database if using this option"
     },
@@ -150,6 +171,7 @@
         "urn": "urn:li:dataPlatform:superset",
         "name": "superset",
         "displayName": "Superset",
+        "description": "Import Charts and Dashboards from Superset",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/superset/",
         "recipe": "source:\n  type: superset\n  config:\n    # Coordinates\n    connect_uri: http://localhost:8088\n\n    # Credentials\n    username: user\n    password: pass\n    provider: ldap"
     },
@@ -157,13 +179,15 @@
         "urn": "urn:li:dataPlatform:athena",
         "name": "athena",
         "displayName": "Athena",
+        "description": "Import Schemas, Tables, Views, and lineage to S3 from Athena.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/athena/",
-        "recipe": "source:\n  type: athena\n  config:\n    # Coordinates\n    aws_region: my_aws_region\n    work_group: primary\n\n    # Options\n    s3_staging_dir: \"s3://my_staging_athena_results_bucket/results/\""
+        "recipe": "source:\n  type: athena\n  config:\n    # AWS Keys (Optional - Required only if local aws credentials are not set)\n    username: aws_access_key_id\n    password: aws_secret_access_key\n    # Coordinates\n    aws_region: my_aws_region\n    work_group: primary\n\n    # Options\n    s3_staging_dir: \"s3://my_staging_athena_results_bucket/results/\""
     },
     {
         "urn": "urn:li:dataPlatform:clickhouse",
         "name": "clickhouse",
         "displayName": "ClickHouse",
+        "description": "Import Tables, Views, Materialized Views, Dictionaries, statistics, queries, and lineage from ClickHouse.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/clickhouse/",
         "recipe": "source:\n  type: clickhouse\n  config:\n    # Coordinates\n    host_port: localhost:9000\n\n    # Credentials\n    username: user\n    password: pass\n\n    # Options\n    platform_instance: DatabaseNameToBeIngested\n\n    include_views: true # whether to include views, defaults to True\n    include_tables: true # whether to include views, defaults to True\n\nsink:\n  # sink configs\n\n#---------------------------------------------------------------------------\n# For the HTTP interface:\n#---------------------------------------------------------------------------\nsource:\n  type: clickhouse\n  config:\n    host_port: localhost:8443\n    protocol: https\n\n#---------------------------------------------------------------------------\n# For the Native interface:\n#---------------------------------------------------------------------------\n\nsource:\n  type: clickhouse\n  config:\n    host_port: localhost:9440\n    scheme: clickhouse+native\n    secure: True"
     },
@@ -171,13 +195,23 @@
         "urn": "urn:li:dataPlatform:druid",
         "name": "druid",
         "displayName": "Druid",
+        "description": "Import Databases, Schemas, Tables, statistics, and lineage from Druid.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/druid/",
         "recipe": "source:\n  type: druid\n  config:\n    # Coordinates\n    host_port: \"localhost:8082\"\n\n    # Credentials\n    username: admin\n    password: password"
+    },
+    {
+        "urn": "urn:li:dataPlatform:mode",
+        "name": "mode",
+        "displayName": "Mode",
+        "description": "Import Reports, Charts, and lineage from Mode.",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mode/",
+        "recipe": "source:\n  type: mode\n  config:\n    # Coordinates\n    connect_uri: http://app.mode.com\n\n    # Credentials\n    token: token\n    password: pass\n\n    # Options\n    workspace: \"datahub\"\n    default_schema: \"public\"\n    owner_username_instead_of_email: False\n    api_options:\n      retry_backoff_multiplier: 2\n      max_retry_interval: 10\n      max_attempts: 5"
     },
     {
         "urn": "urn:li:dataPlatform:metabase",
         "name": "metabase",
         "displayName": "Metabase",
+        "description": "Import Collections, Dashboards, and Charts from Metabase.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/metabase/",
         "recipe": "source:\n  type: metabase\n  config:\n    # Coordinates\n    connect_uri:\n\n    # Credentials\n    username: root\n    password: example"
     },
@@ -185,42 +219,119 @@
         "urn": "urn:li:dataPlatform:mlflow",
         "name": "mlflow",
         "displayName": "MLflow",
+        "description": "Import Registered Models, Model Versions, and Model Stages from MLflow.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mlflow/",
         "recipe": "source:\n  type: mlflow\n  config:\n    tracking_uri: tracking_uri"
-    },
-    {
-        "urn": "urn:li:dataPlatform:mode",
-        "name": "mode",
-        "displayName": "Mode",
-        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/mode/",
-        "recipe": "source:\n  type: mode\n  config:\n    # Coordinates\n    connect_uri: http://app.mode.com\n\n    # Credentials\n    token: token\n    password: pass\n\n    # Options\n    workspace: \"datahub\"\n    default_schema: \"public\"\n    owner_username_instead_of_email: False\n    api_options:\n      retry_backoff_multiplier: 2\n      max_retry_interval: 10\n      max_attempts: 5"
     },
     {
         "urn": "urn:li:dataPlatform:azure-ad",
         "name": "azure-ad",
         "displayName": "Azure AD",
+        "description": "Import Users and Groups from Azure Active Directory.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/azure-ad/",
-        "recipe": "source:\n    type: azure-ad\n    config:\n        client_id: # Your Azure Client ID, e.g. \"00000000-0000-0000-0000-000000000000\"\n        tenant_id: # Your Azure Tenant ID, e.g. \"00000000-0000-0000-0000-000000000000\"\n        # Add secret in Secrets Tab with this name\n        client_secret: \"${AZURE_AD_CLIENT_SECRET}\"\n        redirect: # Your Redirect URL, e.g. \"https://login.microsoftonline.com/common/oauth2/nativeclient\"\n        authority: # Your Authority URL, e.g. \"https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000\"\n        token_url: # Your Token URL, e.g. \"https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token\"\n        graph_url: # The Graph URL, e.g. \"https://graph.microsoft.com/v1.0\"\n        \n        # Optional flags to ingest users, groups, or both\n        ingest_users: True\n        ingest_groups: True\n        \n        # Optional Allow / Deny extraction of particular Groups\n        # groups_pattern:\n        #    allow:\n        #        - \".*\"\n\n        # Optional Allow / Deny extraction of particular Users.\n        # users_pattern:\n        #    allow:\n        #        - \".*\""
+        "recipe": "source:\n    type: azure-ad\n    config:\n        client_id: # Your Azure Client ID, e.g. \"00000000-0000-0000-0000-000000000000\"\n        tenant_id: # Your Azure Tenant ID, e.g. \"00000000-0000-0000-0000-000000000000\"\n        # Add secret in Secrets Tab with this name\n        client_secret: \n        redirect: # Your Redirect URL, e.g. \"https://login.microsoftonline.com/common/oauth2/nativeclient\"\n        authority: # Your Authority URL, e.g. \"https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000\"\n        token_url: # Your Token URL, e.g. \"https://login.microsoftonline.com/00000000-0000-0000-0000-000000000000/oauth2/token\"\n        graph_url: # The Graph URL, e.g. \"https://graph.microsoft.com/v1.0\"\n        \n        # Optional flags to ingest users, groups, or both\n        ingest_users: True\n        ingest_groups: True\n        \n        # Optional Allow / Deny extraction of particular Groups\n        # groups_pattern:\n        #    allow:\n        #        - \".*\"\n\n        # Optional Allow / Deny extraction of particular Users.\n        # users_pattern:\n        #    allow:\n        #        - \".*\""
     },
     {
         "urn": "urn:li:dataPlatform:okta",
         "name": "okta",
         "displayName": "Okta",
+        "description": "Import Users and Groups from Okta.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/okta/",
-        "recipe": "source:\n    type: okta\n    config:\n        # Coordinates\n        okta_domain: # Your Okta Domain, e.g. \"dev-35531955.okta.com\"\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        okta_api_token: \"${OKTA_API_TOKEN}\" # Your Okta API Token, e.g. \"11be4R_M2MzDqXawbTHfKGpKee0kuEOfX1RCQSRx99\"\n\n        # Optional flags to ingest users, groups, or both\n        ingest_users: True\n        ingest_groups: True\n\n        # Optional: Customize the mapping to DataHub Username from an attribute appearing in the Okta User\n        # profile. Reference: https://developer.okta.com/docs/reference/api/users/\n        # okta_profile_to_username_attr: str = \"login\"\n        # okta_profile_to_username_regex: str = \"([^@]+)\"\n    \n        # Optional: Customize the mapping to DataHub Group from an attribute appearing in the Okta Group\n        # profile. Reference: https://developer.okta.com/docs/reference/api/groups/\n        # okta_profile_to_group_name_attr: str = \"name\"\n        # okta_profile_to_group_name_regex: str = \"(.*)\"\n        \n        # Optional: Include deprovisioned or suspended Okta users in the ingestion.\n        # include_deprovisioned_users = False\n        # include_suspended_users = False"
+        "recipe": "source:\n    type: okta\n    config:\n        # Coordinates\n        okta_domain: # Your Okta Domain, e.g. \"dev-35531955.okta.com\"\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        okta_api_token:  # Your Okta API Token, e.g. \"11be4R_M2MzDqXawbTHfKGpKee0kuEOfX1RCQSRx99\"\n\n        # Optional flags to ingest users, groups, or both\n        ingest_users: True\n        ingest_groups: True\n\n        # Optional: Customize the mapping to DataHub Username from an attribute appearing in the Okta User\n        # profile. Reference: https://developer.okta.com/docs/reference/api/users/\n        # okta_profile_to_username_attr: str = \"login\"\n        # okta_profile_to_username_regex: str = \"([^@]+)\"\n    \n        # Optional: Customize the mapping to DataHub Group from an attribute appearing in the Okta Group\n        # profile. Reference: https://developer.okta.com/docs/reference/api/groups/\n        # okta_profile_to_group_name_attr: str = \"name\"\n        # okta_profile_to_group_name_regex: str = \"(.*)\"\n        \n        # Optional: Include deprovisioned or suspended Okta users in the ingestion.\n        # include_deprovisioned_users = False\n        # include_suspended_users = False"
     },
     {
         "urn": "urn:li:dataPlatform:vertica",
         "name": "vertica",
         "displayName": "Vertica",
+        "description": "Import Databases, Schemas, Tables, Views, Projections, statistics, and lineage from Vertica.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/vertica/",
         "recipe": "source:\n    type: vertica\n    config:\n        # Coordinates\n        host_port: localhost:5433\n        # The name of the vertica database\n        database: Database_Name\n        # Credentials\n        username: Vertica_User\n        password: Vertica_Password\n\n        include_tables: true\n        include_views: true\n        include_projections: true\n        include_models: true\n        include_view_lineage: true\n        include_projection_lineage: true\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true  "
+    },
+    {
+        "urn": "urn:li:dataPlatform:fivetran",
+        "name": "fivetran",
+        "displayName": "Fivetran",
+        "description": "Import Connectors, Destinations, Sync Histor, Users, and lineage from FiveTran.",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/fivetran/",
+        "recipe": "source:\n    type: fivetran\n    config:\n        # Fivetran log connector destination server configurations\n        fivetran_log_config:\n            destination_platform: snowflake\n            snowflake_destination_config:\n                # Coordinates\n                account_id: snowflake_account_id\n                warehouse: warehouse_name\n                database: snowflake_db\n                log_schema: fivetran_log_schema\n\n                # Credentials\n                username: ${SNOWFLAKE_USER}\n                password: ${SNOWFLAKE_PASS}\n                role: snowflake_role\n\n        # Optional - filter for certain connector names instead of ingesting everything.\n        # connector_patterns:\n        #     allow:\n        #         - connector_name\n\n        # Optional -- This mapping is optional and only required to configure platform-instance for source\n        # A mapping of Fivetran connector id to data platform instance\n        # sources_to_platform_instance:\n        #     calendar_elected:\n        #         platform_instance: cloud_postgres_instance\n        #         env: DEV\n\n        # Optional -- This mapping is optional and only required to configure platform-instance for destination.\n        # A mapping of Fivetran destination id to data platform instance\n        # destination_to_platform_instance:\n        #     calendar_elected:\n        #         platform_instance: cloud_postgres_instance\n        #         env: DEV"
+    },
+    {
+        "urn": "urn:li:dataPlatform:sigma",
+        "name": "sigma",
+        "displayName": "Sigma",
+        "description": "Import Workspaces, Workbooks, Pages, Elements, and lineage from Sigma Computing.",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/sigma/",
+        "recipe": "source:\n    type: sigma\n    config:\n        # Coordinates\n        api_url: https://aws-api.sigmacomputing.com/v2\n        # Coordinates\n        client_id: CLIENT_ID\n        client_secret: CLIENT_SECRET\n\n        # Optional - filter for certain workspace names instead of ingesting everything.\n        # workspace_pattern:\n\n        #   allow:\n        #     - workspace_name\n        ingest_owner: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:qlik-sense",
+        "name": "qlik-sense",
+        "displayName": "Qlik Sense",
+        "description": "Import Spaces, Apps, Sheets, Charts, and Datasets from Qlik Sense.",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/qlik-sense/",
+        "recipe": "source:\n    type: qlik-sense\n    config:\n        # Coordinates\n        tenant_hostname: https://xyz12xz.us.qlikcloud.com\n        # Coordinates\n        api_key: QLIK_API_KEY\n\n        # Optional - filter for certain space names instead of ingesting everything.\n        # space_pattern:\n\n        #   allow:\n        #     - space_name\n        ingest_owner: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:cockroachdb",
+        "name": "cockroachdb",
+        "displayName": "CockroachDb",
+        "description": "Import Databases, Schemas, Tables, Views, statistics and lineage from CockroachDB.",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/cockroachdb/",
+        "recipe": "source: \n    type: cockroachdb\n    config:\n        # Coordinates\n        host_port: # Your CockroachDb host and port, e.g. cockroachdb:5432\n        database: # Your CockroachDb Database, e.g. sample_db\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your CockroachDb username, e.g. admin\n\n        # Options\n        include_tables: true\n        include_views: true\n\n        # Profiling\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:csv-enricher",
+        "name": "csv-enricher",
+        "displayName": "CSV",
+        "description": "Import metadata from a formatted CSV.",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/csv-enricher",
+        "recipe": "source: \n    type: csv-enricher \n    config: \n        # URL of your csv file to ingest \n        filename: \n        array_delimiter: '|' \n        delimiter: ',' \n        write_semantics: PATCH"
+    },
+    {
+        "urn": "urn:li:dataPlatform:sac",
+        "name": "sac",
+        "displayName": "SAP Analytics Cloud",
+        "description": "Import Stories, Applications and Models from SAP Analytics Cloud.",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/sac/",
+        "recipe": "source:\n    type: sac\n    config:\n        tenant_url: # Your SAP Analytics Cloud tenant URL, e.g. https://company.eu10.sapanalytics.cloud or https://company.eu10.hcs.cloud.sap\n        token_url: # The Token URL of your SAP Analytics Cloud tenant, e.g. https://company.eu10.hana.ondemand.com/oauth/token.\n\n        # Add secret in Secrets Tab with relevant names for each variable\n        client_id: \"${SAC_CLIENT_ID}\" # Your SAP Analytics Cloud client id\n        client_secret: \"${SAC_CLIENT_SECRET}\" # Your SAP Analytics Cloud client secret"
     },
     {
         "urn": "urn:li:dataPlatform:custom",
         "name": "custom",
         "displayName": "Other",
+        "description": "Configure a custom recipe using YAML.",
         "docsUrl": "https://datahubproject.io/docs/metadata-ingestion/",
         "recipe": "source:\n  type: <source-type>\n  config:\n    # Source-type specifics config\n    <source-configs>"
+    },
+    {
+        "urn": "urn:li:dataPlatform:dremio",
+        "name": "dremio",
+        "displayName": "Dremio",
+        "description": "Import Spaces, Sources, Tables and statistics from Dremio.",
+        "docsUrl": "https://datahubproject.io/docs/metadata-ingestion/",
+        "recipe": "source:\n    type: dremio\n    config:\n        # Coordinates\n        hostname: null\n        port: null\n        #true if https, otherwise false\n        tls: true\n\n        #For cloud instance\n        #is_dremio_cloud: True\n        #dremio_cloud_project_id: <project_id>\n\n        #Credentials with personal access token\n        authentication_method: PAT\n        password: pass\n\n        #Or Credentials with basic auth\n        #authentication_method: password\n        #username: null\n        #password: null\n\n       ingest_owner: true\n\n        stateful_ingestion:\n            enabled: true"
+    },
+    {
+        "urn": "urn:li:dataPlatform:cassandra",
+        "name": "cassandra",
+        "displayName": "CassandraDB",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/cassandra",
+        "recipe": "source:\n  type: cassandra\n  config:\n    # Credentials for on prem cassandra\n    contact_point: localhost\n    port: 9042\n    username: admin\n    password: password\n\n    # Or\n    # Credentials Astra Cloud\n    #cloud_config:\n    #  secure_connect_bundle: Path to Secure Connect Bundle (.zip)\n    #  token: Application Token\n\n    # Optional Allow / Deny extraction of particular keyspaces.\n    keyspace_pattern:\n      allow: [.*]\n\n    # Optional Allow / Deny extraction of particular tables.\n    table_pattern:\n      allow: [.*]"
+    },
+    {
+        "urn": "urn:li:dataPlatform:iceberg",
+        "name": "iceberg",
+        "displayName": "Iceberg",
+        "description": "Ingest databases and tables from any Iceberg catalog implementation",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/iceberg",
+        "recipe": "source:\n type: \"iceberg\"\n config:\n   env: dev\n   # each thread will open internet connections to fetch manifest files independently, \n   # this value needs to be adjusted with ulimit\n   processing_threads: 1 \n   # a single catalog definition with a form of a dictionary\n   catalog: \n     demo: # name of the catalog\n       type: \"rest\" # other types are available\n       uri: \"uri\"\n       s3.access-key-id: \"access-key\"\n       s3.secret-access-key: \"secret-access-key\"\n       s3.region: \"aws-region\"\n   profiling:\n     enabled: false\n"
+    },
+    {
+        "urn": "urn:li:dataPlatform:neo4j",
+        "name": "neo4j",
+        "displayName": "Neo4j",
+        "description": "Import Nodes and Relationships from Neo4j.",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/neo4j/",
+        "recipe": "source:\n    type: 'neo4j'\n    config:\n        uri: 'neo4j+ssc://host:7687'\n        username: 'neo4j'\n        password: 'password'\n        env: 'PROD'\n\nsink:\n  type: \"datahub-rest\"\n  config:\n    server: 'http://localhost:8080'"
     }
 ]
