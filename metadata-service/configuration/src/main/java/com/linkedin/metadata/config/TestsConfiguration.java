@@ -16,6 +16,8 @@ public class TestsConfiguration {
 
   private boolean jvmShutdownHookEnabled;
 
+  private long futuresBatchSize;
+
   private TestsHookConfiguration hook;
   private int cacheRefreshDelayIntervalSecs;
   private int cacheRefreshIntervalSecs;
