@@ -9,6 +9,7 @@ title: "Local Development"
 - [Java 17 JDK](https://openjdk.org/projects/jdk/17/)
 - [Python 3.10](https://www.python.org/downloads/release/python-3100/)
 - [Docker](https://www.docker.com/)
+- [Node 22.x](https://nodejs.org/en/about/previous-releases)
 - [Docker Compose >=2.20](https://docs.docker.com/compose/)
 - Docker engine with at least 8GB of memory to run tests.
 
