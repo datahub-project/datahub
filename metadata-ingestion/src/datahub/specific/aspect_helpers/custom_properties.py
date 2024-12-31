@@ -1,11 +1,9 @@
 from abc import abstractmethod
-from typing import Dict, Optional, Tuple, TypeVar
+from typing import Dict, Optional, Tuple
 
 from typing_extensions import Self
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
-
-_Parent = TypeVar("_Parent", bound=MetadataPatchProposal)
 
 
 class HasCustomPropertiesPatch(MetadataPatchProposal):

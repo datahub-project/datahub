@@ -19,7 +19,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
 from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
-from datahub.specific.structured_properties import StructuredPropertiesPatchHelper
+from datahub.specific.aspect_helpers.structured_properties import (
+    HasStructuredPropertiesPatch,
+)
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
 
@@ -93,7 +95,10 @@ class FieldPatchHelper(Generic[_Parent]):
 
 
 class DatasetPatchBuilder(
-    HasOwnershipPatch, HasCustomPropertiesPatch, MetadataPatchProposal
+    HasOwnershipPatch,
+    HasCustomPropertiesPatch,
+    HasStructuredPropertiesPatch,
+    MetadataPatchProposal,
 ):
     def __init__(
         self,
@@ -104,7 +109,6 @@ class DatasetPatchBuilder(
         super().__init__(
             urn, system_metadata=system_metadata, audit_header=audit_header
         )
-        self.structured_properties_patch_helper = StructuredPropertiesPatchHelper(self)
 
     @classmethod
     def _custom_properties_location(cls) -> Tuple[str, PatchPath]:
@@ -312,34 +316,4 @@ class DatasetPatchBuilder(
                 path=("lastModified",),
                 value=timestamp,
             )
-        return self
-
-    def set_structured_property(
-        self, property_name: str, value: Union[str, float, List[Union[str, float]]]
-    ) -> "DatasetPatchBuilder":
-        """
-        This is a helper method to set a structured property.
-        @param property_name: the name of the property (either bare or urn form)
-        @param value: the value of the property (for multi-valued properties, this can be a list)
-        """
-        self.structured_properties_patch_helper.set_property(property_name, value)
-        return self
-
-    def add_structured_property(
-        self, property_name: str, value: Union[str, float]
-    ) -> "DatasetPatchBuilder":
-        """
-        This is a helper method to add a structured property.
-        @param property_name: the name of the property (either bare or urn form)
-        @param value: the value of the property (for multi-valued properties, this value will be appended to the list)
-        """
-        self.structured_properties_patch_helper.add_property(property_name, value)
-        return self
-
-    def remove_structured_property(self, property_name: str) -> "DatasetPatchBuilder":
-        """
-        This is a helper method to remove a structured property.
-        @param property_name: the name of the property (either bare or urn form)
-        """
-        self.structured_properties_patch_helper.remove_property(property_name)
         return self
