@@ -1,16 +1,17 @@
-import { LineChart, GraphCard } from '@components';
+import { GraphCard, LineChart } from '@components';
 import { pluralize } from '@src/app/shared/textUtil';
 import { AssertionType, TimeRange } from '@src/types.generated';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
 import { LookbackWindow } from '../../../lookbackWindows';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
+import { SectionKeys } from '../../utils';
 import AddAssertionButton from '../components/AddAssertionButton';
 import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
+import TimeRangeSelect from '../components/TimeRangeSelect';
 import { GRAPH_LOOPBACK_WINDOWS, GRAPH_LOOPBACK_WINDOWS_OPTIONS } from '../constants';
 import useRowCountData from './useRowCountData';
-import TimeRangeSelect from '../components/TimeRangeSelect';
 import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
 
 type RowCountGraphProps = {
@@ -33,7 +34,7 @@ export default function RowCountGraph({ urn }: RowCountGraphProps) {
     const { data, loading: dataLoading } = useRowCountData(urn, lookbackWindow);
 
     useEffect(() => {
-        if (!sections.rowsAndUsers.hasData && data.length > 0) setSectionState('rowsAndUsers', true);
+        if (!sections.rowsAndUsers.hasData && data.length > 0) setSectionState(SectionKeys.ROWS_AND_USERS, true);
     }, [data, setSectionState, sections.rowsAndUsers]);
 
     useEffect(() => {

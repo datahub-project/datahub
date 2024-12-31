@@ -23,7 +23,7 @@ interface StatsSectionsContextProps {
 
 // Function to get default initial sections
 const getDefaultSections = (): Record<SectionKeys, Section> => {
-    const keys: SectionKeys[] = ['rowsAndUsers', 'queries', 'storage', 'changes', 'columnStats'];
+    const keys = Object.values(SectionKeys);
     return Object.fromEntries(
         keys.map((key) => [key, { hasData: false, ref: React.createRef<HTMLDivElement>() }]),
     ) as Record<SectionKeys, Section>;

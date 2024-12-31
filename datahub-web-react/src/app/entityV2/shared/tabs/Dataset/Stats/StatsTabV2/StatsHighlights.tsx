@@ -76,7 +76,7 @@ const StatsHighlights = ({
                             width={CARD_WIDTH}
                             isEmpty={rowCount === undefined}
                             button={rowCount ? <ViewButton /> : undefined}
-                            onClick={() => (rowCount ? scrollToSection?.('rowsAndUsers') : undefined)}
+                            onClick={() => (rowCount ? scrollToSection?.(SectionKeys.ROWS_AND_USERS) : undefined)}
                         />
                         <Card
                             title={columnCount?.toString() || ''}
@@ -84,7 +84,7 @@ const StatsHighlights = ({
                             width={CARD_WIDTH}
                             isEmpty={columnCount === undefined}
                             button={hasColumnStats ? <ViewButton /> : undefined}
-                            onClick={() => (hasColumnStats ? scrollToSection?.('columnStats') : undefined)}
+                            onClick={() => (hasColumnStats ? scrollToSection?.(SectionKeys.COLUMN_STATS) : undefined)}
                         />
                     </StatCards>
                 </Section>
@@ -100,7 +100,9 @@ const StatsHighlights = ({
                             width={CARD_WIDTH}
                             isEmpty={users === undefined}
                             button={users && users.length ? <ViewButton /> : undefined}
-                            onClick={() => (users && users.length ? scrollToSection?.('rowsAndUsers') : undefined)}
+                            onClick={() =>
+                                users && users.length ? scrollToSection?.(SectionKeys.ROWS_AND_USERS) : undefined
+                            }
                         />
                         <Card
                             title={queryCount?.toString() || ''}
@@ -108,7 +110,7 @@ const StatsHighlights = ({
                             width={CARD_WIDTH}
                             isEmpty={queryCount === undefined}
                             button={queryCount ? <ViewButton /> : undefined}
-                            onClick={() => (queryCount ? scrollToSection?.('queries') : undefined)}
+                            onClick={() => (queryCount ? scrollToSection?.(SectionKeys.QUERIES) : undefined)}
                         />
                         <Card
                             title={totalOperations?.toString() || ''}
@@ -116,7 +118,7 @@ const StatsHighlights = ({
                             width={CARD_WIDTH}
                             isEmpty={totalOperations === undefined}
                             button={totalOperations ? <ViewButton /> : undefined}
-                            onClick={() => (totalOperations ? scrollToSection?.('changes') : undefined)}
+                            onClick={() => (totalOperations ? scrollToSection?.(SectionKeys.CHANGES) : undefined)}
                         />
                     </StatCards>
                 </Section>

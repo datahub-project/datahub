@@ -1,7 +1,10 @@
 import { useGetTimeRangeUsageAggregationsLazyQuery } from '@src/graphql/dataset.generated';
 import { Maybe, TimeRange, UsageAggregation, UsageQueryResult } from '@src/types.generated';
 import { useEffect, useState } from 'react';
-import { addMonthOverMonthValue, groupTimeData } from '../utils';
+import { addMonthOverMonthValue, groupTimeData, TimeInterval } from '../utils';
+
+const MAX_NUM_DAYS_PER_MONTH = 31;
+const MAX_NUM_DAYS_PER_QUARTER = 95;
 
 interface ChartData {
     time: string | number;
@@ -22,13 +25,13 @@ const normalizeData = (data: Maybe<UsageAggregation>[]) => {
     );
 };
 
-const getChartData = (rawData: UsageAggregation[]) => {
+const getChartData = (rawData: UsageAggregation[], interval: TimeInterval) => {
     const groupedData = groupTimeData(
         rawData,
-        'day',
+        interval,
         (d) => d.bucket || 0,
         (d) => d.metrics?.totalSqlQueries || 0,
-        (values) => Math.max(...values),
+        (values) => (interval === TimeInterval.DAY ? Math.max(...values) : values.reduce((sum, val) => sum + val, 0)),
     );
 
     return addMonthOverMonthValue(
@@ -44,8 +47,23 @@ export default function useQueryCountData(
     initialData?: Array<Maybe<UsageAggregation>>,
 ) {
     const [chartData, setChartData] = useState<ChartData[]>([]);
+    const [groupInterval, setGroupInterval] = useState<TimeInterval>(TimeInterval.DAY);
+
     const [getTimeRangeUsageAggregations, { data: aggregationData, loading }] =
         useGetTimeRangeUsageAggregationsLazyQuery();
+
+    const handleSetGroupInterval = (data) => {
+        if (data.length <= MAX_NUM_DAYS_PER_MONTH) setGroupInterval(TimeInterval.DAY);
+        else if (data.length > MAX_NUM_DAYS_PER_MONTH && data.length <= MAX_NUM_DAYS_PER_QUARTER) {
+            setGroupInterval(TimeInterval.WEEK);
+        } else if (data.length > MAX_NUM_DAYS_PER_QUARTER) setGroupInterval(TimeInterval.MONTH);
+    };
+
+    useEffect(() => {
+        if (initialData) handleSetGroupInterval(initialData);
+        else if (aggregationData)
+            handleSetGroupInterval((aggregationData.dataset?.usageStats as UsageQueryResult)?.buckets);
+    }, [initialData, aggregationData]);
 
     useEffect(() => {
         if (timeRange && !initialData) {
@@ -58,22 +76,23 @@ export default function useQueryCountData(
     useEffect(() => {
         if (initialData?.length) {
             const normalizedData: UsageAggregation[] = normalizeData(initialData);
-            const processedData = getChartData(normalizedData);
+            const processedData = getChartData(normalizedData, groupInterval);
             setChartData(processedData);
         }
-    }, [initialData]);
+    }, [initialData, groupInterval]);
 
     useEffect(() => {
-        if (aggregationData) {
+        if (!initialData?.length && aggregationData) {
             const updatedBuckets = (aggregationData.dataset?.usageStats as UsageQueryResult)?.buckets;
             const normalizedData: UsageAggregation[] = normalizeData(updatedBuckets || []);
-            const processedData = getChartData(normalizedData);
+            const processedData = getChartData(normalizedData, groupInterval);
             setChartData(processedData);
         }
-    }, [aggregationData]);
+    }, [aggregationData, groupInterval, initialData?.length]);
 
     return {
         chartData,
         loading,
+        groupInterval,
     };
 }

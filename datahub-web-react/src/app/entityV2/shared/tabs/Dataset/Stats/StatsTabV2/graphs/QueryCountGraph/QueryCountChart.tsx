@@ -3,14 +3,15 @@ import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import { pluralize } from '@src/app/shared/textUtil';
 import { GetDatasetQuery } from '@src/graphql/dataset.generated';
 import { Maybe, TimeRange, UsageAggregation } from '@src/types.generated';
-import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
+import { SectionKeys } from '../../utils';
 import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
-import { AGGRAGATION_TIME_RANGE_OPTIONS } from '../constants';
-import useQueryCountData from './useQueryCountData';
 import TimeRangeSelect from '../components/TimeRangeSelect';
+import { AGGRAGATION_TIME_RANGE_OPTIONS } from '../constants';
+import { getPopoverTimeFormat, getXAxisTickFormat } from '../utils';
+import useQueryCountData from './useQueryCountData';
 import useGetTimeRangeOptionsByTimeRange from '../hooks/useGetTimeRangeOptionsByTimeRange';
 
 interface Props {
@@ -20,6 +21,7 @@ interface Props {
 const QueryCountChart = ({ queryCountBuckets }: Props) => {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const {
+        sections,
         setSectionState,
         dataInfo: { capabilitiesLoading, oldestDatasetUsageTime },
     } = useStatsSectionsContext();
@@ -27,15 +29,19 @@ const QueryCountChart = ({ queryCountBuckets }: Props) => {
     const timeRangeOptions = useGetTimeRangeOptionsByTimeRange(AGGRAGATION_TIME_RANGE_OPTIONS, oldestDatasetUsageTime);
     const [timeRange, setTimeRange] = useState<TimeRange>(TimeRange.Month);
 
-    const { chartData, loading: dataLoading } = useQueryCountData(
+    const {
+        chartData,
+        loading: dataLoading,
+        groupInterval,
+    } = useQueryCountData(
         baseEntity?.dataset?.urn as string,
         timeRange,
         timeRange === TimeRange.Month ? queryCountBuckets || [] : undefined,
     );
 
     useEffect(() => {
-        setSectionState('queries', chartData.length > 0);
-    }, [chartData, setSectionState]);
+        if (!sections.queries.hasData && chartData.length > 0) setSectionState(SectionKeys.QUERIES, true);
+    }, [chartData, setSectionState, sections.queries]);
 
     const handleFilterChange = (value: TimeRange) => {
         setTimeRange(value);
@@ -50,11 +56,11 @@ const QueryCountChart = ({ queryCountBuckets }: Props) => {
                 xAccessor={(item) => item.time}
                 yAccessor={(item) => item.value}
                 yScale={{ type: 'linear', nice: true, round: true, zero: true }}
-                bottomAxisProps={{ tickFormat: (x) => dayjs(x).format('DD MMM') }}
+                bottomAxisProps={{ tickFormat: (x) => getXAxisTickFormat(groupInterval, x) }}
                 leftAxisProps={{ hideZero: true }}
                 popoverRenderer={(datum) => (
                     <GraphPopover
-                        header={dayjs(datum.time).format('dddd. MMM. D ’YY')}
+                        header={getPopoverTimeFormat(groupInterval, datum.time)}
                         value={`${datum.value} ${pluralize(datum.value, 'Query')}`}
                         pills={<MonthOverMonthPill value={datum.mom} />}
                     />

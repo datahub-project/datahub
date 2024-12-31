@@ -31,4 +31,10 @@ export const getMockTopUsersData = (noOfUsers: number) => {
     }));
 };
 
-export type SectionKeys = 'rowsAndUsers' | 'queries' | 'storage' | 'changes' | 'columnStats';
+export enum SectionKeys {
+    ROWS_AND_USERS = 'rowsAndUsers',
+    QUERIES = 'queries',
+    STORAGE = 'storage',
+    CHANGES = 'changes',
+    COLUMN_STATS = 'columnStats',
+}

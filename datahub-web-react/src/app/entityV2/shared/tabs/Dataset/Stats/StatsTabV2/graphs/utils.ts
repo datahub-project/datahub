@@ -12,7 +12,7 @@ dayjs.extend(utc);
  */
 export function groupTimeData<T>(
     data: T[],
-    interval: 'day',
+    interval: TimeInterval,
     timeAccessor: (datum: T) => string | number,
     valueAccessor: (datum: T) => number,
     aggregationFuncttion: (values: number[]) => number,
@@ -90,6 +90,40 @@ export function getStartTimeByTimeRange(range: TimeRange): number | undefined {
             return undefined;
     }
 }
+
+export enum TimeInterval {
+    DAY = 'day',
+    WEEK = 'week',
+    MONTH = 'month',
+}
+
+export const getXAxisTickFormat = (interval: TimeInterval, time: number) => {
+    if (interval === TimeInterval.WEEK) {
+        const endOfWeekTime = dayjs(dayjs(time).endOf('week').toDate().getTime());
+        if (endOfWeekTime.month() !== dayjs(time).month()) {
+            return `${dayjs(time).format('D')}-${endOfWeekTime.format('D')} ${dayjs(time).format(
+                'MMM',
+            )}-${endOfWeekTime.format('MMM')}`;
+        }
+        return `${dayjs(time).format('D')}-${dayjs(dayjs(time).endOf('week').toDate().getTime()).format('D MMM')}`;
+    }
+    if (interval === TimeInterval.MONTH) {
+        return dayjs(time).format('MMM YY');
+    }
+    return dayjs(time).format('D MMM');
+};
+
+export const getPopoverTimeFormat = (interval: TimeInterval, time: number | string) => {
+    if (interval === TimeInterval.WEEK) {
+        return `Week of ${dayjs(time).format('MMM. D ’YY')} - ${dayjs(
+            dayjs(time).endOf('week').toDate().getTime(),
+        ).format('MMM. D ’YY')}`;
+    }
+    if (interval === TimeInterval.MONTH) {
+        return dayjs(time).format('MMMM ’YYYY');
+    }
+    return dayjs(time).format('dddd. MMM. D ’YY');
+};
 
 export function getStartTimeByWindowSize(window?: LookbackWindow): number | undefined {
     if (window === undefined) return undefined;

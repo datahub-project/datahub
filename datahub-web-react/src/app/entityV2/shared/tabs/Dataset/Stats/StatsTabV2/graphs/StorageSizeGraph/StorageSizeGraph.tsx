@@ -1,15 +1,16 @@
-import { LineChart, GraphCard } from '@components';
+import { GraphCard, LineChart } from '@components';
 import { formatBytes } from '@src/app/shared/formatNumber';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
 import { TimeRange } from '@src/types.generated';
 import { LookbackWindow } from '../../../lookbackWindows';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
+import { SectionKeys } from '../../utils';
 import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
+import TimeRangeSelect from '../components/TimeRangeSelect';
 import { GRAPH_LOOPBACK_WINDOWS, GRAPH_LOOPBACK_WINDOWS_OPTIONS } from '../constants';
 import useStorageSizeData from './useStorageSizeData';
-import TimeRangeSelect from '../components/TimeRangeSelect';
 import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
 
 type RowCountGraphProps = {
@@ -18,6 +19,7 @@ type RowCountGraphProps = {
 
 export default function StorageSizeGraph({ urn }: RowCountGraphProps) {
     const {
+        sections,
         setSectionState,
         dataInfo: { capabilitiesLoading, oldestDatasetProfileTime },
     } = useStatsSectionsContext();
@@ -32,8 +34,8 @@ export default function StorageSizeGraph({ urn }: RowCountGraphProps) {
     const { data, loading: dataLoading } = useStorageSizeData(urn, lookbackWindow);
 
     useEffect(() => {
-        setSectionState('storage', data.length > 0);
-    }, [data, setSectionState]);
+        if (!sections.storage.hasData && data.length > 0) setSectionState(SectionKeys.STORAGE, true);
+    }, [data, setSectionState, sections.storage]);
 
     useEffect(() => {
         if (rangeType) setLookbackWindow(GRAPH_LOOPBACK_WINDOWS[rangeType]);

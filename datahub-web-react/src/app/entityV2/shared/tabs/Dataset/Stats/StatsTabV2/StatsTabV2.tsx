@@ -68,7 +68,12 @@ const StatsTabV2 = () => {
     const columnStats = (latestProfile && latestProfile.fieldProfiles) || [];
     const hasColumnStats = columnStats?.length > 0;
 
-    const historicalSections: SectionKeys[] = ['rowsAndUsers', 'queries', 'storage', 'changes'];
+    const historicalSections: SectionKeys[] = [
+        SectionKeys.ROWS_AND_USERS,
+        SectionKeys.QUERIES,
+        SectionKeys.STORAGE,
+        SectionKeys.CHANGES,
+    ];
     const hasHistoricalStats = historicalSections.some((key) => sections[key].hasData);
 
     useEffect(() => {
@@ -77,11 +82,12 @@ const StatsTabV2 = () => {
     }, []);
 
     useEffect(() => {
-        setSectionState('columnStats', hasColumnStats);
-    }, [hasColumnStats, setSectionState]);
+        if (!sections.columnStats.hasData && hasColumnStats) setSectionState(SectionKeys.COLUMN_STATS, true);
+    }, [hasColumnStats, setSectionState, sections.columnStats]);
 
     useEffect(() => {
-        if (!sections.rowsAndUsers.hasData && users && users.length > 0) setSectionState('rowsAndUsers', true);
+        if (!sections.rowsAndUsers.hasData && users && users.length > 0)
+            setSectionState(SectionKeys.ROWS_AND_USERS, true);
     }, [users, setSectionState, sections.rowsAndUsers]);
 
     const sectionsList: Record<SectionKeys, React.ReactNode> = {

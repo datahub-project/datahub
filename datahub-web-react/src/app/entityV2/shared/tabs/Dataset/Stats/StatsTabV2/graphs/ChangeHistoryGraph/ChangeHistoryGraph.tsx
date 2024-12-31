@@ -1,6 +1,8 @@
 import { CalendarChart, GraphCard } from '@components';
 import { AssertionType, OperationType, TimeRange } from '@src/types.generated';
 import React, { useEffect, useState } from 'react';
+import { useStatsSectionsContext } from '../../StatsSectionsContext';
+import { SectionKeys } from '../../utils';
 import AddAssertionButton from '../components/AddAssertionButton';
 import TimeRangeSelect from '../components/TimeRangeSelect';
 import { AGGRAGATION_TIME_RANGE_OPTIONS } from '../constants';
@@ -8,13 +10,12 @@ import { ChangeHistoryDrawer } from './components/ChangeHistoryDrawer/ChangeHist
 import ChangeHistoryPopover from './components/ChangeHistoryPopover';
 import useChangeHistoryData from './hooks/useChangeHistoryData';
 import useColorAccessors from './hooks/useColorAccessors';
-import useGetCalendarRangeByTimeRange from './hooks/useGetCalendarRangeByTimeRange';
 import useGetTimeRangeOptionsByTimeRange from '../hooks/useGetTimeRangeOptionsByTimeRange';
 import TypesSelect from './components/TypesSelect';
 import { DEFAULT_OPERATION_TYPES, OPERATION_TYPE_OPTIONS } from './constants';
 import Subtitle from './components/Subtitle';
 import useDataRange from './hooks/useDataRange';
-import { useStatsSectionsContext } from '../../StatsSectionsContext';
+import useGetCalendarRangeByTimeRange from './hooks/useGetCalendarRangeByTimeRange';
 
 // DAY, WEEKDAY, ALL time ranges are not available for the change history graph
 const NOT_AVAILABLE_RANGES = [TimeRange.Day, TimeRange.Week, TimeRange.All];
@@ -53,7 +54,7 @@ export default function ChangeHistoryGraph({ urn }: ChangeHistoryGraphProps) {
 
     useEffect(() => {
         // TODO: Update hasData for 'changes' based on the change history data
-        setSectionState('changes', false);
+        setSectionState(SectionKeys.CHANGES, false);
     }, [setSectionState]);
 
     // Operation types
