@@ -257,7 +257,8 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
             ImmutableList.of(
                 new SortCriterion()
                     .setField(VERSION_SORT_ID_FIELD_NAME)
-                    .setOrder(SortOrder.DESCENDING)));
+                    .setOrder(SortOrder.DESCENDING)),
+            SearchRetriever.RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS);
     String updatedLatestVersionUrn = null;
 
     SearchEntityArray linkedEntities = linkedVersions.getEntities();

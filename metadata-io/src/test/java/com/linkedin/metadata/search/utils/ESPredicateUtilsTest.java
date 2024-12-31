@@ -12,6 +12,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.test.definition.TestDefinition;
 import com.linkedin.metadata.test.definition.TestDefinitionParser;
 import com.linkedin.metadata.test.definition.expression.Query;
@@ -68,10 +69,66 @@ public class ESPredicateUtilsTest {
     // Ensure that the query is expanded!
     QueryBuilder result =
         ESPredicateUtils.buildFilterQuery(
-            predicate, false, fieldPaths, fieldTypes, OPERATION_CONTEXT);
+            predicate,
+            false,
+            fieldPaths,
+            fieldTypes,
+            OPERATION_CONTEXT,
+            QueryFilterRewriteChain.EMPTY);
     String expected =
         "{\n"
             + "  \"bool\" : {\n"
+            + "    \"must\" : [\n"
+            + "      {\n"
+            + "        \"bool\" : {\n"
+            + "          \"should\" : [\n"
+            + "            {\n"
+            + "              \"bool\" : {\n"
+            + "                \"filter\" : [\n"
+            + "                  {\n"
+            + "                    \"terms\" : {\n"
+            + "                      \"isLatest.keyword\" : [\n"
+            + "                        \"true\"\n"
+            + "                      ],\n"
+            + "                      \"boost\" : 1.0,\n"
+            + "                      \"_name\" : \"isLatest\"\n"
+            + "                    }\n"
+            + "                  }\n"
+            + "                ],\n"
+            + "                \"adjust_pure_negative\" : true,\n"
+            + "                \"boost\" : 1.0\n"
+            + "              }\n"
+            + "            },\n"
+            + "            {\n"
+            + "              \"bool\" : {\n"
+            + "                \"must_not\" : [\n"
+            + "                  {\n"
+            + "                    \"bool\" : {\n"
+            + "                      \"must\" : [\n"
+            + "                        {\n"
+            + "                          \"exists\" : {\n"
+            + "                            \"field\" : \"isLatest\",\n"
+            + "                            \"boost\" : 1.0\n"
+            + "                          }\n"
+            + "                        }\n"
+            + "                      ],\n"
+            + "                      \"adjust_pure_negative\" : true,\n"
+            + "                      \"boost\" : 1.0,\n"
+            + "                      \"_name\" : \"isLatest\"\n"
+            + "                    }\n"
+            + "                  }\n"
+            + "                ],\n"
+            + "                \"adjust_pure_negative\" : true,\n"
+            + "                \"boost\" : 1.0\n"
+            + "              }\n"
+            + "            }\n"
+            + "          ],\n"
+            + "          \"adjust_pure_negative\" : true,\n"
+            + "          \"minimum_should_match\" : \"1\",\n"
+            + "          \"boost\" : 1.0\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
             + "    \"should\" : [\n"
             + "      {\n"
             + "        \"bool\" : {\n"
@@ -115,10 +172,66 @@ public class ESPredicateUtilsTest {
     // Ensure that the query is expanded without keyword.
     result =
         ESPredicateUtils.buildFilterQuery(
-            predicate2, true, fieldPaths2, fieldTypes2, OPERATION_CONTEXT);
+            predicate2,
+            true,
+            fieldPaths2,
+            fieldTypes2,
+            OPERATION_CONTEXT,
+            QueryFilterRewriteChain.EMPTY);
     expected =
         "{\n"
             + "  \"bool\" : {\n"
+            + "    \"must\" : [\n"
+            + "      {\n"
+            + "        \"bool\" : {\n"
+            + "          \"should\" : [\n"
+            + "            {\n"
+            + "              \"bool\" : {\n"
+            + "                \"filter\" : [\n"
+            + "                  {\n"
+            + "                    \"terms\" : {\n"
+            + "                      \"isLatest.keyword\" : [\n"
+            + "                        \"true\"\n"
+            + "                      ],\n"
+            + "                      \"boost\" : 1.0,\n"
+            + "                      \"_name\" : \"isLatest\"\n"
+            + "                    }\n"
+            + "                  }\n"
+            + "                ],\n"
+            + "                \"adjust_pure_negative\" : true,\n"
+            + "                \"boost\" : 1.0\n"
+            + "              }\n"
+            + "            },\n"
+            + "            {\n"
+            + "              \"bool\" : {\n"
+            + "                \"must_not\" : [\n"
+            + "                  {\n"
+            + "                    \"bool\" : {\n"
+            + "                      \"must\" : [\n"
+            + "                        {\n"
+            + "                          \"exists\" : {\n"
+            + "                            \"field\" : \"isLatest\",\n"
+            + "                            \"boost\" : 1.0\n"
+            + "                          }\n"
+            + "                        }\n"
+            + "                      ],\n"
+            + "                      \"adjust_pure_negative\" : true,\n"
+            + "                      \"boost\" : 1.0,\n"
+            + "                      \"_name\" : \"isLatest\"\n"
+            + "                    }\n"
+            + "                  }\n"
+            + "                ],\n"
+            + "                \"adjust_pure_negative\" : true,\n"
+            + "                \"boost\" : 1.0\n"
+            + "              }\n"
+            + "            }\n"
+            + "          ],\n"
+            + "          \"adjust_pure_negative\" : true,\n"
+            + "          \"minimum_should_match\" : \"1\",\n"
+            + "          \"boost\" : 1.0\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
             + "    \"should\" : [\n"
             + "      {\n"
             + "        \"bool\" : {\n"
@@ -163,7 +276,12 @@ public class ESPredicateUtilsTest {
     // Ensure that the query is expanded without keyword.
     result =
         ESPredicateUtils.buildFilterQuery(
-            predicate3, true, fieldPaths3, fieldTypes3, OPERATION_CONTEXT);
+            predicate3,
+            true,
+            fieldPaths3,
+            fieldTypes3,
+            OPERATION_CONTEXT,
+            QueryFilterRewriteChain.EMPTY);
     JsonNode jsonNode = new ObjectMapper().readTree(result.toString());
     long millis7DaysAgo = millis - 7 * 24 * 60 * 60 * 1000;
     long millis6DaysAgo = millis - 6 * 24 * 60 * 60 * 1000;
@@ -201,10 +319,66 @@ public class ESPredicateUtilsTest {
     fieldTypes.put(EDITED_DESCRIPTION, Collections.singleton(SearchableAnnotation.FieldType.TEXT));
     QueryBuilder result =
         ESPredicateUtils.buildFilterQuery(
-            predicate, false, fieldPaths, fieldTypes, OPERATION_CONTEXT);
+            predicate,
+            false,
+            fieldPaths,
+            fieldTypes,
+            OPERATION_CONTEXT,
+            QueryFilterRewriteChain.EMPTY);
     String expected =
         "{\n"
             + "  \"bool\" : {\n"
+            + "    \"must\" : [\n"
+            + "      {\n"
+            + "        \"bool\" : {\n"
+            + "          \"should\" : [\n"
+            + "            {\n"
+            + "              \"bool\" : {\n"
+            + "                \"filter\" : [\n"
+            + "                  {\n"
+            + "                    \"terms\" : {\n"
+            + "                      \"isLatest.keyword\" : [\n"
+            + "                        \"true\"\n"
+            + "                      ],\n"
+            + "                      \"boost\" : 1.0,\n"
+            + "                      \"_name\" : \"isLatest\"\n"
+            + "                    }\n"
+            + "                  }\n"
+            + "                ],\n"
+            + "                \"adjust_pure_negative\" : true,\n"
+            + "                \"boost\" : 1.0\n"
+            + "              }\n"
+            + "            },\n"
+            + "            {\n"
+            + "              \"bool\" : {\n"
+            + "                \"must_not\" : [\n"
+            + "                  {\n"
+            + "                    \"bool\" : {\n"
+            + "                      \"must\" : [\n"
+            + "                        {\n"
+            + "                          \"exists\" : {\n"
+            + "                            \"field\" : \"isLatest\",\n"
+            + "                            \"boost\" : 1.0\n"
+            + "                          }\n"
+            + "                        }\n"
+            + "                      ],\n"
+            + "                      \"adjust_pure_negative\" : true,\n"
+            + "                      \"boost\" : 1.0,\n"
+            + "                      \"_name\" : \"isLatest\"\n"
+            + "                    }\n"
+            + "                  }\n"
+            + "                ],\n"
+            + "                \"adjust_pure_negative\" : true,\n"
+            + "                \"boost\" : 1.0\n"
+            + "              }\n"
+            + "            }\n"
+            + "          ],\n"
+            + "          \"adjust_pure_negative\" : true,\n"
+            + "          \"minimum_should_match\" : \"1\",\n"
+            + "          \"boost\" : 1.0\n"
+            + "        }\n"
+            + "      }\n"
+            + "    ],\n"
             + "    \"should\" : [\n"
             + "      {\n"
             + "        \"bool\" : {\n"

@@ -280,7 +280,7 @@ public class SearchRequestHandler {
       final SearchSourceBuilder searchSourceBuilder,
       final String input,
       final SearchFlags searchFlags,
-      final QueryBuilder filterQuery,
+      final BoolQueryBuilder filterQuery,
       final List<String> facets,
       final List<SortCriterion> sortCriteria) {
     searchSourceBuilder.query(
@@ -888,7 +888,12 @@ public class SearchRequestHandler {
       @Nonnull OperationContext opContext, @Nullable Predicate predicate) {
     BoolQueryBuilder filterQuery =
         ESPredicateUtils.buildFilterQuery(
-            predicate, false, searchableFieldPaths, searchableFieldTypes, opContext);
+            predicate,
+            false,
+            searchableFieldPaths,
+            searchableFieldTypes,
+            opContext,
+            queryFilterRewriteChain);
 
     filterQuery = ESPredicateUtils.applyDefaultSearchFilters(opContext, predicate, filterQuery);
 

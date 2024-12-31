@@ -10,6 +10,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.test.definition.expression.Expression;
 import com.linkedin.metadata.test.definition.expression.Query;
 import com.linkedin.metadata.test.definition.literal.DateLiteral;
@@ -76,7 +77,8 @@ public class ESPredicateUtils {
       boolean isTimeSeries,
       final Map<PathSpec, String> searchableFieldPaths,
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
-      OperationContext opContext) {
+      OperationContext opContext,
+      QueryFilterRewriteChain queryFilterRewriteChain) {
     BoolQueryBuilder finalQueryBuilder = QueryBuilders.boolQuery();
     if (predicate == null) {
       return finalQueryBuilder;
@@ -91,6 +93,14 @@ public class ESPredicateUtils {
         searchableFieldTypes,
         searchableFieldPaths,
         opContext);
+
+    if (Boolean.TRUE.equals(
+        opContext.getSearchContext().getSearchFlags().isFilterNonLatestVersions())) {
+      BoolQueryBuilder filterNonLatestVersions =
+          ESUtils.buildFilterNonLatestEntities(
+              opContext, queryFilterRewriteChain, searchableFieldTypes);
+      finalQueryBuilder.must(filterNonLatestVersions);
+    }
     return finalQueryBuilder;
   }
 

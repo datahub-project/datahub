@@ -1,6 +1,7 @@
 package com.linkedin.metadata.entity;
 
 import com.google.common.collect.ImmutableList;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -11,6 +12,28 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public interface SearchRetriever {
+
+  SearchFlags RETRIEVER_SEARCH_FLAGS =
+      new SearchFlags()
+          .setFulltext(false)
+          .setMaxAggValues(20)
+          .setSkipCache(false)
+          .setSkipAggregates(true)
+          .setSkipHighlighting(true)
+          .setIncludeSoftDeleted(false)
+          .setIncludeRestricted(false);
+
+  SearchFlags RETRIEVER_SEARCH_FLAGS_NO_CACHE_ALL_VERSIONS =
+      new SearchFlags()
+          .setFulltext(false)
+          .setMaxAggValues(20)
+          .setSkipCache(true)
+          .setSkipAggregates(true)
+          .setSkipHighlighting(true)
+          .setIncludeSoftDeleted(false)
+          .setIncludeRestricted(false)
+          .setFilterNonLatestVersions(false);
+
   /**
    * Allows for configuring the sort, should only be used when sort specified is unique. More often
    * the default is desirable to just use the urnSort
@@ -20,7 +43,8 @@ public interface SearchRetriever {
       @Nullable Filter filters,
       @Nullable String scrollId,
       int count,
-      List<SortCriterion> sortCriteria);
+      List<SortCriterion> sortCriteria,
+      @Nullable SearchFlags searchFlags);
 
   /**
    * Returns search results for the given entities, filtered and sorted.
@@ -39,7 +63,8 @@ public interface SearchRetriever {
     SortCriterion urnSort = new SortCriterion();
     urnSort.setField("urn");
     urnSort.setOrder(SortOrder.ASCENDING);
-    return scroll(entities, filters, scrollId, count, ImmutableList.of(urnSort));
+    return scroll(
+        entities, filters, scrollId, count, ImmutableList.of(urnSort), RETRIEVER_SEARCH_FLAGS);
   }
 
   SearchRetriever EMPTY = new EmptySearchRetriever();
@@ -52,7 +77,8 @@ public interface SearchRetriever {
         @Nullable Filter filters,
         @Nullable String scrollId,
         int count,
-        List<SortCriterion> sortCriteria) {
+        List<SortCriterion> sortCriteria,
+        @Nullable SearchFlags searchFlags) {
       ScrollResult empty = new ScrollResult();
       empty.setEntities(new SearchEntityArray());
       empty.setNumEntities(0);

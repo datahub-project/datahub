@@ -280,7 +280,8 @@ public class EntityVersioningServiceTest {
 
     ScrollResult scrollResult =
         new ScrollResult().setEntities(relatedEntities).setMetadata(new SearchResultMetadata());
-    when(mockSearchRetriever.scroll(any(), any(), any(), eq(2), any())).thenReturn(scrollResult);
+    when(mockSearchRetriever.scroll(any(), any(), any(), eq(2), any(), any()))
+        .thenReturn(scrollResult);
 
     // Execute
     List<RollbackResult> results =
@@ -296,7 +297,7 @@ public class EntityVersioningServiceTest {
             eq(VERSION_PROPERTIES_ASPECT_NAME),
             anyMap(),
             eq(true));
-    verify(mockSearchRetriever, never()).scroll(any(), any(), anyString(), anyInt(), any());
+    verify(mockSearchRetriever, never()).scroll(any(), any(), anyString(), anyInt(), any(), any());
   }
 
   @Test
@@ -332,7 +333,8 @@ public class EntityVersioningServiceTest {
 
     ScrollResult scrollResult =
         new ScrollResult().setEntities(relatedEntities).setMetadata(new SearchResultMetadata());
-    when(mockSearchRetriever.scroll(any(), any(), any(), eq(2), any())).thenReturn(scrollResult);
+    when(mockSearchRetriever.scroll(any(), any(), any(), eq(2), any(), any()))
+        .thenReturn(scrollResult);
 
     // Mock delete aspect response
     RollbackResult versionPropsDeleteResult =
@@ -401,7 +403,8 @@ public class EntityVersioningServiceTest {
 
     ScrollResult scrollResult =
         new ScrollResult().setEntities(relatedEntities).setMetadata(new SearchResultMetadata());
-    when(mockSearchRetriever.scroll(any(), any(), any(), eq(2), any())).thenReturn(scrollResult);
+    when(mockSearchRetriever.scroll(any(), any(), any(), eq(2), any(), any()))
+        .thenReturn(scrollResult);
 
     // Mock delete aspect response
     RollbackResult versionPropsDeleteResult =
@@ -472,7 +475,8 @@ public class EntityVersioningServiceTest {
 
     ScrollResult scrollResult =
         new ScrollResult().setEntities(relatedEntities).setMetadata(new SearchResultMetadata());
-    when(mockSearchRetriever.scroll(any(), any(), any(), eq(2), any())).thenReturn(scrollResult);
+    when(mockSearchRetriever.scroll(any(), any(), any(), eq(2), any(), any()))
+        .thenReturn(scrollResult);
 
     // Mock delete aspect response
     RollbackResult versionPropsDeleteResult =
@@ -541,7 +545,8 @@ public class EntityVersioningServiceTest {
 
     ScrollResult scrollResult =
         new ScrollResult().setEntities(relatedEntities).setMetadata(new SearchResultMetadata());
-    when(mockSearchRetriever.scroll(any(), any(), any(), eq(2), any())).thenReturn(scrollResult);
+    when(mockSearchRetriever.scroll(any(), any(), any(), eq(2), any(), any()))
+        .thenReturn(scrollResult);
 
     // Mock delete aspect response
     RollbackResult versionPropsDeleteResult =
@@ -593,6 +598,6 @@ public class EntityVersioningServiceTest {
     assertTrue(results.isEmpty());
     verify(mockEntityService, never()).deleteAspect(any(), any(), any(), any(), anyBoolean());
     verify(mockEntityService, never()).deleteUrn(any(), any());
-    verify(mockSearchRetriever, never()).scroll(any(), any(), anyString(), anyInt(), any());
+    verify(mockSearchRetriever, never()).scroll(any(), any(), anyString(), anyInt(), any(), any());
   }
 }

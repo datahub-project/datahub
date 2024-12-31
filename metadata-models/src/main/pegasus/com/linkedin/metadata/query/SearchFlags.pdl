@@ -71,4 +71,9 @@ record SearchFlags {
       by the server
     */
   fetchExtraFields: optional array[string] = []
+
+  /**
+   * Include only latest versions in version sets, default true
+   */
+   filterNonLatestVersions: optional boolean = true
 }
