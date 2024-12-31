@@ -84,6 +84,8 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.annotation.Nonnull;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -2668,6 +2670,109 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
         Set.of(tag1),
         "Expected all tags");
+  }
+
+  @Test
+  public void testDeleteUrnWithRunIdFilterNonMatch() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:deleteWithFilterNonMatch");
+
+    // Create aspects with different run IDs
+    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
+    metadata1.setRunId("run-123");
+
+    SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata();
+    metadata2.setRunId("run-456"); // Different run ID
+
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+
+    // First ingest the aspect that should survive (run-456)
+    CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("first@test.com");
+    List<Pair<String, RecordTemplate>> firstPair = new ArrayList<>();
+    firstPair.add(getAspectRecordPair(writeAspect1, CorpUserInfo.class));
+    _entityServiceImpl.ingestAspects(opContext, entityUrn, firstPair, TEST_AUDIT_STAMP, metadata2);
+
+    // Then ingest the aspect that should be deleted (run-123)
+    CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("second@test.com");
+    List<Pair<String, RecordTemplate>> secondPair = new ArrayList<>();
+    secondPair.add(getAspectRecordPair(writeAspect2, CorpUserInfo.class));
+    _entityServiceImpl.ingestAspects(opContext, entityUrn, secondPair, TEST_AUDIT_STAMP, metadata1);
+
+    // When we try to delete with runId=run-123, the version with runId=run-456 should survive
+    RollbackResult result =
+        _entityServiceImpl.deleteAspectWithoutMCL(
+            opContext,
+            entityUrn.toString(),
+            aspectName,
+            Collections.singletonMap("runId", "run-123"),
+            true);
+
+    // The aspect with run-456 should still exist
+    RecordTemplate survivingAspect =
+        _entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, survivingAspect));
+
+    // Verify the RollbackResult details
+    assertNotNull(result);
+    assertEquals(result.getUrn(), entityUrn);
+    assertEquals(result.getEntityName(), "corpuser");
+    assertEquals(result.getAspectName(), aspectName);
+  }
+
+  @Test
+  public void testDeleteUrnWithRunIdFilterNonMatchVersionGap() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:deleteWithFilterNonMatch");
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+
+    // Metadata that should be preserved (run-456)
+    SystemMetadata metadata456 = AspectGenerationUtils.createSystemMetadata();
+    metadata456.setRunId("run-456"); // Different run ID
+    CorpUserInfo writeAspect456 = AspectGenerationUtils.createCorpUserInfo("first@test.com");
+    List<Pair<String, RecordTemplate>> firstPair = new ArrayList<>();
+    firstPair.add(getAspectRecordPair(writeAspect456, CorpUserInfo.class));
+    _entityServiceImpl.ingestAspects(
+        opContext, entityUrn, firstPair, TEST_AUDIT_STAMP, metadata456);
+
+    // Metadata that should be deleted (run-123)
+    SystemMetadata metadata123 = AspectGenerationUtils.createSystemMetadata();
+    metadata123.setRunId("run-123");
+    CorpUserInfo writeAspect123 = AspectGenerationUtils.createCorpUserInfo("second@test.com");
+    List<Pair<String, RecordTemplate>> secondPair = new ArrayList<>();
+    secondPair.add(getAspectRecordPair(writeAspect123, CorpUserInfo.class));
+    _entityServiceImpl.ingestAspects(
+        opContext, entityUrn, secondPair, TEST_AUDIT_STAMP, metadata123);
+
+    // Then insert another run-123 with version gap
+    _aspectDao.saveAspect(
+        null,
+        entityUrn.toString(),
+        aspectName,
+        RecordUtils.toJsonString(writeAspect123),
+        TEST_AUDIT_STAMP.getActor().toString(),
+        null,
+        Timestamp.from(Instant.ofEpochMilli(TEST_AUDIT_STAMP.getTime())),
+        RecordUtils.toJsonString(metadata123),
+        10L,
+        true);
+
+    // When we try to delete with runId=run-123, the version with runId=run-456 should survive
+    RollbackResult result =
+        _entityServiceImpl.deleteAspectWithoutMCL(
+            opContext,
+            entityUrn.toString(),
+            aspectName,
+            Collections.singletonMap("runId", "run-123"),
+            true);
+
+    // The aspect with run-456 should still exist
+    RecordTemplate survivingAspect =
+        _entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect456, survivingAspect));
+
+    // Verify the RollbackResult details
+    assertNotNull(result);
+    assertEquals(result.getUrn(), entityUrn);
+    assertEquals(result.getEntityName(), "corpuser");
+    assertEquals(result.getAspectName(), aspectName);
   }
 
   @Nonnull
