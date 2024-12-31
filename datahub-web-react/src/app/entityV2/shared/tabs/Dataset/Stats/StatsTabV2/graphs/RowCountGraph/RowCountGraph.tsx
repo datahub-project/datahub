@@ -1,6 +1,6 @@
 import { LineChart, GraphCard } from '@components';
 import { pluralize } from '@src/app/shared/textUtil';
-import { AssertionType } from '@src/types.generated';
+import { AssertionType, TimeRange } from '@src/types.generated';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
 import { LookbackWindow } from '../../../lookbackWindows';
@@ -11,18 +11,26 @@ import MonthOverMonthPill from '../components/MonthOverMonthPill';
 import { GRAPH_LOOPBACK_WINDOWS, GRAPH_LOOPBACK_WINDOWS_OPTIONS } from '../constants';
 import useRowCountData from './useRowCountData';
 import TimeRangeSelect from '../components/TimeRangeSelect';
+import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
 
 type RowCountGraphProps = {
     urn?: string;
 };
 
 export default function RowCountGraph({ urn }: RowCountGraphProps) {
+    const {
+        sections,
+        setSectionState,
+        dataInfo: { capabilitiesLoading, oldestDatasetProfileTime },
+    } = useStatsSectionsContext();
+    const timeRangeOptions = useGetTimeRangeOptionsByLookbackWindow(
+        GRAPH_LOOPBACK_WINDOWS_OPTIONS,
+        oldestDatasetProfileTime,
+    );
     const [lookbackWindow, setLookbackWindow] = useState<LookbackWindow>(GRAPH_LOOPBACK_WINDOWS.MONTH);
-    const [rangeType, setRangeType] = useState<string | null>('MONTH');
+    const [rangeType, setRangeType] = useState<string | null>(TimeRange.Month);
 
-    const { data, loading } = useRowCountData(urn, lookbackWindow);
-
-    const { sections, setSectionState } = useStatsSectionsContext();
+    const { data, loading: dataLoading } = useRowCountData(urn, lookbackWindow);
 
     useEffect(() => {
         if (!sections.rowsAndUsers.hasData && data.length > 0) setSectionState('rowsAndUsers', true);
@@ -31,6 +39,8 @@ export default function RowCountGraph({ urn }: RowCountGraphProps) {
     useEffect(() => {
         if (rangeType) setLookbackWindow(GRAPH_LOOPBACK_WINDOWS[rangeType]);
     }, [rangeType, setLookbackWindow]);
+
+    const loading = capabilitiesLoading || dataLoading;
 
     return (
         <GraphCard
@@ -44,7 +54,7 @@ export default function RowCountGraph({ urn }: RowCountGraphProps) {
                     <AddAssertionButton assertionType={AssertionType.Volume} />
 
                     <TimeRangeSelect
-                        options={GRAPH_LOOPBACK_WINDOWS_OPTIONS}
+                        options={timeRangeOptions}
                         values={rangeType ? [rangeType] : []}
                         onUpdate={(values) => setRangeType(values[0])}
                         loading={loading}

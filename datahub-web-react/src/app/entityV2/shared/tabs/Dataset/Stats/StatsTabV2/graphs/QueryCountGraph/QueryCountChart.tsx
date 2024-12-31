@@ -11,6 +11,7 @@ import MonthOverMonthPill from '../components/MonthOverMonthPill';
 import { AGGRAGATION_TIME_RANGE_OPTIONS } from '../constants';
 import useQueryCountData from './useQueryCountData';
 import TimeRangeSelect from '../components/TimeRangeSelect';
+import useGetTimeRangeOptionsByTimeRange from '../hooks/useGetTimeRangeOptionsByTimeRange';
 
 interface Props {
     queryCountBuckets?: Array<Maybe<UsageAggregation>>;
@@ -18,15 +19,19 @@ interface Props {
 
 const QueryCountChart = ({ queryCountBuckets }: Props) => {
     const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const {
+        setSectionState,
+        dataInfo: { capabilitiesLoading, oldestDatasetUsageTime },
+    } = useStatsSectionsContext();
+
+    const timeRangeOptions = useGetTimeRangeOptionsByTimeRange(AGGRAGATION_TIME_RANGE_OPTIONS, oldestDatasetUsageTime);
     const [timeRange, setTimeRange] = useState<TimeRange>(TimeRange.Month);
 
-    const { chartData, loading } = useQueryCountData(
+    const { chartData, loading: dataLoading } = useQueryCountData(
         baseEntity?.dataset?.urn as string,
         timeRange,
         timeRange === TimeRange.Month ? queryCountBuckets || [] : undefined,
     );
-
-    const { setSectionState } = useStatsSectionsContext();
 
     useEffect(() => {
         setSectionState('queries', chartData.length > 0);
@@ -35,6 +40,8 @@ const QueryCountChart = ({ queryCountBuckets }: Props) => {
     const handleFilterChange = (value: TimeRange) => {
         setTimeRange(value);
     };
+
+    const loading = capabilitiesLoading || dataLoading;
 
     const renderBarChart = () => {
         return (
@@ -63,8 +70,8 @@ const QueryCountChart = ({ queryCountBuckets }: Props) => {
             renderControls={() => (
                 <>
                     <TimeRangeSelect
-                        options={AGGRAGATION_TIME_RANGE_OPTIONS}
-                        values={[timeRange]}
+                        options={timeRangeOptions}
+                        values={timeRange ? [timeRange] : []}
                         loading={loading}
                         onUpdate={(values) => handleFilterChange(values[0] as TimeRange)}
                     />

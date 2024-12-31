@@ -2,6 +2,7 @@ import { LineChart, GraphCard } from '@components';
 import { formatBytes } from '@src/app/shared/formatNumber';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
+import { TimeRange } from '@src/types.generated';
 import { LookbackWindow } from '../../../lookbackWindows';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import GraphPopover from '../components/GraphPopover';
@@ -9,18 +10,26 @@ import MonthOverMonthPill from '../components/MonthOverMonthPill';
 import { GRAPH_LOOPBACK_WINDOWS, GRAPH_LOOPBACK_WINDOWS_OPTIONS } from '../constants';
 import useStorageSizeData from './useStorageSizeData';
 import TimeRangeSelect from '../components/TimeRangeSelect';
+import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
 
 type RowCountGraphProps = {
     urn?: string;
 };
 
 export default function StorageSizeGraph({ urn }: RowCountGraphProps) {
+    const {
+        setSectionState,
+        dataInfo: { capabilitiesLoading, oldestDatasetProfileTime },
+    } = useStatsSectionsContext();
+
+    const timeRangeOptions = useGetTimeRangeOptionsByLookbackWindow(
+        GRAPH_LOOPBACK_WINDOWS_OPTIONS,
+        oldestDatasetProfileTime,
+    );
     const [lookbackWindow, setLookbackWindow] = useState<LookbackWindow>(GRAPH_LOOPBACK_WINDOWS.MONTH);
-    const [rangeType, setRangeType] = useState<string | null>('MONTH');
+    const [rangeType, setRangeType] = useState<string | null>(TimeRange.Month);
 
-    const { data, loading } = useStorageSizeData(urn, lookbackWindow);
-
-    const { setSectionState } = useStatsSectionsContext();
+    const { data, loading: dataLoading } = useStorageSizeData(urn, lookbackWindow);
 
     useEffect(() => {
         setSectionState('storage', data.length > 0);
@@ -35,6 +44,8 @@ export default function StorageSizeGraph({ urn }: RowCountGraphProps) {
         return `${formattedBytes.number} ${formattedBytes.unit}`;
     };
 
+    const loading = capabilitiesLoading || dataLoading;
+
     return (
         <GraphCard
             title="Storage Size"
@@ -44,7 +55,7 @@ export default function StorageSizeGraph({ urn }: RowCountGraphProps) {
             renderControls={() => (
                 <>
                     <TimeRangeSelect
-                        options={GRAPH_LOOPBACK_WINDOWS_OPTIONS}
+                        options={timeRangeOptions}
                         values={rangeType ? [rangeType] : []}
                         onUpdate={(values) => setRangeType(values[0])}
                         loading={loading}

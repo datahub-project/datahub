@@ -1,4 +1,4 @@
-import { useGetTimeRangeUsageAggregationsQuery } from '@src/graphql/dataset.generated';
+import { useGetTimeRangeUsageAggregationsLazyQuery } from '@src/graphql/dataset.generated';
 import { Maybe, TimeRange, UsageAggregation, UsageQueryResult } from '@src/types.generated';
 import { useEffect, useState } from 'react';
 import { addMonthOverMonthValue, groupTimeData } from '../utils';
@@ -40,18 +40,23 @@ const getChartData = (rawData: UsageAggregation[]) => {
 
 export default function useQueryCountData(
     urn: string,
-    timeRange: TimeRange,
+    timeRange?: TimeRange,
     initialData?: Array<Maybe<UsageAggregation>>,
 ) {
     const [chartData, setChartData] = useState<ChartData[]>([]);
-
-    const { data: aggregationData, loading } = useGetTimeRangeUsageAggregationsQuery({
-        variables: { urn, timeRange },
-        skip: !!initialData,
-    });
+    const [getTimeRangeUsageAggregations, { data: aggregationData, loading }] =
+        useGetTimeRangeUsageAggregationsLazyQuery();
 
     useEffect(() => {
-        if (initialData) {
+        if (timeRange && !initialData) {
+            getTimeRangeUsageAggregations({
+                variables: { urn, timeRange },
+            });
+        }
+    }, [timeRange, initialData, getTimeRangeUsageAggregations, urn]);
+
+    useEffect(() => {
+        if (initialData?.length) {
             const normalizedData: UsageAggregation[] = normalizeData(initialData);
             const processedData = getChartData(normalizedData);
             setChartData(processedData);

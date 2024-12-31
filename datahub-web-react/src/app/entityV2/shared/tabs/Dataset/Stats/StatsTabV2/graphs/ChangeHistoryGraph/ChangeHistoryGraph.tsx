@@ -6,11 +6,10 @@ import TimeRangeSelect from '../components/TimeRangeSelect';
 import { AGGRAGATION_TIME_RANGE_OPTIONS } from '../constants';
 import { ChangeHistoryDrawer } from './components/ChangeHistoryDrawer/ChangeHistoryDrawer';
 import ChangeHistoryPopover from './components/ChangeHistoryPopover';
-import useChangeHistoryOldestDayOfData from './hooks/useChangeHistoryCapability';
 import useChangeHistoryData from './hooks/useChangeHistoryData';
 import useColorAccessors from './hooks/useColorAccessors';
 import useGetCalendarRangeByTimeRange from './hooks/useGetCalendarRangeByTimeRange';
-import useGetTimeRangeOptions from '../hooks/useGetTimeRangeOptions';
+import useGetTimeRangeOptionsByTimeRange from '../hooks/useGetTimeRangeOptionsByTimeRange';
 import TypesSelect from './components/TypesSelect';
 import { DEFAULT_OPERATION_TYPES, OPERATION_TYPE_OPTIONS } from './constants';
 import Subtitle from './components/Subtitle';
@@ -28,10 +27,13 @@ type ChangeHistoryGraphProps = {
 };
 
 export default function ChangeHistoryGraph({ urn }: ChangeHistoryGraphProps) {
-    const { data: startTimeOfData, loading: startTimeOfDataLoading } = useChangeHistoryOldestDayOfData(urn);
+    const {
+        setSectionState,
+        dataInfo: { capabilitiesLoading, oldestOperationTime },
+    } = useStatsSectionsContext();
 
     // The time range select
-    const timeRangeOptions = useGetTimeRangeOptions(TIME_RANGE_OPTIONS, startTimeOfData);
+    const timeRangeOptions = useGetTimeRangeOptionsByTimeRange(TIME_RANGE_OPTIONS, oldestOperationTime);
     const [selectedTimeRange, setSelectedTimeRange] = useState<TimeRange>();
     useEffect(() => {
         setSelectedTimeRange(
@@ -49,8 +51,6 @@ export default function ChangeHistoryGraph({ urn }: ChangeHistoryGraphProps) {
         setIsDayDetailsDrawerShown(true);
     };
 
-    const { setSectionState } = useStatsSectionsContext();
-
     useEffect(() => {
         // TODO: Update hasData for 'changes' based on the change history data
         setSectionState('changes', false);
@@ -65,9 +65,9 @@ export default function ChangeHistoryGraph({ urn }: ChangeHistoryGraphProps) {
     // The interval of the calendar chart
     const { startDay: calendarStartDay, endDay: calendarEndDay } = useGetCalendarRangeByTimeRange(selectedTimeRange);
     // The interval of the data
-    const { startDay: dataStartDay, endDay: dataEndDay } = useDataRange(data, startTimeOfData);
+    const { startDay: dataStartDay, endDay: dataEndDay } = useDataRange(data, oldestOperationTime);
 
-    const loading = dataLoading || startTimeOfDataLoading;
+    const loading = capabilitiesLoading || dataLoading;
 
     return (
         <>

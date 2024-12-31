@@ -8,7 +8,7 @@ export default function useRowCountData(urn: string | undefined, lookbackWindow)
     const [getDataProfiles, { data: profilesData, loading }] = useGetDataProfilesLazyQuery();
 
     useEffect(() => {
-        if (urn !== undefined) {
+        if (urn !== undefined && lookbackWindow !== undefined) {
             getDataProfiles({
                 variables: { urn, ...getFixedLookbackWindow(lookbackWindow.windowSize) },
             });

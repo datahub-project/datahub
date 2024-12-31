@@ -3,12 +3,13 @@ import { getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
 import { useGetDataProfilesLazyQuery } from '@src/graphql/dataset.generated';
 import { useEffect, useMemo } from 'react';
 import { addMonthOverMonthValue, groupTimeData } from '../utils';
+import { LookbackWindow } from '../../../lookbackWindows';
 
-export default function useStorageSizeData(urn: string | undefined, lookbackWindow) {
+export default function useStorageSizeData(urn: string | undefined, lookbackWindow: LookbackWindow | undefined) {
     const [getDataProfiles, { data: profilesData, loading }] = useGetDataProfilesLazyQuery();
 
     useEffect(() => {
-        if (urn !== undefined) {
+        if (urn !== undefined && lookbackWindow !== undefined) {
             getDataProfiles({
                 variables: { urn, ...getFixedLookbackWindow(lookbackWindow.windowSize) },
             });

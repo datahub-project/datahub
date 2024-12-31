@@ -2,6 +2,7 @@ import { getTimeWindowStart } from '@src/app/shared/time/timeUtils';
 import { DateInterval, TimeRange } from '@src/types.generated';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
+import { LookbackWindow } from '../../lookbackWindows';
 
 dayjs.extend(utc);
 
@@ -88,4 +89,12 @@ export function getStartTimeByTimeRange(range: TimeRange): number | undefined {
         default:
             return undefined;
     }
+}
+
+export function getStartTimeByWindowSize(window?: LookbackWindow): number | undefined {
+    if (window === undefined) return undefined;
+
+    const endTimemillis = dayjs().utc(true).startOf('day').toDate().getTime();
+
+    return getTimeWindowStart(endTimemillis, window.windowSize.interval, window.windowSize.count);
 }
