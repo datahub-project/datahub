@@ -18,6 +18,8 @@ export default function useGetTimeRangeOptions(
 
             if (!currentOptionStart) return false;
 
+            if (!previousOptionStart) return true;
+
             if (currentOptionStart >= timeOfOldestData) return true;
 
             // if the oldest data time is older than the previous option, we should show this option (to allow them to show all possible data)

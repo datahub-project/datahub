@@ -9,7 +9,8 @@ type TimeRangeSelectProps = {
 };
 
 export default function TimeRangeSelect({ options, values, loading, onUpdate }: TimeRangeSelectProps) {
-    if (!loading && options.length === 0) return null;
+    // don't show select if we have only one option or no options at all
+    if (!loading && options.length < 2) return null;
 
     return (
         <SimpleSelect
