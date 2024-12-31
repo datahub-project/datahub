@@ -4,21 +4,19 @@ from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
 from datahub.metadata.schema_classes import (
     DataProductAssociationClass as DataProductAssociation,
     DataProductPropertiesClass as DataProductProperties,
-    GlobalTagsClass as GlobalTags,
     GlossaryTermAssociationClass as Term,
     GlossaryTermsClass as GlossaryTerms,
     KafkaAuditHeaderClass,
     SystemMetadataClass,
-    TagAssociationClass as Tag,
 )
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
 from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
-from datahub.utilities.urns.tag_urn import TagUrn
+from datahub.specific.aspect_helpers.tags import HasTagsPatch
 from datahub.utilities.urns.urn import Urn
 
 
 class DataProductPatchBuilder(
-    HasOwnershipPatch, HasCustomPropertiesPatch, MetadataPatchProposal
+    HasOwnershipPatch, HasCustomPropertiesPatch, HasTagsPatch, MetadataPatchProposal
 ):
     def __init__(
         self,
@@ -35,18 +33,6 @@ class DataProductPatchBuilder(
     @classmethod
     def _custom_properties_location(cls) -> Tuple[str, PatchPath]:
         return DataProductProperties.ASPECT_NAME, ("customProperties",)
-
-    def add_tag(self, tag: Tag) -> "DataProductPatchBuilder":
-        self._add_patch(
-            GlobalTags.ASPECT_NAME, "add", path=("tags", tag.tag), value=tag
-        )
-        return self
-
-    def remove_tag(self, tag: Union[str, Urn]) -> "DataProductPatchBuilder":
-        if isinstance(tag, str) and not tag.startswith("urn:li:tag:"):
-            tag = TagUrn.create_from_id(tag)
-        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=("tags", tag), value={})
-        return self
 
     def add_term(self, term: Term) -> "DataProductPatchBuilder":
         self._add_patch(

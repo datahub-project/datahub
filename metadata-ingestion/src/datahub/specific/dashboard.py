@@ -6,21 +6,19 @@ from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
     DashboardInfoClass as DashboardInfo,
     EdgeClass as Edge,
-    GlobalTagsClass as GlobalTags,
     GlossaryTermAssociationClass as Term,
     GlossaryTermsClass as GlossaryTerms,
     KafkaAuditHeaderClass,
     SystemMetadataClass,
-    TagAssociationClass as Tag,
 )
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
 from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
-from datahub.utilities.urns.tag_urn import TagUrn
+from datahub.specific.aspect_helpers.tags import HasTagsPatch
 from datahub.utilities.urns.urn import Urn
 
 
 class DashboardPatchBuilder(
-    HasOwnershipPatch, HasCustomPropertiesPatch, MetadataPatchProposal
+    HasOwnershipPatch, HasCustomPropertiesPatch, HasTagsPatch, MetadataPatchProposal
 ):
     def __init__(
         self,
@@ -210,36 +208,6 @@ class DashboardPatchBuilder(
             path=("chartEdges",),
             value=charts,
         )
-        return self
-
-    def add_tag(self, tag: Tag) -> "DashboardPatchBuilder":
-        """
-        Adds a tag to the DashboardPatchBuilder.
-
-        Args:
-            tag: The Tag object representing the tag to be added.
-
-        Returns:
-            The DashboardPatchBuilder instance.
-        """
-        self._add_patch(
-            GlobalTags.ASPECT_NAME, "add", path=("tags", tag.tag), value=tag
-        )
-        return self
-
-    def remove_tag(self, tag: Union[str, Urn]) -> "DashboardPatchBuilder":
-        """
-        Removes a tag from the DashboardPatchBuilder.
-
-        Args:
-            tag: The tag to remove, specified as a string or Urn object.
-
-        Returns:
-            The DashboardPatchBuilder instance.
-        """
-        if isinstance(tag, str) and not tag.startswith("urn:li:tag:"):
-            tag = TagUrn.create_from_id(tag)
-        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=("tags", tag), value={})
         return self
 
     def add_term(self, term: Term) -> "DashboardPatchBuilder":

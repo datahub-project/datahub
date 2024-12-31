@@ -7,21 +7,19 @@ from datahub.metadata.schema_classes import (
     ChartInfoClass as ChartInfo,
     ChartTypeClass,
     EdgeClass as Edge,
-    GlobalTagsClass as GlobalTags,
     GlossaryTermAssociationClass as Term,
     GlossaryTermsClass as GlossaryTerms,
     KafkaAuditHeaderClass,
     SystemMetadataClass,
-    TagAssociationClass as Tag,
 )
 from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
 from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
-from datahub.utilities.urns.tag_urn import TagUrn
+from datahub.specific.aspect_helpers.tags import HasTagsPatch
 from datahub.utilities.urns.urn import Urn
 
 
 class ChartPatchBuilder(
-    HasOwnershipPatch, HasCustomPropertiesPatch, MetadataPatchProposal
+    HasOwnershipPatch, HasCustomPropertiesPatch, HasTagsPatch, MetadataPatchProposal
 ):
     def __init__(
         self,
@@ -117,36 +115,6 @@ class ChartPatchBuilder(
             path=("inputEdges",),
             value=inputs,
         )
-        return self
-
-    def add_tag(self, tag: Tag) -> "ChartPatchBuilder":
-        """
-        Adds a tag to the ChartPatchBuilder.
-
-        Args:
-            tag: The Tag object representing the tag to be added.
-
-        Returns:
-            The ChartPatchBuilder instance.
-        """
-        self._add_patch(
-            GlobalTags.ASPECT_NAME, "add", path=("tags", tag.tag), value=tag
-        )
-        return self
-
-    def remove_tag(self, tag: Union[str, Urn]) -> "ChartPatchBuilder":
-        """
-        Removes a tag from the ChartPatchBuilder.
-
-        Args:
-            tag: The tag to remove, specified as a string or Urn object.
-
-        Returns:
-            The ChartPatchBuilder instance.
-        """
-        if isinstance(tag, str) and not tag.startswith("urn:li:tag:"):
-            tag = TagUrn.create_from_id(tag)
-        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=("tags", tag), value={})
         return self
 
     def add_term(self, term: Term) -> "ChartPatchBuilder":

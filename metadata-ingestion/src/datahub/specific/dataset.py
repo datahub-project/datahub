@@ -7,7 +7,6 @@ from datahub.metadata.schema_classes import (
     EditableDatasetPropertiesClass as EditableDatasetProperties,
     EditableSchemaMetadataClass as EditableSchemaMetadata,
     FineGrainedLineageClass as FineGrainedLineage,
-    GlobalTagsClass as GlobalTags,
     GlossaryTermAssociationClass as Term,
     GlossaryTermsClass as GlossaryTerms,
     KafkaAuditHeaderClass,
@@ -22,6 +21,7 @@ from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 from datahub.specific.aspect_helpers.structured_properties import (
     HasStructuredPropertiesPatch,
 )
+from datahub.specific.aspect_helpers.tags import HasTagsPatch
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
 
@@ -98,6 +98,7 @@ class DatasetPatchBuilder(
     HasOwnershipPatch,
     HasCustomPropertiesPatch,
     HasStructuredPropertiesPatch,
+    HasTagsPatch,
     MetadataPatchProposal,
 ):
     def __init__(
@@ -211,18 +212,6 @@ class DatasetPatchBuilder(
             path=("fineGrainedLineages",),
             value=fine_grained_lineages,
         )
-        return self
-
-    def add_tag(self, tag: Tag) -> "DatasetPatchBuilder":
-        self._add_patch(
-            GlobalTags.ASPECT_NAME, "add", path=("tags", tag.tag), value=tag
-        )
-        return self
-
-    def remove_tag(self, tag: Union[str, Urn]) -> "DatasetPatchBuilder":
-        if isinstance(tag, str) and not tag.startswith("urn:li:tag:"):
-            tag = TagUrn.create_from_id(tag)
-        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=("tags", tag), value={})
         return self
 
     def add_term(self, term: Term) -> "DatasetPatchBuilder":
