@@ -47,7 +47,7 @@ class FormPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 FormInfo.ASPECT_NAME,
                 "add",
-                path="/name",
+                path=("name",),
                 value=name,
             )
         return self
@@ -57,7 +57,7 @@ class FormPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 FormInfo.ASPECT_NAME,
                 "add",
-                path="/description",
+                path=("description",),
                 value=description,
             )
         return self
@@ -67,7 +67,7 @@ class FormPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 FormInfo.ASPECT_NAME,
                 "add",
-                path="/type",
+                path=("type",),
                 value=type,
             )
         return self
@@ -76,7 +76,7 @@ class FormPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             FormInfo.ASPECT_NAME,
             "add",
-            path=f"/prompts/{self.quote(prompt.id)}",
+            path=("prompts", prompt.id),
             value=prompt,
         )
         return self
@@ -90,7 +90,7 @@ class FormPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             FormInfo.ASPECT_NAME,
             "remove",
-            path=f"/prompts/{self.quote(prompt_id)}",
+            path=("prompts", prompt_id),
             value=prompt_id,
         )
         return self
@@ -104,7 +104,7 @@ class FormPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             FormInfo.ASPECT_NAME,
             "add",
-            path="/actors/owners",
+            path=("actors", "owners"),
             value=is_ownership,
         )
         return self
@@ -113,7 +113,7 @@ class FormPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             FormInfo.ASPECT_NAME,
             "add",
-            path=f"/actors/users/{self.quote(str(user_urn))}",
+            path=("actors", "users", user_urn),
             value=user_urn,
         )
         return self
@@ -122,7 +122,7 @@ class FormPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             FormInfo.ASPECT_NAME,
             "remove",
-            path=f"/actors/users/{self.quote(str(user_urn))}",
+            path=("actors", "users", user_urn),
             value=user_urn,
         )
         return self
@@ -131,7 +131,7 @@ class FormPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             FormInfo.ASPECT_NAME,
             "add",
-            path=f"/actors/groups/{self.quote(str(group_urn))}",
+            path=("actors", "groups", group_urn),
             value=group_urn,
         )
         return self
@@ -140,7 +140,7 @@ class FormPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             FormInfo.ASPECT_NAME,
             "remove",
-            path=f"/actors/groups/{self.quote(str(group_urn))}",
+            path=("actors", "groups", group_urn),
             value=group_urn,
         )
         return self

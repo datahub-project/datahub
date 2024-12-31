@@ -120,7 +120,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/inputDatajobEdges/{self.quote(input_urn)}",
+            path=("inputDatajobEdges", input_urn),
             value=input_edge,
         )
         return self
@@ -138,7 +138,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "remove",
-            path=f"/inputDatajobEdges/{input}",
+            path=("inputDatajobEdges", input),
             value={},
         )
         return self
@@ -163,7 +163,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path="/inputDatajobEdges",
+            path=("inputDatajobEdges",),
             value=inputs,
         )
         return self
@@ -201,7 +201,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/inputDatasetEdges/{self.quote(input_urn)}",
+            path=("inputDatasetEdges", input_urn),
             value=input_edge,
         )
         return self
@@ -219,7 +219,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "remove",
-            path=f"/inputDatasetEdges/{self.quote(str(input))}",
+            path=("inputDatasetEdges", input),
             value={},
         )
         return self
@@ -244,7 +244,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path="/inputDatasetEdges",
+            path=("inputDatasetEdges",),
             value=inputs,
         )
         return self
@@ -284,7 +284,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/outputDatasetEdges/{self.quote(output_urn)}",
+            path=("outputDatasetEdges", output_urn),
             value=output_edge,
         )
         return self
@@ -302,7 +302,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "remove",
-            path=f"/outputDatasetEdges/{self.quote(str(output))}",
+            path=("outputDatasetEdges", output),
             value={},
         )
         return self
@@ -327,7 +327,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path="/outputDatasetEdges",
+            path=("outputDatasetEdges",),
             value=outputs,
         )
         return self
@@ -351,7 +351,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/inputDatasetFields/{self.quote(input_urn)}",
+            path=("inputDatasetFields", input_urn),
             value={},
         )
         return self
@@ -372,7 +372,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "remove",
-            path=f"/inputDatasetFields/{self.quote(input_urn)}",
+            path=("inputDatasetFields", input_urn),
             value={},
         )
         return self
@@ -397,7 +397,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path="/inputDatasetFields",
+            path=("inputDatasetFields",),
             value=inputs,
         )
         return self
@@ -423,7 +423,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/outputDatasetFields/{self.quote(output_urn)}",
+            path=("outputDatasetFields", output_urn),
             value={},
         )
         return self
@@ -444,7 +444,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "remove",
-            path=f"/outputDatasetFields/{self.quote(output_urn)}",
+            path=("outputDatasetFields", output_urn),
             value={},
         )
         return self
@@ -469,7 +469,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path="/outputDatasetFields",
+            path=("outputDatasetFields",),
             value=outputs,
         )
         return self
@@ -485,7 +485,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
             The DataJobPatchBuilder instance.
         """
         self._add_patch(
-            GlobalTags.ASPECT_NAME, "add", path=f"/tags/{tag.tag}", value=tag
+            GlobalTags.ASPECT_NAME, "add", path=("tags", tag.tag), value=tag
         )
         return self
 
@@ -501,7 +501,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         """
         if isinstance(tag, str) and not tag.startswith("urn:li:tag:"):
             tag = TagUrn.create_from_id(tag)
-        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=f"/tags/{tag}", value={})
+        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=("tags", tag), value={})
         return self
 
     def add_term(self, term: Term) -> "DataJobPatchBuilder":
@@ -515,7 +515,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
             The DataJobPatchBuilder instance.
         """
         self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "add", path=f"/terms/{term.urn}", value=term
+            GlossaryTerms.ASPECT_NAME, "add", path=("terms", term.urn), value=term
         )
         return self
 
@@ -532,7 +532,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         if isinstance(term, str) and not term.startswith("urn:li:glossaryTerm:"):
             term = "urn:li:glossaryTerm:" + term
         self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "remove", path=f"/terms/{term}", value={}
+            GlossaryTerms.ASPECT_NAME, "remove", path=("terms", term), value={}
         )
         return self
 
@@ -554,7 +554,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInfo.ASPECT_NAME,
             "add",
-            path="/customProperties",
+            path=("customProperties",),
             value=custom_properties,
         )
         return self

@@ -1,6 +1,6 @@
 from typing import Dict, Generic, List, Optional, Tuple, TypeVar, Union
 
-from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
 from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass as DatasetProperties,
@@ -48,7 +48,7 @@ class FieldPatchHelper(Generic[_Parent]):
         self._parent._add_patch(
             self.aspect_name,
             "add",
-            path=f"/{self.aspect_field}/{self.field_path}/globalTags/tags/{tag.tag}",
+            path=(self.aspect_field, self.field_path, "globalTags", "tags", tag.tag),
             value=tag,
         )
         return self
@@ -59,7 +59,7 @@ class FieldPatchHelper(Generic[_Parent]):
         self._parent._add_patch(
             self.aspect_name,
             "remove",
-            path=f"/{self.aspect_field}/{self.field_path}/globalTags/tags/{tag}",
+            path=(self.aspect_field, self.field_path, "globalTags", "tags", tag),
             value={},
         )
         return self
@@ -68,7 +68,13 @@ class FieldPatchHelper(Generic[_Parent]):
         self._parent._add_patch(
             self.aspect_name,
             "add",
-            path=f"/{self.aspect_field}/{self.field_path}/glossaryTerms/terms/{term.urn}",
+            path=(
+                self.aspect_field,
+                self.field_path,
+                "glossaryTerms",
+                "terms",
+                term.urn,
+            ),
             value=term,
         )
         return self
@@ -79,7 +85,7 @@ class FieldPatchHelper(Generic[_Parent]):
         self._parent._add_patch(
             self.aspect_name,
             "remove",
-            path=f"/{self.aspect_field}/{self.field_path}/glossaryTerms/terms/{term}",
+            path=(self.aspect_field, self.field_path, "glossaryTerms", "terms", term),
             value={},
         )
         return self
@@ -125,7 +131,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UpstreamLineage.ASPECT_NAME,
             "add",
-            path=f"/upstreams/{self.quote(upstream.dataset)}",
+            path=("upstreams", upstream.dataset),
             value=upstream,
         )
         return self
@@ -136,14 +142,14 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UpstreamLineage.ASPECT_NAME,
             "remove",
-            path=f"/upstreams/{dataset}",
+            path=("upstreams", dataset),
             value={},
         )
         return self
 
     def set_upstream_lineages(self, upstreams: List[Upstream]) -> "DatasetPatchBuilder":
         self._add_patch(
-            UpstreamLineage.ASPECT_NAME, "add", path="/upstreams", value=upstreams
+            UpstreamLineage.ASPECT_NAME, "add", path=("upstreams",), value=upstreams
         )
         return self
 
@@ -181,10 +187,13 @@ class DatasetPatchBuilder(MetadataPatchProposal):
     @classmethod
     def quote_fine_grained_path(
         cls, transform_op: str, downstream_urn: str, query_id: str, upstream_urn: str
-    ) -> str:
+    ) -> PatchPath:
         return (
-            f"/fineGrainedLineages/{cls.quote(transform_op)}/"
-            f"{cls.quote(downstream_urn)}/{cls.quote(query_id)}/{cls.quote(upstream_urn)}"
+            "fineGrainedLineages",
+            transform_op,
+            downstream_urn,
+            query_id,
+            upstream_urn,
         )
 
     def remove_fine_grained_upstream_lineage(
@@ -212,26 +221,26 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             UpstreamLineage.ASPECT_NAME,
             "add",
-            path="/fineGrainedLineages",
+            path=("fineGrainedLineages",),
             value=fine_grained_lineages,
         )
         return self
 
     def add_tag(self, tag: Tag) -> "DatasetPatchBuilder":
         self._add_patch(
-            GlobalTags.ASPECT_NAME, "add", path=f"/tags/{tag.tag}", value=tag
+            GlobalTags.ASPECT_NAME, "add", path=("tags", tag.tag), value=tag
         )
         return self
 
     def remove_tag(self, tag: Union[str, Urn]) -> "DatasetPatchBuilder":
         if isinstance(tag, str) and not tag.startswith("urn:li:tag:"):
             tag = TagUrn.create_from_id(tag)
-        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=f"/tags/{tag}", value={})
+        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=("tags", tag), value={})
         return self
 
     def add_term(self, term: Term) -> "DatasetPatchBuilder":
         self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "add", path=f"/terms/{term.urn}", value=term
+            GlossaryTerms.ASPECT_NAME, "add", path=("terms", term.urn), value=term
         )
         return self
 
@@ -239,7 +248,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         if isinstance(term, str) and not term.startswith("urn:li:glossaryTerm:"):
             term = "urn:li:glossaryTerm:" + term
         self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "remove", path=f"/terms/{term}", value={}
+            GlossaryTerms.ASPECT_NAME, "remove", path=("terms", term), value={}
         )
         return self
 
@@ -269,7 +278,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
                     else EditableDatasetProperties.ASPECT_NAME
                 ),
                 "add",
-                path="/description",
+                path=("description",),
                 value=description,
             )
         return self
@@ -280,7 +289,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DatasetProperties.ASPECT_NAME,
             "add",
-            path="/customProperties",
+            path=("customProperties",),
             value=custom_properties,
         )
         return self
@@ -308,7 +317,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 DatasetProperties.ASPECT_NAME,
                 "add",
-                path="/name",
+                path=("name",),
                 value=display_name,
             )
         return self
@@ -320,7 +329,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 DatasetProperties.ASPECT_NAME,
                 "add",
-                path="/qualifiedName",
+                path=("qualifiedName",),
                 value=qualified_name,
             )
         return self
@@ -332,7 +341,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 DatasetProperties.ASPECT_NAME,
                 "add",
-                path="/created",
+                path=("created",),
                 value=timestamp,
             )
         return self
@@ -344,7 +353,7 @@ class DatasetPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 DatasetProperties.ASPECT_NAME,
                 "add",
-                path="/lastModified",
+                path=("lastModified",),
                 value=timestamp,
             )
         return self

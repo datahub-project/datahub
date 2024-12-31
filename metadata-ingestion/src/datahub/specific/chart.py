@@ -120,7 +120,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             ChartInfo.ASPECT_NAME,
             "add",
-            path=f"/inputEdges/{self.quote(input_urn)}",
+            path=("inputEdges", input_urn),
             value=input_urn,
         )
         return self
@@ -138,7 +138,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             ChartInfo.ASPECT_NAME,
             "remove",
-            path=f"/inputEdges/{self.quote(str(input))}",
+            path=("inputEdges", str(input)),
             value={},
         )
         return self
@@ -159,7 +159,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             ChartInfo.ASPECT_NAME,
             "add",
-            path="/inputEdges",
+            path=("inputEdges",),
             value=inputs,
         )
         return self
@@ -175,7 +175,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
             The ChartPatchBuilder instance.
         """
         self._add_patch(
-            GlobalTags.ASPECT_NAME, "add", path=f"/tags/{tag.tag}", value=tag
+            GlobalTags.ASPECT_NAME, "add", path=("tags", tag.tag), value=tag
         )
         return self
 
@@ -191,7 +191,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         """
         if isinstance(tag, str) and not tag.startswith("urn:li:tag:"):
             tag = TagUrn.create_from_id(tag)
-        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=f"/tags/{tag}", value={})
+        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=("tags", tag), value={})
         return self
 
     def add_term(self, term: Term) -> "ChartPatchBuilder":
@@ -205,7 +205,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
             The ChartPatchBuilder instance.
         """
         self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "add", path=f"/terms/{term.urn}", value=term
+            GlossaryTerms.ASPECT_NAME, "add", path=("terms", term.urn), value=term
         )
         return self
 
@@ -222,7 +222,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         if isinstance(term, str) and not term.startswith("urn:li:glossaryTerm:"):
             term = "urn:li:glossaryTerm:" + term
         self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "remove", path=f"/terms/{term}", value={}
+            GlossaryTerms.ASPECT_NAME, "remove", path=("terms", term), value={}
         )
         return self
 
@@ -244,7 +244,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             ChartInfo.ASPECT_NAME,
             "add",
-            path="/customProperties",
+            path=("customProperties",),
             value=custom_properties,
         )
         return self
@@ -281,7 +281,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             ChartInfo.ASPECT_NAME,
             "add",
-            path="/title",
+            path=("title",),
             value=title,
         )
 
@@ -292,7 +292,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             ChartInfo.ASPECT_NAME,
             "add",
-            path="/description",
+            path=("description",),
             value=description,
         )
 
@@ -303,7 +303,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 ChartInfo.ASPECT_NAME,
                 "add",
-                path="/lastRefreshed",
+                path=("lastRefreshed",),
                 value=last_refreshed,
             )
 
@@ -316,7 +316,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 ChartInfo.ASPECT_NAME,
                 "add",
-                path="/lastModified",
+                path=("lastModified",),
                 value=last_modified,
             )
 
@@ -327,7 +327,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 ChartInfo.ASPECT_NAME,
                 "add",
-                path="/externalUrl",
+                path=("externalUrl",),
                 value=external_url,
             )
         return self
@@ -337,7 +337,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 ChartInfo.ASPECT_NAME,
                 "add",
-                path="/chartUrl",
+                path=("chartUrl",),
                 value=dashboard_url,
             )
 
@@ -350,7 +350,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 ChartInfo.ASPECT_NAME,
                 "add",
-                path="/type",
+                path=("type",),
                 value=type,
             )
 
@@ -363,7 +363,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 ChartInfo.ASPECT_NAME,
                 "add",
-                path="/access",
+                path=("access",),
                 value=access,
             )
 
@@ -375,7 +375,7 @@ class ChartPatchBuilder(MetadataPatchProposal):
                 self._add_patch(
                     aspect_name=ChartInfo.ASPECT_NAME,
                     op="add",
-                    path=f"/inputs/{urn}",
+                    path=("inputs", urn),
                     value=urn,
                 )
 

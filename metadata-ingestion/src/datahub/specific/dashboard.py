@@ -126,7 +126,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DashboardInfo.ASPECT_NAME,
             "add",
-            path=f"/datasetEdges/{self.quote(dataset_urn)}",
+            path=("datasetEdges", dataset_urn),
             value=dataset_edge,
         )
         return self
@@ -144,7 +144,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DashboardInfo.ASPECT_NAME,
             "remove",
-            path=f"/datasetEdges/{dataset}",
+            path=("datasetEdges", dataset),
             value={},
         )
         return self
@@ -169,7 +169,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DashboardInfo.ASPECT_NAME,
             "add",
-            path="/datasetEdges",
+            path=("datasetEdges",),
             value=datasets,
         )
         return self
@@ -209,7 +209,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DashboardInfo.ASPECT_NAME,
             "add",
-            path=f"/chartEdges/{self.quote(chart_urn)}",
+            path=("chartEdges", chart_urn),
             value=chart_edge,
         )
         return self
@@ -227,7 +227,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DashboardInfo.ASPECT_NAME,
             "remove",
-            path=f"/chartEdges/{chart}",
+            path=("chartEdges", chart),
             value={},
         )
         return self
@@ -252,7 +252,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DashboardInfo.ASPECT_NAME,
             "add",
-            path="/chartEdges",
+            path=("chartEdges",),
             value=charts,
         )
         return self
@@ -268,7 +268,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
             The DashboardPatchBuilder instance.
         """
         self._add_patch(
-            GlobalTags.ASPECT_NAME, "add", path=f"/tags/{tag.tag}", value=tag
+            GlobalTags.ASPECT_NAME, "add", path=("tags", tag.tag), value=tag
         )
         return self
 
@@ -284,7 +284,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         """
         if isinstance(tag, str) and not tag.startswith("urn:li:tag:"):
             tag = TagUrn.create_from_id(tag)
-        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=f"/tags/{tag}", value={})
+        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=("tags", tag), value={})
         return self
 
     def add_term(self, term: Term) -> "DashboardPatchBuilder":
@@ -298,7 +298,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
             The DashboardPatchBuilder instance.
         """
         self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "add", path=f"/terms/{term.urn}", value=term
+            GlossaryTerms.ASPECT_NAME, "add", path=("terms", term.urn), value=term
         )
         return self
 
@@ -315,7 +315,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         if isinstance(term, str) and not term.startswith("urn:li:glossaryTerm:"):
             term = "urn:li:glossaryTerm:" + term
         self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "remove", path=f"/terms/{term}", value={}
+            GlossaryTerms.ASPECT_NAME, "remove", path=("terms", term), value={}
         )
         return self
 
@@ -337,7 +337,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DashboardInfo.ASPECT_NAME,
             "add",
-            path="/customProperties",
+            path=("customProperties",),
             value=custom_properties,
         )
         return self
@@ -374,7 +374,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DashboardInfo.ASPECT_NAME,
             "add",
-            path="/title",
+            path=("title",),
             value=title,
         )
 
@@ -385,7 +385,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DashboardInfo.ASPECT_NAME,
             "add",
-            path="/description",
+            path=("description",),
             value=description,
         )
 
@@ -405,7 +405,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 DashboardInfo.ASPECT_NAME,
                 "add",
-                path="/externalUrl",
+                path=("externalUrl",),
                 value=external_url,
             )
         return self
@@ -416,7 +416,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
                 self._add_patch(
                     aspect_name=DashboardInfo.ASPECT_NAME,
                     op="add",
-                    path=f"/charts/{urn}",
+                    path=("charts", urn),
                     value=urn,
                 )
 
@@ -430,7 +430,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
                 self._add_patch(
                     aspect_name=DashboardInfo.ASPECT_NAME,
                     op="add",
-                    path=f"/datasets/{urn}",
+                    path=("datasets", urn),
                     value=urn,
                 )
 
@@ -443,7 +443,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 DashboardInfo.ASPECT_NAME,
                 "add",
-                path="/dashboardUrl",
+                path=("dashboardUrl",),
                 value=dashboard_url,
             )
 
@@ -456,7 +456,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 DashboardInfo.ASPECT_NAME,
                 "add",
-                path="/access",
+                path=("access",),
                 value=access,
             )
 
@@ -469,7 +469,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 DashboardInfo.ASPECT_NAME,
                 "add",
-                path="/lastRefreshed",
+                path=("lastRefreshed",),
                 value=last_refreshed,
             )
 
@@ -482,7 +482,7 @@ class DashboardPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 DashboardInfo.ASPECT_NAME,
                 "add",
-                path="/lastModified",
+                path=("lastModified",),
                 value=last_modified,
             )
 

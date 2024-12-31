@@ -22,7 +22,7 @@ class CustomPropertiesPatchHelper(Generic[_Parent]):
         self._parent._add_patch(
             self.aspect_name,
             "add",
-            path=f"/{self.aspect_field}/{key}",
+            path=(self.aspect_field, key),
             value=value,
         )
         return self
@@ -31,7 +31,7 @@ class CustomPropertiesPatchHelper(Generic[_Parent]):
         self._parent._add_patch(
             self.aspect_name,
             "remove",
-            path=f"/{self.aspect_field}/{key}",
+            path=(self.aspect_field, key),
             value={},
         )
         return self

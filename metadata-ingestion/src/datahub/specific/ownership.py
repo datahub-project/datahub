@@ -22,7 +22,7 @@ class OwnershipPatchHelper(Generic[_Parent]):
         self._parent._add_patch(
             OwnershipClass.ASPECT_NAME,
             "add",
-            path=f"/owners/{owner.owner}/{owner.type}",
+            path=("owners", owner.owner, str(owner.type)),
             value=owner,
         )
         return self
@@ -36,13 +36,13 @@ class OwnershipPatchHelper(Generic[_Parent]):
         self._parent._add_patch(
             OwnershipClass.ASPECT_NAME,
             "remove",
-            path=f"/owners/{owner}" + (f"/{owner_type}" if owner_type else ""),
+            path=("owners", owner) + ((str(owner_type),) if owner_type else ()),
             value=owner,
         )
         return self
 
     def set_owners(self, owners: List[OwnerClass]) -> "OwnershipPatchHelper":
         self._parent._add_patch(
-            OwnershipClass.ASPECT_NAME, "add", path="/owners", value=owners
+            OwnershipClass.ASPECT_NAME, "add", path=("owners",), value=owners
         )
         return self

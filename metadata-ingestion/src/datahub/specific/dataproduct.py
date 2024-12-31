@@ -55,19 +55,19 @@ class DataProductPatchBuilder(MetadataPatchProposal):
 
     def add_tag(self, tag: Tag) -> "DataProductPatchBuilder":
         self._add_patch(
-            GlobalTags.ASPECT_NAME, "add", path=f"/tags/{tag.tag}", value=tag
+            GlobalTags.ASPECT_NAME, "add", path=("tags", tag.tag), value=tag
         )
         return self
 
     def remove_tag(self, tag: Union[str, Urn]) -> "DataProductPatchBuilder":
         if isinstance(tag, str) and not tag.startswith("urn:li:tag:"):
             tag = TagUrn.create_from_id(tag)
-        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=f"/tags/{tag}", value={})
+        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=("tags", tag), value={})
         return self
 
     def add_term(self, term: Term) -> "DataProductPatchBuilder":
         self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "add", path=f"/terms/{term.urn}", value=term
+            GlossaryTerms.ASPECT_NAME, "add", path=("terms", term.urn), value=term
         )
         return self
 
@@ -75,7 +75,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
         if isinstance(term, str) and not term.startswith("urn:li:glossaryTerm:"):
             term = "urn:li:glossaryTerm:" + term
         self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "remove", path=f"/terms/{term}", value={}
+            GlossaryTerms.ASPECT_NAME, "remove", path=("terms", term), value={}
         )
         return self
 
@@ -83,7 +83,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
             "add",
-            path="/name",
+            path=("name",),
             value=name,
         )
         return self
@@ -92,7 +92,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
             "add",
-            path="/description",
+            path=("description",),
             value=description,
         )
         return self
@@ -103,7 +103,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
             "add",
-            path="/customProperties",
+            path=("customProperties",),
             value=custom_properties,
         )
         return self
@@ -122,7 +122,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
             "add",
-            path="/assets",
+            path=("assets",),
             value=assets,
         )
         return self
@@ -131,7 +131,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
             "add",
-            path=f"/assets/{self.quote(asset_urn)}",
+            path=("assets", asset_urn),
             value=DataProductAssociation(destinationUrn=asset_urn),
         )
         return self
@@ -140,7 +140,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
             "remove",
-            path=f"/assets/{self.quote(asset_urn)}",
+            path=("assets", asset_urn),
             value={},
         )
         return self
@@ -149,7 +149,7 @@ class DataProductPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataProductProperties.ASPECT_NAME,
             "add",
-            path="/externalUrl",
+            path=("externalUrl",),
             value=external_url,
         )
         return self
