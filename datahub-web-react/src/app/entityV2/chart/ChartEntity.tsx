@@ -48,6 +48,7 @@ import { SidebarTitleActionType, getDashboardLastUpdatedMs, getDataProduct, isOu
 import { ChartPreview } from './preview/ChartPreview';
 import { ChartStatsSummarySubHeader } from './profile/stats/ChartStatsSummarySubHeader';
 import ChartSummaryTab from './summary/ChartSummaryTab';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 
 const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
@@ -211,6 +212,9 @@ export class ChartEntity implements Entity<Chart> {
         },
         {
             component: SidebarAboutSection,
+        },
+        {
+            component: SidebarNotesSection,
         },
         {
             component: SidebarLineageSection,

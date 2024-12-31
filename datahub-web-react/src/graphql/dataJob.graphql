@@ -34,6 +34,7 @@ query getDataJob($urn: String!) {
         browsePathV2 {
             ...browsePathV2Fields
         }
+        ...notes
     }
 }
 

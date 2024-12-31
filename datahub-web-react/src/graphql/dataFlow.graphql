@@ -93,6 +93,7 @@ query getDataFlow($urn: String!) {
         tagProposals: proposals(type: TAG_ASSOCIATION) {
             ...proposalsFragment
         }
+        ...notes
     }
 }
 

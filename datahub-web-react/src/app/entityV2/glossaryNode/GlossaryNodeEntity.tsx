@@ -19,12 +19,14 @@ import { DocumentationTab } from '../shared/tabs/Documentation/DocumentationTab'
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import ChildrenTab from './ChildrenTab';
 import { Preview } from './preview/Preview';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
     EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.SHARE,
     EntityMenuItems.DELETE,
+    EntityMenuItems.ANNOUNCE,
 ]);
 
 class GlossaryNodeEntity implements Entity<GlossaryNode> {
@@ -122,6 +124,9 @@ class GlossaryNodeEntity implements Entity<GlossaryNode> {
             properties: {
                 hideLinksButton: true,
             },
+        },
+        {
+            component: SidebarNotesSection,
         },
         {
             component: SidebarOwnerSection,

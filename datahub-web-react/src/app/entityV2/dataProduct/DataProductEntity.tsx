@@ -32,12 +32,14 @@ import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { DataProductEntitiesTab } from './DataProductEntitiesTab';
 import { DataProductSummaryTab } from './DataProductSummaryTab';
 import { Preview } from './preview/Preview';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.SHARE,
     EntityMenuItems.DELETE,
     EntityMenuItems.EDIT,
+    EntityMenuItems.ANNOUNCE,
 ]);
 
 /**
@@ -138,6 +140,9 @@ export class DataProductEntity implements Entity<DataProduct> {
         },
         {
             component: SidebarAboutSection,
+        },
+        {
+            component: SidebarNotesSection,
         },
         {
             component: SidebarOwnerSection,

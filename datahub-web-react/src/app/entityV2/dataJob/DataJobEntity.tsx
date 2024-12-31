@@ -41,6 +41,7 @@ import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { SidebarTitleActionType, getDataProduct, isOutputPort } from '../shared/utils';
 import { Preview } from './preview/Preview';
 import { RunsTab } from './tabs/RunsTab';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 
 const getDataJobPlatformName = (data?: DataJob): string => {
     return (
@@ -55,6 +56,7 @@ const headerDropdownItems = new Set([
     EntityMenuItems.SHARE,
     EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.ANNOUNCE,
 ]);
 
 /**
@@ -160,6 +162,7 @@ export class DataJobEntity implements Entity<DataJob> {
         { component: SidebarEntityHeader },
         { component: SidebarQueryOperationsSection },
         { component: SidebarAboutSection },
+        { component: SidebarNotesSection },
         { component: SidebarLineageSection },
         { component: SidebarOwnerSection },
         { component: SidebarDomainSection },

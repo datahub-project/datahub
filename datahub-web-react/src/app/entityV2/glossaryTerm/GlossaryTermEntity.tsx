@@ -27,6 +27,7 @@ import { Preview } from './preview/Preview';
 import GlossaryRelatedEntity from './profile/GlossaryRelatedEntity';
 import GlossayRelatedTerms from './profile/GlossaryRelatedTerms';
 import { RelatedTermTypes } from './profile/GlossaryRelatedTermsResult';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
@@ -34,6 +35,7 @@ const headerDropdownItems = new Set([
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.DELETE,
+    EntityMenuItems.ANNOUNCE,
 ]);
 
 /**
@@ -157,6 +159,9 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
         },
         {
             component: SidebarAboutSection,
+        },
+        {
+            component: SidebarNotesSection,
         },
         {
             component: SidebarOwnerSection,

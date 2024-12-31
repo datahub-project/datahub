@@ -46,5 +46,6 @@ query getMLModelGroup($urn: String!) {
         tagProposals: proposals(type: TAG_ASSOCIATION) {
             ...proposalsFragment
         }
+        ...notes
     }
 }

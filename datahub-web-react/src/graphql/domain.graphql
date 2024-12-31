@@ -50,6 +50,7 @@ query getDomain($urn: String!) {
         assetOrigin {
             ...originFields
         }
+        ...notes
     }
 }
 

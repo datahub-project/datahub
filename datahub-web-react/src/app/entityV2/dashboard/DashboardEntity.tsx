@@ -53,6 +53,7 @@ import { SidebarTitleActionType, getDashboardLastUpdatedMs, getDataProduct, isOu
 import { DashboardPreview } from './preview/DashboardPreview';
 import { DashboardStatsSummarySubHeader } from './profile/DashboardStatsSummarySubHeader';
 import DashboardSummaryTab from './summary/DashboardSummaryTab';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 
 const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
@@ -209,6 +210,9 @@ export class DashboardEntity implements Entity<Dashboard> {
         },
         {
             component: SidebarAboutSection,
+        },
+        {
+            component: SidebarNotesSection,
         },
         {
             component: SidebarLineageSection,

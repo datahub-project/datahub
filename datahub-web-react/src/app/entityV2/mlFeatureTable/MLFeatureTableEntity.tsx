@@ -25,8 +25,9 @@ import { getDataProduct, isOutputPort } from '../shared/utils';
 import { Preview } from './preview/Preview';
 import MlFeatureTableFeatures from './profile/features/MlFeatureTableFeatures';
 import Sources from './profile/Sources';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 
-const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION]);
+const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.ANNOUNCE]);
 
 /**
  * Definition of the DataHub MLFeatureTable entity.
@@ -115,6 +116,9 @@ export class MLFeatureTableEntity implements Entity<MlFeatureTable> {
         },
         {
             component: SidebarAboutSection,
+        },
+        {
+            component: SidebarNotesSection,
         },
         {
             component: SidebarOwnerSection,

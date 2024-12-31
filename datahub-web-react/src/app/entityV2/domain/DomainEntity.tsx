@@ -24,12 +24,14 @@ import DataProductsTab from './DataProductsTab/DataProductsTab';
 import { DomainEntitiesTab } from './DomainEntitiesTab';
 import { Preview } from './preview/Preview';
 import { DomainSummaryTab } from './summary/DomainSummaryTab';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
     EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.SHARE,
     EntityMenuItems.DELETE,
+    EntityMenuItems.ANNOUNCE,
 ]);
 
 /**
@@ -148,6 +150,9 @@ export class DomainEntity implements Entity<Domain> {
         },
         {
             component: SidebarAboutSection,
+        },
+        {
+            component: SidebarNotesSection,
         },
         {
             component: SidebarEntitiesSection,

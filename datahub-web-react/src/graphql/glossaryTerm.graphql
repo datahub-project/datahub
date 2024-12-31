@@ -104,6 +104,7 @@ query getGlossaryTerm($urn: String!, $start: Int, $count: Int) {
         assetOrigin {
             ...originFields
         }
+        ...notes
     }
 }
 

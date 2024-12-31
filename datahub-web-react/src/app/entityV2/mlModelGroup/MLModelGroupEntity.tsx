@@ -23,8 +23,9 @@ import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { isOutputPort } from '../shared/utils';
 import { Preview } from './preview/Preview';
 import ModelGroupModels from './profile/ModelGroupModels';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 
-const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION]);
+const headerDropdownItems = new Set([EntityMenuItems.UPDATE_DEPRECATION, EntityMenuItems.ANNOUNCE]);
 
 /**
  * Definition of the DataHub MlModelGroup entity.
@@ -109,6 +110,9 @@ export class MLModelGroupEntity implements Entity<MlModelGroup> {
         },
         {
             component: SidebarAboutSection,
+        },
+        {
+            component: SidebarNotesSection,
         },
         {
             component: SidebarOwnerSection,

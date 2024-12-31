@@ -27,8 +27,14 @@ import { getDataProduct, isOutputPort } from '../shared/utils';
 import { ContainerEntitiesTab } from './ContainerEntitiesTab';
 import ContainerSummaryTab from './ContainerSummaryTab';
 import { Preview } from './preview/Preview';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 
-const headerDropdownItems = new Set([EntityMenuItems.EXTERNAL_URL, EntityMenuItems.SHARE, EntityMenuItems.SUBSCRIBE]);
+const headerDropdownItems = new Set([
+    EntityMenuItems.EXTERNAL_URL,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.SUBSCRIBE,
+    EntityMenuItems.ANNOUNCE,
+]);
 
 /**
  * Definition of the DataHub Container entity.
@@ -126,6 +132,9 @@ export class ContainerEntity implements Entity<Container> {
         },
         {
             component: SidebarAboutSection,
+        },
+        {
+            component: SidebarNotesSection,
         },
         {
             component: SidebarContentsSection,

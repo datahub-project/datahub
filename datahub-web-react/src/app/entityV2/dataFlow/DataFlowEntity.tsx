@@ -32,12 +32,14 @@ import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
 import { getDataProduct, isOutputPort } from '../shared/utils';
 import { Preview } from './preview/Preview';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.EXTERNAL_URL,
     EntityMenuItems.SHARE,
     EntityMenuItems.SUBSCRIBE,
     EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.ANNOUNCE,
 ]);
 
 /**
@@ -134,6 +136,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
         },
         {
             component: SidebarAboutSection,
+        },
+        {
+            component: SidebarNotesSection,
         },
         {
             component: SidebarOwnerSection,

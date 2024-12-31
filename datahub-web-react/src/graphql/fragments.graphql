@@ -2268,7 +2268,7 @@ fragment datasetProfileFields on DatasetProfile {
     }
 }
 
-fragment notes on EntityWithRelationships {
+fragment notes on Entity {
     notes: relationships(input: { types: ["PostTarget"], direction: INCOMING, start: 0, count: 100 }) {
         total
         relationships {

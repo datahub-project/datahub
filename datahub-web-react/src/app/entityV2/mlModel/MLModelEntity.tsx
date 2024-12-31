@@ -27,11 +27,13 @@ import { Preview } from './preview/Preview';
 import MLModelGroupsTab from './profile/MLModelGroupsTab';
 import MLModelSummary from './profile/MLModelSummary';
 import MlModelFeaturesTab from './profile/MlModelFeaturesTab';
+import SidebarNotesSection from '../shared/sidebarSection/SidebarNotesSection';
 
 const headerDropdownItems = new Set([
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.RAISE_INCIDENT,
+    EntityMenuItems.ANNOUNCE,
 ]);
 
 /**
@@ -136,6 +138,9 @@ export class MLModelEntity implements Entity<MlModel> {
         },
         {
             component: SidebarAboutSection,
+        },
+        {
+            component: SidebarNotesSection,
         },
         {
             component: SidebarOwnerSection,

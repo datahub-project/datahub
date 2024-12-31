@@ -20,6 +20,7 @@ query getDataProduct($urn: String!) {
         forms {
             ...formsFields
         }
+        ...notes
     }
 }
 
