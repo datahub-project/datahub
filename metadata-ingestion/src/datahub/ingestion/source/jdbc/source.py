@@ -424,7 +424,9 @@ class JDBCSource(StatefulIngestionSourceBase):
             logger.error(f"Failed to extract schemas: {str(e)}")
             logger.debug(traceback.format_exc())
 
-    def _extract_tables_and_views(self, metadata) -> Iterable[MetadataWorkUnit]:
+    def _extract_tables_and_views(
+        self, metadata: jaydebeapi.Connection.cursor
+    ) -> Iterable[MetadataWorkUnit]:
         """Extract tables and views with batch metadata retrieval."""
         try:
             database_name = self._get_database_name(metadata)
@@ -523,7 +525,9 @@ class JDBCSource(StatefulIngestionSourceBase):
                                 )
 
                                 yield from self._generate_table_metadata(
-                                    database_name, table, view_definition
+                                    table=table,
+                                    database=database_name,
+                                    view_definition=view_definition,
                                 )
 
                                 # Report success
@@ -546,10 +550,10 @@ class JDBCSource(StatefulIngestionSourceBase):
             logger.debug(traceback.format_exc())
 
     def _batch_extract_columns(
-        self, metadata, schema: str
+        self, metadata: jaydebeapi.Connection.cursor, schema: str
     ) -> Dict[str, List[JDBCColumn]]:
         """Extract columns for all tables in a schema at once."""
-        columns_by_table = {}
+        columns_by_table: Dict[str, List[JDBCColumn]] = {}
         try:
             with metadata.getColumns(None, schema, None, None) as rs:
                 while rs.next():
@@ -569,9 +573,11 @@ class JDBCSource(StatefulIngestionSourceBase):
             logger.debug(f"Could not get columns for schema {schema}: {e}")
         return columns_by_table
 
-    def _batch_extract_primary_keys(self, metadata, schema: str) -> Dict[str, Set[str]]:
+    def _batch_extract_primary_keys(
+        self, metadata: jaydebeapi.Connection.cursor, schema: str
+    ) -> Dict[str, Set[str]]:
         """Extract primary keys for all tables in a schema at once."""
-        pks_by_table = {}
+        pks_by_table: Dict[str, Set[str]] = {}
         try:
             with metadata.getPrimaryKeys(None, schema, None) as rs:
                 while rs.next():
@@ -584,10 +590,10 @@ class JDBCSource(StatefulIngestionSourceBase):
         return pks_by_table
 
     def _batch_extract_foreign_keys(
-        self, metadata, schema: str
+        self, metadata: jaydebeapi.Connection.cursor, schema: str
     ) -> Dict[str, List[Dict]]:
         """Extract foreign keys for all tables in a schema at once."""
-        fks_by_table = {}
+        fks_by_table: Dict[str, List[Dict[str, str]]] = {}
         try:
             with metadata.getExportedKeys(None, schema, None) as rs:
                 while rs.next():
@@ -608,23 +614,29 @@ class JDBCSource(StatefulIngestionSourceBase):
         return fks_by_table
 
     def _try_query_for_views(
-        self, cursor: jaydebeapi.Cursor, query: str
+        self, connection: Optional[jaydebeapi.Connection], query: str
     ) -> Dict[str, str]:
         """Try to execute a single view definition query."""
-        view_definitions = {}
-        try:
-            cursor.execute(query)
-            rows = cursor.fetchall()
-            if rows:
-                for row in rows:
-                    if row[0] and row[1]:  # table_name and definition
-                        view_definitions[row[0]] = self._clean_sql(row[1])
-        except Exception:
-            pass
+        view_definitions: Dict[str, str] = {}
+
+        if connection is not None:
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute(query)
+                    rows = cursor.fetchall()
+                    if rows:
+                        for row in rows:
+                            if row[0] and row[1]:  # table_name and definition
+                                view_definitions[row[0]] = self._clean_sql(row[1])
+            except Exception:
+                pass
         return view_definitions
 
     def _get_info_schema_view_definitions(self, schema: str) -> Dict[str, str]:
         """Get view definitions from information schema."""
+        if self._connection is None:
+            return {}
+
         info_schema_queries = [
             f"SELECT TABLE_NAME, VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = '{schema}'",
             f"SELECT TABLE_NAME, VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE SCHEMA_NAME = '{schema}'",
@@ -643,6 +655,9 @@ class JDBCSource(StatefulIngestionSourceBase):
 
     def _get_system_view_definitions(self, schema: str) -> Dict[str, str]:
         """Get view definitions from system views."""
+        if self._connection is None:
+            return {}
+
         system_queries = [
             f"""
             SELECT
@@ -669,17 +684,18 @@ class JDBCSource(StatefulIngestionSourceBase):
 
     def _get_view_names(self, schema: str) -> Set[str]:
         """Get list of view names for a schema."""
-        views = set()
-        try:
-            with self._connection.cursor() as cursor:
-                cursor.execute(
-                    f"SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = '{schema}'"
-                )
-                rows = cursor.fetchall()
-                if rows:
-                    views.update(row[0] for row in rows if row[0])
-        except Exception:
-            pass
+        views: Set[str] = set()
+        if self._connection is not None:
+            try:
+                with self._connection.cursor() as cursor:
+                    cursor.execute(
+                        f"SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = '{schema}'"
+                    )
+                    rows = cursor.fetchall()
+                    if rows:
+                        views.update(row[0] for row in rows if row[0])
+            except Exception:
+                pass
         return views
 
     def _get_view_definition(self, schema: str, view: str) -> Optional[str]:
@@ -700,15 +716,16 @@ class JDBCSource(StatefulIngestionSourceBase):
             f"SELECT TEXT FROM ALL_VIEWS WHERE OWNER = '{schema}' AND VIEW_NAME = '{view}'",
         ]
 
-        for query in queries:
-            try:
-                with self._connection.cursor() as cursor:
-                    cursor.execute(query)
-                    row = cursor.fetchone()
-                    if row and row[0]:
-                        return self._clean_sql(row[0])
-            except Exception:
-                continue
+        if self._connection is not None:
+            for query in queries:
+                try:
+                    with self._connection.cursor() as cursor:
+                        cursor.execute(query)
+                        row = cursor.fetchone()
+                        if row and row[0]:
+                            return self._clean_sql(row[0])
+                except Exception:
+                    continue
 
         return None
 
@@ -748,7 +765,10 @@ class JDBCSource(StatefulIngestionSourceBase):
             return {}
 
     def _generate_table_metadata(
-        self, database: str, table: JDBCTable, view_definition: Optional[str] = None
+        self,
+        table: JDBCTable,
+        database: Optional[str] = None,
+        view_definition: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         """Generate metadata workunits for a table or view."""
         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -832,6 +852,9 @@ class JDBCSource(StatefulIngestionSourceBase):
 
     def _get_raw_schema_sql(self, table: JDBCTable) -> str:
         """Get raw DDL schema for table/view."""
+        if self._connection is None:
+            return ""
+
         try:
             ddl_queries = [
                 f'SHOW CREATE TABLE "{table.schema}"."{table.name}"',
@@ -867,7 +890,9 @@ class JDBCSource(StatefulIngestionSourceBase):
 
         return sql
 
-    def _extract_stored_procedures(self, metadata) -> Iterable[MetadataWorkUnit]:
+    def _extract_stored_procedures(
+        self, metadata: jaydebeapi.Connection.cursor
+    ) -> Iterable[MetadataWorkUnit]:
         """Extract stored procedures metadata."""
         if not self.config.include_stored_procedures:
             return

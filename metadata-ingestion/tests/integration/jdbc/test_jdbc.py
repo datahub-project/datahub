@@ -4,6 +4,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Callable
 
 import pytest
 import yaml
@@ -108,7 +109,11 @@ def is_mssql_ready(container_name: str) -> bool:
     return result.returncode == 0
 
 
-def wait_for_container(container_name: str, checker, timeout=120):
+def wait_for_container(
+    container_name: str,
+    checker: Callable[[str], bool],
+    timeout: int = 120,
+) -> None:
     """Wait for a container to become ready."""
     logger.info(f"Waiting for container {container_name} to become ready...")
     start_time = time.time()
