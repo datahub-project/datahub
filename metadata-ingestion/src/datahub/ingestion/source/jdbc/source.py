@@ -18,7 +18,13 @@ from datahub.emitter.mce_builder import (
 )
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    capability,
+    config_class,
+    support_status,
+)
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.jdbc.config import JDBCSourceConfig, SSLConfig
 from datahub.ingestion.source.jdbc.constants import (
@@ -55,8 +61,25 @@ from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 logger = logging.getLogger(__name__)
 
 
+@config_class(JDBCSourceConfig)
+@support_status(SupportStatus.CERTIFIED)
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
+@capability(SourceCapability.LINEAGE_COARSE, "Enabled by default")
+@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class JDBCSource(StatefulIngestionSourceBase):
-    """Enhanced JDBC source with better abstraction."""
+    """
+    The JDBC source plugin provides comprehensive metadata extraction capabilities for JDBC-compliant databases. It supports:
+    - Extraction of database structure (tables, views, columns)
+    - Schema metadata including data types and constraints
+    - View definitions and dependencies
+    - Stored procedures (optional)
+    - SSL connections with certificate management
+    - Maven-based driver management
+    - Flexible pattern matching for schema/table filtering
+
+    The plugin uses Java Database Connectivity (JDBC) APIs through JPype and JayDeBeApi, allowing it to support any database with a JDBC driver. It handles connection pooling, retries, and proper resource cleanup to ensure reliable metadata extraction.
+
+    """
 
     config: JDBCSourceConfig
     report: JDBCSourceReport

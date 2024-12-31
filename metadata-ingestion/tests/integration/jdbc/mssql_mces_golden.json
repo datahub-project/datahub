@@ -123619,7 +123619,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1735657310494,
+                        "time": 1735657560028,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -123631,7 +123631,7 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 1735657310494,
+                        "time": 1735657560028,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -123641,58 +123641,12 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,test.test.dbo.users,PROD)",
                     "type": "VIEW"
                 }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.test.dbo.orders,PROD),id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.dbo.large_orders_view,PROD),order_id)"
-                    ],
-                    "confidenceScore": 0.2
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.test.dbo.orders,PROD),amount)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.dbo.large_orders_view,PROD),amount)"
-                    ],
-                    "confidenceScore": 0.2
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.test.dbo.users,PROD),name)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.dbo.large_orders_view,PROD),user_name)"
-                    ],
-                    "confidenceScore": 0.2
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.test.dbo.users,PROD),email)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.dbo.large_orders_view,PROD),email)"
-                    ],
-                    "confidenceScore": 0.2
-                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735657310494,
-        "runId": "jdbc-2024_12_31-15_01_10-f748q2",
+        "lastObserved": 1735657560028,
+        "runId": "jdbc-2024_12_31-15_05_32-ai9ymy",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -123706,7 +123660,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1735657310492,
+                        "time": 1735657560027,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -123718,7 +123672,7 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 1735657310492,
+                        "time": 1735657560027,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -123728,58 +123682,12 @@
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,test.test.dbo.users,PROD)",
                     "type": "VIEW"
                 }
-            ],
-            "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.test.dbo.users,PROD),id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.dbo.active_users_view,PROD),id)"
-                    ],
-                    "confidenceScore": 0.2
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.test.dbo.users,PROD),name)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.dbo.active_users_view,PROD),name)"
-                    ],
-                    "confidenceScore": 0.2
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.test.dbo.users,PROD),email)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.dbo.active_users_view,PROD),email)"
-                    ],
-                    "confidenceScore": 0.2
-                },
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.test.dbo.orders,PROD),id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.dbo.active_users_view,PROD),order_count)"
-                    ],
-                    "confidenceScore": 0.2
-                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735657310493,
-        "runId": "jdbc-2024_12_31-15_01_10-f748q2",
+        "lastObserved": 1735657560027,
+        "runId": "jdbc-2024_12_31-15_05_32-ai9ymy",
         "lastRunId": "no-run-id-provided"
     }
 },

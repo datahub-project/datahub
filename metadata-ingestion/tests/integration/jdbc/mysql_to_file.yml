@@ -4,6 +4,7 @@ source:
     # Coordinates
     platform: mysql
     platform_instance: test
+    sqlglot_dialect: mysql
     driver:
       driver_class: com.mysql.jdbc.Driver
       maven_coordinates: com.mysql:mysql-connector-j:8.2.0
