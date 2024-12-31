@@ -97,7 +97,7 @@ class Container(HasSubtype, HasContainer, HasOwnership, Entity):
         #     self.set_domain_urn(domain_urn)
 
     @classmethod
-    def _init_dummy_args(cls) -> dict[str, Any]:
+    def _graph_init_dummy_args(cls) -> dict[str, Any]:
         return {"display_name": "__dummy_value__"}
 
     def _ensure_container_props(
