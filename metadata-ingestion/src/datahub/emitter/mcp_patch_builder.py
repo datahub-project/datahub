@@ -2,7 +2,17 @@ import json
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Protocol,
+    Tuple,
+    Union,
+    runtime_checkable,
+)
 
 from typing_extensions import LiteralString
 
@@ -21,10 +31,16 @@ from datahub.metadata.urns import Urn
 from datahub.utilities.urns.urn import guess_entity_type
 
 
+@runtime_checkable
+class SupportsToObj(Protocol):
+    def to_obj(self) -> Any:
+        ...
+
+
 def _recursive_to_obj(obj: Any) -> Any:
     if isinstance(obj, list):
         return [_recursive_to_obj(v) for v in obj]
-    elif hasattr(obj, "to_obj"):
+    elif isinstance(obj, SupportsToObj):
         return obj.to_obj()
     else:
         return obj
@@ -35,7 +51,7 @@ PatchOp = Literal["add", "remove", "replace"]
 
 
 @dataclass
-class _Patch:
+class _Patch(SupportsToObj):
     op: PatchOp
     path: PatchPath
     value: Any
