@@ -1,4 +1,4 @@
-from typing import Dict, Generic, List, Optional, Tuple, TypeVar, Union
+from typing import Generic, List, Optional, Tuple, TypeVar, Union
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
 from datahub.metadata.com.linkedin.pegasus2avro.common import TimeStamp
@@ -17,8 +17,8 @@ from datahub.metadata.schema_classes import (
     UpstreamClass as Upstream,
     UpstreamLineageClass as UpstreamLineage,
 )
-from datahub.specific.custom_properties import CustomPropertiesPatchHelper
-from datahub.specific.ownership import HasOwnershipPatch
+from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
+from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 from datahub.specific.structured_properties import StructuredPropertiesPatchHelper
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
@@ -92,7 +92,9 @@ class FieldPatchHelper(Generic[_Parent]):
         return self._parent
 
 
-class DatasetPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
+class DatasetPatchBuilder(
+    HasOwnershipPatch, HasCustomPropertiesPatch, MetadataPatchProposal
+):
     def __init__(
         self,
         urn: str,
@@ -102,10 +104,11 @@ class DatasetPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
         super().__init__(
             urn, system_metadata=system_metadata, audit_header=audit_header
         )
-        self.custom_properties_patch_helper = CustomPropertiesPatchHelper(
-            self, DatasetProperties.ASPECT_NAME
-        )
         self.structured_properties_patch_helper = StructuredPropertiesPatchHelper(self)
+
+    @classmethod
+    def _custom_properties_location(cls) -> Tuple[str, PatchPath]:
+        return DatasetProperties.ASPECT_NAME, ("customProperties",)
 
     def add_upstream_lineage(self, upstream: Upstream) -> "DatasetPatchBuilder":
         self._add_patch(
@@ -261,33 +264,6 @@ class DatasetPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
                 path=("description",),
                 value=description,
             )
-        return self
-
-    def set_custom_properties(
-        self, custom_properties: Dict[str, str]
-    ) -> "DatasetPatchBuilder":
-        self._add_patch(
-            DatasetProperties.ASPECT_NAME,
-            "add",
-            path=("customProperties",),
-            value=custom_properties,
-        )
-        return self
-
-    def add_custom_property(self, key: str, value: str) -> "DatasetPatchBuilder":
-        self.custom_properties_patch_helper.add_property(key, value)
-        return self
-
-    def add_custom_properties(
-        self, custom_properties: Optional[Dict[str, str]] = None
-    ) -> "DatasetPatchBuilder":
-        if custom_properties is not None:
-            for key, value in custom_properties.items():
-                self.custom_properties_patch_helper.add_property(key, value)
-        return self
-
-    def remove_custom_property(self, key: str) -> "DatasetPatchBuilder":
-        self.custom_properties_patch_helper.remove_property(key)
         return self
 
     def set_display_name(

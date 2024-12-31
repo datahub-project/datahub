@@ -1,6 +1,6 @@
-from typing import Dict, List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
-from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
 from datahub.metadata.schema_classes import (
     AccessLevelClass,
     ChangeAuditStampsClass,
@@ -13,13 +13,15 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TagAssociationClass as Tag,
 )
-from datahub.specific.custom_properties import CustomPropertiesPatchHelper
-from datahub.specific.ownership import HasOwnershipPatch
+from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
+from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
 
 
-class DashboardPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
+class DashboardPatchBuilder(
+    HasOwnershipPatch, HasCustomPropertiesPatch, MetadataPatchProposal
+):
     def __init__(
         self,
         urn: str,
@@ -37,9 +39,10 @@ class DashboardPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
         super().__init__(
             urn, system_metadata=system_metadata, audit_header=audit_header
         )
-        self.custom_properties_patch_helper = CustomPropertiesPatchHelper(
-            self, DashboardInfo.ASPECT_NAME
-        )
+
+    @classmethod
+    def _custom_properties_location(cls) -> Tuple[str, PatchPath]:
+        return DashboardInfo.ASPECT_NAME, ("customProperties",)
 
     def add_dataset_edge(
         self, dataset: Union[Edge, Urn, str]
@@ -271,56 +274,6 @@ class DashboardPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
         )
         return self
 
-    def set_custom_properties(
-        self, custom_properties: Dict[str, str]
-    ) -> "DashboardPatchBuilder":
-        """
-        Sets the custom properties for the DashboardPatchBuilder.
-
-        Args:
-            custom_properties: A dictionary containing the custom properties to be set.
-
-        Returns:
-            The DashboardPatchBuilder instance.
-
-        Notes:
-            This method replaces all existing custom properties with the given dictionary.
-        """
-        self._add_patch(
-            DashboardInfo.ASPECT_NAME,
-            "add",
-            path=("customProperties",),
-            value=custom_properties,
-        )
-        return self
-
-    def add_custom_property(self, key: str, value: str) -> "DashboardPatchBuilder":
-        """
-        Adds a custom property to the DashboardPatchBuilder.
-
-        Args:
-            key: The key of the custom property.
-            value: The value of the custom property.
-
-        Returns:
-            The DashboardPatchBuilder instance.
-        """
-        self.custom_properties_patch_helper.add_property(key, value)
-        return self
-
-    def remove_custom_property(self, key: str) -> "DashboardPatchBuilder":
-        """
-        Removes a custom property from the DashboardPatchBuilder.
-
-        Args:
-            key: The key of the custom property to remove.
-
-        Returns:
-            The DashboardPatchBuilder instance.
-        """
-        self.custom_properties_patch_helper.remove_property(key)
-        return self
-
     def set_title(self, title: str) -> "DashboardPatchBuilder":
         assert title, "DashboardInfo title should not be None"
         self._add_patch(
@@ -340,15 +293,6 @@ class DashboardPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
             path=("description",),
             value=description,
         )
-
-        return self
-
-    def add_custom_properties(
-        self, custom_properties: Optional[Dict[str, str]] = None
-    ) -> "DashboardPatchBuilder":
-        if custom_properties:
-            for key, value in custom_properties.items():
-                self.custom_properties_patch_helper.add_property(key, value)
 
         return self
 

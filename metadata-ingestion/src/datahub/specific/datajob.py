@@ -1,6 +1,6 @@
-from typing import Dict, List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
-from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
 from datahub.metadata.schema_classes import (
     DataJobInfoClass as DataJobInfo,
     DataJobInputOutputClass as DataJobInputOutput,
@@ -13,11 +13,13 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass as Tag,
 )
 from datahub.metadata.urns import SchemaFieldUrn, TagUrn, Urn
-from datahub.specific.custom_properties import CustomPropertiesPatchHelper
-from datahub.specific.ownership import HasOwnershipPatch
+from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
+from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 
 
-class DataJobPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
+class DataJobPatchBuilder(
+    HasOwnershipPatch, HasCustomPropertiesPatch, MetadataPatchProposal
+):
     def __init__(
         self,
         urn: str,
@@ -35,9 +37,10 @@ class DataJobPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
         super().__init__(
             urn, system_metadata=system_metadata, audit_header=audit_header
         )
-        self.custom_properties_patch_helper = CustomPropertiesPatchHelper(
-            self, DataJobInfo.ASPECT_NAME
-        )
+
+    @classmethod
+    def _custom_properties_location(cls) -> Tuple[str, PatchPath]:
+        return DataJobInfo.ASPECT_NAME, ("customProperties",)
 
     def add_input_datajob(self, input: Union[Edge, Urn, str]) -> "DataJobPatchBuilder":
         """
@@ -486,54 +489,4 @@ class DataJobPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
         self._add_patch(
             GlossaryTerms.ASPECT_NAME, "remove", path=("terms", term), value={}
         )
-        return self
-
-    def set_custom_properties(
-        self, custom_properties: Dict[str, str]
-    ) -> "DataJobPatchBuilder":
-        """
-        Sets the custom properties for the DataJobPatchBuilder.
-
-        Args:
-            custom_properties: A dictionary containing the custom properties to be set.
-
-        Returns:
-            The DataJobPatchBuilder instance.
-
-        Notes:
-            This method replaces all existing custom properties with the given dictionary.
-        """
-        self._add_patch(
-            DataJobInfo.ASPECT_NAME,
-            "add",
-            path=("customProperties",),
-            value=custom_properties,
-        )
-        return self
-
-    def add_custom_property(self, key: str, value: str) -> "DataJobPatchBuilder":
-        """
-        Adds a custom property to the DataJobPatchBuilder.
-
-        Args:
-            key: The key of the custom property.
-            value: The value of the custom property.
-
-        Returns:
-            The DataJobPatchBuilder instance.
-        """
-        self.custom_properties_patch_helper.add_property(key, value)
-        return self
-
-    def remove_custom_property(self, key: str) -> "DataJobPatchBuilder":
-        """
-        Removes a custom property from the DataJobPatchBuilder.
-
-        Args:
-            key: The key of the custom property to remove.
-
-        Returns:
-            The DataJobPatchBuilder instance.
-        """
-        self.custom_properties_patch_helper.remove_property(key)
         return self

@@ -1,6 +1,6 @@
-from typing import Dict, List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
-from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
 from datahub.metadata.schema_classes import (
     AccessLevelClass,
     ChangeAuditStampsClass,
@@ -14,13 +14,15 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TagAssociationClass as Tag,
 )
-from datahub.specific.custom_properties import CustomPropertiesPatchHelper
-from datahub.specific.ownership import HasOwnershipPatch
+from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
+from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
 
 
-class ChartPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
+class ChartPatchBuilder(
+    HasOwnershipPatch, HasCustomPropertiesPatch, MetadataPatchProposal
+):
     def __init__(
         self,
         urn: str,
@@ -38,9 +40,10 @@ class ChartPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
         super().__init__(
             urn, system_metadata=system_metadata, audit_header=audit_header
         )
-        self.custom_properties_patch_helper = CustomPropertiesPatchHelper(
-            self, ChartInfo.ASPECT_NAME
-        )
+
+    @classmethod
+    def _custom_properties_location(cls) -> Tuple[str, PatchPath]:
+        return ChartInfo.ASPECT_NAME, ("customProperties",)
 
     def add_input_edge(self, input: Union[Edge, Urn, str]) -> "ChartPatchBuilder":
         """
@@ -176,56 +179,6 @@ class ChartPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
         self._add_patch(
             GlossaryTerms.ASPECT_NAME, "remove", path=("terms", term), value={}
         )
-        return self
-
-    def set_custom_properties(
-        self, custom_properties: Dict[str, str]
-    ) -> "ChartPatchBuilder":
-        """
-        Sets the custom properties for the ChartPatchBuilder.
-
-        Args:
-            custom_properties: A dictionary containing the custom properties to be set.
-
-        Returns:
-            The ChartPatchBuilder instance.
-
-        Notes:
-            This method replaces all existing custom properties with the given dictionary.
-        """
-        self._add_patch(
-            ChartInfo.ASPECT_NAME,
-            "add",
-            path=("customProperties",),
-            value=custom_properties,
-        )
-        return self
-
-    def add_custom_property(self, key: str, value: str) -> "ChartPatchBuilder":
-        """
-        Adds a custom property to the ChartPatchBuilder.
-
-        Args:
-            key: The key of the custom property.
-            value: The value of the custom property.
-
-        Returns:
-            The ChartPatchBuilder instance.
-        """
-        self.custom_properties_patch_helper.add_property(key, value)
-        return self
-
-    def remove_custom_property(self, key: str) -> "ChartPatchBuilder":
-        """
-        Removes a custom property from the ChartPatchBuilder.
-
-        Args:
-            key: The key of the custom property to remove.
-
-        Returns:
-            The ChartPatchBuilder instance.
-        """
-        self.custom_properties_patch_helper.remove_property(key)
         return self
 
     def set_title(self, title: str) -> "ChartPatchBuilder":

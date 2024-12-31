@@ -7,7 +7,7 @@ from datahub.metadata.schema_classes import (
     KafkaAuditHeaderClass,
     SystemMetadataClass,
 )
-from datahub.specific.ownership import HasOwnershipPatch
+from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 from datahub.utilities.urns.urn import Urn
 
 

@@ -1,6 +1,6 @@
-from typing import Dict, List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
-from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
 from datahub.metadata.schema_classes import (
     DataProductAssociationClass as DataProductAssociation,
     DataProductPropertiesClass as DataProductProperties,
@@ -11,13 +11,15 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TagAssociationClass as Tag,
 )
-from datahub.specific.custom_properties import CustomPropertiesPatchHelper
-from datahub.specific.ownership import HasOwnershipPatch
+from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
+from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
 
 
-class DataProductPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
+class DataProductPatchBuilder(
+    HasOwnershipPatch, HasCustomPropertiesPatch, MetadataPatchProposal
+):
     def __init__(
         self,
         urn: str,
@@ -29,9 +31,10 @@ class DataProductPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
             system_metadata=system_metadata,
             audit_header=audit_header,
         )
-        self.custom_properties_patch_helper = CustomPropertiesPatchHelper(
-            self, DataProductProperties.ASPECT_NAME
-        )
+
+    @classmethod
+    def _custom_properties_location(cls) -> Tuple[str, PatchPath]:
+        return DataProductProperties.ASPECT_NAME, ("customProperties",)
 
     def add_tag(self, tag: Tag) -> "DataProductPatchBuilder":
         self._add_patch(
@@ -75,25 +78,6 @@ class DataProductPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
             path=("description",),
             value=description,
         )
-        return self
-
-    def set_custom_properties(
-        self, custom_properties: Dict[str, str]
-    ) -> "DataProductPatchBuilder":
-        self._add_patch(
-            DataProductProperties.ASPECT_NAME,
-            "add",
-            path=("customProperties",),
-            value=custom_properties,
-        )
-        return self
-
-    def add_custom_property(self, key: str, value: str) -> "DataProductPatchBuilder":
-        self.custom_properties_patch_helper.add_property(key, value)
-        return self
-
-    def remove_custom_property(self, key: str) -> "DataProductPatchBuilder":
-        self.custom_properties_patch_helper.remove_property(key)
         return self
 
     def set_assets(
