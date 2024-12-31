@@ -1,32 +1,69 @@
-CREATE TABLE test_table (
+CREATE DATABASE test;
+GO
+USE test;
+GO
+
+-- Create tables
+CREATE TABLE users (
     id INT IDENTITY(1,1) PRIMARY KEY,
-    name NVARCHAR(100),
-    description NVARCHAR(MAX),
+    name VARCHAR(255),
+    email VARCHAR(255) UNIQUE,
+    created_at DATETIME DEFAULT GETDATE()
+);
+GO
+
+CREATE TABLE orders (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    user_id INT,
+    amount DECIMAL(10,2),
+    status VARCHAR(50),
     created_at DATETIME DEFAULT GETDATE(),
-    value DECIMAL(10,2)
+    CONSTRAINT FK_orders_users FOREIGN KEY (user_id) REFERENCES users(id)
 );
+GO
 
-CREATE INDEX idx_test_table_name ON test_table(name);
+-- Create indexes
+CREATE INDEX idx_user_email ON users(email);
+CREATE INDEX idx_order_user ON orders(user_id);
+GO
 
-CREATE VIEW test_view AS
-SELECT id, name, value
-FROM test_table
-WHERE value > 0;
+-- Create views
+CREATE VIEW active_users_view AS
+SELECT u.id, u.name, u.email, COUNT(o.id) as order_count
+FROM users u
+LEFT JOIN orders o ON u.id = o.user_id
+GROUP BY u.id, u.name, u.email;
+GO
 
-INSERT INTO test_table (name, description, value) VALUES
-('Test 1', 'Description 1', 100.50),
-('Test 2', 'Description 2', 200.75),
-('Test 3', 'Description 3', 300.25);
+CREATE VIEW large_orders_view AS
+SELECT o.id as order_id, o.amount, u.name as user_name, u.email
+FROM orders o
+JOIN users u ON o.user_id = u.id
+WHERE o.amount > 1000;
+GO
 
-CREATE TABLE referenced_table (
-    id INT IDENTITY(1,1) PRIMARY KEY,
-    name NVARCHAR(100)
-);
+-- Create stored procedure
+CREATE PROCEDURE update_order_status
+    @order_id_param INT,
+    @new_status VARCHAR(50)
+AS
+BEGIN
+    UPDATE orders
+    SET status = @new_status
+    WHERE id = @order_id_param;
+END;
+GO
 
-CREATE TABLE referencing_table (
-    id INT IDENTITY(1,1) PRIMARY KEY,
-    ref_id INT,
-    name NVARCHAR(100),
-    CONSTRAINT FK_referencing_referenced FOREIGN KEY (ref_id)
-        REFERENCES referenced_table(id)
-);
+-- Insert test data
+INSERT INTO users (name, email) VALUES
+    ('John Doe', 'john@example.com'),
+    ('Jane Smith', 'jane@example.com'),
+    ('Bob Wilson', 'bob@example.com');
+GO
+
+INSERT INTO orders (user_id, amount, status) VALUES
+    (1, 1500.00, 'COMPLETED'),
+    (1, 750.50, 'PENDING'),
+    (2, 2000.00, 'COMPLETED'),
+    (3, 500.00, 'PENDING');
+GO

@@ -6,11 +6,16 @@ source:
     platform_instance: test
     driver:
       driver_class: com.microsoft.sqlserver.jdbc.SQLServerDriver
-      maven_coordinates: com.microsoft.sqlserver:mssql-jdbc:12.4.1.jre11
+      maven_coordinates: com.microsoft.sqlserver:mssql-jdbc:12.8.0.jre11
     connection:
-      uri: jdbc:sqlserver://localhost:41433;encrypt=false
+      uri: jdbc:sqlserver://
       username: sa
       password: Password123!
+      properties:
+        serverName: localhost
+        port: 41433
+        databaseName: test
+        encrypt: false
 
     # Options
     include_tables: true

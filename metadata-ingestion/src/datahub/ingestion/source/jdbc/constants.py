@@ -94,7 +94,6 @@ JDBC_TYPE_MAP: Dict[str, Type] = {
     "LONGTEXT": StringTypeClass,
     "MEDIUMTEXT": StringTypeClass,
     "TINYTEXT": StringTypeClass,
-
     # Numeric Types
     "NUMERIC": NumberTypeClass,
     "DECIMAL": NumberTypeClass,
@@ -118,14 +117,12 @@ JDBC_TYPE_MAP: Dict[str, Type] = {
     "FLOAT8": NumberTypeClass,
     "DOUBLE": NumberTypeClass,
     "DOUBLE PRECISION": NumberTypeClass,
-
     # Auto-increment Types
     "SERIAL": NumberTypeClass,
     "SMALLSERIAL": NumberTypeClass,
     "BIGSERIAL": NumberTypeClass,
     "IDENTITY": NumberTypeClass,
     "AUTOINCREMENT": NumberTypeClass,
-
     # Binary Types
     "BINARY": BytesTypeClass,
     "VARBINARY": BytesTypeClass,
@@ -141,7 +138,6 @@ JDBC_TYPE_MAP: Dict[str, Type] = {
     "MEDIUMBLOB": BytesTypeClass,
     "LONGBLOB": BytesTypeClass,
     "IMAGE": BytesTypeClass,
-
     # Date/Time Types
     "DATE": DateTypeClass,
     "TIME": TimeTypeClass,
@@ -162,38 +158,32 @@ JDBC_TYPE_MAP: Dict[str, Type] = {
     "INTERVAL YEAR TO MONTH": StringTypeClass,
     "INTERVAL DAY TO SECOND": StringTypeClass,
     "YEAR": NumberTypeClass,
-
     # Large Object Types
     "CLOB": StringTypeClass,
     "NCLOB": StringTypeClass,
     "DBCLOB": StringTypeClass,
     "XML": StringTypeClass,
     "XMLTYPE": StringTypeClass,
-
     # JSON Types
     "JSON": StringTypeClass,
     "JSONB": StringTypeClass,
     "BSON": StringTypeClass,
-
     # Array Types
     "ARRAY": StringTypeClass,
     "VARRAY": StringTypeClass,
     "SET": StringTypeClass,
     "MULTISET": StringTypeClass,
-
     # Object/Struct Types
     "STRUCT": StringTypeClass,
     "OBJECT": StringTypeClass,
     "REF": StringTypeClass,
     "ROWID": StringTypeClass,
     "UROWID": StringTypeClass,
-
     # Network Types
     "INET": StringTypeClass,
     "CIDR": StringTypeClass,
     "MACADDR": StringTypeClass,
     "MACADDR8": StringTypeClass,
-
     # Geometric Types
     "POINT": StringTypeClass,
     "LINE": StringTypeClass,
@@ -203,7 +193,6 @@ JDBC_TYPE_MAP: Dict[str, Type] = {
     "POLYGON": StringTypeClass,
     "CIRCLE": StringTypeClass,
     "GEOMETRY": StringTypeClass,
-
     # Other Types
     "UUID": StringTypeClass,
     "UNIQUEIDENTIFIER": StringTypeClass,
@@ -219,21 +208,18 @@ JDBC_TYPE_MAP: Dict[str, Type] = {
     "CURSOR": StringTypeClass,
     "TABLE": StringTypeClass,
     "REFCURSOR": StringTypeClass,
-
     # Snowflake Specific
     "OBJECT": StringTypeClass,
     "ARRAY": StringTypeClass,
     "VARIANT": StringTypeClass,
     "GEOGRAPHY": StringTypeClass,
     "ANALYTICS": StringTypeClass,
-
     # DB2 Specific
     "GRAPHIC": StringTypeClass,
     "VARGRAPHIC": StringTypeClass,
     "LONG VARGRAPHIC": StringTypeClass,
     "DATALINK": StringTypeClass,
     "XML": StringTypeClass,
-
     # Oracle Specific
     "BFILE": BytesTypeClass,
     "LONG": StringTypeClass,
@@ -242,7 +228,6 @@ JDBC_TYPE_MAP: Dict[str, Type] = {
     "ANYDATA": StringTypeClass,
     "ANYDATASET": StringTypeClass,
     "URIType": StringTypeClass,
-
     # MySQL Specific
     "LINESTRING": StringTypeClass,
     "MULTIPOINT": StringTypeClass,
@@ -250,7 +235,6 @@ JDBC_TYPE_MAP: Dict[str, Type] = {
     "MULTIPOLYGON": StringTypeClass,
     "GEOMETRYCOLLECTION": StringTypeClass,
     "GEOMCOLLECTION": StringTypeClass,
-
     # PostgreSQL Specific (additional to standard types)
     "BOX2D": StringTypeClass,
     "BOX3D": StringTypeClass,
@@ -266,7 +250,6 @@ JDBC_TYPE_MAP: Dict[str, Type] = {
     "TSRANGE": StringTypeClass,
     "TSTZRANGE": StringTypeClass,
     "DATERANGE": StringTypeClass,
-
     # SQL Server Specific (additional to standard types)
     "DATETIMEOFFSET": DateTypeClass,
     "SQL_VARIANT": StringTypeClass,

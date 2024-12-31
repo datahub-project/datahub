@@ -5,12 +5,12 @@ source:
     platform: mysql
     platform_instance: test
     driver:
-      driver_class: com.mysql.cj.jdbc.Driver
-      maven_coordinates: mysql:mysql-connector-java:8.0.33
+      driver_class: com.mysql.jdbc.Driver
+      maven_coordinates: com.mysql:mysql-connector-j:8.2.0
     connection:
       uri: jdbc:mysql://localhost:43306/test
       username: root
-      password: test
+      password: example
 
     # Options
     include_tables: true

@@ -1,0 +1,82 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:468942078fbf3593a3c0e16dd2c38504",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "full_path": "test",
+                "productName": "MySQL",
+                "productVersion": "8.0.40",
+                "driverName": "MySQL Connector/J",
+                "driverVersion": "mysql-connector-j-8.2.0 (Revision: 06a1f724497fd81c6a659131fda822c9e5085b6c)",
+                "url": "jdbc:mysql://localhost:43306/test",
+                "maxConnections": "0",
+                "supportsBatchUpdates": "True",
+                "supportsTransactions": "True",
+                "defaultTransactionIsolation": "4"
+            },
+            "name": "test",
+            "description": "Schema test"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "jdbc-2023_10_15-07_00_00-lzfxkb",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:468942078fbf3593a3c0e16dd2c38504",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mysql",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "jdbc-2023_10_15-07_00_00-lzfxkb",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:468942078fbf3593a3c0e16dd2c38504",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Database"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "jdbc-2023_10_15-07_00_00-lzfxkb",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:468942078fbf3593a3c0e16dd2c38504",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1697353200000,
+        "runId": "jdbc-2023_10_15-07_00_00-lzfxkb",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

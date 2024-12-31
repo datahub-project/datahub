@@ -1,30 +1,58 @@
-CREATE TABLE test_table (
+-- Create tables
+CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100),
-    description TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    value NUMERIC(10,2)
+    name VARCHAR(255),
+    email VARCHAR(255) UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_test_table_name ON test_table(name);
-
-CREATE VIEW test_view AS
-SELECT id, name, value
-FROM test_table
-WHERE value > 0;
-
-INSERT INTO test_table (name, description, value) VALUES
-('Test 1', 'Description 1', 100.50),
-('Test 2', 'Description 2', 200.75),
-('Test 3', 'Description 3', 300.25);
-
-CREATE TABLE referenced_table (
+CREATE TABLE orders (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(100)
+    user_id INTEGER REFERENCES users(id),
+    amount DECIMAL(10,2),
+    status VARCHAR(50),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE referencing_table (
-    id SERIAL PRIMARY KEY,
-    ref_id INTEGER REFERENCES referenced_table(id),
-    name VARCHAR(100)
-);
+-- Create indexes
+CREATE INDEX idx_user_email ON users(email);
+CREATE INDEX idx_order_user ON orders(user_id);
+
+-- Create views
+CREATE VIEW active_users_view AS
+SELECT u.id, u.name, u.email, COUNT(o.id) as order_count
+FROM users u
+LEFT JOIN orders o ON u.id = o.user_id
+GROUP BY u.id, u.name, u.email;
+
+CREATE VIEW large_orders_view AS
+SELECT o.id as order_id, o.amount, u.name as user_name, u.email
+FROM orders o
+JOIN users u ON o.user_id = u.id
+WHERE o.amount > 1000;
+
+-- Create stored procedure
+CREATE OR REPLACE PROCEDURE update_order_status(
+    order_id_param INTEGER,
+    new_status VARCHAR
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    UPDATE orders
+    SET status = new_status
+    WHERE id = order_id_param;
+END;
+$$;
+
+-- Insert test data
+INSERT INTO users (name, email) VALUES
+    ('John Doe', 'john@example.com'),
+    ('Jane Smith', 'jane@example.com'),
+    ('Bob Wilson', 'bob@example.com');
+
+INSERT INTO orders (user_id, amount, status) VALUES
+    (1, 1500.00, 'COMPLETED'),
+    (1, 750.50, 'PENDING'),
+    (2, 2000.00, 'COMPLETED'),
+    (3, 500.00, 'PENDING');

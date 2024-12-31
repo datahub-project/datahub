@@ -1,5 +1,3 @@
-"""Enhanced JDBC source implementation."""
-
 import base64
 import hashlib
 import logging
@@ -30,9 +28,11 @@ from datahub.ingestion.source.jdbc.constants import (
 )
 from datahub.ingestion.source.jdbc.containers import (
     ContainerRegistry,
+    JDBCContainerKey,
     SchemaContainerBuilder,
-    SchemaPath, JDBCContainerKey,
+    SchemaPath,
 )
+from datahub.ingestion.source.jdbc.maven_install import MavenManager
 from datahub.ingestion.source.jdbc.reporting import JDBCSourceReport
 from datahub.ingestion.source.jdbc.types import JDBCColumn, JDBCTable, StoredProcedure
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -78,6 +78,11 @@ class JDBCSource(StatefulIngestionSourceBase):
             platform=make_data_platform_urn(self.platform),
             platform_instance=self.platform_instance,
             env=self.config.env,
+            generate_queries=False,
+            generate_query_subject_fields=False,
+            generate_query_usage_statistics=False,
+            generate_usage_statistics=False,
+            generate_operations=False,
             graph=ctx.graph,
             usage_config=self.config.usage,
         )
@@ -171,6 +176,9 @@ class JDBCSource(StatefulIngestionSourceBase):
 
         if self.config.driver.maven_coordinates:
             try:
+                maven = MavenManager()
+                if not maven.is_maven_installed:
+                    maven.setup_environment()
                 return self._download_driver_from_maven(
                     self.config.driver.maven_coordinates
                 )
@@ -440,14 +448,25 @@ class JDBCSource(StatefulIngestionSourceBase):
 
                     logger.info(f"Pre-fetching metadata for schema {schema_name}")
                     # Pre-fetch metadata for the entire schema
-                    columns_by_table = self._batch_extract_columns(metadata, schema_name)
-                    pk_by_table = self._batch_extract_primary_keys(metadata, schema_name)
-                    fk_by_table = self._batch_extract_foreign_keys(metadata, schema_name)
-                    view_definitions = self._batch_extract_view_definitions(
-                        schema_name) if TableType.VIEW.value in table_types else {}
+                    columns_by_table = self._batch_extract_columns(
+                        metadata=metadata, schema=schema_name
+                    )
+                    pk_by_table = self._batch_extract_primary_keys(
+                        metadata=metadata, schema=schema_name
+                    )
+                    fk_by_table = self._batch_extract_foreign_keys(
+                        metadata=metadata, schema=schema_name
+                    )
+                    view_definitions = (
+                        self._batch_extract_view_definitions(schema_name)
+                        if TableType.VIEW.value in table_types
+                        else {}
+                    )
 
-                    # Now process tables using pre-fetched metadata
-                    with metadata.getTables(None, schema_name, None, table_types) as table_rs:
+                    # Process tables using pre-fetched metadata
+                    with metadata.getTables(
+                        None, schema_name, None, table_types
+                    ) as table_rs:
                         while table_rs.next():
                             try:
                                 table_name = table_rs.getString(3)
@@ -458,7 +477,7 @@ class JDBCSource(StatefulIngestionSourceBase):
                                 full_name = f"{schema_name}.{table_name}"
                                 if table_type == TableType.TABLE.value:
                                     if not self.config.table_pattern.allowed(full_name):
-                                        self.report.report_dropped(f"Table: {full_name}")
+                                        self.report.report_dropped(full_name)
                                         continue
                                 else:  # VIEW
                                     if not self.config.view_pattern.allowed(full_name):
@@ -482,7 +501,7 @@ class JDBCSource(StatefulIngestionSourceBase):
                                                 target_column=fk["targetColumn"],
                                                 platform=self.platform,
                                                 platform_instance=self.platform_instance,
-                                                env=self.env
+                                                env=self.env,
                                             )
                                         )
 
@@ -497,8 +516,11 @@ class JDBCSource(StatefulIngestionSourceBase):
                                 )
 
                                 # Use pre-fetched view definition
-                                view_definition = view_definitions.get(
-                                    table_name) if table_type == TableType.VIEW.value else None
+                                view_definition = (
+                                    view_definitions.get(table_name)
+                                    if table_type == TableType.VIEW.value
+                                    else None
+                                )
 
                                 yield from self._generate_table_metadata(
                                     database_name, table, view_definition
@@ -523,7 +545,9 @@ class JDBCSource(StatefulIngestionSourceBase):
             logger.error(f"Failed to extract tables and views: {str(e)}")
             logger.debug(traceback.format_exc())
 
-    def _batch_extract_columns(self, metadata, schema: str) -> Dict[str, List[JDBCColumn]]:
+    def _batch_extract_columns(
+        self, metadata, schema: str
+    ) -> Dict[str, List[JDBCColumn]]:
         """Extract columns for all tables in a schema at once."""
         columns_by_table = {}
         try:
@@ -559,7 +583,9 @@ class JDBCSource(StatefulIngestionSourceBase):
             logger.debug(f"Could not get primary keys for schema {schema}: {e}")
         return pks_by_table
 
-    def _batch_extract_foreign_keys(self, metadata, schema: str) -> Dict[str, List[Dict]]:
+    def _batch_extract_foreign_keys(
+        self, metadata, schema: str
+    ) -> Dict[str, List[Dict]]:
         """Extract foreign keys for all tables in a schema at once."""
         fks_by_table = {}
         try:
@@ -568,104 +594,161 @@ class JDBCSource(StatefulIngestionSourceBase):
                     table_name = rs.getString("FKTABLE_NAME")
                     if table_name not in fks_by_table:
                         fks_by_table[table_name] = []
-                    fks_by_table[table_name].append({
-                        "name": rs.getString("FK_NAME"),
-                        "sourceColumn": rs.getString("FKCOLUMN_NAME"),
-                        "targetSchema": rs.getString("PKTABLE_SCHEM"),
-                        "targetTable": rs.getString("PKTABLE_NAME"),
-                        "targetColumn": rs.getString("PKCOLUMN_NAME"),
-                    })
+                    fks_by_table[table_name].append(
+                        {
+                            "name": rs.getString("FK_NAME"),
+                            "sourceColumn": rs.getString("FKCOLUMN_NAME"),
+                            "targetSchema": rs.getString("PKTABLE_SCHEM"),
+                            "targetTable": rs.getString("PKTABLE_NAME"),
+                            "targetColumn": rs.getString("PKCOLUMN_NAME"),
+                        }
+                    )
         except Exception as e:
             logger.debug(f"Could not get foreign keys for schema {schema}: {e}")
         return fks_by_table
 
-    def _batch_extract_view_definitions(self, schema: str) -> Dict[str, str]:
-        """Extract view definitions for all views in a schema at once."""
+    def _try_query_for_views(
+        self, cursor: jaydebeapi.Cursor, query: str
+    ) -> Dict[str, str]:
+        """Try to execute a single view definition query."""
         view_definitions = {}
         try:
-            # Try information schema first with all variants
-            info_schema_queries = [
-                f"SELECT TABLE_NAME, VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = '{schema}'",
-                f"SELECT TABLE_NAME, VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE SCHEMA_NAME = '{schema}'",
-                f"SELECT VIEW_NAME as TABLE_NAME, VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE VIEW_SCHEMA = '{schema}'",
-            ]
+            cursor.execute(query)
+            rows = cursor.fetchall()
+            if rows:
+                for row in rows:
+                    if row[0] and row[1]:  # table_name and definition
+                        view_definitions[row[0]] = self._clean_sql(row[1])
+        except Exception:
+            pass
+        return view_definitions
 
-            for query in info_schema_queries:
-                try:
-                    with self._connection.cursor() as cursor:
-                        cursor.execute(query)
-                        rows = cursor.fetchall()
-                        if rows:
-                            for row in rows:
-                                if row[0] and row[1]:  # table_name and definition
-                                    view_definitions[row[0]] = self._clean_sql(row[1])
-                            if view_definitions:  # If we found any definitions, break
-                                break
-                except Exception:
-                    continue
+    def _get_info_schema_view_definitions(self, schema: str) -> Dict[str, str]:
+        """Get view definitions from information schema."""
+        info_schema_queries = [
+            f"SELECT TABLE_NAME, VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = '{schema}'",
+            f"SELECT TABLE_NAME, VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE SCHEMA_NAME = '{schema}'",
+            f"SELECT VIEW_NAME as TABLE_NAME, VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE VIEW_SCHEMA = '{schema}'",
+        ]
 
-            # If information schema didn't work, try system views
-            if not view_definitions:
-                system_queries = [
-                    f"""
-                SELECT 
-                    OBJECT_NAME(object_id) as TABLE_NAME,
-                    definition as VIEW_DEFINITION
-                FROM sys.sql_modules 
-                WHERE object_id IN (
-                    SELECT object_id FROM sys.objects 
-                    WHERE SCHEMA_NAME(schema_id) = '{schema}'
+        for query in info_schema_queries:
+            try:
+                with self._connection.cursor() as cursor:
+                    view_definitions = self._try_query_for_views(cursor, query)
+                    if view_definitions:
+                        return view_definitions
+            except Exception:
+                continue
+        return {}
+
+    def _get_system_view_definitions(self, schema: str) -> Dict[str, str]:
+        """Get view definitions from system views."""
+        system_queries = [
+            f"""
+            SELECT
+                OBJECT_NAME(object_id) as TABLE_NAME,
+                definition as VIEW_DEFINITION
+            FROM sys.sql_modules
+            WHERE object_id IN (
+                SELECT object_id FROM sys.objects
+                WHERE SCHEMA_NAME(schema_id) = '{schema}'
+            )
+            """,
+            f"SELECT VIEW_NAME as TABLE_NAME, TEXT as VIEW_DEFINITION FROM ALL_VIEWS WHERE OWNER = '{schema}'",
+        ]
+
+        for query in system_queries:
+            try:
+                with self._connection.cursor() as cursor:
+                    view_definitions = self._try_query_for_views(cursor, query)
+                    if view_definitions:
+                        return view_definitions
+            except Exception:
+                continue
+        return {}
+
+    def _get_view_names(self, schema: str) -> Set[str]:
+        """Get list of view names for a schema."""
+        views = set()
+        try:
+            with self._connection.cursor() as cursor:
+                cursor.execute(
+                    f"SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = '{schema}'"
                 )
-                """,
-                f"SELECT VIEW_NAME as TABLE_NAME, TEXT as VIEW_DEFINITION FROM ALL_VIEWS WHERE OWNER = '{schema}'"
-                ]
+                rows = cursor.fetchall()
+                if rows:
+                    views.update(row[0] for row in rows if row[0])
+        except Exception:
+            pass
+        return views
 
-                for query in system_queries:
-                    try:
-                        with self._connection.cursor() as cursor:
-                            cursor.execute(query)
-                            rows = cursor.fetchall()
-                            if rows:
-                                for row in rows:
-                                    if row[0] and row[1]:  # table_name and definition
-                                        view_definitions[row[0]] = self._clean_sql(row[1])
-                                if view_definitions:  # If we found any definitions, break
-                                    break
-                    except Exception:
-                        continue
+    def _get_view_definition(self, schema: str, view: str) -> Optional[str]:
+        """Get view definition for a single view."""
+        queries = [
+            # Standard information schema query
+            f"SELECT VIEW_DEFINITION FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = '{schema}' AND TABLE_NAME = '{view}'",
+            # SQL Server specific
+            f"""
+            SELECT definition
+            FROM sys.sql_modules m
+            INNER JOIN sys.objects o ON m.object_id = o.object_id
+            WHERE o.type = 'V'
+            AND SCHEMA_NAME(o.schema_id) = '{schema}'
+            AND o.name = '{view}'
+            """,
+            # Oracle style
+            f"SELECT TEXT FROM ALL_VIEWS WHERE OWNER = '{schema}' AND VIEW_NAME = '{view}'",
+        ]
+
+        for query in queries:
+            try:
+                with self._connection.cursor() as cursor:
+                    cursor.execute(query)
+                    row = cursor.fetchone()
+                    if row and row[0]:
+                        return self._clean_sql(row[0])
+            except Exception:
+                continue
+
+        return None
+
+    def _get_fallback_view_definitions(self, schema: str) -> Dict[str, str]:
+        """Get view definitions using fallback method."""
+        view_definitions = {}
+        views = self._get_view_names(schema)
+
+        for view in views:
+            try:
+                definition = self._get_view_definition(schema, view)
+                if definition:
+                    view_definitions[view] = definition
+            except Exception:
+                pass
+        return view_definitions
+
+    def _batch_extract_view_definitions(self, schema: str) -> Dict[str, str]:
+        """Extract view definitions for all views in a schema at once."""
+        try:
+            # Try information schema first
+            view_definitions = self._get_info_schema_view_definitions(schema)
+            if view_definitions:
+                return view_definitions
+
+            # Try system views
+            view_definitions = self._get_system_view_definitions(schema)
+            if view_definitions:
+                return view_definitions
+
+            # Fallback to individual queries
+            logger.debug(f"Falling back to individual view queries for schema {schema}")
+            return self._get_fallback_view_definitions(schema)
 
         except Exception as e:
             logger.debug(f"Could not get view definitions for schema {schema}: {e}")
-
-        # Fallback to individual queries if batch queries didn't work
-        if not view_definitions:
-            logger.debug(f"Falling back to individual view queries for schema {schema}")
-            try:
-                # Get list of views first
-                views = set()
-                with self._connection.cursor() as cursor:
-                    try:
-                        cursor.execute(
-                            f"SELECT TABLE_NAME FROM INFORMATION_SCHEMA.VIEWS WHERE TABLE_SCHEMA = '{schema}'")
-                        rows = cursor.fetchall()
-                        if rows:
-                            views.update(row[0] for row in rows if row[0])
-                    except Exception:
-                        pass
-
-                # Try each view individually using the original method
-                for view in views:
-                    definition = self._get_view_definition(schema, view)
-                    if definition:
-                        view_definitions[view] = definition
-
-            except Exception as e:
-                logger.debug(f"Fallback individual view queries failed for schema {schema}: {e}")
-
-        return view_definitions
+            return {}
 
     def _generate_table_metadata(
-            self, database: str, table: JDBCTable, view_definition: Optional[str] = None
+        self, database: str, table: JDBCTable, view_definition: Optional[str] = None
     ) -> Iterable[MetadataWorkUnit]:
         """Generate metadata workunits for a table or view."""
         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -689,8 +772,7 @@ class JDBCSource(StatefulIngestionSourceBase):
 
         # Emit schema metadata
         yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=schema_metadata
+            entityUrn=dataset_urn, aspect=schema_metadata
         ).as_workunit()
 
         self.sql_parsing_aggregator.register_schema(

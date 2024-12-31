@@ -1,9 +1,10 @@
-"""Type definitions and mapping for JDBC source."""
-
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set
+from typing import List, Optional, Set
 
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance, make_schema_field_urn
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    make_schema_field_urn,
+)
 from datahub.ingestion.source.jdbc.constants import JDBC_TYPE_MAP
 from datahub.metadata.schema_classes import (
     ForeignKeyConstraintClass,
@@ -81,38 +82,47 @@ class JDBCTable:
     ) -> ForeignKeyConstraintClass:
         """Create a foreign key constraint with proper URN."""
         source_dataset_urn = make_dataset_urn_with_platform_instance(
-            platform,
-            name,
-            platform_instance,
-            env
+            platform=platform,
+            name=name,
+            platform_instance=platform_instance,
+            env=env,
         )
 
         foreign_dataset_urn = make_dataset_urn_with_platform_instance(
-            platform,
-            f"{target_schema}.{target_table}",
-            platform_instance,
-            env
+            platform=platform,
+            name=f"{target_schema}.{target_table}",
+            platform_instance=platform_instance,
+            env=env,
         )
 
         # DataHub expects arrays for source and foreign fields
-        source_fields = [
-            make_schema_field_urn(
-                parent_urn=source_dataset_urn,
-                field_path=source_column,
-            )
-        ] if isinstance(source_column, str) else source_column
-        foreign_fields = [
-            make_schema_field_urn(
-                parent_urn=foreign_dataset_urn,
-                field_path=target_column,
-            )
-        ] if isinstance(target_column, str) else target_column
+        source_fields = (
+            [
+                make_schema_field_urn(
+                    parent_urn=source_dataset_urn,
+                    field_path=source_column,
+                )
+            ]
+            if isinstance(source_column, str)
+            else source_column
+        )
+
+        foreign_fields = (
+            [
+                make_schema_field_urn(
+                    parent_urn=foreign_dataset_urn,
+                    field_path=target_column,
+                )
+            ]
+            if isinstance(target_column, str)
+            else target_column
+        )
 
         return ForeignKeyConstraintClass(
             name=name,
             sourceFields=source_fields,
             foreignDataset=foreign_dataset_urn,
-            foreignFields=foreign_fields
+            foreignFields=foreign_fields,
         )
 
 

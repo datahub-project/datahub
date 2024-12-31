@@ -15,6 +15,7 @@ source:
     # Options
     include_tables: true
     include_views: true
+    include_stored_procedures: true
     schema_pattern:
       allow:
         - ".*"

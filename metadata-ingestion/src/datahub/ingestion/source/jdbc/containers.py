@@ -1,7 +1,7 @@
 """Container-related classes for JDBC source."""
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Set, Any
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
@@ -68,11 +68,11 @@ class ContainerMetadata:
         self,
         container_key: "JDBCContainerKey",
         name: str,
+        platform: str,
         container_type: ContainerType,
         parent_key: Optional["JDBCContainerKey"] = None,
         description: Optional[str] = None,
         custom_properties: Optional[Dict] = None,
-        platform: str = None,
         platform_instance: Optional[str] = None,
     ):
         self.container_key = container_key
