@@ -1,5 +1,7 @@
 package com.linkedin.metadata.aspect.patch.template;
 
+import static com.linkedin.metadata.Constants.*;
+
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.models.AspectSpec;
@@ -11,9 +13,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-
-import static com.linkedin.metadata.Constants.*;
-
 
 /**
  * Holds connection between aspect specs and their templates and drives the generation from

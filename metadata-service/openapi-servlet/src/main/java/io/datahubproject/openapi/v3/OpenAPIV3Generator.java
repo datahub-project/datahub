@@ -188,7 +188,8 @@ public class OpenAPIV3Generator {
 
     // --> Aspect Paths
     definedEntitySpecs.forEach(
-            e -> e.getAspectSpecs().stream()
+        e ->
+            e.getAspectSpecs().stream()
                 .filter(a -> definitionNames.contains(a.getName()))
                 .sorted(Comparator.comparing(AspectSpec::getName))
                 .forEach(
@@ -209,8 +210,7 @@ public class OpenAPIV3Generator {
                             String.format(
                                 "/v3/entity/%s/{urn}/%s",
                                 e.getName().toLowerCase(), a.getName().toLowerCase()),
-                            buildSingleEntityAspectPath(
-                                e, a.getName(), a.getPegasusSchema().getName()))));
+                            buildSingleEntityAspectPath(e, a))));
 
     // --> Link & Unlink APIs
     if (configurationProvider.getFeatureFlags().isEntityVersioning()) {

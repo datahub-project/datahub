@@ -6143,6 +6143,12 @@
       "doc" : "Include default facets when getting facets to aggregate on in search requests.\nBy default we include these, but custom aggregation requests don't need them.",
       "default" : true,
       "optional" : true
+    }, {
+      "name" : "filterNonLatestVersions",
+      "type" : "boolean",
+      "doc" : "Include only latest versions in version sets, default true",
+      "default" : true,
+      "optional" : true
     } ]
   }, {
     "type" : "enum",
