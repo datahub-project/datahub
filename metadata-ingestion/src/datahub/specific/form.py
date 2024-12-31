@@ -5,15 +5,13 @@ from datahub.metadata.schema_classes import (
     FormInfoClass as FormInfo,
     FormPromptClass,
     KafkaAuditHeaderClass,
-    OwnerClass as Owner,
-    OwnershipTypeClass,
     SystemMetadataClass,
 )
-from datahub.specific.ownership import OwnershipPatchHelper
+from datahub.specific.ownership import HasOwnershipPatch
 from datahub.utilities.urns.urn import Urn
 
 
-class FormPatchBuilder(MetadataPatchProposal):
+class FormPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
     def __init__(
         self,
         urn: str,
@@ -23,24 +21,6 @@ class FormPatchBuilder(MetadataPatchProposal):
         super().__init__(
             urn, system_metadata=system_metadata, audit_header=audit_header
         )
-        self.ownership_patch_helper = OwnershipPatchHelper(self)
-
-    def add_owner(self, owner: Owner) -> "FormPatchBuilder":
-        self.ownership_patch_helper.add_owner(owner)
-        return self
-
-    def remove_owner(
-        self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
-    ) -> "FormPatchBuilder":
-        """
-        param: owner_type is optional
-        """
-        self.ownership_patch_helper.remove_owner(owner, owner_type)
-        return self
-
-    def set_owners(self, owners: List[Owner]) -> "FormPatchBuilder":
-        self.ownership_patch_helper.set_owners(owners)
-        return self
 
     def set_name(self, name: Optional[str] = None) -> "FormPatchBuilder":
         if name is not None:

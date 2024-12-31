@@ -10,18 +10,16 @@ from datahub.metadata.schema_classes import (
     GlossaryTermAssociationClass as Term,
     GlossaryTermsClass as GlossaryTerms,
     KafkaAuditHeaderClass,
-    OwnerClass as Owner,
-    OwnershipTypeClass,
     SystemMetadataClass,
     TagAssociationClass as Tag,
 )
 from datahub.specific.custom_properties import CustomPropertiesPatchHelper
-from datahub.specific.ownership import OwnershipPatchHelper
+from datahub.specific.ownership import HasOwnershipPatch
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
 
 
-class DashboardPatchBuilder(MetadataPatchProposal):
+class DashboardPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
     def __init__(
         self,
         urn: str,
@@ -42,52 +40,6 @@ class DashboardPatchBuilder(MetadataPatchProposal):
         self.custom_properties_patch_helper = CustomPropertiesPatchHelper(
             self, DashboardInfo.ASPECT_NAME
         )
-        self.ownership_patch_helper = OwnershipPatchHelper(self)
-
-    def add_owner(self, owner: Owner) -> "DashboardPatchBuilder":
-        """
-        Adds an owner to the DashboardPatchBuilder.
-
-        Args:
-            owner: The Owner object to add.
-
-        Returns:
-            The DashboardPatchBuilder instance.
-        """
-        self.ownership_patch_helper.add_owner(owner)
-        return self
-
-    def remove_owner(
-        self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
-    ) -> "DashboardPatchBuilder":
-        """
-        Removes an owner from the DashboardPatchBuilder.
-
-        Args:
-            owner: The owner to remove.
-            owner_type: The ownership type of the owner (optional).
-
-        Returns:
-            The DashboardPatchBuilder instance.
-
-        Notes:
-            `owner_type` is optional.
-        """
-        self.ownership_patch_helper.remove_owner(owner, owner_type)
-        return self
-
-    def set_owners(self, owners: List[Owner]) -> "DashboardPatchBuilder":
-        """
-        Sets the owners of the DashboardPatchBuilder.
-
-        Args:
-            owners: A list of Owner objects.
-
-        Returns:
-            The DashboardPatchBuilder instance.
-        """
-        self.ownership_patch_helper.set_owners(owners)
-        return self
 
     def add_dataset_edge(
         self, dataset: Union[Edge, Urn, str]

@@ -8,18 +8,16 @@ from datahub.metadata.schema_classes import (
     GlossaryTermAssociationClass as Term,
     GlossaryTermsClass as GlossaryTerms,
     KafkaAuditHeaderClass,
-    OwnerClass as Owner,
-    OwnershipTypeClass,
     SystemMetadataClass,
     TagAssociationClass as Tag,
 )
 from datahub.specific.custom_properties import CustomPropertiesPatchHelper
-from datahub.specific.ownership import OwnershipPatchHelper
+from datahub.specific.ownership import HasOwnershipPatch
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
 
 
-class DataProductPatchBuilder(MetadataPatchProposal):
+class DataProductPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
     def __init__(
         self,
         urn: str,
@@ -34,24 +32,6 @@ class DataProductPatchBuilder(MetadataPatchProposal):
         self.custom_properties_patch_helper = CustomPropertiesPatchHelper(
             self, DataProductProperties.ASPECT_NAME
         )
-        self.ownership_patch_helper = OwnershipPatchHelper(self)
-
-    def add_owner(self, owner: Owner) -> "DataProductPatchBuilder":
-        self.ownership_patch_helper.add_owner(owner)
-        return self
-
-    def remove_owner(
-        self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
-    ) -> "DataProductPatchBuilder":
-        """
-        param: owner_type is optional
-        """
-        self.ownership_patch_helper.remove_owner(owner, owner_type)
-        return self
-
-    def set_owners(self, owners: List[Owner]) -> "DataProductPatchBuilder":
-        self.ownership_patch_helper.set_owners(owners)
-        return self
 
     def add_tag(self, tag: Tag) -> "DataProductPatchBuilder":
         self._add_patch(

@@ -1,4 +1,6 @@
-from typing import Generic, List, Optional, TypeVar
+from typing import List, Optional
+
+from typing_extensions import Self
 
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.metadata.schema_classes import (
@@ -7,19 +9,18 @@ from datahub.metadata.schema_classes import (
     OwnershipTypeClass,
 )
 
-_Parent = TypeVar("_Parent", bound=MetadataPatchProposal)
 
+class HasOwnershipPatch(MetadataPatchProposal):
+    def add_owner(self, owner: OwnerClass) -> Self:
+        """Add an owner to the entity.
 
-class OwnershipPatchHelper(Generic[_Parent]):
-    def __init__(self, parent: _Parent) -> None:
-        self._parent = parent
-        self.aspect_field = OwnershipClass.ASPECT_NAME
+        Args:
+            owner: The Owner object to add.
 
-    def parent(self) -> _Parent:
-        return self._parent
-
-    def add_owner(self, owner: OwnerClass) -> "OwnershipPatchHelper":
-        self._parent._add_patch(
+        Returns:
+            The patch builder instance.
+        """
+        self._add_patch(
             OwnershipClass.ASPECT_NAME,
             "add",
             path=("owners", owner.owner, str(owner.type)),
@@ -29,11 +30,19 @@ class OwnershipPatchHelper(Generic[_Parent]):
 
     def remove_owner(
         self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
-    ) -> "OwnershipPatchHelper":
+    ) -> Self:
+        """Remove an owner from the entity.
+
+        If owner_type is not provided, the owner will be removed regardless of ownership type.
+
+        Args:
+            owner: The owner to remove.
+            owner_type: The ownership type of the owner (optional).
+
+        Returns:
+            The patch builder instance.
         """
-        param: owner_type is optional
-        """
-        self._parent._add_patch(
+        self._add_patch(
             OwnershipClass.ASPECT_NAME,
             "remove",
             path=("owners", owner) + ((str(owner_type),) if owner_type else ()),
@@ -41,8 +50,18 @@ class OwnershipPatchHelper(Generic[_Parent]):
         )
         return self
 
-    def set_owners(self, owners: List[OwnerClass]) -> "OwnershipPatchHelper":
-        self._parent._add_patch(
+    def set_owners(self, owners: List[OwnerClass]) -> Self:
+        """Set the owners of the entity.
+
+        This will effectively replace all existing owners with the new list - it doesn't really patch things.
+
+        Args:
+            owners: The list of owners to set.
+
+        Returns:
+            The patch builder instance.
+        """
+        self._add_patch(
             OwnershipClass.ASPECT_NAME, "add", path=("owners",), value=owners
         )
         return self

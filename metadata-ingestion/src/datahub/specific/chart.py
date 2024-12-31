@@ -11,18 +11,16 @@ from datahub.metadata.schema_classes import (
     GlossaryTermAssociationClass as Term,
     GlossaryTermsClass as GlossaryTerms,
     KafkaAuditHeaderClass,
-    OwnerClass as Owner,
-    OwnershipTypeClass,
     SystemMetadataClass,
     TagAssociationClass as Tag,
 )
 from datahub.specific.custom_properties import CustomPropertiesPatchHelper
-from datahub.specific.ownership import OwnershipPatchHelper
+from datahub.specific.ownership import HasOwnershipPatch
 from datahub.utilities.urns.tag_urn import TagUrn
 from datahub.utilities.urns.urn import Urn
 
 
-class ChartPatchBuilder(MetadataPatchProposal):
+class ChartPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
     def __init__(
         self,
         urn: str,
@@ -43,52 +41,6 @@ class ChartPatchBuilder(MetadataPatchProposal):
         self.custom_properties_patch_helper = CustomPropertiesPatchHelper(
             self, ChartInfo.ASPECT_NAME
         )
-        self.ownership_patch_helper = OwnershipPatchHelper(self)
-
-    def add_owner(self, owner: Owner) -> "ChartPatchBuilder":
-        """
-        Adds an owner to the ChartPatchBuilder.
-
-        Args:
-            owner: The Owner object to add.
-
-        Returns:
-            The ChartPatchBuilder instance.
-        """
-        self.ownership_patch_helper.add_owner(owner)
-        return self
-
-    def remove_owner(
-        self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
-    ) -> "ChartPatchBuilder":
-        """
-        Removes an owner from the ChartPatchBuilder.
-
-        Args:
-            owner: The owner to remove.
-            owner_type: The ownership type of the owner (optional).
-
-        Returns:
-            The ChartPatchBuilder instance.
-
-        Notes:
-            `owner_type` is optional.
-        """
-        self.ownership_patch_helper.remove_owner(owner, owner_type)
-        return self
-
-    def set_owners(self, owners: List[Owner]) -> "ChartPatchBuilder":
-        """
-        Sets the owners of the ChartPatchBuilder.
-
-        Args:
-            owners: A list of Owner objects.
-
-        Returns:
-            The ChartPatchBuilder instance.
-        """
-        self.ownership_patch_helper.set_owners(owners)
-        return self
 
     def add_input_edge(self, input: Union[Edge, Urn, str]) -> "ChartPatchBuilder":
         """
