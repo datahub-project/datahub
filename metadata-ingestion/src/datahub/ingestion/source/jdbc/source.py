@@ -62,7 +62,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 logger = logging.getLogger(__name__)
 
 
-@platform_name("JDBC")
+@platform_name("jdbc")
 @config_class(JDBCSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.CONTAINERS, "Enabled by default")
