@@ -2,7 +2,7 @@ import json
 import time
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
 from typing_extensions import LiteralString
 
@@ -31,11 +31,12 @@ def _recursive_to_obj(obj: Any) -> Any:
 
 
 PatchPath = Tuple[Union[LiteralString, Urn], ...]
+PatchOp = Literal["add", "remove", "replace"]
 
 
 @dataclass
 class _Patch:
-    op: str  # one of ['add', 'remove', 'replace']; we don't support move, copy or test
+    op: PatchOp
     path: PatchPath
     value: Any
 
@@ -73,7 +74,11 @@ class MetadataPatchProposal:
         return str(value).replace("~", "~0").replace("/", "~1")
 
     def _add_patch(
-        self, aspect_name: str, op: str, path: PatchPath, value: Any
+        self,
+        aspect_name: str,
+        op: PatchOp,
+        path: PatchPath,
+        value: Any,
     ) -> None:
         # TODO: Validate that aspectName is a valid aspect for this entityType
         self.patches[aspect_name].append(_Patch(op, path, value))
