@@ -31,8 +31,7 @@ services:
     networks:
       jdbc-network:
     volumes:
-      - ./setup/mysql:/setup
-      - ./setup/mysql/init.sql:/docker-entrypoint-initdb.d/setup.sql
+      - ./setup/mysql:/docker-entrypoint-initdb.d
 
 
   mssql:
@@ -59,4 +58,3 @@ services:
 
 networks:
   jdbc-network:
-    driver: bridge

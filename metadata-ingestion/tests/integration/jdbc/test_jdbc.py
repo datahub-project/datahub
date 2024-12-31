@@ -2,15 +2,14 @@ import logging
 import os
 import subprocess
 import sys
-import time
 from pathlib import Path
-from typing import Callable
 
 import pytest
 import yaml
 from freezegun import freeze_time
 
 from tests.test_helpers import mce_helpers
+from tests.test_helpers.docker_helpers import wait_for_port
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,36 +20,6 @@ FROZEN_TIME = "2023-10-15 07:00:00"
 POSTGRES_PORT = 45432
 MYSQL_PORT = 43306
 MSSQL_PORT = 41433
-
-
-def run_command(cmd: str, check: bool = True) -> subprocess.CompletedProcess:
-    """Run a shell command and optionally check for errors."""
-    logger.debug(f"Running command: {cmd}")
-    result = subprocess.run(
-        args=cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
-    )
-    if check and result.returncode != 0:
-        logger.error(f"Command failed: {result.stderr}")
-        raise RuntimeError(f"Command failed: {result.stderr}")
-    return result
-
-
-def prepare_config_file(source_config: Path, tmp_path: Path, database: str) -> Path:
-    """Copy and modify config file to use temporary directory."""
-    # Read the original config
-    with open(source_config) as f:
-        config = yaml.safe_load(f)
-
-    # Update the sink config to use the temp directory
-    if "sink" in config:
-        config["sink"]["config"]["filename"] = str(tmp_path / f"{database}_mces.json")
-
-    # Write the modified config to temp directory
-    tmp_config = tmp_path / source_config.name
-    with open(tmp_config, "w") as f:
-        yaml.dump(config, f)
-
-    return tmp_config
 
 
 def run_datahub_ingest(config_path: str) -> None:
@@ -69,78 +38,40 @@ def run_datahub_ingest(config_path: str) -> None:
     logger.info("Ingest completed successfully")
 
 
-def start_containers():
-    """Start containers using docker-compose."""
-    logger.info("Starting containers with docker-compose...")
-    try:
-        run_command(
-            "docker-compose -f tests/integration/jdbc/docker-compose.yml down -v"
-        )
-        run_command("docker-compose -f tests/integration/jdbc/docker-compose.yml up -d")
-        logger.info("Containers started successfully.")
-    except Exception as e:
-        logger.error(f"Failed to start containers: {str(e)}")
-        raise
+def prepare_config_file(source_config: Path, tmp_path: Path, database: str) -> Path:
+    """Copy and modify config file to use temporary directory."""
+    with open(source_config) as f:
+        config = yaml.safe_load(f)
+
+    if "sink" in config:
+        config["sink"]["config"]["filename"] = str(tmp_path / f"{database}_mces.json")
+
+    tmp_config = tmp_path / source_config.name
+    with open(tmp_config, "w") as f:
+        yaml.dump(config, f)
+
+    return tmp_config
 
 
-def is_postgres_ready(container_name: str) -> bool:
-    """Check if postgres is ready by testing connection."""
-    cmd = f"docker exec {container_name} pg_isready -U postgres"
-    result = run_command(cmd, check=False)
-    return result.returncode == 0
-
-
-def is_mysql_ready(container_name: str) -> bool:
-    """A cheap way to figure out if mysql is responsive on a container"""
-    cmd = f"docker logs {container_name} 2>&1 | grep '/usr/sbin/mysqld: ready for connections.' | grep 3306"
+def is_postgres_up(container_name: str) -> bool:
+    """Check if postgres is up"""
+    cmd = f"docker logs {container_name} 2>&1 | grep 'database system is ready to accept connections'"
     ret = subprocess.run(cmd, shell=True)
     return ret.returncode == 0
 
 
-def is_mssql_ready(container_name: str) -> bool:
-    """Check if mssql is ready by testing connection and database existence."""
-    cmd = f"docker exec {container_name} /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'Password123!' -Q 'SELECT NAME FROM sys.databases WHERE NAME = \"test\"'"
-    result = run_command(cmd, check=False)
-    if result.returncode != 0:
-        return False
-
-    cmd = f"docker exec {container_name} /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'Password123!' -d test -Q 'SELECT COUNT(*) FROM sys.tables'"
-    result = run_command(cmd, check=False)
-    return result.returncode == 0
+def is_mysql_up(container_name: str) -> bool:
+    """Check if mysql is up"""
+    cmd = f"docker logs {container_name} 2>&1 | grep 'ready for connections'"
+    ret = subprocess.run(cmd, shell=True)
+    return ret.returncode == 0
 
 
-def wait_for_container(
-    container_name: str,
-    checker: Callable[[str], bool],
-    timeout: int = 120,
-) -> None:
-    """Wait for a container to become ready."""
-    logger.info(f"Waiting for container {container_name} to become ready...")
-    start_time = time.time()
-    while time.time() - start_time < timeout:
-        try:
-            if checker(container_name):
-                logger.info(f"Container {container_name} is ready.")
-                return
-        except Exception as e:
-            logger.debug(f"Check failed: {str(e)}")
-        time.sleep(5)
-        logger.debug(
-            f"Container {container_name} not ready yet, elapsed time: {time.time() - start_time}s"
-        )
-    raise TimeoutError(
-        f"Container {container_name} is not ready after {timeout} seconds."
-    )
-
-
-@pytest.fixture(scope="session", autouse=True)
-def setup_containers():
-    """Start the required containers for integration tests."""
-    start_containers()
-    yield
-    logger.info("Tearing down containers...")
-    run_command("docker-compose -f tests/integration/jdbc/docker-compose.yml down -v")
-    logger.info("Containers stopped and cleaned up.")
+def is_mssql_up(container_name: str) -> bool:
+    """Check if mssql is up"""
+    cmd = f"docker logs {container_name} 2>&1 | grep 'SQL Server is now ready for client connections'"
+    ret = subprocess.run(cmd, shell=True)
+    return ret.returncode == 0
 
 
 @pytest.fixture(scope="module")
@@ -148,22 +79,71 @@ def test_resources_dir(pytestconfig):
     return pytestconfig.rootpath / "tests/integration/jdbc"
 
 
-@pytest.fixture(scope="function")
-def postgres_runner():
-    wait_for_container("testpostgres", is_postgres_ready)
-    yield
+def get_service_override_file(test_resources_dir: Path, service: str) -> Path:
+    """Create a docker-compose override file for a single service."""
+    with open(test_resources_dir / "docker-compose.yml") as f:
+        config = yaml.safe_load(f)
+
+    # Create a new compose file with just the specified service and its dependencies
+    new_config = {
+        "services": {service: config["services"][service]},
+        "networks": config.get("networks", {}),
+    }
+
+    # Write temporary override file
+    override_path = test_resources_dir / f"docker-compose.{service}.yml"
+    with open(override_path, "w") as f:
+        yaml.dump(new_config, f)
+
+    return override_path
 
 
-@pytest.fixture(scope="function")
-def mysql_runner():
-    wait_for_container("testmysql", is_mysql_ready)
-    yield
+@pytest.fixture(scope="module")
+def postgres_runner(docker_compose_runner, pytestconfig, test_resources_dir):
+    override_file = get_service_override_file(
+        test_resources_dir=test_resources_dir, service="postgres"
+    )
+    with docker_compose_runner(override_file, "testpostgres") as docker_services:
+        wait_for_port(
+            docker_services,
+            "testpostgres",
+            POSTGRES_PORT,
+            timeout=120,
+            checker=lambda: is_postgres_up("testpostgres"),
+        )
+        yield docker_services
 
 
-@pytest.fixture(scope="function")
-def mssql_runner():
-    wait_for_container("testmssql", is_mssql_ready)
-    yield
+@pytest.fixture(scope="module")
+def mysql_runner(docker_compose_runner, pytestconfig, test_resources_dir):
+    override_file = get_service_override_file(
+        test_resources_dir=test_resources_dir, service="mysql"
+    )
+    with docker_compose_runner(override_file, "testmysql") as docker_services:
+        wait_for_port(
+            docker_services,
+            "testmysql",
+            MYSQL_PORT,
+            timeout=120,
+            checker=lambda: is_mysql_up("testmysql"),
+        )
+        yield docker_services
+
+
+@pytest.fixture(scope="module")
+def mssql_runner(docker_compose_runner, pytestconfig, test_resources_dir):
+    override_file = get_service_override_file(
+        test_resources_dir=test_resources_dir, service="mssql"
+    )
+    with docker_compose_runner(override_file, "testmssql") as docker_services:
+        wait_for_port(
+            docker_services,
+            "testmssql",
+            MSSQL_PORT,
+            timeout=120,
+            checker=lambda: is_mssql_up("testmssql"),
+        )
+        yield docker_services
 
 
 @freeze_time(FROZEN_TIME)

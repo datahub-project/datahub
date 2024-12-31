@@ -422,6 +422,24 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1735655838213,
+        "runId": "jdbc-2024_12_31-14_37_16-l9i370",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.large_orders_view,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
@@ -462,7 +480,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1735647395800,
+                        "time": 1735657252968,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -474,7 +492,7 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 1735647395800,
+                        "time": 1735657252968,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -534,8 +552,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735647395801,
-        "runId": "jdbc-2024_12_31-12_16_34-l1xo4g",
+        "lastObserved": 1735657252968,
+        "runId": "jdbc-2024_12_31-15_00_51-w8vvt4",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -618,6 +636,24 @@
     "systemMetadata": {
         "lastObserved": 1697353200000,
         "runId": "jdbc-2023_10_15-07_00_00-cd9ooy",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.users,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Table"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1735655838217,
+        "runId": "jdbc-2024_12_31-14_37_16-l9i370",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -740,6 +776,24 @@
     "systemMetadata": {
         "lastObserved": 1697353200000,
         "runId": "jdbc-2023_10_15-07_00_00-cd9ooy",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.active_users_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1735655838221,
+        "runId": "jdbc-2024_12_31-14_37_16-l9i370",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -919,6 +973,24 @@
     }
 },
 {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,test.public.large_orders_view,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "View"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1735655838225,
+        "runId": "jdbc-2024_12_31-14_37_16-l9i370",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "container",
     "entityUrn": "urn:li:container:b0e3688915df07c288a23633361c19a8",
     "changeType": "UPSERT",
@@ -944,7 +1016,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1735647395799,
+                        "time": 1735657252966,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -956,7 +1028,7 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 1735647395799,
+                        "time": 1735657252966,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -1016,8 +1088,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735647395799,
-        "runId": "jdbc-2024_12_31-12_16_34-l1xo4g",
+        "lastObserved": 1735657252967,
+        "runId": "jdbc-2024_12_31-15_00_51-w8vvt4",
         "lastRunId": "no-run-id-provided"
     }
 },

@@ -46,6 +46,7 @@ from datahub.metadata.schema_classes import (
     ContainerClass,
     OtherSchemaClass,
     SchemaMetadataClass,
+    SubTypesClass,
     ViewPropertiesClass,
 )
 from datahub.sql_parsing import sqlglot_utils
@@ -810,6 +811,12 @@ class JDBCSource(StatefulIngestionSourceBase):
                 if database
                 else table.full_name,
             ),
+        ).as_workunit()
+
+        # Subtype
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SubTypesClass(typeNames=[table.type.title()]),
         ).as_workunit()
 
         # For views, add view properties
