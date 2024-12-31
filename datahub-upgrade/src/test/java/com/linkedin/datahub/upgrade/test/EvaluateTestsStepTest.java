@@ -2,7 +2,10 @@ package com.linkedin.datahub.upgrade.test;
 
 import static com.linkedin.datahub.upgrade.propagate.PropagateTerms.*;
 import static org.mockito.Mockito.*;
-import static org.testng.AssertJUnit.*;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
@@ -15,6 +18,7 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeReport;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -135,6 +139,9 @@ public class EvaluateTestsStepTest extends AbstractTestNGSpringContextTests {
                   eq(TestEngine.EvaluationMode.DEFAULT)))
           .thenReturn(Map.of(urn, new TestResults()));
     }
+
+    Mockito.when(mockTestEngine.getTestsConfiguration())
+        .thenReturn(TestsConfiguration.builder().build());
   }
 
   private static void configureUpgradeCtxMock(

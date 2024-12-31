@@ -27,15 +27,19 @@ import com.linkedin.metadata.test.eval.PredicateEvaluator;
 import com.linkedin.metadata.test.exception.SelectionTooLargeException;
 import com.linkedin.metadata.test.query.QueryEngine;
 import com.linkedin.metadata.test.query.TestQuery;
+import com.linkedin.metadata.test.query.TestQueryResponse;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.test.TestDefinition;
 import com.linkedin.test.TestDefinitionType;
 import com.linkedin.test.TestInfo;
 import com.linkedin.test.TestMode;
+import com.linkedin.test.TestResultType;
 import com.linkedin.test.TestResults;
 import com.linkedin.test.TestStatus;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -224,6 +228,104 @@ public class TestEngineTest {
     assertEquals(explainSelect.size(), 1);
     explainEvaluate = testEngine.getElasticSearchTestExecutor().explainEvaluate(testDefinition);
     assertEquals(explainEvaluate.size(), 2);
+  }
+
+  @Test
+  public void testBatchTestResultAggregation() throws Exception {
+    TestFetcher.Test test = buildSimpleTest("123");
+    TestEngine testEngine = buildTestEngine(List.of(test));
+    Urn dataset1 = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,dataset1,PROD)");
+    Urn dataset2 = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,dataset2,PROD)");
+
+    // Mock search results to return multiple batches
+    SearchResult searchResult = new SearchResult();
+    searchResult.setNumEntities(2);
+    SearchEntityArray searchEntities = new SearchEntityArray();
+    searchEntities.add(new SearchEntity().setEntity(dataset1));
+    searchEntities.add(new SearchEntity().setEntity(dataset2));
+    searchResult.setEntities(searchEntities);
+
+    when(mockSearchService.predicateSearch(
+            any(), any(), any(), any(), any(), anyInt(), anyInt(), any()))
+        .thenReturn(searchResult);
+
+    // Test evaluating multiple entities
+    Map<Urn, TestResults> results =
+        testEngine.evaluateSingleTest(
+            mock(OperationContext.class), test.getUrn(), TestEngine.EvaluationMode.DEFAULT);
+
+    assertEquals(results.size(), 2);
+    assertTrue(results.containsKey(dataset1));
+    assertTrue(results.containsKey(dataset2));
+
+    results.forEach(
+        (testUrn, result) -> {
+          assertTrue(result.getFailing().isEmpty());
+          assertEquals(result.getPassing().get(0).getTest(), test.getUrn());
+          assertEquals(result.getPassing().get(0).getType(), TestResultType.SUCCESS);
+          assertEquals(
+              result.getPassing().get(0).getTestDefinitionMd5(),
+              "d62adc9af36875ffbef60dff62d0110b");
+        });
+  }
+
+  @Test
+  public void testCacheInvalidationAndRefresh() throws Exception {
+    TestFetcher.Test test = buildSimpleTest("123");
+    TestEngine testEngine = buildTestEngine(List.of(test));
+
+    // Initial cache state
+    assertEquals(testEngine.getEntityTypesToEvaluate().size(), 1);
+
+    // Mock fetcher to return different results
+    TestFetcher.Test newTest = buildSimpleTest("456");
+    when(mockTestFetcher.fetch(any(), anyInt(), anyInt()))
+        .thenReturn(new TestFetcher.TestFetchResult(List.of(newTest), 1));
+
+    // Test cache invalidation
+    testEngine.invalidateCache();
+    testEngine.loadTests();
+
+    // Verify cache was updated
+    verify(mockTestFetcher, times(2)).fetch(any(), anyInt(), anyInt());
+  }
+
+  @Test
+  public void testDifferentEvaluationModes() throws Exception {
+    TestFetcher.Test test = buildSimpleTest("123");
+    TestEngine testEngine = buildTestEngine(List.of(test));
+
+    // Mock search service
+    SearchResult searchResult = new SearchResult();
+    searchResult.setNumEntities(1);
+    SearchEntityArray searchEntities = new SearchEntityArray();
+    SearchEntity searchEntity = new SearchEntity();
+    searchEntity.setEntity(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,data,PROD)"));
+    searchEntities.add(searchEntity);
+    searchResult.setEntities(searchEntities);
+    when(mockSearchService.predicateSearch(
+            any(), any(), any(), any(), any(), anyInt(), anyInt(), any()))
+        .thenReturn(searchResult);
+
+    // Mock query responses for success case
+    Map<TestQuery, TestQueryResponse> queryResponses = new HashMap<>();
+    when(mockQueryEngine.batchEvaluateQueries(any(), any(), any()))
+        .thenReturn(
+            Collections.singletonMap(
+                UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,data,PROD)"),
+                queryResponses));
+
+    // Test EVALUATE_ONLY mode
+    Map<Urn, TestResults> results =
+        testEngine.evaluateSingleTest(
+            mock(OperationContext.class), test.getUrn(), TestEngine.EvaluationMode.EVALUATE_ONLY);
+    verify(mockEntityService, never()).ingestProposal(any(), any(), anyBoolean());
+
+    // Test SYNC mode
+    results =
+        testEngine.evaluateSingleTest(
+            mock(OperationContext.class), test.getUrn(), TestEngine.EvaluationMode.SYNC);
+    verify(mockEntityService, atLeastOnce()).ingestProposal(any(), any(), eq(false));
   }
 
   /** on: types: - dataset rules: and: - property: status.removed operator: is_true */

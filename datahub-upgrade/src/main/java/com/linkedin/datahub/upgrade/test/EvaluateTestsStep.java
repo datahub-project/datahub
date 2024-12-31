@@ -8,6 +8,7 @@ import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.AcrylConstants;
+import com.linkedin.metadata.config.TestsConfiguration;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
@@ -59,6 +60,7 @@ public class EvaluateTestsStep implements UpgradeStep {
   private final EntityClient entityClient;
   private final EntitySearchService _entitySearchService;
   private final TestEngine testEngine;
+  private final TestsConfiguration configuration;
   @VisibleForTesting @Getter private final ExecutorService executorService;
   private final TestEngine.EvaluationMode evaluationMode;
   private final String runId;
@@ -72,6 +74,7 @@ public class EvaluateTestsStep implements UpgradeStep {
     this.entityClient = entityClient;
     _entitySearchService = entitySearchService;
     this.testEngine = testEngine;
+    this.configuration = testEngine.getTestsConfiguration();
     this.runId = String.format("cron-%s", Instant.now());
 
     int numThreads =
@@ -172,6 +175,11 @@ public class EvaluateTestsStep implements UpgradeStep {
                             resultAggregator,
                             context)));
             batch++;
+
+            if (futures.size() >= Math.max(1, configuration.getFuturesBatchSize())) {
+              flushFutures(futures, context);
+            }
+
             if (batchDelayMs > 0) {
               TimeUnit.MILLISECONDS.sleep(batchDelayMs);
             }
@@ -185,16 +193,8 @@ public class EvaluateTestsStep implements UpgradeStep {
                       entityType));
         }
 
-        for (Future<Map<Urn, TestResults>> results : futures) {
-          // Wait for processing, we don't actually use the result currently for anything for now,
-          // so treat as void
-          try {
-            results.get();
-          } catch (InterruptedException | ExecutionException e) {
-            context.report().addLine("Reading interrupted, not able to finish processing.");
-            throw new RuntimeException(e);
-          }
-        }
+        flushFutures(futures, context);
+
         context.report().addLine("Finished evaluating tests for all entities");
         reportTestRunResults(resultAggregator.getTestResultSummaries().values());
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
@@ -205,6 +205,24 @@ public class EvaluateTestsStep implements UpgradeStep {
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
       }
     };
+  }
+
+  private static void flushFutures(
+      List<Future<Map<Urn, TestResults>>> futures, UpgradeContext context) {
+    if (!futures.isEmpty()) {
+      log.info("Flushing {} futures.", futures.size());
+      for (Future<Map<Urn, TestResults>> results : futures) {
+        // Wait for processing, we don't actually use the result currently for anything for now,
+        // so treat as void
+        try {
+          results.get();
+        } catch (InterruptedException | ExecutionException e) {
+          context.report().addLine("Reading interrupted, not able to finish processing.");
+          throw new RuntimeException(e);
+        }
+      }
+      futures.clear();
+    }
   }
 
   private Map<Urn, TestResults> processBatch(
@@ -218,9 +236,7 @@ public class EvaluateTestsStep implements UpgradeStep {
     {
       Map<Urn, TestResults> result;
       try {
-        result =
-            testEngine.evaluateTests(
-                systemOpContext, entitiesInBatch, TestEngine.EvaluationMode.DEFAULT);
+        result = testEngine.evaluateTests(systemOpContext, entitiesInBatch, evaluationMode);
         context
             .report()
             .addLine(

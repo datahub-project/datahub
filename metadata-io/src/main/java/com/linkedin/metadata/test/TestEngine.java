@@ -92,45 +92,46 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class TestEngine implements AutoCloseable {
-  private final EntityService<?> _entityService;
+  private final EntityService<?> entityService;
 
-  private final EntitySearchService _searchService;
+  private final EntitySearchService searchService;
 
-  private final QueryEngine _queryEngine;
-  private final PredicateEvaluator _predicateEvaluator;
-  private final TestDefinitionParser _testDefinitionParser;
-  private final ActionApplier _actionApplier;
+  private final QueryEngine queryEngine;
+  private final PredicateEvaluator predicateEvaluator;
+  private final TestDefinitionParser testDefinitionParser;
+  private final ActionApplier actionApplier;
 
   // Maps test urn to deserialized test definition
   // Not concurrent data structure because writes are always against the entire
   // thing.
   // _testCache does not contain tests without a schedule. These tests should only
   // be run manually and do not get picked up in scheduled runs.
-  private final Map<Urn, TestDefinition> _testCache = new HashMap<>();
-  private final Map<Urn, TestInfo> _testInfoCache = new HashMap<>();
+  private final Map<Urn, TestDefinition> testCache = new HashMap<>();
+  private final Map<Urn, TestInfo> testInfoCache = new HashMap<>();
   // Maps entity type to list of tests that target the entity type
   // Not concurrent data structure because writes are always against the entire
   // thing.
-  private final Map<String, Set<TestDefinition>> _testPerEntityTypeCache = new HashMap<>();
+  private final Map<String, Set<TestDefinition>> testPerEntityTypeCache = new HashMap<>();
 
   // Shared lock for both cache hashmaps
   private final ReadWriteLock cacheReadWriteLock = new ReentrantReadWriteLock();
   private final Lock cacheReadLock = cacheReadWriteLock.readLock();
 
-  private ScheduledExecutorService _refreshExecutorService;
-  private final TestRefreshRunnable _testRefreshRunnable;
-  private final Set<String> _supportedEntityTypes;
+  private ScheduledExecutorService refreshExecutorService;
+  private final TestRefreshRunnable testRefreshRunnable;
+  private final Set<String> supportedEntityTypes;
   private final boolean isPartialFetcher;
 
   @Getter private final ElasticSearchTestExecutor elasticSearchTestExecutor;
 
-  private final TimeseriesAspectService _timeseriesAspectService;
+  private final TimeseriesAspectService timeseriesAspectService;
 
   private final OperationContext systemOpContext;
 
   private final boolean elasticSearchExecutorEnabled;
   private final TestsHookExecutionLimitConfiguration executionLimits;
-  private final ExecutorService actionsExecutorService;
+  @VisibleForTesting @Getter final ExecutorService actionsExecutorService;
+  @Getter private final TestsConfiguration testsConfiguration;
 
   /** The test engine evaluation mode. */
   public enum EvaluationMode {
@@ -178,33 +179,34 @@ public class TestEngine implements AutoCloseable {
       ActionApplier actionApplier,
       @Nullable ExecutorService actionsExecutorService) {
 
-    _entityService = entityService;
-    _searchService = searchService;
-    _queryEngine = queryEngine;
-    _predicateEvaluator = predicateEvaluator;
-    _testDefinitionParser = testDefinitionParser;
-    _actionApplier = actionApplier;
+    this.testsConfiguration = testsConfiguration;
+    this.entityService = entityService;
+    this.searchService = searchService;
+    this.queryEngine = queryEngine;
+    this.predicateEvaluator = predicateEvaluator;
+    this.testDefinitionParser = testDefinitionParser;
+    this.actionApplier = actionApplier;
     isPartialFetcher = testFetcher.isPartial();
     this.systemOpContext = systemOpContext;
-    _testRefreshRunnable =
+    testRefreshRunnable =
         new TestRefreshRunnable(
             systemOpContext,
             testFetcher,
             testDefinitionParser,
-            _testCache,
-            _testInfoCache,
-            _testPerEntityTypeCache,
+            testCache,
+            testInfoCache,
+            testPerEntityTypeCache,
             cacheReadWriteLock.writeLock());
 
     if (testsConfiguration.isEnabled() || testsConfiguration.getHook().isEnabled()) {
       if (testsConfiguration.getCacheRefreshIntervalSecs() > 0) {
-        _refreshExecutorService = Executors.newScheduledThreadPool(1);
-        _refreshExecutorService.scheduleAtFixedRate(
-            _testRefreshRunnable,
+        refreshExecutorService = Executors.newScheduledThreadPool(1);
+        refreshExecutorService.scheduleAtFixedRate(
+            testRefreshRunnable,
             testsConfiguration.getCacheRefreshDelayIntervalSecs(),
             testsConfiguration.getCacheRefreshIntervalSecs(),
             TimeUnit.SECONDS);
-        _refreshExecutorService.execute(_testRefreshRunnable);
+        refreshExecutorService.execute(testRefreshRunnable);
       } else {
         loadTests();
       }
@@ -212,7 +214,7 @@ public class TestEngine implements AutoCloseable {
       log.info("Metadata tests is disabled, not fetching test definitions");
     }
 
-    _supportedEntityTypes = TestUtils.getSupportedEntityTypes(systemOpContext.getEntityRegistry());
+    supportedEntityTypes = TestUtils.getSupportedEntityTypes(systemOpContext.getEntityRegistry());
     elasticSearchTestExecutor =
         new ElasticSearchTestExecutor(
             searchService,
@@ -220,7 +222,7 @@ public class TestEngine implements AutoCloseable {
             systemOpContext.getEntityRegistry(),
             systemOpContext,
             testsConfiguration.getHook().getHookExecutionLimit().getElasticSearchExecutor());
-    _timeseriesAspectService = timeseriesAspectService;
+    this.timeseriesAspectService = timeseriesAspectService;
     this.elasticSearchExecutorEnabled = testsConfiguration.getElasticSearchExecutor().isEnabled();
     this.executionLimits = testsConfiguration.getHook().getHookExecutionLimit();
     this.actionsExecutorService = actionsExecutorService;
@@ -243,12 +245,12 @@ public class TestEngine implements AutoCloseable {
    */
   @Override
   public void close() {
-    shutdownExecutorService(_refreshExecutorService, "refresh executor", false);
+    shutdownExecutorService(refreshExecutorService, "refresh executor", false);
     shutdownExecutorService(actionsExecutorService, "actions executor", false);
   }
 
   public void forceClose() {
-    shutdownExecutorService(_refreshExecutorService, "refresh executor", true);
+    shutdownExecutorService(refreshExecutorService, "refresh executor", true);
     shutdownExecutorService(actionsExecutorService, "actions executor", true);
   }
 
@@ -316,21 +318,21 @@ public class TestEngine implements AutoCloseable {
    * created, modified, or deleted.
    */
   public void invalidateCache() {
-    if (_refreshExecutorService != null) {
-      _refreshExecutorService.execute(_testRefreshRunnable);
+    if (refreshExecutorService != null) {
+      refreshExecutorService.execute(testRefreshRunnable);
     }
   }
 
   /** Synchronously refresh the Metadata Tests cache. */
   public void loadTests() {
-    _testRefreshRunnable.run();
+    testRefreshRunnable.run();
   }
 
   @Nonnull
   public Set<String> getEntityTypesToEvaluate() {
     cacheReadLock.lock();
     try {
-      return _testPerEntityTypeCache.keySet();
+      return testPerEntityTypeCache.keySet();
     } finally {
       // To unlock the acquired read thread
       cacheReadLock.unlock();
@@ -339,7 +341,7 @@ public class TestEngine implements AutoCloseable {
 
   @Nonnull
   public TestDefinitionParser getParser() {
-    return _testDefinitionParser;
+    return testDefinitionParser;
   }
 
   /**
@@ -353,7 +355,7 @@ public class TestEngine implements AutoCloseable {
     // Try to deserialize json definition
     TestDefinition testDefinition;
     try {
-      testDefinition = _testDefinitionParser.deserialize(DUMMY_TEST_URN, definitionJson);
+      testDefinition = testDefinitionParser.deserialize(DUMMY_TEST_URN, definitionJson);
     } catch (TestDefinitionParsingException | IllegalArgumentException e) {
       return new ValidationResult(false, Collections.singletonList(e.getMessage()));
     }
@@ -442,7 +444,7 @@ public class TestEngine implements AutoCloseable {
 
     // Step 0: Check for supported entities
     for (String entityType : entityTypes) {
-      if (!_supportedEntityTypes.contains(entityType)) {
+      if (!supportedEntityTypes.contains(entityType)) {
         log.warn(
             String.format(
                 "Attempted to evaluate tests for an unsupported entity type %s.", entityType));
@@ -538,7 +540,7 @@ public class TestEngine implements AutoCloseable {
 
           // Run the test!
           final boolean isUrnPassingTest =
-              _predicateEvaluator.evaluatePredicate(
+              predicateEvaluator.evaluatePredicate(
                   testDefinition.getRules(),
                   rulesQueryResponses.getOrDefault(urn, Collections.emptyMap()));
 
@@ -646,7 +648,7 @@ public class TestEngine implements AutoCloseable {
     // error messages
     List<ValidationResult> invalidResults =
         queries.stream()
-            .map(query -> _queryEngine.validateQuery(query, entityTypes))
+            .map(query -> queryEngine.validateQuery(query, entityTypes))
             .filter(result -> !result.isValid())
             .collect(Collectors.toList());
 
@@ -670,7 +672,7 @@ public class TestEngine implements AutoCloseable {
         rules.stream()
             .flatMap(rule -> Predicate.extractQueriesForPredicate(rule).stream())
             .collect(Collectors.toSet());
-    return _queryEngine.batchEvaluateQueries(systemOpContext, new HashSet<>(urns), requiredQueries);
+    return queryEngine.batchEvaluateQueries(systemOpContext, new HashSet<>(urns), requiredQueries);
   }
 
   private List<Predicate> getPredicatesFromSelectConditions(
@@ -687,8 +689,8 @@ public class TestEngine implements AutoCloseable {
     cacheReadLock.lock();
     try {
       for (Urn testUrn : testUrns) {
-        if (_testCache.containsKey(testUrn)) {
-          tests.add(_testCache.get(testUrn));
+        if (testCache.containsKey(testUrn)) {
+          tests.add(testCache.get(testUrn));
         } else {
           log.warn("Test {} does not exist: Skipping", testUrn);
         }
@@ -728,7 +730,7 @@ public class TestEngine implements AutoCloseable {
     if (selectConditions == null) {
       return true;
     }
-    return _predicateEvaluator.evaluatePredicate(selectConditions, targetingRulesQueryResponses);
+    return predicateEvaluator.evaluatePredicate(selectConditions, targetingRulesQueryResponses);
   }
 
   private TestResultArray computeUpdated(
@@ -852,7 +854,7 @@ public class TestEngine implements AutoCloseable {
             .mcps(allMCPs, auditStamp, systemOpContext.getRetrieverContext())
             .build();
 
-    _entityService.ingestProposal(systemOpContext, batch, mode != EvaluationMode.SYNC);
+    entityService.ingestProposal(systemOpContext, batch, mode != EvaluationMode.SYNC);
   }
 
   /**
@@ -908,7 +910,7 @@ public class TestEngine implements AutoCloseable {
         TestAction action = entry.getKey();
         List<Urn> urns = new ArrayList<>(entry.getValue());
 
-        _actionApplier.apply(
+        actionApplier.apply(
             opContext, action.getType(), urns, new ActionParameters(action.getParams()));
       } catch (Exception e) {
         log.error("Failed to apply metadata test action: {}", entry.getKey(), e);
@@ -927,7 +929,7 @@ public class TestEngine implements AutoCloseable {
     try {
       for (TestResult result : testResults) {
         TestDefinition definition =
-            testDefinition != null ? testDefinition : _testCache.get(result.getTest());
+            testDefinition != null ? testDefinition : testCache.get(result.getTest());
         if (definition == null) {
           log.warn("Test {} does not exist: Skipping", result.getTest());
           continue;
@@ -950,7 +952,7 @@ public class TestEngine implements AutoCloseable {
   private Set<TestDefinition> getOrDefault(String key, Set<TestDefinition> defaultValue) {
     cacheReadLock.lock();
     try {
-      return _testPerEntityTypeCache.getOrDefault(key, defaultValue);
+      return testPerEntityTypeCache.getOrDefault(key, defaultValue);
     } finally {
       // To unlock the acquired read thread
       cacheReadLock.unlock();
@@ -959,7 +961,7 @@ public class TestEngine implements AutoCloseable {
 
   private Optional<BatchTestRunEvent> getLastExecution(Urn testUrn) {
     List<EnvelopedAspect> lastComputed =
-        this._timeseriesAspectService.getAspectValues(
+        this.timeseriesAspectService.getAspectValues(
             systemOpContext,
             testUrn,
             TEST_ENTITY_NAME,
@@ -980,17 +982,14 @@ public class TestEngine implements AutoCloseable {
   }
 
   private Map<Urn, TestResults> getMaterializedResults(
-      Urn testUrn,
-      TestDefinition testDefinition,
-      Map<Urn, BatchTestRunResult> oldBatchTestRunResults,
-      @Nonnull AspectRetriever aspectRetriever) {
+      Urn testUrn, TestDefinition testDefinition, @Nonnull AspectRetriever aspectRetriever) {
     Filter passingFilter =
         TestUtils.buildTestPassingFilter(testUrn, testDefinition.getMd5(), aspectRetriever);
     Filter failingFilter =
         TestUtils.buildTestFailingFilter(testUrn, testDefinition.getMd5(), aspectRetriever);
     Map<Urn, TestResults> results = new HashMap<>();
     ScrollResult scrollResult =
-        this._searchService.scroll(
+        this.searchService.scroll(
             systemOpContext,
             testDefinition.getOn().getEntityTypes(),
             passingFilter,
@@ -1021,7 +1020,7 @@ public class TestEngine implements AutoCloseable {
     while (scrollResult.getNumEntities() == 1000) {
       String scrollId = scrollResult.getScrollId();
       scrollResult =
-          this._searchService.scroll(
+          this.searchService.scroll(
               systemOpContext,
               testDefinition.getOn().getEntityTypes(),
               passingFilter,
@@ -1051,7 +1050,7 @@ public class TestEngine implements AutoCloseable {
               });
     }
     scrollResult =
-        this._searchService.scroll(
+        this.searchService.scroll(
             systemOpContext,
             testDefinition.getOn().getEntityTypes(),
             failingFilter,
@@ -1082,7 +1081,7 @@ public class TestEngine implements AutoCloseable {
     while (scrollResult.getNumEntities() == 1000) {
       String scrollId = scrollResult.getScrollId();
       scrollResult =
-          this._searchService.scroll(
+          this.searchService.scroll(
               systemOpContext,
               testDefinition.getOn().getEntityTypes(),
               failingFilter,
@@ -1130,8 +1129,8 @@ public class TestEngine implements AutoCloseable {
     TestInfo testInfo;
     cacheReadLock.lock();
     try {
-      testDefinition = _testCache.get(testUrn);
-      testInfo = _testInfoCache.get(testUrn);
+      testDefinition = testCache.get(testUrn);
+      testInfo = testInfoCache.get(testUrn);
     } finally {
       // To unlock the acquired read thread
       cacheReadLock.unlock();
@@ -1146,7 +1145,7 @@ public class TestEngine implements AutoCloseable {
       }
       try {
         testDefinition =
-            _testDefinitionParser.deserialize(testUrn, testInfo.getDefinition().getJson());
+            testDefinitionParser.deserialize(testUrn, testInfo.getDefinition().getJson());
         ValidationResult validationResult = validateTestDefinition(testDefinition);
         if (!validationResult.isValid()) {
           throw new TestDefinitionParsingException(
@@ -1168,20 +1167,12 @@ public class TestEngine implements AutoCloseable {
       if (lastExecution.getResult() != null
           && lastExecution.getResult().getTestDefinition() != null) {
         TestDefinition oldTestDefinition =
-            this._testDefinitionParser.deserialize(
+            this.testDefinitionParser.deserialize(
                 testUrn, lastExecution.getResult().getTestDefinition());
-        // if (!oldTestDefinition.getMd5().equals(testDefinition.getMd5())) {
-        final Map<Urn, BatchTestRunResult> oldBatchTestRunResults = new HashMap<>();
-        oldBatchTestRunResults.put(
-            testUrn,
-            new BatchTestRunResult()
-                .setPassingCount(0)
-                .setFailingCount(0)
-                .setTestDefinition(oldTestDefinition.getRawDefinition()));
+
         log.info("Fetching old results");
         oldResults =
-            getMaterializedResults(
-                testUrn, oldTestDefinition, oldBatchTestRunResults, opContext.getAspectRetriever());
+            getMaterializedResults(testUrn, oldTestDefinition, opContext.getAspectRetriever());
         log.info("Old results size for test {} = {}", testUrn, oldResults.size());
         oldResults.forEach(
             (urn, testResults) -> {
@@ -1250,7 +1241,7 @@ public class TestEngine implements AutoCloseable {
                   systemOpContext.getRetrieverContext())
               .build();
 
-      _entityService.ingestProposal(systemOpContext, batch, mode != EvaluationMode.SYNC);
+      entityService.ingestProposal(systemOpContext, batch, mode != EvaluationMode.SYNC);
 
       log.info(
           "Mode {}: Applying {} results to DataHub for test {}",
@@ -1350,7 +1341,7 @@ public class TestEngine implements AutoCloseable {
         .forEach(
             typeName ->
                 candidateUrns.addAll(
-                    _entityService
+                    entityService
                         .listUrns(
                             systemOpContext, typeName, 0, executionLimits.getDefaultExecutor())
                         .getEntities()));
@@ -1386,7 +1377,7 @@ public class TestEngine implements AutoCloseable {
    * @param testUrn test entity to refresh
    */
   public void refreshSingleTest(@Nonnull final Urn testUrn) {
-    _testRefreshRunnable.refreshOneUrn(testUrn);
+    testRefreshRunnable.refreshOneUrn(testUrn);
   }
 
   private TestInfo getTestInfo(@Nonnull OperationContext opContext, @Nonnull final Urn testUrn) {
@@ -1394,7 +1385,7 @@ public class TestEngine implements AutoCloseable {
 
     try {
       EntityResponse response =
-          _entityService.getEntityV2(
+          entityService.getEntityV2(
               opContext, TEST_ENTITY_NAME, testUrn, ImmutableSet.of(TEST_INFO_ASPECT_NAME), false);
       if (response != null && response.getAspects().containsKey(TEST_INFO_ASPECT_NAME)) {
         testInfo = new TestInfo(response.getAspects().get(TEST_INFO_ASPECT_NAME).getValue().data());

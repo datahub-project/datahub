@@ -380,6 +380,7 @@ metadataTests:
   # Enable metadata tests feature
   enabled: ${METADATA_TESTS_ENABLED:false}
   jvmShutdownHookEnabled: ${METADATA_TESTS_JVM_SHUTDOWN_HOOK:false}
+  futuresBatchSize: ${METADATA_TESTS_FUTURES_BATCH_SIZE:20}
   hook:
     enabled: ${METADATA_TESTS_HOOK_ENABLED:true}
     consumerGroupSuffix: ${METADATA_TESTS_HOOK_CONSUMER_GROUP_SUFFIX:}
