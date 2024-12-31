@@ -70,12 +70,12 @@ class Entity(HasUrn):
         self._aspects: models.AspectBag = {}
 
     @classmethod
-    def _init_dummy_args(cls) -> dict[str, Any]:
+    def _graph_init_dummy_args(cls) -> dict[str, Any]:
         return {}
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
-        entity = cls(urn=urn, **cls._init_dummy_args())
+        entity = cls(urn=urn, **cls._graph_init_dummy_args())
 
         entity._prev_aspects = current_aspects
         for aspect_name, aspect in (current_aspects or {}).items():
