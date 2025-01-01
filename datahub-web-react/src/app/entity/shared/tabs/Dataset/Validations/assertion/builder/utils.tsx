@@ -696,13 +696,13 @@ export const getDefaultDatasetFreshnessAssertionParametersState = (
 
 export const getFreshnessSourceOptions = (platformUrn: string, connectionForEntityExists: boolean) => {
     const allowedSourceTypes: DatasetFreshnessSourceType[] | undefined = connectionForEntityExists
-        ? PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness.sourceTypes
+        ? PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness?.sourceTypes
         : [DatasetFreshnessSourceType.DatahubOperation];
     return allSourceOptions.filter((option) => allowedSourceTypes?.includes(option.type));
 };
 
 export const getFreshnessSourceOptionPlatformDescription = (platformUrn: string, type: DatasetFreshnessSourceType) => {
-    return PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness.sourceTypeDetails[type]?.description;
+    return PLATFORM_ASSERTION_CONFIGS[platformUrn]?.freshness?.sourceTypeDetails[type]?.description;
 };
 
 export const getFreshnessSourceOption = (type: DatasetFreshnessSourceType, kind?: Maybe<FreshnessFieldKind>) => {

@@ -60,8 +60,8 @@ export default function BulkVerifyHeader() {
         setShouldRefetch(true);
     }
 
-    const title = form?.info.name;
-    const description = form?.info.description;
+    const title = form?.info?.name;
+    const description = form?.info?.description;
 
     return (
         <BulkVerifyWrapper $hideBackground>

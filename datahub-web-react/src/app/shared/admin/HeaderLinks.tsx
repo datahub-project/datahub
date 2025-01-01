@@ -104,8 +104,8 @@ export function HeaderLinks(props: Props) {
     // SaaS Only
     // Currently we only have a flag for metadata proposals.
     // In the future, we may add configs for alerts, announcements, etc.
-    const isActionRequestsEnabled = config?.actionRequestsConfig.enabled;
-    const isTestsEnabled = config?.testsConfig.enabled;
+    const isActionRequestsEnabled = config?.actionRequestsConfig?.enabled;
+    const isTestsEnabled = config?.testsConfig?.enabled;
 
     const showAnalytics = (isAnalyticsEnabled && me && me?.platformPrivileges?.viewAnalytics) || false;
     const showSettings = true;

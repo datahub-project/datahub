@@ -78,7 +78,7 @@ export const SlackDefaults = ({ isSlackEnabled = false, channel, onChange, botTo
     };
 
     const onSave = async () => {
-        const sanitizedValue = inputValue?.trim().replace(/^#+/, ''); // Remove leading # and trim spaces
+        const sanitizedValue = inputValue?.trim()?.replace(/^#+/, ''); // Remove leading # and trim spaces
         onChange(sanitizedValue || '');
         setEditing(false);
         setIsChannelUpdated(false);

@@ -41,7 +41,7 @@ const useSubscriptionSummary = ({ entityUrn, isEntityExists = true }: Props) => 
     }, [entitySubscriptionSummaryData?.getEntitySubscriptionSummary?.isUserSubscribed]);
 
     const subscribedUsers = entitySubscriptionSummaryData?.getEntitySubscriptionSummary.subscribedUsers || [];
-    const subscribedGroups = entitySubscriptionSummaryData?.getEntitySubscriptionSummary.subscribedGroups || [];
+    const subscribedGroups = entitySubscriptionSummaryData?.getEntitySubscriptionSummary?.subscribedGroups || [];
 
     // Maxes out at DEFAULT_SUBSCRIPTION_COUNT
     const numUserSubscriptions = entitySubscriptionSummaryData?.getEntitySubscriptionSummary.userSubscriptionCount || 0;
@@ -49,7 +49,7 @@ const useSubscriptionSummary = ({ entityUrn, isEntityExists = true }: Props) => 
     const numGroupSubscriptions =
         entitySubscriptionSummaryData?.getEntitySubscriptionSummary.groupSubscriptionCount || 0;
     const groupNames: string[] =
-        (entitySubscriptionSummaryData?.getEntitySubscriptionSummary.subscribedGroups
+        (entitySubscriptionSummaryData?.getEntitySubscriptionSummary?.subscribedGroups
             .map((group) => entityRegistry.getDisplayName(EntityType.CorpGroup, group))
             .filter((name) => !!name) as string[]) || [];
 

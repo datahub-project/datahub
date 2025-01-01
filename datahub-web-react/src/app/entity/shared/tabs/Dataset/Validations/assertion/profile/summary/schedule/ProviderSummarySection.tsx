@@ -19,7 +19,7 @@ type Props = {
 
 export const ProviderSummarySection = ({ assertion, showDivider = true }: Props) => {
     const platformName = assertion?.platform?.properties?.displayName || assertion?.platform?.name;
-    const hasPlatformLogo = !!assertion?.platform.properties?.logoUrl;
+    const hasPlatformLogo = !!assertion?.platform?.properties?.logoUrl;
     return (
         <AssertionScheduleSummarySection
             icon={

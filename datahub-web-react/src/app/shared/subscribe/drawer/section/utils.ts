@@ -22,7 +22,7 @@ export function checkIsKeyBeingToggledForAssertionSubscriptionsAtAssetLevel(
     subscription?: DataHubSubscription,
 ): boolean {
     // 1. Get assertion subscriptions that are made at the asset level
-    const assetLevelAssertionSubscriptions = subscription?.entityChangeTypes.filter(
+    const assetLevelAssertionSubscriptions = subscription?.entityChangeTypes?.filter(
         checkIsAssetLevelAssertionSubscription,
     );
 

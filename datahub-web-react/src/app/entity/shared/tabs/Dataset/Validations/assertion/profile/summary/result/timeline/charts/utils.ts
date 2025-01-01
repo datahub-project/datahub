@@ -166,7 +166,7 @@ const tryGetWindowStartDateForFreshnessAssertionFixedInterval = (
 
 const tryGetWindowStartDateForFreshnessAssertionCron = (mountedDataPoint: AssertionDataPoint): Date | undefined => {
     // Compute the previous cron iteration of this data point
-    const cron = mountedDataPoint.relatedRunEvent.result?.assertion?.freshnessAssertion?.schedule.cron;
+    const cron = mountedDataPoint.relatedRunEvent.result?.assertion?.freshnessAssertion?.schedule?.cron;
     if (!cron) return undefined;
     let lastExpectedRunTS = getPreviousScheduleEvaluationTimeMs(
         {
@@ -221,7 +221,7 @@ export const getWindowStartAndEndDatesForFreshnessAssertionRun = (
     allDataPoints: AssertionDataPoint[],
 ): [Date, Date] | undefined => {
     // 1. ensure data point is valid
-    const assertionInfo = mountedDataPoint?.relatedRunEvent.result?.assertion;
+    const assertionInfo = mountedDataPoint?.relatedRunEvent?.result?.assertion;
     if (
         !mountedDataPoint?.time ||
         assertionInfo?.type !== AssertionType.Freshness ||

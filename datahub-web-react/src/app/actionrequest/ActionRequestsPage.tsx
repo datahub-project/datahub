@@ -69,7 +69,7 @@ export const ActionRequestsPage = () => {
                 displayName: PERSONAL_ACTION_REQUESTS_GROUP_NAME,
                 assignee: {
                     type: AssigneeType.User,
-                    urn: authenticatedUser?.corpUser.urn,
+                    urn: authenticatedUser?.corpUser?.urn,
                 },
             },
             ...(authenticatedUser?.corpUser.groups?.relationships?.map((rel) => {

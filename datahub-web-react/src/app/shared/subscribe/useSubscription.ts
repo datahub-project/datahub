@@ -25,7 +25,7 @@ const useSubscription = ({ isPersonal, entityUrn, groupUrn, isEntityExists = tru
 
     const subscription = (!skip && getSubscriptionData?.getSubscription.subscription) || undefined;
     const isSubscribed = !!subscription;
-    const canManageSubscription = loading ? null : getSubscriptionData?.getSubscription.privileges?.canManageEntity;
+    const canManageSubscription = loading ? null : getSubscriptionData?.getSubscription?.privileges?.canManageEntity;
 
     return { subscription, isSubscribed, refetchSubscription, canManageSubscription };
 };
