@@ -147,7 +147,7 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         )
 
     @staticmethod
-    def convert_sets_to_lists(obj: Any) -> Any:
+    def _convert_sets_to_lists(obj: Any) -> Any:
         """
         Recursively converts all sets to lists in a Python object.
         Works with nested dictionaries, lists, and sets.
@@ -160,22 +160,22 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
         """
         if isinstance(obj, dict):
             return {
-                key: DatahubIngestionRunSummaryProvider.convert_sets_to_lists(value)
+                key: DatahubIngestionRunSummaryProvider._convert_sets_to_lists(value)
                 for key, value in obj.items()
             }
         elif isinstance(obj, list):
             return [
-                DatahubIngestionRunSummaryProvider.convert_sets_to_lists(element)
+                DatahubIngestionRunSummaryProvider._convert_sets_to_lists(element)
                 for element in obj
             ]
         elif isinstance(obj, set):
             return [
-                DatahubIngestionRunSummaryProvider.convert_sets_to_lists(element)
+                DatahubIngestionRunSummaryProvider._convert_sets_to_lists(element)
                 for element in obj
             ]
         elif isinstance(obj, tuple):
             return tuple(
-                DatahubIngestionRunSummaryProvider.convert_sets_to_lists(element)
+                DatahubIngestionRunSummaryProvider._convert_sets_to_lists(element)
                 for element in obj
             )
         else:
@@ -189,8 +189,10 @@ class DatahubIngestionRunSummaryProvider(PipelineRunListener):
             redacted_recipe = redact_raw_config(ctx.pipeline_config.get_raw_dict())
             # This is required otherwise json dumps will fail
             # with a TypeError: Object of type set is not JSON serializable
-            converted_recipe = DatahubIngestionRunSummaryProvider.convert_sets_to_lists(
-                redacted_recipe
+            converted_recipe = (
+                DatahubIngestionRunSummaryProvider._convert_sets_to_lists(
+                    redacted_recipe
+                )
             )
             return json.dumps(converted_recipe)
 

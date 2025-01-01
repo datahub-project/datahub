@@ -58,7 +58,7 @@ def test_simple_set() -> None:
     """Test conversion of a simple set"""
     input_data: Set[int] = {1, 2, 3}
     expected: List[int] = [1, 2, 3]
-    result = DatahubIngestionRunSummaryProvider.convert_sets_to_lists(input_data)
+    result = DatahubIngestionRunSummaryProvider._convert_sets_to_lists(input_data)
     assert sorted(result) == sorted(expected)
     assert isinstance(result, list)
 
@@ -73,7 +73,7 @@ def test_nested_dict_with_sets() -> None:
         "set1": [1, 2, 3],
         "dict1": {"set2": ["a", "b"]},
     }
-    result = DatahubIngestionRunSummaryProvider.convert_sets_to_lists(input_data)
+    result = DatahubIngestionRunSummaryProvider._convert_sets_to_lists(input_data)
 
     def sort_nested_lists(d):
         return {
@@ -92,7 +92,7 @@ def test_nested_lists_with_sets() -> None:
     """Test conversion of nested lists containing sets"""
     input_data = [{1, 2}, [{3, 4}, {5, 6}]]
     expected = [[1, 2], [[3, 4], [5, 6]]]
-    result = DatahubIngestionRunSummaryProvider.convert_sets_to_lists(input_data)
+    result = DatahubIngestionRunSummaryProvider._convert_sets_to_lists(input_data)
     assert [
         sorted(x)
         if isinstance(x, list) and len(x) > 0 and not isinstance(x[0], list)
@@ -110,7 +110,7 @@ def test_tuple_with_sets() -> None:
     """Test conversion of tuples containing sets"""
     input_data = (1, {2, 3}, 4)
     expected = (1, [2, 3], 4)
-    result = DatahubIngestionRunSummaryProvider.convert_sets_to_lists(input_data)
+    result = DatahubIngestionRunSummaryProvider._convert_sets_to_lists(input_data)
     assert (result[0], sorted(result[1]), result[2]) == (
         expected[0],
         sorted(expected[1]),
@@ -130,7 +130,7 @@ def test_mixed_nested_structure() -> None:
         "tuple_with_set": (1, {4, 5}, 6),
         "list_of_sets": [{1, 2}, {3, 4}],
     }
-    result = DatahubIngestionRunSummaryProvider.convert_sets_to_lists(input_data)
+    result = DatahubIngestionRunSummaryProvider._convert_sets_to_lists(input_data)
 
     # Verify structure types
     assert isinstance(result["simple_set"], list)
@@ -153,7 +153,7 @@ def test_non_set_data() -> None:
         "list": [1, 2, 3],
         "dict": {"a": 1, "b": 2},
     }
-    result = DatahubIngestionRunSummaryProvider.convert_sets_to_lists(input_data)
+    result = DatahubIngestionRunSummaryProvider._convert_sets_to_lists(input_data)
     assert result == input_data
 
 
@@ -165,7 +165,7 @@ def test_empty_structures() -> None:
     expected: Dict[
         str, Union[List[Any], Dict[Any, Any], List[Any], Tuple[Any, ...]]
     ] = {"empty_set": [], "empty_dict": {}, "empty_list": [], "empty_tuple": ()}
-    result = DatahubIngestionRunSummaryProvider.convert_sets_to_lists(input_data)
+    result = DatahubIngestionRunSummaryProvider._convert_sets_to_lists(input_data)
     assert result == expected
 
 
@@ -178,7 +178,7 @@ def test_json_serializable() -> None:
         "nested": {"set": {"a", "b"}},
         "mixed": [1, {2, 3}, {"x"}],
     }
-    result = DatahubIngestionRunSummaryProvider.convert_sets_to_lists(input_data)
+    result = DatahubIngestionRunSummaryProvider._convert_sets_to_lists(input_data)
     try:
         json.dumps(result)
         serializable = True
