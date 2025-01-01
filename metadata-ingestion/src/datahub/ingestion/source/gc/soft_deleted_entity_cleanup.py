@@ -4,7 +4,7 @@ from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from threading import Lock
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from pydantic import Field
 
@@ -18,6 +18,22 @@ from datahub.utilities.stats_collections import TopKDict
 from datahub.utilities.urns._urn_base import Urn
 
 logger = logging.getLogger(__name__)
+
+QUERY_QUERY_ENTITY = """
+query listQueries($input: ScrollAcrossEntitiesInput!) {
+  scrollAcrossEntities(input: $input) {
+    nextScrollId
+    count
+    searchResults {
+      entity {
+        ... on QueryEntity {
+          urn
+        }
+      }
+    }
+  }
+}
+"""
 
 
 class SoftDeletedEntitiesCleanupConfig(ConfigModel):
@@ -69,7 +85,7 @@ class SoftDeletedEntitiesCleanupConfig(ConfigModel):
     )
 
     futures_max_at_time: int = Field(
-        10000, description="Max number of futures to have at a time."
+        1000, description="Max number of futures to have at a time."
     )
 
     runtime_limit_seconds: int = Field(
@@ -80,14 +96,13 @@ class SoftDeletedEntitiesCleanupConfig(ConfigModel):
 
 @dataclass
 class SoftDeletedEntitiesReport(SourceReport):
+    num_queries_found: int = 0
     num_soft_deleted_entity_processed: int = 0
     num_soft_deleted_retained_due_to_age: int = 0
     num_soft_deleted_entity_removal_started: int = 0
-    num_soft_deleted_entity_removed: int = 0
-    num_soft_deleted_entity_removed_by_type: TopKDict[str, int] = field(
-        default_factory=TopKDict
-    )
-    sample_soft_deleted_removed_aspects_by_type: TopKDict[str, LossyList[str]] = field(
+    num_hard_deleted: int = 0
+    num_hard_deleted_by_type: TopKDict[str, int] = field(default_factory=TopKDict)
+    sample_hard_deleted_aspects_by_type: TopKDict[str, LossyList[str]] = field(
         default_factory=TopKDict
     )
 
@@ -129,24 +144,15 @@ class SoftDeletedEntitiesCleanup:
     def _update_report(self, urn: str, entity_type: str) -> None:
         """Thread-safe method to update report fields"""
         with self._report_lock:
-            self.report.num_soft_deleted_entity_removed += 1
+            self.report.num_hard_deleted += 1
 
-            current_count = self.report.num_soft_deleted_entity_removed_by_type.get(
-                entity_type, 0
-            )
-            self.report.num_soft_deleted_entity_removed_by_type[entity_type] = (
-                current_count + 1
-            )
-            if (
-                entity_type
-                not in self.report.sample_soft_deleted_removed_aspects_by_type
-            ):
-                self.report.sample_soft_deleted_removed_aspects_by_type[
+            current_count = self.report.num_hard_deleted_by_type.get(entity_type, 0)
+            self.report.num_hard_deleted_by_type[entity_type] = current_count + 1
+            if entity_type not in self.report.sample_hard_deleted_aspects_by_type:
+                self.report.sample_hard_deleted_aspects_by_type[
                     entity_type
                 ] = LossyList()
-            self.report.sample_soft_deleted_removed_aspects_by_type[entity_type].append(
-                urn
-            )
+            self.report.sample_hard_deleted_aspects_by_type[entity_type].append(urn)
 
     def delete_entity(self, urn: str) -> None:
         assert self.ctx.graph
@@ -185,8 +191,8 @@ class SoftDeletedEntitiesCleanup:
 
     def _print_report(self) -> None:
         time_taken = round(time.time() - self.last_print_time, 1)
-        # Print report every 5 minutes
-        if time_taken > 300:
+        # Print report every 2 minutes
+        if time_taken > 120:
             self.last_print_time = time.time()
             logger.info(f"\n{self.report.as_string()}")
 
@@ -216,12 +222,49 @@ class SoftDeletedEntitiesCleanup:
                     time.sleep(self.config.delay)
         return futures
 
-    def cleanup_soft_deleted_entities(self) -> None:
-        if not self.config.enabled:
-            return
+    def _get_soft_deleted_queries(self) -> Iterable[str]:
         assert self.ctx.graph
-        self.start_time = time.time()
-        urns = self.ctx.graph.get_urns_by_filter(
+        scroll_id: Optional[str] = None
+        while True:
+            try:
+                result = self.ctx.graph.execute_graphql(
+                    QUERY_QUERY_ENTITY,
+                    {
+                        "input": {
+                            "types": ["QUERY"],
+                            "query": "*",
+                            "scrollId": scroll_id if scroll_id else None,
+                            "count": self.config.batch_size,
+                            "orFilters": [
+                                {
+                                    "and": [
+                                        {
+                                            "field": "removed",
+                                            "values": ["true"],
+                                            "condition": "EQUAL",
+                                        }
+                                    ]
+                                }
+                            ],
+                        }
+                    },
+                )
+            except Exception as e:
+                self.report.failure(
+                    f"While trying to get queries with {scroll_id}", exc=e
+                )
+                break
+            scroll_across_entities = result.get("scrollAcrossEntities")
+            if not scroll_across_entities:
+                break
+            scroll_id = scroll_across_entities.get("nextScrollId")
+            self.report.num_queries_found += scroll_across_entities.get("count")
+            for query in scroll_across_entities.get("searchResults"):
+                yield query["entity"]["urn"]
+
+    def _get_urns(self) -> Iterable[str]:
+        assert self.ctx.graph
+        yield from self.ctx.graph.get_urns_by_filter(
             entity_types=self.config.entity_types,
             platform=self.config.platform,
             env=self.config.env,
@@ -229,17 +272,22 @@ class SoftDeletedEntitiesCleanup:
             status=RemovedStatusFilter.ONLY_SOFT_DELETED,
             batch_size=self.config.batch_size,
         )
+        yield from self._get_soft_deleted_queries()
+
+    def cleanup_soft_deleted_entities(self) -> None:
+        if not self.config.enabled:
+            return
+        self.start_time = time.time()
 
         futures: Dict[Future, str] = dict()
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
-            for urn in urns:
+            for urn in self._get_urns():
                 self._print_report()
-                while len(futures) > self.config.futures_max_at_time:
+                while len(futures) >= self.config.futures_max_at_time:
                     futures = self._process_futures(futures)
                 if (
                     self.config.limit_entities_delete
-                    and self.report.num_soft_deleted_entity_removed
-                    > self.config.limit_entities_delete
+                    and self.report.num_hard_deleted > self.config.limit_entities_delete
                 ):
                     logger.info(
                         f"Limit of {self.config.limit_entities_delete} entities reached. Stopped adding more."
