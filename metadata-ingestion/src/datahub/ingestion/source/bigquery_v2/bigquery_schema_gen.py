@@ -655,7 +655,7 @@ class BigQuerySchemaGenerator:
 
         table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
         self.table_refs.add(table_ref)
-        if self.config.lineage_parse_view_ddl and view.view_definition:
+        if view.view_definition:
             self.view_refs_by_project[project_id].add(table_ref)
             self.view_definitions[table_ref] = view.view_definition
 
@@ -1142,7 +1142,7 @@ class BigQuerySchemaGenerator:
             foreignKeys=foreign_keys if foreign_keys else None,
         )
 
-        if self.config.lineage_parse_view_ddl or self.config.lineage_use_sql_parser:
+        if self.config.lineage_use_sql_parser:
             self.sql_parser_schema_resolver.add_schema_metadata(
                 dataset_urn, schema_metadata
             )

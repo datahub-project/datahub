@@ -291,16 +291,15 @@ class BigqueryLineageExtractor:
         snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
     ) -> Iterable[MetadataWorkUnit]:
         for project in projects:
-            if self.config.lineage_parse_view_ddl:
-                for view in view_refs_by_project[project]:
-                    self.datasets_skip_audit_log_lineage.add(view)
-                    self.aggregator.add_view_definition(
-                        view_urn=self.identifiers.gen_dataset_urn_from_raw_ref(
-                            BigQueryTableRef.from_string_name(view)
-                        ),
-                        view_definition=view_definitions[view],
-                        default_db=project,
-                    )
+            for view in view_refs_by_project[project]:
+                self.datasets_skip_audit_log_lineage.add(view)
+                self.aggregator.add_view_definition(
+                    view_urn=self.identifiers.gen_dataset_urn_from_raw_ref(
+                        BigQueryTableRef.from_string_name(view)
+                    ),
+                    view_definition=view_definitions[view],
+                    default_db=project,
+                )
 
             for snapshot_ref in snapshot_refs_by_project[project]:
                 snapshot = snapshots_by_ref[snapshot_ref]

@@ -595,9 +595,9 @@ LIMIT 100
     "use_queries_v2, include_table_lineage, include_usage_statistics, golden_file",
     [
         (True, False, False, "bigquery_mcp_lineage_golden_1.json"),
-        (True, True, False, "bigquery_mcp_lineage_golden_2.json"),
-        (False, False, True, "bigquery_mcp_lineage_golden_3.json"),
-        (False, True, True, "bigquery_mcp_lineage_golden_4.json"),
+        (True, True, False, "bigquery_mcp_lineage_golden_1.json"),
+        (False, False, True, "bigquery_mcp_lineage_golden_2.json"),
+        (False, True, True, "bigquery_mcp_lineage_golden_2.json"),
     ],
 )
 def test_bigquery_lineage_v2_ingest_view_snapshots(

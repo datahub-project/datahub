@@ -463,10 +463,6 @@ class BigQueryV2Config(
         default=True,
         description="Use sql parser to resolve view/table lineage.",
     )
-    lineage_parse_view_ddl: bool = Field(
-        default=True,
-        description="Sql parse view ddl to get lineage.",
-    )
 
     lineage_sql_parser_use_raw_names: bool = Field(
         default=False,
@@ -574,6 +570,7 @@ class BigQueryV2Config(
 
     _include_view_lineage = pydantic_removed_field("include_view_lineage")
     _include_view_column_lineage = pydantic_removed_field("include_view_column_lineage")
+    _lineage_parse_view_ddl = pydantic_removed_field("lineage_parse_view_ddl")
 
     @root_validator(pre=True)
     def set_include_schema_metadata(cls, values: Dict) -> Dict:

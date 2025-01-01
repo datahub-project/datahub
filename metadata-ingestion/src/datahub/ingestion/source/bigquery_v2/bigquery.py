@@ -206,9 +206,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def _init_schema_resolver(self) -> SchemaResolver:
         schema_resolution_required = (
-            self.config.use_queries_v2
-            or self.config.lineage_parse_view_ddl
-            or self.config.lineage_use_sql_parser
+            self.config.use_queries_v2 or self.config.lineage_use_sql_parser
         )
         schema_ingestion_enabled = (
             self.config.include_schema_metadata
