@@ -38,6 +38,8 @@ import io.ebean.PagedList;
 import io.ebean.Query;
 import io.ebean.RawSql;
 import io.ebean.RawSqlBuilder;
+import io.ebean.SqlQuery;
+import io.ebean.SqlRow;
 import io.ebean.Transaction;
 import io.ebean.TxScope;
 import io.ebean.annotation.TxIsolation;
@@ -247,10 +249,18 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull final EbeanAspectV2 ebeanAspect,
       final boolean insert) {
     validateConnection();
-    if (insert) {
-      _server.insert(ebeanAspect, txContext.tx());
+    if (txContext != null && txContext.tx() != null) {
+      if (insert) {
+        _server.insert(ebeanAspect, txContext.tx());
+      } else {
+        _server.update(ebeanAspect, txContext.tx());
+      }
     } else {
-      _server.update(ebeanAspect, txContext.tx());
+      if (insert) {
+        _server.insert(ebeanAspect);
+      } else {
+        _server.update(ebeanAspect);
+      }
     }
   }
 
@@ -864,20 +874,33 @@ public class EbeanAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
+  @Nonnull
+  public Pair<Long, Long> getVersionRange(
+      @Nonnull final String urn, @Nonnull final String aspectName) {
     validateConnection();
-    final List<EbeanAspectV2.PrimaryKey> result =
-        _server
-            .find(EbeanAspectV2.class)
-            .where()
-            .eq(EbeanAspectV2.URN_COLUMN, urn.toString())
-            .eq(EbeanAspectV2.ASPECT_COLUMN, aspectName)
-            .orderBy()
-            .desc(EbeanAspectV2.VERSION_COLUMN)
-            .setMaxRows(1)
-            .findIds();
 
-    return result.isEmpty() ? -1 : result.get(0).getVersion();
+    // Use SQL aggregation to get both min and max in a single query
+    SqlQuery query =
+        _server.sqlQuery(
+            "SELECT MIN(version) as min_version, MAX(version) as max_version "
+                + "FROM metadata_aspect_v2 "
+                + "WHERE urn = :urn AND aspect = :aspect");
+
+    query.setParameter("urn", urn);
+    query.setParameter("aspect", aspectName);
+
+    SqlRow result = query.findOne();
+
+    if (result == null) {
+      return Pair.of(-1L, -1L);
+    }
+
+    return Pair.of(result.getLong("min_version"), result.getLong("max_version"));
+  }
+
+  @Override
+  public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
+    return getVersionRange(urn, aspectName).getSecond();
   }
 
   /**
