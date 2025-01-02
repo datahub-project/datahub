@@ -1,4 +1,4 @@
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import pytest
 
@@ -7,6 +7,7 @@ from datahub.ingestion.source.tableau.tableau import TableauSiteSource
 from datahub.ingestion.source.tableau.tableau_common import (
     get_filter_pages,
     make_filter,
+    optimize_query_filter,
     tableau_field_to_schema_field,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.schema import SchemaField
@@ -203,3 +204,46 @@ def test_get_filter_pages_id_filter_splits_into_multiple_filters():
         {c.ID_WITH_IN: filter_dict[c.ID_WITH_IN][i : i + page_size]}
         for i in range(0, num_ids, page_size)
     ]
+
+
+def test_optimize_query_filter_removes_duplicates():
+    query_filter = {
+        c.ID_WITH_IN: ["id1", "id2", "id1"],
+        c.PROJECT_NAME_WITH_IN: ["project1", "project2", "project1"],
+    }
+    result = optimize_query_filter(query_filter)
+    assert len(result) == 2
+    assert set(result[c.ID_WITH_IN]) == {"id1", "id2"}
+    assert set(result[c.PROJECT_NAME_WITH_IN]) == {"project1", "project2"}
+
+
+def test_optimize_query_filter_handles_empty_lists():
+    query_filter: Dict[str, List[str]] = {c.ID_WITH_IN: [], c.PROJECT_NAME_WITH_IN: []}
+    result = optimize_query_filter(query_filter)
+    assert len(result) == 2
+    assert len(result[c.ID_WITH_IN]) == 0
+    assert len(result[c.PROJECT_NAME_WITH_IN]) == 0
+
+
+def test_optimize_query_filter_handles_missing_keys():
+    query_filter: Dict[str, List[str]] = {}
+    result = optimize_query_filter(query_filter)
+    assert result == {}
+
+
+def test_optimize_query_filter_handles_other_keys():
+    query_filter = {"any_other_key": ["id1", "id2", "id1"]}
+    result = optimize_query_filter(query_filter)
+    assert len(result) == 1
+    assert result["any_other_key"] == ["id1", "id2", "id1"]
+
+
+def test_optimize_query_filter_handles_no_duplicates():
+    query_filter = {
+        c.ID_WITH_IN: ["id1", "id2"],
+        c.PROJECT_NAME_WITH_IN: ["project1", "project2"],
+    }
+    result = optimize_query_filter(query_filter)
+    assert len(result) == 2
+    assert set(result[c.ID_WITH_IN]) == {"id1", "id2"}
+    assert set(result[c.PROJECT_NAME_WITH_IN]) == {"project1", "project2"}
