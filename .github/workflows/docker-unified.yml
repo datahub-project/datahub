@@ -444,8 +444,6 @@ jobs:
         run: |
           ./gradlew :datahub-frontend:dist -x test -x yarnTest -x yarnLint --parallel
           mv ./datahub-frontend/build/distributions/datahub-frontend-*.zip datahub-frontend.zip
-        env:
-          NODE_OPTIONS: "--max-old-space-size=4096"
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
