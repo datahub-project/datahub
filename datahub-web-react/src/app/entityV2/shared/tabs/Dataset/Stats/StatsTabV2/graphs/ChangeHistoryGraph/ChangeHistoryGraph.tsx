@@ -29,6 +29,7 @@ type ChangeHistoryGraphProps = {
 
 export default function ChangeHistoryGraph({ urn }: ChangeHistoryGraphProps) {
     const {
+        sections,
         setSectionState,
         dataInfo: { capabilitiesLoading, oldestOperationTime },
     } = useStatsSectionsContext();
@@ -52,11 +53,6 @@ export default function ChangeHistoryGraph({ urn }: ChangeHistoryGraphProps) {
         setIsDayDetailsDrawerShown(true);
     };
 
-    useEffect(() => {
-        // TODO: Update hasData for 'changes' based on the change history data
-        setSectionState(SectionKeys.CHANGES, false);
-    }, [setSectionState]);
-
     // Operation types
     const [selectedOperationTypes, setSelectedOperationTypes] = useState<OperationType[]>(DEFAULT_OPERATION_TYPES);
     // The data of change history
@@ -67,6 +63,10 @@ export default function ChangeHistoryGraph({ urn }: ChangeHistoryGraphProps) {
     const { startDay: calendarStartDay, endDay: calendarEndDay } = useGetCalendarRangeByTimeRange(selectedTimeRange);
     // The interval of the data
     const { startDay: dataStartDay, endDay: dataEndDay } = useDataRange(data, oldestOperationTime);
+
+    useEffect(() => {
+        if (!sections.changes.hasData && data.length > 0) setSectionState(SectionKeys.CHANGES, true);
+    }, [data, setSectionState, sections.changes]);
 
     const loading = capabilitiesLoading || dataLoading;
 
