@@ -89,10 +89,11 @@
     "scripts": {
         "analyze": "source-map-explorer 'dist/assets/*.js'",
         "start": "yarn run generate && vite",
-        "ec2-dev": "yarn run generate && CI=true;export CI;vite",
-        "build": "yarn run generate && NODE_OPTIONS='--max-old-space-size=4096 --openssl-legacy-provider' CI=false vite build",
-        "test": "vitest",
-        "generate": "graphql-codegen --config codegen.yml",
+        "ec2-dev": "yarn run generate && CI=true vite",
+        "build": "yarn run generate && CI=false NODE_OPTIONS='--max-old-space-size=5120 --openssl-legacy-provider' vite build",
+        "test": "NODE_OPTIONS='--max-old-space-size=5120 --openssl-legacy-provider' vitest",
+        "test-coverage": "yarn test run --coverage",
+        "generate": "NODE_OPTIONS='--max-old-space-size=5120 --openssl-legacy-provider' graphql-codegen --config codegen.yml",
         "lint": "eslint . --ext .ts,.tsx --quiet && yarn format-check && yarn type-check",
         "lint-fix": "eslint '*/**/*.{ts,tsx}' --quiet --fix && yarn format",
         "format-check": "prettier --check src",
@@ -100,7 +101,7 @@
         "type-check": "tsc --noEmit",
         "type-watch": "tsc -w --noEmit",
         "storybook": "storybook dev -p 6006",
-        "build-storybook": "storybook build"
+        "build-storybook": "NODE_OPTIONS='--max-old-space-size=5120 --openssl-legacy-provider' storybook build"
     },
     "browserslist": {
         "production": [
@@ -135,6 +136,7 @@
         "@typescript-eslint/eslint-plugin": "^5.38.1",
         "@typescript-eslint/parser": "^5.38.1",
         "@vitejs/plugin-react": "^4.1.1",
+        "@vitest/coverage-v8": "^0.34.6",
         "eslint": "^8.2.0",
         "eslint-config-airbnb": "19.0.4",
         "eslint-config-airbnb-typescript": "^17.0.0",
