@@ -70,6 +70,20 @@ public class OwnerTypeBatchResolverTest {
   }
 
   @Test
+  public void testNullOwnerTypesList() throws Exception {
+    when(_ownerTypesProvider.apply(any())).thenReturn(null);
+
+    OwnerTypeBatchResolver resolver =
+        new OwnerTypeBatchResolver(
+            ImmutableList.of(
+                new CorpUserType(_entityClient, null), new CorpGroupType(_entityClient)),
+            _ownerTypesProvider);
+
+    List<OwnerType> response = resolver.get(_dataFetchingEnvironment).join();
+    assertEquals(response.size(), 0);
+  }
+
+  @Test
   public void testMixedOwnerTypes() throws Exception {
     List<OwnerType> inputOwners =
         getRequestOwnerTypes(ImmutableList.of("urn:li:corpuser:1", "urn:li:corpGroup:1"));

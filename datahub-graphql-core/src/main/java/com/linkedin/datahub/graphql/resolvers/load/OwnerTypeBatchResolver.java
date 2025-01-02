@@ -38,7 +38,7 @@ public class OwnerTypeBatchResolver implements DataFetcher<CompletableFuture<Lis
   public CompletableFuture<List<OwnerType>> get(DataFetchingEnvironment environment) {
     // 1. get OwnerTypes
     final List<OwnerType> ownerTypes = _typesProvider.apply(environment);
-    if (ownerTypes.isEmpty()) {
+    if (ownerTypes == null || ownerTypes.isEmpty()) {
       return CompletableFuture.completedFuture(Collections.emptyList());
     }
 
