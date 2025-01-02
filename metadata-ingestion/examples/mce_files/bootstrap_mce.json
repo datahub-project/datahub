@@ -3584,7 +3584,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
-      "value": "{\"timestampMillis\": 1675155843000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catA\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_hive_datasource\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
+      "value": "{\"timestampMillis\": 1730554659000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catA\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_hive_datasource\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
       "contentType": "application/json"
     },
     "systemMetadata": null
