@@ -198,7 +198,7 @@ class TableSwap:
 
 @dataclasses.dataclass
 class PreparsedQuery:
-    # If not provided, we will generate one using the fast fingerprint generator.
+    # If not provided, we will generate one using the fingerprint generator.
     query_id: Optional[QueryId]
 
     query_text: str

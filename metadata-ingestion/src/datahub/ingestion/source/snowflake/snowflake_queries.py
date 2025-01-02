@@ -61,6 +61,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
 )
+from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 from datahub.utilities.file_backed_collections import ConnectionWrapper, FileBackedList
 from datahub.utilities.perf_timer import PerfTimer
 
@@ -475,10 +476,11 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
 
         entry = PreparsedQuery(
             # Despite having Snowflake's fingerprints available, our own fingerprinting logic does a better
-            # job at eliminating redundant / repetitive queries. As such, we don't include the fingerprint
-            # here so that the aggregator auto-generates one.
-            # query_id=res["query_fingerprint"],
-            query_id=None,
+            # job at eliminating redundant / repetitive queries. As such, we include the fast fingerprint
+            # here
+            query_id=get_query_fingerprint(
+                res["query_text"], self.identifiers.platform, fast=True
+            ),
             query_text=res["query_text"],
             upstreams=upstreams,
             downstream=downstream,
