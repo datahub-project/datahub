@@ -57,7 +57,7 @@ class PerfTimer(AbstractContextManager):
             self.finish()
         return None
 
-    def elapsed_seconds(self, digits: Optional[int] = 5) -> float:
+    def elapsed_seconds(self, digits: Optional[int] = None) -> float:
         """
         Returns the elapsed time in seconds.
         """
