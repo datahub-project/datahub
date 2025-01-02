@@ -687,6 +687,9 @@ class TableauSourceReport(
     num_hidden_assets_skipped: int = 0
     logged_in_user: List[UserInfo] = dataclass_field(default_factory=list)
 
+    def compute_stats(self) -> None:
+        self.close_stage()
+
 
 def report_user_role(report: TableauSourceReport, server: Server) -> None:
     title: str = "Insufficient Permissions"
@@ -849,8 +852,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                     platform=self.platform,
                 )
                 yield from site_source.ingest_tableau_site()
-
-            self.report.report_ingestion_stage_start("End")
 
         except MetadataQueryException as md_exception:
             self.report.failure(

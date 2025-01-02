@@ -70,6 +70,11 @@ class PerfTimer(AbstractContextManager):
             return (self.end_time - self.start_time) + self._past_active_time
 
     def assert_timer_is_running(self) -> None:
+        if not self.is_running():
+            self._error_state = True
+            logger.warning("Did you forget to start the timer ?")
+
+    def is_running(self) -> bool:
         """
         Returns true if timer is in running state.
         Timer is in NOT in running state if
@@ -77,9 +82,7 @@ class PerfTimer(AbstractContextManager):
         2. it is in paused state.
         3. it had been started and finished in the past but not started again.
         """
-        if self.start_time is None or self.paused or self.end_time:
-            self._error_state = True
-            logger.warning("Did you forget to start the timer ?")
+        return self.start_time is not None and not self.paused and self.end_time is None
 
     def __repr__(self) -> str:
         return repr(self.as_obj())

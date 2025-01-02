@@ -25,12 +25,10 @@ class IngestionStageReport:
     ingestion_stage: Optional[str] = None
     ingestion_stage_durations: TopKDict[str, float] = field(default_factory=TopKDict)
 
-    _timer: Optional[PerfTimer] = field(
-        default=None, init=False, repr=False, compare=False
-    )
+    _timer: PerfTimer = PerfTimer()
 
-    def report_ingestion_stage_start(self, stage: str) -> None:
-        if self._timer:
+    def _close_stage(self) -> None:
+        if self._timer.is_running():
             elapsed = round(self._timer.elapsed_seconds(), 2)
             logger.info(
                 f"Time spent in stage <{self.ingestion_stage}>: {elapsed} seconds",
@@ -38,9 +36,14 @@ class IngestionStageReport:
             )
             if self.ingestion_stage:
                 self.ingestion_stage_durations[self.ingestion_stage] = elapsed
-        else:
-            self._timer = PerfTimer()
+
+    def report_ingestion_stage_start(self, stage: str) -> None:
+        self._close_stage()
 
         self.ingestion_stage = f"{stage} at {datetime.now(timezone.utc)}"
         logger.info(f"Stage started: {self.ingestion_stage}")
         self._timer.start()
+
+    def close_stage(self) -> None:
+        # just close ongoing stage if any
+        self._close_stage()
