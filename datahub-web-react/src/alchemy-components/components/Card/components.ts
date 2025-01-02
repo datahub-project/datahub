@@ -2,25 +2,29 @@ import { colors, radius, spacing, typography } from '@src/alchemy-components/the
 import { IconAlignmentOptions } from '@src/alchemy-components/theme/config';
 import styled from 'styled-components';
 
-export const CardContainer = styled.div<{ hasButton?: boolean; width?: string }>(({ hasButton, width }) => ({
-    border: `1px solid ${colors.gray[100]}`,
-    borderRadius: radius.lg,
-    padding: spacing.md,
-    minWidth: '150px',
-    boxShadow: '0px 1px 2px 0px rgba(33, 23, 95, 0.07)',
-    backgroundColor: colors.white,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: spacing.md,
-    width: width || '100%',
+export const CardContainer = styled.div<{ hasButton?: boolean; maxWidth?: string; height?: string }>(
+    ({ hasButton, maxWidth, height }) => ({
+        border: `1px solid ${colors.gray[100]}`,
+        borderRadius: radius.lg,
+        padding: spacing.md,
+        display: 'flex',
+        flex: `1 1 ${maxWidth}`,
+        minWidth: '150px',
+        boxShadow: '0px 1px 2px 0px rgba(33, 23, 95, 0.07)',
+        backgroundColor: colors.white,
+        flexDirection: 'column',
+        gap: spacing.md,
+        maxWidth: maxWidth || '100%',
+        height,
 
-    '&:hover': hasButton
-        ? {
-              border: `1px solid ${colors.violet[500]}`,
-              cursor: 'pointer',
-          }
-        : {},
-}));
+        '&:hover': hasButton
+            ? {
+                  border: `1px solid ${colors.violet[500]}`,
+                  cursor: 'pointer',
+              }
+            : {},
+    }),
+);
 
 export const Header = styled.div<{ iconAlignment?: IconAlignmentOptions }>(({ iconAlignment }) => ({
     display: 'flex',

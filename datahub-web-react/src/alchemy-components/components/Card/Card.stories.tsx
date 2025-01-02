@@ -64,8 +64,14 @@ const meta = {
                 type: 'text',
             },
         },
-        width: {
-            description: 'The width of the card',
+        maxWidth: {
+            description: 'The maximum width of the card',
+            control: {
+                type: 'text',
+            },
+        },
+        height: {
+            description: 'The height of the card',
             control: {
                 type: 'text',
             },
@@ -89,7 +95,6 @@ const meta = {
         title: 'Title',
         subTitle: 'Subtitle',
         iconAlignment: 'horizontal',
-        width: '150px',
         isEmpty: false,
     },
 } satisfies Meta<typeof Card>;

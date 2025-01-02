@@ -4,19 +4,35 @@ import { Maybe, UserUsageCounts } from '@src/types.generated';
 import { countFormatter } from '@src/utils/formatter';
 import { Divider } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import styled, { css } from 'styled-components';
 import { SectionKeys } from './utils';
+
+const FIRST_SECTION_MAX_WIDTH = 470;
+const NUM_CARDS_FIRST_SECTION = 2;
+const NUM_CARDS_SECOND_SECTION = 3;
 
 const StatsContainer = styled.div`
     display: flex;
     padding: 12px 0;
-    align-items: stretch;
+    width: 100%;
+    box-sizing: border-box;
 `;
 
-const Section = styled.div`
+const sectionStyles = css`
     display: flex;
     flex-direction: column;
     gap: 8px;
+`;
+
+const FirstSection = styled.div`
+    ${sectionStyles};
+    max-width: ${FIRST_SECTION_MAX_WIDTH}px;
+    flex: ${NUM_CARDS_FIRST_SECTION};
+`;
+
+const SecondSection = styled.div`
+    ${sectionStyles}
+    flex: ${NUM_CARDS_SECOND_SECTION};
 `;
 
 const StatCards = styled.div`
@@ -27,9 +43,11 @@ const StatCards = styled.div`
 const VerticalDivider = styled(Divider)`
     height: auto;
     margin: 0 20px;
+    align-self: stretch;
 `;
 
 const CARD_WIDTH = '225px';
+const CARD_HEIGHT = '90px';
 
 interface Props {
     rowCount?: number;
@@ -65,7 +83,7 @@ const StatsHighlights = ({
                 variant="sectionHeader"
             />
             <StatsContainer>
-                <Section>
+                <FirstSection>
                     <Text size="sm" weight="bold">
                         Latest
                     </Text>
@@ -73,7 +91,8 @@ const StatsHighlights = ({
                         <Card
                             title={countFormatter(rowCount || 0)}
                             subTitle={pluralize(rowCount || 0, 'Row')}
-                            width={CARD_WIDTH}
+                            maxWidth={CARD_WIDTH}
+                            height={CARD_HEIGHT}
                             isEmpty={rowCount === undefined}
                             button={rowCount ? <ViewButton /> : undefined}
                             onClick={() => (rowCount ? scrollToSection?.(SectionKeys.ROWS_AND_USERS) : undefined)}
@@ -81,15 +100,16 @@ const StatsHighlights = ({
                         <Card
                             title={columnCount?.toString() || ''}
                             subTitle={pluralize(columnCount || 0, 'Column')}
-                            width={CARD_WIDTH}
+                            maxWidth={CARD_WIDTH}
+                            height={CARD_HEIGHT}
                             isEmpty={columnCount === undefined}
                             button={hasColumnStats ? <ViewButton /> : undefined}
                             onClick={() => (hasColumnStats ? scrollToSection?.(SectionKeys.COLUMN_STATS) : undefined)}
                         />
                     </StatCards>
-                </Section>
+                </FirstSection>
                 <VerticalDivider type="vertical" />
-                <Section>
+                <SecondSection>
                     <Text size="sm" weight="bold">
                         Last 30 days
                     </Text>
@@ -97,7 +117,8 @@ const StatsHighlights = ({
                         <Card
                             title={users?.length?.toString() || ''}
                             subTitle={pluralize(users?.length || 0, 'User')}
-                            width={CARD_WIDTH}
+                            maxWidth={CARD_WIDTH}
+                            height={CARD_HEIGHT}
                             isEmpty={users === undefined}
                             button={users && users.length ? <ViewButton /> : undefined}
                             onClick={() =>
@@ -107,7 +128,8 @@ const StatsHighlights = ({
                         <Card
                             title={queryCount?.toString() || ''}
                             subTitle={capitalizeFirstLetter(pluralize(queryCount || 0, 'Query'))}
-                            width={CARD_WIDTH}
+                            maxWidth={CARD_WIDTH}
+                            height={CARD_HEIGHT}
                             isEmpty={queryCount === undefined}
                             button={queryCount ? <ViewButton /> : undefined}
                             onClick={() => (queryCount ? scrollToSection?.(SectionKeys.QUERIES) : undefined)}
@@ -115,13 +137,14 @@ const StatsHighlights = ({
                         <Card
                             title={totalOperations?.toString() || ''}
                             subTitle={pluralize(totalOperations || 0, 'Change')}
-                            width={CARD_WIDTH}
+                            maxWidth={CARD_WIDTH}
+                            height={CARD_HEIGHT}
                             isEmpty={totalOperations === undefined}
                             button={totalOperations ? <ViewButton /> : undefined}
                             onClick={() => (totalOperations ? scrollToSection?.(SectionKeys.CHANGES) : undefined)}
                         />
                     </StatCards>
-                </Section>
+                </SecondSection>
             </StatsContainer>
         </>
     );

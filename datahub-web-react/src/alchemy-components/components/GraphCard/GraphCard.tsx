@@ -30,7 +30,7 @@ export function GraphCard({
     emptyContent,
 }: GraphCardProps) {
     return (
-        <CardContainer width={width}>
+        <CardContainer maxWidth={width}>
             <GraphCardHeader>
                 <PageTitle title={title} subTitle={subTitle} variant="sectionHeader" />
                 <ControlsContainer>{renderControls?.()}</ControlsContainer>
