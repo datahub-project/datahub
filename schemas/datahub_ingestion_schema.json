@@ -2964,7 +2964,7 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2025-01-02T09:53:58.234013+00:00",
+                        "end_time": "2025-01-02T12:41:59.944318+00:00",
                         "start_time": "2025-01-01T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
@@ -4224,7 +4224,7 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2025-01-02T09:53:57.676497+00:00",
+                        "end_time": "2025-01-02T12:41:59.371420+00:00",
                         "start_time": "2025-01-01T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
@@ -6945,13 +6945,13 @@
                     "description": "Set of aspect names to exclude from ingestion",
                     "default": [
                         "testResults",
-                        "datahubIngestionCheckpoint",
-                        "globalSettingsInfo",
                         "dataHubSecretKey",
-                        "globalSettingsKey",
                         "dataHubIngestionSourceInfo",
-                        "datahubIngestionRunSummary",
+                        "datahubIngestionCheckpoint",
                         "dataHubIngestionSourceKey",
+                        "globalSettingsKey",
+                        "datahubIngestionRunSummary",
+                        "globalSettingsInfo",
                         "dataHubSecretValue"
                     ],
                     "type": "array",
@@ -11020,6 +11020,18 @@
                     "default": true,
                     "type": "boolean"
                 },
+                "include_view_lineage": {
+                    "title": "Include View Lineage",
+                    "description": "Populates view->view and table->view lineage using DataHub's sql parser.",
+                    "default": true,
+                    "type": "boolean"
+                },
+                "include_view_column_lineage": {
+                    "title": "Include View Column Lineage",
+                    "description": "Populates column-level lineage for  view->view and table->view lineage using DataHub's sql parser. Requires `include_view_lineage` to be enabled.",
+                    "default": true,
+                    "type": "boolean"
+                },
                 "use_file_backed_cache": {
                     "title": "Use File Backed Cache",
                     "description": "Whether to use a file backed cache for the view definitions.",
@@ -11226,7 +11238,7 @@
                     "description": "Usage related configs",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2025-01-02T09:53:42.035185+00:00",
+                        "end_time": "2025-01-02T12:41:43.090699+00:00",
                         "start_time": "2025-01-01T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
@@ -11346,12 +11358,6 @@
                 "lineage_use_sql_parser": {
                     "title": "Lineage Use Sql Parser",
                     "description": "Use sql parser to resolve view/table lineage.",
-                    "default": true,
-                    "type": "boolean"
-                },
-                "lineage_parse_view_ddl": {
-                    "title": "Lineage Parse View Ddl",
-                    "description": "Sql parse view ddl to get lineage.",
                     "default": true,
                     "type": "boolean"
                 },
@@ -14805,7 +14811,7 @@
                     "description": "The usage config to use when generating usage statistics",
                     "default": {
                         "bucket_duration": "DAY",
-                        "end_time": "2025-01-02T09:53:47.830956+00:00",
+                        "end_time": "2025-01-02T12:41:49.129917+00:00",
                         "start_time": "2025-01-01T00:00:00+00:00",
                         "queries_character_limit": 24000,
                         "top_n_queries": 10,
