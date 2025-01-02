@@ -7,12 +7,34 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.mxe.SystemMetadata;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class SystemMetadataUtils {
+
+  private static final Set<String> LAST_INGESTED_ALLOWED_ASPECTS =
+      Set.of(
+          DATASET_PROPERTIES_ASPECT_NAME,
+          SCHEMA_METADATA_ASPECT_NAME,
+          CONTAINER_PROPERTIES_ASPECT_NAME,
+          NOTEBOOK_INFO_ASPECT_NAME,
+          DASHBOARD_INFO_ASPECT_NAME,
+          CHART_INFO_ASPECT_NAME,
+          DATA_FLOW_INFO_ASPECT_NAME,
+          DATA_JOB_INFO_ASPECT_NAME,
+          DATA_JOB_INPUT_OUTPUT_ASPECT_NAME,
+          DATA_PROCESS_INSTANCE_PROPERTIES_ASPECT_NAME,
+          ML_MODEL_PROPERTIES_ASPECT_NAME,
+          ML_MODEL_GROUP_PROPERTIES_ASPECT_NAME,
+          ML_PRIMARY_KEY_PROPERTIES_ASPECT_NAME,
+          ML_FEATURE_TABLE_PROPERTIES_ASPECT_NAME,
+          ML_FEATURE_PROPERTIES_ASPECT_NAME,
+          SCHEMA_FIELD_INFO_ASPECT_NAME,
+          QUERY_PROPERTIES_ASPECT_NAME,
+          PLATFORM_RESOURCE_INFO_ASPECT_NAME);
 
   private SystemMetadataUtils() {}
 
@@ -59,6 +81,11 @@ public class SystemMetadataUtils {
   public static List<RunInfo> getLastIngestionRuns(@Nonnull EnvelopedAspectMap aspectMap) {
     final List<RunInfo> runs = new ArrayList<>();
     for (String aspect : aspectMap.keySet()) {
+      // Skip aspects that are not allowed to represent the "last synchronized time".
+      if (!LAST_INGESTED_ALLOWED_ASPECTS.contains(aspect)) {
+        continue;
+      }
+
       if (aspectMap.get(aspect).hasSystemMetadata()) {
         SystemMetadata systemMetadata = aspectMap.get(aspect).getSystemMetadata();
         if (systemMetadata.hasLastRunId()

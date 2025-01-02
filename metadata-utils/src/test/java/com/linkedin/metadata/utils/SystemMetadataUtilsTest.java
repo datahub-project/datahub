@@ -19,17 +19,17 @@ public class SystemMetadataUtilsTest {
   public void testGetLastIngestedTime() {
     EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
     aspectMap.put(
-        "default-run-id",
+        DATASET_PROPERTIES_ASPECT_NAME,
         new EnvelopedAspect()
             .setSystemMetadata(
                 new SystemMetadata().setRunId(DEFAULT_RUN_ID).setLastObserved(recentLastObserved)));
     aspectMap.put(
-        "real-run-id",
+        SCHEMA_METADATA_ASPECT_NAME,
         new EnvelopedAspect()
             .setSystemMetadata(
                 new SystemMetadata().setRunId("real-id-1").setLastObserved(mediumLastObserved)));
     aspectMap.put(
-        "real-run-id2",
+        DATA_JOB_INFO_ASPECT_NAME,
         new EnvelopedAspect()
             .setSystemMetadata(
                 new SystemMetadata().setRunId("real-id-2").setLastObserved(distantLastObserved)));
@@ -42,17 +42,17 @@ public class SystemMetadataUtilsTest {
   public void testGetLastIngestedRunId() {
     EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
     aspectMap.put(
-        "default-run-id",
+        DATASET_PROPERTIES_ASPECT_NAME,
         new EnvelopedAspect()
             .setSystemMetadata(
                 new SystemMetadata().setRunId(DEFAULT_RUN_ID).setLastObserved(recentLastObserved)));
     aspectMap.put(
-        "real-run-id",
+        SCHEMA_METADATA_ASPECT_NAME,
         new EnvelopedAspect()
             .setSystemMetadata(
                 new SystemMetadata().setRunId("real-id-1").setLastObserved(mediumLastObserved)));
     aspectMap.put(
-        "real-run-id2",
+        DATA_JOB_INFO_ASPECT_NAME,
         new EnvelopedAspect()
             .setSystemMetadata(
                 new SystemMetadata().setRunId("real-id-2").setLastObserved(distantLastObserved)));
@@ -65,17 +65,17 @@ public class SystemMetadataUtilsTest {
   public void testGetLastIngestedRuns() {
     EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
     aspectMap.put(
-        "default-run-id",
+        DATASET_PROPERTIES_ASPECT_NAME,
         new EnvelopedAspect()
             .setSystemMetadata(
                 new SystemMetadata().setRunId(DEFAULT_RUN_ID).setLastObserved(recentLastObserved)));
     aspectMap.put(
-        "real-run-id",
+        SCHEMA_METADATA_ASPECT_NAME,
         new EnvelopedAspect()
             .setSystemMetadata(
                 new SystemMetadata().setRunId("real-id-1").setLastObserved(mediumLastObserved)));
     aspectMap.put(
-        "real-run-id2",
+        DATA_JOB_INFO_ASPECT_NAME,
         new EnvelopedAspect()
             .setSystemMetadata(
                 new SystemMetadata().setRunId("real-id-2").setLastObserved(distantLastObserved)));
@@ -85,6 +85,27 @@ public class SystemMetadataUtilsTest {
     assertEquals(runs.size(), 2);
     assertEquals(runs.get(0), new RunInfo("real-id-1", mediumLastObserved));
     assertEquals(runs.get(1), new RunInfo("real-id-2", distantLastObserved));
+  }
+
+  @Test
+  public void testGetLastIngestedRunsIgnoresDisallowedAspects() {
+    EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
+    aspectMap.put(
+        DATASET_PROPERTIES_ASPECT_NAME,
+        new EnvelopedAspect()
+            .setSystemMetadata(
+                new SystemMetadata().setRunId("real-id-1").setLastObserved(distantLastObserved)));
+    aspectMap.put(
+        USAGE_FEATURES_ASPECT_NAME,
+        new EnvelopedAspect()
+            .setSystemMetadata(
+                new SystemMetadata().setRunId("real-id-2").setLastObserved(recentLastObserved)));
+
+    List<RunInfo> runs = SystemMetadataUtils.getLastIngestionRuns(aspectMap);
+
+    assertEquals(runs.size(), 1);
+    // The distant time is selected because it is the most recent time for an allowed aspect
+    assertEquals(runs.get(0), new RunInfo("real-id-1", distantLastObserved));
   }
 
   @Test

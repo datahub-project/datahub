@@ -56,7 +56,7 @@ public class IngestionSourceForEntityResolverTest {
 
     EnvelopedAspectMap aspectMap = new EnvelopedAspectMap();
     aspectMap.put(
-        "real-run-id",
+        DATASET_PROPERTIES_ASPECT_NAME,
         new EnvelopedAspect()
             .setSystemMetadata(
                 new SystemMetadata().setRunId("real-id-1").setLastObserved(1659107340747L)));

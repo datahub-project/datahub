@@ -100,6 +100,7 @@ public class Constants {
   public static final String SCHEMA_FIELD_ENTITY_NAME = "schemaField";
   public static final String SCHEMA_FIELD_KEY_ASPECT = "schemaFieldKey";
   public static final String SCHEMA_FIELD_ALIASES_ASPECT = "schemaFieldAliases";
+  public static final String SCHEMA_FIELD_INFO_ASPECT_NAME = "schemaFieldInfo";
   public static final String DATAHUB_STEP_STATE_ENTITY_NAME = "dataHubStepState";
   public static final String DATAHUB_VIEW_ENTITY_NAME = "dataHubView";
   public static final String QUERY_ENTITY_NAME = "query";
