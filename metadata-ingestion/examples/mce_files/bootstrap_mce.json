@@ -3394,7 +3394,7 @@
     "changeType":"UPSERT",
     "aspectName":"datasetProfile",
     "aspect":{
-      "value":"{\"timestampMillis\": 1723488954865, \"rowCount\": 4500, \"columnCount\": 2, \"sizeInBytes\": 842000200000, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"false\"]}]}",
+      "value":"{\"timestampMillis\": 1735823280000, \"rowCount\": 4500, \"columnCount\": 2, \"sizeInBytes\": 842000200000, \"fieldProfiles\": [{\"fieldPath\": \"field_foo\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"true\", \"false\"]}, {\"fieldPath\": \"field_bar\", \"uniqueCount\": 2, \"uniqueProportion\": 0.00044, \"nullCount\": 0, \"nullProportion\": 0.0, \"sampleValues\": [\"false\"]}]}",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -3418,7 +3418,7 @@
     "changeType":"UPSERT",
     "aspectName":"operation",
     "aspect":{
-      "value":"{\"timestampMillis\": 1679515693000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1629097200001 }",
+      "value":"{\"timestampMillis\": 1711138093000, \"operationType\": \"INSERT\", \"lastUpdatedTimestamp\": 1629097200001 }",
       "contentType":"application/json"
     },
     "systemMetadata":null
@@ -3584,7 +3584,7 @@
     "changeType": "UPSERT",
     "aspectName": "assertionRunEvent",
     "aspect": {
-      "value": "{\"timestampMillis\": 1675155843000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catA\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_hive_datasource\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
+      "value": "{\"timestampMillis\": 1730554659000, \"partitionSpec\": {\"type\": \"PARTITION\", \"partition\": \"{\\\"category\\\": \\\"catA\\\"}\"}, \"runId\": \"2021-12-28T12:00:00Z\", \"assertionUrn\": \"urn:li:assertion:358c683782c93c2fc2bd4bdd4fdb0153\", \"asserteeUrn\": \"urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)\", \"batchSpec\": {\"customProperties\": {\"data_asset_name\": \"data__foo1__asset\", \"datasource_name\": \"my_hive_datasource\"}, \"nativeBatchId\": \"c8f12129f2e57412eee5fb8656154d05\", \"limit\": 10}, \"status\": \"COMPLETE\", \"result\": {\"type\": \"SUCCESS\", \"nativeResults\": {}}}",
       "contentType": "application/json"
     },
     "systemMetadata": null
