@@ -3502,16 +3502,16 @@ class TableauSiteSource:
         if self.config.extract_usage_stats:
             with PerfTimer() as timer:
                 self._populate_usage_stat_registry()
-                self.report.extract_usage_stats_timer[self.site_id] = round(
-                    timer.elapsed_seconds(), 2
-                )
+                self.report.extract_usage_stats_timer[
+                    self.site_content_url
+                ] = timer.elapsed_seconds(digits=2)
 
         if self.config.permission_ingestion:
             with PerfTimer() as timer:
                 self._fetch_groups()
-                self.report.fetch_groups_timer[self.site_id] = round(
-                    timer.elapsed_seconds(), 2
-                )
+                self.report.fetch_groups_timer[
+                    self.site_content_url
+                ] = timer.elapsed_seconds(digits=2)
 
         # Populate the map of database names and database hostnames to be used later to map
         # databases to platform instances.
@@ -3519,14 +3519,14 @@ class TableauSiteSource:
             with PerfTimer() as timer:
                 self._populate_database_server_hostname_map()
                 self.report.populate_database_server_hostname_map_timer[
-                    self.site_id
-                ] = round(timer.elapsed_seconds(), 2)
+                    self.site_content_url
+                ] = timer.elapsed_seconds(digits=2)
 
         with PerfTimer() as timer:
             self._populate_projects_registry()
-            self.report.populate_projects_registry_timer[self.site_id] = round(
-                timer.elapsed_seconds(), 2
-            )
+            self.report.populate_projects_registry_timer[
+                self.site_content_url
+            ] = timer.elapsed_seconds(digits=2)
 
         if self.config.add_site_container:
             yield from self.emit_site_container()
@@ -3534,48 +3534,48 @@ class TableauSiteSource:
 
         with PerfTimer() as timer:
             yield from self.emit_workbooks()
-            self.report.emit_workbooks_timer[self.site_id] = round(
-                timer.elapsed_seconds(), 2
-            )
+            self.report.emit_workbooks_timer[
+                self.site_content_url
+            ] = timer.elapsed_seconds(digits=2)
 
         if self.sheet_ids:
             with PerfTimer() as timer:
                 yield from self.emit_sheets()
-                self.report.emit_sheets_timer[self.site_id] = round(
-                    timer.elapsed_seconds(), 2
-                )
+                self.report.emit_sheets_timer[
+                    self.site_content_url
+                ] = timer.elapsed_seconds(digits=2)
 
         if self.dashboard_ids:
             with PerfTimer() as timer:
                 yield from self.emit_dashboards()
-                self.report.emit_dashboards_timer[self.site_id] = round(
-                    timer.elapsed_seconds(), 2
-                )
+                self.report.emit_dashboards_timer[
+                    self.site_content_url
+                ] = timer.elapsed_seconds(digits=2)
 
         if self.embedded_datasource_ids_being_used:
             with PerfTimer() as timer:
                 yield from self.emit_embedded_datasources()
-                self.report.emit_embedded_datasources_timer[self.site_id] = round(
-                    timer.elapsed_seconds(), 2
-                )
+                self.report.emit_embedded_datasources_timer[
+                    self.site_content_url
+                ] = timer.elapsed_seconds(digits=2)
 
         if self.datasource_ids_being_used:
             with PerfTimer() as timer:
                 yield from self.emit_published_datasources()
-                self.report.emit_published_datasources_timer[self.site_id] = round(
-                    timer.elapsed_seconds(), 2
-                )
+                self.report.emit_published_datasources_timer[
+                    self.site_content_url
+                ] = timer.elapsed_seconds(digits=2)
 
         if self.custom_sql_ids_being_used:
             with PerfTimer() as timer:
                 yield from self.emit_custom_sql_datasources()
-                self.report.emit_custom_sql_datasources_timer[self.site_id] = round(
-                    timer.elapsed_seconds(), 2
-                )
+                self.report.emit_custom_sql_datasources_timer[
+                    self.site_content_url
+                ] = timer.elapsed_seconds(digits=2)
 
         if self.database_tables:
             with PerfTimer() as timer:
                 yield from self.emit_upstream_tables()
-                self.report.emit_upstream_tables_timer[self.site_id] = round(
-                    timer.elapsed_seconds(), 2
-                )
+                self.report.emit_upstream_tables_timer[
+                    self.site_content_url
+                ] = timer.elapsed_seconds(digits=2)

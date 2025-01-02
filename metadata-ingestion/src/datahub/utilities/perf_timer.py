@@ -57,7 +57,7 @@ class PerfTimer(AbstractContextManager):
             self.finish()
         return None
 
-    def elapsed_seconds(self) -> float:
+    def elapsed_seconds(self, digits: Optional[int] = 5) -> float:
         """
         Returns the elapsed time in seconds.
         """
@@ -65,9 +65,11 @@ class PerfTimer(AbstractContextManager):
             return self._past_active_time
 
         if self.end_time is None:
-            return (time.perf_counter() - self.start_time) + (self._past_active_time)
+            elapsed = (time.perf_counter() - self.start_time) + (self._past_active_time)
         else:
-            return (self.end_time - self.start_time) + self._past_active_time
+            elapsed = (self.end_time - self.start_time) + self._past_active_time
+
+        return round(elapsed, digits) if digits else elapsed
 
     def assert_timer_is_running(self) -> None:
         if not self.is_running():
