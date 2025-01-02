@@ -34,6 +34,11 @@ from datahub.ingestion.source.gc.soft_deleted_entity_cleanup import (
     SoftDeletedEntitiesCleanupConfig,
     SoftDeletedEntitiesReport,
 )
+from datahub.ingestion.source.gc.sibling_cleanup import (
+    DataHubSiblingCleanup,
+    DataHubSiblingCleanupConfig,
+    DataHubSiblingCleanupReport
+)
 
 logger = logging.getLogger(__name__)
 
@@ -80,12 +85,18 @@ class DataHubGcSourceConfig(ConfigModel):
         description="Configuration for execution request cleanup",
     )
 
+    sibling_cleanup: DataHubSiblingCleanupConfig = Field(
+        default_factory=DataHubSiblingCleanupConfig,
+        description="Configuration for sibling entity cleanup"
+    )
+
 
 @dataclass
 class DataHubGcSourceReport(
     DataProcessCleanupReport,
     SoftDeletedEntitiesReport,
     DatahubExecutionRequestCleanupReport,
+    DataHubSiblingCleanupReport,
 ):
     expired_tokens_revoked: int = 0
 
@@ -100,7 +111,7 @@ class DataHubGcSource(Source):
     This source performs the following tasks:
     1. Cleans up expired tokens.
     2. Truncates Elasticsearch indices based on configuration.
-    3. Cleans up data processes and soft-deleted entities if configured.
+    3. Cleans up data processes, soft-deleted and ghost sibling entities if configured.
 
     """
 
@@ -121,6 +132,11 @@ class DataHubGcSource(Source):
         )
         self.execution_request_cleanup = DatahubExecutionRequestCleanup(
             config=self.config.execution_request_cleanup,
+            graph=self.graph,
+            report=self.report,
+        )
+        self.sibling_cleanup = DataHubSiblingCleanup(
+            config=self.config.sibling_cleanup,
             graph=self.graph,
             report=self.report,
         )
