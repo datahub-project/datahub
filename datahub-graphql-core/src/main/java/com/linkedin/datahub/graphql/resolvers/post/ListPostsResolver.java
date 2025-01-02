@@ -8,23 +8,23 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
+import com.linkedin.datahub.graphql.generated.AndFilterInput;
+import com.linkedin.datahub.graphql.generated.FacetFilterInput;
+import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.ListPostsInput;
 import com.linkedin.datahub.graphql.generated.ListPostsResult;
+import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.post.PostMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.metadata.query.filter.Condition;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
-import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.utils.CriterionUtils;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -56,7 +56,8 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
     final Integer count = input.getCount() == null ? DEFAULT_COUNT : input.getCount();
     final String query = input.getQuery() == null ? DEFAULT_QUERY : input.getQuery();
     final String maybeResourceUrn = input.getResourceUrn() == null ? null : input.getResourceUrn();
-
+    final List<AndFilterInput> filters =
+        input.getOrFilters() == null ? new ArrayList<>() : input.getOrFilters();
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
@@ -72,7 +73,7 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
                     context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     POST_ENTITY_NAME,
                     query,
-                    maybeResourceUrn != null ? createResourceFilter(maybeResourceUrn) : null,
+                    buildFilters(maybeResourceUrn, filters),
                     sortCriteria,
                     start,
                     count);
@@ -106,19 +107,20 @@ public class ListPostsResolver implements DataFetcher<CompletableFuture<ListPost
   }
 
   @Nullable
-  private Filter createResourceFilter(@Nullable final String maybeResourceUrn) {
-    if (maybeResourceUrn == null) {
-      return null;
+  private Filter buildFilters(@Nullable String maybeResourceUrn, List<AndFilterInput> filters) {
+    // Or between filters provided by the user and the maybeResourceUrn if present
+    if (maybeResourceUrn != null) {
+      filters.add(
+          new AndFilterInput(
+              List.of(
+                  new FacetFilterInput(
+                      "target",
+                      null,
+                      ImmutableList.of(maybeResourceUrn),
+                      false,
+                      FilterOperator.EQUAL))));
     }
-    return new Filter()
-        .setOr(
-            new ConjunctiveCriterionArray(
-                ImmutableList.of(
-                    new ConjunctiveCriterion()
-                        .setAnd(
-                            new CriterionArray(
-                                ImmutableList.of(
-                                    CriterionUtils.buildCriterion(
-                                        "target", Condition.EQUAL, maybeResourceUrn)))))));
+
+    return ResolverUtils.buildFilter(null, filters);
   }
 }

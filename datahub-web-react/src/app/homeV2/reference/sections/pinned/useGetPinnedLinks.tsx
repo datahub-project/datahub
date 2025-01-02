@@ -1,3 +1,4 @@
+import { getHomePagePostsFilters } from '@app/utils/queryUtils';
 import { useListPostsQuery } from '../../../../../graphql/post.generated';
 import { PostContent, PostContentType, PostType } from '../../../../../types.generated';
 
@@ -11,6 +12,7 @@ export const useGetPinnedLinks = () => {
             input: {
                 start: 0,
                 count: 30,
+                orFilters: getHomePagePostsFilters(),
             },
         },
         fetchPolicy: 'cache-first',

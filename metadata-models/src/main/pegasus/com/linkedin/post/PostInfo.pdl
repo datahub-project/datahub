@@ -13,6 +13,7 @@ record PostInfo {
   /**
    * Type of the Post.
    */
+  @Searchable = { }
   type: PostType
 
   /**

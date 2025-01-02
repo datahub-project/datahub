@@ -12435,6 +12435,11 @@ input ListPostsInput {
     Optional resource urn
     """
     resourceUrn: String
+
+    """
+    A list of disjunctive criterion for the filter. (or operation to combine filters)
+    """
+    orFilters: [AndFilterInput!]
 }
 
 """
