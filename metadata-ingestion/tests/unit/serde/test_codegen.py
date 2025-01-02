@@ -6,11 +6,10 @@ from typing import List, Type
 import pytest
 import typing_inspect
 
-from datahub.emitter.enum_helpers import get_enum_options
+from datahub.emitter.mce_builder import ALL_ENV_TYPES
 from datahub.metadata.schema_classes import (
     ASPECT_CLASSES,
     KEY_ASPECTS,
-    FabricTypeClass,
     FineGrainedLineageClass,
     MetadataChangeEventClass,
     OwnershipClass,
@@ -164,8 +163,7 @@ def test_entity_registry_completeness():
 
 def test_enum_options():
     # This is mainly a sanity check to ensure that it doesn't do anything too crazy.
-    env_options = get_enum_options(FabricTypeClass)
-    assert "PROD" in env_options
+    assert "PROD" in ALL_ENV_TYPES
 
 
 def test_urn_types() -> None:
