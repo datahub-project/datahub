@@ -260,7 +260,8 @@ public class TestOperationContexts {
             servicesRegistryContext,
             indexConvention,
             retrieverContext,
-            validationContext);
+            validationContext,
+            true);
 
     if (postConstruct != null) {
       postConstruct.accept(operationContext);

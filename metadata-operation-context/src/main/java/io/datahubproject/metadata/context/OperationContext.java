@@ -152,7 +152,8 @@ public class OperationContext implements AuthorizationSession {
       @Nullable ServicesRegistryContext servicesRegistryContext,
       @Nullable IndexConvention indexConvention,
       @Nullable RetrieverContext retrieverContext,
-      @Nonnull ValidationContext validationContext) {
+      @Nonnull ValidationContext validationContext,
+      boolean enforceExistenceEnabled) {
     return asSystem(
         config,
         systemAuthentication,
@@ -161,7 +162,8 @@ public class OperationContext implements AuthorizationSession {
         indexConvention,
         retrieverContext,
         validationContext,
-        ObjectMapperContext.DEFAULT);
+        ObjectMapperContext.DEFAULT,
+        enforceExistenceEnabled);
   }
 
   public static OperationContext asSystem(
@@ -172,10 +174,15 @@ public class OperationContext implements AuthorizationSession {
       @Nullable IndexConvention indexConvention,
       @Nullable RetrieverContext retrieverContext,
       @Nonnull ValidationContext validationContext,
-      @Nonnull ObjectMapperContext objectMapperContext) {
+      @Nonnull ObjectMapperContext objectMapperContext,
+      boolean enforceExistenceEnabled) {
 
     ActorContext systemActorContext =
-        ActorContext.builder().systemAuth(true).authentication(systemAuthentication).build();
+        ActorContext.builder()
+            .systemAuth(true)
+            .authentication(systemAuthentication)
+            .enforceExistenceEnabled(enforceExistenceEnabled)
+            .build();
     OperationContextConfig systemConfig =
         config.toBuilder().allowSystemAuthentication(true).build();
     SearchContext systemSearchContext =
@@ -457,13 +464,16 @@ public class OperationContext implements AuthorizationSession {
   public static class OperationContextBuilder {
 
     @Nonnull
-    public OperationContext build(@Nonnull Authentication sessionAuthentication) {
-      return build(sessionAuthentication, false);
+    public OperationContext build(
+        @Nonnull Authentication sessionAuthentication, boolean enforceExistenceEnabled) {
+      return build(sessionAuthentication, false, enforceExistenceEnabled);
     }
 
     @Nonnull
     public OperationContext build(
-        @Nonnull Authentication sessionAuthentication, boolean skipCache) {
+        @Nonnull Authentication sessionAuthentication,
+        boolean skipCache,
+        boolean enforceExistenceEnabled) {
       final Urn actorUrn = UrnUtils.getUrn(sessionAuthentication.getActor().toUrnStr());
       final ActorContext sessionActor =
           ActorContext.builder()
@@ -476,6 +486,7 @@ public class OperationContext implements AuthorizationSession {
                           .equals(sessionAuthentication.getActor()))
               .policyInfoSet(this.authorizationContext.getAuthorizer().getActorPolicies(actorUrn))
               .groupMembership(this.authorizationContext.getAuthorizer().getActorGroups(actorUrn))
+              .enforceExistenceEnabled(enforceExistenceEnabled)
               .build();
       return build(sessionActor, skipCache);
     }
