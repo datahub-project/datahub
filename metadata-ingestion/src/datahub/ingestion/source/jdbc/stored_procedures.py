@@ -1,7 +1,7 @@
 import logging
 import traceback
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Tuple, Union
 
 import jaydebeapi
 
@@ -60,7 +60,7 @@ class StoredProcedures:
     report: JDBCSourceReport
 
     def extract_procedures(
-        self, metadata: jaydebeapi.Connection.cursor, database_name: str
+        self, metadata: jaydebeapi.Connection.cursor, database_name: Optional[str]
     ) -> Iterable[MetadataWorkUnit]:
         """Extract stored procedure metadata."""
         try:
@@ -74,11 +74,12 @@ class StoredProcedures:
                 logger.debug("Database doesn't support schema metadata")
 
             # Try different catalog/schema combinations
-            attempts = [
+            attempts: List[Tuple[Union[str, None], Union[str, None], None]] = [
                 (None, None, None),
-                (database_name, None, None),
-                (None, database_name, None),
             ]
+
+            if database_name:
+                attempts.append((database_name, None, None))
 
             if has_schema_support:
                 attempts.append(
@@ -94,7 +95,6 @@ class StoredProcedures:
                             try:
                                 proc = self._extract_procedure_info(
                                     proc_rs=proc_rs,
-                                    database_name=database_name,
                                     has_schema_support=has_schema_support,
                                 )
                                 if not proc or not proc.name:
@@ -135,7 +135,6 @@ class StoredProcedures:
     def _extract_procedure_info(
         self,
         proc_rs: jaydebeapi.Connection.cursor,
-        database_name: str,
         has_schema_support: bool,
     ) -> Optional[StoredProcedure]:
         """Extract stored procedure information from result set."""
@@ -169,7 +168,7 @@ class StoredProcedures:
     def _generate_procedure_metadata(
         self,
         proc: StoredProcedure,
-        database: str,
+        database: Optional[str],
         metadata: jaydebeapi.Connection.cursor,
         has_schema_support: bool,
     ) -> Iterable[MetadataWorkUnit]:

@@ -1,8 +1,12 @@
-"""Container-related classes for JDBC source."""
-
+import logging
+import re
+import traceback
 from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set
 
+import jaydebeapi
+
+from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
@@ -11,6 +15,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.jdbc.constants import ContainerType
+from datahub.ingestion.source.jdbc.reporting import JDBCSourceReport
 from datahub.metadata.schema_classes import (
     ContainerClass,
     ContainerPropertiesClass,
@@ -18,6 +23,8 @@ from datahub.metadata.schema_classes import (
     StatusClass,
     SubTypesClass,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class JDBCContainerKey(ContainerKey):
@@ -169,9 +176,31 @@ class ContainerRegistry:
 class SchemaContainerBuilder:
     """Builder class for schema containers."""
 
-    def __init__(self, source: Any, registry: ContainerRegistry):
-        self.source = source
+    def __init__(
+        self,
+        platform: str,
+        platform_instance: Optional[str],
+        env: str,
+        registry: ContainerRegistry,
+    ):
+        self.platform = platform
+        self.platform_instance = platform_instance
+        self.env = env
         self.registry = registry
+
+    def get_container_key(
+        self, name: Optional[str], path: Optional[List[str]]
+    ) -> JDBCContainerKey:
+        key = name
+        if path:
+            key = ".".join(path) + "." + name if name else ".".join(path)
+
+        return JDBCContainerKey(
+            platform=self.platform,
+            instance=self.platform_instance,
+            env=str(self.env),
+            key=key,
+        )
 
     def build_container(
         self, schema_path: SchemaPath, container_type: ContainerType
@@ -184,20 +213,173 @@ class SchemaContainerBuilder:
         parent_path = schema_path.get_parent_path()
         parent_key = None
         if parent_path:
-            parent_key = self.source.get_container_key(
+            parent_key = self.get_container_key(
                 parent_path.get_container_name(), parent_path.get_full_path()
             )
 
         # Create container key
-        container_key = self.source.get_container_key(container_name, full_path)
+        container_key = self.get_container_key(container_name, full_path)
 
         return ContainerMetadata(
             container_key=container_key,
             name=container_name,
             container_type=container_type,
             parent_key=parent_key,
-            description=f"Schema {'.'.join(schema_path.parts)}",
+            description=f"{'.'.join(schema_path.parts)}",
             custom_properties={"full_path": ".".join(schema_path.parts)},
-            platform=self.source.platform,
-            platform_instance=self.source.platform_instance,
+            platform=self.platform,
+            platform_instance=self.platform_instance,
         )
+
+
+@dataclass
+class Containers:
+
+    """Handles database and schema container operations."""
+
+    platform: str
+    platform_instance: Optional[str]
+    env: str
+    uri: str
+    schema_pattern: AllowDenyPattern
+    container_registry: ContainerRegistry
+    schema_container_builder: SchemaContainerBuilder
+    report: JDBCSourceReport
+
+    def get_database_name(
+        self, metadata: jaydebeapi.Connection.cursor
+    ) -> Optional[str]:
+        """Extract database name from connection metadata."""
+        try:
+            # Try getCatalog() first
+            database = metadata.getConnection().getCatalog()
+
+            # If that doesn't work, try to extract from URL
+            if not database:
+                url = self.uri
+                match = re.search(pattern=r"jdbc:[^:]+://[^/]+/([^?;]+)", string=url)
+                if match:
+                    database = match.group(1)
+
+            # If still no database, try a direct query
+            if not database:
+                try:
+                    with metadata.getConnection().cursor() as cursor:
+                        cursor.execute("SELECT DATABASE()")
+                        row = cursor.fetchone()
+                        if row:
+                            database = row[0]
+                except Exception:
+                    pass
+
+            return database if database else None
+        except Exception:
+            return None
+
+    def extract_database_metadata(
+        self, metadata: jaydebeapi.Connection.cursor
+    ) -> Iterable[MetadataWorkUnit]:
+        """Extract database container metadata."""
+        try:
+            database_name = self.get_database_name(metadata)
+            if not database_name:
+                return
+
+            # Create container for database
+            container = self.schema_container_builder.build_container(
+                SchemaPath([database_name]), ContainerType.DATABASE
+            )
+
+            # Add additional database properties
+            container.custom_properties.update(
+                {
+                    "productName": metadata.getDatabaseProductName(),
+                    "productVersion": metadata.getDatabaseProductVersion(),
+                    "driverName": metadata.getDriverName(),
+                    "driverVersion": metadata.getDriverVersion(),
+                    "url": self.uri,
+                    "maxConnections": str(metadata.getMaxConnections()),
+                    "supportsBatchUpdates": str(metadata.supportsBatchUpdates()),
+                    "supportsTransactions": str(metadata.supportsTransactions()),
+                    "defaultTransactionIsolation": str(
+                        metadata.getDefaultTransactionIsolation()
+                    ),
+                }
+            )
+
+            # Register and emit container
+            if not self.container_registry.has_container(
+                container.container_key.as_urn()
+            ):
+                self.container_registry.register_container(container)
+                yield from container.generate_workunits()
+
+        except Exception as e:
+            self.report.report_failure(
+                "database-metadata", f"Failed to extract database metadata: {str(e)}"
+            )
+            logger.error(f"Failed to extract database metadata: {str(e)}")
+            logger.debug(traceback.format_exc())
+
+    def extract_schema_containers(
+        self, metadata: jaydebeapi.Connection.cursor
+    ) -> Iterable[MetadataWorkUnit]:
+        """Extract schema containers."""
+        try:
+            with metadata.getSchemas() as rs:
+                # Collect and filter schemas
+                schemas = []
+                while rs.next():
+                    schema_name = rs.getString(1)
+                    if self.schema_pattern.allowed(schema_name):
+                        schemas.append(schema_name)
+                    else:
+                        self.report.report_dropped(f"Schema: {schema_name}")
+
+            database_name = self.get_database_name(metadata)
+
+            # Process all schemas
+            for schema_name in sorted(schemas):
+                try:
+                    schema_path = SchemaPath.from_schema_name(
+                        schema_name, database_name
+                    )
+
+                    # Process each container path
+                    for container_path in sorted(schema_path.get_container_paths()):
+                        current_path = SchemaPath.from_schema_name(
+                            container_path, database_name
+                        )
+
+                        # Determine container type
+                        container_type = (
+                            ContainerType.SCHEMA
+                            if len(current_path.parts) == 1
+                            else ContainerType.FOLDER
+                        )
+
+                        # Build and register container
+                        container = self.schema_container_builder.build_container(
+                            current_path, container_type
+                        )
+
+                        # Only emit if not already processed
+                        if not self.container_registry.has_container(
+                            container.container_key.as_urn()
+                        ):
+                            self.container_registry.register_container(container)
+                            yield from container.generate_workunits()
+
+                except Exception as exc:
+                    self.report.report_failure(
+                        message="Failed to process schema",
+                        context=schema_name,
+                        exc=exc,
+                    )
+
+        except Exception as e:
+            self.report.report_failure(
+                "schemas", f"Failed to extract schemas: {str(e)}"
+            )
+            logger.error(f"Failed to extract schemas: {str(e)}")
+            logger.debug(traceback.format_exc())
