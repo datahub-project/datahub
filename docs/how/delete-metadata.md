@@ -99,17 +99,17 @@ The start and end time fields filter on the `timestampMillis` field of the times
 
 #### Undo-ing soft deletion of entities
 
-You can restore soft-deleted entities using the `undo_by_filter` command. This reverts the effect of a soft delete. 
+You can restore soft-deleted entities using the `undo-by-filter` command. This reverts the effect of a soft delete. 
 
 ```shell
 # Restore (un-soft-delete) a single soft-deleted entity
-datahub delete undo_by_filter --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
+datahub delete undo-by-filter --urn "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_deleted,PROD)"
 
 # Restore all soft-deleted entities from a specific platform
-datahub delete undo_by_filter --platform snowflake
+datahub delete undo-by-filter --platform snowflake
 
 # You can adjust the batch size (default 3000, max 10000) for better performance
-datahub delete undo_by_filter --platform snowflake --batch-size 5000
+datahub delete undo-by-filter --platform snowflake --batch-size 5000
 ```
 
 ## Delete CLI Examples
