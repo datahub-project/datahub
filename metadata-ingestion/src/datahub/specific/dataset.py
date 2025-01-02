@@ -154,7 +154,7 @@ class DatasetPatchBuilder(
             self._add_patch(
                 UpstreamLineage.ASPECT_NAME,
                 "add",
-                path=DatasetPatchBuilder.quote_fine_grained_path(
+                path=self._build_fine_grained_path(
                     transform_op, downstream_urn, query_id, upstream_urn
                 ),
                 value={"confidenceScore": fine_grained_lineage.confidenceScore},
@@ -174,7 +174,7 @@ class DatasetPatchBuilder(
         return transform_op, downstream_urn, query_id
 
     @classmethod
-    def quote_fine_grained_path(
+    def _build_fine_grained_path(
         cls, transform_op: str, downstream_urn: str, query_id: str, upstream_urn: str
     ) -> PatchPath:
         return (
@@ -197,7 +197,7 @@ class DatasetPatchBuilder(
             self._add_patch(
                 UpstreamLineage.ASPECT_NAME,
                 "remove",
-                path=DatasetPatchBuilder.quote_fine_grained_path(
+                path=self._build_fine_grained_path(
                     transform_op, downstream_urn, query_id, upstream_urn
                 ),
                 value={},
