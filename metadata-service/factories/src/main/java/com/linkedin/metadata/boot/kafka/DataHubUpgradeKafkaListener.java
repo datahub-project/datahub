@@ -97,7 +97,8 @@ public class DataHubUpgradeKafkaListener implements ConsumerSeekAware, Bootstrap
       id = CONSUMER_GROUP,
       topics = {TOPIC_NAME},
       containerFactory = "duheKafkaEventConsumer",
-      concurrency = "1")
+      concurrency = "1",
+      autoStartup = "false")
   public void checkSystemVersion(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     try (Timer.Context i = MetricUtils.timer(this.getClass(), "checkSystemVersion").time()) {
       final GenericRecord record = consumerRecord.value();

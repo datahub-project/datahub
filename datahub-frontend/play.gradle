@@ -50,7 +50,7 @@ dependencies {
   implementation externalDependency.springBeans
   implementation externalDependency.springContext
   implementation externalDependency.springBootAutoconfigure
-  implementation externalDependency.jettyJaas
+  implementation externalDependency.jettySecurity
   implementation externalDependency.graphqlJava
   implementation externalDependency.antlr4Runtime
   implementation externalDependency.antlr4

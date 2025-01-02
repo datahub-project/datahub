@@ -9,6 +9,7 @@ import com.datahub.authentication.ActorType;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.token.TokenException;
 import jakarta.servlet.FilterChain;
+import jakarta.servlet.FilterConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -29,7 +30,10 @@ public class AuthenticationFilterTest extends AbstractTestNGSpringContextTests {
 
   @Test
   public void testExpiredToken() throws ServletException, IOException, TokenException {
-    _authenticationFilter.init(null);
+    FilterConfig mockFilterConfig = mock(FilterConfig.class);
+    when(mockFilterConfig.getInitParameterNames()).thenReturn(Collections.emptyEnumeration());
+
+    _authenticationFilter.init(mockFilterConfig);
     HttpServletRequest servletRequest = mock(HttpServletRequest.class);
     HttpServletResponse servletResponse = mock(HttpServletResponse.class);
     FilterChain filterChain = mock(FilterChain.class);
