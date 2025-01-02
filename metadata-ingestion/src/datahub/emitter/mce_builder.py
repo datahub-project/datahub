@@ -6,7 +6,7 @@ import logging
 import os
 import re
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
@@ -101,6 +101,22 @@ def make_ts_millis(ts: Optional[datetime]) -> Optional[int]:
     if ts is None:
         return None
     return int(ts.timestamp() * 1000)
+
+
+@overload
+def parse_ts_millis(ts: float) -> datetime:
+    ...
+
+
+@overload
+def parse_ts_millis(ts: None) -> None:
+    ...
+
+
+def parse_ts_millis(ts: Optional[float]) -> Optional[datetime]:
+    if ts is None:
+        return None
+    return datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
 
 
 def make_data_platform_urn(platform: str) -> str:

@@ -782,6 +782,11 @@ module.exports = {
                 },
                 {
                   type: "doc",
+                  label: "GraphQL Best Practices",
+                  id: "docs/api/graphql/graphql-best-practices",
+                },
+                {
+                  type: "doc",
                   label: "Access Token Management",
                   id: "docs/api/graphql/token-management",
                 },

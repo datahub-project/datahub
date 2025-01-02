@@ -22,7 +22,9 @@ else
   echo "datahub:datahub" > ~/.datahub/plugins/frontend/auth/user.props
 
   python3 -m venv venv
+  set +x
   source venv/bin/activate
+  set -x
   python -m pip install --upgrade 'uv>=0.1.10'
   uv pip install -r requirements.txt
 fi

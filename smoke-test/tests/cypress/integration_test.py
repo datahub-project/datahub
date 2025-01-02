@@ -212,9 +212,6 @@ def test_run_cypress(auth_session):
     else:
         record_arg = " "
 
-    rest_specs = set(os.listdir("tests/cypress/cypress/e2e"))
-    cypress_suite1_specs = {"mutations", "search", "views"}
-    rest_specs.difference_update(set(cypress_suite1_specs))
     print(f"test strategy is {test_strategy}")
     test_spec_arg = ""
     specs_str = ",".join([f"**/{f}" for f in _get_cypress_tests_batch()])
