@@ -18,7 +18,7 @@ This file documents any backwards-incompatible changes in DataHub and assists pe
 
 ## Next
 - #12191 - Configs `include_view_lineage` and `include_view_column_lineage` are removed from snowflake ingestion source. View and External Table DDL lineage will always be ingested when definitions are available.
-- #12181 - Configs `include_view_lineage` and `include_view_column_lineage` are removed from bigquery ingestion source. View and Snapshot lineage will always be ingested when definitions are available.
+- #12181 - Configs `include_view_lineage`, `include_view_column_lineage` and `lineage_parse_view_ddl` are removed from bigquery ingestion source. View and Snapshot lineage will always be ingested when definitions are available.
 - #11560 - The PowerBI ingestion source configuration option include_workspace_name_in_dataset_urn determines whether the workspace name is included in the PowerBI dataset's URN.<br/> PowerBI allows to have identical name of semantic model and their tables across the workspace, It will overwrite the semantic model in-case of multi-workspace ingestion.<br/>
   Entity urn with `include_workspace_name_in_dataset_urn: false`
 
