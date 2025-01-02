@@ -67,8 +67,8 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/
           fail_ci_if_error: false
-          flags: prefect,prefect-${{ matrix.python-version }}
-          name: pytest-prefect-${{ matrix.python-version }}
+          flags: prefect-${{ matrix.python-version }}
+          name: pytest-prefect
           verbose: true
 
   event-file:
