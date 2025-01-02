@@ -58,7 +58,8 @@ public class PlatformEventProcessor {
   @KafkaListener(
       id = "${PLATFORM_EVENT_KAFKA_CONSUMER_GROUP_ID:generic-platform-event-job-client}",
       topics = {"${PLATFORM_EVENT_TOPIC_NAME:" + Topics.PLATFORM_EVENT + "}"},
-      containerFactory = PE_EVENT_CONSUMER_NAME)
+      containerFactory = PE_EVENT_CONSUMER_NAME,
+      autoStartup = "false")
   public void consume(final ConsumerRecord<String, GenericRecord> consumerRecord) {
     try (Timer.Context i = MetricUtils.timer(this.getClass(), "consume").time()) {
 
