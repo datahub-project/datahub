@@ -95,7 +95,8 @@ public class MCLSpringCommonTestConfiguration {
         mock(ServicesRegistryContext.class),
         indexConvention,
         TestOperationContexts.emptyActiveUsersRetrieverContext(() -> entityRegistry),
-        mock(ValidationContext.class));
+        mock(ValidationContext.class),
+        true);
   }
 
   @MockBean SpringStandardPluginConfiguration springStandardPluginConfiguration;
