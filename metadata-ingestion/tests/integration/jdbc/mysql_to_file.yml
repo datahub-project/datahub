@@ -6,7 +6,7 @@ source:
     platform_instance: test
     sqlglot_dialect: mysql
     driver:
-      driver_class: com.mysql.jdbc.Driver
+      driver_class: com.mysql.cj.jdbc.Driver
       maven_coordinates: com.mysql:mysql-connector-j:8.2.0
     connection:
       uri: jdbc:mysql://localhost:43306/test
@@ -16,6 +16,7 @@ source:
     # Options
     include_tables: true
     include_views: true
+    include_stored_procedures: true
 
 sink:
   type: file

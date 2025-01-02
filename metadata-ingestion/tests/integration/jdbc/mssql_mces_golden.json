@@ -2916,12 +2916,27 @@
                     "recursive": false,
                     "isPartOfKey": false
                 }
+            ],
+            "primaryKeys": [
+                "id"
+            ],
+            "foreignKeys": [
+                {
+                    "name": "FK_orders_users",
+                    "foreignFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.dbo.users,PROD),id)"
+                    ],
+                    "sourceFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.FK_orders_users,PROD),user_id)"
+                    ],
+                    "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,test.dbo.users,PROD)"
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "jdbc-2023_10_15-07_00_00-ddvj0h",
+        "lastObserved": 1735825594412,
+        "runId": "jdbc-2025_01_02-13_46_08-g404uj",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -3515,12 +3530,27 @@
                     "recursive": false,
                     "isPartOfKey": false
                 }
+            ],
+            "primaryKeys": [
+                "id"
+            ],
+            "foreignKeys": [
+                {
+                    "name": "FK_orders_users",
+                    "foreignFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.dbo.users,PROD),id)"
+                    ],
+                    "sourceFields": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:mssql,test.FK_orders_users,PROD),user_id)"
+                    ],
+                    "foreignDataset": "urn:li:dataset:(urn:li:dataPlatform:mssql,test.dbo.users,PROD)"
+                }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1697353200000,
-        "runId": "jdbc-2023_10_15-07_00_00-ddvj0h",
+        "lastObserved": 1735825594418,
+        "runId": "jdbc-2025_01_02-13_46_08-g404uj",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -123619,7 +123649,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1735657560028,
+                        "time": 1735825678541,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -123631,7 +123661,7 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 1735657560028,
+                        "time": 1735825678541,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -123645,8 +123675,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735657560028,
-        "runId": "jdbc-2024_12_31-15_05_32-ai9ymy",
+        "lastObserved": 1735825678542,
+        "runId": "jdbc-2025_01_02-13_47_27-pkzj01",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -123660,7 +123690,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1735657560027,
+                        "time": 1735825678540,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -123672,7 +123702,7 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 1735657560027,
+                        "time": 1735825678540,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -123686,8 +123716,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735657560027,
-        "runId": "jdbc-2024_12_31-15_05_32-ai9ymy",
+        "lastObserved": 1735825678541,
+        "runId": "jdbc-2025_01_02-13_47_27-pkzj01",
         "lastRunId": "no-run-id-provided"
     }
 },

@@ -57,8 +57,8 @@ class JDBCTable:
     """Represents a JDBC table or view with its metadata."""
 
     name: str
-    schema: str
     type: str
+    schema: Optional[str]
     remarks: Optional[str]
     columns: List[JDBCColumn]
     pk_columns: Set[str]
@@ -67,13 +67,13 @@ class JDBCTable:
     @property
     def full_name(self) -> str:
         """Get fully qualified table name."""
-        return f"{self.schema}.{self.name}"
+        return f"{self.schema}.{self.name}" if self.schema else self.name
 
     @staticmethod
     def create_foreign_key_constraint(
         name: str,
         source_column: str,
-        target_schema: str,
+        target_schema: Optional[str],
         target_table: str,
         target_column: str,
         platform: str,
@@ -90,7 +90,7 @@ class JDBCTable:
 
         foreign_dataset_urn = make_dataset_urn_with_platform_instance(
             platform=platform,
-            name=f"{target_schema}.{target_table}",
+            name=f"{target_schema}.{target_table}" if target_schema else target_table,
             platform_instance=platform_instance,
             env=env,
         )

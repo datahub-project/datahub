@@ -21,6 +21,7 @@ source:
     # Options
     include_tables: true
     include_views: true
+
     schema_pattern:
       allow:
         - ".*"

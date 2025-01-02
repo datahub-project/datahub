@@ -38,10 +38,13 @@ class SchemaPath:
         cls, schema_name: str, database: Optional[str] = None
     ) -> "SchemaPath":
         """Create SchemaPath from schema name and optional database."""
-        return cls(parts=schema_name.split("."), database=database)
+        parts = schema_name.split(".") if schema_name else []
+        return cls(parts=parts, database=database)
 
     def get_container_paths(self) -> Set[str]:
         """Get all possible container paths from this schema path."""
+        if not self.parts:
+            return set()
         return {".".join(self.parts[: i + 1]) for i in range(len(self.parts))}
 
     def get_full_path(self, include_database: bool = True) -> List[str]:

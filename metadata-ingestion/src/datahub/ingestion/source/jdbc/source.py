@@ -28,11 +28,7 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapability
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.jdbc.config import JDBCSourceConfig, SSLConfig
-from datahub.ingestion.source.jdbc.constants import (
-    ContainerType,
-    ProcedureType,
-    TableType,
-)
+from datahub.ingestion.source.jdbc.constants import ContainerType, TableType
 from datahub.ingestion.source.jdbc.containers import (
     ContainerRegistry,
     JDBCContainerKey,
@@ -41,7 +37,8 @@ from datahub.ingestion.source.jdbc.containers import (
 )
 from datahub.ingestion.source.jdbc.maven_install import MavenManager
 from datahub.ingestion.source.jdbc.reporting import JDBCSourceReport
-from datahub.ingestion.source.jdbc.types import JDBCColumn, JDBCTable, StoredProcedure
+from datahub.ingestion.source.jdbc.stored_procedures import StoredProcedures
+from datahub.ingestion.source.jdbc.types import JDBCColumn, JDBCTable
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
@@ -308,12 +305,27 @@ class JDBCSource(StatefulIngestionSourceBase):
     ) -> Optional[str]:
         """Extract database name from connection metadata."""
         try:
+            # Try getCatalog() first
             database = metadata.getConnection().getCatalog()
+
+            # If that doesn't work, try to extract from URL
             if not database:
                 url = self.config.connection.uri
-                match = re.search(r"jdbc:[^:]+://[^/]+/([^?;]+)", url)
+                match = re.search(pattern=r"jdbc:[^:]+://[^/]+/([^?;]+)", string=url)
                 if match:
                     database = match.group(1)
+
+            # If still no database, try a direct query
+            if not database:
+                try:
+                    with metadata.getConnection().cursor() as cursor:
+                        cursor.execute("SELECT DATABASE()")
+                        row = cursor.fetchone()
+                        if row:
+                            database = row[0]
+                except Exception:
+                    pass
+
             return database if database else None
         except Exception:
             return None
@@ -437,10 +449,11 @@ class JDBCSource(StatefulIngestionSourceBase):
                             self.container_registry.register_container(container)
                             yield from container.generate_workunits()
 
-                except Exception as e:
+                except Exception as exc:
                     self.report.report_failure(
-                        f"schema-{schema_name}",
-                        f"Failed to process schema: {str(e)}",
+                        message="Failed to process schema",
+                        context=schema_name,
+                        exc=exc,
                     )
 
         except Exception as e:
@@ -456,117 +469,23 @@ class JDBCSource(StatefulIngestionSourceBase):
         """Extract tables and views with batch metadata retrieval."""
         try:
             database_name = self._get_database_name(metadata)
+            if not database_name:
+                return
 
-            with metadata.getSchemas() as schema_rs:
-                while schema_rs.next():
-                    schema_name = schema_rs.getString(1)
+            schemas = self._get_schemas(metadata, database_name)
+            if not schemas:
+                return
 
-                    if not self.config.schema_pattern.allowed(schema_name):
-                        continue
+            for schema_name in schemas:
+                if not self.config.schema_pattern.allowed(schema_name):
+                    continue
 
-                    # Determine which types to extract
-                    table_types = []
-                    if self.config.include_tables:
-                        table_types.append(TableType.TABLE.value)
-                    if self.config.include_views:
-                        table_types.append(TableType.VIEW.value)
-
-                    if not table_types:
-                        continue
-
-                    logger.info(f"Pre-fetching metadata for schema {schema_name}")
-                    # Pre-fetch metadata for the entire schema
-                    columns_by_table = self._batch_extract_columns(
-                        metadata=metadata, schema=schema_name
-                    )
-                    pk_by_table = self._batch_extract_primary_keys(
-                        metadata=metadata, schema=schema_name
-                    )
-                    fk_by_table = self._batch_extract_foreign_keys(
-                        metadata=metadata, schema=schema_name
-                    )
-                    view_definitions = (
-                        self._batch_extract_view_definitions(schema_name)
-                        if TableType.VIEW.value in table_types
-                        else {}
-                    )
-
-                    # Process tables using pre-fetched metadata
-                    with metadata.getTables(
-                        None, schema_name, None, table_types
-                    ) as table_rs:
-                        while table_rs.next():
-                            try:
-                                table_name = table_rs.getString(3)
-                                table_type = table_rs.getString(4)
-                                remarks = table_rs.getString(5)
-
-                                # Apply filtering before more expensive operations
-                                full_name = f"{schema_name}.{table_name}"
-                                if table_type == TableType.TABLE.value:
-                                    if not self.config.table_pattern.allowed(full_name):
-                                        self.report.report_dropped(full_name)
-                                        continue
-                                else:  # VIEW
-                                    if not self.config.view_pattern.allowed(full_name):
-                                        self.report.report_dropped(f"View: {full_name}")
-                                        continue
-
-                                # Use pre-fetched metadata
-                                columns = columns_by_table.get(table_name, [])
-                                pk_columns = pk_by_table.get(table_name, set())
-
-                                # Extract foreign keys for tables only
-                                table_foreign_keys = []
-                                if table_type == TableType.TABLE.value:
-                                    for fk in fk_by_table.get(table_name, []):
-                                        table_foreign_keys.append(
-                                            JDBCTable.create_foreign_key_constraint(
-                                                name=fk["name"],
-                                                source_column=fk["sourceColumn"],
-                                                target_schema=fk["targetSchema"],
-                                                target_table=fk["targetTable"],
-                                                target_column=fk["targetColumn"],
-                                                platform=self.platform,
-                                                platform_instance=self.platform_instance,
-                                                env=self.env,
-                                            )
-                                        )
-
-                                table = JDBCTable(
-                                    name=table_name,
-                                    schema=schema_name,
-                                    type=table_type,
-                                    remarks=remarks,
-                                    columns=columns,
-                                    pk_columns=pk_columns,
-                                    foreign_keys=table_foreign_keys,
-                                )
-
-                                # Use pre-fetched view definition
-                                view_definition = (
-                                    view_definitions.get(table_name)
-                                    if table_type == TableType.VIEW.value
-                                    else None
-                                )
-
-                                yield from self._generate_table_metadata(
-                                    table=table,
-                                    database=database_name,
-                                    view_definition=view_definition,
-                                )
-
-                                # Report success
-                                if table_type == TableType.TABLE.value:
-                                    self.report.report_table_scanned(full_name)
-                                else:
-                                    self.report.report_view_scanned(full_name)
-
-                            except Exception as e:
-                                self.report.report_failure(
-                                    f"table-{schema_name}.{table_name}",
-                                    f"Failed to extract table: {str(e)}",
-                                )
+                yield from self._process_schema_tables(
+                    metadata=metadata,
+                    schema_name=schema_name,
+                    database_name=database_name,
+                    has_schema_support=len(schemas) > 1 or schemas[0] != database_name,
+                )
 
         except Exception as e:
             self.report.report_failure(
@@ -574,6 +493,179 @@ class JDBCSource(StatefulIngestionSourceBase):
             )
             logger.error(f"Failed to extract tables and views: {str(e)}")
             logger.debug(traceback.format_exc())
+
+    def _get_schemas(
+        self, metadata: jaydebeapi.Connection.cursor, database_name: str
+    ) -> List[str]:
+        """Get list of schemas to process."""
+        schemas = []
+        try:
+            with metadata.getSchemas() as schema_rs:
+                while schema_rs.next():
+                    schema_name = schema_rs.getString(1)
+                    if schema_name:
+                        schemas.append(schema_name)
+        except Exception:
+            logger.debug("Database doesn't support schema metadata")
+
+        # If no schemas found, use database as the container
+        if not schemas:
+            schemas = [database_name]
+
+        return schemas
+
+    def _get_table_types(self) -> List[str]:
+        """Get list of table types to extract based on configuration."""
+        table_types = []
+        if self.config.include_tables:
+            table_types.append(TableType.TABLE.value)
+        if self.config.include_views:
+            table_types.append(TableType.VIEW.value)
+        return table_types
+
+    def _process_schema_tables(
+        self,
+        metadata: jaydebeapi.Connection.cursor,
+        schema_name: str,
+        database_name: str,
+        has_schema_support: bool,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process all tables in a schema."""
+        table_types = self._get_table_types()
+        if not table_types:
+            return
+
+        # Pre-fetch metadata
+        metadata_bundle = self._fetch_schema_metadata(
+            metadata=metadata,
+            schema_name=schema_name,
+            table_types=table_types,
+        )
+
+        # Process tables
+        catalog = None if has_schema_support else database_name
+        with metadata.getTables(catalog, schema_name, None, table_types) as table_rs:
+            while table_rs.next():
+                yield from self._process_table(
+                    table_rs=table_rs,
+                    has_schema_support=has_schema_support,
+                    schema_name=schema_name,
+                    database_name=database_name,
+                    metadata_bundle=metadata_bundle,
+                )
+
+    def _fetch_schema_metadata(
+        self,
+        metadata: jaydebeapi.Connection.cursor,
+        schema_name: str,
+        table_types: List[str],
+    ) -> Dict:
+        """Fetch all metadata for a schema."""
+        return {
+            "columns": self._batch_extract_columns(metadata, schema_name),
+            "primary_keys": self._batch_extract_primary_keys(metadata, schema_name),
+            "foreign_keys": self._batch_extract_foreign_keys(metadata, schema_name),
+            "view_definitions": (
+                self._batch_extract_view_definitions(schema_name)
+                if TableType.VIEW.value in table_types
+                else {}
+            ),
+        }
+
+    def _process_table(
+        self,
+        table_rs: jaydebeapi.Connection.cursor,
+        has_schema_support: bool,
+        schema_name: str,
+        database_name: str,
+        metadata_bundle: Dict,
+    ) -> Iterable[MetadataWorkUnit]:
+        """Process a single table or view."""
+        table_name = table_rs.getString(3)
+        table_type = table_rs.getString(4)
+        remarks = table_rs.getString(5)
+
+        try:
+            effective_schema = schema_name if has_schema_support else None
+            full_name = (
+                f"{effective_schema}.{table_name}" if effective_schema else table_name
+            )
+
+            # Apply filtering
+            if not self._should_process_table(table_type, full_name):
+                return
+
+            # Create table object
+            table = self._create_table_object(
+                table_name=table_name,
+                table_type=table_type,
+                effective_schema=effective_schema,
+                remarks=remarks,
+                metadata_bundle=metadata_bundle,
+            )
+
+            yield from self._generate_table_metadata(
+                table=table,
+                database=database_name,
+                view_definition=metadata_bundle["view_definitions"].get(table_name),
+            )
+
+            # Report success
+            if table_type == TableType.TABLE.value:
+                self.report.report_table_scanned(full_name)
+            else:
+                self.report.report_view_scanned(full_name)
+
+        except Exception as exc:
+            self.report.report_failure(
+                message="Failed to extract table",
+                context=f"{schema_name}.{table_name}",
+                exc=exc,
+            )
+
+    def _should_process_table(self, table_type: str, full_name: str) -> bool:
+        """Determine if table should be processed based on patterns."""
+        if table_type == TableType.TABLE.value:
+            return self.config.table_pattern.allowed(full_name)
+        return self.config.view_pattern.allowed(full_name)
+
+    def _create_table_object(
+        self,
+        table_name: str,
+        table_type: str,
+        effective_schema: Optional[str],
+        remarks: Optional[str],
+        metadata_bundle: Dict,
+    ) -> JDBCTable:
+        """Create JDBCTable object with metadata."""
+        columns = metadata_bundle["columns"].get(table_name, [])
+        pk_columns = metadata_bundle["primary_keys"].get(table_name, set())
+
+        table_foreign_keys = []
+        if table_type == TableType.TABLE.value:
+            for fk in metadata_bundle["foreign_keys"].get(table_name, []):
+                table_foreign_keys.append(
+                    JDBCTable.create_foreign_key_constraint(
+                        name=fk["name"],
+                        source_column=fk["sourceColumn"],
+                        target_schema=fk["targetSchema"],
+                        target_table=fk["targetTable"],
+                        target_column=fk["targetColumn"],
+                        platform=self.platform,
+                        platform_instance=self.platform_instance,
+                        env=self.env,
+                    )
+                )
+
+        return JDBCTable(
+            name=table_name,
+            schema=effective_schema,
+            type=table_type,
+            remarks=remarks,
+            columns=columns,
+            pk_columns=pk_columns,
+            foreign_keys=table_foreign_keys,
+        )
 
     def _batch_extract_columns(
         self, metadata: jaydebeapi.Connection.cursor, schema: str
@@ -604,15 +696,57 @@ class JDBCSource(StatefulIngestionSourceBase):
     ) -> Dict[str, Set[str]]:
         """Extract primary keys for all tables in a schema at once."""
         pks_by_table: Dict[str, Set[str]] = {}
-        try:
-            with metadata.getPrimaryKeys(None, schema, None) as rs:
-                while rs.next():
-                    table_name = rs.getString("TABLE_NAME")
-                    if table_name not in pks_by_table:
-                        pks_by_table[table_name] = set()
-                    pks_by_table[table_name].add(rs.getString("COLUMN_NAME"))
-        except Exception as e:
-            logger.debug(f"Could not get primary keys for schema {schema}: {e}")
+        database = self._get_database_name(metadata)
+
+        # First try schema-wide approach
+        attempts = [
+            (None, schema),
+            (database, None),
+            (database, schema),
+            (None, None),
+        ]
+
+        got_keys = False
+        for catalog, schema_name in attempts:
+            try:
+                with metadata.getPrimaryKeys(catalog, schema_name, None) as rs:
+                    while rs.next():
+                        got_keys = True
+                        table_name = rs.getString("TABLE_NAME")
+                        if table_name not in pks_by_table:
+                            pks_by_table[table_name] = set()
+                        pks_by_table[table_name].add(rs.getString("COLUMN_NAME"))
+            except Exception as e:
+                logger.debug(f"Could not get primary keys schema-wide: {e}")
+                continue
+
+        # If schema-wide didn't work, try table by table
+        if not got_keys:
+            try:
+                with metadata.getTables(None, schema, None, ["TABLE"]) as table_rs:
+                    while table_rs.next():
+                        table_name = table_rs.getString(3)
+                        for catalog, schema_name in attempts:
+                            try:
+                                with metadata.getPrimaryKeys(
+                                    catalog, schema_name, table_name
+                                ) as rs:
+                                    while rs.next():
+                                        if table_name not in pks_by_table:
+                                            pks_by_table[table_name] = set()
+                                        pks_by_table[table_name].add(
+                                            rs.getString("COLUMN_NAME")
+                                        )
+                                # If we got keys for this table, move to next table
+                                break
+                            except Exception as e:
+                                logger.debug(
+                                    f"Could not get primary keys for table {table_name}: {e}"
+                                )
+                                continue
+            except Exception as e:
+                logger.debug(f"Could not get tables for primary key extraction: {e}")
+
         return pks_by_table
 
     def _batch_extract_foreign_keys(
@@ -620,23 +754,82 @@ class JDBCSource(StatefulIngestionSourceBase):
     ) -> Dict[str, List[Dict]]:
         """Extract foreign keys for all tables in a schema at once."""
         fks_by_table: Dict[str, List[Dict[str, str]]] = {}
-        try:
-            with metadata.getExportedKeys(None, schema, None) as rs:
-                while rs.next():
-                    table_name = rs.getString("FKTABLE_NAME")
-                    if table_name not in fks_by_table:
-                        fks_by_table[table_name] = []
-                    fks_by_table[table_name].append(
-                        {
-                            "name": rs.getString("FK_NAME"),
-                            "sourceColumn": rs.getString("FKCOLUMN_NAME"),
-                            "targetSchema": rs.getString("PKTABLE_SCHEM"),
-                            "targetTable": rs.getString("PKTABLE_NAME"),
-                            "targetColumn": rs.getString("PKCOLUMN_NAME"),
-                        }
+        database = self._get_database_name(metadata)
+
+        attempts = [
+            (None, schema),
+            (database, None),
+            (database, schema),
+            (None, None),
+        ]
+
+        methods = [metadata.getImportedKeys, metadata.getExportedKeys]
+        got_keys = False
+
+        # First try schema-wide approach
+        for catalog, schema_name in attempts:
+            for method in methods:
+                try:
+                    with method(catalog, schema_name, None) as rs:
+                        while rs.next():
+                            got_keys = True
+                            table_name = rs.getString("FKTABLE_NAME")
+                            if table_name not in fks_by_table:
+                                fks_by_table[table_name] = []
+
+                            fk_info = {
+                                "name": rs.getString("FK_NAME"),
+                                "sourceColumn": rs.getString("FKCOLUMN_NAME"),
+                                "targetSchema": rs.getString("PKTABLE_SCHEM"),
+                                "targetTable": rs.getString("PKTABLE_NAME"),
+                                "targetColumn": rs.getString("PKCOLUMN_NAME"),
+                            }
+                            if fk_info not in fks_by_table[table_name]:
+                                fks_by_table[table_name].append(fk_info)
+                except Exception as e:
+                    logger.debug(
+                        f"Could not get keys schema-wide with method {method.__name__}: {e}"
                     )
-        except Exception as e:
-            logger.debug(f"Could not get foreign keys for schema {schema}: {e}")
+                    continue
+
+        # If schema-wide didn't work, try table by table
+        if not got_keys:
+            try:
+                with metadata.getTables(None, schema, None, ["TABLE"]) as table_rs:
+                    while table_rs.next():
+                        table_name = table_rs.getString(3)
+                        for catalog, schema_name in attempts:
+                            for method in methods:
+                                try:
+                                    with method(catalog, schema_name, table_name) as rs:
+                                        while rs.next():
+                                            if table_name not in fks_by_table:
+                                                fks_by_table[table_name] = []
+                                            fk_info = {
+                                                "name": rs.getString("FK_NAME"),
+                                                "sourceColumn": rs.getString(
+                                                    "FKCOLUMN_NAME"
+                                                ),
+                                                "targetSchema": rs.getString(
+                                                    "PKTABLE_SCHEM"
+                                                ),
+                                                "targetTable": rs.getString(
+                                                    "PKTABLE_NAME"
+                                                ),
+                                                "targetColumn": rs.getString(
+                                                    "PKCOLUMN_NAME"
+                                                ),
+                                            }
+                                            if fk_info not in fks_by_table[table_name]:
+                                                fks_by_table[table_name].append(fk_info)
+                                except Exception as e:
+                                    logger.debug(
+                                        f"Could not get keys for table {table_name} with method {method.__name__}: {e}"
+                                    )
+                                    continue
+            except Exception as e:
+                logger.debug(f"Could not get tables for foreign key extraction: {e}")
+
         return fks_by_table
 
     def _try_query_for_views(
@@ -862,25 +1055,44 @@ class JDBCSource(StatefulIngestionSourceBase):
                 default_db=database,
             )
 
-        # Add dataset to container
-        schema_container_metadata = self.schema_container_builder.build_container(
-            SchemaPath.from_schema_name(table.schema, database),
-            ContainerType.SCHEMA,
-        )
-        container_urn = schema_container_metadata.container_key.as_urn()
+        if table.schema:
+            # Add dataset to container
+            schema_container_metadata = self.schema_container_builder.build_container(
+                SchemaPath.from_schema_name(table.schema, database),
+                ContainerType.SCHEMA,
+            )
+            container_urn = schema_container_metadata.container_key.as_urn()
 
-        # Register if not already registered
-        if not self.container_registry.has_container(container_urn):
-            self.container_registry.register_container(schema_container_metadata)
+            # Register if not already registered
+            if not self.container_registry.has_container(container_urn):
+                self.container_registry.register_container(schema_container_metadata)
 
-        schema_container = self.container_registry.get_container(container_urn)
-        if schema_container:
-            yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=ContainerClass(
-                    container=schema_container.container_key.as_urn()
-                ),
-            ).as_workunit()
+            schema_container = self.container_registry.get_container(container_urn)
+            if schema_container:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn,
+                    aspect=ContainerClass(
+                        container=schema_container.container_key.as_urn()
+                    ),
+                ).as_workunit()
+        else:
+            database_container_metadata = self.schema_container_builder.build_container(
+                SchemaPath([database] if database else []),
+                ContainerType.DATABASE,
+            )
+            container_urn = database_container_metadata.container_key.as_urn()
+
+            if not self.container_registry.has_container(container_urn):
+                self.container_registry.register_container(database_container_metadata)
+
+            database_container = self.container_registry.get_container(container_urn)
+            if database_container:
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=dataset_urn,
+                    aspect=ContainerClass(
+                        container=database_container.container_key.as_urn()
+                    ),
+                ).as_workunit()
 
     def _get_raw_schema_sql(self, table: JDBCTable) -> str:
         """Get raw DDL schema for table/view."""
@@ -929,56 +1141,19 @@ class JDBCSource(StatefulIngestionSourceBase):
         if not self.config.include_stored_procedures:
             return
 
-        try:
-            database_name = self._get_database_name(metadata)
+        database_name = self._get_database_name(metadata)
+        if not database_name:
+            return
 
-            with metadata.getProcedures(None, None, None) as proc_rs:
-                while proc_rs.next():
-                    try:
-                        proc = StoredProcedure(
-                            name=proc_rs.getString(3),
-                            schema=proc_rs.getString(2),
-                            remarks=proc_rs.getString(7),
-                            proc_type=proc_rs.getShort(8),
-                        )
+        extractor = StoredProcedures(
+            platform=self.platform,
+            platform_instance=self.platform_instance,
+            env=self.env,
+            schema_pattern=self.config.schema_pattern,
+            report=self.report,
+        )
 
-                        if not self.config.schema_pattern.allowed(proc.schema):
-                            continue
-
-                        # Create container for stored procedure
-                        container = self.schema_container_builder.build_container(
-                            SchemaPath([proc.schema, proc.name], database_name),
-                            ContainerType.STORED_PROCEDURE,
-                        )
-
-                        # Add procedure-specific properties
-                        container.custom_properties.update(
-                            {
-                                "type": ProcedureType.from_value(proc.proc_type).name,
-                                "language": proc.language,
-                                "remarks": proc.remarks or "",
-                            }
-                        )
-
-                        # Only emit if not already processed
-                        if not self.container_registry.has_container(
-                            container.container_key.as_urn()
-                        ):
-                            self.container_registry.register_container(container)
-                            yield from container.generate_workunits()
-
-                    except Exception as e:
-                        self.report.report_failure(
-                            f"proc-{proc.schema}.{proc.name}",
-                            f"Failed to extract stored procedure: {str(e)}",
-                        )
-
-        except Exception as e:
-            self.report.report_failure(
-                "stored-procedures", f"Failed to extract stored procedures: {str(e)}"
-            )
-            logger.error(f"Failed to extract stored procedures: {str(e)}")
-            logger.debug(traceback.format_exc())
+        yield from extractor.extract_procedures(metadata, database_name)
 
     def get_report(self):
         return self.report
@@ -987,10 +1162,28 @@ class JDBCSource(StatefulIngestionSourceBase):
         """Clean up resources."""
         if self._connection:
             try:
+                # Close all cursors if they exist
+                if hasattr(self._connection, "_cursors"):
+                    for cursor in self._connection._cursors:
+                        try:
+                            cursor.close()
+                        except Exception:
+                            pass
+
+                # Close the JDBC connection
+                if hasattr(self._connection, "jconn"):
+                    try:
+                        self._connection.jconn.close()
+                    except Exception:
+                        pass
+
+                # Close the Python connection
                 self._connection.close()
+
             except Exception as e:
-                logger.warning(f"Error closing connection: {str(e)}")
-            self._connection = None
+                logger.debug(f"Error during connection cleanup: {str(e)}")
+            finally:
+                self._connection = None
 
         # Clean up temporary files
         for temp_file in self._temp_files:
@@ -998,5 +1191,5 @@ class JDBCSource(StatefulIngestionSourceBase):
                 if os.path.exists(temp_file):
                     os.remove(temp_file)
             except Exception as e:
-                logger.warning(f"Error removing temporary file {temp_file}: {str(e)}")
+                logger.debug(f"Error removing temporary file {temp_file}: {str(e)}")
         self._temp_files.clear()
