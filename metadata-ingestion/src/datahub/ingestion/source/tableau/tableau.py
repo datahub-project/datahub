@@ -109,6 +109,7 @@ from datahub.ingestion.source.tableau.tableau_common import (
     make_filter,
     make_fine_grained_lineage_class,
     make_upstream_class,
+    optimize_query_filter,
     published_datasource_graphql_query,
     query_metadata_cursor_based_pagination,
     sheet_graphql_query,
@@ -1397,6 +1398,8 @@ class TableauSiteSource:
         query_filter: dict = {},
         page_size_override: Optional[int] = None,
     ) -> Iterable[dict]:
+        query_filter = optimize_query_filter(query_filter)
+
         # Calls the get_connection_object_page function to get the objects,
         # and automatically handles pagination.
         page_size = page_size_override or self.config.page_size

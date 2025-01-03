@@ -291,16 +291,15 @@ class BigqueryLineageExtractor:
         snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
     ) -> Iterable[MetadataWorkUnit]:
         for project in projects:
-            if self.config.lineage_parse_view_ddl:
-                for view in view_refs_by_project[project]:
-                    self.datasets_skip_audit_log_lineage.add(view)
-                    self.aggregator.add_view_definition(
-                        view_urn=self.identifiers.gen_dataset_urn_from_raw_ref(
-                            BigQueryTableRef.from_string_name(view)
-                        ),
-                        view_definition=view_definitions[view],
-                        default_db=project,
-                    )
+            for view in view_refs_by_project[project]:
+                self.datasets_skip_audit_log_lineage.add(view)
+                self.aggregator.add_view_definition(
+                    view_urn=self.identifiers.gen_dataset_urn_from_raw_ref(
+                        BigQueryTableRef.from_string_name(view)
+                    ),
+                    view_definition=view_definitions[view],
+                    default_db=project,
+                )
 
             for snapshot_ref in snapshot_refs_by_project[project]:
                 snapshot = snapshots_by_ref[snapshot_ref]
@@ -322,22 +321,10 @@ class BigqueryLineageExtractor:
     def get_lineage_workunits(
         self,
         projects: List[str],
-        view_refs_by_project: Dict[str, Set[str]],
-        view_definitions: FileBackedDict[str],
-        snapshot_refs_by_project: Dict[str, Set[str]],
-        snapshots_by_ref: FileBackedDict[BigqueryTableSnapshot],
         table_refs: Set[str],
     ) -> Iterable[MetadataWorkUnit]:
         if not self._should_ingest_lineage():
             return
-
-        yield from self.get_lineage_workunits_for_views_and_snapshots(
-            projects,
-            view_refs_by_project,
-            view_definitions,
-            snapshot_refs_by_project,
-            snapshots_by_ref,
-        )
 
         if self.config.use_exported_bigquery_audit_metadata:
             projects = ["*"]  # project_id not used when using exported metadata
