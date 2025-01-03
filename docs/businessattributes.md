@@ -1,5 +1,10 @@
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
+
 # Business Attributes
 
+<FeatureAvailability ossOnly />
+
+>**Note:** This is <b>BETA</b> feature
 
 ## What are Business Attributes
 A Business Attribute, as its name implies, is an attribute with a business focus. It embodies the traits or properties of an entity within a business framework. This attribute is a crucial piece of data for a business, utilised to define or control the entity throughout the organisation. If a business process or concept is depicted as a comprehensive logical model, then each Business Attribute can be considered as an individual component within that model. While business names and descriptions are generally managed through glossary terms, Business Attributes encompass additional characteristics such as data quality rules/assertions, data privacy markers, data usage protocols, standard tags, and supplementary documentation, alongside Names and Descriptions.
@@ -70,9 +75,11 @@ Description inherited from business attribute is greyed out to differentiate bet
 </p>
 
 ### Enable Business Attributes Feature
-By default, business attribute is disabled. To enable Business Attributes feature, set the following configuration in [application.yaml](../metadata-service/configuration/src/main/resources/application.yaml)
-
-businessAttributeEntityEnabled : true
+By default, business attribute is disabled. To enable Business Attributes feature, export environmental variable 
+(may be done via `extraEnvs` for GMS deployment):
+```shell
+BUSINESS_ATTRIBUTE_ENTITY_ENABLED=true
+```
 
 ### What updates are planned for the Business Attributes feature?
 
