@@ -17,7 +17,7 @@ from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceCapabi
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.jdbc.config import JDBCSourceConfig
 from datahub.ingestion.source.jdbc.connection import ConnectionManager
-from datahub.ingestion.source.jdbc.containers import (
+from datahub.ingestion.source.jdbc.container_entities import (
     ContainerRegistry,
     Containers,
     SchemaContainerBuilder,

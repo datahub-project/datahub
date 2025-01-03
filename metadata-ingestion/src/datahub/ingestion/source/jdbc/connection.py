@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 import jaydebeapi
 
 from datahub.ingestion.source.jdbc.config import SSLConfig
-from datahub.ingestion.source.jdbc.maven_install import MavenManager
+from datahub.ingestion.source.jdbc.maven_utils import MavenManager
 
 logger = logging.getLogger(__name__)
 

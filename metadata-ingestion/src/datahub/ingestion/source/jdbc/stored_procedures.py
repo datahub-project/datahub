@@ -13,9 +13,9 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.jdbc.constants import ProcedureType
-from datahub.ingestion.source.jdbc.containers import JDBCContainerKey
+from datahub.ingestion.source.jdbc.container_entities import JDBCContainerKey
+from datahub.ingestion.source.jdbc.dataset_entities import JDBCColumn, StoredProcedure
 from datahub.ingestion.source.jdbc.reporting import JDBCSourceReport
-from datahub.ingestion.source.jdbc.types import JDBCColumn, StoredProcedure
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -103,6 +103,9 @@ class StoredProcedures:
                                 if proc.schema and not self.schema_pattern.allowed(
                                     proc.schema
                                 ):
+                                    self.report.report_stored_procedure_filtered(
+                                        proc.name
+                                    )
                                     continue
 
                                 yield from self._generate_procedure_metadata(
@@ -236,6 +239,8 @@ class StoredProcedures:
             entityUrn=dataset_urn,
             aspect=ContainerClass(container=container_key.as_urn()),
         ).as_workunit()
+
+        self.report.report_stored_procedure_scanned(full_name)
 
     def _get_procedure_parameters(
         self,

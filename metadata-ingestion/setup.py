@@ -443,7 +443,7 @@ plugins: Dict[str, Set[str]] = {
     | pyhive_common
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "iceberg": iceberg_common,
-    "jdbc": {"beautifulsoup4", "JayDeBeApi", "requests"},
+    "jdbc": {"beautifulsoup4", "JayDeBeApi", "JPype1", "requests"},
     "json-schema": set(),
     "kafka": kafka_common | kafka_protobuf,
     "kafka-connect": sql_common | {"requests", "JPype1"},

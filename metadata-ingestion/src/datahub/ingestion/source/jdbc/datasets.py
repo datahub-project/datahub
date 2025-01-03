@@ -13,14 +13,14 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.jdbc.constants import ContainerType, TableType
-from datahub.ingestion.source.jdbc.containers import (
+from datahub.ingestion.source.jdbc.container_entities import (
     ContainerRegistry,
     SchemaContainerBuilder,
     SchemaPath,
 )
+from datahub.ingestion.source.jdbc.dataset_entities import JDBCColumn, JDBCTable
 from datahub.ingestion.source.jdbc.reporting import JDBCSourceReport
 from datahub.ingestion.source.jdbc.sql_utils import SQLUtils
-from datahub.ingestion.source.jdbc.types import JDBCColumn, JDBCTable
 from datahub.metadata.com.linkedin.pegasus2avro.dataset import DatasetProperties
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -65,6 +65,7 @@ class Datasets:
 
             for schema_name in schemas:
                 if not self.schema_pattern.allowed(schema_name):
+                    self.report.report_schema_filtered(schema_name)
                     continue
 
                 yield from self._process_schema_tables(
@@ -183,6 +184,10 @@ class Datasets:
 
             # Apply filtering
             if not self._should_process_table(table_type, full_name):
+                if table_type == TableType.VIEW.value:
+                    self.report.report_view_filtered(full_name)
+                else:
+                    self.report.report_table_filtered(full_name)
                 return
 
             # Create table object
