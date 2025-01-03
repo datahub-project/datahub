@@ -320,7 +320,8 @@ public class DataHubAuthorizerTest {
             mock(ServicesRegistryContext.class),
             mock(IndexConvention.class),
             mock(RetrieverContext.class),
-            mock(ValidationContext.class));
+            mock(ValidationContext.class),
+            true);
 
     _dataHubAuthorizer =
         new DataHubAuthorizer(
