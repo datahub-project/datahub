@@ -32,7 +32,7 @@ class IngestionStageReport:
 
     def report_ingestion_stage_start(self, stage: str) -> None:
         if self._timer:
-            elapsed = round(self._timer.elapsed_seconds(), 2)
+            elapsed = self._timer.elapsed_seconds(digits=2)
             logger.info(
                 f"Time spent in stage <{self.ingestion_stage}>: {elapsed} seconds",
                 stacklevel=2,

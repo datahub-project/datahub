@@ -80,7 +80,7 @@ def run_test():
         num_workunits, peak_memory_usage = workunit_sink(workunits)
         report.set_ingestion_stage("All", "Done")
         print(f"Workunits Generated: {num_workunits}")
-        print(f"Seconds Elapsed: {timer.elapsed_seconds():.2f} seconds")
+        print(f"Seconds Elapsed: {timer.elapsed_seconds(digits=2)} seconds")
 
     print(
         f"Peak Memory Used: {humanfriendly.format_size(peak_memory_usage - pre_mem_usage)}"

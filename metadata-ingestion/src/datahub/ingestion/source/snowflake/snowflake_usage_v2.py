@@ -386,7 +386,7 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                 )
                 self.report_status(USAGE_EXTRACTION_OPERATIONAL_STATS, False)
                 return
-            self.report.access_history_query_secs = round(timer.elapsed_seconds(), 2)
+            self.report.access_history_query_secs = timer.elapsed_seconds(digits=2)
 
         for row in results:
             yield from self._process_snowflake_history_row(row)
@@ -434,8 +434,8 @@ class SnowflakeUsageExtractor(SnowflakeCommonMixin, Closeable):
                     self.report.max_access_history_time = db_row["MAX_TIME"].astimezone(
                         tz=timezone.utc
                     )
-                    self.report.access_history_range_query_secs = round(
-                        timer.elapsed_seconds(), 2
+                    self.report.access_history_range_query_secs = timer.elapsed_seconds(
+                        digits=2
                     )
 
     def _get_operation_aspect_work_unit(

@@ -633,8 +633,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             else:
                 logger.info("View processing disabled, skipping")
 
-            self.report.metadata_extraction_sec[report_key] = round(
-                timer.elapsed_seconds(), 2
+            self.report.metadata_extraction_sec[report_key] = timer.elapsed_seconds(
+                digits=2
             )
 
     def _process_table(
@@ -986,9 +986,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
             yield from usage_extractor.get_usage_workunits(all_tables=all_tables)
 
-            self.report.usage_extraction_sec[database] = round(
-                timer.elapsed_seconds(), 2
-            )
+            self.report.usage_extraction_sec[database] = timer.elapsed_seconds(digits=2)
 
     def extract_lineage(
         self,
@@ -1011,8 +1009,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 database=database, connection=connection, all_tables=all_tables
             )
 
-            self.report.lineage_extraction_sec[f"{database}"] = round(
-                timer.elapsed_seconds(), 2
+            self.report.lineage_extraction_sec[f"{database}"] = timer.elapsed_seconds(
+                digits=2
             )
             yield from self.generate_lineage(
                 database, lineage_extractor=lineage_extractor
@@ -1042,8 +1040,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
             yield from lineage_extractor.generate()
 
-            self.report.lineage_extraction_sec[f"{database}"] = round(
-                timer.elapsed_seconds(), 2
+            self.report.lineage_extraction_sec[f"{database}"] = timer.elapsed_seconds(
+                digits=2
             )
 
         if self.redundant_lineage_run_skip_handler:

@@ -1209,9 +1209,9 @@ class BigQuerySchemaGenerator:
                     report=self.report,
                 )
 
-        self.report.metadata_extraction_sec[f"{project_id}.{dataset.name}"] = round(
-            timer.elapsed_seconds(), 2
-        )
+        self.report.metadata_extraction_sec[
+            f"{project_id}.{dataset.name}"
+        ] = timer.elapsed_seconds(digits=2)
 
     def get_core_table_details(
         self, dataset_name: str, project_id: str, temp_table_dataset_prefix: str

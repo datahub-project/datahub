@@ -381,8 +381,8 @@ class BigqueryLineageExtractor:
             self.report.lineage_metadata_entries[project_id] = len(lineage)
             logger.info(f"Built lineage map containing {len(lineage)} entries.")
             logger.debug(f"lineage metadata is {lineage}")
-            self.report.lineage_extraction_sec[project_id] = round(
-                timer.elapsed_seconds(), 2
+            self.report.lineage_extraction_sec[project_id] = timer.elapsed_seconds(
+                digits=2
             )
             self.report.lineage_mem_size[project_id] = humanfriendly.format_size(
                 memory_footprint.total_size(lineage)
