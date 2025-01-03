@@ -14,13 +14,13 @@ DataHub supports two authentication methods:
 
 Either way, the user/token must have the **Site Administrator Explorer** site role.
 
-::tip
+:::info
 
 We need the `Site Administrator Explorer` site role in order to get complete metadata from Tableau.
 
 With any lower role, the Tableau Metadata API returns missing/partial metadata. This particularly affects data source fields and definitions, which impacts our ability to extract columns and generate column lineage. As such, other site roles like `Viewer` are insufficient with the current Tableau Metadata API.
 
-::
+:::
 
 ### Ingestion through UI
 
