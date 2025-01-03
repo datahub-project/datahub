@@ -154,14 +154,6 @@ class JDBCSourceConfig(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for views",
     )
-    profile_table_size: bool = Field(
-        default=False,
-        description="Include table size metrics",
-    )
-    profile_table_row_counts: bool = Field(
-        default=True,
-        description="Include table row counts",
-    )
     usage: BaseUsageConfig = Field(
         description="Usage statistics configuration",
         default=BaseUsageConfig(),
