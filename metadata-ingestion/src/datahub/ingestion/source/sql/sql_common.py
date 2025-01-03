@@ -1148,9 +1148,16 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
     def include_lineage(self):
         return self.config.include_view_lineage
 
+
     def get_db_schema(self, dataset_identifier: str) -> Tuple[Optional[str], str]:
-        database, schema, _view = dataset_identifier.split(".", 2)
-        return database, schema
+        period_counter = dataset_identifier.count(".")
+        if period_counter == 1:
+            schema, _view = dataset_identifier.split(".", 1)
+            database = ""
+            return database, schema
+        elif period_counter == 2:
+            database, schema, _view = dataset_identifier.split(".", 2)
+            return database, schema
 
     def get_profiler_instance(self, inspector: Inspector) -> "DatahubGEProfiler":
         from datahub.ingestion.source.ge_data_profiler import DatahubGEProfiler
