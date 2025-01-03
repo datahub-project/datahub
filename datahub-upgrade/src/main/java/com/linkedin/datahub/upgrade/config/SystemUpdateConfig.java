@@ -194,7 +194,8 @@ public class SystemUpdateConfig {
             ValidationContext.builder()
                 .alternateValidation(
                     configurationProvider.getFeatureFlags().isAlternateMCPValidation())
-                .build());
+                .build(),
+            true);
 
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
     systemGraphRetriever.setSystemOperationContext(systemOperationContext);
