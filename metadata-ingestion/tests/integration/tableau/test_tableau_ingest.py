@@ -1,6 +1,6 @@
 import json
 import pathlib
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Union, cast
 from unittest import mock
 
 import pytest
@@ -13,10 +13,15 @@ from tableauserverclient.models import (
     GroupItem,
     ProjectItem,
     SiteItem,
+    UserItem,
     ViewItem,
     WorkbookItem,
 )
 from tableauserverclient.models.reference_item import ResourceReference
+from tableauserverclient.server.endpoint.exceptions import (
+    NonXMLResponseError,
+    TableauError,
+)
 
 from datahub.emitter.mce_builder import DEFAULT_ENV, make_schema_field_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -270,7 +275,7 @@ def side_effect_site_get_by_id(id, *arg, **kwargs):
 
 
 def mock_sdk_client(
-    side_effect_query_metadata_response: List[dict],
+    side_effect_query_metadata_response: List[Union[dict, TableauError]],
     datasources_side_effect: List[dict],
     sign_out_side_effect: List[dict],
 ) -> mock.MagicMock:
@@ -1310,6 +1315,61 @@ def test_permission_warning(pytestconfig, tmp_path, mock_datahub_graph):
                 "Turn on your derived permissions. See for details "
                 "https://community.tableau.com/s/question/0D54T00000QnjHbSAJ/how-to-fix-the-permissionsmodeswitched-error"
             )
+
+
+@freeze_time(FROZEN_TIME)
+@pytest.mark.integration
+def test_retry_on_error(pytestconfig, tmp_path, mock_datahub_graph):
+    with mock.patch(
+        "datahub.ingestion.source.state_provider.datahub_ingestion_checkpointing_provider.DataHubGraph",
+        mock_datahub_graph,
+    ) as mock_checkpoint:
+        mock_checkpoint.return_value = mock_datahub_graph
+
+        with mock.patch("datahub.ingestion.source.tableau.tableau.Server") as mock_sdk:
+            mock_client = mock_sdk_client(
+                side_effect_query_metadata_response=[
+                    NonXMLResponseError(
+                        """{"timestamp":"xxx","status":401,"error":"Unauthorized","path":"/relationship-service-war/graphql"}"""
+                    ),
+                    *mock_data(),
+                ],
+                sign_out_side_effect=[{}],
+                datasources_side_effect=[{}],
+            )
+            mock_client.users = mock.Mock()
+            mock_client.users.get_by_id.side_effect = [
+                UserItem(
+                    name="name", site_role=UserItem.Roles.SiteAdministratorExplorer
+                )
+            ]
+            mock_sdk.return_value = mock_client
+
+            reporter = TableauSourceReport()
+            tableau_source = TableauSiteSource(
+                platform="tableau",
+                config=mock.MagicMock(),
+                ctx=mock.MagicMock(),
+                site=mock.MagicMock(spec=SiteItem, id="Site1", content_url="site1"),
+                server=mock_sdk.return_value,
+                report=reporter,
+            )
+
+            tableau_source.get_connection_object_page(
+                query=mock.MagicMock(),
+                connection_type=mock.MagicMock(),
+                query_filter=mock.MagicMock(),
+                current_cursor=None,
+                retries_remaining=1,
+                fetch_size=10,
+            )
+
+            assert reporter.num_actual_tableau_metadata_queries == 2
+            assert reporter.tableau_server_error_stats
+            assert reporter.tableau_server_error_stats["NonXMLResponseError"] == 1
+
+            assert reporter.warnings == []
+            assert reporter.failures == []
 
 
 @freeze_time(FROZEN_TIME)
