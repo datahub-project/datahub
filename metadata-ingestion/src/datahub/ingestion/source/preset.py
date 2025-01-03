@@ -80,8 +80,6 @@ class PresetSource(SupersetSource):
     platform = "preset"
 
     def __init__(self, ctx: PipelineContext, config: PresetConfig):
-        logger.info(f"ctx is {ctx}")
-
         super().__init__(ctx, config)
         self.config = config
         self.report = StaleEntityRemovalSourceReport()
