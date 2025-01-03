@@ -36,6 +36,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
+from datahub.utilities.ordered_set import OrderedSet
 
 logger = logging.getLogger(__name__)
 
@@ -1011,9 +1012,9 @@ def optimize_query_filter(query_filter: dict) -> dict:
     optimized_query = copy.deepcopy(query_filter)
 
     if query_filter.get(c.ID_WITH_IN):
-        optimized_query[c.ID_WITH_IN] = list(set(query_filter[c.ID_WITH_IN]))
+        optimized_query[c.ID_WITH_IN] = list(OrderedSet(query_filter[c.ID_WITH_IN]))
     if query_filter.get(c.PROJECT_NAME_WITH_IN):
         optimized_query[c.PROJECT_NAME_WITH_IN] = list(
-            set(query_filter[c.PROJECT_NAME_WITH_IN])
+            OrderedSet(query_filter[c.PROJECT_NAME_WITH_IN])
         )
     return optimized_query

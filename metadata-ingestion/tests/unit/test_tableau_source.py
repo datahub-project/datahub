@@ -213,16 +213,16 @@ def test_optimize_query_filter_removes_duplicates():
     }
     result = optimize_query_filter(query_filter)
     assert len(result) == 2
-    assert set(result[c.ID_WITH_IN]) == {"id1", "id2"}
-    assert set(result[c.PROJECT_NAME_WITH_IN]) == {"project1", "project2"}
+    assert result[c.ID_WITH_IN] == ["id1", "id2"]
+    assert result[c.PROJECT_NAME_WITH_IN] == ["project1", "project2"]
 
 
 def test_optimize_query_filter_handles_empty_lists():
     query_filter: Dict[str, List[str]] = {c.ID_WITH_IN: [], c.PROJECT_NAME_WITH_IN: []}
     result = optimize_query_filter(query_filter)
     assert len(result) == 2
-    assert len(result[c.ID_WITH_IN]) == 0
-    assert len(result[c.PROJECT_NAME_WITH_IN]) == 0
+    assert result[c.ID_WITH_IN] == []
+    assert result[c.PROJECT_NAME_WITH_IN] == []
 
 
 def test_optimize_query_filter_handles_missing_keys():
@@ -245,5 +245,5 @@ def test_optimize_query_filter_handles_no_duplicates():
     }
     result = optimize_query_filter(query_filter)
     assert len(result) == 2
-    assert set(result[c.ID_WITH_IN]) == {"id1", "id2"}
-    assert set(result[c.PROJECT_NAME_WITH_IN]) == {"project1", "project2"}
+    assert result[c.ID_WITH_IN] == ["id1", "id2"]
+    assert result[c.PROJECT_NAME_WITH_IN] == ["project1", "project2"]
