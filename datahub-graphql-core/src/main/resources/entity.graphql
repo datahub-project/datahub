@@ -6276,6 +6276,16 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     dataPlatformInstance: DataPlatformInstance
 
     """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
+    Recursively get the lineage of containers for this entity
+    """
+    parentContainers: ParentContainersResult
+
+    """
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -6456,6 +6466,16 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     The specific instance of the data platform that this entity belongs to
     """
     dataPlatformInstance: DataPlatformInstance
+
+    """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
+    Recursively get the lineage of containers for this entity
+    """
+    parentContainers: ParentContainersResult
 
     """
     Additional read write properties associated with the Data Job
