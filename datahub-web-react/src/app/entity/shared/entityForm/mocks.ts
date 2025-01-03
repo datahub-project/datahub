@@ -4,6 +4,7 @@ import { GenericEntityProperties } from '../types';
 const form1 = {
     urn: 'urn:li:form:1',
     type: EntityType.Form,
+    exists: true,
     info: {
         name: '',
         type: FormType.Verification,
@@ -38,6 +39,7 @@ const form1 = {
 const form2 = {
     urn: 'urn:li:form:2',
     type: EntityType.Form,
+    exists: true,
     info: {
         name: '',
         prompts: [
@@ -146,6 +148,7 @@ export const mockEntityData = {
                 form: {
                     urn: 'urn:li:form:3',
                     type: EntityType.Form,
+                    exists: true,
                     info: {
                         name: '',
                         prompts: [

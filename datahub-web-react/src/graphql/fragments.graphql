@@ -1861,6 +1861,7 @@ fragment autoRenderAspectFields on RawAspect {
 fragment formFields on Form {
     urn
     type
+    exists
     info {
         name
         description

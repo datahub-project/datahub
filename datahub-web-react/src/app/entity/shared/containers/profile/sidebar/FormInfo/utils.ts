@@ -339,5 +339,5 @@ export function getBulkByQuestionPrompts(form: Form) {
 }
 
 export function filterFormAssociationsForUser(association: FormAssociation) {
-    return association.form.info.status.state === FormState.Published;
+    return association.form.info.status.state === FormState.Published && association.form.exists;
 }

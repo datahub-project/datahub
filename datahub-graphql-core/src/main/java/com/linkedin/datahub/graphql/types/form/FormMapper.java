@@ -59,7 +59,8 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
     Urn entityUrn = entityResponse.getUrn();
     result.setUrn(entityUrn.toString());
     result.setType(EntityType.FORM);
-
+    // set the default required values for a form in case references are still being cleaned up
+    setDefaultForm(result);
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<Form> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(FORM_INFO_ASPECT_NAME, this::mapFormInfo);
@@ -274,5 +275,28 @@ public class FormMapper implements ModelMapper<EntityResponse, Form> {
       }
     }
     form.setDynamicFormAssignment(formAssignment);
+  }
+
+  /*
+   * In the case that a form is deleted and the references haven't been cleaned up yet (this process is async)
+   * set a default form to prevent APIs breaking. The UI queries for whether the entity exists and it will
+   * be filtered out.
+   */
+  private void setDefaultForm(final Form result) {
+    FormInfo info = new FormInfo();
+    info.setName("");
+    info.setType(FormType.COMPLETION);
+    info.setPrompts(new ArrayList<>());
+
+    FormActorAssignment actors = new FormActorAssignment();
+    actors.setOwners(false);
+    actors.setIsAssignedToMe(false);
+    info.setActors(actors);
+
+    FormStatus status = new FormStatus();
+    status.setState(FormState.DRAFT);
+    info.setStatus(status);
+
+    result.setInfo(info);
   }
 }

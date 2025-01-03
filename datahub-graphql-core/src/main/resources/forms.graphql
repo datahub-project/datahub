@@ -243,6 +243,11 @@ type Form implements Entity {
     type: EntityType!
 
     """
+    Whether or not this entity exists on DataHub
+    """
+    exists: Boolean
+
+    """
     Information about this form
     """
     info: FormInfo!

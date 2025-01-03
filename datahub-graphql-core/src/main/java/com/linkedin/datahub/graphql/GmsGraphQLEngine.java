@@ -2848,6 +2848,9 @@ public class GmsGraphQLEngine {
 
   private void configureFormResolvers(final RuntimeWiring.Builder builder) {
     builder.type(
+        "Form",
+        typeWiring -> typeWiring.dataFetcher("exists", new EntityExistsResolver(entityService)));
+    builder.type(
         "FormAssociation",
         typeWiring ->
             typeWiring.dataFetcher(
