@@ -208,7 +208,7 @@ class SoftDeletedEntitiesCleanup:
                 self.report.failure(
                     title="Failed to delete entity",
                     message=futures[future],
-                    context=futures[future],
+                    context=str(futures[future]),
                     exc=future.exception(),
                 )
             self.report.num_soft_deleted_entity_processed += 1
