@@ -10,11 +10,11 @@ from datahub.testing.docker_utils import wait_for_port
 from tests.integration.jdbc.test_jdbc_common import (
     get_db_container_checker,
     prepare_config_file,
-    run_datahub_ingest,
 )
 from tests.test_helpers import mce_helpers
+from tests.test_helpers.click_helpers import run_datahub_cmd
 
-FROZEN_TIME = "2023-10-15 07:00:00"
+FROZEN_TIME = "2025-01-01 07:00:00"
 MSSQL_PORT = 41433
 MSSQL_READY_MSG = "SQL Server is now ready for client connections"
 
@@ -52,9 +52,12 @@ def test_mssql_ingest(
     """Test MSSQL ingestion."""
     config_file = test_resources_dir / "mssql_to_file.yml"
     tmp_config = prepare_config_file(config_file, tmp_path, "mssql")
-    run_datahub_ingest(str(tmp_config))
+
+    run_datahub_cmd(["ingest", "-c", f"{tmp_config}"], tmp_path=tmp_path)
+
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=tmp_path / "mssql_mces.json",
         golden_path=test_resources_dir / "mssql_mces_golden.json",
+        ignore_paths=[],
     )

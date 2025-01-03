@@ -98819,7 +98819,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1735922026977,
+                        "time": 1735714800000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -98831,7 +98831,7 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 1735922026977,
+                        "time": 1735714800000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -98845,8 +98845,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735922026978,
-        "runId": "jdbc-2025_01_03-16_33_18-gvf6mn",
+        "lastObserved": 1735714800000,
+        "runId": "jdbc-2025_01_01-07_00_00-fpfn9c",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -98916,7 +98916,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1735922026976,
+                        "time": 1735714800000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -98928,7 +98928,7 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 1735922026976,
+                        "time": 1735714800000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -98942,8 +98942,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735922026976,
-        "runId": "jdbc-2025_01_03-16_33_18-gvf6mn",
+        "lastObserved": 1735714800000,
+        "runId": "jdbc-2025_01_01-07_00_00-fpfn9c",
         "lastRunId": "no-run-id-provided"
     }
 }

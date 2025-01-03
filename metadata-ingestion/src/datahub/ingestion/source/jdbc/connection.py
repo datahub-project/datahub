@@ -9,11 +9,23 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 import jaydebeapi
+import jpype
+from jpype import JClass
 
 from datahub.ingestion.source.jdbc.config import SSLConfig
 from datahub.ingestion.source.jdbc.maven_utils import MavenManager
 
 logger = logging.getLogger(__name__)
+
+
+# Monkey patch the jpype deprecated function used in jaydebeapi
+def isThreadAttachedToJVM() -> bool:
+    Thread = JClass("java.lang.Thread")
+    return Thread.isAttached()
+
+
+# Apply the patch
+jpype.isThreadAttachedToJVM = isThreadAttachedToJVM
 
 
 class ConnectionManager:

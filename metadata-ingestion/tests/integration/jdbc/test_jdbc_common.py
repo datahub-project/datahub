@@ -1,7 +1,5 @@
 import logging
-import os
 import subprocess
-import sys
 from pathlib import Path
 from typing import Callable
 
@@ -24,22 +22,6 @@ def prepare_config_file(source_config: Path, tmp_path: Path, database: str) -> P
         yaml.dump(config, f)
 
     return tmp_config
-
-
-def run_datahub_ingest(config_path: str) -> None:
-    """Run datahub ingest command in a new process."""
-    cmd = [sys.executable, "-m", "datahub", "ingest", "-c", config_path]
-    result = subprocess.run(
-        args=cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env={**dict(os.environ), "_JAVA_OPTIONS": "-Xmx512m"},
-    )
-    if result.returncode != 0:
-        logger.error(f"Ingest failed: stdout={result.stdout}, stderr={result.stderr}")
-        raise RuntimeError(f"Ingest command failed: {result.stderr}")
-    logger.info("Ingest completed successfully")
 
 
 def is_database_up(container_name: str, ready_message: str) -> bool:
