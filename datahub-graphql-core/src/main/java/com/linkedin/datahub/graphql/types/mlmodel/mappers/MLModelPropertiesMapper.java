@@ -7,8 +7,8 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
-import com.linkedin.datahub.graphql.types.mappers.EmbeddedModelMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.TimeStampToAuditStampMapper;
+import com.linkedin.datahub.graphql.types.mappers.EmbeddedModelMapper;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -39,7 +39,8 @@ public class MLModelPropertiesMapper
       result.setName(entityUrn.getEntityKey().get(1)); // indexed access is safe here
     }
     result.setCreated(TimeStampToAuditStampMapper.map(context, mlModelProperties.getCreated()));
-    result.setLastModified(TimeStampToAuditStampMapper.map(context, mlModelProperties.getLastModified()));
+    result.setLastModified(
+        TimeStampToAuditStampMapper.map(context, mlModelProperties.getLastModified()));
     result.setDescription(mlModelProperties.getDescription());
     if (mlModelProperties.getExternalUrl() != null) {
       result.setExternalUrl(mlModelProperties.getExternalUrl().toString());

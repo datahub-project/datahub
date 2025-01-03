@@ -30,10 +30,10 @@ public class DataPlatformInstanceAspectMapper
       result.setUrn(input.getInstance().toString());
     }
     result.setPlatform(
-      DataPlatform.builder()
-          .setUrn(input.getPlatform().toString())
-          .setType(EntityType.DATA_PLATFORM)
-          .build());
+        DataPlatform.builder()
+            .setUrn(input.getPlatform().toString())
+            .setType(EntityType.DATA_PLATFORM)
+            .build());
     return result;
   }
 }
