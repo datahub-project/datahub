@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.generated.MLModelGroup;
 import com.linkedin.datahub.graphql.generated.MLModelProperties;
 import com.linkedin.datahub.graphql.types.common.mappers.CustomPropertiesMapper;
 import com.linkedin.datahub.graphql.types.mappers.EmbeddedModelMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.TimeStampToAuditStampMapper;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -31,6 +32,14 @@ public class MLModelPropertiesMapper
     final MLModelProperties result = new MLModelProperties();
 
     result.setDate(mlModelProperties.getDate());
+    if (mlModelProperties.getName() != null) {
+      result.setName(mlModelProperties.getName());
+    } else {
+      // backfill name from URN for backwards compatibility
+      result.setName(entityUrn.getEntityKey().get(1)); // indexed access is safe here
+    }
+    result.setCreated(TimeStampToAuditStampMapper.map(context, mlModelProperties.getCreated()));
+    result.setLastModified(TimeStampToAuditStampMapper.map(context, mlModelProperties.getLastModified()));
     result.setDescription(mlModelProperties.getDescription());
     if (mlModelProperties.getExternalUrl() != null) {
       result.setExternalUrl(mlModelProperties.getExternalUrl().toString());
