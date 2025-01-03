@@ -1,10 +1,9 @@
 import json
 import logging
-from typing import Iterable, List
+from typing import TYPE_CHECKING, Iterable, List
 
 from datahub.emitter.rest_emitter import INGEST_MAX_PAYLOAD_BYTES
 from datahub.emitter.serialization_helper import pre_json_transform
-from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
     DatasetProfileClass,
@@ -12,12 +11,15 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
 )
 
+if TYPE_CHECKING:
+    from datahub.ingestion.api.source import SourceReport
+
 logger = logging.getLogger(__name__)
 
 
 class EnsureAspectSizeProcessor:
     def __init__(
-        self, report: SourceReport, payload_constraint: int = INGEST_MAX_PAYLOAD_BYTES
+        self, report: "SourceReport", payload_constraint: int = INGEST_MAX_PAYLOAD_BYTES
     ):
         self.report = report
         self.payload_constraint = payload_constraint
