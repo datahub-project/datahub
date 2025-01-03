@@ -1331,7 +1331,7 @@ def test_retry_on_error(pytestconfig, tmp_path, mock_datahub_graph):
                 side_effect_query_metadata_response=[
                     NonXMLResponseError(
                         """{"timestamp":"xxx","status":401,"error":"Unauthorized","path":"/relationship-service-war/graphql"}"""
-                    ),  # type:ignore
+                    ),
                     *mock_data(),
                 ],
                 sign_out_side_effect=[{}],
