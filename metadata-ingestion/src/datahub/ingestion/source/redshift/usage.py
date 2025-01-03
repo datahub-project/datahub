@@ -190,7 +190,7 @@ class RedshiftUsageExtractor:
                 )
                 self.report.operational_metadata_extraction_sec[
                     self.config.database
-                ] = round(timer.elapsed_seconds(), 2)
+                ] = timer.elapsed_seconds(digits=2)
 
         # Generate aggregate events
         self.report.report_ingestion_stage_start(USAGE_EXTRACTION_USAGE_AGGREGATION)

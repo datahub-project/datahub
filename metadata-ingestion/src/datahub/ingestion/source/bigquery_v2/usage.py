@@ -572,8 +572,8 @@ class BigQueryUsageExtractor:
                     )
                     self.report_status(f"usage-extraction-{project_id}", False)
 
-                self.report.usage_extraction_sec[project_id] = round(
-                    timer.elapsed_seconds(), 2
+                self.report.usage_extraction_sec[project_id] = timer.elapsed_seconds(
+                    digits=2
                 )
 
     def _store_usage_event(
