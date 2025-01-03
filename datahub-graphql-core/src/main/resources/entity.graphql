@@ -7766,6 +7766,14 @@ enum AssertionStdAggregation {
     """
     Assertion is applied on proportion of distinct values in column
     """
+    UNIQUE_PROPORTION
+
+
+    """
+    Assertion is applied on proportion of distinct values in column
+
+    Deprecated! Use UNIQUE_PROPORTION instead.
+    """
     UNIQUE_PROPOTION
 
     """
