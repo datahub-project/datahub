@@ -736,6 +736,7 @@ class GlueSource(StatefulIngestionSourceBase):
         self, mce: MetadataChangeEventClass
     ) -> Optional[MetadataWorkUnit]:
         if self.source_config.emit_s3_lineage:
+            logger.debug(f"Attempting to emit s3 lineage for a glue table")
             # extract dataset properties aspect
             dataset_properties: Optional[
                 DatasetPropertiesClass
@@ -746,23 +747,45 @@ class GlueSource(StatefulIngestionSourceBase):
             ] = mce_builder.get_aspect_if_available(mce, SchemaMetadataClass)
 
             if dataset_properties and "Location" in dataset_properties.customProperties:
+                logger.debug(
+                    f"Recognized table name: {dataset_properties.name} and URI: {dataset_properties.uri}"
+                )
                 location = dataset_properties.customProperties["Location"]
+                logger.debug(
+                    f"Recognized location: {location} is_s3_uri: {is_s3_uri(location)}"
+                )
                 if is_s3_uri(location):
                     s3_dataset_urn = make_s3_urn_for_lineage(
                         location, self.source_config.env
+                    )
+                    logger.debug(
+                        f"Using location: {location} and env: {self.source_config.env} made s3_dataset_urn: {s3_dataset_urn}"
                     )
                     assert self.ctx.graph
                     schema_metadata_for_s3: Optional[
                         SchemaMetadataClass
                     ] = self.ctx.graph.get_schema_metadata(s3_dataset_urn)
+                    logger.debug("Retrieved schema metadata for s3 dataset")
+                    logger.debug(
+                        f"Is schema_metadata_for_s3 true? {bool(schema_metadata_for_s3)}"
+                    )
+                    logger.debug(f"Is schema_metadata true? {bool(schema_metadata)}")
+                    logger.debug(
+                        f"Include column lineage? {self.source_config.include_column_lineage}"
+                    )
+                    logger.debug(
+                        f"S3 lineage direction: {self.source_config.glue_s3_lineage_direction}"
+                    )
 
                     if self.source_config.glue_s3_lineage_direction == "upstream":
+                        logger.debug("Emitting s3 glue lineage direction upstream")
                         fine_grained_lineages = None
                         if (
                             self.source_config.include_column_lineage
                             and schema_metadata
                             and schema_metadata_for_s3
                         ):
+                            logger.debug("Decided to emit fine grained lineage")
                             fine_grained_lineages = self.get_fine_grained_lineages(
                                 mce.proposedSnapshot.urn,
                                 s3_dataset_urn,
@@ -783,6 +806,7 @@ class GlueSource(StatefulIngestionSourceBase):
                             aspect=upstream_lineage,
                         ).as_workunit()
                     else:
+                        logger.debug("Emitting s3 glue lineage direction downstream")
                         # Need to mint the s3 dataset with upstream lineage from it to glue
                         upstream_lineage = UpstreamLineageClass(
                             upstreams=[
@@ -810,8 +834,16 @@ class GlueSource(StatefulIngestionSourceBase):
 
         if schema_metadata and schema_metadata_for_s3:
             fine_grained_lineages: List[FineGrainedLineageClass] = []
+            logger.debug("Starting fine grained lineage extraction")
+            logger.debug(f"S3 fields: {schema_metadata_for_s3.fields}")
+            logger.debug(
+                f"Simplified S3 fields: {[simplify_field_path(f.fieldPath) for f in schema_metadata_for_s3.fields]}"
+            )
+            logger.debug(f"Glue fields: {schema_metadata.fields}")
             for field in schema_metadata.fields:
+                logger.debug(f"Processing glue field: {field.fieldPath}")
                 field_path_v1 = simplify_field_path(field.fieldPath)
+                logger.debug(f"Simplified field path: {field_path_v1}")
                 matching_s3_field = next(
                     (
                         f
@@ -821,6 +853,7 @@ class GlueSource(StatefulIngestionSourceBase):
                     None,
                 )
                 if matching_s3_field:
+                    logger.debug("Found matching s3 field, adding CLL!")
                     fine_grained_lineages.append(
                         FineGrainedLineageClass(
                             downstreamType=FineGrainedLineageDownstreamTypeClass.FIELD,
