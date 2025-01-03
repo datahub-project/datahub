@@ -33,7 +33,10 @@ dependencies {
 
 graphqlCodegen {
     // For options: https://github.com/kobylynskyi/graphql-java-codegen/blob/master/docs/codegen-options.md
-    graphqlSchemaPaths = fileTree(dir: "${projectDir}/src/main/resources", include: '**/*.graphql').collect { it.absolutePath }
+    graphqlSchemaPaths = (
+        fileTree(dir: "${projectDir}/src/main/resources", include: "*.graphql").files +
+        fileTree(dir: "${projectDir}/src/main/resources/graphql/schema", include: "**/*.graphql").files
+    ).collect { it.absolutePath }
     outputDir = new File("${projectDir}/src/mainGeneratedGraphQL/java")
     packageName = "com.linkedin.datahub.graphql.generated"
     generateToString = true
@@ -44,6 +47,37 @@ graphqlCodegen {
         Long: "Long",
         Float: "Float"
     ]
+}
+
+task debugSchemaLoading {
+    doLast {
+
+        def extensions = fileTree(dir: "${projectDir}/src/main/resources/graphql/schema")
+            .include("**/*.graphql")
+            .files
+
+        println "\nExtensions found:"
+        extensions.each { file ->
+            println "- ${file.absolutePath}"
+        }
+    }
+}
+
+task listGraphQLFiles {
+    doLast {
+        def baseFiles = fileTree(dir: "${projectDir}/src/main/resources", include: "*.graphql")
+        def extensionFiles = fileTree(dir: "${projectDir}/src/main/resources/graphql/schema", include: "**/*.graphql")
+
+        println "\nBase GraphQL files found:"
+        baseFiles.each { file ->
+            println "- ${file.absolutePath}"
+        }
+
+        println "\nExtension GraphQL files found:"
+        extensionFiles.each { file ->
+            println "- ${file.absolutePath}"
+        }
+    }
 }
 
 clean {
