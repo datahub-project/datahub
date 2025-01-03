@@ -19,6 +19,7 @@ import { EntityActionItem } from '../shared/entity/EntityActions';
 import { SidebarDomainSection } from '../shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { PageRoutes } from '../../../conf/Global';
 import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
+import { SidebarTagsSection } from '../shared/containers/profile/sidebar/SidebarTagsSection';
 
 /**
  * Definition of the DataHub Dataset entity.
@@ -125,6 +126,13 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             component: SidebarOwnerSection,
         },
         {
+            component: SidebarTagsSection,
+            properties: {
+                hasTags: true,
+                hasTerms: false,
+            },
+        },
+        {
             component: SidebarDomainSection,
             properties: {
                 hideOwnerType: true,
@@ -156,6 +164,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
                 description={data?.properties?.description || ''}
                 owners={data?.ownership?.owners}
                 domain={data.domain?.domain}
+                globalTags={data.globalTags}
             />
         );
     };
@@ -181,6 +190,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             EntityCapabilityType.OWNERS,
             EntityCapabilityType.DEPRECATION,
             EntityCapabilityType.SOFT_DELETE,
+            EntityCapabilityType.TAGS,
         ]);
     };
 
