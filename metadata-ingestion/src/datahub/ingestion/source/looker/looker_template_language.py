@@ -198,9 +198,9 @@ class LookMLViewTransformer(ABC):
     def transform(self, view: dict) -> dict:
         value_to_transform: Optional[str] = None
 
-        # is_attribute_supported check is required because not all transformer works on all attributes in current
-        # case mostly all transformer works on sql_table_name and derived.sql attributes,
-        # however IncompleteSqlTransformer only transform the derived.sql attribute
+        # is_attribute_supported check is required because not all transformers work on all attributes in the current
+        #  case, mostly all transformers work on sql_table_name and derived.sql attributes;
+        # however, IncompleteSqlTransformer only transform the derived.sql attribute
         if SQL_TABLE_NAME in view and self.is_attribute_supported(SQL_TABLE_NAME):
             # Give precedence to already processed transformed view.sql_table_name to apply more transformation
             value_to_transform = view.get(
@@ -287,7 +287,7 @@ class IncompleteSqlTransformer(LookMLViewTransformer):
 
 class DropDerivedViewPatternTransformer(LookMLViewTransformer):
     """
-    drop ${} from datahub_transformed_sql_table_name and  view["derived_table"]["datahub_transformed_sql_table_name"] values.
+    drop ${} from datahub_transformed_sql_table_name and view["derived_table"]["datahub_transformed_sql_table_name"] values.
 
     Example: transform ${employee_income_source.SQL_TABLE_NAME} to employee_income_source.SQL_TABLE_NAME
     """
@@ -333,6 +333,26 @@ class LookMlIfCommentTransformer(LookMLViewTransformer):
 
     def _apply_transformation(self, value: str, view: dict) -> str:
         return self._apply_regx(value)
+
+
+class LookmlParameterTransformer(LookMLViewTransformer):
+    """
+    Replace the lookml parameter @{variable} with their values.
+    """
+
+    PATTERN = r"@{(\w+)}"
+
+    def resolve_lookml_parameter(self, text: str) -> str:
+        return re.sub(
+            LookmlParameterTransformer.PATTERN,
+            lambda match: self.source_config.liquid_variable.get(
+                match.group(1), match.group(0)
+            ),  # Replace or keep original
+            text,
+        )
+
+    def _apply_transformation(self, value: str, view: dict) -> str:
+        return self.resolve_lookml_parameter(text=value)
 
 
 class TransformedLookMlView:
@@ -401,6 +421,9 @@ def process_lookml_template_language(
         LiquidVariableTransformer(
             source_config=source_config
         ),  # Now resolve liquid variables
+        LookmlParameterTransformer(
+            source_config=source_config
+        ),  # Remove @{variable} with its corresponding value
         DropDerivedViewPatternTransformer(
             source_config=source_config
         ),  # Remove any ${} symbol
