@@ -1219,25 +1219,22 @@ class TableauSiteSource:
             )
 
         except REAUTHENTICATE_ERRORS as e:
-            self.report.tableau_server_error_stats[str(type(e))] += 1
+            self.report.tableau_server_error_stats[e.__class__.__name__] += 1
             if not retry_on_auth_error or retries_remaining <= 0:
                 raise
 
-            # If ingestion has been running for over 2 hours, the Tableau
-            # temporary credentials will expire. If this happens, this exception
-            # will be thrown, and we need to re-authenticate and retry.
+            # We have been getting some irregular authorization errors like below well before the expected expiry time
+            # - within few seconds of initial authentication . We'll retry without re-auth for such cases.
+            # <class 'tableauserverclient.server.endpoint.exceptions.NonXMLResponseError'>:
+            # b'{"timestamp":"xxx","status":401,"error":"Unauthorized","path":"/relationship-service-war/graphql"}'
             if self.report.last_authenticated_at and (
-                self.report.last_authenticated_at
-                < datetime.now(timezone.utc) - REGULAR_AUTH_EXPIRY_PERIOD
+                datetime.now(timezone.utc) - self.report.last_authenticated_at
+                > REGULAR_AUTH_EXPIRY_PERIOD
             ):
+                # If ingestion has been running for over 2 hours, the Tableau
+                # temporary credentials will expire. If this happens, this exception
+                # will be thrown, and we need to re-authenticate and retry.
                 self._re_authenticate()
-                retry_on_auth_error = False
-            else:
-                # We have been getting some irregular auth errors like below well before the expected expiry time
-                # - within few seconds of initial authentication . We'll retry for such cases.
-                # <class 'tableauserverclient.server.endpoint.exceptions.NonXMLResponseError'>:
-                # b'{"timestamp":"xxx","status":401,"error":"Unauthorized","path":"/relationship-service-war/graphql"}'
-                retry_on_auth_error = True
 
             return self.get_connection_object_page(
                 query=query,
@@ -1245,12 +1242,12 @@ class TableauSiteSource:
                 query_filter=query_filter,
                 fetch_size=fetch_size,
                 current_cursor=current_cursor,
-                retry_on_auth_error=retry_on_auth_error,
+                retry_on_auth_error=True,
                 retries_remaining=retries_remaining - 1,
             )
 
         except InternalServerError as ise:
-            self.report.tableau_server_error_stats[str(InternalServerError)] += 1
+            self.report.tableau_server_error_stats[InternalServerError.__name__] += 1
             # In some cases Tableau Server returns 504 error, which is a timeout error, so it worths to retry.
             # Extended with other retryable errors.
             if ise.code in RETRIABLE_ERROR_CODES:
@@ -1270,7 +1267,7 @@ class TableauSiteSource:
                 raise ise
 
         except OSError:
-            self.report.tableau_server_error_stats[str(OSError)] += 1
+            self.report.tableau_server_error_stats[OSError.__name__] += 1
             # In tableauseverclient 0.26 (which was yanked and released in 0.28 on 2023-10-04),
             # the request logic was changed to use threads.
             # https://github.com/tableau/server-client-python/commit/307d8a20a30f32c1ce615cca7c6a78b9b9bff081
