@@ -1230,6 +1230,7 @@ class TableauSiteSource:
                 self.report.last_authenticated_at
                 < datetime.now(timezone.utc) - REGULAR_AUTH_EXPIRY_PERIOD
             ):
+                self._re_authenticate()
                 retry_on_auth_error = False
             else:
                 # We have been getting some irregular auth errors like below well before the expected expiry time
@@ -1237,8 +1238,6 @@ class TableauSiteSource:
                 # <class 'tableauserverclient.server.endpoint.exceptions.NonXMLResponseError'>:
                 # b'{"timestamp":"xxx","status":401,"error":"Unauthorized","path":"/relationship-service-war/graphql"}'
                 retry_on_auth_error = True
-
-            self._re_authenticate()
 
             return self.get_connection_object_page(
                 query=query,
