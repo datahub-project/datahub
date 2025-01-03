@@ -1,7 +1,7 @@
 [
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:468942078fbf3593a3c0e16dd2c38504",
+    "entityUrn": "urn:li:container:6ed6e3cf6beb699d76826218b75c9bf8",
     "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
@@ -19,18 +19,35 @@
                 "defaultTransactionIsolation": "4"
             },
             "name": "test",
-            "description": "Schema test"
+            "description": "test"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735657117997,
-        "runId": "jdbc-2024_12_31-14_58_34-n9mk4c",
+        "lastObserved": 1735920237367,
+        "runId": "jdbc-2025_01_03-16_03_52-aygdg6",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:468942078fbf3593a3c0e16dd2c38504",
+    "entityUrn": "urn:li:container:6ed6e3cf6beb699d76826218b75c9bf8",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:mysql",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,test)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1735920237368,
+        "runId": "jdbc-2025_01_03-16_03_52-aygdg6",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:6ed6e3cf6beb699d76826218b75c9bf8",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -41,31 +58,14 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735657117997,
-        "runId": "jdbc-2024_12_31-14_58_34-n9mk4c",
+        "lastObserved": 1735920237369,
+        "runId": "jdbc-2025_01_03-16_03_52-aygdg6",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "container",
-    "entityUrn": "urn:li:container:468942078fbf3593a3c0e16dd2c38504",
-    "changeType": "UPSERT",
-    "aspectName": "dataPlatformInstance",
-    "aspect": {
-        "json": {
-            "platform": "urn:li:dataPlatform:mysql",
-            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,test)"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1735657117997,
-        "runId": "jdbc-2024_12_31-14_58_34-n9mk4c",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:468942078fbf3593a3c0e16dd2c38504",
+    "entityUrn": "urn:li:container:6ed6e3cf6beb699d76826218b75c9bf8",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -74,8 +74,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735657117998,
-        "runId": "jdbc-2024_12_31-14_58_34-n9mk4c",
+        "lastObserved": 1735920237369,
+        "runId": "jdbc-2025_01_03-16_03_52-aygdg6",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -165,9 +165,6 @@
                     "isPartOfKey": false
                 }
             ],
-            "primaryKeys": [
-                "id"
-            ],
             "foreignKeys": [
                 {
                     "name": "orders_ibfk_1",
@@ -183,8 +180,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735825559782,
-        "runId": "jdbc-2025_01_02-13_45_55-r569dz",
+        "lastObserved": 1735920237632,
+        "runId": "jdbc-2025_01_03-16_03_52-aygdg6",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -251,12 +248,12 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:468942078fbf3593a3c0e16dd2c38504"
+            "container": "urn:li:container:6ed6e3cf6beb699d76826218b75c9bf8"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735814854001,
-        "runId": "jdbc-2025_01_02-10_47_29-tom1e4",
+        "lastObserved": 1735920237646,
+        "runId": "jdbc-2025_01_03-16_03_52-aygdg6",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -267,12 +264,12 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:468942078fbf3593a3c0e16dd2c38504"
+            "container": "urn:li:container:6ed6e3cf6beb699d76826218b75c9bf8"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735814853993,
-        "runId": "jdbc-2025_01_02-10_47_29-tom1e4",
+        "lastObserved": 1735920237633,
+        "runId": "jdbc-2025_01_03-16_03_52-aygdg6",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -448,9 +445,6 @@
                     "isPartOfKey": false
                 }
             ],
-            "primaryKeys": [
-                "id"
-            ],
             "foreignKeys": [
                 {
                     "name": "orders_ibfk_1",
@@ -466,8 +460,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735825559788,
-        "runId": "jdbc-2025_01_02-13_45_55-r569dz",
+        "lastObserved": 1735920237637,
+        "runId": "jdbc-2025_01_03-16_03_52-aygdg6",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -601,7 +595,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1735825640055,
+                        "time": 1735922064629,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -613,7 +607,7 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 1735825640055,
+                        "time": 1735922064629,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -673,8 +667,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735825640056,
-        "runId": "jdbc-2025_01_02-13_47_14-1s6uk7",
+        "lastObserved": 1735922064630,
+        "runId": "jdbc-2025_01_03-16_34_18-yc3794",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -685,12 +679,12 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:468942078fbf3593a3c0e16dd2c38504"
+            "container": "urn:li:container:6ed6e3cf6beb699d76826218b75c9bf8"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735814853997,
-        "runId": "jdbc-2025_01_02-10_47_29-tom1e4",
+        "lastObserved": 1735920237640,
+        "runId": "jdbc-2025_01_03-16_03_52-aygdg6",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -719,12 +713,12 @@
     "aspectName": "container",
     "aspect": {
         "json": {
-            "container": "urn:li:container:468942078fbf3593a3c0e16dd2c38504"
+            "container": "urn:li:container:6ed6e3cf6beb699d76826218b75c9bf8"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735814854006,
-        "runId": "jdbc-2025_01_02-10_47_29-tom1e4",
+        "lastObserved": 1735920237652,
+        "runId": "jdbc-2025_01_03-16_03_52-aygdg6",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -2603,7 +2597,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1735825640057,
+                        "time": 1735922064631,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -2615,7 +2609,7 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 1735825640057,
+                        "time": 1735922064631,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -2675,8 +2669,8 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1735825640058,
-        "runId": "jdbc-2025_01_02-13_47_14-1s6uk7",
+        "lastObserved": 1735922064631,
+        "runId": "jdbc-2025_01_03-16_34_18-yc3794",
         "lastRunId": "no-run-id-provided"
     }
 },

@@ -1,0 +1,26 @@
+version: '3.8'
+services:
+  mssql:
+    container_name: testmssql
+    image: mcr.microsoft.com/mssql/server:2019-latest
+    platform: linux/amd64
+    environment:
+      ACCEPT_EULA: Y
+      SA_PASSWORD: Password123!
+      MSSQL_PID: Developer
+    ports:
+      - "41433:1433"
+    networks:
+      jdbc-network:
+    volumes:
+      - ./setup/mssql/init.sql:/setup/init.sql
+      - ./setup/mssql/entrypoint.sh:/setup/entrypoint.sh
+    command: /bin/bash /setup/entrypoint.sh
+    healthcheck:
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "Password123!" -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  jdbc-network:

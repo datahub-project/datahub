@@ -1,0 +1,18 @@
+version: '3.8'
+services:
+  mysql:
+    container_name: testmysql
+    image: mysql:8.0
+    platform: linux/amd64
+    environment:
+      MYSQL_ROOT_PASSWORD: example
+      MYSQL_DATABASE: test
+    ports:
+      - "43306:3306"
+    networks:
+      jdbc-network:
+    volumes:
+      - ./setup/mysql:/docker-entrypoint-initdb.d
+
+networks:
+  jdbc-network:

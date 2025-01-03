@@ -1,0 +1,23 @@
+version: '3.8'
+services:
+  postgres:
+    container_name: testpostgres
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: test
+    ports:
+      - "45432:5432"
+    networks:
+      jdbc-network:
+    volumes:
+      - ./setup/postgres:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  jdbc-network:
