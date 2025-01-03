@@ -1,6 +1,7 @@
+import FeatureAvailability from '@site/src/components/FeatureAvailability';
+
 # Business Attributes
 
-import FeatureAvailability from '@site/src/components/FeatureAvailability';
 <FeatureAvailability ossOnly />
 
 >**Note:** This is <b>BETA</b> feature
