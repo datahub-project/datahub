@@ -642,6 +642,7 @@ class SiteIdContentUrl:
     site_content_url: str
 
 
+@dataclass
 class TableauSourceReport(StaleEntityRemovalSourceReport):
     get_all_datasources_query_failed: bool = False
     num_get_datasource_query_failures: int = 0
@@ -658,7 +659,7 @@ class TableauSourceReport(StaleEntityRemovalSourceReport):
     num_upstream_table_lineage_failed_parse_sql: int = 0
     num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
     num_hidden_assets_skipped: int = 0
-    logged_in_user: List[UserInfo] = []
+    logged_in_user: List[UserInfo] = dataclass_field(default_factory=list)
     last_authenticated_at: Optional[datetime] = None
 
     num_expected_tableau_metadata_queries: int = 0
