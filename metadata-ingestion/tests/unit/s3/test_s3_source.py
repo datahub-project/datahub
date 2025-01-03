@@ -1,4 +1,5 @@
 from typing import List, Tuple
+from unittest.mock import Mock
 
 import pytest
 
@@ -6,7 +7,10 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.s3.source import partitioned_folder_comparator
+from datahub.ingestion.source.s3.source import (
+    _group_s3_objects_by_dirname,
+    partitioned_folder_comparator,
+)
 
 
 def test_partition_comparator_numeric_folder_name():
@@ -240,3 +244,18 @@ def test_container_generation_with_multiple_folders():
         "folder_abs_path": "my-bucket/my-dir/my-dir2",
         "platform": "s3",
     }
+
+
+def test_group_s3_objects_by_dirname():
+    s3_objects = [
+        Mock(key="/dir1/file1.txt"),
+        Mock(key="/dir1/file2.txt"),
+        Mock(key="/dir2/file3.txt"),
+        Mock(key="/dir2/file4.txt"),
+    ]
+
+    grouped_objects = _group_s3_objects_by_dirname(s3_objects)
+
+    assert len(grouped_objects) == 2
+    assert grouped_objects["/dir1"] == [s3_objects[0], s3_objects[1]]
+    assert grouped_objects["/dir2"] == [s3_objects[2], s3_objects[3]]

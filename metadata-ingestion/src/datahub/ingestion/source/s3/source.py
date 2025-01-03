@@ -5,8 +5,8 @@ import os
 import pathlib
 import re
 import time
+from collections import defaultdict
 from datetime import datetime
-from itertools import groupby
 from pathlib import PurePath
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 from urllib.parse import urlparse
@@ -137,6 +137,14 @@ def partitioned_folder_comparator(folder1: str, folder2: str) -> int:
             return 0
         else:
             return 1 if folder1 > folder2 else -1
+
+
+def _group_s3_objects_by_dirname(s3_objects: Any) -> Dict[str, List[Any]]:
+    grouped_objects = defaultdict(list)
+    for obj in s3_objects:
+        dirname = obj.key.rsplit("/", 1)[0]
+        grouped_objects[dirname].append(obj)
+    return grouped_objects
 
 
 @dataclasses.dataclass
@@ -863,16 +871,9 @@ class S3Source(StatefulIngestionSourceBase):
         Returns:
         List[Folder]: A list of Folder objects representing the partitions found.
         """
-
-        prefix_to_list = prefix
-        files = list(
-            bucket.objects.filter(Prefix=f"{prefix_to_list}").page_size(PAGE_SIZE)
-        )
-        files = sorted(files, key=lambda a: a.last_modified)
-        grouped_files = groupby(files, lambda x: x.key.rsplit("/", 1)[0])
-
         partitions: List[Folder] = []
-        for key, group in grouped_files:
+        s3_objects = bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE)
+        for key, group in _group_s3_objects_by_dirname(s3_objects).items():
             file_size = 0
             creation_time = None
             modification_time = None
