@@ -105,6 +105,8 @@ class SoftDeletedEntitiesReport(SourceReport):
     sample_hard_deleted_aspects_by_type: TopKDict[str, LossyList[str]] = field(
         default_factory=TopKDict
     )
+    runtime_limit_reached: bool = False
+    deletion_limit_reached: bool = False
 
 
 class SoftDeletedEntitiesCleanup:
@@ -207,8 +209,8 @@ class SoftDeletedEntitiesCleanup:
             if future.exception():
                 self.report.failure(
                     title="Failed to delete entity",
-                    message=futures[future],
-                    context=str(futures[future]),
+                    message="Failed to delete entity",
+                    context=futures[future],
                     exc=future.exception(),
                 )
             self.report.num_soft_deleted_entity_processed += 1
@@ -280,9 +282,8 @@ class SoftDeletedEntitiesCleanup:
             self.config.runtime_limit_seconds
             and time.time() - self.start_time > self.config.runtime_limit_seconds
         ):
-            logger.info(
-                f"Runtime limit of {self.config.runtime_limit_seconds} seconds reached"
-            )
+            with self._report_lock:
+                self.report.runtime_limit_reached = True
             return True
         return False
 
@@ -291,9 +292,8 @@ class SoftDeletedEntitiesCleanup:
             self.config.limit_entities_delete
             and self.report.num_hard_deleted > self.config.limit_entities_delete
         ):
-            logger.info(
-                f"Limit of {self.config.limit_entities_delete} entities reached"
-            )
+            with self._report_lock:
+                self.report.deletion_limit_reached = True
             return True
         return False
 

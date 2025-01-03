@@ -141,7 +141,9 @@ class DatahubExecutionRequestCleanup:
                 break
             if self.report.ergc_read_errors >= self.config.max_read_errors:
                 self.report.failure(
-                    f"ergc({self.instance_id}): too many read errors, aborting."
+                    title="Too many read errors, aborting",
+                    message="Too many read errors, aborting",
+                    context=str(self.instance_id),
                 )
                 break
             try:
@@ -159,8 +161,8 @@ class DatahubExecutionRequestCleanup:
                 params["scrollId"] = document["scrollId"]
             except Exception as e:
                 self.report.failure(
-                    title="failed to fetch next batch of execution requests",
-                    message="failed to fetch next batch of execution requests",
+                    title="Failed to fetch next batch of execution requests",
+                    message="Failed to fetch next batch of execution requests",
                     context=str(self.instance_id),
                     exc=e,
                 )
@@ -235,8 +237,8 @@ class DatahubExecutionRequestCleanup:
         except Exception as e:
             self.report.ergc_delete_errors += 1
             self.report.failure(
-                title="failed to delete ExecutionRequest",
-                message="failed to delete ExecutionRequest",
+                title="Failed to delete ExecutionRequest",
+                message="Failed to delete ExecutionRequest",
                 context=str(self.instance_id),
                 exc=e,
             )
