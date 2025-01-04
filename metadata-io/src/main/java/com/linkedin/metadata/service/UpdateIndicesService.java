@@ -131,13 +131,20 @@ public class UpdateIndicesService implements SearchIndicesService {
           Stream.concat(Stream.of(batch), sideEffects).collect(Collectors.toList())) {
         MetadataChangeLog hookEvent = mclItem.getMetadataChangeLog();
         if (UPDATE_CHANGE_TYPES.contains(hookEvent.getChangeType())) {
-          handleUpdateChangeEvent(opContext, mclItem);
+          // non-system metadata
+          handleUpdateChangeEvent(opContext, mclItem, false);
+          // graph update
+          updateGraphIndicesService.handleChangeEvent(opContext, event);
+          // system metadata is last for tracing
+          handleUpdateChangeEvent(opContext, mclItem, true);
         } else if (hookEvent.getChangeType() == ChangeType.DELETE) {
-          handleDeleteChangeEvent(opContext, mclItem);
+          // non-system metadata
+          handleDeleteChangeEvent(opContext, mclItem, false);
+          // graph update
+          updateGraphIndicesService.handleChangeEvent(opContext, event);
+          // system metadata is last for tracing
+          handleDeleteChangeEvent(opContext, mclItem, true);
         }
-
-        // graph update
-        updateGraphIndicesService.handleChangeEvent(opContext, event);
       }
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -154,7 +161,8 @@ public class UpdateIndicesService implements SearchIndicesService {
    * @param event the change event to be processed.
    */
   private void handleUpdateChangeEvent(
-      @Nonnull OperationContext opContext, @Nonnull final MCLItem event) throws IOException {
+      @Nonnull OperationContext opContext, @Nonnull final MCLItem event, boolean forSystemMetadata)
+      throws IOException {
 
     final EntitySpec entitySpec = event.getEntitySpec();
     final AspectSpec aspectSpec = event.getAspectSpec();
@@ -163,32 +171,34 @@ public class UpdateIndicesService implements SearchIndicesService {
     RecordTemplate aspect = event.getRecordTemplate();
     RecordTemplate previousAspect = event.getPreviousRecordTemplate();
 
-    // Step 0. If the aspect is timeseries, add to its timeseries index.
-    if (aspectSpec.isTimeseries()) {
-      updateTimeseriesFields(
-          opContext,
-          urn.getEntityType(),
-          event.getAspectName(),
-          urn,
-          aspect,
-          aspectSpec,
-          event.getSystemMetadata());
-    } else {
+    if (!forSystemMetadata) {
+      // Step 0. If the aspect is timeseries, add to its timeseries index.
+      if (aspectSpec.isTimeseries()) {
+        updateTimeseriesFields(
+            opContext,
+            urn.getEntityType(),
+            event.getAspectName(),
+            urn,
+            aspect,
+            aspectSpec,
+            event.getSystemMetadata());
+      }
+
+      try {
+        // Step 1. Handle StructuredProperties Index Mapping changes
+        updateIndexMappings(urn, entitySpec, aspectSpec, aspect, previousAspect);
+      } catch (Exception e) {
+        log.error("Issue with updating index mappings for structured property change", e);
+      }
+
+      // Step 2. For all aspects, attempt to update Search
+      updateSearchService(opContext, event);
+    } else if (forSystemMetadata && !aspectSpec.isTimeseries()) {
       // Inject into the System Metadata Index when an aspect is non-timeseries only.
       // TODO: Verify whether timeseries aspects can be dropped into System Metadata as well
       // without impacting rollbacks.
       updateSystemMetadata(event.getSystemMetadata(), urn, aspectSpec, aspect);
     }
-
-    try {
-      // Step 1. Handle StructuredProperties Index Mapping changes
-      updateIndexMappings(urn, entitySpec, aspectSpec, aspect, previousAspect);
-    } catch (Exception e) {
-      log.error("Issue with updating index mappings for structured property change", e);
-    }
-
-    // Step 2. For all aspects, attempt to update Search
-    updateSearchService(opContext, event);
   }
 
   public void updateIndexMappings(
@@ -245,7 +255,9 @@ public class UpdateIndicesService implements SearchIndicesService {
    * @param event the change event to be processed.
    */
   private void handleDeleteChangeEvent(
-      @Nonnull OperationContext opContext, @Nonnull final MCLItem event) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final MCLItem event,
+      boolean forSystemMetadata) {
 
     final EntitySpec entitySpec = event.getEntitySpec();
     final Urn urn = event.getUrn();
@@ -262,8 +274,11 @@ public class UpdateIndicesService implements SearchIndicesService {
     Boolean isDeletingKey = event.getAspectName().equals(entitySpec.getKeyAspectName());
 
     if (!aspectSpec.isTimeseries()) {
-      deleteSystemMetadata(urn, aspectSpec, isDeletingKey);
-      deleteSearchData(opContext, urn, entitySpec.getName(), aspectSpec, aspect, isDeletingKey);
+      if (!forSystemMetadata) {
+        deleteSearchData(opContext, urn, entitySpec.getName(), aspectSpec, aspect, isDeletingKey);
+      } else {
+        deleteSystemMetadata(urn, aspectSpec, isDeletingKey);
+      }
     }
   }
 

@@ -701,6 +701,7 @@ module.exports = {
         "docs/browseV2/browse-paths-v2",
         "docs/plugins",
         "docs/advanced/bootstrap-mcps",
+        "docs/advanced/api-tracing",
       ],
     },
     {

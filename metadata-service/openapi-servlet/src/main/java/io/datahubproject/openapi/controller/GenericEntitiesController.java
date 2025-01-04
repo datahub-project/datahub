@@ -55,6 +55,7 @@ import io.datahubproject.openapi.exception.UnauthorizedException;
 import io.datahubproject.openapi.models.GenericAspect;
 import io.datahubproject.openapi.models.GenericEntity;
 import io.datahubproject.openapi.models.GenericEntityScrollResult;
+import io.datahubproject.openapi.util.RequestInputUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
@@ -128,7 +129,8 @@ public abstract class GenericEntitiesController<
       throws URISyntaxException {
 
     LinkedHashMap<Urn, Map<AspectSpec, Long>> aspectSpecMap =
-        resolveAspectSpecs(
+        RequestInputUtil.resolveAspectSpecs(
+            entityRegistry,
             urns.stream()
                 .map(
                     urn ->
@@ -398,8 +400,11 @@ public abstract class GenericEntitiesController<
           buildEntityVersionedAspectList(
               opContext,
               List.of(urn),
-              resolveAspectSpecs(
-                  new LinkedHashMap<>(Map.of(urn, Map.of(aspectName, version))), 0L, true),
+              RequestInputUtil.resolveAspectSpecs(
+                  entityRegistry,
+                  new LinkedHashMap<>(Map.of(urn, Map.of(aspectName, version))),
+                  0L,
+                  true),
               withSystemMetadata,
               true);
     }
@@ -634,7 +639,7 @@ public abstract class GenericEntitiesController<
           authentication.getActor().toUrnStr() + " is unauthorized to " + CREATE + " entities.");
     }
 
-    AspectSpec aspectSpec = lookupAspectSpec(entitySpec, aspectName).get();
+    AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
     ChangeMCP upsert =
         toUpsertItem(
             opContext.getRetrieverContext().getAspectRetriever(),
@@ -713,7 +718,7 @@ public abstract class GenericEntitiesController<
           authentication.getActor().toUrnStr() + " is unauthorized to " + UPDATE + " entities.");
     }
 
-    AspectSpec aspectSpec = lookupAspectSpec(entitySpec, aspectName).get();
+    AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
     RecordTemplate currentValue = entityService.getAspect(opContext, urn, aspectSpec.getName(), 0);
 
     GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate =
@@ -761,69 +766,6 @@ public abstract class GenericEntitiesController<
             opContext, urn, aspect, includeSoftDelete != null ? includeSoftDelete : false);
   }
 
-  /**
-   * Given a map with aspect names from the API, normalized them into actual aspect names (casing
-   * fixes)
-   *
-   * @param requestedAspectNames requested aspects
-   * @param <T> map values
-   * @param expandEmpty whether to expand empty aspect names to all aspect names
-   * @return updated map
-   */
-  protected <T> LinkedHashMap<Urn, Map<AspectSpec, T>> resolveAspectSpecs(
-      LinkedHashMap<Urn, Map<String, T>> requestedAspectNames,
-      @Nonnull T defaultValue,
-      boolean expandEmpty) {
-    return requestedAspectNames.entrySet().stream()
-        .map(
-            entry -> {
-              final Urn urn = entry.getKey();
-              if (expandEmpty && (entry.getValue().isEmpty() || entry.getValue().containsKey(""))) {
-                // All aspects specified
-                Set<AspectSpec> allNames =
-                    new HashSet<>(
-                        entityRegistry.getEntitySpec(urn.getEntityType()).getAspectSpecs());
-                return Map.entry(
-                    urn,
-                    allNames.stream()
-                        .map(
-                            aspectName ->
-                                Map.entry(
-                                    aspectName, entry.getValue().getOrDefault("", defaultValue)))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
-              } else if (!entry.getValue().keySet().isEmpty()) {
-                final Map<String, AspectSpec> normalizedNames =
-                    entry.getValue().keySet().stream()
-                        .map(
-                            requestAspectName ->
-                                Map.entry(
-                                    requestAspectName, lookupAspectSpec(urn, requestAspectName)))
-                        .filter(aspectSpecEntry -> aspectSpecEntry.getValue().isPresent())
-                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().get()));
-                return Map.entry(
-                    urn,
-                    entry.getValue().entrySet().stream()
-                        .filter(reqEntry -> normalizedNames.containsKey(reqEntry.getKey()))
-                        .map(
-                            reqEntry ->
-                                Map.entry(
-                                    normalizedNames.get(reqEntry.getKey()), reqEntry.getValue()))
-                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
-              } else {
-                return (Map.Entry<Urn, Map<AspectSpec, T>>) null;
-              }
-            })
-        .filter(Objects::nonNull)
-        .collect(
-            Collectors.toMap(
-                Map.Entry::getKey,
-                Map.Entry::getValue,
-                (a, b) -> {
-                  throw new IllegalStateException("Duplicate key");
-                },
-                LinkedHashMap::new));
-  }
-
   protected static <T> LinkedHashMap<Urn, Map<String, T>> aspectSpecsToAspectNames(
       LinkedHashMap<Urn, Map<AspectSpec, T>> urnAspectSpecsMap, boolean timeseries) {
     return urnAspectSpecsMap.entrySet().stream()
@@ -859,7 +801,8 @@ public abstract class GenericEntitiesController<
   }
 
   protected Optional<AspectSpec> lookupAspectSpec(Urn urn, String aspectName) {
-    return lookupAspectSpec(entityRegistry.getEntitySpec(urn.getEntityType()), aspectName);
+    return RequestInputUtil.lookupAspectSpec(
+        entityRegistry.getEntitySpec(urn.getEntityType()), aspectName);
   }
 
   protected RecordTemplate toRecordTemplate(
@@ -900,23 +843,6 @@ public abstract class GenericEntitiesController<
         genericPatchTemplate,
         AuditStampUtils.createAuditStamp(actor.toUrnStr()),
         aspectRetriever);
-  }
-
-  /**
-   * Case-insensitive fallback
-   *
-   * @return
-   */
-  protected static Optional<AspectSpec> lookupAspectSpec(EntitySpec entitySpec, String aspectName) {
-    if (entitySpec == null) {
-      return Optional.empty();
-    }
-
-    return entitySpec.getAspectSpec(aspectName) != null
-        ? Optional.of(entitySpec.getAspectSpec(aspectName))
-        : entitySpec.getAspectSpecs().stream()
-            .filter(aspec -> aspec.getName().toLowerCase().equals(aspectName))
-            .findFirst();
   }
 
   protected static Urn validatedUrn(String urn) throws InvalidUrnException {
