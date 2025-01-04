@@ -2,8 +2,8 @@ package com.linkedin.metadata.search.client;
 
 import static com.datahub.util.RecordUtils.toJsonString;
 import static com.datahub.util.RecordUtils.toRecordTemplate;
+import static com.linkedin.metadata.utils.metrics.MetricUtils.CACHE_HIT_ATTR;
 
-import com.codahale.metrics.Timer;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.SearchFlags;
@@ -15,6 +15,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.cache.CacheableSearcher;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import io.opentelemetry.api.trace.Span;
 import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nonnull;
@@ -184,40 +185,42 @@ public class CachingEntitySearchService {
       @Nullable String field,
       @Nullable Filter filters,
       int limit) {
-    try (Timer.Context ignored =
-        MetricUtils.timer(this.getClass(), "getCachedAutoCompleteResults").time()) {
-      Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_AUTOCOMPLETE_CACHE_NAME);
-      AutoCompleteResult result;
-      if (enableCache(opContext.getSearchContext().getSearchFlags())) {
-        try (Timer.Context ignored2 =
-            MetricUtils.timer(this.getClass(), "getCachedAutoCompleteResults_cache").time()) {
-          Timer.Context cacheAccess =
-              MetricUtils.timer(this.getClass(), "autocomplete_cache_access").time();
-          Object cacheKey =
-              Sextet.with(
-                  opContext.getSearchContextId(),
-                  entityName,
-                  input,
-                  field,
-                  filters != null ? toJsonString(filters) : null,
-                  limit);
-          String json = cache.get(cacheKey, String.class);
-          result = json != null ? toRecordTemplate(AutoCompleteResult.class, json) : null;
-          cacheAccess.stop();
-          if (result == null) {
-            Timer.Context cacheMiss =
-                MetricUtils.timer(this.getClass(), "autocomplete_cache_miss").time();
+
+    return opContext.withSpan(
+        "getAutoCompleteResults",
+        () -> {
+          Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_AUTOCOMPLETE_CACHE_NAME);
+          AutoCompleteResult result;
+          if (enableCache(opContext.getSearchContext().getSearchFlags())) {
+
+            Object cacheKey =
+                Sextet.with(
+                    opContext.getSearchContextId(),
+                    entityName,
+                    input,
+                    field,
+                    filters != null ? toJsonString(filters) : null,
+                    limit);
+            String json = cache.get(cacheKey, String.class);
+            result = json != null ? toRecordTemplate(AutoCompleteResult.class, json) : null;
+
+            if (result == null) {
+              result =
+                  getRawAutoCompleteResults(opContext, entityName, input, field, filters, limit);
+              cache.put(cacheKey, toJsonString(result));
+              Span.current().setAttribute(CACHE_HIT_ATTR, false);
+              MetricUtils.counter(this.getClass(), "autocomplete_cache_miss_count").inc();
+            } else {
+              Span.current().setAttribute(CACHE_HIT_ATTR, true);
+            }
+          } else {
+            Span.current().setAttribute(CACHE_HIT_ATTR, false);
             result = getRawAutoCompleteResults(opContext, entityName, input, field, filters, limit);
-            cache.put(cacheKey, toJsonString(result));
-            cacheMiss.stop();
-            MetricUtils.counter(this.getClass(), "autocomplete_cache_miss_count").inc();
           }
-        }
-      } else {
-        result = getRawAutoCompleteResults(opContext, entityName, input, field, filters, limit);
-      }
-      return result;
-    }
+          return result;
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "getCachedAutoCompleteResults"));
   }
 
   /** Returns cached browse results. */
@@ -228,40 +231,40 @@ public class CachingEntitySearchService {
       @Nullable Filter filters,
       int from,
       int size) {
-    try (Timer.Context ignored =
-        MetricUtils.timer(this.getClass(), "getCachedBrowseResults").time()) {
-      Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_BROWSE_CACHE_NAME);
-      BrowseResult result;
-      if (enableCache(opContext.getSearchContext().getSearchFlags())) {
-        try (Timer.Context ignored2 =
-            MetricUtils.timer(this.getClass(), "getCachedBrowseResults_cache").time()) {
-          Timer.Context cacheAccess =
-              MetricUtils.timer(this.getClass(), "browse_cache_access").time();
-          Object cacheKey =
-              Sextet.with(
-                  opContext.getSearchContextId(),
-                  entityName,
-                  path,
-                  filters != null ? toJsonString(filters) : null,
-                  from,
-                  size);
-          String json = cache.get(cacheKey, String.class);
-          result = json != null ? toRecordTemplate(BrowseResult.class, json) : null;
-          cacheAccess.stop();
-          if (result == null) {
-            Timer.Context cacheMiss =
-                MetricUtils.timer(this.getClass(), "browse_cache_miss").time();
+
+    return opContext.withSpan(
+        "getBrowseResults",
+        () -> {
+          Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_BROWSE_CACHE_NAME);
+          BrowseResult result;
+          if (enableCache(opContext.getSearchContext().getSearchFlags())) {
+            Object cacheKey =
+                Sextet.with(
+                    opContext.getSearchContextId(),
+                    entityName,
+                    path,
+                    filters != null ? toJsonString(filters) : null,
+                    from,
+                    size);
+            String json = cache.get(cacheKey, String.class);
+            result = json != null ? toRecordTemplate(BrowseResult.class, json) : null;
+
+            if (result == null) {
+              result = getRawBrowseResults(opContext, entityName, path, filters, from, size);
+              cache.put(cacheKey, toJsonString(result));
+              Span.current().setAttribute(CACHE_HIT_ATTR, false);
+              MetricUtils.counter(this.getClass(), "browse_cache_miss_count").inc();
+            } else {
+              Span.current().setAttribute(CACHE_HIT_ATTR, true);
+            }
+          } else {
+            Span.current().setAttribute(CACHE_HIT_ATTR, false);
             result = getRawBrowseResults(opContext, entityName, path, filters, from, size);
-            cache.put(cacheKey, toJsonString(result));
-            cacheMiss.stop();
-            MetricUtils.counter(this.getClass(), "browse_cache_miss_count").inc();
           }
-        }
-      } else {
-        result = getRawBrowseResults(opContext, entityName, path, filters, from, size);
-      }
-      return result;
-    }
+          return result;
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "getCachedBrowseResults"));
   }
 
   /** Returns cached scroll results. */
@@ -274,62 +277,67 @@ public class CachingEntitySearchService {
       @Nullable String scrollId,
       @Nullable String keepAlive,
       int size) {
-    try (Timer.Context ignored =
-        MetricUtils.timer(this.getClass(), "getCachedScrollResults").time()) {
-      boolean isFullText =
-          Boolean.TRUE.equals(
-              Optional.ofNullable(opContext.getSearchContext().getSearchFlags())
-                  .orElse(new SearchFlags())
-                  .isFulltext());
-      Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME);
-      ScrollResult result;
-      if (enableCache(opContext.getSearchContext().getSearchFlags())) {
-        Timer.Context cacheAccess =
-            MetricUtils.timer(this.getClass(), "scroll_cache_access").time();
-        Object cacheKey =
-            Septet.with(
-                opContext.getSearchContextId(),
-                entities,
-                query,
-                filters != null ? toJsonString(filters) : null,
-                CollectionUtils.isNotEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
-                scrollId,
-                size);
-        String json = cache.get(cacheKey, String.class);
-        result = json != null ? toRecordTemplate(ScrollResult.class, json) : null;
-        cacheAccess.stop();
-        if (result == null) {
-          Timer.Context cacheMiss = MetricUtils.timer(this.getClass(), "scroll_cache_miss").time();
-          result =
-              getRawScrollResults(
-                  opContext,
-                  entities,
-                  query,
-                  filters,
-                  sortCriteria,
-                  scrollId,
-                  keepAlive,
-                  size,
-                  isFullText);
-          cache.put(cacheKey, toJsonString(result));
-          cacheMiss.stop();
-          MetricUtils.counter(this.getClass(), "scroll_cache_miss_count").inc();
-        }
-      } else {
-        result =
-            getRawScrollResults(
-                opContext,
-                entities,
-                query,
-                filters,
-                sortCriteria,
-                scrollId,
-                keepAlive,
-                size,
-                isFullText);
-      }
-      return result;
-    }
+
+    return opContext.withSpan(
+        "getScrollResults",
+        () -> {
+          boolean isFullText =
+              Boolean.TRUE.equals(
+                  Optional.ofNullable(opContext.getSearchContext().getSearchFlags())
+                      .orElse(new SearchFlags())
+                      .isFulltext());
+          Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME);
+          ScrollResult result;
+          if (enableCache(opContext.getSearchContext().getSearchFlags())) {
+
+            Object cacheKey =
+                Septet.with(
+                    opContext.getSearchContextId(),
+                    entities,
+                    query,
+                    filters != null ? toJsonString(filters) : null,
+                    CollectionUtils.isNotEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
+                    scrollId,
+                    size);
+            String json = cache.get(cacheKey, String.class);
+            result = json != null ? toRecordTemplate(ScrollResult.class, json) : null;
+
+            if (result == null) {
+              result =
+                  getRawScrollResults(
+                      opContext,
+                      entities,
+                      query,
+                      filters,
+                      sortCriteria,
+                      scrollId,
+                      keepAlive,
+                      size,
+                      isFullText);
+              cache.put(cacheKey, toJsonString(result));
+              Span.current().setAttribute(CACHE_HIT_ATTR, false);
+              MetricUtils.counter(this.getClass(), "scroll_cache_miss_count").inc();
+            } else {
+              Span.current().setAttribute(CACHE_HIT_ATTR, true);
+            }
+          } else {
+            Span.current().setAttribute(CACHE_HIT_ATTR, false);
+            result =
+                getRawScrollResults(
+                    opContext,
+                    entities,
+                    query,
+                    filters,
+                    sortCriteria,
+                    scrollId,
+                    keepAlive,
+                    size,
+                    isFullText);
+          }
+          return result;
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(this.getClass(), "getCachedScrollResults"));
   }
 
   /** Executes the expensive search query using the {@link EntitySearchService} */

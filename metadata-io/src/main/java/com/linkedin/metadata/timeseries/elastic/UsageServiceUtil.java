@@ -41,7 +41,6 @@ import java.net.URISyntaxException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -122,25 +121,22 @@ public class UsageServiceUtil {
     long took;
 
     // 2. Get buckets.
-    timer = MetricUtils.timer(UsageServiceUtil.class, "getBuckets").time();
     UsageAggregationArray buckets =
-        getBuckets(opContext, timeseriesAspectService, filter, resource, duration);
-    took = timer.stop();
-    log.info(
-        "Usage stats for resource {} returned {} buckets in {} ms",
-        resource,
-        buckets.size(),
-        TimeUnit.NANOSECONDS.toMillis(took));
+        opContext.withSpan(
+            "getBuckets",
+            () -> getBuckets(opContext, timeseriesAspectService, filter, resource, duration),
+            MetricUtils.DROPWIZARD_NAME,
+            MetricUtils.name(UsageServiceUtil.class, "getBuckets"));
+    log.info("Usage stats for resource {} returned {} buckets", resource, buckets.size());
 
     // 3. Get aggregations.
-    timer = MetricUtils.timer(UsageServiceUtil.class, "getAggregations").time();
     UsageQueryResultAggregations aggregations =
-        getAggregations(opContext, timeseriesAspectService, filter);
-    took = timer.stop();
-    log.info(
-        "Usage stats aggregation for resource {} took {} ms",
-        resource,
-        TimeUnit.NANOSECONDS.toMillis(took));
+        opContext.withSpan(
+            "getAggregations",
+            () -> getAggregations(opContext, timeseriesAspectService, filter),
+            MetricUtils.DROPWIZARD_NAME,
+            MetricUtils.name(UsageServiceUtil.class, "getAggregations"));
+    log.info("Usage stats aggregation for resource {}", resource);
 
     // 4. Compute totalSqlQuery count from the buckets itself.
     // We want to avoid issuing an additional query with a sum aggregation.

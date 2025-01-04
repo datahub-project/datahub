@@ -3988,18 +3988,18 @@
                   "type" : "record",
                   "name" : "MLModelProperties",
                   "namespace" : "com.linkedin.ml.metadata",
-                  "doc" : "Properties associated with a ML Model\r",
+                  "doc" : "Properties associated with a ML Model",
                   "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference", {
                     "type" : "record",
                     "name" : "MLModelLineageInfo",
-                    "doc" : "A set of re-usable fields used to capture lineage information for ML Models and ML Model Groups\r",
+                    "doc" : "A set of re-usable fields used to capture lineage information for ML Models and ML Model Groups",
                     "fields" : [ {
                       "name" : "trainingJobs",
                       "type" : {
                         "type" : "array",
                         "items" : "com.linkedin.common.Urn"
                       },
-                      "doc" : "List of jobs or process instances (if any) used to train the model or group. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.\r",
+                      "doc" : "List of jobs or process instances (if any) used to train the model or group. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.",
                       "optional" : true,
                       "Relationship" : {
                         "/*" : {
@@ -4014,7 +4014,7 @@
                         "type" : "array",
                         "items" : "com.linkedin.common.Urn"
                       },
-                      "doc" : "List of jobs or process instances (if any) that use the model or group.\r",
+                      "doc" : "List of jobs or process instances (if any) that use the model or group.",
                       "optional" : true,
                       "Relationship" : {
                         "/*" : {
@@ -4029,7 +4029,7 @@
                   "fields" : [ {
                     "name" : "name",
                     "type" : "string",
-                    "doc" : "Display name of the MLModel\r",
+                    "doc" : "Display name of the MLModel",
                     "optional" : true,
                     "Searchable" : {
                       "boostScore" : 10.0,
@@ -4040,7 +4040,7 @@
                   }, {
                     "name" : "description",
                     "type" : "string",
-                    "doc" : "Documentation of the MLModel\r",
+                    "doc" : "Documentation of the MLModel",
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT",
@@ -4049,28 +4049,28 @@
                   }, {
                     "name" : "date",
                     "type" : "com.linkedin.common.Time",
-                    "doc" : "Date when the MLModel was developed\r",
+                    "doc" : "Date when the MLModel was developed",
                     "optional" : true,
                     "deprecated" : true
                   }, {
                     "name" : "created",
                     "type" : "com.linkedin.common.TimeStamp",
-                    "doc" : "Audit stamp containing who created this and when\r",
+                    "doc" : "Audit stamp containing who created this and when",
                     "optional" : true
                   }, {
                     "name" : "lastModified",
                     "type" : "com.linkedin.common.TimeStamp",
-                    "doc" : "Date when the MLModel was last modified\r",
+                    "doc" : "Date when the MLModel was last modified",
                     "optional" : true
                   }, {
                     "name" : "version",
                     "type" : "com.linkedin.common.VersionTag",
-                    "doc" : "Version of the MLModel\r",
+                    "doc" : "Version of the MLModel",
                     "optional" : true
                   }, {
                     "name" : "type",
                     "type" : "string",
-                    "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc\r",
+                    "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT_PARTIAL"
@@ -4086,7 +4086,7 @@
                         "ref" : [ "string", "int", "float", "double", "boolean" ]
                       }
                     },
-                    "doc" : "Hyper Parameters of the MLModel\r\n\r\nNOTE: these are deprecated in favor of hyperParams\r",
+                    "doc" : "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams",
                     "optional" : true
                   }, {
                     "name" : "hyperParams",
@@ -4121,7 +4121,7 @@
                         }
                       }
                     },
-                    "doc" : "Hyperparameters of the MLModel\r",
+                    "doc" : "Hyperparameters of the MLModel",
                     "optional" : true
                   }, {
                     "name" : "trainingMetrics",
@@ -4156,7 +4156,7 @@
                         }
                       }
                     },
-                    "doc" : "Metrics of the MLModel used in training\r",
+                    "doc" : "Metrics of the MLModel used in training",
                     "optional" : true
                   }, {
                     "name" : "onlineMetrics",
@@ -4164,7 +4164,7 @@
                       "type" : "array",
                       "items" : "MLMetric"
                     },
-                    "doc" : "Metrics of the MLModel used in production\r",
+                    "doc" : "Metrics of the MLModel used in production",
                     "optional" : true
                   }, {
                     "name" : "mlFeatures",
@@ -4172,7 +4172,7 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.MLFeatureUrn"
                     },
-                    "doc" : "List of features used for MLModel training\r",
+                    "doc" : "List of features used for MLModel training",
                     "optional" : true,
                     "Relationship" : {
                       "/*" : {
@@ -4187,7 +4187,7 @@
                       "type" : "array",
                       "items" : "string"
                     },
-                    "doc" : "Tags for the MLModel\r",
+                    "doc" : "Tags for the MLModel",
                     "default" : [ ]
                   }, {
                     "name" : "deployments",
@@ -4195,7 +4195,7 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.Urn"
                     },
-                    "doc" : "Deployments for the MLModel\r",
+                    "doc" : "Deployments for the MLModel",
                     "optional" : true,
                     "Relationship" : {
                       "/*" : {
@@ -4209,7 +4209,7 @@
                       "type" : "array",
                       "items" : "com.linkedin.common.Urn"
                     },
-                    "doc" : "Groups the model belongs to\r",
+                    "doc" : "Groups the model belongs to",
                     "optional" : true,
                     "Relationship" : {
                       "/*" : {
@@ -5012,12 +5012,12 @@
                   "type" : "record",
                   "name" : "MLModelGroupProperties",
                   "namespace" : "com.linkedin.ml.metadata",
-                  "doc" : "Properties associated with an ML Model Group\r",
+                  "doc" : "Properties associated with an ML Model Group",
                   "include" : [ "com.linkedin.common.CustomProperties", "MLModelLineageInfo" ],
                   "fields" : [ {
                     "name" : "name",
                     "type" : "string",
-                    "doc" : "Display name of the MLModelGroup\r",
+                    "doc" : "Display name of the MLModelGroup",
                     "optional" : true,
                     "Searchable" : {
                       "boostScore" : 10.0,
@@ -5028,7 +5028,7 @@
                   }, {
                     "name" : "description",
                     "type" : "string",
-                    "doc" : "Documentation of the MLModelGroup\r",
+                    "doc" : "Documentation of the MLModelGroup",
                     "optional" : true,
                     "Searchable" : {
                       "fieldType" : "TEXT",
@@ -5037,23 +5037,23 @@
                   }, {
                     "name" : "createdAt",
                     "type" : "com.linkedin.common.Time",
-                    "doc" : "Date when the MLModelGroup was developed\r",
+                    "doc" : "Date when the MLModelGroup was developed",
                     "optional" : true,
                     "deprecated" : true
                   }, {
                     "name" : "created",
                     "type" : "com.linkedin.common.TimeStamp",
-                    "doc" : "Time and Actor who created the MLModelGroup\r",
+                    "doc" : "Time and Actor who created the MLModelGroup",
                     "optional" : true
                   }, {
                     "name" : "lastModified",
                     "type" : "com.linkedin.common.TimeStamp",
-                    "doc" : "Date when the MLModelGroup was last modified\r",
+                    "doc" : "Date when the MLModelGroup was last modified",
                     "optional" : true
                   }, {
                     "name" : "version",
                     "type" : "com.linkedin.common.VersionTag",
-                    "doc" : "Version of the MLModelGroup\r",
+                    "doc" : "Version of the MLModelGroup",
                     "optional" : true
                   } ],
                   "Aspect" : {
@@ -6290,6 +6290,10 @@
     }, {
       "name" : "aspect",
       "type" : "com.linkedin.entity.Aspect",
+      "optional" : true
+    }, {
+      "name" : "telemetryTraceId",
+      "type" : "string",
       "optional" : true
     } ]
   }, {

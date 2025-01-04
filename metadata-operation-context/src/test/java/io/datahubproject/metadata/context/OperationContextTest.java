@@ -28,6 +28,7 @@ public class OperationContextTest {
             null,
             TestOperationContexts.emptyActiveUsersRetrieverContext(null),
             mock(ValidationContext.class),
+            null,
             true);
 
     OperationContext opContext =

@@ -709,6 +709,17 @@ public class EntityController
       changeType = ChangeType.UPSERT;
     }
 
+    SystemMetadata systemMetadata = null;
+    if (jsonNode.has("systemMetadata")) {
+      systemMetadata =
+          EntityApiUtils.parseSystemMetadata(
+              objectMapper.writeValueAsString(jsonNode.get("systemMetadata")));
+    }
+    Map<String, String> headers = null;
+    if (jsonNode.has("headers")) {
+      headers = objectMapper.convertValue(jsonNode.get("headers"), new TypeReference<>() {});
+    }
+
     return ChangeItemImpl.builder()
         .urn(entityUrn)
         .aspectName(aspectSpec.getName())
@@ -719,6 +730,8 @@ public class EntityController
                 ByteString.copyString(aspectJson, StandardCharsets.UTF_8),
                 GenericRecordUtils.JSON,
                 aspectSpec))
+        .systemMetadata(systemMetadata)
+        .headers(headers)
         .build(aspectRetriever);
   }
 }
