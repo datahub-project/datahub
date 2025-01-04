@@ -89,20 +89,20 @@ export const SubscribeMenuAction = () => {
     const renderSubscribeIcon = () => {
         if (isFetchingSubscriptionSummary) {
             return (
-                <IconContainer>
+                <IconContainer data-testid="subscribe-action">
                     <Loading height={20} marginTop={0} />
                 </IconContainer>
             );
         }
         if (isUserSubscribed) {
             return (
-                <IconContainer>
+                <IconContainer data-testid="subscribe-action">
                     <Bell weight="fill" size={14} />
                 </IconContainer>
             );
         }
         return (
-            <IconContainer>
+            <IconContainer data-testid="subscribe-action">
                 <Bell />
             </IconContainer>
         );

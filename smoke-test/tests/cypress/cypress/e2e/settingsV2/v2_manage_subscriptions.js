@@ -57,12 +57,11 @@ describe("entity subscription test", () => {
 
     // Subscribe to dataset
     cy.goToDataset(datasetUrn, datasetName);
-    cy.clickOptionWithTestId("MoreVertOutlinedIcon");
+    cy.clickOptionWithTestId("subscribe-action");
     cy.get("ul.ant-dropdown-menu-light")
-      .find(".ant-dropdown-menu-submenu")
-      .contains("Subscribe")
+      .find(".ant-dropdown-menu-item")
+      .contains("Subscribe Me")
       .click();
-    cy.clickOptionWithTestId("subscribe-or-manage-subscription");
     cy.get(".ant-tree-checkbox").click({ multiple: true });
 
     // Slack
@@ -89,13 +88,11 @@ describe("entity subscription test", () => {
 
     // Unsubscribe from the dataset page, verify changes applied successfully
     cy.goToDataset(datasetUrn, datasetName);
-    cy.clickOptionWithTestId("MoreVertOutlinedIcon");
+    cy.clickOptionWithTestId("subscribe-action");
     cy.get("ul.ant-dropdown-menu-light")
-      .find(".ant-dropdown-menu-submenu")
-      .contains("Subscribe")
+      .find(".ant-dropdown-menu-item")
+      .contains("Unsubscribe Me")
       .click();
-    cy.clickOptionWithTestId("subscribe-or-manage-subscription").wait(1000);
-    cy.clickOptionWithTestId("cancel-button");
     cy.waitTextVisible("You have unsubscribed from this entity.").wait(3000);
     cy.goToSubscriptionsSettings();
     cy.ensureTextNotPresent(datasetName);
@@ -103,12 +100,11 @@ describe("entity subscription test", () => {
 
     // Remove subscription from my subscriptions settings page
     cy.goToDataset(datasetUrn, datasetName);
-    cy.clickOptionWithTestId("MoreVertOutlinedIcon");
+    cy.clickOptionWithTestId("subscribe-action");
     cy.get("ul.ant-dropdown-menu-light")
-      .find(".ant-dropdown-menu-submenu")
-      .contains("Subscribe")
+      .find(".ant-dropdown-menu-item")
+      .contains("Subscribe Me")
       .click();
-    cy.clickOptionWithTestId("subscribe-or-manage-subscription");
     cy.get(".ant-tree-checkbox").click({ multiple: true });
 
     // Slack
