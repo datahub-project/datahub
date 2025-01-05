@@ -1,6 +1,9 @@
+import { TestAction, TestActions } from '@src/app/automations/types';
 import { SelectPredicate, TestDefinition, TestPredicate } from '../../../types';
 import { DEFAULT_TEST_DEFINITION } from '../../types';
 import { AND, CONDITIONS, MATCH, NOT, ON, OR, RULES, TYPES } from './constants';
+import { ACTION_TYPES } from './builder/property/types/action';
+import { ValueTypeId } from './builder/property/types/values';
 
 /**
  * Recursively transforms a raw predicate block into the latest
@@ -131,6 +134,39 @@ export const serializeTestDefinition = ({ on, rules, actions }: TestDefinition) 
     });
 };
 
+export const validateActionList = (actionList?: TestAction[]): TestValidationResult | null => {
+    if (!actionList) return null;
+
+    const invalidAction = actionList.find((action) => {
+        const actionValues = action?.values;
+        const actionTypeDef = ACTION_TYPES.find((type) => type.id === action?.type);
+
+        return actionTypeDef?.valueType === ValueTypeId.URN_LIST && (!actionValues || actionValues.length < 1);
+    });
+
+    if (invalidAction) {
+        const actionTypeDef = ACTION_TYPES.find((type) => type.id === invalidAction?.type);
+        return {
+            isValid: false,
+            message: `Values cannot be empty for action type: ${actionTypeDef?.displayName}`,
+        };
+    }
+
+    return null;
+};
+
+export const validateActions = (actions?: TestActions): TestValidationResult => {
+    const passingValidation = validateActionList(actions?.passing);
+    if (passingValidation) return passingValidation;
+
+    const failingValidation = validateActionList(actions?.failing);
+    if (failingValidation) return failingValidation;
+
+    return {
+        isValid: true,
+    };
+};
+
 /**
  * Result returned after doing a shallow validation of the
  * test JSON.
@@ -151,9 +187,9 @@ export type TestValidationResult = {
  *
  * @param json the test definition, serialized as json
  */
-export const validateJsonDefinition = (json): TestValidationResult => {
+export const validateJsonDefinition = (json: string): TestValidationResult => {
     try {
-        const test = JSON.parse(json);
+        const test: TestDefinition = JSON.parse(json);
         if (!(ON in test)) {
             return {
                 isValid: false,
@@ -173,9 +209,7 @@ export const validateJsonDefinition = (json): TestValidationResult => {
                 message: "The test is missing rules criteria! ('rules')",
             };
         }
-        return {
-            isValid: true,
-        };
+        return validateActions(test.actions);
     } catch (e: unknown) {
         console.error(`Failed to parse JSON: ${e}`);
         return {

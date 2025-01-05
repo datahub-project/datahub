@@ -76,7 +76,7 @@ export const YamlStep = ({
     }, [state?.definition?.json]);
 
     const updateTestDefinition = (yaml: string): boolean => {
-        let json;
+        let json: string;
         try {
             json = yamlToJson(yaml);
         } catch (e) {
