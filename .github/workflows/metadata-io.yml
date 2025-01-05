@@ -87,9 +87,9 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./build/coverage-reports/
+          directory: ./build/coverage-reports/metadata-io/
           fail_ci_if_error: false
-          flags: all
+          flags: metadata-io
           name: metadata-io-test
           verbose: true
 

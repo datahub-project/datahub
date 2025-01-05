@@ -84,7 +84,17 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/
           fail_ci_if_error: false
-          flags: all,airflow,airflow-${{ matrix.extra_pip_extras }}
+          flags: airflow-${{ matrix.extra_pip_extras }}
+          name: pytest-airflow-${{ matrix.python-version }}-${{ matrix.extra_pip_requirements }}
+          verbose: true
+      - name: Upload coverage to Codecov with ingestion flag
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./build/coverage-reports/metadata-ingestion-modules/airflow-plugin/
+          fail_ci_if_error: false
+          flags: ingestion-airflow
           name: pytest-airflow-${{ matrix.python-version }}-${{ matrix.extra_pip_requirements }}
           verbose: true
 

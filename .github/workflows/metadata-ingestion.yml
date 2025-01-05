@@ -99,11 +99,22 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./build/coverage-reports/
+          directory: ./build/coverage-reports/metadata-ingestion/
           fail_ci_if_error: false
-          flags: all,pytest-${{ matrix.command }}
+          flags: pytest-${{ matrix.command }}
           name: pytest-${{ matrix.python-version }}-${{ matrix.command }}
           verbose: true
+      - name: Upload coverage to Codecov with ingestion flag
+        if: ${{ always() && matrix.python-version == '3.10' }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./build/coverage-reports/metadata-ingestion/
+          fail_ci_if_error: false
+          flags: ingestion
+          name: pytest-${{ matrix.python-version }}-${{ matrix.command }}
+          verbose: true
+
 
   event-file:
     runs-on: depot-ubuntu-22.04-small

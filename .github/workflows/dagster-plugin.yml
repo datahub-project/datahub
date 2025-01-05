@@ -71,7 +71,17 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/
           fail_ci_if_error: false
-          flags: all,dagster,dagster-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}
+          flags: dagster-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}
+          name: pytest-dagster
+          verbose: true
+      - name: Upload coverage to Codecov with ingestion flag
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./build/coverage-reports/metadata-ingestion-modules/dagster-plugin/
+          fail_ci_if_error: false
+          flags: ingestion-dagster-plugin
           name: pytest-dagster
           verbose: true
 

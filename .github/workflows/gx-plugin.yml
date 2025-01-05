@@ -73,9 +73,19 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./build/coverage-reports/
+          directory: ./build/coverage-reports/metadata-ingestion-modules/gx-plugin/
           fail_ci_if_error: false
-          flags: all,gx-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}
+          flags: gx-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}
+          name: pytest-gx
+          verbose: true
+      - name: Upload coverage to Codecov with ingestion flag
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./build/coverage-reports/metadata-ingestion-modules/gx-plugin/
+          fail_ci_if_error: false
+          flags: ingestion-gx-plugin
           name: pytest-gx
           verbose: true
 
