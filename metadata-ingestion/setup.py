@@ -461,7 +461,7 @@ plugins: Dict[str, Set[str]] = {
     "mssql-odbc": sql_common | mssql_common | {"pyodbc"},
     "mysql": mysql,
     # mariadb should have same dependency as mysql
-    "mariadb": sql_common | {"pymysql>=1.0.2"},
+    "mariadb": sql_common | mysql,
     "okta": {"okta~=1.7.0", "nest-asyncio"},
     "oracle": sql_common | {"oracledb"},
     "postgres": sql_common | postgres_common,
