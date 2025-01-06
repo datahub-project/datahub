@@ -34,7 +34,9 @@ public class SystemMetadataUtils {
           ML_FEATURE_PROPERTIES_ASPECT_NAME,
           SCHEMA_FIELD_INFO_ASPECT_NAME,
           QUERY_PROPERTIES_ASPECT_NAME,
-          PLATFORM_RESOURCE_INFO_ASPECT_NAME);
+          PLATFORM_RESOURCE_INFO_ASPECT_NAME,
+          SIBLINGS_ASPECT_NAME,
+          GLOSSARY_TERM_INFO_ASPECT_NAME);
 
   private SystemMetadataUtils() {}
 
