@@ -10,6 +10,7 @@ from pyiceberg.exceptions import (
     NoSuchNamespaceError,
     NoSuchPropertyException,
     NoSuchTableError,
+    ServerError,
 )
 from pyiceberg.schema import Schema, SchemaVisitorPerPrimitiveType, visit
 from pyiceberg.table import Table
@@ -145,6 +146,13 @@ class IcebergSource(StatefulIngestionSourceBase):
         self.report.report_no_listed_namespaces(len(namespaces))
         tables_count = 0
         for namespace in namespaces:
+            namespace_repr = ".".join(namespace)
+            if not self.config.namespace_pattern.allowed(namespace_repr):
+                LOGGER.info(
+                    f"Namespace {namespace_repr} is not allowed by config pattern, skipping"
+                )
+                self.report.report_dropped(f"{namespace_repr}.*")
+                continue
             try:
                 tables = catalog.list_tables(namespace)
                 tables_count += len(tables)
@@ -181,6 +189,9 @@ class IcebergSource(StatefulIngestionSourceBase):
             if not self.config.table_pattern.allowed(dataset_name):
                 # Dataset name is rejected by pattern, report as dropped.
                 self.report.report_dropped(dataset_name)
+                LOGGER.debug(
+                    f"Skipping table {dataset_name} due to not being allowed by the config pattern"
+                )
                 return
             try:
                 if not hasattr(thread_local, "local_catalog"):
@@ -218,6 +229,22 @@ class IcebergSource(StatefulIngestionSourceBase):
                 )
                 LOGGER.warning(
                     f"NoSuchTableError while processing table {dataset_path}, skipping it.",
+                )
+            except FileNotFoundError as e:
+                self.report.report_warning(
+                    "file-not-found",
+                    f"Encountered FileNotFoundError when trying to read manifest file for {dataset_name}. {e}",
+                )
+                LOGGER.warning(
+                    f"FileNotFoundError while processing table {dataset_path}, skipping it."
+                )
+            except ServerError as e:
+                self.report.report_warning(
+                    "iceberg-rest-server-error",
+                    f"Iceberg Rest Catalog returned 500 status due to an unhandled exception for {dataset_name}. Exception: {e}",
+                )
+                LOGGER.warning(
+                    f"Iceberg Rest Catalog server error (500 status) encountered when processing table {dataset_path}, skipping it."
                 )
             except Exception as e:
                 self.report.report_failure("general", f"Failed to create workunit: {e}")
@@ -269,7 +296,6 @@ class IcebergSource(StatefulIngestionSourceBase):
                 ] = table.current_snapshot().manifest_list
             dataset_properties = DatasetPropertiesClass(
                 name=table.name()[-1],
-                tags=[],
                 description=table.metadata.properties.get("comment", None),
                 customProperties=custom_properties,
             )

@@ -1,5 +1,6 @@
 package io.datahubproject.openapi.controller;
 
+import static com.linkedin.metadata.Constants.TIMESTAMP_MILLIS;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
@@ -32,14 +33,20 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
+import com.linkedin.metadata.search.utils.QueryUtils;
+import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.timeseries.TimeseriesAspectBase;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
@@ -84,6 +91,7 @@ public abstract class GenericEntitiesController<
   @Autowired protected EntityRegistry entityRegistry;
   @Autowired protected SearchService searchService;
   @Autowired protected EntityService<?> entityService;
+  @Autowired protected TimeseriesAspectService timeseriesAspectService;
   @Autowired protected AuthorizerChain authorizationChain;
   @Autowired protected ObjectMapper objectMapper;
 
@@ -119,8 +127,8 @@ public abstract class GenericEntitiesController<
       boolean expandEmpty)
       throws URISyntaxException {
 
-    LinkedHashMap<Urn, Map<String, Long>> versionMap =
-        resolveAspectNames(
+    LinkedHashMap<Urn, Map<AspectSpec, Long>> aspectSpecMap =
+        resolveAspectSpecs(
             urns.stream()
                 .map(
                     urn ->
@@ -141,7 +149,7 @@ public abstract class GenericEntitiesController<
             expandEmpty);
 
     return buildEntityVersionedAspectList(
-        opContext, urns, versionMap, withSystemMetadata, expandEmpty);
+        opContext, urns, aspectSpecMap, withSystemMetadata, expandEmpty);
   }
 
   /**
@@ -158,7 +166,7 @@ public abstract class GenericEntitiesController<
   protected abstract List<E> buildEntityVersionedAspectList(
       @Nonnull OperationContext opContext,
       Collection<Urn> requestedUrns,
-      LinkedHashMap<Urn, Map<String, Long>> fetchUrnAspectVersions,
+      LinkedHashMap<Urn, Map<AspectSpec, Long>> fetchUrnAspectVersions,
       boolean withSystemMetadata,
       boolean expandEmpty)
       throws URISyntaxException;
@@ -390,7 +398,8 @@ public abstract class GenericEntitiesController<
           buildEntityVersionedAspectList(
               opContext,
               List.of(urn),
-              new LinkedHashMap<>(Map.of(urn, Map.of(aspectName, version))),
+              resolveAspectSpecs(
+                  new LinkedHashMap<>(Map.of(urn, Map.of(aspectName, version))), 0L, true),
               withSystemMetadata,
               true);
     }
@@ -561,9 +570,30 @@ public abstract class GenericEntitiesController<
 
     lookupAspectSpec(urn, aspectName)
         .ifPresent(
-            aspectSpec ->
+            aspectSpec -> {
+              if (aspectSpec.isTimeseries()) {
+                Map<Urn, Map<String, com.linkedin.metadata.aspect.EnvelopedAspect>> latestMap =
+                    timeseriesAspectService.getLatestTimeseriesAspectValues(
+                        opContext, Set.of(urn), Set.of(aspectSpec.getName()), null);
+                com.linkedin.metadata.aspect.EnvelopedAspect latestAspect =
+                    latestMap.getOrDefault(urn, Map.of()).get(aspectSpec.getName());
+                if (latestAspect != null) {
+                  Long latestTs =
+                      new TimeseriesAspectBase(toRecordTemplate(aspectSpec, latestAspect).data())
+                          .getTimestampMillis();
+                  timeseriesAspectService.deleteAspectValues(
+                      opContext,
+                      urn.getEntityType(),
+                      aspectSpec.getName(),
+                      QueryUtils.newFilter(
+                          CriterionUtils.buildCriterion(
+                              TIMESTAMP_MILLIS, Condition.EQUAL, String.valueOf(latestTs))));
+                }
+              } else {
                 entityService.deleteAspect(
-                    opContext, entityUrn, aspectSpec.getName(), Map.of(), true));
+                    opContext, entityUrn, aspectSpec.getName(), Map.of(), true);
+              }
+            });
   }
 
   @Tag(name = "Generic Aspects")
@@ -607,7 +637,7 @@ public abstract class GenericEntitiesController<
     AspectSpec aspectSpec = lookupAspectSpec(entitySpec, aspectName).get();
     ChangeMCP upsert =
         toUpsertItem(
-            opContext.getRetrieverContext().get().getAspectRetriever(),
+            opContext.getRetrieverContext().getAspectRetriever(),
             urn,
             aspectSpec,
             createIfEntityNotExists,
@@ -619,7 +649,7 @@ public abstract class GenericEntitiesController<
         entityService.ingestProposal(
             opContext,
             AspectsBatchImpl.builder()
-                .retrieverContext(opContext.getRetrieverContext().get())
+                .retrieverContext(opContext.getRetrieverContext())
                 .items(List.of(upsert))
                 .build(),
             async);
@@ -627,18 +657,19 @@ public abstract class GenericEntitiesController<
     if (!async) {
       return ResponseEntity.of(
           results.stream()
-              .filter(item -> aspectName.equals(item.getRequest().getAspectName()))
+              .filter(item -> aspectSpec.getName().equals(item.getRequest().getAspectName()))
               .findFirst()
               .map(
                   result ->
-                      buildGenericEntity(aspectName, result.getResult(), withSystemMetadata)));
+                      buildGenericEntity(
+                          aspectSpec.getName(), result.getResult(), withSystemMetadata)));
     } else {
       return results.stream()
-          .filter(item -> aspectName.equals(item.getRequest().getAspectName()))
+          .filter(item -> aspectSpec.getName().equals(item.getRequest().getAspectName()))
           .map(
               result ->
                   ResponseEntity.accepted()
-                      .body(buildGenericEntity(aspectName, result, withSystemMetadata)))
+                      .body(buildGenericEntity(aspectSpec.getName(), result, withSystemMetadata)))
           .findFirst()
           .orElse(ResponseEntity.accepted().build());
     }
@@ -694,7 +725,7 @@ public abstract class GenericEntitiesController<
             .build();
     ChangeMCP upsert =
         toUpsertItem(
-            opContext.getRetrieverContext().get().getAspectRetriever(),
+            opContext.getRetrieverContext().getAspectRetriever(),
             validatedUrn(entityUrn),
             aspectSpec,
             currentValue,
@@ -705,7 +736,7 @@ public abstract class GenericEntitiesController<
         entityService.ingestAspects(
             opContext,
             AspectsBatchImpl.builder()
-                .retrieverContext(opContext.getRetrieverContext().get())
+                .retrieverContext(opContext.getRetrieverContext())
                 .items(List.of(upsert))
                 .build(),
             true,
@@ -739,7 +770,7 @@ public abstract class GenericEntitiesController<
    * @param expandEmpty whether to expand empty aspect names to all aspect names
    * @return updated map
    */
-  protected <T> LinkedHashMap<Urn, Map<String, T>> resolveAspectNames(
+  protected <T> LinkedHashMap<Urn, Map<AspectSpec, T>> resolveAspectSpecs(
       LinkedHashMap<Urn, Map<String, T>> requestedAspectNames,
       @Nonnull T defaultValue,
       boolean expandEmpty) {
@@ -749,10 +780,9 @@ public abstract class GenericEntitiesController<
               final Urn urn = entry.getKey();
               if (expandEmpty && (entry.getValue().isEmpty() || entry.getValue().containsKey(""))) {
                 // All aspects specified
-                Set<String> allNames =
-                    entityRegistry.getEntitySpec(urn.getEntityType()).getAspectSpecs().stream()
-                        .map(AspectSpec::getName)
-                        .collect(Collectors.toSet());
+                Set<AspectSpec> allNames =
+                    new HashSet<>(
+                        entityRegistry.getEntitySpec(urn.getEntityType()).getAspectSpecs());
                 return Map.entry(
                     urn,
                     allNames.stream()
@@ -762,15 +792,14 @@ public abstract class GenericEntitiesController<
                                     aspectName, entry.getValue().getOrDefault("", defaultValue)))
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
               } else if (!entry.getValue().keySet().isEmpty()) {
-                final Map<String, String> normalizedNames =
+                final Map<String, AspectSpec> normalizedNames =
                     entry.getValue().keySet().stream()
                         .map(
                             requestAspectName ->
                                 Map.entry(
                                     requestAspectName, lookupAspectSpec(urn, requestAspectName)))
                         .filter(aspectSpecEntry -> aspectSpecEntry.getValue().isPresent())
-                        .collect(
-                            Collectors.toMap(Map.Entry::getKey, e -> e.getValue().get().getName()));
+                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().get()));
                 return Map.entry(
                     urn,
                     entry.getValue().entrySet().stream()
@@ -781,10 +810,31 @@ public abstract class GenericEntitiesController<
                                     normalizedNames.get(reqEntry.getKey()), reqEntry.getValue()))
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
               } else {
-                return (Map.Entry<Urn, Map<String, T>>) null;
+                return (Map.Entry<Urn, Map<AspectSpec, T>>) null;
               }
             })
         .filter(Objects::nonNull)
+        .collect(
+            Collectors.toMap(
+                Map.Entry::getKey,
+                Map.Entry::getValue,
+                (a, b) -> {
+                  throw new IllegalStateException("Duplicate key");
+                },
+                LinkedHashMap::new));
+  }
+
+  protected static <T> LinkedHashMap<Urn, Map<String, T>> aspectSpecsToAspectNames(
+      LinkedHashMap<Urn, Map<AspectSpec, T>> urnAspectSpecsMap, boolean timeseries) {
+    return urnAspectSpecsMap.entrySet().stream()
+        .map(
+            e ->
+                Map.entry(
+                    e.getKey(),
+                    e.getValue().entrySet().stream()
+                        .filter(a -> timeseries == a.getKey().isTimeseries())
+                        .map(a -> Map.entry(a.getKey().getName(), a.getValue()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))))
         .collect(
             Collectors.toMap(
                 Map.Entry::getKey,
@@ -816,6 +866,14 @@ public abstract class GenericEntitiesController<
       AspectSpec aspectSpec, EnvelopedAspect envelopedAspect) {
     return RecordUtils.toRecordTemplate(
         aspectSpec.getDataTemplateClass(), envelopedAspect.getValue().data());
+  }
+
+  protected RecordTemplate toRecordTemplate(
+      AspectSpec aspectSpec, com.linkedin.metadata.aspect.EnvelopedAspect envelopedAspect) {
+    return GenericRecordUtils.deserializeAspect(
+        envelopedAspect.getAspect().getValue(),
+        envelopedAspect.getAspect().getContentType(),
+        aspectSpec);
   }
 
   protected abstract ChangeMCP toUpsertItem(

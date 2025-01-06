@@ -109,8 +109,6 @@ jobs:
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |
           ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel
-        env:
-          NODE_OPTIONS: "--max-old-space-size=3072"
       - name: Gradle compile (jdk8) for legacy Spark
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         run: |

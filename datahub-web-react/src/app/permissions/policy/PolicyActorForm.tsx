@@ -58,7 +58,7 @@ export default function PolicyActorForm({ policyType, actors, setActors }: Props
         },
     });
     const ownershipTypes =
-        ownershipData?.listOwnershipTypes?.ownershipTypes.filter((type) => type.urn !== 'urn:li:ownershipType:none') ||
+        ownershipData?.listOwnershipTypes?.ownershipTypes?.filter((type) => type.urn !== 'urn:li:ownershipType:none') ||
         [];
     const ownershipTypesMap = Object.fromEntries(ownershipTypes.map((type) => [type.urn, type.info?.name]));
     // Toggle the "Owners" switch

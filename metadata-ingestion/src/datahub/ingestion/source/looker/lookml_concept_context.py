@@ -88,8 +88,7 @@ class LookerFieldContext:
         for upstream_field_match in re.finditer(r"\${TABLE}\.[\"]*([\.\w]+)", sql):
             matched_field = upstream_field_match.group(1)
             # Remove quotes from field names
-            matched_field = matched_field.replace('"', "").replace("`", "").lower()
-            column_names.append(matched_field)
+            column_names.append(matched_field.replace('"', "").replace("`", "").lower())
 
         return column_names
 

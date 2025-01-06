@@ -541,6 +541,7 @@ module.exports = {
         },
 
         "docs/platform-instances",
+        "docs/lineage/sql_parsing",
         "metadata-ingestion/docs/dev_guides/stateful",
         "metadata-ingestion/docs/dev_guides/classification",
         "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
@@ -778,6 +779,11 @@ module.exports = {
                   type: "doc",
                   label: "Getting Started With GraphQL",
                   id: "docs/api/graphql/getting-started",
+                },
+                {
+                  type: "doc",
+                  label: "GraphQL Best Practices",
+                  id: "docs/api/graphql/graphql-best-practices",
                 },
                 {
                   type: "doc",

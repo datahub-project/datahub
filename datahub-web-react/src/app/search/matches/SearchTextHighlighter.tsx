@@ -23,7 +23,7 @@ const SearchTextHighlighter = ({ field, text, enableFullHighlight = false }: Pro
     const enableNameHighlight = appConfig.config.visualConfig.searchResult?.enableNameHighlight;
     const matchedFields = useMatchedFieldsByGroup(field);
     const hasMatchedField = !!matchedFields?.length;
-    const normalizedSearchQuery = useSearchQuery()?.trim().toLowerCase();
+    const normalizedSearchQuery = useSearchQuery()?.trim()?.toLowerCase();
     const normalizedText = text.trim().toLowerCase();
     const hasSubstring = hasMatchedField && !!normalizedSearchQuery && normalizedText.includes(normalizedSearchQuery);
     const pattern = enableFullHighlight ? HIGHLIGHT_ALL_PATTERN : undefined;

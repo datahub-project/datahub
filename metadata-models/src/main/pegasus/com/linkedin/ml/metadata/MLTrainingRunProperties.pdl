@@ -1,0 +1,36 @@
+namespace com.linkedin.ml.metadata
+
+import com.linkedin.common.AuditStamp
+import com.linkedin.common.CustomProperties
+import com.linkedin.common.ExternalReference
+import com.linkedin.common.Urn
+import com.linkedin.common.JobFlowUrn
+import com.linkedin.common.DataJobUrn
+/**
+ * The inputs and outputs of this training run
+ */
+@Aspect = {
+  "name": "mlTrainingRunProperties",
+}
+record MLTrainingRunProperties includes CustomProperties, ExternalReference {
+
+  /**
+   * Run Id of the ML Training Run
+   */
+  id: optional string
+
+  /**
+   * List of URLs for the Outputs of the ML Training Run
+   */
+  outputUrls: optional array[string]
+
+  /**
+   * Hyperparameters of the ML Training Run
+   */
+  hyperParams: optional array[MLHyperParam]
+
+  /**
+   * Metrics of the ML Training Run
+   */
+  trainingMetrics: optional array[MLMetric]
+}

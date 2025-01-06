@@ -21,6 +21,11 @@
 //      |   empty_string
 //      |   empty_string "," argument_list
 // - Added sql_string in any_literal
+// - Added WS_INLINE? in field expression
+//   Added to ignore any comments
+//    %ignore WS             // Ignore whitespace
+//    %ignore CPP_COMMENT    // Ignore single-line comments
+//    %ignore C_COMMENT      // Ignore multi-line comments
 
 lexical_unit:   lexical_elements?
 
@@ -245,6 +250,8 @@ operator_or_punctuator: ","
                     |   "=>" 
                     |   ".." 
                     |   "..."
+                    |   "{{"
+                    |   "}}"
 
 document:   section_document
       |     expression_document
@@ -275,6 +282,7 @@ expression: logical_or_expression
       |     if_expression
       |     error_raising_expression
       |     error_handling_expression
+      |     outer_expression
 
 
 logical_or_expression:  logical_and_expression
@@ -376,6 +384,8 @@ sql_content: /(?:[^\"\\]|\\[\"]|\"\"|\#\(lf\))+/
 
 sql_string: "\"" sql_content "\""
 
+outer_expression: "{{" expression "}}"
+
 argument_list:  WS_INLINE? expression
             |   WS_INLINE? expression WS_INLINE? "," WS_INLINE? argument_list
             |   WS_INLINE? sql_string
@@ -409,7 +419,7 @@ record_expression:  "[" field_list? "]"
 field_list: field
         |   field "," field_list
 
-field:  field_name WS_INLINE? "=" WS_INLINE? expression
+field:  WS_INLINE? field_name WS_INLINE? "=" WS_INLINE? expression
 
 field_name: generalized_identifier
         |   quoted_identifier
@@ -622,3 +632,7 @@ any_literal:      record_literal
 %import common.LF
 %import common.CR
 %import common.ESCAPED_STRING
+
+%ignore WS            // Ignore whitespace
+%ignore CPP_COMMENT    // Ignore single-line comments
+%ignore C_COMMENT      // Ignore multi-line comments

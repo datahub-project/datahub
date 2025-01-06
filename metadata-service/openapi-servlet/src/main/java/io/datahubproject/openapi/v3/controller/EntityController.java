@@ -99,7 +99,7 @@ public class EntityController
       @RequestBody @Nonnull String jsonEntityList)
       throws URISyntaxException, JsonProcessingException {
 
-    LinkedHashMap<Urn, Map<String, Long>> requestMap = toEntityVersionRequest(jsonEntityList);
+    LinkedHashMap<Urn, Map<AspectSpec, Long>> requestMap = toEntityVersionRequest(jsonEntityList);
 
     Authentication authentication = AuthenticationContext.getAuthentication();
     OperationContext opContext =
@@ -243,7 +243,7 @@ public class EntityController
   protected List<GenericEntityV3> buildEntityVersionedAspectList(
       @Nonnull OperationContext opContext,
       Collection<Urn> requestedUrns,
-      LinkedHashMap<Urn, Map<String, Long>> urnAspectVersions,
+      LinkedHashMap<Urn, Map<AspectSpec, Long>> urnAspectVersions,
       boolean withSystemMetadata,
       boolean expandEmpty)
       throws URISyntaxException {
@@ -251,15 +251,48 @@ public class EntityController
     if (!urnAspectVersions.isEmpty()) {
       Map<Urn, List<EnvelopedAspect>> aspects =
           entityService.getEnvelopedVersionedAspects(
-              opContext, resolveAspectNames(urnAspectVersions, 0L, expandEmpty), false);
+              opContext, aspectSpecsToAspectNames(urnAspectVersions, false), false);
+
+      Map<Urn, Map<String, com.linkedin.metadata.aspect.EnvelopedAspect>> timeseriesAspects =
+          aspectSpecsToAspectNames(urnAspectVersions, true).entrySet().stream()
+              .map(
+                  e -> {
+                    // 0 is considered latest due to overlap with versioned and timeseries
+                    Map<String, Long> endTimeMilliMap =
+                        e.getValue().entrySet().stream()
+                            .filter(endTEntry -> endTEntry.getValue() != 0L)
+                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                    return Map.entry(
+                        e.getKey(),
+                        timeseriesAspectService
+                            .getLatestTimeseriesAspectValues(
+                                opContext,
+                                Set.of(e.getKey()),
+                                e.getValue().keySet(),
+                                endTimeMilliMap)
+                            .getOrDefault(e.getKey(), Map.of()));
+                  })
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
       return urnAspectVersions.keySet().stream()
-          .filter(urn -> aspects.containsKey(urn) && !aspects.get(urn).isEmpty())
+          .filter(
+              urn ->
+                  (aspects.containsKey(urn) && !aspects.get(urn).isEmpty())
+                      || (timeseriesAspects.containsKey(urn)
+                          && !timeseriesAspects.get(urn).isEmpty()))
           .map(
-              u ->
-                  GenericEntityV3.builder()
-                      .build(
-                          objectMapper, u, toAspectItemMap(u, aspects.get(u), withSystemMetadata)))
+              u -> {
+                Map<String, AspectItem> aspectItemMap = new HashMap<>();
+                if (aspects.containsKey(u)) {
+                  aspectItemMap.putAll(toAspectItemMap(u, aspects.get(u), withSystemMetadata));
+                }
+                if (timeseriesAspects.containsKey(u)) {
+                  aspectItemMap.putAll(
+                      toTimeseriesAspectItemMap(u, timeseriesAspects.get(u), withSystemMetadata));
+                }
+
+                return GenericEntityV3.builder().build(objectMapper, u, aspectItemMap);
+              })
           .collect(Collectors.toList());
     } else if (!expandEmpty) {
       return requestedUrns.stream()
@@ -281,6 +314,24 @@ public class EntityController
                         .aspect(toRecordTemplate(lookupAspectSpec(urn, a.getName()).get(), a))
                         .systemMetadata(withSystemMetadata ? a.getSystemMetadata() : null)
                         .auditStamp(withSystemMetadata ? a.getCreated() : null)
+                        .build()))
+        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+  }
+
+  private Map<String, AspectItem> toTimeseriesAspectItemMap(
+      Urn urn,
+      Map<String, com.linkedin.metadata.aspect.EnvelopedAspect> aspects,
+      boolean withSystemMetadata) {
+    return aspects.entrySet().stream()
+        .map(
+            e ->
+                Map.entry(
+                    e.getKey(),
+                    AspectItem.builder()
+                        .aspect(
+                            toRecordTemplate(lookupAspectSpec(urn, e.getKey()).get(), e.getValue()))
+                        .systemMetadata(
+                            withSystemMetadata ? e.getValue().getSystemMetadata() : null)
                         .build()))
         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
   }
@@ -369,11 +420,11 @@ public class EntityController
         expandEmpty);
   }
 
-  private LinkedHashMap<Urn, Map<String, Long>> toEntityVersionRequest(
+  private LinkedHashMap<Urn, Map<AspectSpec, Long>> toEntityVersionRequest(
       @Nonnull String entityArrayList) throws JsonProcessingException, InvalidUrnException {
     JsonNode entities = objectMapper.readTree(entityArrayList);
 
-    LinkedHashMap<Urn, Map<String, Long>> items = new LinkedHashMap<>();
+    LinkedHashMap<Urn, Map<AspectSpec, Long>> items = new LinkedHashMap<>();
     if (entities.isArray()) {
       Iterator<JsonNode> entityItr = entities.iterator();
       while (entityItr.hasNext()) {
@@ -404,10 +455,10 @@ public class EntityController
               items
                   .get(entityUrn)
                   .put(
-                      aspectSpec.getName(),
+                      aspectSpec,
                       Long.parseLong(headers.getOrDefault(HTTP_HEADER_IF_VERSION_MATCH, "0")));
             } else {
-              items.get(entityUrn).put(aspectSpec.getName(), 0L);
+              items.get(entityUrn).put(aspectSpec, 0L);
             }
           }
         }
@@ -416,7 +467,7 @@ public class EntityController
         if (items.get(entityUrn).isEmpty()) {
           for (AspectSpec aspectSpec :
               entityRegistry.getEntitySpec(entityUrn.getEntityType()).getAspectSpecs()) {
-            items.get(entityUrn).put(aspectSpec.getName(), 0L);
+            items.get(entityUrn).put(aspectSpec, 0L);
           }
         }
       }
@@ -503,14 +554,14 @@ public class EntityController
                             GenericRecordUtils.JSON,
                             aspectSpec));
 
-            items.add(builder.build(opContext.getRetrieverContext().get().getAspectRetriever()));
+            items.add(builder.build(opContext.getRetrieverContext().getAspectRetriever()));
           }
         }
       }
     }
     return AspectsBatchImpl.builder()
         .items(items)
-        .retrieverContext(opContext.getRetrieverContext().get())
+        .retrieverContext(opContext.getRetrieverContext())
         .build();
   }
 

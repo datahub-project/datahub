@@ -1,0 +1,26 @@
+source:
+  type: dremio
+  config:
+    # Coordinates
+    hostname: localhost
+    port: 9047
+    tls: false
+
+    # Credentials
+    authentication_method: password
+    username: admin
+    password: "2310Admin1234!@"
+
+    platform_instance: test-platform
+
+    include_query_lineage: false
+
+    source_mappings:
+      - platform: s3
+        source_name: samples
+        platform_instance: s3_test_samples
+
+sink:
+  type: file
+  config:
+    filename: "./dremio_mces.json"

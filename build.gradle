@@ -34,7 +34,8 @@ buildscript {
   // Releases: https://github.com/linkedin/rest.li/blob/master/CHANGELOG.md
   ext.pegasusVersion = '29.57.0'
   ext.mavenVersion = '3.6.3'
-  ext.springVersion = '6.1.13'
+  ext.versionGradle = '8.11.1'
+  ext.springVersion = '6.1.14'
   ext.springBootVersion = '3.2.9'
   ext.springKafkaVersion = '3.1.6'
   ext.openTelemetryVersion = '1.18.0'
@@ -78,7 +79,7 @@ buildscript {
 
 plugins {
   id 'com.gorylenko.gradle-git-properties' version '2.4.1'
-  id 'com.github.johnrengelman.shadow' version '8.1.1' apply false
+  id 'com.gradleup.shadow' version '8.3.5' apply false
   id 'com.palantir.docker' version '0.35.0' apply false
   id 'com.avast.gradle.docker-compose' version '0.17.6'
   id "com.diffplug.spotless" version "6.23.3"
@@ -372,6 +373,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: "org.slf4j", module: "slf4j-log4j12"
     exclude group: "org.slf4j", module: "slf4j-nop"
     exclude group: "org.slf4j", module: "slf4j-ext"
+    exclude group: "org.codehaus.jackson", module: "jackson-mapper-asl"
 
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
@@ -498,4 +500,9 @@ subprojects {
       }
     }
   }
+}
+
+wrapper {
+  gradleVersion = project.versionGradle
+  distributionType = Wrapper.DistributionType.ALL
 }

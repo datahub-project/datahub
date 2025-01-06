@@ -1,5 +1,7 @@
 package com.linkedin.metadata.resources.restli;
 
+import javax.annotation.Nullable;
+
 public final class RestliConstants {
   private RestliConstants() {}
 
@@ -21,6 +23,7 @@ public final class RestliConstants {
   public static final String PARAM_INPUT = "input";
   public static final String PARAM_MAX_HOPS = "maxHops";
   public static final String PARAM_ASPECTS = "aspects";
+  public static final String PARAM_ALWAYS_INCLUDE_KEY_ASPECT = "alwaysIncludeKeyAspect";
   public static final String PARAM_FILTER = "filter";
   public static final String PARAM_GROUP = "group";
   public static final String PARAM_SORT = "sort";

@@ -1,0 +1,16 @@
+run_id: kafka-test
+
+source:
+  type: kafka
+  config:
+    connection:
+      bootstrap: "localhost:29092"
+      schema_registry_url: "http://localhost:28081"
+    domain:
+      "urn:li:domain:sales":
+        allow:
+          - "key_value_topic"
+sink:
+  type: file
+  config:
+    filename: "./kafka_without_schemas_mces.json"

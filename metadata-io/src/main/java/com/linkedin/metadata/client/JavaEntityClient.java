@@ -106,11 +106,17 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Urn urn,
-      @Nullable final Set<String> aspectNames)
+      @Nullable final Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     final Set<String> projectedAspects =
         aspectNames == null ? opContext.getEntityAspectNames(entityName) : aspectNames;
-    return entityService.getEntityV2(opContext, entityName, urn, projectedAspects);
+    return entityService.getEntityV2(
+        opContext,
+        entityName,
+        urn,
+        projectedAspects,
+        alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
   }
 
   @Override
@@ -126,7 +132,8 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull Set<Urn> urns,
-      @Nullable Set<String> aspectNames)
+      @Nullable Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     final Set<String> projectedAspects =
         aspectNames == null ? opContext.getEntityAspectNames(entityName) : aspectNames;
@@ -139,7 +146,11 @@ public class JavaEntityClient implements EntityClient {
               try {
                 responseMap.putAll(
                     entityService.getEntitiesV2(
-                        opContext, entityName, new HashSet<>(batch), projectedAspects));
+                        opContext,
+                        entityName,
+                        new HashSet<>(batch),
+                        projectedAspects,
+                        alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect));
               } catch (URISyntaxException e) {
                 throw new RuntimeException(e);
               }
@@ -772,7 +783,7 @@ public class JavaEntityClient implements EntityClient {
                       .mcps(
                           batch,
                           auditStamp,
-                          opContext.getRetrieverContext().get(),
+                          opContext.getRetrieverContext(),
                           opContext.getValidationContext().isAlternateValidation())
                       .build();
 

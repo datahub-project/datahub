@@ -6,6 +6,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.DeleteStructuredPropertyInput;
 import com.linkedin.entity.client.EntityClient;
@@ -42,6 +43,23 @@ public class DeleteStructuredPropertyResolver implements DataFetcher<Completable
                   "Unable to delete structured property. Please contact your admin.");
             }
             _entityClient.deleteEntity(context.getOperationContext(), propertyUrn);
+            // Asynchronously Delete all references to the entity (to return quickly)
+            GraphQLConcurrencyUtils.supplyAsync(
+                () -> {
+                  try {
+                    _entityClient.deleteEntityReferences(
+                        context.getOperationContext(), propertyUrn);
+                  } catch (Exception e) {
+                    log.error(
+                        String.format(
+                            "Caught exception while attempting to clear all entity references for Structured Property with urn %s",
+                            propertyUrn),
+                        e);
+                  }
+                  return null;
+                },
+                this.getClass().getSimpleName(),
+                "get");
             return true;
           } catch (Exception e) {
             throw new RuntimeException(

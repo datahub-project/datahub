@@ -17,6 +17,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datajob.DataJobInputOutput;
 import com.linkedin.dataset.FineGrainedLineageArray;
 import com.linkedin.metadata.aspect.patch.template.ArrayMergingTemplate;
+import com.linkedin.metadata.aspect.patch.template.FineGrainedLineageTemplateHelper;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
