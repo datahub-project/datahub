@@ -3,6 +3,7 @@ package com.linkedin.metadata.timeline.eventgenerator;
 import static com.linkedin.metadata.Constants.*;
 
 import com.datahub.util.RecordUtils;
+import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociation;
@@ -53,6 +54,8 @@ public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<G
         ++targetTagIdx;
       } else if (comparison < 0) {
         // Tag got removed.
+        String context =
+            baseTagAssociation.getContext() != null ? baseTagAssociation.getContext() : "{}";
         changeEvents.add(
             TagChangeEvent.entityTagChangeEventBuilder()
                 .modifier(baseTagAssociation.getTag().toString())
@@ -63,12 +66,16 @@ public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<G
                 .description(
                     String.format(
                         TAG_REMOVED_FORMAT, baseTagAssociation.getTag().getId(), entityUrn))
-                .tagUrn(baseTagAssociation.getTag())
+                .parameters(
+                    ImmutableMap.of(
+                        "tagUrn", baseTagAssociation.getTag().toString(), "context", context))
                 .auditStamp(auditStamp)
                 .build());
         ++baseTagIdx;
       } else {
         // Tag got added.
+        String context =
+            targetTagAssociation.getContext() != null ? targetTagAssociation.getContext() : "{}";
         changeEvents.add(
             TagChangeEvent.entityTagChangeEventBuilder()
                 .modifier(targetTagAssociation.getTag().toString())
@@ -79,7 +86,9 @@ public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<G
                 .description(
                     String.format(
                         TAG_ADDED_FORMAT, targetTagAssociation.getTag().getId(), entityUrn))
-                .tagUrn(targetTagAssociation.getTag())
+                .parameters(
+                    ImmutableMap.of(
+                        "tagUrn", targetTagAssociation.getTag().toString(), "context", context))
                 .auditStamp(auditStamp)
                 .build());
         ++targetTagIdx;
@@ -89,6 +98,8 @@ public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<G
     while (baseTagIdx < baseTags.size()) {
       // Handle removed tags.
       TagAssociation baseTagAssociation = baseTags.get(baseTagIdx);
+      String context =
+          baseTagAssociation.getContext() != null ? baseTagAssociation.getContext() : "{}";
       changeEvents.add(
           TagChangeEvent.entityTagChangeEventBuilder()
               .modifier(baseTagAssociation.getTag().toString())
@@ -98,7 +109,9 @@ public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<G
               .semVerChange(SemanticChangeType.MINOR)
               .description(
                   String.format(TAG_REMOVED_FORMAT, baseTagAssociation.getTag().getId(), entityUrn))
-              .tagUrn(baseTagAssociation.getTag())
+              .parameters(
+                  ImmutableMap.of(
+                      "tagUrn", baseTagAssociation.getTag().toString(), "context", context))
               .auditStamp(auditStamp)
               .build());
       ++baseTagIdx;
@@ -106,6 +119,8 @@ public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<G
     while (targetTagIdx < targetTags.size()) {
       // Handle newly added tags.
       TagAssociation targetTagAssociation = targetTags.get(targetTagIdx);
+      String context =
+          targetTagAssociation.getContext() != null ? targetTagAssociation.getContext() : "{}";
       changeEvents.add(
           TagChangeEvent.entityTagChangeEventBuilder()
               .modifier(targetTagAssociation.getTag().toString())
@@ -115,7 +130,9 @@ public class GlobalTagsChangeEventGenerator extends EntityChangeEventGenerator<G
               .semVerChange(SemanticChangeType.MINOR)
               .description(
                   String.format(TAG_ADDED_FORMAT, targetTagAssociation.getTag().getId(), entityUrn))
-              .tagUrn(targetTagAssociation.getTag())
+              .parameters(
+                  ImmutableMap.of(
+                      "tagUrn", targetTagAssociation.getTag().toString(), "context", context))
               .auditStamp(auditStamp)
               .build());
       ++targetTagIdx;

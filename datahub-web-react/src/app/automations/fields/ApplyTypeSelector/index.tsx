@@ -12,7 +12,7 @@ const RadiosContainer = styled.div`
     grid-template-columns: 1fr 1fr;
 `;
 
-const RadioWrapper = styled.div`
+export const RadioWrapper = styled.div`
     margin-bottom: 10px;
     display: flex;
     align-items: center;
@@ -27,6 +27,7 @@ const RadioWrapper = styled.div`
 
     & label {
         font-size: 14px;
+        margin-bottom: 0 !important;
     }
 
     &:hover,

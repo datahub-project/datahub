@@ -2,6 +2,7 @@
 
 fragment ActionInfo on ActionPipeline {
     urn
+    type
     status
     details {
         type

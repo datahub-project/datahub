@@ -5,6 +5,7 @@ import { EntityType } from '@src/types.generated';
 import { usePropagationContextEntities, PropagationContext } from '../tags/usePropagationContextEntities';
 import PropagationEntityLink from './PropagationEntityLink';
 import { PropagateThunderbolt, PropagateThunderboltFilled } from './PropagationIcon';
+import { PropagationRelationshipType } from './utils';
 
 const PopoverWrapper = styled.div`
     display: flex;
@@ -53,6 +54,7 @@ export default function LabelPropagationDetails({ entityType, context }: Props) 
     const contextObj = context ? (JSON.parse(context) as PropagationContext) : null;
     const isPropagated = contextObj?.propagated;
     const { originEntity } = usePropagationContextEntities(contextObj);
+    const isSiblingsRelationship = contextObj?.relationship === PropagationRelationshipType.SIBLINGS;
 
     if (!isPropagated || !originEntity || (EntityType.GlossaryTerm !== entityType && entityType !== EntityType.Tag))
         return null;
@@ -61,7 +63,7 @@ export default function LabelPropagationDetails({ entityType, context }: Props) 
         <PopoverWrapper>
             <PopoverDescription>
                 This {EntityType.GlossaryTerm === entityType ? 'Glossary Term' : 'Tag'} was automatically propagated
-                from an upstream.{' '}
+                from {isSiblingsRelationship ? 'a sibling' : 'an upstream'}.{' '}
             </PopoverDescription>
             <PopoverAttributes>
                 {originEntity && (

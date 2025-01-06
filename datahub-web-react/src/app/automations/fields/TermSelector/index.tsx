@@ -6,6 +6,7 @@ import { isEqual } from 'lodash';
 import { EntityType } from '@src/types.generated';
 import type { ComponentBaseProps } from '@app/automations/types';
 import type { RadioValue } from './types';
+import { automationType as SNOWFLAKE_TAG_TERM_SYNC_TYPE } from '../../recipes/snowflake/tagPropagation';
 
 import { TermOption } from './TermOption';
 
@@ -118,7 +119,9 @@ export const TermSelector = ({ state, props, passStateToParent }: ComponentBaseP
     };
 
     // Show notice of Ingestion Overwrite if `some` selected
-    const showNotice = selected.tags.selectionType === 'some' || selected.terms.selectionType === 'some';
+    const showNotice =
+        state.type === SNOWFLAKE_TAG_TERM_SYNC_TYPE &&
+        (selected.tags.selectionType === 'some' || selected.terms.selectionType === 'some');
 
     return (
         <>

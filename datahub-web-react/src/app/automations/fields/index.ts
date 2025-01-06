@@ -18,6 +18,7 @@ import { Details, DetailsStateType } from './Details';
 // Generic field components
 import { RadioSelector } from './RadioSelector';
 import { HiddenRecipeModifer } from './HiddenRecipeModifer';
+import { PropagationOptions, PropagationOptionsStateType } from './PropagationOptions/PropagationOptions';
 
 // Recipe Modifier (for hidden config fields)
 // This field is used to modify the recipe state, usually during a
@@ -106,6 +107,27 @@ const termSelector: Field = {
                 termsEnabled: false,
                 tagsEnabled: false,
             } as TermSelectorStateType,
+        },
+    ],
+};
+
+// PropagationOptions
+// This field allows the user to determine if propagation should occur downstream and/or with siblings
+const propagationOptions: Field = {
+    title: 'Configure Propagation Options',
+    description: 'Determine if tags should propagate to downstream and sibling assets',
+    fields: [
+        {
+            // The component that's rendered for this field
+            // Defined in @app/automations/fields/PropagationOptions
+            component: PropagationOptions,
+
+            // State mapping to connect form data to the component's state
+            // You can set default values for the state here
+            state: {
+                includeDownstreams: true,
+                includeSiblings: true,
+            } as PropagationOptionsStateType,
         },
     ],
 };
@@ -419,6 +441,7 @@ const fields = {
     hidden_recipe_modifier: hiddenRecipeModifier,
     // Specific fields
     select_tags_and_terms: termSelector,
+    select_propagation_options: propagationOptions,
     select_entity_types: entityTypeSelector,
     select_traversal_types: traversalSelector,
     select_connection: connectionSelector,

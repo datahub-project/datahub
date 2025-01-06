@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
 import logging
 import time
 from typing import Dict, Iterable, List, Optional, Set, TypeVar
@@ -49,6 +50,7 @@ from datahub_integrations.actions.oss.stats_util import EventProcessingStats
 from datahub_integrations.propagation.propagation_utils import (
     ComposablePropagator,
     PropagationDirective,
+    RelationshipType,
     SelectedAsset,
     get_attribution_and_context_from_directive,
     get_unique_siblings,
@@ -331,7 +333,6 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
             self.process_directive(directive)
 
     def asset_filters(self) -> Dict[str, Dict[str, List[SearchFilterRule]]]:
-
         asset_filters: Dict[str, Dict[str, List[SearchFilterRule]]] = {}
 
         entity_index_field_map = {
@@ -446,13 +447,12 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
     def process_directive(
         self, term_propagation_directive: TermPropagationDirective
     ) -> None:
-
         if not term_propagation_directive or not term_propagation_directive.propagate:
             logger.debug("Skipping propagation. No term propagation directive provided")
             return
 
         assert self.ctx.graph
-        attribution, context_string = get_attribution_and_context_from_directive(
+        attribution, context_dict = get_attribution_and_context_from_directive(
             self.action_urn, term_propagation_directive
         )
 
@@ -469,19 +469,24 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
         )
 
         entity_urn = term_propagation_directive.entity
+        downstreams_set = set(downstreams)
 
         # Case 1: Propagate for Schema Fields
         if entity_urn.startswith("urn:li:schemaField"):
             downstream_fields = [
                 x for x in downstreams if x.startswith("urn:li:schemaField")
             ]
-            sibling_fields = [x for x in siblings if x.startswith("urn:li:schemaField")]
+            sibling_fields = [
+                x
+                for x in siblings
+                if x.startswith("urn:li:schemaField") and x not in downstreams_set
+            ]
             self._handle_schema_field_propagation(
                 term_propagation_directive,
                 downstream_fields,
                 sibling_fields,
                 attribution,
-                context_string,
+                context_dict,
             )
         # Case 2: Propagate for Datasets
         elif entity_urn.startswith("urn:li:dataset"):
@@ -493,14 +498,16 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
             sibling_datasets = [
                 x
                 for x in siblings
-                if x.startswith("urn:li:dataset") and x != entity_urn
+                if x.startswith("urn:li:dataset")
+                and x != entity_urn
+                and x not in downstreams_set
             ]
             self._handle_dataset_propagation(
                 term_propagation_directive,
                 downstream_datasets,
                 sibling_datasets,
                 attribution,
-                context_string,
+                context_dict,
             )
         else:
             logger.warning(
@@ -513,19 +520,23 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
         downstream_fields: List[str],
         sibling_fields: List[str],
         attribution: MetadataAttributionClass,
-        context_string: str,
+        context_dict: dict[str, str],
     ) -> None:
-
         # Case 1: Apply to Downstreams
         for field in downstream_fields:
+            context_dict["relationship"] = RelationshipType.LINEAGE.value
             self._add_term_to_field(
-                field, term_propagation_directive, attribution, context_string
+                field, term_propagation_directive, attribution, json.dumps(context_dict)
             )
 
         # Case 2: Apply to Siblings
         for sibling in sibling_fields:
+            context_dict["relationship"] = RelationshipType.SIBLINGS.value
             self._add_term_to_field(
-                sibling, term_propagation_directive, attribution, context_string
+                sibling,
+                term_propagation_directive,
+                attribution,
+                json.dumps(context_dict),
             )
 
     def _handle_dataset_propagation(
@@ -534,16 +545,24 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
         downstream_datasets: List[str],
         sibling_datasets: List[str],
         attribution: MetadataAttributionClass,
-        context_string: str,
+        context_dict: dict[str, str],
     ) -> None:
         for dataset in downstream_datasets:
+            context_dict["relationship"] = RelationshipType.LINEAGE.value
             self._add_term_to_dataset(
-                dataset, term_propagation_directive, attribution, context_string
+                dataset,
+                term_propagation_directive,
+                attribution,
+                json.dumps(context_dict),
             )
 
         for sibling in sibling_datasets:
+            context_dict["relationship"] = RelationshipType.SIBLINGS.value
             self._add_term_to_dataset(
-                sibling, term_propagation_directive, attribution, context_string
+                sibling,
+                term_propagation_directive,
+                attribution,
+                json.dumps(context_dict),
             )
 
     def _add_term_to_field(
@@ -593,7 +612,6 @@ class TermPropagationAction(ExtendedAction[SelectedAsset], ComposablePropagator)
         attribution: MetadataAttributionClass,
         context: str,
     ) -> None:
-
         logger.info(
             f"Will {term_propagation_directive.operation} term {term_propagation_directive.term} to {dataset}"
         )

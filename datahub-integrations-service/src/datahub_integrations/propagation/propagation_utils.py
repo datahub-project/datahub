@@ -1,4 +1,3 @@
-import json
 import logging
 import time
 from abc import abstractmethod
@@ -22,6 +21,7 @@ SYSTEM_ACTOR = "urn:li:corpuser:__datahub_system"
 class RelationshipType(Enum):
     LINEAGE = "lineage"  # signifies all types of lineage
     HIERARCHY = "hierarchy"  # signifies all types of hierarchy
+    SIBLINGS = "siblings"  # signifies sibling relationships
 
 
 class DirectionType(Enum):
@@ -56,7 +56,7 @@ def get_attribution_and_context_from_directive(
     propagation_directive: PropagationDirective,
     actor: str = SYSTEM_ACTOR,
     time: int = int(time.time() * 1000.0),
-) -> Tuple[MetadataAttributionClass, str]:
+) -> Tuple[MetadataAttributionClass, dict[str, str]]:
     """
     Given a propagation directive, return the attribution and context for
     the directive.
@@ -84,7 +84,7 @@ def get_attribution_and_context_from_directive(
             source=action_urn,
             sourceDetail=source_detail,
         ),
-        json.dumps(context_dict),
+        context_dict,
     )
 
 
@@ -142,14 +142,14 @@ def get_unique_siblings(graph: AcrylDataHubGraph, entity_urn: str) -> list[str]:
             return []
 
         # Does my parent have siblings?
-        siblings: Optional[models.SiblingsClass] = graph.graph.get_aspect(
+        parent_siblings: Optional[models.SiblingsClass] = graph.graph.get_aspect(
             parent_urn,
             models.SiblingsClass,
         )
-        if siblings and siblings.siblings:
-            other_siblings = [x for x in siblings.siblings if x != parent_urn]
-            if len(other_siblings) == 1:
-                target_sibling = other_siblings[0]
+        if parent_siblings and parent_siblings.siblings:
+            other_siblings = [x for x in parent_siblings.siblings if x != parent_urn]
+            sibling_urns = []
+            for target_sibling in other_siblings:
                 # now we need to find the schema field in this sibling that
                 # matches us
                 if target_sibling.startswith("urn:li:dataset"):
@@ -163,5 +163,19 @@ def get_unique_siblings(graph: AcrylDataHubGraph, entity_urn: str) -> list[str]:
                                 schema_field_urn = make_schema_field_urn(
                                     target_sibling, schema_field.fieldPath
                                 )
-                                return [schema_field_urn]
+                                sibling_urns.append(schema_field_urn)
+            return sibling_urns
+
+    elif entity_urn.startswith("urn:li:dataset"):
+        siblings: Optional[models.SiblingsClass] = graph.graph.get_aspect(
+            entity_urn,
+            models.SiblingsClass,
+        )
+        if siblings and siblings.siblings:
+            other_siblings = [x for x in siblings.siblings if x != entity_urn]
+            sibling_urns = []
+            for sibling_urn in other_siblings:
+                sibling_urns.append(sibling_urn)
+            return sibling_urns
+
     return []

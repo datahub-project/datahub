@@ -1,6 +1,12 @@
 import { StringMapEntry } from '../../../types.generated';
 import { useGetEntities } from '../useGetEntities';
 
+export enum PropagationRelationshipType {
+    LINEAGE = 'lineage',
+    HIERARCHY = 'hierarchy',
+    SIBLINGS = 'siblings',
+}
+
 export function usePropagationDetails(sourceDetail?: StringMapEntry[] | null) {
     const isPropagated = !!sourceDetail?.find((mapEntry) => mapEntry.key === 'propagated' && mapEntry.value === 'true');
     const originEntityUrn = sourceDetail?.find((mapEntry) => mapEntry.key === 'origin')?.value || '';

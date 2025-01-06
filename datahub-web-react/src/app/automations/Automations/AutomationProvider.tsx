@@ -12,7 +12,11 @@ import { openSuccessNotification, openErrorNotification } from './Notifications'
 import { mapFormStateToRecipe } from './utils/mapFormStateToRecipe';
 import { configMaps } from '../recipes';
 import { getTemplate } from '../utils';
-import { removeFromListAutomationsCache, updateListAutomationsCache } from './utils/cacheUtils';
+import {
+    removeFromListAutomationsCache,
+    updateGetActionPipelineStatusCache,
+    updateListAutomationsCache,
+} from './utils/cacheUtils';
 
 export interface AutomationContextType {
     // For edits, we pass in the following information.
@@ -239,6 +243,7 @@ export const AutomationContextProvider = ({ context, children }: Props) => {
                     },
                 };
                 updateListAutomationsCache(client, updatedAutomation, 100);
+                updateGetActionPipelineStatusCache(client, context?.urn || '', ActionPipelineState.Active);
                 openSuccessNotification('Automation succesfully updated.');
             })
             .catch((error) => {

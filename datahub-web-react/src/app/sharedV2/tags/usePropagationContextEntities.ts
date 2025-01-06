@@ -5,6 +5,7 @@ export interface PropagationContext {
     propagated?: boolean;
     origin?: string;
     actor?: string;
+    relationship?: string;
 }
 
 export function usePropagationContextEntities(contextObj?: PropagationContext | null) {

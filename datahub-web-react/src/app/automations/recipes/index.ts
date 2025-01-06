@@ -2,6 +2,7 @@ import _ from 'lodash';
 
 import * as SnowflakeTagPropagation from './snowflake/tagPropagation';
 import * as GlossaryTermPropagation from './glossaryTerm/termPropagation';
+import * as TagPropagation from './tag/tagPropagation';
 import * as AIGlossaryTermPropagation from './glossaryTerm/glossaryTermAI';
 import * as DocumentationColumnPropagation from './documentation/columnLevelPropagation';
 import * as BigQueryTagSync from './bigQuery/tagSync';
@@ -10,6 +11,7 @@ import * as BigQueryTagSync from './bigQuery/tagSync';
 export const templates = [
     DocumentationColumnPropagation.template,
     GlossaryTermPropagation.template,
+    TagPropagation.template,
     SnowflakeTagPropagation.template,
     AIGlossaryTermPropagation.template,
     BigQueryTagSync.template,
@@ -19,6 +21,7 @@ export const templates = [
 export const defaultRecipes = {
     [DocumentationColumnPropagation.automationType]: Object.seal(DocumentationColumnPropagation.template.defaultRecipe),
     [GlossaryTermPropagation.automationType]: Object.seal(GlossaryTermPropagation.template.defaultRecipe),
+    [TagPropagation.automationType]: Object.seal(TagPropagation.template.defaultRecipe),
     [SnowflakeTagPropagation.automationType]: Object.seal(SnowflakeTagPropagation.template.defaultRecipe),
     [AIGlossaryTermPropagation.automationType]: Object.seal(AIGlossaryTermPropagation.template.defaultRecipe),
     [BigQueryTagSync.automationType]: Object.seal(BigQueryTagSync.template.defaultRecipe),
@@ -29,6 +32,7 @@ export const defaultRecipes = {
 export const configMaps = {
     [DocumentationColumnPropagation.automationType]: DocumentationColumnPropagation.configMap,
     [GlossaryTermPropagation.automationType]: GlossaryTermPropagation.configMap,
+    [TagPropagation.automationType]: TagPropagation.configMap,
     [SnowflakeTagPropagation.automationType]: SnowflakeTagPropagation.configMap,
     [AIGlossaryTermPropagation.automationType]: AIGlossaryTermPropagation.configMap,
     [BigQueryTagSync.automationType]: BigQueryTagSync.configMap,

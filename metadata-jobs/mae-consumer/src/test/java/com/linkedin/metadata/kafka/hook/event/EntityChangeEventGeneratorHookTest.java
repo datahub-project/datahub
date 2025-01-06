@@ -157,7 +157,7 @@ public class EntityChangeEventGeneratorHookTest {
             ChangeCategory.TAG,
             ChangeOperation.ADD,
             newTagUrn.toString(),
-            ImmutableMap.of("tagUrn", newTagUrn.toString()),
+            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);
@@ -189,7 +189,7 @@ public class EntityChangeEventGeneratorHookTest {
             ChangeCategory.TAG,
             ChangeOperation.REMOVE,
             newTagUrn.toString(),
-            ImmutableMap.of("tagUrn", newTagUrn.toString()),
+            ImmutableMap.of("tagUrn", newTagUrn.toString(), "context", "{}"),
             actorUrn);
 
     verifyProducePlatformEvent(_mockClient, platformEvent);

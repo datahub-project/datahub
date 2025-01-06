@@ -1,4 +1,10 @@
-import { ListActionPipelinesDocument, ListActionPipelinesQuery } from '../../../../graphql/actionPipeline.generated';
+import { ActionPipelineState } from '@src/types.generated';
+import {
+    GetActionPipelineStatusDocument,
+    GetActionPipelineStatusQuery,
+    ListActionPipelinesDocument,
+    ListActionPipelinesQuery,
+} from '../../../../graphql/actionPipeline.generated';
 
 const addOrUpdateAutomationInList = (existingAutomations, newAutomation) => {
     const newAutomations = [...existingAutomations];
@@ -53,6 +59,7 @@ export const updateListAutomationsCache = (client, newAutomation, pageSize) => {
                     ? (currData?.listActionPipelines?.total || 0) + 1
                     : currData?.listActionPipelines?.total,
                 actionPipelines: newAutomations,
+                __typename: 'ListActionPipelinesResult',
             },
         },
     });
@@ -98,4 +105,30 @@ export const removeFromListAutomationsCache = (client, urn, pageSize) => {
     });
 
     console.log(`deleted from cache~`);
+};
+
+/**
+ * Add an entry to the GetActionPipelineStatus cache.
+ */
+export const updateGetActionPipelineStatusCache = (client, urn: string, newState: ActionPipelineState) => {
+    // Read the data from our cache for this query.
+    const currData: GetActionPipelineStatusQuery | null = client.readQuery({
+        query: GetActionPipelineStatusDocument,
+        variables: { urn },
+    });
+
+    // Write our data back to the cache.
+    client.writeQuery({
+        query: GetActionPipelineStatusDocument,
+        variables: { urn },
+        data: {
+            actionPipeline: {
+                ...currData?.actionPipeline,
+                details: {
+                    ...currData?.actionPipeline?.details,
+                    state: newState,
+                },
+            },
+        },
+    });
 };
