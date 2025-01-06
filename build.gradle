@@ -412,6 +412,9 @@ subprojects {
         implementation("com.fasterxml.jackson.core:jackson-dataformat-cbor:$jacksonVersion")
         implementation(externalDependency.commonsIo)
         implementation(externalDependency.protobuf)
+        implementation('org.apache.mina:mina-core:2.2.4') {
+          because("previous versions are vulnerable to CVE-2024-52046")
+        }
       }
     }
 
