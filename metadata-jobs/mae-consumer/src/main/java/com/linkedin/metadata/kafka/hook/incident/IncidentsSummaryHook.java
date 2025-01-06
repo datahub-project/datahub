@@ -252,7 +252,8 @@ public class IncidentsSummaryHook implements MetadataChangeLogHook {
     incidentSummaryDetails.setUrn(urn);
     incidentSummaryDetails.setCreatedAt(info.getCreated().getTime());
     if (IncidentType.CUSTOM.equals(info.getType())) {
-      incidentSummaryDetails.setType(info.getCustomType());
+      String type = info.getCustomType() != null ? info.getCustomType() : IncidentType.CUSTOM.name();
+      incidentSummaryDetails.setType(type);
     } else {
       incidentSummaryDetails.setType(info.getType().toString());
     }
