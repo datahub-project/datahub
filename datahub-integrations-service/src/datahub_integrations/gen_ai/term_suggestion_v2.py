@@ -41,7 +41,7 @@ TERM_SUGGESTION_GENERATION_MODEL: BedrockModel = parse_obj_as(
 TERM_SUGGESTION_CONFIDENCE_THRESHOLD = float(
     os.getenv("TERM_SUGGESTION_CONFIDENCE_THRESHOLD", 9)
 )
-
+TEMPERATURE = float(os.getenv("TEMPERATURE", 0.1))
 # The maximum number of columns to include in a single prompt.
 # If there's more columns than this, we split it across multiple prompts.
 COLUMN_SPLIT_LENGTH = 20
@@ -229,7 +229,7 @@ async def get_term_recommendations_for_column_splits(
                     prompt=prompt,
                     model=TERM_SUGGESTION_GENERATION_MODEL,
                     max_tokens=5000,
-                    temperature=0.2,
+                    temperature=TEMPERATURE,
                 )
 
     column_terms: Dict[str, List[TermSuggestionBundle]] | None = None
@@ -249,7 +249,7 @@ async def get_term_recommendations_for_column_splits(
                     prompt=extraction_prompt,
                     model=TERM_SUGGESTION_GENERATION_MODEL,
                     max_tokens=5000,
-                    temperature=0.2,
+                    temperature=TEMPERATURE,
                 )
 
             table_terms, column_split_terms = parse_llm_output(

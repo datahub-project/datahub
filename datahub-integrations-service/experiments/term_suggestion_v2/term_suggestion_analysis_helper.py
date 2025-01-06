@@ -1,23 +1,46 @@
+import ast
+import csv
+import os
 import pathlib
 import sys
-from typing import Dict, List
+from datetime import datetime
+from functools import reduce
+from typing import Dict, List, Optional, Tuple
 
+import json5
 import nest_asyncio
 import numpy as np
 import pandas as pd
 from loguru import logger
+from pydantic import BaseModel
 
 from datahub_integrations.gen_ai.description_v2 import (
     extract_metadata_for_urn,
     transform_table_info_for_llm,
 )
-from datahub_integrations.gen_ai.term_suggestion_v2 import get_term_recommendations
+from datahub_integrations.gen_ai.term_suggestion_v2 import (
+    TermSuggestionBundle,
+    get_term_recommendations,
+)
 
 current_dir = pathlib.Path().parent.resolve()
 sys.path.append(str(current_dir.parent))
 from docs_generation.graph_helper import create_datahub_graph
 
 nest_asyncio.apply()
+
+GROUND_TRUTH_TERM_SEP = "/"
+
+
+class SerializedResponse(BaseModel):
+    response_dict: List[
+        Tuple[
+            str,
+            str,
+            Optional[List[TermSuggestionBundle]],
+            Optional[Dict[str, List[TermSuggestionBundle]]],
+        ]
+    ]
 
 
 def get_table_and_column_infos_dict(
@@ -102,7 +125,8 @@ def get_prediction_df(parsed_llm_responses, confidence_threshold=8):
         lambda x: [
             term[0]
             for term in x
-            if (term[1] == max([i[1] for i in x])) and (term[1] >= confidence_threshold)
+            if term[1] >= confidence_threshold
+            # if (term[1] == max([i[1] for i in x])) and (term[1] >= confidence_threshold)
         ]
     )
     return df_pred
@@ -254,7 +278,9 @@ def func_categorize(row, label_column):
         if row[label_column] is None:
             return "match-no_assignment"
         elif "NULL" in row[label_column]:
-            actual_terms = [term.strip() for term in row[label_column].split("/")]
+            actual_terms = [
+                term.strip() for term in row[label_column].split(GROUND_TRUTH_TERM_SEP)
+            ]
             assigned_terms = [
                 term[0]
                 for term in row["predicted_labels"]
@@ -269,23 +295,13 @@ def func_categorize(row, label_column):
     elif row[label_column] is None:
         return "mismatch-predicted_only"
     else:
-        actual_terms = [term.strip() for term in row[label_column].split("/")]
+        actual_terms = [
+            term.strip() for term in row[label_column].split(GROUND_TRUTH_TERM_SEP)
+        ]
         if len(np.intersect1d(actual_terms, row["pred_max_score_term"])) == 0:
             return "mismatch"
         else:
             return "match-term_assigned"
-
-
-def check_match(row):
-    #     print(row)
-    if (
-        (row["glossary_term"] is None and len(row["pred_max_score_term"]) == 0)
-        or row["glossary_term"] in row["pred_max_score_term"]
-        or row["Alternate_Glossary_Or_Comment"] in row["pred_max_score_term"]
-    ):
-        return 1
-    else:
-        return 0
 
 
 def get_merged_prediction_df(labeled_df, df_pred, label_column):
@@ -308,7 +324,6 @@ def get_merged_prediction_df(labeled_df, df_pred, label_column):
         ~merged_df.unique_keys.isin(df_pred.unique_keys.tolist())
     ]
 
-    #     merged_df.loc[:, "match"] = merged_df.apply(lambda x: check_match(x), axis=1)
     merged_df.loc[:, "label_class"] = merged_df.apply(
         lambda x: func_categorize(x, label_column), axis=1
     )
@@ -519,7 +534,7 @@ def populate_analysis_for_confidence_threshold_list(
 
 
 def convert_parsed_response_to_readable_csv(
-    parsed_responses, columns_info_dict, desination_csv_path, threshold=9
+    parsed_responses, columns_info_dict, destination_csv_path, threshold=9
 ):
     table_urns = []
     instances = []
@@ -572,5 +587,134 @@ def convert_parsed_response_to_readable_csv(
             if term[1] >= threshold and not term[3]
         ]
     )
-    df.to_csv(desination_csv_path)
+    df.to_csv(destination_csv_path)
     return None
+
+
+def get_average_run_scores_df(run_paths, scores_file_name):
+    score_df = pd.DataFrame()
+    for i, run_path in enumerate(run_paths):
+        score_path = pathlib.Path(run_path) / "threshold_9" / f"{scores_file_name}"
+        if i == 0:
+            score_df = pd.read_csv(score_path)
+            score_df.columns = ["index_col", os.path.basename(run_path).split("_")[0]]
+        else:
+            temp_df = pd.read_csv(score_path)
+            score_df[os.path.basename(run_path).split("_")[0]] = temp_df["no_filter"]
+    score_df["average"] = score_df.mean(
+        numeric_only=True, axis=1
+    )  # score_df.drop('index_col', axis=1).mean(axis=1)
+    return score_df
+
+
+def get_predictions_above_threshold(row, threshold):
+    row = ast.literal_eval(row)
+    if row:  # Ensure the list is not empty
+        min_score = threshold
+        return [x[0] for x in row if x[1] >= min_score]
+    return None
+
+
+def get_combined_data(
+    run_paths, predictions_file_name, common_columns, num_iter=10, threshold=9.0
+):
+    combined_data = []
+    for run_path in run_paths:
+        file_path = pathlib.Path(run_path) / f"{predictions_file_name}"
+        run = os.path.basename(run_path).split("_")[0]
+        # Check if the file exists
+        if os.path.exists(file_path):
+            # Read the CSV file
+            df = pd.read_csv(file_path, usecols=common_columns + ["high_conf_terms"])
+            df = df.rename(columns={"high_conf_terms": run})
+            combined_data.append(df)
+        else:
+            print(f"File not found: {file_path}")
+
+    # Combine all data for this subdirectory and run
+    if combined_data:
+        # Perform the join
+        combined_df = reduce(
+            lambda left, right: pd.merge(left, right, on=common_columns, how="inner"),
+            combined_data,
+        )
+        output_columns = [col for col in combined_df.columns if "run" in col]
+        for output_column in output_columns:
+            combined_df[f"{output_column}_pred"] = combined_df[output_column].apply(
+                lambda x: get_predictions_above_threshold(x, threshold=threshold)
+            )
+    else:
+        logger.info("Failed to get combined dataframes!!!")
+        return None, None, None
+    run_columns = [f"{x}" for x in combined_df.columns if "pred" in x]
+    combined_df["predicted_label_counts"] = combined_df[run_columns].apply(
+        lambda x: get_value_counts(x), axis=1
+    )
+    combined_df["all_similar"] = combined_df.predicted_label_counts.apply(
+        lambda x: num_iter <= max(x.values())
+    )
+    combined_df["no_term"] = combined_df.predicted_label_counts.apply(
+        lambda x: True if (len(x) == 1 and None in x.keys()) else False
+    )
+    combined_df["agg_category"] = combined_df.apply(
+        lambda x: get_agg_category(x), axis=1
+    )
+
+    value_counts_df = pd.DataFrame(
+        {
+            "consistency_stats": dict(combined_df.agg_category.value_counts()),
+        }
+    )
+    value_counts_df = value_counts_df.reindex(
+        ["term_similar", "no_term_similar", "term_not_similar"]
+    )
+    return combined_df, value_counts_df
+
+
+def get_value_counts(sample_row):
+    temp_var = []
+    # sample_row = df2[run_columns].loc[0]
+    sample_row.apply(
+        lambda x: temp_var.append(None) if x is None else temp_var.extend(x)
+    )
+    value_counts = pd.Series(temp_var).value_counts(dropna=False)
+    return dict(value_counts)
+
+
+def get_agg_category(x):
+    if x.all_similar and x.no_term:
+        return "no_term_similar"
+    elif x.all_similar and not x.no_term:
+        return "term_similar"
+    elif not x.all_similar:
+        return "term_not_similar"
+    else:
+        return "NA"
+
+
+def write_llm_output_to_csv(
+    llm_response: list, csv_path: str | pathlib.Path = ""
+) -> None:
+    serialized_responses = SerializedResponse(response_dict=llm_response).dict()[
+        "response_dict"
+    ]
+    if csv_path == "":
+        csv_path = (
+            f"term_suggestion_output_{datetime.now().strftime('%m-%d-%Y_%H-%M-%S')}.csv"
+        )
+    with open(csv_path, "w", newline="", encoding="utf-8") as csvfile:
+        csvwriter = csv.writer(csvfile)
+
+        if len(serialized_responses[0]) == 4:
+            csvwriter.writerow(
+                ["urn", "instance", "table_glossary_terms", "column_glossary_terms"]
+            )
+        else:
+            csvwriter.writerow(["urn", "instance", "raw_output"])
+
+        for row in serialized_responses:
+            row = list(row)
+            if len(row) == 4:
+                row[3] = json5.dumps(row[3], indent=2)
+            csvwriter.writerow(row)
+    logger.info(f"csv file {csv_path} created successfully")
