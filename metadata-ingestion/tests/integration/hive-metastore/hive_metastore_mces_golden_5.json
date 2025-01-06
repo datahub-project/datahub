@@ -91,6 +91,22 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
     "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1632398400000,
+        "runId": "hive-metastore-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
+    "changeType": "UPSERT",
     "aspectName": "containerProperties",
     "aspect": {
         "json": {
@@ -164,22 +180,6 @@
     "entityType": "container",
     "entityUrn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
     "changeType": "UPSERT",
-    "aspectName": "container",
-    "aspect": {
-        "json": {
-            "container": "urn:li:container:1cfce89b5a05e1da5092d88ad9eb4589"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1632398400000,
-        "runId": "hive-metastore-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "container",
-    "entityUrn": "urn:li:container:9ba2e350c97c893a91bcaee4838cdcae",
-    "changeType": "UPSERT",
     "aspectName": "browsePathsV2",
     "aspect": {
         "json": {
@@ -238,7 +238,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1715258696"
+                "value": "1735298453"
             },
             {
                 "op": "add",
@@ -268,7 +268,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-05-09"
+                "value": "2024-12-27"
             }
         ]
     },
@@ -428,7 +428,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1715258696"
+                "value": "1735298453"
             },
             {
                 "op": "add",
@@ -463,7 +463,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-05-09"
+                "value": "2024-12-27"
             }
         ]
     },
@@ -674,8 +674,13 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/totalSize",
+                "value": "0"
+            },
+            {
+                "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1715258695"
+                "value": "1735298453"
             },
             {
                 "op": "add",
@@ -699,11 +704,6 @@
             },
             {
                 "op": "add",
-                "path": "/customProperties/totalSize",
-                "value": "0"
-            },
-            {
-                "op": "add",
                 "path": "/customProperties/table_type",
                 "value": "MANAGED_TABLE"
             },
@@ -715,7 +715,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-05-09"
+                "value": "2024-12-27"
             }
         ]
     },
@@ -928,11 +928,6 @@
             },
             {
                 "op": "add",
-                "path": "/customProperties/numFiles",
-                "value": "1"
-            },
-            {
-                "op": "add",
                 "path": "/customProperties/numRows",
                 "value": "1"
             },
@@ -943,13 +938,18 @@
             },
             {
                 "op": "add",
-                "path": "/customProperties/transient_lastDdlTime",
-                "value": "1715258689"
+                "path": "/customProperties/totalSize",
+                "value": "33"
             },
             {
                 "op": "add",
-                "path": "/customProperties/totalSize",
-                "value": "33"
+                "path": "/customProperties/numFiles",
+                "value": "1"
+            },
+            {
+                "op": "add",
+                "path": "/customProperties/transient_lastDdlTime",
+                "value": "1735298448"
             },
             {
                 "op": "add",
@@ -974,7 +974,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-05-09"
+                "value": "2024-12-27"
             }
         ]
     },
@@ -1166,6 +1166,11 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/transient_lastDdlTime",
+                "value": "1735298442"
+            },
+            {
+                "op": "add",
                 "path": "/customProperties/numFiles",
                 "value": "0"
             },
@@ -1173,11 +1178,6 @@
                 "op": "add",
                 "path": "/customProperties/COLUMN_STATS_ACCURATE",
                 "value": "{\"BASIC_STATS\":\"true\"}"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/transient_lastDdlTime",
-                "value": "1715258680"
             },
             {
                 "op": "add",
@@ -1202,7 +1202,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-05-09"
+                "value": "2024-12-27"
             }
         ]
     },
@@ -1388,6 +1388,11 @@
             },
             {
                 "op": "add",
+                "path": "/customProperties/transient_lastDdlTime",
+                "value": "1735298441"
+            },
+            {
+                "op": "add",
                 "path": "/customProperties/numFiles",
                 "value": "0"
             },
@@ -1395,11 +1400,6 @@
                 "op": "add",
                 "path": "/customProperties/COLUMN_STATS_ACCURATE",
                 "value": "{\"BASIC_STATS\":\"true\"}"
-            },
-            {
-                "op": "add",
-                "path": "/customProperties/transient_lastDdlTime",
-                "value": "1715258680"
             },
             {
                 "op": "add",
@@ -1424,7 +1424,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-05-09"
+                "value": "2024-12-27"
             }
         ]
     },
@@ -1576,7 +1576,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/transient_lastDdlTime",
-                "value": "1715258672"
+                "value": "1735298433"
             },
             {
                 "op": "add",
@@ -1591,7 +1591,7 @@
             {
                 "op": "add",
                 "path": "/customProperties/create_date",
-                "value": "2024-05-09"
+                "value": "2024-12-27"
             },
             {
                 "op": "add",
@@ -1637,6 +1637,19 @@
                         },
                         "fields": [
                             {
+                                "fieldPath": "foo",
+                                "nullable": true,
+                                "type": {
+                                    "type": {
+                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                                    }
+                                },
+                                "nativeDataType": "int",
+                                "recursive": false,
+                                "isPartOfKey": false,
+                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
+                            },
+                            {
                                 "fieldPath": "baz",
                                 "nullable": true,
                                 "type": {
@@ -1649,19 +1662,6 @@
                                 "isPartOfKey": false,
                                 "isPartitioningKey": true,
                                 "jsonProps": "{\"native_data_type\": \"string\", \"_nullable\": true}"
-                            },
-                            {
-                                "fieldPath": "foo",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int",
-                                "recursive": false,
-                                "isPartOfKey": false,
-                                "jsonProps": "{\"native_data_type\": \"int\", \"_nullable\": true}"
                             },
                             {
                                 "fieldPath": "bar",

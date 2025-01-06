@@ -9,6 +9,7 @@ from datetime import datetime
 from itertools import groupby
 from pathlib import PurePath
 from typing import Any, Dict, Iterable, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import smart_open.compression as so_compression
 from more_itertools import peekable
@@ -224,7 +225,7 @@ class S3Source(StatefulIngestionSourceBase):
             self.init_spark()
 
     def init_spark(self):
-        os.environ.setdefault("SPARK_VERSION", "3.3")
+        os.environ.setdefault("SPARK_VERSION", "3.5")
         spark_version = os.environ["SPARK_VERSION"]
 
         # Importing here to avoid Deequ dependency for non profiling use cases
@@ -993,9 +994,7 @@ class S3Source(StatefulIngestionSourceBase):
                         folders = []
                         for dir in dirs_to_process:
                             logger.info(f"Getting files from folder: {dir}")
-                            prefix_to_process = dir.rstrip("\\").lstrip(
-                                self.create_s3_path(bucket_name, "/")
-                            )
+                            prefix_to_process = urlparse(dir).path.lstrip("/")
 
                             folders.extend(
                                 self.get_folder_info(

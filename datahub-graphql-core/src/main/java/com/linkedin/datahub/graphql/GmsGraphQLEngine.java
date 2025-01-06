@@ -67,6 +67,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.EntityRelationship;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipLegacy;
+import com.linkedin.datahub.graphql.generated.FacetMetadata;
 import com.linkedin.datahub.graphql.generated.ForeignKeyConstraint;
 import com.linkedin.datahub.graphql.generated.FormActorAssignment;
 import com.linkedin.datahub.graphql.generated.FreshnessContract;
@@ -1317,7 +1318,8 @@ public class GmsGraphQLEngine {
               .dataFetcher("updateQuery", new UpdateQueryResolver(this.queryService))
               .dataFetcher("deleteQuery", new DeleteQueryResolver(this.queryService))
               .dataFetcher(
-                  "createDataProduct", new CreateDataProductResolver(this.dataProductService))
+                  "createDataProduct",
+                  new CreateDataProductResolver(this.dataProductService, this.entityService))
               .dataFetcher(
                   "updateDataProduct", new UpdateDataProductResolver(this.dataProductService))
               .dataFetcher(
@@ -1474,6 +1476,19 @@ public class GmsGraphQLEngine {
                     "entity",
                     new EntityTypeResolver(
                         entityTypes, (env) -> ((BrowsePathEntry) env.getSource()).getEntity())))
+        .type(
+            "FacetMetadata",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "entity",
+                    new EntityTypeResolver(
+                        entityTypes,
+                        (env) -> {
+                          FacetMetadata facetMetadata = env.getSource();
+                          return facetMetadata.getEntity() != null
+                              ? facetMetadata.getEntity()
+                              : null;
+                        })))
         .type(
             "LineageRelationship",
             typeWiring ->

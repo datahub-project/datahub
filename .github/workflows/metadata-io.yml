@@ -81,6 +81,15 @@ jobs:
             !**/binary/**
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
+      - name: Upload coverage to Codecov
+        if: ${{ always()}}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./build/coverage-reports/
+          fail_ci_if_error: false
+          name: metadata-io-test
+          verbose: true
 
   event-file:
     runs-on: ubuntu-latest

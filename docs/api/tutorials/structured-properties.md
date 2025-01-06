@@ -8,7 +8,7 @@ import TabItem from '@theme/TabItem';
  Structured properties are a structured, named set of properties that can be attached to logical entities like Datasets, DataJobs, etc.
 Structured properties have values that are types. Conceptually, they are like “field definitions”.
 
-Learn more about structured properties in the [Structured Properties Feature Guide](../../../docs/features/feature-guides/properties.md).
+Learn more about structured properties in the [Structured Properties Feature Guide](../../../docs/features/feature-guides/properties/overview.md).
 
 
 ### Goal Of This Guide
@@ -73,7 +73,7 @@ mutation createStructuredProperty {
         {numberValue: 365, description:"Use this for non-sensitive data that can be retained for longer"}
       ],
       cardinality: SINGLE,
-      entityTypes: ["urn:li:entityType:dataset", "urn:li:entityType:dataFlow"],
+      entityTypes: ["urn:li:entityType:datahub.dataset", "urn:li:entityType:datahub.dataFlow"],
     }
   ) {
     urn

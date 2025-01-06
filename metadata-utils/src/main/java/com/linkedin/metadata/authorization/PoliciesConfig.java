@@ -169,6 +169,12 @@ public class PoliciesConfig {
           "Manage Structured Properties",
           "Manage structured properties in your instance.");
 
+  public static final Privilege VIEW_STRUCTURED_PROPERTIES_PAGE_PRIVILEGE =
+      Privilege.of(
+          "VIEW_STRUCTURED_PROPERTIES_PAGE",
+          "View Structured Properties",
+          "View structured properties in your instance.");
+
   public static final Privilege MANAGE_DOCUMENTATION_FORMS_PRIVILEGE =
       Privilege.of(
           "MANAGE_DOCUMENTATION_FORMS",
@@ -213,6 +219,7 @@ public class PoliciesConfig {
           MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE,
           MANAGE_CONNECTIONS_PRIVILEGE,
           MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE,
+          VIEW_STRUCTURED_PROPERTIES_PAGE_PRIVILEGE,
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
           MANAGE_FEATURES_PRIVILEGE,
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE);

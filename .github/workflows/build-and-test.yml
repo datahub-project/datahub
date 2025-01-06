@@ -109,8 +109,6 @@ jobs:
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |
           ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel
-        env:
-          NODE_OPTIONS: "--max-old-space-size=3072"
       - name: Gradle compile (jdk8) for legacy Spark
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         run: |
@@ -126,6 +124,16 @@ jobs:
             !**/binary/**
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./build/coverage-reports/
+          fail_ci_if_error: false
+          flags: ${{ matrix.timezone }}
+          name: ${{ matrix.command }}
+          verbose: true
 
   quickstart-compose-validation:
     runs-on: ubuntu-latest

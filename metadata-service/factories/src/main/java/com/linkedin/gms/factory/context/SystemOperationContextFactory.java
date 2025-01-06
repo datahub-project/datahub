@@ -45,13 +45,17 @@ public class SystemOperationContextFactory {
       @Nonnull final SearchService searchService,
       @Qualifier("baseElasticSearchComponents")
           BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
-      @Nonnull final ConfigurationProvider configurationProvider) {
+      @Nonnull final ConfigurationProvider configurationProvider,
+      @Qualifier("systemEntityClient") @Nonnull final SystemEntityClient systemEntityClient) {
 
     EntityServiceAspectRetriever entityServiceAspectRetriever =
         EntityServiceAspectRetriever.builder()
             .entityRegistry(entityRegistry)
             .entityService(entityService)
             .build();
+
+    EntityClientAspectRetriever entityClientAspectRetriever =
+        EntityClientAspectRetriever.builder().entityClient(systemEntityClient).build();
 
     SystemGraphRetriever systemGraphRetriever =
         SystemGraphRetriever.builder().graphService(graphService).build();
@@ -68,14 +72,17 @@ public class SystemOperationContextFactory {
             components.getIndexConvention(),
             RetrieverContext.builder()
                 .aspectRetriever(entityServiceAspectRetriever)
+                .cachingAspectRetriever(entityClientAspectRetriever)
                 .graphRetriever(systemGraphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
                 .build(),
             ValidationContext.builder()
                 .alternateValidation(
                     configurationProvider.getFeatureFlags().isAlternateMCPValidation())
-                .build());
+                .build(),
+            configurationProvider.getAuthentication().isEnforceExistenceEnabled());
 
+    entityClientAspectRetriever.setSystemOperationContext(systemOperationContext);
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
     systemGraphRetriever.setSystemOperationContext(systemOperationContext);
     searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
@@ -104,7 +111,7 @@ public class SystemOperationContextFactory {
           BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components,
       @Nonnull final ConfigurationProvider configurationProvider) {
 
-    EntityClientAspectRetriever entityServiceAspectRetriever =
+    EntityClientAspectRetriever entityClientAspectRetriever =
         EntityClientAspectRetriever.builder().entityClient(systemEntityClient).build();
 
     SystemGraphRetriever systemGraphRetriever =
@@ -121,16 +128,17 @@ public class SystemOperationContextFactory {
             ServicesRegistryContext.builder().restrictedService(restrictedService).build(),
             components.getIndexConvention(),
             RetrieverContext.builder()
-                .aspectRetriever(entityServiceAspectRetriever)
+                .cachingAspectRetriever(entityClientAspectRetriever)
                 .graphRetriever(systemGraphRetriever)
                 .searchRetriever(searchServiceSearchRetriever)
                 .build(),
             ValidationContext.builder()
                 .alternateValidation(
                     configurationProvider.getFeatureFlags().isAlternateMCPValidation())
-                .build());
+                .build(),
+            configurationProvider.getAuthentication().isEnforceExistenceEnabled());
 
-    entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
+    entityClientAspectRetriever.setSystemOperationContext(systemOperationContext);
     systemGraphRetriever.setSystemOperationContext(systemOperationContext);
     searchServiceSearchRetriever.setSystemOperationContext(systemOperationContext);
 

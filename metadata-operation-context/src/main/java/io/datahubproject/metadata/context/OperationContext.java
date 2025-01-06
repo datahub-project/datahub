@@ -16,6 +16,8 @@ import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import io.datahubproject.metadata.exception.ActorAccessException;
+import io.datahubproject.metadata.exception.OperationContextException;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.Optional;
@@ -63,6 +65,24 @@ public class OperationContext implements AuthorizationSession {
       @Nonnull Authorizer authorizer,
       @Nonnull Authentication sessionAuthentication,
       boolean allowSystemAuthentication) {
+    return OperationContext.asSession(
+        systemOperationContext,
+        requestContext,
+        authorizer,
+        sessionAuthentication,
+        allowSystemAuthentication,
+        false);
+  }
+
+  @Nonnull
+  public static OperationContext asSession(
+      OperationContext systemOperationContext,
+      @Nonnull RequestContext requestContext,
+      @Nonnull Authorizer authorizer,
+      @Nonnull Authentication sessionAuthentication,
+      boolean allowSystemAuthentication,
+      boolean skipCache)
+      throws ActorAccessException {
     return systemOperationContext.toBuilder()
         .operationContextConfig(
             // update allowed system authentication
@@ -72,7 +92,7 @@ public class OperationContext implements AuthorizationSession {
         .authorizationContext(AuthorizationContext.builder().authorizer(authorizer).build())
         .requestContext(requestContext)
         .validationContext(systemOperationContext.getValidationContext())
-        .build(sessionAuthentication);
+        .build(sessionAuthentication, skipCache);
   }
 
   /**
@@ -85,10 +105,14 @@ public class OperationContext implements AuthorizationSession {
   public static OperationContext withSearchFlags(
       OperationContext opContext, Function<SearchFlags, SearchFlags> flagDefaults) {
 
-    return opContext.toBuilder()
-        // update search flags for the request's session
-        .searchContext(opContext.getSearchContext().withFlagDefaults(flagDefaults))
-        .build(opContext.getSessionActorContext());
+    try {
+      return opContext.toBuilder()
+          // update search flags for the request's session
+          .searchContext(opContext.getSearchContext().withFlagDefaults(flagDefaults))
+          .build(opContext.getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   /**
@@ -101,10 +125,14 @@ public class OperationContext implements AuthorizationSession {
   public static OperationContext withLineageFlags(
       OperationContext opContext, Function<LineageFlags, LineageFlags> flagDefaults) {
 
-    return opContext.toBuilder()
-        // update lineage flags for the request's session
-        .searchContext(opContext.getSearchContext().withLineageFlagDefaults(flagDefaults))
-        .build(opContext.getSessionActorContext());
+    try {
+      return opContext.toBuilder()
+          // update lineage flags for the request's session
+          .searchContext(opContext.getSearchContext().withLineageFlagDefaults(flagDefaults))
+          .build(opContext.getSessionActorContext(), false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   /**
@@ -124,7 +152,8 @@ public class OperationContext implements AuthorizationSession {
       @Nullable ServicesRegistryContext servicesRegistryContext,
       @Nullable IndexConvention indexConvention,
       @Nullable RetrieverContext retrieverContext,
-      @Nonnull ValidationContext validationContext) {
+      @Nonnull ValidationContext validationContext,
+      boolean enforceExistenceEnabled) {
     return asSystem(
         config,
         systemAuthentication,
@@ -133,7 +162,8 @@ public class OperationContext implements AuthorizationSession {
         indexConvention,
         retrieverContext,
         validationContext,
-        ObjectMapperContext.DEFAULT);
+        ObjectMapperContext.DEFAULT,
+        enforceExistenceEnabled);
   }
 
   public static OperationContext asSystem(
@@ -144,10 +174,15 @@ public class OperationContext implements AuthorizationSession {
       @Nullable IndexConvention indexConvention,
       @Nullable RetrieverContext retrieverContext,
       @Nonnull ValidationContext validationContext,
-      @Nonnull ObjectMapperContext objectMapperContext) {
+      @Nonnull ObjectMapperContext objectMapperContext,
+      boolean enforceExistenceEnabled) {
 
     ActorContext systemActorContext =
-        ActorContext.builder().systemAuth(true).authentication(systemAuthentication).build();
+        ActorContext.builder()
+            .systemAuth(true)
+            .authentication(systemAuthentication)
+            .enforceExistenceEnabled(enforceExistenceEnabled)
+            .build();
     OperationContextConfig systemConfig =
         config.toBuilder().allowSystemAuthentication(true).build();
     SearchContext systemSearchContext =
@@ -155,18 +190,22 @@ public class OperationContext implements AuthorizationSession {
             ? SearchContext.EMPTY
             : SearchContext.builder().indexConvention(indexConvention).build();
 
-    return OperationContext.builder()
-        .operationContextConfig(systemConfig)
-        .systemActorContext(systemActorContext)
-        .searchContext(systemSearchContext)
-        .entityRegistryContext(EntityRegistryContext.builder().build(entityRegistry))
-        .servicesRegistryContext(servicesRegistryContext)
-        // Authorizer.EMPTY doesn't actually apply to system auth
-        .authorizationContext(AuthorizationContext.builder().authorizer(Authorizer.EMPTY).build())
-        .retrieverContext(retrieverContext)
-        .objectMapperContext(objectMapperContext)
-        .validationContext(validationContext)
-        .build(systemAuthentication);
+    try {
+      return OperationContext.builder()
+          .operationContextConfig(systemConfig)
+          .systemActorContext(systemActorContext)
+          .searchContext(systemSearchContext)
+          .entityRegistryContext(EntityRegistryContext.builder().build(entityRegistry))
+          .servicesRegistryContext(servicesRegistryContext)
+          // Authorizer.EMPTY doesn't actually apply to system auth
+          .authorizationContext(AuthorizationContext.builder().authorizer(Authorizer.EMPTY).build())
+          .retrieverContext(retrieverContext)
+          .objectMapperContext(objectMapperContext)
+          .validationContext(validationContext)
+          .build(systemAuthentication, false);
+    } catch (OperationContextException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Nonnull private final OperationContextConfig operationContextConfig;
@@ -177,7 +216,7 @@ public class OperationContext implements AuthorizationSession {
   @Nonnull private final EntityRegistryContext entityRegistryContext;
   @Nullable private final ServicesRegistryContext servicesRegistryContext;
   @Nullable private final RequestContext requestContext;
-  @Nullable private final RetrieverContext retrieverContext;
+  @Nonnull private final RetrieverContext retrieverContext;
   @Nonnull private final ObjectMapperContext objectMapperContext;
   @Nonnull private final ValidationContext validationContext;
 
@@ -194,13 +233,15 @@ public class OperationContext implements AuthorizationSession {
   public OperationContext asSession(
       @Nonnull RequestContext requestContext,
       @Nonnull Authorizer authorizer,
-      @Nonnull Authentication sessionAuthentication) {
+      @Nonnull Authentication sessionAuthentication)
+      throws ActorAccessException {
     return OperationContext.asSession(
         this,
         requestContext,
         authorizer,
         sessionAuthentication,
-        getOperationContextConfig().isAllowSystemAuthentication());
+        getOperationContextConfig().isAllowSystemAuthentication(),
+        false);
   }
 
   @Nonnull
@@ -284,17 +325,9 @@ public class OperationContext implements AuthorizationSession {
     return getAuditStamp(null);
   }
 
-  public Optional<RetrieverContext> getRetrieverContext() {
-    return Optional.ofNullable(retrieverContext);
-  }
-
-  @Nullable
+  @Nonnull
   public AspectRetriever getAspectRetriever() {
-    return getAspectRetrieverOpt().orElse(null);
-  }
-
-  public Optional<AspectRetriever> getAspectRetrieverOpt() {
-    return getRetrieverContext().map(RetrieverContext::getAspectRetriever);
+    return retrieverContext.getAspectRetriever();
   }
 
   /**
@@ -336,10 +369,7 @@ public class OperationContext implements AuthorizationSession {
                     ? EmptyContext.EMPTY
                     : getServicesRegistryContext())
             .add(getRequestContext() == null ? EmptyContext.EMPTY : getRequestContext())
-            .add(
-                getRetrieverContext().isPresent()
-                    ? getRetrieverContext().get()
-                    : EmptyContext.EMPTY)
+            .add(getRetrieverContext())
             .add(getObjectMapperContext())
             .build()
             .stream()
@@ -364,10 +394,7 @@ public class OperationContext implements AuthorizationSession {
                 getServicesRegistryContext() == null
                     ? EmptyContext.EMPTY
                     : getServicesRegistryContext())
-            .add(
-                getRetrieverContext().isPresent()
-                    ? getRetrieverContext().get()
-                    : EmptyContext.EMPTY)
+            .add(getRetrieverContext())
             .build()
             .stream()
             .map(ContextInterface::getCacheKeyComponent)
@@ -437,7 +464,16 @@ public class OperationContext implements AuthorizationSession {
   public static class OperationContextBuilder {
 
     @Nonnull
-    public OperationContext build(@Nonnull Authentication sessionAuthentication) {
+    public OperationContext build(
+        @Nonnull Authentication sessionAuthentication, boolean enforceExistenceEnabled) {
+      return build(sessionAuthentication, false, enforceExistenceEnabled);
+    }
+
+    @Nonnull
+    public OperationContext build(
+        @Nonnull Authentication sessionAuthentication,
+        boolean skipCache,
+        boolean enforceExistenceEnabled) {
       final Urn actorUrn = UrnUtils.getUrn(sessionAuthentication.getActor().toUrnStr());
       final ActorContext sessionActor =
           ActorContext.builder()
@@ -450,12 +486,22 @@ public class OperationContext implements AuthorizationSession {
                           .equals(sessionAuthentication.getActor()))
               .policyInfoSet(this.authorizationContext.getAuthorizer().getActorPolicies(actorUrn))
               .groupMembership(this.authorizationContext.getAuthorizer().getActorGroups(actorUrn))
+              .enforceExistenceEnabled(enforceExistenceEnabled)
               .build();
-      return build(sessionActor);
+      return build(sessionActor, skipCache);
     }
 
     @Nonnull
-    public OperationContext build(@Nonnull ActorContext sessionActor) {
+    public OperationContext build(@Nonnull ActorContext sessionActor, boolean skipCache) {
+      AspectRetriever retriever =
+          skipCache
+              ? this.retrieverContext.getAspectRetriever()
+              : this.retrieverContext.getCachingAspectRetriever();
+
+      if (!sessionActor.isActive(retriever)) {
+        throw new ActorAccessException("Actor is not active");
+      }
+
       return new OperationContext(
           this.operationContextConfig,
           sessionActor,

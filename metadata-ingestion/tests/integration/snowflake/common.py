@@ -14,6 +14,11 @@ NUM_COLS = 10
 NUM_OPS = 10
 NUM_USAGE = 0
 
+
+def is_secure(view_idx):
+    return view_idx == 1
+
+
 FROZEN_TIME = "2022-06-07 17:00:00"
 large_sql_query = """WITH object_access_history AS
         (
@@ -247,9 +252,25 @@ def default_query_results(  # noqa: C901
                 "name": f"VIEW_{view_idx}",
                 "created_on": datetime(2021, 6, 8, 0, 0, 0, 0),
                 "comment": "Comment for View",
-                "text": f"create view view_{view_idx} as select * from table_{view_idx}",
+                "is_secure": "true" if is_secure(view_idx) else "false",
+                "text": (
+                    f"create view view_{view_idx} as select * from table_{view_idx}"
+                    if not is_secure(view_idx)
+                    else None
+                ),
             }
             for view_idx in range(1, num_views + 1)
+        ]
+    elif query == SnowflakeQuery.get_secure_view_definitions():
+        return [
+            {
+                "TABLE_CATALOG": "TEST_DB",
+                "TABLE_SCHEMA": "TEST_SCHEMA",
+                "TABLE_NAME": f"VIEW_{view_idx}",
+                "VIEW_DEFINITION": f"create view view_{view_idx} as select * from table_{view_idx}",
+            }
+            for view_idx in range(1, num_views + 1)
+            if is_secure(view_idx)
         ]
     elif query == SnowflakeQuery.columns_for_schema("TEST_SCHEMA", "TEST_DB"):
         return [
@@ -437,7 +458,6 @@ def default_query_results(  # noqa: C901
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
             start_time_millis=1654473600000,
             end_time_millis=1654586220000,
-            include_view_lineage=True,
             include_column_lineage=True,
         ),
     ):
@@ -527,7 +547,6 @@ def default_query_results(  # noqa: C901
         snowflake_query.SnowflakeQuery.table_to_table_lineage_history_v2(
             start_time_millis=1654473600000,
             end_time_millis=1654586220000,
-            include_view_lineage=True,
             include_column_lineage=False,
         ),
     ):

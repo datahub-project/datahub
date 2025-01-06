@@ -31,7 +31,8 @@ def properties() -> None:
 def upsert(file: Path) -> None:
     """Upsert structured properties in DataHub."""
 
-    StructuredProperties.create(str(file))
+    with get_default_graph() as graph:
+        StructuredProperties.create(str(file), graph)
 
 
 @properties.command(
