@@ -358,8 +358,8 @@ class OracleInspectorObjectWrapper:
         COMMENT_SQL = """
             SELECT comments
             FROM dba_tab_comments
-            WHERE table_name = CAST(:table_name AS VARCHAR(128))
-            AND owner = CAST(:schema_name AS VARCHAR(128))
+            WHERE table_name = :table_name
+            AND owner = :schema_name
         """
 
         c = self._inspector_instance.bind.execute(
@@ -562,7 +562,7 @@ class OracleInspectorObjectWrapper:
 
         if schema is not None:
             params["owner"] = schema
-            text += "\nAND ac.owner = CAST(:owner AS VARCHAR2(128))"
+            text += "\nAND owner = :owner"
 
         rp = self._inspector_instance.bind.execute(sql.text(text), params).scalar()
 
