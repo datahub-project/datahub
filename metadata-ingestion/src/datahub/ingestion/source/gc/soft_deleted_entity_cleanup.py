@@ -260,6 +260,8 @@ class SoftDeletedEntitiesCleanup:
             scroll_across_entities = result.get("scrollAcrossEntities")
             if not scroll_across_entities:
                 break
+            if scroll_across_entities.get("count") == 0:
+                break
             scroll_id = scroll_across_entities.get("nextScrollId")
             self.report.num_queries_found += scroll_across_entities.get("count")
             for query in scroll_across_entities.get("searchResults"):
