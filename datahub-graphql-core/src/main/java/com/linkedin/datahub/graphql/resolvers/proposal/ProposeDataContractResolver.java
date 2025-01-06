@@ -14,7 +14,7 @@ import com.linkedin.datahub.graphql.generated.DataQualityContractInput;
 import com.linkedin.datahub.graphql.generated.FreshnessContractInput;
 import com.linkedin.datahub.graphql.generated.ProposeDataContractInput;
 import com.linkedin.datahub.graphql.generated.SchemaContractInput;
-import com.linkedin.metadata.service.ProposalService;
+import com.linkedin.metadata.service.ActionRequestService;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.List;
@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ProposeDataContractResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
-  private final ProposalService _proposalService;
+  private final ActionRequestService _proposalService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {

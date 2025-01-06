@@ -2,8 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.proposal;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ActionRequest;
@@ -14,12 +16,14 @@ import com.linkedin.datahub.graphql.resolvers.actionrequest.ActionRequestUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.service.ProposalService;
+import com.linkedin.metadata.service.ActionRequestService;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.HashSet;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -27,12 +31,13 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class RejectProposalResolver implements DataFetcher<CompletableFuture<Boolean>> {
   private final EntityService _entityService;
-  private final ProposalService _proposalService;
+  private final ActionRequestService _proposalService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final Urn proposalUrn =
         Urn.createFromString(bindArgument(environment.getArgument("urn"), String.class));
+    final String maybeNote = environment.getArgument("note");
     QueryContext context = environment.getContext();
 
     return CompletableFuture.supplyAsync(
@@ -88,24 +93,45 @@ public class RejectProposalResolver implements DataFetcher<CompletableFuture<Boo
             // Special cleanup required for Tag and Term Association Proposals
             if (proposal.getType().equals(ActionRequestType.TAG_ASSOCIATION)) {
               Urn targetUrn = Urn.createFromString(proposal.getEntity().getUrn());
-              Urn tagUrn =
-                  Urn.createFromString(proposal.getParams().getTagProposal().getTag().getUrn());
+              List<Urn> tagUrns =
+                  proposal.getParams().getTagProposal().getTags() != null
+                          && !proposal.getParams().getTagProposal().getTags().isEmpty()
+                      ? proposal.getParams().getTagProposal().getTags().stream()
+                          .map(tag -> UrnUtils.getUrn(tag.getUrn()))
+                          .collect(Collectors.toList())
+                      : ImmutableList.of(
+                          Urn.createFromString(
+                              proposal.getParams().getTagProposal().getTag().getUrn()));
               ProposalUtils.deleteTagFromEntityOrSchemaProposalsAspect(
                   context.getOperationContext(),
                   actor,
-                  tagUrn,
+                  tagUrns,
                   targetUrn,
                   subResource,
                   _entityService);
             } else if (proposal.getType().equals(ActionRequestType.TERM_ASSOCIATION)) {
               Urn targetUrn = Urn.createFromString(proposal.getEntity().getUrn());
-              Urn termUrn =
-                  Urn.createFromString(
-                      proposal.getParams().getGlossaryTermProposal().getGlossaryTerm().getUrn());
+              List<Urn> termUrns =
+                  proposal.getParams().getGlossaryTermProposal().getGlossaryTerms() != null
+                          && !proposal
+                              .getParams()
+                              .getGlossaryTermProposal()
+                              .getGlossaryTerms()
+                              .isEmpty()
+                      ? proposal.getParams().getGlossaryTermProposal().getGlossaryTerms().stream()
+                          .map(tag -> UrnUtils.getUrn(tag.getUrn()))
+                          .collect(Collectors.toList())
+                      : ImmutableList.of(
+                          Urn.createFromString(
+                              proposal
+                                  .getParams()
+                                  .getGlossaryTermProposal()
+                                  .getGlossaryTerm()
+                                  .getUrn()));
               ProposalUtils.deleteTermFromEntityOrSchemaProposalsAspect(
                   context.getOperationContext(),
                   actor,
-                  termUrn,
+                  termUrns,
                   targetUrn,
                   subResource,
                   _entityService);
@@ -136,6 +162,7 @@ public class RejectProposalResolver implements DataFetcher<CompletableFuture<Boo
                 actor,
                 ActionRequestStatus.COMPLETED.toString(),
                 ActionRequestResult.REJECTED.toString(),
+                maybeNote,
                 proposalEntity);
 
             return true;

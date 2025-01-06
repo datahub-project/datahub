@@ -20,7 +20,9 @@ record ActionRequestInfo {
   type: string
 
   /**
-   * The users this action request is assigned to
+   * The users this action request is assigned to.
+   * By default, action requests are assigned to Dataset Owners
+   * and with anyone who has the View Proposals platform privilege.
    */
   @Searchable = {
     "/*": {
@@ -32,6 +34,8 @@ record ActionRequestInfo {
 
   /**
    * The groups this action request is assigned to
+   * By default, action requests are assigned to Dataset Owners
+   * and with anyone who has the View Proposals platform privilege.
    */
   @Searchable = {
     "/*": {
@@ -43,6 +47,7 @@ record ActionRequestInfo {
 
   /**
    * The roles this action request is assigned to
+   * By default, action requests are assigned any roles that have the View Proposals platform privilege.
    */
   @Searchable = {
     "/*": {
@@ -71,7 +76,8 @@ record ActionRequestInfo {
   subResourceType: optional string
 
   /**
-   * The sub-resource identifier that the action is associated with, for example 'fieldName'
+   * The sub-resource identifier that the action is associated with, for example 'fieldName'.
+   * Currently, this is only used for Field Paths & schema fields.
    */
   @Searchable = {
     "fieldType": "KEYWORD"
@@ -98,6 +104,12 @@ record ActionRequestInfo {
     "fieldType": "URN"
   }
   createdBy: Urn
+
+  /**
+   * An optional description that can be added to the action request
+   * to explain the intention behind it.
+   */
+  description: optional string
 
   /**
    * The time at which the request is due

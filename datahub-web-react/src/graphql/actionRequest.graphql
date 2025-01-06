@@ -204,6 +204,11 @@ query listActionRequests($input: ListActionRequestsInput!) {
                         }
                     }
                 }
+                structuredPropertyProposal {
+                    structuredProperties {
+                        ...structuredPropertiesFields
+                    }
+                }
             }
             created {
                 time

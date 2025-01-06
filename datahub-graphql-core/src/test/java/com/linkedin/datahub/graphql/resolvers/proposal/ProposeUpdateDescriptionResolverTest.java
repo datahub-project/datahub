@@ -9,7 +9,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DescriptionUpdateInput;
 import com.linkedin.datahub.graphql.generated.SubResourceType;
-import com.linkedin.metadata.service.ProposalService;
+import com.linkedin.metadata.service.ActionRequestService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import org.testng.annotations.BeforeMethod;
@@ -27,18 +27,18 @@ public class ProposeUpdateDescriptionResolverTest {
       "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-project.my-dataset.user-table,PROD)";
   private static final String DESCRIPTION = "description";
 
-  private ProposalService _proposalService;
+  private ActionRequestService _ActionRequestService;
   private ProposeUpdateDescriptionResolver _resolver;
   private DataFetchingEnvironment _dataFetchingEnvironment;
   private Authentication _authentication;
 
   @BeforeMethod
   public void setupTest() {
-    _proposalService = mock(ProposalService.class);
+    _ActionRequestService = mock(ActionRequestService.class);
     _dataFetchingEnvironment = mock(DataFetchingEnvironment.class);
     _authentication = mock(Authentication.class);
 
-    _resolver = new ProposeUpdateDescriptionResolver(_proposalService);
+    _resolver = new ProposeUpdateDescriptionResolver(_ActionRequestService);
   }
 
   @Test
@@ -64,7 +64,7 @@ public class ProposeUpdateDescriptionResolverTest {
     input.setDescription(DESCRIPTION);
     input.setResourceUrn(GLOSSARY_NODE_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
-    when(_proposalService.proposeUpdateResourceDescription(
+    when(_ActionRequestService.proposeUpdateResourceDescription(
             any(OperationContext.class), any(), any(), any(), any(), any()))
         .thenReturn(true);
 
@@ -81,7 +81,7 @@ public class ProposeUpdateDescriptionResolverTest {
     input.setDescription(DESCRIPTION);
     input.setResourceUrn(GLOSSARY_TERM_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
-    when(_proposalService.proposeUpdateResourceDescription(
+    when(_ActionRequestService.proposeUpdateResourceDescription(
             any(OperationContext.class), any(), any(), any(), any(), any()))
         .thenReturn(true);
 
@@ -98,7 +98,7 @@ public class ProposeUpdateDescriptionResolverTest {
     input.setDescription(DESCRIPTION);
     input.setResourceUrn(DATASET_URN_STRING);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
-    when(_proposalService.proposeUpdateResourceDescription(
+    when(_ActionRequestService.proposeUpdateResourceDescription(
             any(OperationContext.class), any(), any(), any(), any(), any()))
         .thenReturn(true);
 
@@ -120,7 +120,7 @@ public class ProposeUpdateDescriptionResolverTest {
     input.setSubResource(fieldPath);
 
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
-    when(_proposalService.proposeUpdateResourceDescription(
+    when(_ActionRequestService.proposeUpdateResourceDescription(
             any(OperationContext.class),
             eq(Urn.createFromString(ACTOR_URN_STRING)),
             eq(Urn.createFromString(DATASET_URN_STRING)),

@@ -437,6 +437,10 @@ public class Constants {
 
   /* SaaS-Only */
 
+  // Datasets
+  public static final String DATASET_SCHEMA_PROPOSALS_ASPECT_NAME = "schemaProposals";
+  public static final String ENTITY_PROPOSALS_ASPECT_NAME = "proposals";
+
   // Search
   public static final String USAGE_FEATURES_ASPECT_NAME = "usageFeatures";
   public static final String STORAGE_FEATURES_ASPECT_NAME = "storageFeatures";

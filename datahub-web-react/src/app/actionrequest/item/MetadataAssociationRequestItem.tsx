@@ -76,6 +76,7 @@ export default function MetadataAssociationRequestItem({
 
     const acceptRequest = () => {
         Modal.confirm({
+            title: 'Accept Proposal',
             content: 'Are you sure you want to accept this proposal?',
             okText: 'Yes',
             onOk() {
@@ -95,7 +96,7 @@ export default function MetadataAssociationRequestItem({
                     })
                     .catch((err) => {
                         console.log(err);
-                        message.error('Failed to accept proposal. :(');
+                        message.error('Failed to accept proposal. An unknown error occurred!');
                     });
             },
         });
@@ -103,6 +104,7 @@ export default function MetadataAssociationRequestItem({
 
     const rejectRequest = () => {
         Modal.confirm({
+            title: 'Reject Proposal',
             content: 'Are you sure you want to reject this proposal?',
             okText: 'Yes',
             onOk() {
@@ -122,7 +124,7 @@ export default function MetadataAssociationRequestItem({
                     })
                     .catch((err) => {
                         console.log(err);
-                        message.error('Failed to reject proposal. :(');
+                        message.error('Failed to reject proposal. An unknown error occurred!');
                     });
             },
         });

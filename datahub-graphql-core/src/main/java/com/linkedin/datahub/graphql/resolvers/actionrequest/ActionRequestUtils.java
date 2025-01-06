@@ -10,6 +10,7 @@ import com.linkedin.actionrequest.CreateGlossaryTermProposal;
 import com.linkedin.actionrequest.DataContractProposal;
 import com.linkedin.actionrequest.DescriptionProposal;
 import com.linkedin.actionrequest.GlossaryTermProposal;
+import com.linkedin.actionrequest.StructuredPropertyProposal;
 import com.linkedin.actionrequest.TagProposal;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
@@ -40,12 +41,15 @@ import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
 import com.linkedin.datahub.graphql.generated.InferenceMetadata;
 import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.SchemaContract;
+import com.linkedin.datahub.graphql.generated.StructuredPropertiesEntry;
+import com.linkedin.datahub.graphql.generated.StructuredPropertyProposalParams;
 import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
 import com.linkedin.datahub.graphql.generated.UpdateDescriptionProposalParams;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.dataset.mappers.EditableSchemaMetadataMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
+import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
 import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
@@ -64,12 +68,15 @@ import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.schema.EditableSchemaMetadata;
+import com.linkedin.structured.StructuredPropertyValueAssignment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -137,7 +144,13 @@ public class ActionRequestUtils {
         actionRequest.setCreated(createdStamp);
 
         if (actionRequestInfo.hasParams()) {
-          actionRequest.setParams(mapParams(actionRequestInfo.getParams()));
+          actionRequest.setParams(
+              mapParams(
+                  context,
+                  actionRequestInfo.getParams(),
+                  actionRequestInfo.hasResource()
+                      ? UrnUtils.getUrn(actionRequestInfo.getResource())
+                      : null));
         }
 
         if (actionRequestInfo.hasOrigin()) {
@@ -305,7 +318,9 @@ public class ActionRequestUtils {
   }
 
   public static ActionRequestParams mapParams(
-      final com.linkedin.actionrequest.ActionRequestParams params) {
+      @Nullable final QueryContext context,
+      final com.linkedin.actionrequest.ActionRequestParams params,
+      @Nullable final Urn entityUrn) {
     final ActionRequestParams result = new ActionRequestParams();
     if (params.hasGlossaryTermProposal()) {
       result.setGlossaryTermProposal(mapGlossaryTermProposal(params.getGlossaryTermProposal()));
@@ -328,23 +343,60 @@ public class ActionRequestUtils {
     if (params.hasDataContractProposal()) {
       result.setDataContractProposal(mapDataContractProposal(params.getDataContractProposal()));
     }
+    if (params.hasStructuredPropertyProposal() && entityUrn != null) {
+      result.setStructuredPropertyProposal(
+          mapStructuredPropertyProposal(
+              context, params.getStructuredPropertyProposal(), entityUrn));
+    }
     return result;
   }
 
   public static GlossaryTermProposalParams mapGlossaryTermProposal(
       final GlossaryTermProposal proposal) {
     final GlossaryTermProposalParams params = new GlossaryTermProposalParams();
-    final GlossaryTerm emptyTerm = new GlossaryTerm();
-    emptyTerm.setUrn(proposal.getGlossaryTerm().toString());
-    params.setGlossaryTerm(emptyTerm);
+
+    if (proposal.hasGlossaryTerm()) {
+      // Map legacy "term" field.
+      final GlossaryTerm emptyTerm = new GlossaryTerm();
+      emptyTerm.setUrn(proposal.getGlossaryTerm().toString());
+      params.setGlossaryTerm(emptyTerm);
+    }
+
+    if (proposal.hasGlossaryTerms()) {
+      // Map new "terms" field.
+      final List<GlossaryTerm> emptyTerms = new ArrayList<>();
+      for (Urn term : proposal.getGlossaryTerms()) {
+        final GlossaryTerm emptyGlossaryTerm = new GlossaryTerm();
+        emptyGlossaryTerm.setUrn(term.toString());
+        emptyTerms.add(emptyGlossaryTerm);
+      }
+      params.setGlossaryTerms(emptyTerms);
+    }
+
     return params;
   }
 
   public static TagProposalParams mapTagProposal(final TagProposal proposal) {
     final TagProposalParams params = new TagProposalParams();
     final Tag emptyTag = new Tag();
-    emptyTag.setUrn(proposal.getTag().toString());
-    params.setTag(emptyTag);
+
+    // Map legacy "tag" field.
+    if (proposal.hasTag()) {
+      emptyTag.setUrn(proposal.getTag().toString());
+      params.setTag(emptyTag);
+    }
+
+    if (proposal.hasTags()) {
+      // Map new "tags" field.
+      final List<Tag> emptyTags = new ArrayList<>();
+      for (Urn tag : proposal.getTags()) {
+        final Tag emptyTagProposal = new Tag();
+        emptyTagProposal.setUrn(tag.toString());
+        emptyTags.add(emptyTagProposal);
+      }
+      params.setTags(emptyTags);
+    }
+
     return params;
   }
 
@@ -417,6 +469,20 @@ public class ActionRequestUtils {
     return params;
   }
 
+  public static StructuredPropertyProposalParams mapStructuredPropertyProposal(
+      final QueryContext context, final StructuredPropertyProposal proposal, final Urn entityUrn) {
+    final StructuredPropertyProposalParams propertyProposalParams =
+        new StructuredPropertyProposalParams();
+    final List<StructuredPropertiesEntry> actualPropertyProposals = new ArrayList<>();
+    for (final StructuredPropertyValueAssignment entry : proposal.getStructuredPropertyValues()) {
+      final StructuredPropertiesEntry propertyProposal =
+          StructuredPropertiesMapper.INSTANCE.mapStructuredProperty(context, entry, entityUrn);
+      actualPropertyProposals.add(propertyProposal);
+    }
+    propertyProposalParams.setStructuredProperties(actualPropertyProposals);
+    return propertyProposalParams;
+  }
+
   public static Criterion createStatusCriterion(ActionRequestStatus status) {
     return CriterionUtils.buildCriterion(STATUS_FIELD_NAME, Condition.EQUAL, status.toString());
   }
@@ -466,25 +532,36 @@ public class ActionRequestUtils {
       if (snapshot.getAspects().stream()
           .filter(ActionRequestAspect::isActionRequestInfo)
           .map(ActionRequestAspect::getActionRequestInfo)
+          .filter(ActionRequestInfo::hasResource)
           .flatMap(
               info -> {
                 // extracting urns
-                Optional<Urn> resourceUrn =
-                    Optional.ofNullable(info.getResource()).map(UrnUtils::getUrn);
-                Optional<Urn> termUrn =
-                    Optional.ofNullable(info.getParams())
-                        .map(
-                            com.linkedin.actionrequest.ActionRequestParams::getGlossaryTermProposal)
-                        .map(GlossaryTermProposal::getGlossaryTerm);
-                Optional<Urn> tagUrn =
-                    Optional.ofNullable(info.getParams())
-                        .map(com.linkedin.actionrequest.ActionRequestParams::getTagProposal)
-                        .map(TagProposal::getTag);
+                final Urn resourceUrn = UrnUtils.getUrn(info.getResource());
 
-                return Stream.of(resourceUrn, termUrn, tagUrn);
+                final List<Urn> termUrns =
+                    info.hasParams() && info.getParams().hasGlossaryTermProposal()
+                        ? ActionRequestUtils.extractTermsFromTermProposal(
+                            info.getParams().getGlossaryTermProposal())
+                        : Collections.emptyList();
+
+                final List<Urn> tagUrns =
+                    info.hasParams() && info.getParams().hasTagProposal()
+                        ? ActionRequestUtils.extractTagsFromTagProposal(
+                            info.getParams().getTagProposal())
+                        : Collections.emptyList();
+
+                final List<Urn> propertyUrns =
+                    info.hasParams() && info.getParams().hasStructuredPropertyProposal()
+                        ? ActionRequestUtils.extractPropertiesFromStructuredPropertyProposal(
+                            info.getParams().getStructuredPropertyProposal())
+                        : Collections.emptyList();
+
+                return Stream.concat(
+                    Stream.concat(Stream.of(resourceUrn), propertyUrns.stream()),
+                    Stream.concat(termUrns.stream(), tagUrns.stream()));
               })
-          .filter(Optional::isPresent)
-          .anyMatch(optUrn -> !canView(context.getOperationContext(), optUrn.get()))) {
+          .filter(Objects::nonNull)
+          .anyMatch(optUrn -> !canView(context.getOperationContext(), optUrn))) {
 
         // return empty if contains reference to restricted urn
         return Optional.empty();
@@ -492,6 +569,41 @@ public class ActionRequestUtils {
     }
 
     return Optional.of(snapshot);
+  }
+
+  private static List<Urn> extractTagsFromTagProposal(TagProposal tagProposal) {
+    if (tagProposal.hasTags() && tagProposal.getTags().size() > 0) {
+      return tagProposal.getTags();
+    } else if (tagProposal.hasTag()) {
+      return ImmutableList.of(tagProposal.getTag());
+    } else {
+      // Technically, should never happen!
+      return Collections.emptyList();
+    }
+  }
+
+  private static List<Urn> extractTermsFromTermProposal(GlossaryTermProposal termProposal) {
+    if (termProposal.hasGlossaryTerms() && termProposal.getGlossaryTerms().size() > 0) {
+      return termProposal.getGlossaryTerms();
+    } else if (termProposal.hasGlossaryTerm()) {
+      return ImmutableList.of(termProposal.getGlossaryTerm());
+    } else {
+      // Technically, should never happen!
+      return Collections.emptyList();
+    }
+  }
+
+  private static List<Urn> extractPropertiesFromStructuredPropertyProposal(
+      StructuredPropertyProposal structuredPropertyProposal) {
+    if (structuredPropertyProposal.hasStructuredPropertyValues()
+        && structuredPropertyProposal.getStructuredPropertyValues().size() > 0) {
+      return structuredPropertyProposal.getStructuredPropertyValues().stream()
+          .map(StructuredPropertyValueAssignment::getPropertyUrn)
+          .collect(Collectors.toList());
+    } else {
+      // Technically, should never happen!
+      return Collections.emptyList();
+    }
   }
 
   public static List<ActionRequest> mapRejectedActionRequests(
@@ -518,6 +630,7 @@ public class ActionRequestUtils {
     try {
       final EntityResponse response =
           entityClient.getV2(opContext, CORP_USER_ENTITY_NAME, actor, null);
+
       final EnvelopedAspectMap aspects = response.getAspects();
 
       if (aspects.get(GROUP_MEMBERSHIP_ASPECT_NAME) != null) {

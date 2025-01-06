@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 
-import { Badge as BadgeAntd, Tabs, Typography } from 'antd';
+import { Badge as BadgeAntd, Tabs } from 'antd';
 import styled from 'styled-components';
+import { PageTitle } from '@src/alchemy-components';
 import { Badge } from '@src/alchemy-components/components/Badge';
 
 import { useUserContext } from '../context/useUserContext';
@@ -44,12 +45,6 @@ const PageContainer = styled.div<{ isV2: boolean; $isShowNavBarRedesign?: boolea
 const PageHeaderContainer = styled.div`
     && {
         padding-left: 24px;
-    }
-`;
-
-const PageTitle = styled(Typography.Title)`
-    && {
-        margin-bottom: 12px;
     }
 `;
 
@@ -142,10 +137,7 @@ export const TaskCenter = () => {
     return (
         <PageContainer isV2={isV2} $isShowNavBarRedesign={isShowNavBarRedesign}>
             <PageHeaderContainer>
-                <PageTitle level={3}>Task Center</PageTitle>
-                <Typography.Paragraph type="secondary">
-                    Complete compliance tasks and review metadata change proposals.
-                </Typography.Paragraph>
+                <PageTitle title="Task Center" subTitle="Review change proposals & complete compliance tasks" />
             </PageHeaderContainer>
             <StyledTabs activeKey={activeTab} size="large" onTabClick={(tab: string) => setActiveTab(tab)}>
                 <Tab

@@ -1,11 +1,13 @@
 package com.linkedin.metadata.service;
 
+import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.METADATA_TESTS_SOURCE;
 import static com.linkedin.metadata.entity.AspectUtils.*;
 import static com.linkedin.metadata.service.util.MetadataTestServiceUtils.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlossaryTermAssociation;
 import com.linkedin.common.GlossaryTermAssociationArray;
@@ -13,6 +15,7 @@ import com.linkedin.common.GlossaryTerms;
 import com.linkedin.common.urn.GlossaryTermUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.patch.builder.GlossaryTermsPatchBuilder;
@@ -22,10 +25,12 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.schema.EditableSchemaFieldInfo;
 import com.linkedin.schema.EditableSchemaFieldInfoArray;
 import com.linkedin.schema.EditableSchemaMetadata;
+import com.linkedin.schema.SchemaField;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.openapi.client.OpenApiClient;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -112,6 +117,95 @@ public class GlossaryTermService extends BaseService {
               glossaryTermUrns,
               resources.stream().map(ResourceReference::getUrn).collect(Collectors.toList())),
           e);
+    }
+  }
+
+  /**
+   * Retrieve all asset level terms for a given asset.
+   *
+   * @param opContext the operation context
+   * @param entityUrn the entity to retrieve terms for.
+   * @return the term associations associated with the entity.
+   */
+  public List<GlossaryTermAssociation> getEntityTerms(
+      @Nonnull OperationContext opContext, @Nonnull Urn entityUrn) {
+    final GlossaryTerms maybeTerms = getGlossaryTerms(opContext, entityUrn);
+    if (maybeTerms != null) {
+      return maybeTerms.getTerms();
+    }
+    return Collections.emptyList();
+  }
+
+  /**
+   * Retrieve all schema-field level terms for a given asset.
+   *
+   * @param opContext the operation context
+   * @param entityUrn the entity to retrieve terms for
+   * @return the term associations associated with the schema field
+   */
+  public List<GlossaryTermAssociation> getSchemaFieldTerms(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final String fieldPath) {
+    final List<GlossaryTermAssociation> editableSchemaFieldTerms =
+        getEditableSchemaFieldGlossaryTerms(opContext, entityUrn, fieldPath);
+    final List<GlossaryTermAssociation> schemaFieldTerms =
+        getNonEditableSchemaFieldGlossaryTerms(opContext, entityUrn, fieldPath);
+
+    List<GlossaryTermAssociation> result = new ArrayList<>();
+    result.addAll(editableSchemaFieldTerms);
+    result.addAll(schemaFieldTerms);
+
+    return result;
+  }
+
+  private List<GlossaryTermAssociation> getEditableSchemaFieldGlossaryTerms(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final String fieldPath) {
+    final EditableSchemaFieldInfo maybeEditableSchemaField =
+        getEditableSchemaField(opContext, entityUrn, fieldPath);
+    if (maybeEditableSchemaField != null && maybeEditableSchemaField.hasGlossaryTerms()) {
+      return maybeEditableSchemaField.getGlossaryTerms().getTerms();
+    }
+    return Collections.emptyList();
+  }
+
+  private List<GlossaryTermAssociation> getNonEditableSchemaFieldGlossaryTerms(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final String fieldPath) {
+    final SchemaField maybeSchemaField = getSchemaField(opContext, entityUrn, fieldPath);
+    if (maybeSchemaField != null && maybeSchemaField.hasGlossaryTerms()) {
+      return maybeSchemaField.getGlossaryTerms().getTerms();
+    }
+    return Collections.emptyList();
+  }
+
+  @Nullable
+  private GlossaryTerms getGlossaryTerms(
+      @Nonnull OperationContext opContext, @Nonnull Urn entityUrn) {
+    final EntityResponse response = getGlossaryTermsEntityResponse(opContext, entityUrn);
+    if (response != null && response.getAspects().containsKey(GLOSSARY_TERMS_ASPECT_NAME)) {
+      return new GlossaryTerms(
+          response.getAspects().get(GLOSSARY_TERMS_ASPECT_NAME).getValue().data());
+    }
+    // No aspect found
+    return null;
+  }
+
+  @Nullable
+  private EntityResponse getGlossaryTermsEntityResponse(
+      @Nonnull OperationContext opContext, @Nonnull final Urn entityUrn) {
+    try {
+      return this.entityClient.getV2(
+          opContext,
+          entityUrn.getEntityType(),
+          entityUrn,
+          ImmutableSet.of(GLOSSARY_TERMS_ASPECT_NAME));
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to retrieve glossary terms for entity with urn %s", entityUrn), e);
     }
   }
 

@@ -32,6 +32,7 @@ import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.service.ActionRequestService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataContractService;
@@ -41,7 +42,6 @@ import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.service.OwnershipTypeService;
-import com.linkedin.metadata.service.ProposalService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ShareService;
@@ -96,6 +96,7 @@ public class GmsGraphQLEngineArgs {
   DataProductService dataProductService;
   ERModelRelationshipService erModelRelationshipService;
   FormService formService;
+  ActionRequestService actionRequestService;
   RestrictedService restrictedService;
   int graphQLQueryComplexityLimit;
   int graphQLQueryDepthLimit;
@@ -110,7 +111,6 @@ public class GmsGraphQLEngineArgs {
   // any fork specific args should go below this line
   EntitySearchService entitySearchService;
   TestEngine testEngine;
-  ProposalService proposalService;
   MonitorService monitorService;
   IntegrationsService integrationsService;
   ActionPipelineConfiguration actionPipelineConfiguration;

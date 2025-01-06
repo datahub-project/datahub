@@ -7,6 +7,7 @@ import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_STATUS_PENDING
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_DATA_CONTRACT_PROPOSAL;
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TAG_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL;
@@ -23,7 +24,7 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.service.ProposalService;
+import com.linkedin.metadata.service.ActionRequestService;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -34,10 +35,11 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-// todo: push bulk proposal acceptance into ProposalService.java layer as much as possible.
+// todo: push bulk proposal acceptance into ActionRequestService.java layer as much as possible.
 // this is way too spread out across multiple classes. (ProposalUtils, AcceptProposalsResolver,
 // ProposalService, etc)
 @Slf4j
@@ -45,13 +47,14 @@ import lombok.extern.slf4j.Slf4j;
 public class AcceptProposalsResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService<?> _entityService;
-  private final ProposalService _proposalService;
+  private final ActionRequestService _proposalService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final List<String> proposalUrnStrs = bindArgument(environment.getArgument("urns"), List.class);
     final Set<Urn> proposalUrns =
         proposalUrnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
+    final String maybeNote = (String) environment.getArgument("note");
     final QueryContext context = environment.getContext();
 
     return CompletableFuture.supplyAsync(
@@ -60,7 +63,7 @@ public class AcceptProposalsResolver implements DataFetcher<CompletableFuture<Bo
           ProposalUtils.validateProposalUrns(proposalUrns);
 
           // Then, accept the proposals
-          acceptProposals(proposalUrns, context);
+          acceptProposals(proposalUrns, maybeNote, context);
 
           // Return true if all are successful.
           return true;
@@ -68,7 +71,9 @@ public class AcceptProposalsResolver implements DataFetcher<CompletableFuture<Bo
   }
 
   private void acceptProposals(
-      @Nonnull final Set<Urn> proposalUrns, @Nonnull final QueryContext context) {
+      @Nonnull final Set<Urn> proposalUrns,
+      @Nullable final String note,
+      @Nonnull final QueryContext context) {
     final Map<Urn, Entity> resolvedProposalEntities =
         _entityService.getEntities(
             context.getOperationContext(), proposalUrns, new HashSet<>(), true);
@@ -85,12 +90,14 @@ public class AcceptProposalsResolver implements DataFetcher<CompletableFuture<Bo
             String.format(
                 "Failed to accept proposal. Propose with urn %s was not found.", proposalUrn));
       }
-      acceptProposal(resolvedProposalEntities.get(proposalUrn), context);
+      acceptProposal(resolvedProposalEntities.get(proposalUrn), note, context);
     }
   }
 
   private void acceptProposal(
-      @Nonnull final Entity proposalEntity, @Nonnull final QueryContext context) {
+      @Nonnull final Entity proposalEntity,
+      @Nullable final String note,
+      @Nonnull final QueryContext context) {
 
     // TODO: Migrate away from using deprecated 'snapshot' entities here.
     final ActionRequestSnapshot actionRequestSnapshot =
@@ -127,6 +134,8 @@ public class AcceptProposalsResolver implements DataFetcher<CompletableFuture<Bo
         case ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL:
           acceptGlossaryTermProposal(actionRequestSnapshot, context);
           break;
+        case ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL:
+          acceptStructuredPropertyProposal(actionRequestSnapshot, context);
         default:
           log.warn(
               String.format(
@@ -139,6 +148,7 @@ public class AcceptProposalsResolver implements DataFetcher<CompletableFuture<Bo
           actorUrn,
           ACTION_REQUEST_STATUS_COMPLETE,
           ACTION_REQUEST_RESULT_ACCEPTED,
+          note,
           proposalEntity);
 
     } catch (Exception e) {
@@ -154,12 +164,16 @@ public class AcceptProposalsResolver implements DataFetcher<CompletableFuture<Bo
       throws Exception {
 
     final Urn actorUrn = UrnUtils.getUrn(context.getActorUrn());
-    final Urn tagUrn = actionRequestInfo.getParams().getTagProposal().getTag();
+    final List<Urn> tagUrns =
+        actionRequestInfo.getParams().getTagProposal().getTags() != null
+                && !actionRequestInfo.getParams().getTagProposal().getTags().isEmpty()
+            ? actionRequestInfo.getParams().getTagProposal().getTags()
+            : ImmutableList.of(actionRequestInfo.getParams().getTagProposal().getTag());
     final Urn targetUrn = UrnUtils.getUrn(actionRequestInfo.getResource());
 
     LabelUtils.addTagsToResources(
         context.getOperationContext(),
-        ImmutableList.of(tagUrn),
+        tagUrns,
         ImmutableList.of(
             new ResourceRefInput(
                 targetUrn.toString(),
@@ -174,7 +188,7 @@ public class AcceptProposalsResolver implements DataFetcher<CompletableFuture<Bo
     ProposalUtils.deleteTagFromEntityOrSchemaProposalsAspect(
         context.getOperationContext(),
         actorUrn,
-        tagUrn,
+        tagUrns,
         targetUrn,
         actionRequestInfo.getSubResource(),
         _entityService);
@@ -185,12 +199,21 @@ public class AcceptProposalsResolver implements DataFetcher<CompletableFuture<Bo
       throws Exception {
 
     final Urn actorUrn = UrnUtils.getUrn(context.getActorUrn());
-    final Urn termUrn = actionRequestInfo.getParams().getGlossaryTermProposal().getGlossaryTerm();
+    final List<Urn> termUrns =
+        actionRequestInfo.getParams().getGlossaryTermProposal().getGlossaryTerms() != null
+                && !actionRequestInfo
+                    .getParams()
+                    .getGlossaryTermProposal()
+                    .getGlossaryTerms()
+                    .isEmpty()
+            ? actionRequestInfo.getParams().getGlossaryTermProposal().getGlossaryTerms()
+            : ImmutableList.of(
+                actionRequestInfo.getParams().getGlossaryTermProposal().getGlossaryTerm());
     final Urn targetUrn = UrnUtils.getUrn(actionRequestInfo.getResource());
 
     LabelUtils.addTermsToResources(
         context.getOperationContext(),
-        ImmutableList.of(termUrn),
+        termUrns,
         ImmutableList.of(
             new ResourceRefInput(
                 targetUrn.toString(),
@@ -205,7 +228,7 @@ public class AcceptProposalsResolver implements DataFetcher<CompletableFuture<Bo
     ProposalUtils.deleteTermFromEntityOrSchemaProposalsAspect(
         context.getOperationContext(),
         actorUrn,
-        termUrn,
+        termUrns,
         targetUrn,
         actionRequestInfo.getSubResource(),
         _entityService);
@@ -249,5 +272,14 @@ public class AcceptProposalsResolver implements DataFetcher<CompletableFuture<Bo
       throws Exception {
     _proposalService.acceptDataContractProposal(
         context.getOperationContext(), actionRequestSnapshot);
+  }
+
+  private void acceptStructuredPropertyProposal(
+      @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
+      @Nonnull final QueryContext context)
+      throws Exception {
+    _proposalService.acceptStructuredPropertyProposal(
+        context.getOperationContext(),
+        ActionRequestService.findActionRequestInfoAspect(actionRequestSnapshot));
   }
 }

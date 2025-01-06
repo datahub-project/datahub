@@ -26,6 +26,15 @@ record ActionRequestStatus {
   result: optional string
 
   /**
+   * Optional note associated with the status.
+   * E.g. if the request is rejected, the reason for rejection. If the request is approved, the reason for approval.
+   */
+  @Searchable = {
+    "fieldType": "KEYWORD"
+  }
+  note: optional string
+
+  /**
    * Audit stamp containing who last modified the status and when.
    */
   @Searchable = {

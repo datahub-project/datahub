@@ -4,13 +4,13 @@ import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.ACCEPTED_ACTION_REQUEST;
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.DESCRIPTION_ACTION_REQUEST;
-import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.TAG_ACTION_REQUEST;
-import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.TERM_ACTION_REQUEST;
+import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.LEGACY_TAG_ACTION_REQUEST;
+import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.LEGACY_TERM_ACTION_REQUEST;
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.TEST_ACTOR_URN;
+import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.buildLegacyMockTagProposalSnapshot;
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.buildMockAcceptedSnapshot;
 import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.buildMockDocumentationSnapshot;
-import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.buildMockTagProposalSnapshot;
-import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.buildMockTermProposalSnapshot;
+import static com.linkedin.datahub.graphql.resolvers.proposal.ProposalTestUtils.buildMockLegacyTermProposalSnapshot;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_RESULT_REJECTED;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_STATUS_COMPLETE;
 import static org.mockito.ArgumentMatchers.any;
@@ -24,7 +24,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.service.ProposalService;
+import com.linkedin.metadata.service.ActionRequestService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
@@ -44,9 +44,9 @@ public class RejectProposalsResolverTest {
 
     // Create resolver
     EntityService<?> mockEntityService = initMockEntityService();
-    ProposalService mockProposalService = Mockito.mock(ProposalService.class);
+    ActionRequestService mockActionRequestService = Mockito.mock(ActionRequestService.class);
     RejectProposalsResolver resolver =
-        new RejectProposalsResolver(mockEntityService, mockProposalService);
+        new RejectProposalsResolver(mockEntityService, mockActionRequestService);
 
     // Execute resolver
     QueryContext mockContext = getMockAllowContext();
@@ -61,26 +61,58 @@ public class RejectProposalsResolverTest {
   public void testRejectSuccess() throws Exception {
     // Create resolver
     EntityService<?> mockEntityService = initMockEntityService();
-    ProposalService mockProposalService = Mockito.mock(ProposalService.class);
+    ActionRequestService mockActionRequestService = Mockito.mock(ActionRequestService.class);
 
     RejectProposalsResolver resolver =
-        new RejectProposalsResolver(mockEntityService, mockProposalService);
+        new RejectProposalsResolver(mockEntityService, mockActionRequestService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("urns")))
-        .thenReturn(ImmutableList.of(TAG_ACTION_REQUEST.toString()));
+        .thenReturn(ImmutableList.of(LEGACY_TAG_ACTION_REQUEST.toString()));
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     resolver.get(mockEnv).join();
 
     // Verify the proposal was marked as rejected
-    Mockito.verify(mockProposalService, Mockito.times(1))
+    Mockito.verify(mockActionRequestService, Mockito.times(1))
         .completeProposal(
             Mockito.any(OperationContext.class),
             Mockito.eq(TEST_ACTOR_URN),
             Mockito.eq(ACTION_REQUEST_STATUS_COMPLETE),
             Mockito.eq(ACTION_REQUEST_RESULT_REJECTED),
+            Mockito.eq(null),
+            Mockito.any(Entity.class));
+  }
+
+  @Test
+  public void testRejectSuccessWithNote() throws Exception {
+    // Create resolver
+    EntityService<?> mockEntityService = initMockEntityService();
+    ActionRequestService mockActionRequestService = Mockito.mock(ActionRequestService.class);
+
+    RejectProposalsResolver resolver =
+        new RejectProposalsResolver(mockEntityService, mockActionRequestService);
+
+    String testNote = "Test Note";
+
+    // Execute resolver
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    QueryContext mockContext = getMockAllowContext();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("urns")))
+        .thenReturn(ImmutableList.of(LEGACY_TAG_ACTION_REQUEST.toString()));
+    Mockito.when(mockEnv.getArgument(Mockito.eq("note"))).thenReturn(testNote);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    resolver.get(mockEnv).join();
+
+    // Verify the proposal was marked as rejected with test note
+    Mockito.verify(mockActionRequestService, Mockito.times(1))
+        .completeProposal(
+            Mockito.any(OperationContext.class),
+            Mockito.eq(TEST_ACTOR_URN),
+            Mockito.eq(ACTION_REQUEST_STATUS_COMPLETE),
+            Mockito.eq(ACTION_REQUEST_RESULT_REJECTED),
+            Mockito.eq(testNote),
             Mockito.any(Entity.class));
   }
 
@@ -88,27 +120,29 @@ public class RejectProposalsResolverTest {
   public void testRejectSuccessMultiple() throws Exception {
     // Create resolver
     EntityService<?> mockEntityService = initMockEntityService();
-    ProposalService mockProposalService = Mockito.mock(ProposalService.class);
+    ActionRequestService mockActionRequestService = Mockito.mock(ActionRequestService.class);
 
     RejectProposalsResolver resolver =
-        new RejectProposalsResolver(mockEntityService, mockProposalService);
+        new RejectProposalsResolver(mockEntityService, mockActionRequestService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("urns")))
         .thenReturn(
-            ImmutableList.of(TAG_ACTION_REQUEST.toString(), TERM_ACTION_REQUEST.toString()));
+            ImmutableList.of(
+                LEGACY_TAG_ACTION_REQUEST.toString(), LEGACY_TERM_ACTION_REQUEST.toString()));
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
     resolver.get(mockEnv).join();
 
     // Verify the proposal was marked as rejected
-    Mockito.verify(mockProposalService, Mockito.times(2))
+    Mockito.verify(mockActionRequestService, Mockito.times(2))
         .completeProposal(
             Mockito.any(OperationContext.class),
             Mockito.eq(TEST_ACTOR_URN),
             Mockito.eq(ACTION_REQUEST_STATUS_COMPLETE),
             Mockito.eq(ACTION_REQUEST_RESULT_REJECTED),
+            Mockito.eq(null),
             Mockito.any(Entity.class));
   }
 
@@ -116,40 +150,40 @@ public class RejectProposalsResolverTest {
   public void testRejectProposalsUnauthorized() {
     // Create resolver
     EntityService<?> mockEntityService = initMockEntityService();
-    ProposalService mockProposalService = Mockito.mock(ProposalService.class);
+    ActionRequestService mockActionRequestService = Mockito.mock(ActionRequestService.class);
     RejectProposalsResolver resolver =
-        new RejectProposalsResolver(mockEntityService, mockProposalService);
+        new RejectProposalsResolver(mockEntityService, mockActionRequestService);
 
     // Execute resolver
     QueryContext mockContext = getMockDenyContext();
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("urns")))
-        .thenReturn(ImmutableList.of(TAG_ACTION_REQUEST.toString()));
+        .thenReturn(ImmutableList.of(LEGACY_TAG_ACTION_REQUEST.toString()));
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(CompletionException.class, () -> resolver.get(mockEnv).join());
 
-    Mockito.verify(mockProposalService, Mockito.times(0))
-        .completeProposal(any(), any(), anyString(), anyString(), any(Entity.class));
+    Mockito.verify(mockActionRequestService, Mockito.times(0))
+        .completeProposal(any(), any(), anyString(), anyString(), any(), any(Entity.class));
   }
 
   @Test
   public void testRejectProposalsServiceException() {
     // Create resolver
     EntityService<?> mockEntityService = initMockEntityService();
-    ProposalService mockProposalService = Mockito.mock(ProposalService.class);
+    ActionRequestService mockActionRequestService = Mockito.mock(ActionRequestService.class);
     Mockito.doThrow(RuntimeException.class)
-        .when(mockProposalService)
-        .completeProposal(any(), any(), anyString(), anyString(), any(Entity.class));
+        .when(mockActionRequestService)
+        .completeProposal(any(), any(), anyString(), anyString(), any(), any(Entity.class));
 
     RejectProposalsResolver resolver =
-        new RejectProposalsResolver(mockEntityService, mockProposalService);
+        new RejectProposalsResolver(mockEntityService, mockActionRequestService);
 
     // Execute resolver
     DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
     QueryContext mockContext = getMockAllowContext();
     Mockito.when(mockEnv.getArgument(Mockito.eq("urns")))
-        .thenReturn(ImmutableList.of(TAG_ACTION_REQUEST.toString()));
+        .thenReturn(ImmutableList.of(LEGACY_TAG_ACTION_REQUEST.toString()));
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
     assertThrows(RuntimeException.class, () -> resolver.get(mockEnv).join());
@@ -160,12 +194,12 @@ public class RejectProposalsResolverTest {
     Map<Urn, Entity> entityMap = new HashMap<>();
 
     entityMap.put(
-        TAG_ACTION_REQUEST,
-        new Entity().setValue(buildMockTagProposalSnapshot(TAG_ACTION_REQUEST)));
+        LEGACY_TAG_ACTION_REQUEST,
+        new Entity().setValue(buildLegacyMockTagProposalSnapshot(LEGACY_TAG_ACTION_REQUEST)));
 
     entityMap.put(
-        TERM_ACTION_REQUEST,
-        new Entity().setValue(buildMockTermProposalSnapshot(TERM_ACTION_REQUEST)));
+        LEGACY_TERM_ACTION_REQUEST,
+        new Entity().setValue(buildMockLegacyTermProposalSnapshot(LEGACY_TERM_ACTION_REQUEST)));
 
     entityMap.put(
         DESCRIPTION_ACTION_REQUEST,
@@ -178,12 +212,12 @@ public class RejectProposalsResolverTest {
     // Individual Lookups
     Mockito.when(
             mockEntityService.getEntities(
-                any(), Mockito.eq(ImmutableSet.of(TAG_ACTION_REQUEST)), any(), eq(true)))
+                any(), Mockito.eq(ImmutableSet.of(LEGACY_TAG_ACTION_REQUEST)), any(), eq(true)))
         .thenReturn(entityMap);
 
     Mockito.when(
             mockEntityService.getEntities(
-                any(), Mockito.eq(ImmutableSet.of(TERM_ACTION_REQUEST)), any(), eq(true)))
+                any(), Mockito.eq(ImmutableSet.of(LEGACY_TERM_ACTION_REQUEST)), any(), eq(true)))
         .thenReturn(entityMap);
 
     Mockito.when(
@@ -200,7 +234,7 @@ public class RejectProposalsResolverTest {
     Mockito.when(
             mockEntityService.getEntities(
                 any(),
-                Mockito.eq(ImmutableSet.of(TAG_ACTION_REQUEST, TERM_ACTION_REQUEST)),
+                Mockito.eq(ImmutableSet.of(LEGACY_TAG_ACTION_REQUEST, LEGACY_TERM_ACTION_REQUEST)),
                 any(),
                 eq(true)))
         .thenReturn(entityMap);

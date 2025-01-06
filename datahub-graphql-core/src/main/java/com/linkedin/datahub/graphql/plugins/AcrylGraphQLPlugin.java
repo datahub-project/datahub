@@ -21,6 +21,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityAnomaliesResult;
 import com.linkedin.datahub.graphql.generated.EntitySubscriptionSummary;
 import com.linkedin.datahub.graphql.generated.FormForActor;
+import com.linkedin.datahub.graphql.generated.GlossaryTerm;
 import com.linkedin.datahub.graphql.generated.GlossaryTermAssociation;
 import com.linkedin.datahub.graphql.generated.GlossaryTermProposalParams;
 import com.linkedin.datahub.graphql.generated.Monitor;
@@ -29,6 +30,7 @@ import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.generated.RowResult;
 import com.linkedin.datahub.graphql.generated.ShareResult;
 import com.linkedin.datahub.graphql.generated.SystemMonitor;
+import com.linkedin.datahub.graphql.generated.Tag;
 import com.linkedin.datahub.graphql.generated.TagProposalParams;
 import com.linkedin.datahub.graphql.resolvers.action.execution.BootstrapActionPipelineResolver;
 import com.linkedin.datahub.graphql.resolvers.action.execution.DeleteActionPipelineResolver;
@@ -95,8 +97,11 @@ import com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryNodeResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeCreateGlossaryTermResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeDataContractResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeStructuredPropertiesResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTagResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTagsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTermResolver;
+import com.linkedin.datahub.graphql.resolvers.proposal.ProposeTermsResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.ProposeUpdateDescriptionResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalResolver;
 import com.linkedin.datahub.graphql.resolvers.proposal.RejectProposalsResolver;
@@ -146,11 +151,11 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.service.ActionRequestService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.DataContractService;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.MonitorService;
-import com.linkedin.metadata.service.ProposalService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ShareService;
 import com.linkedin.metadata.service.SubscriptionService;
@@ -161,6 +166,7 @@ import graphql.schema.idl.RuntimeWiring;
 import io.datahubproject.metadata.services.SecretService;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -183,7 +189,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private EntityService<?> entityService;
   private SecretService secretService;
   private IntegrationsService integrationsService;
-  private ProposalService proposalService;
   private AssertionService assertionService;
   private DataContractService dataContractService;
   private EntitySearchService entitySearchService;
@@ -195,6 +200,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
   private FormService formService;
   private TimeseriesAspectService timeseriesAspectService;
   private MetadataTestClient metadataTestClient;
+  private ActionRequestService actionRequestService;
 
   // Config
   private ExecutorConfiguration executorConfiguration;
@@ -228,7 +234,6 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     this.dataContractService = args.getDataContractService();
     this.secretService = args.getSecretService();
     this.monitorService = args.getMonitorService();
-    this.proposalService = args.getProposalService();
     this.integrationsService = args.getIntegrationsService();
     this.entitySearchService = args.getEntitySearchService();
     this.subscriptionService = args.getSubscriptionService();
@@ -256,6 +261,7 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
             this.actionPipelineType, this.monitorType, this.anomalyType, this.dataContractType);
     this.executorConfiguration = args.getExecutorConfiguration();
     this.actionConfiguration = args.getActionPipelineConfiguration();
+    this.actionRequestService = args.getActionRequestService();
 
     this.initialized = true;
   }
@@ -327,26 +333,35 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                 .dataFetcher(
                     "createTermConstraint", new CreateTermConstraintResolver(this.entityClient))
                 .dataFetcher(
-                    "acceptProposal", new AcceptProposalResolver(entityService, proposalService))
+                    "acceptProposal",
+                    new AcceptProposalResolver(entityService, actionRequestService))
                 .dataFetcher(
-                    "acceptProposals", new AcceptProposalsResolver(entityService, proposalService))
+                    "acceptProposals",
+                    new AcceptProposalsResolver(entityService, actionRequestService))
                 .dataFetcher(
-                    "rejectProposal", new RejectProposalResolver(entityService, proposalService))
+                    "rejectProposal",
+                    new RejectProposalResolver(entityService, actionRequestService))
                 .dataFetcher(
-                    "rejectProposals", new RejectProposalsResolver(entityService, proposalService))
+                    "rejectProposals",
+                    new RejectProposalsResolver(entityService, actionRequestService))
                 .dataFetcher("proposeTag", new ProposeTagResolver(entityService, entityClient))
+                .dataFetcher("proposeTags", new ProposeTagsResolver(actionRequestService))
                 .dataFetcher("proposeTerm", new ProposeTermResolver(entityService, entityClient))
+                .dataFetcher("proposeTerms", new ProposeTermsResolver(actionRequestService))
+                .dataFetcher(
+                    "proposeStructuredProperties",
+                    new ProposeStructuredPropertiesResolver(actionRequestService))
                 .dataFetcher(
                     "proposeCreateGlossaryTerm",
-                    new ProposeCreateGlossaryTermResolver(proposalService))
+                    new ProposeCreateGlossaryTermResolver(actionRequestService))
                 .dataFetcher(
                     "proposeCreateGlossaryNode",
-                    new ProposeCreateGlossaryNodeResolver(proposalService))
+                    new ProposeCreateGlossaryNodeResolver(actionRequestService))
                 .dataFetcher(
                     "proposeUpdateDescription",
-                    new ProposeUpdateDescriptionResolver(proposalService))
+                    new ProposeUpdateDescriptionResolver(actionRequestService))
                 .dataFetcher(
-                    "proposeDataContract", new ProposeDataContractResolver(proposalService))
+                    "proposeDataContract", new ProposeDataContractResolver(actionRequestService))
                 .dataFetcher(
                     "createDatasetAssertion", new CreateDatasetAssertionResolver(assertionService))
                 .dataFetcher(
@@ -508,21 +523,40 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
     builder.type(
         "GlossaryTermProposalParams",
         typeWiring ->
-            typeWiring.dataFetcher(
-                "glossaryTerm",
-                new LoadableTypeResolver<>(
-                    glossaryTermType,
-                    (env) ->
-                        ((GlossaryTermProposalParams) env.getSource())
-                            .getGlossaryTerm()
-                            .getUrn())));
+            typeWiring
+                .dataFetcher(
+                    "glossaryTerm",
+                    new LoadableTypeResolver<>(
+                        glossaryTermType,
+                        (env) -> {
+                          final GlossaryTermProposalParams proposalParams = env.getSource();
+                          return proposalParams.getGlossaryTerm() != null
+                              ? proposalParams.getGlossaryTerm().getUrn()
+                              : null;
+                        }))
+                .dataFetcher(
+                    "glossaryTerms",
+                    new LoadableTypeBatchResolver<>(
+                        glossaryTermType,
+                        (env) -> getGlossaryTermUrnsFromProposalParams(env.getSource()))));
     builder.type(
         "TagProposalParams",
         typeWiring ->
-            typeWiring.dataFetcher(
-                "tag",
-                new LoadableTypeResolver<>(
-                    tagType, (env) -> ((TagProposalParams) env.getSource()).getTag().getUrn())));
+            typeWiring
+                .dataFetcher(
+                    "tag",
+                    new LoadableTypeResolver<>(
+                        tagType,
+                        (env) -> {
+                          final TagProposalParams proposalParams = env.getSource();
+                          return proposalParams.getTag() != null
+                              ? proposalParams.getTag().getUrn()
+                              : null;
+                        }))
+                .dataFetcher(
+                    "tags",
+                    new LoadableTypeBatchResolver<>(
+                        tagType, (env) -> getTgaUrnsFromProposalParams(env.getSource()))));
     builder.type(
         "CreateGlossaryEntityProposalProperties",
         typeWiring ->
@@ -537,6 +571,35 @@ public class AcrylGraphQLPlugin implements GmsGraphQLPlugin {
                           ? proposalProperties.getParentNode().getUrn()
                           : null;
                     })));
+  }
+
+  private List<String> getGlossaryTermUrnsFromProposalParams(
+      final GlossaryTermProposalParams proposalParams) {
+    // If we are using the new glossary terms list, provide from that.
+    if (proposalParams.getGlossaryTerms() != null && !proposalParams.getGlossaryTerms().isEmpty()) {
+      return proposalParams.getGlossaryTerms().stream()
+          .map(GlossaryTerm::getUrn)
+          .collect(Collectors.toList());
+    }
+    // Backwards compatibility: If we are using the old glossary term list, provide from that.
+    if (proposalParams.getGlossaryTerm() != null) {
+      return Collections.singletonList(proposalParams.getGlossaryTerm().getUrn());
+    }
+    // If neither is provided, a malformed action request was found!
+    return Collections.emptyList();
+  }
+
+  private List<String> getTgaUrnsFromProposalParams(final TagProposalParams proposalParams) {
+    // If we are using the new glossary terms list, provide from that.
+    if (proposalParams.getTags() != null && !proposalParams.getTags().isEmpty()) {
+      return proposalParams.getTags().stream().map(Tag::getUrn).collect(Collectors.toList());
+    }
+    // Backwards compatibility: If we are using the old glossary term list, provide from that.
+    if (proposalParams.getTag() != null) {
+      return Collections.singletonList(proposalParams.getTag().getUrn());
+    }
+    // If neither is provided, a malformed action request was found!
+    return Collections.emptyList();
   }
 
   private void configureAnomalyResolvers(

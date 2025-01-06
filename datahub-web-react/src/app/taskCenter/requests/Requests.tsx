@@ -45,7 +45,7 @@ export const Requests = () => {
     return (
         <>
             {!data && loading && <Message type="loading" content="Loading your requests…" />}
-            {error && message.error('Failed to load your requests :(')}
+            {error && message.error('Failed to load compliance requests. An unknown error occurred!')}
             <StyledList
                 bordered
                 locale={{

@@ -2,10 +2,10 @@ package com.linkedin.datahub.graphql.resolvers.proposal;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
-import com.datahub.authentication.Authentication;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.ActionRequest;
@@ -19,27 +19,33 @@ import com.linkedin.datahub.graphql.resolvers.mutate.util.GlossaryUtils;
 import com.linkedin.datahub.graphql.resolvers.mutate.util.LabelUtils;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.service.ProposalService;
+import com.linkedin.metadata.service.ActionRequestService;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.HashSet;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * This resolver is deprecated! Use {@link
+ * com.linkedin.datahub.graphql.resolvers.proposal.AcceptProposalsResolver} instead.
+ */
 @Slf4j
 @RequiredArgsConstructor
 public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boolean>> {
   private final EntityService<?> _entityService;
-  private final ProposalService _proposalService;
+  private final ActionRequestService _proposalService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
     final Urn proposalUrn =
         Urn.createFromString(bindArgument(environment.getArgument("urn"), String.class));
+    final String maybeNote = environment.getArgument("note");
     QueryContext context = environment.getContext();
-    Authentication authentication = context.getAuthentication();
 
     return CompletableFuture.supplyAsync(
         () -> {
@@ -85,12 +91,19 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
                 throw new AuthorizationException(
                     "Unauthorized to perform this action. Please contact your DataHub administrator.");
               }
-              Urn tagUrn =
-                  Urn.createFromString(proposal.getParams().getTagProposal().getTag().getUrn());
+              List<Urn> tagUrns =
+                  proposal.getParams().getTagProposal().getTags() != null
+                          && !proposal.getParams().getTagProposal().getTags().isEmpty()
+                      ? proposal.getParams().getTagProposal().getTags().stream()
+                          .map(tag -> UrnUtils.getUrn(tag.getUrn()))
+                          .collect(Collectors.toList())
+                      : ImmutableList.of(
+                          Urn.createFromString(
+                              proposal.getParams().getTagProposal().getTag().getUrn()));
               Urn targetUrn = Urn.createFromString(proposal.getEntity().getUrn());
               LabelUtils.addTagsToResources(
                   context.getOperationContext(),
-                  ImmutableList.of(tagUrn),
+                  tagUrns,
                   ImmutableList.of(
                       new ResourceRefInput(
                           targetUrn.toString(),
@@ -103,7 +116,7 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
               ProposalUtils.deleteTagFromEntityOrSchemaProposalsAspect(
                   context.getOperationContext(),
                   actor,
-                  tagUrn,
+                  tagUrns,
                   targetUrn,
                   subResource,
                   _entityService);
@@ -116,13 +129,27 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
                 throw new AuthorizationException(
                     "Unauthorized to perform this action. Please contact your DataHub administrator.");
               }
-              Urn termUrn =
-                  Urn.createFromString(
-                      proposal.getParams().getGlossaryTermProposal().getGlossaryTerm().getUrn());
+              List<Urn> termUrns =
+                  proposal.getParams().getGlossaryTermProposal().getGlossaryTerms() != null
+                          && !proposal
+                              .getParams()
+                              .getGlossaryTermProposal()
+                              .getGlossaryTerms()
+                              .isEmpty()
+                      ? proposal.getParams().getGlossaryTermProposal().getGlossaryTerms().stream()
+                          .map(term -> UrnUtils.getUrn(term.getUrn()))
+                          .collect(Collectors.toList())
+                      : ImmutableList.of(
+                          Urn.createFromString(
+                              proposal
+                                  .getParams()
+                                  .getGlossaryTermProposal()
+                                  .getGlossaryTerm()
+                                  .getUrn()));
               Urn targetUrn = Urn.createFromString(proposal.getEntity().getUrn());
               LabelUtils.addTermsToResources(
                   context.getOperationContext(),
-                  ImmutableList.of(termUrn),
+                  termUrns,
                   ImmutableList.of(
                       new ResourceRefInput(
                           targetUrn.toString(),
@@ -135,7 +162,7 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
               ProposalUtils.deleteTermFromEntityOrSchemaProposalsAspect(
                   context.getOperationContext(),
                   actor,
-                  termUrn,
+                  termUrns,
                   targetUrn,
                   subResource,
                   _entityService);
@@ -185,6 +212,20 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
               }
               _proposalService.acceptDataContractProposal(
                   context.getOperationContext(), actionRequestSnapshot);
+            } else if (proposal
+                .getType()
+                .equals(ActionRequestType.STRUCTURED_PROPERTY_ASSOCIATION)) {
+              if (!ProposalUtils.isAuthorizedToAcceptProposal(
+                  context,
+                  actionRequestType,
+                  Urn.createFromString(proposal.getEntity().getUrn()),
+                  subResource)) {
+                throw new AuthorizationException(
+                    "Unauthorized to perform this action. Please contact your DataHub administrator.");
+              }
+              _proposalService.acceptStructuredPropertyProposal(
+                  context.getOperationContext(),
+                  ActionRequestService.findActionRequestInfoAspect(actionRequestSnapshot));
             } else {
               log.error("Cannot accept proposal- proposal is not acceptable");
               return false;
@@ -195,6 +236,7 @@ public class AcceptProposalResolver implements DataFetcher<CompletableFuture<Boo
                 actor,
                 ActionRequestStatus.COMPLETED.toString(),
                 ActionRequestResult.ACCEPTED.toString(),
+                maybeNote,
                 proposalEntity);
 
             return true;

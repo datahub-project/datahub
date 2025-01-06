@@ -26,7 +26,7 @@
           }
         }
       },
-      "doc" : "The users this action request is assigned to",
+      "doc" : "The users this action request is assigned to.\nBy default, action requests are assigned to Dataset Owners\nand with anyone who has the View Proposals platform privilege.",
       "Searchable" : {
         "/*" : {
           "addToFilters" : true,
@@ -39,7 +39,7 @@
         "type" : "array",
         "items" : "com.linkedin.common.Urn"
       },
-      "doc" : "The groups this action request is assigned to",
+      "doc" : "The groups this action request is assigned to\nBy default, action requests are assigned to Dataset Owners\nand with anyone who has the View Proposals platform privilege.",
       "Searchable" : {
         "/*" : {
           "addToFilters" : true,
@@ -52,7 +52,7 @@
         "type" : "array",
         "items" : "com.linkedin.common.Urn"
       },
-      "doc" : "The roles this action request is assigned to",
+      "doc" : "The roles this action request is assigned to\nBy default, action requests are assigned any roles that have the View Proposals platform privilege.",
       "optional" : true,
       "Searchable" : {
         "/*" : {
@@ -81,7 +81,7 @@
     }, {
       "name" : "subResource",
       "type" : "string",
-      "doc" : "The sub-resource identifier that the action is associated with, for example 'fieldName'",
+      "doc" : "The sub-resource identifier that the action is associated with, for example 'fieldName'.\nCurrently, this is only used for Field Paths & schema fields.",
       "optional" : true,
       "Searchable" : {
         "fieldType" : "KEYWORD"
@@ -100,13 +100,30 @@
             "fields" : [ {
               "name" : "glossaryTerm",
               "type" : "com.linkedin.common.Urn",
-              "doc" : "The urn of the glossary term being proposed.",
+              "doc" : "This field is deprecated and will be removed in a future version. Use glossaryTerms instead.\nThe urn of the glossary term being proposed.",
+              "optional" : true,
               "Searchable" : {
-                "addToFilters" : true
+                "addToFilters" : true,
+                "fieldName" : "glossaryTerms"
+              },
+              "deprecated" : true
+            }, {
+              "name" : "glossaryTerms",
+              "type" : {
+                "type" : "array",
+                "items" : "com.linkedin.common.Urn"
+              },
+              "doc" : "The urns of the glossary terms being proposed.\nUse this field over glossaryTerm.",
+              "optional" : true,
+              "Searchable" : {
+                "/*" : {
+                  "addToFilters" : true,
+                  "fieldName" : "glossaryTerms"
+                }
               }
             } ]
           },
-          "doc" : "An optional set of information specific to term proposals.",
+          "doc" : "An optional set of information specific to term proposals.\nTODO: Add validation that ensures that glossaryTerm or glossaryTerms field is provided, but not both.",
           "optional" : true
         }, {
           "name" : "tagProposal",
@@ -116,13 +133,263 @@
             "fields" : [ {
               "name" : "tag",
               "type" : "com.linkedin.common.Urn",
-              "doc" : "The urn of the tag being proposed.",
+              "doc" : "This field is deprecated and will be removed in a future version. Use tags instead.\nThe urn of the tag being proposed.",
+              "optional" : true,
               "Searchable" : {
-                "addToFilters" : true
+                "addToFilters" : true,
+                "fieldName" : "tags"
+              },
+              "deprecated" : true
+            }, {
+              "name" : "tags",
+              "type" : {
+                "type" : "array",
+                "items" : "com.linkedin.common.Urn"
+              },
+              "doc" : "The urns of the glossary terms being proposed.\nUse this field over glossaryTerm.",
+              "optional" : true,
+              "Searchable" : {
+                "/*" : {
+                  "addToFilters" : true,
+                  "fieldName" : "tags"
+                }
               }
             } ]
           },
-          "doc" : "An optional set of information specific to tag proposals.",
+          "doc" : "An optional set of information specific to tag proposals.\nTODO: Add validation that ensures that tag or tagUrns field is provided, but not both.",
+          "optional" : true
+        }, {
+          "name" : "domainProposal",
+          "type" : {
+            "type" : "record",
+            "name" : "DomainProposal",
+            "fields" : [ {
+              "name" : "domains",
+              "type" : {
+                "type" : "array",
+                "items" : "com.linkedin.common.Urn"
+              },
+              "doc" : "The urns of the domain(s) being proposed. Currently, only 1 domain is supported per asset.\nIf this changes in the future, this data modeling will suffice.",
+              "optional" : true,
+              "Searchable" : {
+                "/*" : {
+                  "addToFilters" : true,
+                  "fieldName" : "domains"
+                }
+              }
+            } ]
+          },
+          "doc" : "An optional set of information specific to domain proposals.",
+          "optional" : true
+        }, {
+          "name" : "ownerProposal",
+          "type" : {
+            "type" : "record",
+            "name" : "OwnerProposal",
+            "fields" : [ {
+              "name" : "owners",
+              "type" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "record",
+                  "name" : "Owner",
+                  "namespace" : "com.linkedin.common",
+                  "doc" : "Ownership information",
+                  "fields" : [ {
+                    "name" : "owner",
+                    "type" : "Urn",
+                    "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
+                    "Relationship" : {
+                      "entityTypes" : [ "corpuser", "corpGroup" ],
+                      "name" : "OwnedBy"
+                    },
+                    "Searchable" : {
+                      "addToFilters" : true,
+                      "fieldName" : "owners",
+                      "fieldType" : "URN",
+                      "filterNameOverride" : "Owned By",
+                      "hasValuesFieldName" : "hasOwners",
+                      "queryByDefault" : false
+                    }
+                  }, {
+                    "name" : "type",
+                    "type" : {
+                      "type" : "enum",
+                      "name" : "OwnershipType",
+                      "doc" : "Asset owner types",
+                      "symbols" : [ "CUSTOM", "TECHNICAL_OWNER", "BUSINESS_OWNER", "DATA_STEWARD", "NONE", "DEVELOPER", "DATAOWNER", "DELEGATE", "PRODUCER", "CONSUMER", "STAKEHOLDER" ],
+                      "symbolDocs" : {
+                        "BUSINESS_OWNER" : "A person or group who is responsible for logical, or business related, aspects of the asset.",
+                        "CONSUMER" : "A person, group, or service that consumes the data\nDeprecated! Use TECHNICAL_OWNER or BUSINESS_OWNER instead.",
+                        "CUSTOM" : "Set when ownership type is unknown or a when new one is specified as an ownership type entity for which we have no\nenum value for. This is used for backwards compatibility",
+                        "DATAOWNER" : "A person or group that is owning the data\nDeprecated! Use TECHNICAL_OWNER instead.",
+                        "DATA_STEWARD" : "A steward, expert, or delegate responsible for the asset.",
+                        "DELEGATE" : "A person or a group that overseas the operation, e.g. a DBA or SRE.\nDeprecated! Use TECHNICAL_OWNER instead.",
+                        "DEVELOPER" : "A person or group that is in charge of developing the code\nDeprecated! Use TECHNICAL_OWNER instead.",
+                        "NONE" : "No specific type associated to the owner.",
+                        "PRODUCER" : "A person, group, or service that produces/generates the data\nDeprecated! Use TECHNICAL_OWNER instead.",
+                        "STAKEHOLDER" : "A person or a group that has direct business interest\nDeprecated! Use TECHNICAL_OWNER, BUSINESS_OWNER, or STEWARD instead.",
+                        "TECHNICAL_OWNER" : "person or group who is responsible for technical aspects of the asset."
+                      },
+                      "deprecatedSymbols" : {
+                        "CONSUMER" : true,
+                        "DATAOWNER" : true,
+                        "DELEGATE" : true,
+                        "DEVELOPER" : true,
+                        "PRODUCER" : true,
+                        "STAKEHOLDER" : true
+                      }
+                    },
+                    "doc" : "The type of the ownership",
+                    "deprecated" : true
+                  }, {
+                    "name" : "typeUrn",
+                    "type" : "Urn",
+                    "doc" : "The type of the ownership\nUrn of type O",
+                    "optional" : true,
+                    "Relationship" : {
+                      "entityTypes" : [ "ownershipType" ],
+                      "name" : "ownershipType"
+                    },
+                    "Searchable" : {
+                      "fieldName" : "ownershipTypeUrn",
+                      "fieldType" : "URN",
+                      "queryByDefault" : false
+                    }
+                  }, {
+                    "name" : "source",
+                    "type" : {
+                      "type" : "record",
+                      "name" : "OwnershipSource",
+                      "doc" : "Source/provider of the ownership information",
+                      "fields" : [ {
+                        "name" : "type",
+                        "type" : {
+                          "type" : "enum",
+                          "name" : "OwnershipSourceType",
+                          "symbols" : [ "AUDIT", "DATABASE", "FILE_SYSTEM", "ISSUE_TRACKING_SYSTEM", "MANUAL", "SERVICE", "SOURCE_CONTROL", "OTHER" ],
+                          "symbolDocs" : {
+                            "AUDIT" : "Auditing system or audit logs",
+                            "DATABASE" : "Database, e.g. GRANTS table",
+                            "FILE_SYSTEM" : "File system, e.g. file/directory owner",
+                            "ISSUE_TRACKING_SYSTEM" : "Issue tracking system, e.g. Jira",
+                            "MANUAL" : "Manually provided by a user",
+                            "OTHER" : "Other sources",
+                            "SERVICE" : "Other ownership-like service, e.g. Nuage, ACL service etc",
+                            "SOURCE_CONTROL" : "SCM system, e.g. GIT, SVN"
+                          }
+                        },
+                        "doc" : "The type of the source"
+                      }, {
+                        "name" : "url",
+                        "type" : "string",
+                        "doc" : "A reference URL for the source",
+                        "optional" : true
+                      } ]
+                    },
+                    "doc" : "Source information for the ownership",
+                    "optional" : true
+                  } ]
+                }
+              },
+              "doc" : "The urns of the owner(s) being proposed.",
+              "optional" : true,
+              "Searchable" : {
+                "/*/owner" : {
+                  "addToFilters" : true,
+                  "fieldName" : "owners"
+                },
+                "/*/typeUrn" : {
+                  "addToFilters" : true,
+                  "fieldName" : "ownershipTypes"
+                }
+              }
+            } ]
+          },
+          "doc" : "An optional set of information specific to ownership proposals.",
+          "optional" : true
+        }, {
+          "name" : "structuredPropertyProposal",
+          "type" : {
+            "type" : "record",
+            "name" : "StructuredPropertyProposal",
+            "fields" : [ {
+              "name" : "structuredPropertyValues",
+              "type" : {
+                "type" : "array",
+                "items" : {
+                  "type" : "record",
+                  "name" : "StructuredPropertyValueAssignment",
+                  "namespace" : "com.linkedin.structured",
+                  "fields" : [ {
+                    "name" : "propertyUrn",
+                    "type" : "com.linkedin.common.Urn",
+                    "doc" : "The property that is being assigned a value."
+                  }, {
+                    "name" : "values",
+                    "type" : {
+                      "type" : "array",
+                      "items" : {
+                        "type" : "typeref",
+                        "name" : "PrimitivePropertyValue",
+                        "doc" : "Represents a stored primitive property value\n",
+                        "ref" : [ "string", "double" ]
+                      }
+                    },
+                    "doc" : "The value assigned to the property."
+                  }, {
+                    "name" : "created",
+                    "type" : {
+                      "type" : "record",
+                      "name" : "AuditStamp",
+                      "namespace" : "com.linkedin.common",
+                      "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
+                      "fields" : [ {
+                        "name" : "time",
+                        "type" : {
+                          "type" : "typeref",
+                          "name" : "Time",
+                          "doc" : "Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number",
+                          "ref" : "long"
+                        },
+                        "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
+                      }, {
+                        "name" : "actor",
+                        "type" : "Urn",
+                        "doc" : "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change."
+                      }, {
+                        "name" : "impersonator",
+                        "type" : "Urn",
+                        "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
+                        "optional" : true
+                      }, {
+                        "name" : "message",
+                        "type" : "string",
+                        "doc" : "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually.",
+                        "optional" : true
+                      } ]
+                    },
+                    "doc" : "Audit stamp containing who created this relationship edge and when",
+                    "optional" : true
+                  }, {
+                    "name" : "lastModified",
+                    "type" : "com.linkedin.common.AuditStamp",
+                    "doc" : "Audit stamp containing who last modified this relationship edge and when",
+                    "optional" : true
+                  } ]
+                }
+              },
+              "doc" : "The urns of the domain(s) being proposed. Currently, only 1 domain is supported per asset.\nIf this changes in the future, the data model will be ready.\nTODO: Decide if indexing the value would also be useful.",
+              "optional" : true,
+              "Searchable" : {
+                "/*/propertyUrn" : {
+                  "addToFilters" : true,
+                  "fieldName" : "structuredPropertyUrns"
+                }
+              }
+            } ]
+          },
+          "doc" : "An optional set of information specific to structured property proposals.",
           "optional" : true
         }, {
           "name" : "createGlossaryTermProposal",
@@ -287,6 +554,11 @@
         "fieldType" : "URN"
       }
     }, {
+      "name" : "description",
+      "type" : "string",
+      "doc" : "An optional description that can be added to the action request\nto explain the intention behind it.",
+      "optional" : true
+    }, {
       "name" : "dueDate",
       "type" : "long",
       "doc" : "The time at which the request is due",
@@ -367,37 +639,16 @@
         "fieldType" : "KEYWORD"
       }
     }, {
+      "name" : "note",
+      "type" : "string",
+      "doc" : "Optional note associated with the status.\nE.g. if the request is rejected, the reason for rejection. If the request is approved, the reason for approval.",
+      "optional" : true,
+      "Searchable" : {
+        "fieldType" : "KEYWORD"
+      }
+    }, {
       "name" : "lastModified",
-      "type" : {
-        "type" : "record",
-        "name" : "AuditStamp",
-        "namespace" : "com.linkedin.common",
-        "doc" : "Data captured on a resource/association/sub-resource level giving insight into when that resource/association/sub-resource moved into a particular lifecycle stage, and who acted to move it into that specific lifecycle stage.",
-        "fields" : [ {
-          "name" : "time",
-          "type" : {
-            "type" : "typeref",
-            "name" : "Time",
-            "doc" : "Number of milliseconds since midnight, January 1, 1970 UTC. It must be a positive number",
-            "ref" : "long"
-          },
-          "doc" : "When did the resource/association/sub-resource move into the specific lifecycle stage represented by this AuditEvent."
-        }, {
-          "name" : "actor",
-          "type" : "Urn",
-          "doc" : "The entity (e.g. a member URN) which will be credited for moving the resource/association/sub-resource into the specific lifecycle stage. It is also the one used to authorize the change."
-        }, {
-          "name" : "impersonator",
-          "type" : "Urn",
-          "doc" : "The entity (e.g. a service URN) which performs the change on behalf of the Actor and must be authorized to act as the Actor.",
-          "optional" : true
-        }, {
-          "name" : "message",
-          "type" : "string",
-          "doc" : "Additional context around how DataHub was informed of the particular change. For example: was the change created by an automated process, or manually.",
-          "optional" : true
-        } ]
-      },
+      "type" : "com.linkedin.common.AuditStamp",
       "doc" : "Audit stamp containing who last modified the status and when.",
       "Searchable" : {
         "/time" : {
@@ -409,7 +660,7 @@
     "Aspect" : {
       "name" : "actionRequestStatus"
     }
-  }, "com.linkedin.actionrequest.CreateGlossaryNodeProposal", "com.linkedin.actionrequest.CreateGlossaryTermProposal", "com.linkedin.actionrequest.DataContractProposal", "com.linkedin.actionrequest.DataContractProposalOperationType", "com.linkedin.actionrequest.DescriptionProposal", "com.linkedin.actionrequest.GlossaryTermProposal", "com.linkedin.actionrequest.TagProposal", "com.linkedin.ai.InferenceMetadata", {
+  }, "com.linkedin.actionrequest.CreateGlossaryNodeProposal", "com.linkedin.actionrequest.CreateGlossaryTermProposal", "com.linkedin.actionrequest.DataContractProposal", "com.linkedin.actionrequest.DataContractProposalOperationType", "com.linkedin.actionrequest.DescriptionProposal", "com.linkedin.actionrequest.DomainProposal", "com.linkedin.actionrequest.GlossaryTermProposal", "com.linkedin.actionrequest.OwnerProposal", "com.linkedin.actionrequest.StructuredPropertyProposal", "com.linkedin.actionrequest.TagProposal", "com.linkedin.ai.InferenceMetadata", {
     "type" : "typeref",
     "name" : "ChartDataSourceType",
     "namespace" : "com.linkedin.chart",
@@ -1604,107 +1855,7 @@
         "owningTeam" : "urn:li:internalTeam:datahub"
       }
     }
-  }, "com.linkedin.common.MetadataAttribution", {
-    "type" : "record",
-    "name" : "Owner",
-    "namespace" : "com.linkedin.common",
-    "doc" : "Ownership information",
-    "fields" : [ {
-      "name" : "owner",
-      "type" : "Urn",
-      "doc" : "Owner URN, e.g. urn:li:corpuser:ldap, urn:li:corpGroup:group_name, and urn:li:multiProduct:mp_name\n(Caveat: only corpuser is currently supported in the frontend.)",
-      "Relationship" : {
-        "entityTypes" : [ "corpuser", "corpGroup" ],
-        "name" : "OwnedBy"
-      },
-      "Searchable" : {
-        "addToFilters" : true,
-        "fieldName" : "owners",
-        "fieldType" : "URN",
-        "filterNameOverride" : "Owned By",
-        "hasValuesFieldName" : "hasOwners",
-        "queryByDefault" : false
-      }
-    }, {
-      "name" : "type",
-      "type" : {
-        "type" : "enum",
-        "name" : "OwnershipType",
-        "doc" : "Asset owner types",
-        "symbols" : [ "CUSTOM", "TECHNICAL_OWNER", "BUSINESS_OWNER", "DATA_STEWARD", "NONE", "DEVELOPER", "DATAOWNER", "DELEGATE", "PRODUCER", "CONSUMER", "STAKEHOLDER" ],
-        "symbolDocs" : {
-          "BUSINESS_OWNER" : "A person or group who is responsible for logical, or business related, aspects of the asset.",
-          "CONSUMER" : "A person, group, or service that consumes the data\nDeprecated! Use TECHNICAL_OWNER or BUSINESS_OWNER instead.",
-          "CUSTOM" : "Set when ownership type is unknown or a when new one is specified as an ownership type entity for which we have no\nenum value for. This is used for backwards compatibility",
-          "DATAOWNER" : "A person or group that is owning the data\nDeprecated! Use TECHNICAL_OWNER instead.",
-          "DATA_STEWARD" : "A steward, expert, or delegate responsible for the asset.",
-          "DELEGATE" : "A person or a group that overseas the operation, e.g. a DBA or SRE.\nDeprecated! Use TECHNICAL_OWNER instead.",
-          "DEVELOPER" : "A person or group that is in charge of developing the code\nDeprecated! Use TECHNICAL_OWNER instead.",
-          "NONE" : "No specific type associated to the owner.",
-          "PRODUCER" : "A person, group, or service that produces/generates the data\nDeprecated! Use TECHNICAL_OWNER instead.",
-          "STAKEHOLDER" : "A person or a group that has direct business interest\nDeprecated! Use TECHNICAL_OWNER, BUSINESS_OWNER, or STEWARD instead.",
-          "TECHNICAL_OWNER" : "person or group who is responsible for technical aspects of the asset."
-        },
-        "deprecatedSymbols" : {
-          "CONSUMER" : true,
-          "DATAOWNER" : true,
-          "DELEGATE" : true,
-          "DEVELOPER" : true,
-          "PRODUCER" : true,
-          "STAKEHOLDER" : true
-        }
-      },
-      "doc" : "The type of the ownership",
-      "deprecated" : true
-    }, {
-      "name" : "typeUrn",
-      "type" : "Urn",
-      "doc" : "The type of the ownership\nUrn of type O",
-      "optional" : true,
-      "Relationship" : {
-        "entityTypes" : [ "ownershipType" ],
-        "name" : "ownershipType"
-      },
-      "Searchable" : {
-        "fieldName" : "ownershipTypeUrn",
-        "fieldType" : "URN",
-        "queryByDefault" : false
-      }
-    }, {
-      "name" : "source",
-      "type" : {
-        "type" : "record",
-        "name" : "OwnershipSource",
-        "doc" : "Source/provider of the ownership information",
-        "fields" : [ {
-          "name" : "type",
-          "type" : {
-            "type" : "enum",
-            "name" : "OwnershipSourceType",
-            "symbols" : [ "AUDIT", "DATABASE", "FILE_SYSTEM", "ISSUE_TRACKING_SYSTEM", "MANUAL", "SERVICE", "SOURCE_CONTROL", "OTHER" ],
-            "symbolDocs" : {
-              "AUDIT" : "Auditing system or audit logs",
-              "DATABASE" : "Database, e.g. GRANTS table",
-              "FILE_SYSTEM" : "File system, e.g. file/directory owner",
-              "ISSUE_TRACKING_SYSTEM" : "Issue tracking system, e.g. Jira",
-              "MANUAL" : "Manually provided by a user",
-              "OTHER" : "Other sources",
-              "SERVICE" : "Other ownership-like service, e.g. Nuage, ACL service etc",
-              "SOURCE_CONTROL" : "SCM system, e.g. GIT, SVN"
-            }
-          },
-          "doc" : "The type of the source"
-        }, {
-          "name" : "url",
-          "type" : "string",
-          "doc" : "A reference URL for the source",
-          "optional" : true
-        } ]
-      },
-      "doc" : "Source information for the ownership",
-      "optional" : true
-    } ]
-  }, {
+  }, "com.linkedin.common.MetadataAttribution", "com.linkedin.common.Owner", {
     "type" : "record",
     "name" : "Ownership",
     "namespace" : "com.linkedin.common",
@@ -6284,7 +6435,7 @@
       "type" : "GenericPayload",
       "doc" : "The event payload."
     } ]
-  }, "com.linkedin.mxe.PlatformEventHeader", "com.linkedin.policy.DataHubActorFilter", "com.linkedin.policy.DataHubPolicyInfo", "com.linkedin.policy.DataHubResourceFilter", "com.linkedin.policy.PolicyMatchCondition", "com.linkedin.policy.PolicyMatchCriterion", "com.linkedin.policy.PolicyMatchFilter", "com.linkedin.retention.DataHubRetentionConfig", "com.linkedin.retention.Retention", "com.linkedin.retention.TimeBasedRetention", "com.linkedin.retention.VersionBasedRetention", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.tag.TagProperties" ],
+  }, "com.linkedin.mxe.PlatformEventHeader", "com.linkedin.policy.DataHubActorFilter", "com.linkedin.policy.DataHubPolicyInfo", "com.linkedin.policy.DataHubResourceFilter", "com.linkedin.policy.PolicyMatchCondition", "com.linkedin.policy.PolicyMatchCriterion", "com.linkedin.policy.PolicyMatchFilter", "com.linkedin.retention.DataHubRetentionConfig", "com.linkedin.retention.Retention", "com.linkedin.retention.TimeBasedRetention", "com.linkedin.retention.VersionBasedRetention", "com.linkedin.schema.ArrayType", "com.linkedin.schema.BinaryJsonSchema", "com.linkedin.schema.BooleanType", "com.linkedin.schema.BytesType", "com.linkedin.schema.DatasetFieldForeignKey", "com.linkedin.schema.DateType", "com.linkedin.schema.EditableSchemaFieldInfo", "com.linkedin.schema.EditableSchemaMetadata", "com.linkedin.schema.EnumType", "com.linkedin.schema.EspressoSchema", "com.linkedin.schema.FixedType", "com.linkedin.schema.ForeignKeyConstraint", "com.linkedin.schema.ForeignKeySpec", "com.linkedin.schema.KafkaSchema", "com.linkedin.schema.KeyValueSchema", "com.linkedin.schema.MapType", "com.linkedin.schema.MySqlDDL", "com.linkedin.schema.NullType", "com.linkedin.schema.NumberType", "com.linkedin.schema.OracleDDL", "com.linkedin.schema.OrcSchema", "com.linkedin.schema.OtherSchema", "com.linkedin.schema.PrestoDDL", "com.linkedin.schema.RecordType", "com.linkedin.schema.SchemaField", "com.linkedin.schema.SchemaFieldDataType", "com.linkedin.schema.SchemaMetadata", "com.linkedin.schema.SchemaMetadataKey", "com.linkedin.schema.Schemaless", "com.linkedin.schema.StringType", "com.linkedin.schema.TimeType", "com.linkedin.schema.UnionType", "com.linkedin.schema.UrnForeignKey", "com.linkedin.structured.PrimitivePropertyValue", "com.linkedin.structured.StructuredPropertyValueAssignment", "com.linkedin.tag.TagProperties" ],
   "schema" : {
     "name" : "platform",
     "namespace" : "com.linkedin.platform",

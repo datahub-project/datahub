@@ -1,0 +1,28 @@
+namespace com.linkedin.actionrequest
+
+import com.linkedin.common.Urn
+
+record GlossaryTermProposal {
+    /**
+     * This field is deprecated and will be removed in a future version. Use glossaryTerms instead.
+     * The urn of the glossary term being proposed.
+     */
+    @Searchable = {
+        "addToFilters": true
+        "fieldName": "glossaryTerms"
+    }
+    @deprecated
+    glossaryTerm: optional Urn
+
+    /**
+     * The urns of the glossary terms being proposed.
+     * Use this field over glossaryTerm.
+     */
+    @Searchable = {
+        "/*": {
+            "addToFilters": true,
+            "fieldName": "glossaryTerms"
+        }
+    }
+    glossaryTerms: optional array[Urn]
+  }

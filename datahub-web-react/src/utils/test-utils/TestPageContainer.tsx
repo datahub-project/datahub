@@ -25,13 +25,14 @@ import { DashboardEntity } from '../../app/entity/dashboard/DashboardEntity';
 import { DataPlatformEntity } from '../../app/entity/dataPlatform/DataPlatformEntity';
 import { DataPlatformInstanceEntity } from '../../app/entity/dataPlatformInstance/DataPlatformInstanceEntity';
 import { DataProductEntity } from '../../app/entity/dataProduct/DataProductEntity';
-import { SchemaFieldPropertiesEntity } from '../../app/entity/schemaField/SchemaFieldPropertiesEntity';
 import { DomainEntity } from '../../app/entity/domain/DomainEntity';
 import { GlossaryTermEntity } from '../../app/entity/glossaryTerm/GlossaryTermEntity';
 import { MLFeatureTableEntity } from '../../app/entity/mlFeatureTable/MLFeatureTableEntity';
 import { MLModelEntity } from '../../app/entity/mlModel/MLModelEntity';
 import { MLModelGroupEntity } from '../../app/entity/mlModelGroup/MLModelGroupEntity';
 import { QueryEntity } from '../../app/entity/query/QueryEntity';
+import { SchemaFieldPropertiesEntity } from '../../app/entity/schemaField/SchemaFieldPropertiesEntity';
+import { StructuredPropertyEntity } from '../../app/entity/structuredProperty/StructuredPropertyEntity';
 import { LineageExplorerContext } from '../../app/lineage/utils/LineageExplorerContext';
 
 type Props = {
@@ -61,6 +62,8 @@ export function getTestEntityRegistry() {
     entityRegistry.register(new DataProductEntity());
     entityRegistry.register(new DataPlatformInstanceEntity());
     entityRegistry.register(new QueryEntity());
+    entityRegistry.register(new SchemaFieldPropertiesEntity());
+    entityRegistry.register(new StructuredPropertyEntity());
     return entityRegistry;
 }
 

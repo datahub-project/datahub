@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_NODE_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_CREATE_GLOSSARY_TERM_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_DATA_CONTRACT_PROPOSAL;
+import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TAG_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL;
@@ -56,7 +57,7 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchResult;
-import com.linkedin.metadata.service.ProposalService;
+import com.linkedin.metadata.service.ActionRequestService;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.GenericRecordUtils;
@@ -85,6 +86,10 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
+// NOTE TO ALL: This file is now deprecated and slotted to be slowly replaced by the
+// ActionRequestService.java file in metadata-io, which will be more thoroughly unit tested
+// & maintained in correspondence with how we maintain other service classes for easier re-use
+// elsewhere across the stack.
 // TODO(Gabe): Unit test this file
 public class ProposalUtils {
   public static final String PROPOSALS_ASPECT_NAME = "proposals";
@@ -158,6 +163,27 @@ public class ProposalUtils {
         context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
   }
 
+  public static boolean isAuthorizedToProposeStructuredProperties(
+      @Nonnull QueryContext context, Urn targetUrn, String subResource) {
+
+    Boolean isTargetingSchema = subResource != null && subResource.length() > 0;
+    // Decide whether the current principal should be allowed to update the Dataset.
+    // If you either have all entity privileges, or have the specific privileges required, you are
+    // authorized.
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(
+                        isTargetingSchema
+                            ? PoliciesConfig.PROPOSE_DATASET_COL_PROPERTIES_PRIVILEGE.getType()
+                            : PoliciesConfig.PROPOSE_ENTITY_PROPERTIES_PRIVILEGE.getType()))));
+
+    return AuthorizationUtils.isAuthorized(
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
+  }
+
   public static boolean isAuthorizedToAcceptProposal(
       @Nonnull QueryContext context, ActionRequestType type, Urn targetUrn, String subResource) {
     if (type.equals(ActionRequestType.TAG_ASSOCIATION)) {
@@ -171,6 +197,9 @@ public class ProposalUtils {
     }
     if (type.equals(ActionRequestType.DATA_CONTRACT)) {
       return isAuthorizedToAcceptDataContractProposals(context, targetUrn, subResource);
+    }
+    if (type.equals(ActionRequestType.STRUCTURED_PROPERTY_ASSOCIATION)) {
+      return isAuthorizedToAcceptStructuredPropertyProposals(context, targetUrn, subResource);
     }
     return false;
   }
@@ -262,6 +291,23 @@ public class ProposalUtils {
                     ALL_PRIVILEGES_GROUP,
                     new ConjunctivePrivilegeGroup(
                         List.of(PoliciesConfig.EDIT_ENTITY_DATA_CONTRACT_PRIVILEGE.getType())))));
+
+    return AuthorizationUtils.isAuthorized(
+        context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
+  }
+
+  public static boolean isAuthorizedToAcceptStructuredPropertyProposals(
+      @Nonnull QueryContext context, Urn targetUrn, String subResource) {
+    boolean isTargetingSchema = subResource != null && subResource.length() > 0;
+    final DisjunctivePrivilegeGroup orPrivilegeGroups =
+        new DisjunctivePrivilegeGroup(
+            ImmutableList.of(
+                ALL_PRIVILEGES_GROUP,
+                new ConjunctivePrivilegeGroup(
+                    ImmutableList.of(
+                        isTargetingSchema
+                            ? PoliciesConfig.MANAGE_DATASET_COL_PROPERTIES_PRIVILEGE.getType()
+                            : PoliciesConfig.MANAGE_ENTITY_PROPERTIES_PRIVILEGE.getType()))));
 
     return AuthorizationUtils.isAuthorized(
         context, targetUrn.getEntityType(), targetUrn.toString(), orPrivilegeGroups);
@@ -608,22 +654,22 @@ public class ProposalUtils {
   public static void deleteTagFromEntityOrSchemaProposalsAspect(
       @Nonnull OperationContext opContext,
       Urn creator,
-      Urn tagUrn,
+      List<Urn> tagUrns,
       Urn targetUrn,
       String subResource,
       EntityService<?> entityService) {
     if (subResource != null && subResource.length() > 0) {
       deleteTagFromSchemaProposalsAspect(
-          opContext, creator, tagUrn, targetUrn, subResource, entityService);
+          opContext, creator, tagUrns, targetUrn, subResource, entityService);
     } else {
-      deleteTagFromEntityProposalsAspect(opContext, creator, tagUrn, targetUrn, entityService);
+      deleteTagFromEntityProposalsAspect(opContext, creator, tagUrns, targetUrn, entityService);
     }
   }
 
   private static void deleteTagFromEntityProposalsAspect(
       @Nonnull OperationContext opContext,
       Urn creator,
-      Urn tagUrn,
+      List<Urn> tagUrns,
       Urn targetUrn,
       EntityService<?> entityService) {
     Proposals proposals =
@@ -639,7 +685,7 @@ public class ProposalUtils {
     }
 
     UrnArray tagUrnArray = proposals.getProposedTags();
-    tagUrnArray.remove(tagUrn);
+    tagUrnArray.removeAll(tagUrns);
     proposals.setProposedTags(tagUrnArray);
 
     ingestEntityProposalsUpdate(opContext, creator, targetUrn, entityService, proposals);
@@ -648,7 +694,7 @@ public class ProposalUtils {
   private static void deleteTagFromSchemaProposalsAspect(
       @Nonnull OperationContext opContext,
       Urn creator,
-      Urn tagUrn,
+      List<Urn> tagUrns,
       Urn targetUrn,
       String subResource,
       EntityService<?> entityService) {
@@ -674,7 +720,7 @@ public class ProposalUtils {
 
     SchemaProposal schemaProposal = schemaProposalOptional.get();
     UrnArray tagUrnArray = schemaProposal.getProposedSchemaTags();
-    tagUrnArray.remove(tagUrn);
+    tagUrnArray.removeAll(tagUrns);
     schemaProposal.setProposedSchemaTags(tagUrnArray);
 
     ingestSchemaProposalsUpdate(opContext, creator, targetUrn, entityService, schemaProposals);
@@ -760,22 +806,22 @@ public class ProposalUtils {
   public static void deleteTermFromEntityOrSchemaProposalsAspect(
       @Nonnull OperationContext opContext,
       Urn creator,
-      Urn termUrn,
+      List<Urn> termUrns,
       Urn targetUrn,
       String subResource,
       EntityService<?> entityService) {
     if (subResource != null && subResource.length() > 0) {
       deleteTermFromSchemaProposalsAspect(
-          opContext, creator, termUrn, targetUrn, subResource, entityService);
+          opContext, creator, termUrns, targetUrn, subResource, entityService);
     } else {
-      deleteTermFromEntityProposalsAspect(opContext, creator, termUrn, targetUrn, entityService);
+      deleteTermFromEntityProposalsAspect(opContext, creator, termUrns, targetUrn, entityService);
     }
   }
 
   private static void deleteTermFromEntityProposalsAspect(
       @Nonnull OperationContext opContext,
       Urn creator,
-      Urn termUrn,
+      List<Urn> termUrns,
       Urn targetUrn,
       EntityService<?> entityService) {
     Proposals proposals =
@@ -791,7 +837,7 @@ public class ProposalUtils {
     }
 
     UrnArray glossaryTermUrnArray = proposals.getProposedGlossaryTerms();
-    glossaryTermUrnArray.remove(termUrn);
+    glossaryTermUrnArray.removeAll(termUrns);
     proposals.setProposedGlossaryTerms(glossaryTermUrnArray);
 
     ingestEntityProposalsUpdate(opContext, creator, targetUrn, entityService, proposals);
@@ -800,7 +846,7 @@ public class ProposalUtils {
   private static void deleteTermFromSchemaProposalsAspect(
       @Nonnull OperationContext opContext,
       Urn creator,
-      Urn termUrn,
+      List<Urn> termUrns,
       Urn targetUrn,
       String subResource,
       EntityService<?> entityService) {
@@ -827,7 +873,7 @@ public class ProposalUtils {
     SchemaProposal schemaProposal = schemaProposalOptional.get();
 
     UrnArray glossaryTermUrnArray = schemaProposal.getProposedSchemaGlossaryTerms();
-    glossaryTermUrnArray.remove(termUrn);
+    glossaryTermUrnArray.removeAll(termUrns);
     schemaProposal.setProposedSchemaGlossaryTerms(glossaryTermUrnArray);
 
     ingestSchemaProposalsUpdate(opContext, creator, targetUrn, entityService, schemaProposals);
@@ -1203,7 +1249,7 @@ public class ProposalUtils {
   public static void validateProposals(
       @Nonnull final Collection<Entity> entities,
       @Nonnull final QueryContext context,
-      @Nonnull final ProposalService proposalService) {
+      @Nonnull final ActionRequestService proposalService) {
     for (final Entity proposal : entities) {
       validateProposal(proposal, context, proposalService);
     }
@@ -1212,7 +1258,7 @@ public class ProposalUtils {
   private static void validateProposal(
       @Nonnull final Entity proposalEntity,
       @Nonnull final QueryContext context,
-      @Nonnull final ProposalService proposalService) {
+      @Nonnull final ActionRequestService proposalService) {
     // TODO: Migrate away from using deprecated 'snapshot' entities here.
     final ActionRequestSnapshot actionRequestSnapshot =
         proposalEntity.getValue().getActionRequestSnapshot();
@@ -1240,7 +1286,7 @@ public class ProposalUtils {
   private static boolean isAuthorizedToAcceptProposal(
       @Nonnull final ActionRequestSnapshot actionRequestSnapshot,
       @Nonnull final QueryContext context,
-      @Nonnull final ProposalService proposalService) {
+      @Nonnull final ActionRequestService proposalService) {
 
     final ActionRequestInfo actionRequestInfo = extractActionRequestInfo(actionRequestSnapshot);
 
@@ -1253,6 +1299,7 @@ public class ProposalUtils {
       case ACTION_REQUEST_TYPE_TERM_PROPOSAL:
       case ACTION_REQUEST_TYPE_UPDATE_DESCRIPTION_PROPOSAL:
       case ACTION_REQUEST_TYPE_DATA_CONTRACT_PROPOSAL:
+      case ACTION_REQUEST_TYPE_STRUCTURED_PROPERTY_PROPOSAL:
         return ProposalUtils.isAuthorizedToAcceptProposal(
             context,
             ActionRequestType.valueOf(actionRequestType),
@@ -1317,6 +1364,14 @@ public class ProposalUtils {
       metadata.setLastInferredAt(System.currentTimeMillis());
     }
     return metadata;
+  }
+
+  public static List<Urn> toUrns(List<String> urnStrs) {
+    return urnStrs.stream().map(ProposalUtils::toUrn).collect(Collectors.toList());
+  }
+
+  public static Urn toUrn(String urnStr) {
+    return UrnUtils.getUrn(urnStr);
   }
 
   private ProposalUtils() {}

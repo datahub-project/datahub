@@ -1,8 +1,80 @@
 extend type Mutation {
     """
+    Accepts a set of proposals. Returns true if all proposals have been successfully accepted,
+    false otherwise.
+    """
+    acceptProposals(urns: [String!]!, note: String): Boolean
+
+    """
+    Rejects a set of proposals. Returns true if all proposals have been successfully rejected,
+    false otherwise.
+    """
+    rejectProposals(urns: [String!]!, note: String): Boolean
+
+    """
+    Adds a tag proposal for a given entity or subresource. Returns the URN of the proposal request.
+    """
+    proposeTags(input: ProposeTagsInput!): String!
+
+    """
+    Adds a glossary term proposal for a given entity or subresource. Returns the URN of the proposal request.
+    """
+    proposeTerms(input: ProposeTermsInput!): String!
+
+    """
+    Do not use. Not yet supported! Adds a domain proposal for a given entity. Returns the URN of the proposal request.
+    """
+    proposeDomain(input: ProposeDomainInput!): String!
+
+    """
+    Do not use. Not yet supported! Adds an owner proposal for a given entity. Returns the URN of the proposal request.
+    """
+    proposeOwners(input: ProposeOwnersInput!): String!
+
+    """
+    Adds a structured property proposal for a given entity. Returns the URN of the proposal request.
+    """
+    proposeStructuredProperties(input: ProposeStructuredPropertiesInput!): String!
+
+    """
+    Adds a proposal to create a new Glossary Term
+    """
+    proposeCreateGlossaryTerm(input: CreateGlossaryEntityInput!): Boolean
+
+    """
+    Adds a proposal to create a new Glossary Node
+    """
+    proposeCreateGlossaryNode(input: CreateGlossaryEntityInput!): Boolean
+
+    """
+    Adds a proposal to update a Description
+    """
+    proposeUpdateDescription(input: DescriptionUpdateInput!): Boolean
+
+    """
     Propose creation or addition of data contract
     """
     proposeDataContract(input: ProposeDataContractInput!): Boolean
+
+    """
+    Accepts a proposal for a given entity or subresource
+    """
+    acceptProposal(urn: String!, note: String): Boolean @deprecated(reason: "Use acceptProposals instead")
+
+    """
+    Rejects a proposal for a given entity or subresource
+    """
+    rejectProposal(urn: String!, note: String): Boolean @deprecated(reason: "Use rejectProposals instead")
+
+    """
+    Adds a term proposal for a given entity or subresource
+    """
+    proposeTerm(input: ProposeTermAssociationInput!): Boolean @deprecated(reason: "Use proposeTerms instead")
+
+    """
+    Adds a term proposal for a given entity or subresource
+    """
+    proposeTag(input: TagAssociationInput!): Boolean @deprecated(reason: "Use proposeTags instead")
 }
 
 extend type Dataset {
@@ -91,6 +163,11 @@ extend type Notebook {
 
 extend type Query {
     """
+    Fetch all action requests for the authenticated user
+    """
+    listActionRequests(input: ListActionRequestsInput!): ListActionRequestsResult
+
+    """
     Fetch all rejected action requests
     """
     listRejectedActionRequests(input: ListRejectedActionRequestsInput!): ListRejectedActionRequestsResult
@@ -128,6 +205,10 @@ enum ActionRequestType {
     Data Contract Proposal
     """
     DATA_CONTRACT
+    """
+    Requests to add a structured property to an entity
+    """
+    STRUCTURED_PROPERTY_ASSOCIATION
 }
 enum ActionRequestStatus {
     """
@@ -267,70 +348,97 @@ type ActionRequest {
     The urn associated with the action request
     """
     urn: String!
+
     """
     The type of the action request
     """
     type: ActionRequestType!
+
+    """
+    An optional description providing context for the action request
+    """
+    description: String
+
     """
     The status of the action request
     """
     status: ActionRequestStatus!
+
     """
     The status of the action request
     """
     result: ActionRequestResult
+
+    """
+    A note associated with the result of the action request
+    """
+    resultNote: String
+
     """
     The users assigned to the action request
     """
     assignedUsers: [String!]
+
     """
     The groups assigned to the action request
     """
     assignedGroups: [String!]
+
     """
     The roles assigned to the action request
     """
     assignedRoles: [String!]
+
     """
     An optional target entity associated with the action request
     """
     entity: Entity
+
     """
     The sub-resource type associated with the action request, for example datasetField.
     """
     subResourceType: String
+
     """
     The sub-resource identifier associated with the action request, for example a fieldName.
     """
     subResource: String
+
     """
     Optional set of action request arguments specific to the action request type
     """
     params: ActionRequestParams
+
     """
     The origin of the action request
     """
     origin: ActionRequestOrigin
+
     """
     Optional inference Metadata Associated with the action request. Only present if origin is INFERRED.
     """
     inferenceMetadata: InferenceMetadata
+
     """
     The time by which the action is required
     """
     dueDate: Long
+
     """
     The time and actor which initiated the action request
     """
     created: ResolvedAuditStamp!
+
     """
     The time and actor which last modified the action request
     """
     lastModified: ResolvedAuditStamp
+
     """
     Resource level properties for the action request
     """
     resourceProperties: ActionRequestResourceProperties
+
     """
     Sub-resource level properties for the action request
     """
@@ -395,22 +503,42 @@ type ActionRequestParams {
     Glossary Term specific arguments
     """
     glossaryTermProposal: GlossaryTermProposalParams
+
     """
     Tag-proposal specific arguments
     """
     tagProposal: TagProposalParams
+
+    """
+    Domain specific arguments
+    """
+    domainProposal: DomainProposalParams
+
+    """
+    Owner specific arguments
+    """
+    ownerProposal: OwnerProposalParams
+
+    """
+    Structured Property specific arguments
+    """
+    structuredPropertyProposal: StructuredPropertyProposalParams
+
     """
     Creating a Glossary Term specific arguments
     """
     createGlossaryTermProposal: CreateGlossaryTermProposalParams
+
     """
     Creating a Glossary Node specific arguments
     """
     createGlossaryNodeProposal: CreateGlossaryNodeProposalParams
+
     """
     Updating a Description specific arguments
     """
     updateDescriptionProposal: UpdateDescriptionProposalParams
+
     """
     Data contract proposal
     """
@@ -425,16 +553,47 @@ enum AssigneeType {
 
 type TagProposalParams {
     """
-    The urn of the proposed tag
+    The proposed tag. Only populated if the proposal was raised using the legacy single tag proposal API.
     """
-    tag: Tag!
+    tag: Tag @deprecated(reason: "Use tags instead")
+
+    """
+    The proposed tags
+    """
+    tags: [Tag!]!
 }
 
 type GlossaryTermProposalParams {
     """
-    The urn of the proposed term
+    The proposed term. Only populated if the proposal was raised using the legacy single term proposal API.
     """
-    glossaryTerm: GlossaryTerm!
+    glossaryTerm: GlossaryTerm @deprecated(reason: "Use glossaryTerms instead")
+
+    """
+    The proposed glossary terms
+    """
+    glossaryTerms: [GlossaryTerm!]!
+}
+
+type DomainProposalParams {
+    """
+    The proposed domain. Currently only one domain is supported.
+    """
+    domain: [Domain!]!
+}
+
+type OwnerProposalParams {
+    """
+    The proposed owners
+    """
+    owners: [Owner!]!
+}
+
+type StructuredPropertyProposalParams {
+    """
+    The proposed structured properties
+    """
+    structuredProperties: [StructuredPropertiesEntry!]!
 }
 
 type CreateGlossaryTermProposalParams {
@@ -517,6 +676,7 @@ type ActionRequestResourceProperties {
     Glossary terms that are applied to the resource
     """
     glossaryTerms: GlossaryTerms
+
     """
     Tags that are applied to the resource
     """
@@ -531,6 +691,7 @@ type ActionRequestSubResourceProperties {
     Glossary terms that are applied to the sub-resource.
     """
     glossaryTerms: GlossaryTerms
+
     """
     Tags that are applied to the sub-resource.
     """
@@ -570,4 +731,205 @@ input ProposeDataContractInput {
   The data quality portion of the contract. If not provided, this will be set to none.
   """
   dataQuality: [DataQualityContractInput!]
+}
+
+"""
+Input provided when proposing an update to the association between a Metadata Entity and a Glossary Term
+"""
+input ProposeTermAssociationInput {
+    """
+    The primary key of the Glossary Term to add or remove
+    """
+    termUrn: String!
+
+    """
+    The target Metadata Entity to add or remove the Glossary Term from
+    """
+    resourceUrn: String!
+
+    """
+    An optional type of a sub resource to attach the Glossary Term to
+    """
+    subResourceType: SubResourceType
+
+    """
+    An optional sub resource identifier to attach the Glossary Term to
+    """
+    subResource: String
+
+    """
+    Optional - the origin of the proposal. If not provided, this will be set to manual.
+    """
+    origin: ActionRequestOrigin
+
+    """
+    Optional - the origin of the proposal. If not provided, this will be set to manual.
+    """
+    inferenceMetadata: InferenceMetadataInput
+}
+
+# Modified input types to extend BaseProposalInput
+input ProposeTermsInput {
+    """
+    Optional description providing context for the proposal
+    """
+    description: String
+
+    """
+    The target Metadata Entity to add or remove the Glossary Terms from
+    """
+    resourceUrn: String!
+
+    """
+    The urns of the Glossary Terms to add
+    """
+    termUrns: [String!]!
+
+    """
+    An optional type of a sub resource to attach the Glossary Terms to
+    """
+    subResourceType: SubResourceType
+
+    """
+    An optional sub resource identifier to attach the Glossary Terms to
+    """
+    subResource: String
+
+    """
+    Optional - the origin of the proposal. If not provided, this will be set to manual.
+    """
+    origin: ActionRequestOrigin
+
+    """
+    Optional - metadata about the inference. Required if origin is INFERRED.
+    """
+    inferenceMetadata: InferenceMetadataInput
+}
+
+input ProposeTagsInput {
+    """
+    Optional description providing context for the proposal
+    """
+    description: String
+
+    """
+    The target Metadata Entity to add the Tags to
+    """
+    resourceUrn: String!
+
+    """
+    The Tags to add
+    """
+    tagUrns: [String!]!
+
+    """
+    An optional type of a sub resource to attach the Tags to
+    """
+    subResourceType: SubResourceType
+
+    """
+    An optional sub resource identifier to attach the Tags to
+    """
+    subResource: String
+
+    """
+    Optional - the origin of the proposal. If not provided, this will be set to manual.
+    """
+    origin: ActionRequestOrigin
+
+    """
+    Optional - metadata about the inference. Required if origin is INFERRED.
+    """
+    inferenceMetadata: InferenceMetadataInput
+}
+
+input ProposeDomainInput {
+    """
+    Optional description providing context for the proposal
+    """
+    description: String
+
+    """
+    The target Metadata Entity to add the Domains to
+    """
+    resourceUrn: String!
+
+    """
+    The urns of the Domain to add
+    """
+    domainUrn: [String!]!
+
+    """
+    Optional - the origin of the proposal. If not provided, this will be set to manual.
+    """
+    origin: ActionRequestOrigin
+
+    """
+    Optional - metadata about the inference. Required if origin is INFERRED.
+    """
+    inferenceMetadata: InferenceMetadataInput
+}
+
+input ProposeOwnersInput {
+    """
+    Optional description providing context for the proposal
+    """
+    description: String
+
+    """
+    The target Metadata Entity to add the Owners to
+    """
+    resourceUrn: String!
+
+    """
+    The Owners to add
+    """
+    owners: [OwnerInput!]!
+
+    """
+    Optional - the origin of the proposal. If not provided, this will be set to manual.
+    """
+    origin: ActionRequestOrigin
+
+    """
+    Optional - metadata about the inference. Required if origin is INFERRED.
+    """
+    inferenceMetadata: InferenceMetadataInput
+}
+
+input ProposeStructuredPropertiesInput {
+    """
+    Optional description providing context for the proposal
+    """
+    description: String
+
+    """
+    The target Metadata Entity to add the Structured Properties to
+    """
+    resourceUrn: String!
+
+    """
+    The sub-resource type associated with the action request, e.g. DATASET_FIELD.
+    """
+    subResourceType: SubResourceType
+
+    """
+    The sub-resource identifier associated with the action request, for example the path of the field.
+    """
+    subResource: String
+
+    """
+    The Structured Properties to add
+    """
+    structuredProperties: [StructuredPropertyInputParams!]!
+
+    """
+    Optional - the origin of the proposal. If not provided, this will be set to manual.
+    """
+    origin: ActionRequestOrigin
+
+    """
+    Optional - metadata about the inference. Required if origin is INFERRED.
+    """
+    inferenceMetadata: InferenceMetadataInput
 }

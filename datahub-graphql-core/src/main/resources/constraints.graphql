@@ -5,13 +5,6 @@ extend type Dataset {
     constraints: [Constraint!]
 }
 
-extend type Query {
-    """
-    Fetch all action requests for the authenticated user
-    """
-    listActionRequests(input: ListActionRequestsInput!): ListActionRequestsResult
-}
-
 extend type Mutation {
     """
     Create a new glossary term constraint

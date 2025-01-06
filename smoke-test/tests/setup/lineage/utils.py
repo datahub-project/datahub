@@ -62,12 +62,16 @@ def create_node(dataset: Dataset) -> List[MetadataChangeProposalWrapper]:
         version=0,
         hash="",
         platformSchema=MySqlDDLClass(tableSchema=""),
-        fields=[
-            SchemaFieldClass(fieldPath=f.name, type=f.type, nativeDataType=str(f.type))
-            for f in dataset.schema_metadata
-        ]
-        if dataset.schema_metadata
-        else [],
+        fields=(
+            [
+                SchemaFieldClass(
+                    fieldPath=f.name, type=f.type, nativeDataType=str(f.type)
+                )
+                for f in dataset.schema_metadata
+            ]
+            if dataset.schema_metadata
+            else []
+        ),
     )
 
     mcps.append(

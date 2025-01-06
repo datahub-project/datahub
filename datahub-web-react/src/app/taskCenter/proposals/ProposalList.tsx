@@ -135,6 +135,7 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
 
     const acceptSelectedProposals = () => {
         Modal.confirm({
+            title: 'Accept Proposals',
             content: `Are you sure you want to accept these (${selectedUrns.size}) proposals?`,
             okText: 'Yes',
             onOk() {
@@ -159,6 +160,7 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
 
     const rejectSelectedProposals = () => {
         Modal.confirm({
+            title: 'Reject Proposals',
             content: `Are you sure you want to reject these (${selectedUrns.size}) proposals?`,
             okText: 'Yes',
             onOk() {
@@ -197,7 +199,7 @@ export const ProposalList = ({ title, status, assignee }: Props) => {
     return (
         <FinalContainer>
             {loading && <Message type="loading" content="Loading your requests…" />}
-            {error && message.error('Failed to load your requests :(')}
+            {error && message.error('Failed to load proposals. An unknown error occurred!')}
             <TabToolbar>
                 <CheckboxContainer>
                     <Checkbox

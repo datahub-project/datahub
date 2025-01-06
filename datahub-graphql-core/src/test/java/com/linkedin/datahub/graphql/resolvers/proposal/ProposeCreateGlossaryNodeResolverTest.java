@@ -8,7 +8,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateGlossaryEntityInput;
-import com.linkedin.metadata.service.ProposalService;
+import com.linkedin.metadata.service.ActionRequestService;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import org.testng.annotations.BeforeMethod;
@@ -18,7 +18,7 @@ public class ProposeCreateGlossaryNodeResolverTest {
   private static final String ACTOR_URN_STRING = "urn:li:corpuser:test";
   private static final String GLOSSARY_NODE_NAME = "GLOSSARY_NODE";
 
-  private ProposalService _proposalService;
+  private ActionRequestService _ActionRequestService;
   private ProposeCreateGlossaryNodeResolver _resolver;
   private DataFetchingEnvironment _dataFetchingEnvironment;
   private Authentication _authentication;
@@ -26,12 +26,12 @@ public class ProposeCreateGlossaryNodeResolverTest {
 
   @BeforeMethod
   public void setupTest() {
-    _proposalService = mock(ProposalService.class);
+    _ActionRequestService = mock(ActionRequestService.class);
     _dataFetchingEnvironment = mock(DataFetchingEnvironment.class);
     _authentication = mock(Authentication.class);
     _authorizer = mock(Authorizer.class);
 
-    _resolver = new ProposeCreateGlossaryNodeResolver(_proposalService);
+    _resolver = new ProposeCreateGlossaryNodeResolver(_ActionRequestService);
   }
 
   @Test
@@ -62,7 +62,7 @@ public class ProposeCreateGlossaryNodeResolverTest {
     CreateGlossaryEntityInput input = new CreateGlossaryEntityInput();
     input.setName(GLOSSARY_NODE_NAME);
     when(_dataFetchingEnvironment.getArgument(eq("input"))).thenReturn(input);
-    when(_proposalService.proposeCreateGlossaryNode(
+    when(_ActionRequestService.proposeCreateGlossaryNode(
             any(OperationContext.class), any(), eq(GLOSSARY_NODE_NAME), any(), any()))
         .thenReturn(true);
 

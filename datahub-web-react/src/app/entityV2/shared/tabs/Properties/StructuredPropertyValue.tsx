@@ -1,28 +1,26 @@
 import Icon from '@ant-design/icons/lib/components/Icon';
 import { Entity, EntityType } from '@src/types.generated';
 import { getSchemaFieldParentLink } from '@src/app/entityV2/schemaField/utils';
+import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
-import { Typography } from 'antd';
 import styled from 'styled-components';
-import { ValueColumnData } from './types';
-import { ANTD_GRAY } from '../../constants';
-import { useEntityRegistry } from '../../../../useEntityRegistry';
 import ExternalLink from '../../../../../images/link-out.svg?react';
-import CompactMarkdownViewer from '../Documentation/components/CompactMarkdownViewer';
 import EntityIcon from '../../../../entity/shared/components/styled/EntityIcon';
+import { useEntityRegistry } from '../../../../useEntityRegistry';
+import { ANTD_GRAY } from '../../constants';
+import CompactMarkdownViewer from '../Documentation/components/CompactMarkdownViewer';
+import { ValueColumnData } from './types';
 
-const ValueText = styled(Typography.Text)`
+const ValueText = styled(Typography.Text)<{ size: number }>`
     font-family: 'Manrope';
     font-weight: 400;
-    font-size: 12px;
+    font-size: ${(props) => props.size}px;
     color: ${ANTD_GRAY[9]};
     display: block;
     width: 100%;
-    margin-bottom: 2px;
-
     .remirror-editor.ProseMirror {
-        font-size: 12px;
+        font-size: ${(props) => props.size}px;
     }
 `;
 
@@ -67,9 +65,17 @@ interface Props {
     filterText?: string;
     truncateText?: boolean;
     isFieldColumn?: boolean;
+    size?: number;
 }
 
-export default function StructuredPropertyValue({ value, isRichText, filterText, truncateText, isFieldColumn }: Props) {
+export default function StructuredPropertyValue({
+    value,
+    isRichText,
+    filterText,
+    truncateText,
+    isFieldColumn,
+    size = 12,
+}: Props) {
     const entityRegistry = useEntityRegistry();
 
     const getEntityLink = (entity: Entity) =>
@@ -78,11 +84,11 @@ export default function StructuredPropertyValue({ value, isRichText, filterText,
             : entityRegistry.getEntityUrl(entity.type, entity.urn);
 
     return (
-        <ValueText>
+        <ValueText size={size}>
             {value.entity ? (
                 <EntityWrapper>
                     <IconWrapper>
-                        <EntityIcon entity={value.entity} size={12} />
+                        <EntityIcon entity={value.entity} size={size} />
                     </IconWrapper>
                     <EntityName ellipsis={{ tooltip: true }}>
                         {entityRegistry.getDisplayName(value.entity.type, value.entity)}

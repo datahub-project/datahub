@@ -1,13 +1,23 @@
 import analytics, { EventType } from '@src/app/analytics';
+import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';
 import { Button, Modal, message } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
-import { useUpsertStructuredPropertiesMutation } from '../../../../../../graphql/structuredProperties.generated';
-import { EntityType, PropertyValueInput, StructuredPropertyEntity } from '../../../../../../types.generated';
+import {
+    // Saas-only mutation
+    useProposeStructuredPropetiesMutation,
+    useUpsertStructuredPropertiesMutation,
+} from '../../../../../../graphql/structuredProperties.generated';
+import {
+    EntityType,
+    PropertyValueInput,
+    StructuredPropertyEntity,
+    SubResourceType,
+} from '../../../../../../types.generated';
 import handleGraphQLError from '../../../../../shared/handleGraphQLError';
+import { useEntityContext, useEntityData, useMutationUrn } from '../../../EntityContext';
 import StructuredPropertyInput from '../../../components/styled/StructuredProperty/StructuredPropertyInput';
 import { useEditStructuredProperty } from '../../../components/styled/StructuredProperty/useEditStructuredProperty';
-import { useEntityContext, useEntityData, useMutationUrn } from '../../../EntityContext';
 
 const Description = styled.div`
     font-size: 14px;
@@ -42,6 +52,15 @@ export default function EditStructuredPropertyModal({
     const { selectedValues, selectSingleValue, toggleSelectedValue, updateSelectedValues, setSelectedValues } =
         useEditStructuredProperty(initialValues);
     const [upsertStructuredProperties] = useUpsertStructuredPropertiesMutation();
+
+    // is schema field urn
+    const isSchemaField = urn.includes('urn:li:schemaField');
+
+    const resource = isSchemaField ? getSourceUrnFromSchemaFieldUrn(urn) : urn;
+    const subresource = isSchemaField ? getFieldPathFromSchemaFieldUrn(urn) : undefined;
+
+    // Saas-only mutation
+    const [proposeStructuredProperties] = useProposeStructuredPropetiesMutation();
 
     useEffect(() => {
         setSelectedValues(initialValues);
@@ -97,6 +116,63 @@ export default function EditStructuredPropertyModal({
             });
     }
 
+    // Saas-only mutation
+    function proposeProperties() {
+        message.loading('Proposing...');
+
+        const propValues = selectedValues.map((value) => {
+            if (typeof value === 'string') {
+                return { stringValue: value as string };
+            }
+            return { numberValue: value as number };
+        }) as PropertyValueInput[];
+
+        proposeStructuredProperties({
+            variables: {
+                input: {
+                    resourceUrn: resource,
+                    subResource: subresource,
+                    subResourceType: isSchemaField ? SubResourceType.DatasetField : undefined,
+                    structuredProperties: [
+                        {
+                            structuredPropertyUrn: structuredProperty.urn,
+                            values: propValues,
+                        },
+                    ],
+                },
+            },
+        })
+            .then(() => {
+                analytics.event({
+                    type: EventType.ProposeStructuredPropertiesMutation,
+                    propertyUrn: structuredProperty.urn,
+                    propertyType: structuredProperty.definition.valueType.urn,
+                    assetUrn: urn,
+                    assetType: associatedUrn?.includes('urn:li:schemaField') ? EntityType.SchemaField : entityType,
+                    values: propValues,
+                });
+                if (refetch) {
+                    refetch();
+                } else {
+                    entityRefetch();
+                }
+                message.destroy();
+                message.success('Successfully proposed structured property. It is pending approval.');
+                closeModal();
+            })
+            .catch((error) => {
+                handleGraphQLError({
+                    error,
+                    defaultMessage: 'Unable to propose structured property. Something went wrong.',
+                    badRequestMessage:
+                        'Failed to propose structured property. Property with these values is already proposed or applied.',
+                    permissionMessage:
+                        'Unauthorized to propose property. The "Propose Structured Properties" privilege is required for this asset.',
+                });
+                closeModal();
+            });
+    }
+
     return (
         <Modal
             title={`${isAddMode ? 'Add property' : 'Edit property'} ${structuredProperty?.definition?.displayName}`}
@@ -107,6 +183,14 @@ export default function EditStructuredPropertyModal({
                 <>
                     <Button onClick={closeModal} type="text">
                         Cancel
+                    </Button>
+                    <Button
+                        type="default"
+                        onClick={proposeProperties}
+                        disabled={!selectedValues.length}
+                        data-testid="propose-update-structured-prop-on-entity-button"
+                    >
+                        Propose
                     </Button>
                     <Button
                         type="primary"

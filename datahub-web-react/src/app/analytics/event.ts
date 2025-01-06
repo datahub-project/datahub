@@ -155,6 +155,7 @@ export enum EventType {
     CreateQuestionEvent,
     EditQuestionEvent,
     SSOConfigurationEvent,
+    ProposeStructuredPropertiesMutation,
 }
 
 /**
@@ -1105,6 +1106,11 @@ export interface UpdateStructuredPropertyOnAssetEvent extends StructuredProperty
     values: PropertyValueInput[];
 }
 
+export interface ProposeStructuredPropertyEvent extends StructuredPropertyOnAssetEvent {
+    type: EventType.ProposeStructuredPropertiesMutation;
+    values: PropertyValueInput[];
+}
+
 export interface RemoveStructuredPropertyEvent extends StructuredPropertyOnAssetEvent {
     type: EventType.RemoveStructuredPropertyEvent;
 }
@@ -1218,14 +1224,6 @@ export type Event =
     | EmbedProfileViewInDataHubEvent
     | EmbedLookupNotFoundEvent
     | CreateBusinessAttributeEvent
-    | CreateStructuredPropertyClickEvent
-    | CreateStructuredPropertyEvent
-    | EditStructuredPropertyEvent
-    | DeleteStructuredPropertyEvent
-    | ViewStructuredPropertyEvent
-    | ApplyStructuredPropertyEvent
-    | UpdateStructuredPropertyOnAssetEvent
-    | RemoveStructuredPropertyEvent
     | ClickDocRequestCTA
     | CompleteDocRequestPrompt
     | CompleteVerification
@@ -1262,4 +1260,13 @@ export type Event =
     | DeleteFormEvent
     | CreateQuestionEvent
     | EditQuestionEvent
-    | SSOConfigurationEvent;
+    | CreateStructuredPropertyClickEvent
+    | CreateStructuredPropertyEvent
+    | EditStructuredPropertyEvent
+    | DeleteStructuredPropertyEvent
+    | ViewStructuredPropertyEvent
+    | ApplyStructuredPropertyEvent
+    | UpdateStructuredPropertyOnAssetEvent
+    | RemoveStructuredPropertyEvent
+    | SSOConfigurationEvent
+    | ProposeStructuredPropertyEvent;

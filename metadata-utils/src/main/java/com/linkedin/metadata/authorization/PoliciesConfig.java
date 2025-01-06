@@ -299,6 +299,30 @@ public class PoliciesConfig {
           "Propose Tags",
           "The ability to propose adding a tag to an asset.");
 
+  public static final Privilege PROPOSE_ENTITY_DOMAINS_PRIVILEGE =
+      Privilege.of(
+          "PROPOSE_ENTITY_DOMAINS",
+          "Propose Domains",
+          "The ability to propose adding a domain to an asset.");
+
+  public static final Privilege PROPOSE_ENTITY_OWNERS_PRIVILEGE =
+      Privilege.of(
+          "PROPOSE_ENTITY_OWNERS",
+          "Propose Owners",
+          "The ability to propose adding a owner to an asset.");
+
+  public static final Privilege PROPOSE_ENTITY_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "PROPOSE_ENTITY_PROPERTIES",
+          "Propose Structured Properties",
+          "The ability to propose adding a structured properties to an asset.");
+
+  public static final Privilege MANAGE_ENTITY_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_ENTITY_PROPERTIES",
+          "Manage Property Proposals",
+          "The ability to manage a proposal to add a structured property to an asset.");
+
   public static final Privilege MANAGE_ENTITY_TAGS_PRIVILEGE =
       Privilege.of(
           "MANAGE_ENTITY_TAGS",
@@ -438,8 +462,12 @@ public class PoliciesConfig {
           EDIT_ENTITY_TAGS_PRIVILEGE,
           PROPOSE_ENTITY_TAGS_PRIVILEGE,
           PROPOSE_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
+          PROPOSE_ENTITY_DOMAINS_PRIVILEGE,
+          PROPOSE_ENTITY_OWNERS_PRIVILEGE,
+          PROPOSE_ENTITY_PROPERTIES_PRIVILEGE,
           MANAGE_ENTITY_TAGS_PRIVILEGE,
           MANAGE_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
+          MANAGE_ENTITY_PROPERTIES_PRIVILEGE,
           EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE,
           EDIT_ENTITY_OWNERS_PRIVILEGE,
           EDIT_ENTITY_DOCS_PRIVILEGE,
@@ -508,6 +536,24 @@ public class PoliciesConfig {
           "PROPOSE_DATASET_COL_DESCRIPTION_PRIVILEGE",
           "Propose Dataset Column Descriptions",
           "The ability to propose new descriptions associated with a dataset schema.");
+
+  public static final Privilege EDIT_DATASET_COL_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "EDIT_DATASET_COL_PROPERTIES",
+          "Edit Dataset Column Properties",
+          "The ability to edit the column (field) structured properties associated with a dataset schema.");
+
+  public static final Privilege PROPOSE_DATASET_COL_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "PROPOSE_DATASET_COL_PROPERTIES",
+          "Propose Column Structured Properties",
+          "The ability to propose new column (field) structured properties associated with a dataset schema.");
+
+  public static final Privilege MANAGE_DATASET_COL_PROPERTIES_PRIVILEGE =
+      Privilege.of(
+          "MANAGE_DATASET_COL_PROPERTIES",
+          "Manage Dataset Column Property Proposals",
+          "The ability to manage column (field) structured property proposals associated with a dataset schema.");
 
   public static final Privilege VIEW_DATASET_USAGE_PRIVILEGE =
       Privilege.of(
@@ -706,11 +752,14 @@ public class PoliciesConfig {
                       EDIT_DATASET_COL_DESCRIPTION_PRIVILEGE,
                       EDIT_DATASET_COL_TAGS_PRIVILEGE,
                       EDIT_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
+                      EDIT_DATASET_COL_PROPERTIES_PRIVILEGE,
                       PROPOSE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
                       PROPOSE_DATASET_COL_TAGS_PRIVILEGE,
                       MANAGE_DATASET_COL_GLOSSARY_TERMS_PRIVILEGE,
                       PROPOSE_DATASET_COL_DESCRIPTION_PRIVILEGE,
+                      PROPOSE_DATASET_COL_PROPERTIES_PRIVILEGE,
                       MANAGE_DATASET_COL_TAGS_PRIVILEGE,
+                      MANAGE_DATASET_COL_PROPERTIES_PRIVILEGE,
                       EDIT_ENTITY_ASSERTIONS_PRIVILEGE,
                       EDIT_LINEAGE_PRIVILEGE,
                       EDIT_ENTITY_EMBED_PRIVILEGE,

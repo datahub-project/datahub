@@ -7,6 +7,7 @@ import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_STATUS_PENDING
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TAG_PROPOSAL;
 import static com.linkedin.metadata.AcrylConstants.ACTION_REQUEST_TYPE_TERM_PROPOSAL;
 
+import com.google.common.collect.ImmutableList;
 import com.linkedin.actionrequest.ActionRequestInfo;
 import com.linkedin.actionrequest.ActionRequestStatus;
 import com.linkedin.common.urn.Urn;
@@ -14,7 +15,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.entity.Entity;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.service.ProposalService;
+import com.linkedin.metadata.service.ActionRequestService;
 import com.linkedin.metadata.snapshot.ActionRequestSnapshot;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -25,6 +26,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -36,7 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 public class RejectProposalsResolver implements DataFetcher<CompletableFuture<Boolean>> {
 
   private final EntityService<?> _entityService;
-  private final ProposalService _proposalService;
+  private final ActionRequestService _proposalService;
 
   @Override
   public CompletableFuture<Boolean> get(DataFetchingEnvironment environment) throws Exception {
@@ -44,6 +46,7 @@ public class RejectProposalsResolver implements DataFetcher<CompletableFuture<Bo
     final List<String> proposalUrnStrs = bindArgument(environment.getArgument("urns"), List.class);
     final Set<Urn> proposalUrns =
         proposalUrnStrs.stream().map(UrnUtils::getUrn).collect(Collectors.toSet());
+    final String maybeNote = environment.getArgument("note");
     final QueryContext context = environment.getContext();
 
     return CompletableFuture.supplyAsync(
@@ -52,7 +55,7 @@ public class RejectProposalsResolver implements DataFetcher<CompletableFuture<Bo
           ProposalUtils.validateProposalUrns(proposalUrns);
 
           // Then, reject the proposals
-          rejectProposals(proposalUrns, context);
+          rejectProposals(proposalUrns, maybeNote, context);
 
           // Return true if all are successful.
           return true;
@@ -60,7 +63,9 @@ public class RejectProposalsResolver implements DataFetcher<CompletableFuture<Bo
   }
 
   private void rejectProposals(
-      @Nonnull final Set<Urn> proposalUrns, @Nonnull final QueryContext context) {
+      @Nonnull final Set<Urn> proposalUrns,
+      @Nullable String note,
+      @Nonnull final QueryContext context) {
     final Map<Urn, Entity> resolvedProposalEntities =
         _entityService.getEntities(
             context.getOperationContext(), proposalUrns, new HashSet<>(), true);
@@ -77,12 +82,14 @@ public class RejectProposalsResolver implements DataFetcher<CompletableFuture<Bo
             String.format(
                 "Failed to reject proposal. Propose with urn %s was not found.", proposalUrn));
       }
-      rejectProposal(resolvedProposalEntities.get(proposalUrn), context);
+      rejectProposal(resolvedProposalEntities.get(proposalUrn), note, context);
     }
   }
 
   private void rejectProposal(
-      @Nonnull final Entity proposalEntity, @Nonnull final QueryContext context) {
+      @Nonnull final Entity proposalEntity,
+      @Nullable String note,
+      @Nonnull final QueryContext context) {
 
     // TODO: Migrate away from using deprecated 'snapshot' entities here.
     final ActionRequestSnapshot actionRequestSnapshot =
@@ -116,6 +123,7 @@ public class RejectProposalsResolver implements DataFetcher<CompletableFuture<Bo
           actorUrn,
           ACTION_REQUEST_STATUS_COMPLETE,
           ACTION_REQUEST_RESULT_REJECTED,
+          note,
           proposalEntity);
 
     } catch (Exception e) {
@@ -131,13 +139,16 @@ public class RejectProposalsResolver implements DataFetcher<CompletableFuture<Bo
 
     final Urn actorUrn = UrnUtils.getUrn(context.getActorUrn());
     final Urn targetUrn = UrnUtils.getUrn(actionRequestInfo.getResource());
-    final Urn tagUrn = actionRequestInfo.getParams().getTagProposal().getTag();
-
+    final List<Urn> tagUrns =
+        actionRequestInfo.getParams().getTagProposal().getTags() != null
+                && !actionRequestInfo.getParams().getTagProposal().getTags().isEmpty()
+            ? actionRequestInfo.getParams().getTagProposal().getTags()
+            : ImmutableList.of(actionRequestInfo.getParams().getTagProposal().getTag());
     // Simply remove it from the searchable aspect
     ProposalUtils.deleteTagFromEntityOrSchemaProposalsAspect(
         context.getOperationContext(),
         actorUrn,
-        tagUrn,
+        tagUrns,
         targetUrn,
         actionRequestInfo.getSubResource(),
         _entityService);
@@ -148,13 +159,22 @@ public class RejectProposalsResolver implements DataFetcher<CompletableFuture<Bo
 
     final Urn actorUrn = UrnUtils.getUrn(context.getActorUrn());
     final Urn targetUrn = UrnUtils.getUrn(actionRequestInfo.getResource());
-    final Urn termUrn = actionRequestInfo.getParams().getGlossaryTermProposal().getGlossaryTerm();
+    final List<Urn> termUrns =
+        actionRequestInfo.getParams().getGlossaryTermProposal().getGlossaryTerms() != null
+                && !actionRequestInfo
+                    .getParams()
+                    .getGlossaryTermProposal()
+                    .getGlossaryTerms()
+                    .isEmpty()
+            ? actionRequestInfo.getParams().getGlossaryTermProposal().getGlossaryTerms()
+            : ImmutableList.of(
+                actionRequestInfo.getParams().getGlossaryTermProposal().getGlossaryTerm());
 
     // Simply remove it from the searchable aspect
     ProposalUtils.deleteTermFromEntityOrSchemaProposalsAspect(
         context.getOperationContext(),
         actorUrn,
-        termUrn,
+        termUrns,
         targetUrn,
         actionRequestInfo.getResource(),
         _entityService);

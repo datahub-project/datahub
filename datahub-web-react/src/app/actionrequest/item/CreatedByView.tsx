@@ -12,6 +12,7 @@ const AuthorView = styled.span`
 
 const AuthorText = styled(Typography.Text)`
     margin-left: 2px;
+    font-weight: 700;
 `;
 
 interface Props {
@@ -35,7 +36,7 @@ function CreatedByView({ actionRequest }: Props) {
                 photoUrl={createdByDisplayImage || undefined}
             />
             <Link to={createdByProfileUrl}>
-                <AuthorText strong>{createdByDisplayName}</AuthorText>
+                <AuthorText>{createdByDisplayName}</AuthorText>
             </Link>
         </AuthorView>
     );

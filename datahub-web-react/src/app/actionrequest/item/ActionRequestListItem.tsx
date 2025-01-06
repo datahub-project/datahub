@@ -1,13 +1,14 @@
+import { Checkbox, List } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
-import { Checkbox, List } from 'antd';
 import { ActionRequest, ActionRequestType } from '../../../types.generated';
-import TermAssociationRequestItem from './TermAssociationRequestItem';
-import TagAssociationRequestItem from './TagAssociationRequestItem';
-import CreateTermRequestItem from './CreateTermRequestItem';
 import CreateNodeRequestItem from './CreateNodeRequestItem';
-import UpdateDescriptionRequestItem from './updateDescription/UpdateDescriptionRequestItem';
+import CreateTermRequestItem from './CreateTermRequestItem';
 import DataContractListItem from './DataContractListItem';
+import StructuredPropertyAsssociationRequestItem from './StructuredPropertyAsssociationRequestItem';
+import TagAssociationRequestItem from './TagAssociationRequestItem';
+import TermAssociationRequestItem from './TermAssociationRequestItem';
+import UpdateDescriptionRequestItem from './updateDescription/UpdateDescriptionRequestItem';
 
 const ActionRequestItemContainer = styled.div`
     display: flex;
@@ -89,6 +90,14 @@ export default function ActionRequestListItem({
             case ActionRequestType.DataContract:
                 return (
                     <DataContractListItem
+                        actionRequest={request}
+                        onUpdate={onUpdate}
+                        showActionsButtons={showActionsButtons}
+                    />
+                );
+            case ActionRequestType.StructuredPropertyAssociation:
+                return (
+                    <StructuredPropertyAsssociationRequestItem
                         actionRequest={request}
                         onUpdate={onUpdate}
                         showActionsButtons={showActionsButtons}

@@ -1,12 +1,12 @@
+import TableIcon from '@src/images/table-icon.svg?react';
 import * as React from 'react';
 import styled from 'styled-components';
-import TableIcon from '@src/images/table-icon.svg?react';
 import { EntityType, SearchResult, StructuredPropertyEntity as StructuredProperty } from '../../../types.generated';
 import DefaultPreviewCard from '../../previewV2/DefaultPreviewCard';
 import { Entity, IconStyleType, PreviewType } from '../Entity';
+import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 import { getDataForEntityType } from '../shared/containers/profile/utils';
 import { urlEncodeUrn } from '../shared/utils';
-import { TYPE_ICON_CLASS_NAME } from '../shared/components/subtypes';
 
 const PreviewPropIcon = styled(TableIcon)`
     font-size: 20px;
@@ -78,7 +78,7 @@ export class StructuredPropertyEntity implements Entity<StructuredProperty> {
     };
 
     displayName = (data: StructuredProperty) => {
-        return data.definition?.displayName || data.definition?.qualifiedName || data.urn;
+        return data?.definition?.displayName || data?.definition?.qualifiedName || data?.urn;
     };
 
     getGenericEntityProperties = (entity: StructuredProperty) => {

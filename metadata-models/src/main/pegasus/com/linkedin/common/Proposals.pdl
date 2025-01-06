@@ -19,6 +19,7 @@ record Proposals {
         }
     }
     proposedTags: optional array[Urn]
+
     /**
     * Proposed glossary terms for a given entity
     */

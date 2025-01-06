@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLWorkerPoolThreadFactory;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.gms.factory.actionrequest.ActionRequestFactory;
 import com.linkedin.gms.factory.assertions.AssertionServiceFactory;
 import com.linkedin.gms.factory.auth.DataHubTokenServiceFactory;
 import com.linkedin.gms.factory.common.GitVersionFactory;
@@ -39,6 +40,7 @@ import com.linkedin.metadata.integration.IntegrationsService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationsService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.service.ActionRequestService;
 import com.linkedin.metadata.service.AssertionService;
 import com.linkedin.metadata.service.BusinessAttributeService;
 import com.linkedin.metadata.service.DataContractService;
@@ -48,7 +50,6 @@ import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.LineageService;
 import com.linkedin.metadata.service.MonitorService;
 import com.linkedin.metadata.service.OwnershipTypeService;
-import com.linkedin.metadata.service.ProposalService;
 import com.linkedin.metadata.service.QueryService;
 import com.linkedin.metadata.service.SettingsService;
 import com.linkedin.metadata.service.ShareService;
@@ -88,6 +89,7 @@ import org.springframework.context.annotation.Import;
   TestEngineFactory.class,
   EntitySearchServiceFactory.class,
   AssertionServiceFactory.class,
+  ActionRequestFactory.class,
   DataContractServiceFactory.class,
   IntegrationsServiceFactory.class
 })
@@ -165,9 +167,6 @@ public class GraphQLEngineFactory {
   private GroupService groupService;
 
   // SaaS only
-  @Autowired
-  @Qualifier("proposalService")
-  private ProposalService _proposalService;
 
   @Autowired
   @Qualifier("roleService")
@@ -260,6 +259,10 @@ public class GraphQLEngineFactory {
   @Qualifier("metadataTestClient")
   private MetadataTestClient metadataTestClient;
 
+  @Autowired
+  @Qualifier("actionRequestService")
+  private ActionRequestService actionRequestService;
+
   @Bean(name = "graphQLEngine")
   @Nonnull
   protected GraphQLEngine graphQLEngine(
@@ -323,7 +326,6 @@ public class GraphQLEngineFactory {
     // Saas Only
     args.setEntitySearchService(_entitySearchService);
     args.setTestEngine(_testEngine);
-    args.setProposalService(_proposalService);
     args.setMonitorService(_monitorService);
     args.setIntegrationsService(_integrationsService);
     args.setConnectionService(_connectionService);
@@ -333,6 +335,7 @@ public class GraphQLEngineFactory {
     args.setDataContractService(_dataContractService);
     args.setAssertionService(assertionService);
     args.setMetadataTestClient(metadataTestClient);
+    args.setActionRequestService(actionRequestService);
     return new GmsGraphQLEngine(args).builder().build();
   }
 
