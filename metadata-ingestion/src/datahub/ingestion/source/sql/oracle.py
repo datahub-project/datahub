@@ -393,7 +393,7 @@ class OracleInspectorObjectWrapper:
             "\nAND ac.constraint_name = acc.constraint_name"
             "\nAND ac.table_name = acc.table_name"
             "\nWHERE ac.table_name = :table_name"
-            "\nAND ac.constraint_type IN ('R','P', 'U', 'C')"
+            "\nAND ac.constraint_type IN ('P', 'U', 'C')"
         )
 
         if schema is not None:
@@ -428,7 +428,7 @@ class OracleInspectorObjectWrapper:
         )
 
         if schema is not None:
-            text += "\nAND ac.owner = CAST(:owner AS VARCHAR2(128))"
+            text += "\nAND ac.owner = :owner"
 
         text += "\nORDER BY constraint_name, loc_pos"
 
