@@ -485,7 +485,7 @@ public class QueryEngineTest {
             opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(
             DATASET_URN,
-            ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("10")))));
+            ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("12")))));
 
     testQuery = new TestQuery("__lastObserved");
     assertEquals(
@@ -568,7 +568,7 @@ public class QueryEngineTest {
             opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(
             DATASET_URN,
-            ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("10")))));
+            ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("12")))));
 
     testQuery = new TestQuery("__lastObserved");
     // last observed from main entity (10) should surface instead of sibling (2)
@@ -644,7 +644,7 @@ public class QueryEngineTest {
             opContext, ImmutableSet.of(DATASET_URN), ImmutableSet.of(testQuery)),
         ImmutableMap.of(
             DATASET_URN,
-            ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("21")))));
+            ImmutableMap.of(testQuery, new TestQueryResponse(ImmutableList.of("22")))));
 
     testQuery = new TestQuery("__lastObserved");
     // last synched from main entity (10) should surface instead of sibling (2)
