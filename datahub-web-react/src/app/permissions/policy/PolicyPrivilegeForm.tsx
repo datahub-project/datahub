@@ -622,6 +622,9 @@ export default function PolicyPrivilegeForm({
                             {tagProps.label}
                         </Tag>
                     )}
+                    filterOption={(input, option) => {
+                        return !!option?.children?.toString().toLowerCase().includes(input.toLowerCase());
+                    }}
                 >
                     {privilegeOptions.map((priv, index) => {
                         const key = `${priv.type}-${index}`;
