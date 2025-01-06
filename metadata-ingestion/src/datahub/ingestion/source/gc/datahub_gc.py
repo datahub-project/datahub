@@ -188,6 +188,9 @@ class DataHubGcSource(Source):
         self._truncate_timeseries_helper(
             aspect_name="dashboardUsageStatistics", entity_type="dashboard"
         )
+        self._truncate_timeseries_helper(
+            aspect_name="queryusagestatistics", entity_type="query"
+        )
 
     def _truncate_timeseries_helper(self, aspect_name: str, entity_type: str) -> None:
         self._truncate_timeseries_with_watch_optional(

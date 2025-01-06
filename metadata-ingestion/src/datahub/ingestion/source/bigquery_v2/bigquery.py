@@ -206,9 +206,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
 
     def _init_schema_resolver(self) -> SchemaResolver:
         schema_resolution_required = (
-            self.config.use_queries_v2
-            or self.config.lineage_parse_view_ddl
-            or self.config.lineage_use_sql_parser
+            self.config.use_queries_v2 or self.config.lineage_use_sql_parser
         )
         schema_ingestion_enabled = (
             self.config.include_schema_metadata
@@ -255,18 +253,16 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
         for project in projects:
             yield from self.bq_schema_extractor.get_project_workunits(project)
 
+        self.report.set_ingestion_stage("*", "View and Snapshot Lineage")
+        yield from self.lineage_extractor.get_lineage_workunits_for_views_and_snapshots(
+            [p.id for p in projects],
+            self.bq_schema_extractor.view_refs_by_project,
+            self.bq_schema_extractor.view_definitions,
+            self.bq_schema_extractor.snapshot_refs_by_project,
+            self.bq_schema_extractor.snapshots_by_ref,
+        )
+
         if self.config.use_queries_v2:
-            # Always ingest View and Snapshot lineage with schema ingestion
-            self.report.set_ingestion_stage("*", "View and Snapshot Lineage")
-
-            yield from self.lineage_extractor.get_lineage_workunits_for_views_and_snapshots(
-                [p.id for p in projects],
-                self.bq_schema_extractor.view_refs_by_project,
-                self.bq_schema_extractor.view_definitions,
-                self.bq_schema_extractor.snapshot_refs_by_project,
-                self.bq_schema_extractor.snapshots_by_ref,
-            )
-
             # if both usage and lineage are disabled then skip queries extractor piece
             if (
                 not self.config.include_usage_statistics
@@ -306,10 +302,6 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             if self.config.include_table_lineage:
                 yield from self.lineage_extractor.get_lineage_workunits(
                     [p.id for p in projects],
-                    self.bq_schema_extractor.view_refs_by_project,
-                    self.bq_schema_extractor.view_definitions,
-                    self.bq_schema_extractor.snapshot_refs_by_project,
-                    self.bq_schema_extractor.snapshots_by_ref,
                     self.bq_schema_extractor.table_refs,
                 )
 

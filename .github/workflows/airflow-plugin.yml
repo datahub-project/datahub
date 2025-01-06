@@ -84,8 +84,8 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/
           fail_ci_if_error: false
-          flags: airflow,airflow-${{ matrix.extra_pip_extras }}
-          name: pytest-airflow-${{ matrix.python-version }}-${{ matrix.extra_pip_requirements }}
+          flags: airflow-${{ matrix.python-version }}-${{ matrix.extra_pip_extras }}
+          name: pytest-airflow
           verbose: true
 
   event-file:
