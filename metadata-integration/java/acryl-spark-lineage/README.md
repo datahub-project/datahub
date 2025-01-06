@@ -370,7 +370,8 @@ Use Java 8 to build the project. The project uses Gradle as the build tool. To b
   - Add option to disable chunked encoding in the datahub rest sink -> `spark.datahub.rest.disable_chunked_encoding`
   - Add option to specify the mcp kafka topic for the datahub kafka sink -> `spark.datahub.kafka.mcp_topic`
   - Add option to remove legacy lineages from older Spark Plugin runs. This will remove those lineages from the Datasets which it adds to DataJob -> `spark.datahub.legacyLineageCleanup.enabled`
-
+- *Fixes*:
+  - Fix handling map transformation in the lineage. Earlier it generated wrong lineage for map transformation.
 
 ### Version 0.2.16
 - Remove logging DataHub config into logs
