@@ -31,6 +31,9 @@ from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
     auto_patch_last_modified,
 )
+from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
+    EnsureAspectSizeProcessor,
+)
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
@@ -450,6 +453,7 @@ class Source(Closeable, metaclass=ABCMeta):
             browse_path_processor,
             partial(auto_workunit_reporter, self.get_report()),
             auto_patch_last_modified,
+            EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
         ]
 
     @staticmethod
