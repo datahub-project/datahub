@@ -36,9 +36,9 @@ def first_non_null(ls: List[Optional[str]]) -> Optional[str]:
 _T = TypeVar("_T")
 
 
-def value_or(value: Optional[_T], default: _T) -> _T:
+def get_or_else(value: Optional[_T], default: _T) -> _T:
     # Normally we'd use `value or default`. However, that runs into issues
-    # value is falsey but not None.
+    # when value is falsey but not None.
     return value if value is not None else default
 
 

@@ -5,7 +5,17 @@ import json
 import logging
 import os
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Sequence,
+    Tuple,
+    Union,
+)
 
 import requests
 from deprecated import deprecated
@@ -14,7 +24,7 @@ from requests.exceptions import HTTPError, RequestException
 
 from datahub import nice_version_name
 from datahub.cli import config_utils
-from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url, value_or
+from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url, get_or_else
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import (
     ConfigModel,
@@ -68,13 +78,13 @@ BATCH_INGEST_MAX_PAYLOAD_LENGTH = int(
 
 
 class RequestsSessionConfig(ConfigModel):
-    timeout: float | tuple[float, float] | None = _DEFAULT_TIMEOUT_SEC
+    timeout: Union[float, Tuple[float, float], None] = _DEFAULT_TIMEOUT_SEC
 
-    retry_status_codes: list[int] = _DEFAULT_RETRY_STATUS_CODES
-    retry_methods: list[str] = _DEFAULT_RETRY_METHODS
+    retry_status_codes: List[int] = _DEFAULT_RETRY_STATUS_CODES
+    retry_methods: List[str] = _DEFAULT_RETRY_METHODS
     retry_max_times: int = _DEFAULT_RETRY_MAX_TIMES
 
-    extra_headers: dict[str, str] = {}
+    extra_headers: Dict[str, str] = {}
 
     ca_certificate_path: Optional[str] = None
     client_certificate_path: Optional[str] = None
@@ -198,7 +208,7 @@ class DataHubRestEmitter(Closeable, Emitter):
                     f"Setting timeout values lower than {_TIMEOUT_LOWER_BOUND_SEC} second is not recommended. Your configuration is (connect_timeout, read_timeout) = {timeout} seconds"
                 )
         else:
-            timeout = value_or(timeout_sec, _DEFAULT_TIMEOUT_SEC)
+            timeout = get_or_else(timeout_sec, _DEFAULT_TIMEOUT_SEC)
             if timeout < _TIMEOUT_LOWER_BOUND_SEC:
                 logger.warning(
                     f"Setting timeout values lower than {_TIMEOUT_LOWER_BOUND_SEC} second is not recommended. Your configuration is timeout = {timeout} seconds"
@@ -206,11 +216,11 @@ class DataHubRestEmitter(Closeable, Emitter):
 
         self._session_config = RequestsSessionConfig(
             timeout=timeout,
-            retry_status_codes=value_or(
+            retry_status_codes=get_or_else(
                 retry_status_codes, _DEFAULT_RETRY_STATUS_CODES
             ),
-            retry_methods=value_or(retry_methods, _DEFAULT_RETRY_METHODS),
-            retry_max_times=value_or(retry_max_times, _DEFAULT_RETRY_MAX_TIMES),
+            retry_methods=get_or_else(retry_methods, _DEFAULT_RETRY_METHODS),
+            retry_max_times=get_or_else(retry_max_times, _DEFAULT_RETRY_MAX_TIMES),
             extra_headers={**headers, **(extra_headers or {})},
             ca_certificate_path=ca_certificate_path,
             client_certificate_path=client_certificate_path,
