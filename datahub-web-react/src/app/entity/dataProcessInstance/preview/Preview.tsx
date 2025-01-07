@@ -1,11 +1,9 @@
 import React from 'react';
-import styled from 'styled-components';
-import { Typography } from 'antd';
 import {
     DataProduct,
     Deprecation,
     Domain,
-    Entity,
+    Entity as GeneratedEntity,
     EntityPath,
     EntityType,
     GlobalTags,
@@ -18,11 +16,6 @@ import {
 import DefaultPreviewCard from '../../../preview/DefaultPreviewCard';
 import { useEntityRegistry } from '../../../useEntityRegistry';
 import { IconStyleType } from '../../Entity';
-import { ANTD_GRAY } from '../../shared/constants';
-
-const StatText = styled(Typography.Text)`
-    color: ${ANTD_GRAY[8]};
-`;
 
 export const Preview = ({
     urn,
@@ -46,10 +39,10 @@ export const Preview = ({
     health,
     parentEntities,
     parentContainers,
-    duration,
-    status,
-    startTime,
-}: {
+}: // duration,
+// status,
+// startTime,
+{
     urn: string;
     name: string;
     subType?: string | null;
@@ -57,7 +50,7 @@ export const Preview = ({
     platformName?: string;
     platformLogo?: string | null;
     platformInstanceId?: string;
-    container?: Container | null;
+    container?: Container;
     owners?: Array<Owner> | null;
     domain?: Domain | null;
     dataProduct?: DataProduct | null;
@@ -69,11 +62,11 @@ export const Preview = ({
     degree?: number;
     paths?: EntityPath[];
     health?: Health[] | null;
-    parentEntities?: Entity[] | null;
+    parentEntities?: Array<GeneratedEntity> | null;
     parentContainers?: ParentContainersResult | null;
-    duration?: number | null;
-    status?: string | null;
-    startTime?: number | null;
+    // duration?: number | null;
+    // status?: string | null;
+    // startTime?: number | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -102,9 +95,9 @@ export const Preview = ({
             paths={paths}
             health={health || undefined}
             parentEntities={parentEntities}
-            duration={duration}
-            status={status}
-            startTime={startTime}
+            // duration={duration}
+            // status={status}
+            // startTime={startTime}
         />
     );
 };

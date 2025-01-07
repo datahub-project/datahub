@@ -1,5 +1,12 @@
+import React from 'react';
 import { ApiOutlined } from '@ant-design/icons';
-import { DataJob, DataProcessInstance, EntityType, OwnershipType, SearchResult } from '../../../types.generated';
+import {
+    DataProcessInstance,
+    Entity as GeneratedEntity,
+    EntityType,
+    OwnershipType,
+    SearchResult,
+} from '../../../types.generated';
 import { Preview } from './preview/Preview';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '../Entity';
 import { EntityProfile } from '../shared/containers/profile/EntityProfile';
@@ -18,24 +25,30 @@ import DataProductSection from '../shared/containers/profile/sidebar/DataProduct
 import { getDataProduct } from '../shared/utils';
 // import SummaryTab from './profile/DataProcessInstaceSummary';
 
-const getProcessPlatformName = (data?: DataProcessInstance): string => {
-    return (
-        data?.dataPlatformInstance?.platform?.properties?.displayName ||
-        capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name) ||
-        ''
-    );
-};
+// const getProcessPlatformName = (data?: DataProcessInstance): string => {
+//     return (
+//         data?.dataPlatformInstance?.platform?.properties?.displayName ||
+//         capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name) ||
+//         ''
+//     );
+// };
 
-const getParentEntities = (data: DataProcessInstance): Entity<DataJob>[] => {
+const getParentEntities = (data: DataProcessInstance): GeneratedEntity[] => {
     const parentEntity = data?.relationships?.relationships?.find(
         (rel) => rel.type === 'InstanceOf' && rel.entity?.type === EntityType.DataJob,
     );
 
-    const containerEntity = data?.container?.entity;
+    if (!parentEntity?.entity) return [];
 
-    return parentEntity ? [parentEntity.entity as Entity<DataJob>] : []; // TODO: HACK
+    // Convert to GeneratedEntity
+    return [
+        {
+            type: parentEntity.entity.type,
+            urn: (parentEntity.entity as any).urn, // Make sure urn exists
+            relationships: (parentEntity.entity as any).relationships,
+        },
+    ];
 };
-
 /**
  * Definition of the DataHub DataProcessInstance entity.
  */
@@ -204,9 +217,9 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 parentContainers={data.parentContainers}
                 parentEntities={parentEntities}
                 container={data.container || undefined}
-                duration={data?.state[0]?.durationMillis}
-                status={data?.state[0]?.result?.resultType}
-                startTime={data?.state[0]?.timestampMillis}
+                // duration={data?.state?.[0]?.durationMillis}
+                // status={data?.state?.[0]?.result?.resultType}
+                // startTime={data?.state?.[0]?.timestampMillis}
                 //                health={data.health}
             />
         );
