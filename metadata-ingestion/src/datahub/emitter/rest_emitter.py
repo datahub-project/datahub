@@ -3,14 +3,14 @@ import json
 import logging
 import os
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Union, cast
 
 import requests
 from deprecated import deprecated
 from requests.adapters import HTTPAdapter, Retry
 from requests.exceptions import HTTPError, RequestException
 
-from datahub import nice_version_name
+from datahub import nice_version_name, CustomLogger
 from datahub.cli import config_utils
 from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url
 from datahub.cli.env_utils import get_boolean_env_variable
@@ -29,7 +29,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.usage import UsageAggregation
 if TYPE_CHECKING:
     from datahub.ingestion.graph.client import DataHubGraph
 
-logger = logging.getLogger(__name__)
+logger = cast(CustomLogger, logging.getLogger(__name__))
 
 _DEFAULT_CONNECT_TIMEOUT_SEC = 30  # 30 seconds should be plenty to connect
 _DEFAULT_READ_TIMEOUT_SEC = (
