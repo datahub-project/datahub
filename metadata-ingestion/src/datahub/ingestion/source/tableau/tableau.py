@@ -2,9 +2,9 @@ import json
 import logging
 import re
 import time
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from dataclasses import dataclass, field as dataclass_field
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import (
     Any,
@@ -198,6 +198,11 @@ RETRIABLE_ERROR_CODES = [
     503,  # Service Unavailable
     504,  # Gateway Timeout
 ]
+
+# From experience, this expiry time typically ranges from 50 minutes
+# to 2 hours but might as well be configurable. We will allow upto
+# 10 minutes of such expiry time
+REGULAR_AUTH_EXPIRY_PERIOD = timedelta(minutes=10)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -688,6 +693,14 @@ class TableauSourceReport(
     num_hidden_assets_skipped: int = 0
     logged_in_user: List[UserInfo] = dataclass_field(default_factory=list)
 
+    last_authenticated_at: Optional[datetime] = None
+
+    num_expected_tableau_metadata_queries: int = 0
+    num_actual_tableau_metadata_queries: int = 0
+    tableau_server_error_stats: Dict[str, int] = dataclass_field(
+        default_factory=(lambda: defaultdict(int))
+    )
+
 
 def report_user_role(report: TableauSourceReport, server: Server) -> None:
     title: str = "Insufficient Permissions"
@@ -757,6 +770,7 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         try:
             logger.info(f"Authenticated to Tableau site: '{site_content_url}'")
             self.server = self.config.make_tableau_client(site_content_url)
+            self.report.last_authenticated_at = datetime.now(timezone.utc)
             report_user_role(report=self.report, server=self.server)
         # Note that we're not catching ConfigurationError, since we want that to throw.
         except ValueError as e:
@@ -840,10 +854,13 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 site_source = TableauSiteSource(
                     config=self.config,
                     ctx=self.ctx,
-                    site=site
-                    if site
-                    else SiteIdContentUrl(
-                        site_id=self.server.site_id, site_content_url=self.config.site
+                    site=(
+                        site
+                        if site
+                        else SiteIdContentUrl(
+                            site_id=self.server.site_id,
+                            site_content_url=self.config.site,
+                        )
                     ),
                     report=self.report,
                     server=self.server,
@@ -959,6 +976,7 @@ class TableauSiteSource:
         # Sign-in again may not be enough because Tableau sometimes caches invalid sessions
         # so we need to recreate the Tableau Server object
         self.server = self.config.make_tableau_client(self.site_content_url)
+        self.report.last_authenticated_at = datetime.now(timezone.utc)
 
     def _populate_usage_stat_registry(self) -> None:
         if self.server is None:
@@ -1224,6 +1242,7 @@ class TableauSiteSource:
         )
         try:
             assert self.server is not None
+            self.report.num_actual_tableau_metadata_queries += 1
             query_data = query_metadata_cursor_based_pagination(
                 server=self.server,
                 main_query=query,
@@ -1233,25 +1252,36 @@ class TableauSiteSource:
                 qry_filter=query_filter,
             )
 
-        except REAUTHENTICATE_ERRORS:
-            if not retry_on_auth_error:
+        except REAUTHENTICATE_ERRORS as e:
+            self.report.tableau_server_error_stats[e.__class__.__name__] += 1
+            if not retry_on_auth_error or retries_remaining <= 0:
                 raise
 
-            # If ingestion has been running for over 2 hours, the Tableau
-            # temporary credentials will expire. If this happens, this exception
-            # will be thrown, and we need to re-authenticate and retry.
-            self._re_authenticate()
+            # We have been getting some irregular authorization errors like below well before the expected expiry time
+            # - within few seconds of initial authentication . We'll retry without re-auth for such cases.
+            # <class 'tableauserverclient.server.endpoint.exceptions.NonXMLResponseError'>:
+            # b'{"timestamp":"xxx","status":401,"error":"Unauthorized","path":"/relationship-service-war/graphql"}'
+            if self.report.last_authenticated_at and (
+                datetime.now(timezone.utc) - self.report.last_authenticated_at
+                > REGULAR_AUTH_EXPIRY_PERIOD
+            ):
+                # If ingestion has been running for over 2 hours, the Tableau
+                # temporary credentials will expire. If this happens, this exception
+                # will be thrown, and we need to re-authenticate and retry.
+                self._re_authenticate()
+
             return self.get_connection_object_page(
                 query=query,
                 connection_type=connection_type,
                 query_filter=query_filter,
                 fetch_size=fetch_size,
                 current_cursor=current_cursor,
-                retry_on_auth_error=False,
+                retry_on_auth_error=True,
                 retries_remaining=retries_remaining - 1,
             )
 
         except InternalServerError as ise:
+            self.report.tableau_server_error_stats[InternalServerError.__name__] += 1
             # In some cases Tableau Server returns 504 error, which is a timeout error, so it worths to retry.
             # Extended with other retryable errors.
             if ise.code in RETRIABLE_ERROR_CODES:
@@ -1264,13 +1294,14 @@ class TableauSiteSource:
                     query_filter=query_filter,
                     fetch_size=fetch_size,
                     current_cursor=current_cursor,
-                    retry_on_auth_error=False,
+                    retry_on_auth_error=True,
                     retries_remaining=retries_remaining - 1,
                 )
             else:
                 raise ise
 
         except OSError:
+            self.report.tableau_server_error_stats[OSError.__name__] += 1
             # In tableauseverclient 0.26 (which was yanked and released in 0.28 on 2023-10-04),
             # the request logic was changed to use threads.
             # https://github.com/tableau/server-client-python/commit/307d8a20a30f32c1ce615cca7c6a78b9b9bff081
@@ -1285,7 +1316,7 @@ class TableauSiteSource:
                 query_filter=query_filter,
                 fetch_size=fetch_size,
                 current_cursor=current_cursor,
-                retry_on_auth_error=False,
+                retry_on_auth_error=True,
                 retries_remaining=retries_remaining - 1,
             )
 
@@ -1373,7 +1404,7 @@ class TableauSiteSource:
                         query_filter=query_filter,
                         fetch_size=fetch_size,
                         current_cursor=current_cursor,
-                        retry_on_auth_error=False,
+                        retry_on_auth_error=True,
                         retries_remaining=retries_remaining,
                     )
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
@@ -1411,6 +1442,7 @@ class TableauSiteSource:
             while has_next_page:
                 filter_: str = make_filter(filter_page)
 
+                self.report.num_expected_tableau_metadata_queries += 1
                 (
                     connection_objects,
                     current_cursor,
