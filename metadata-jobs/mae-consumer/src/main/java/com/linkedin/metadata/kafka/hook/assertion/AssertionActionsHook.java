@@ -699,7 +699,9 @@ public class AssertionActionsHook implements MetadataChangeLogHook {
 
   /** Returns true if an assertion is being soft-deleted. */
   private boolean isAssertionSoftDeleted(@Nonnull final MetadataChangeLog event) {
-    return SUPPORTED_UPDATE_TYPES.contains(event.getChangeType()) && isSoftDeletionEvent(event);
+    return SUPPORTED_UPDATE_TYPES.contains(event.getChangeType())
+        && ASSERTION_ENTITY_NAME.equals(event.getEntityType())
+        && isSoftDeletionEvent(event);
   }
 
   /** Returns true if an assertion is being soft-deleted. */

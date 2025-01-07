@@ -132,6 +132,8 @@ public class AssertionActionsHookTest {
             TEST_ASSERTION_URN, ASSERTION_INFO_ASPECT_NAME, ChangeType.UPSERT, new AssertionInfo());
     hook.invoke(event);
     Mockito.verify(entityClient, Mockito.times(0))
+        .search(any(), anyString(), anyString(), any(), any(), anyInt(), anyInt());
+    Mockito.verify(entityClient, Mockito.times(0))
         .getV2(
             any(OperationContext.class),
             Mockito.anyString(),
@@ -148,6 +150,8 @@ public class AssertionActionsHookTest {
                 TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.SUCCESS));
     hook.invoke(event);
     Mockito.verify(entityClient, Mockito.times(0))
+        .search(any(), anyString(), anyString(), any(), any(), anyInt(), anyInt());
+    Mockito.verify(entityClient, Mockito.times(0))
         .getV2(
             any(OperationContext.class),
             Mockito.anyString(),
@@ -157,12 +161,10 @@ public class AssertionActionsHookTest {
     // Case 3: Status aspect but for the wrong entity type
     event =
         buildMetadataChangeLog(
-            TEST_DATASET_URN,
-            STATUS_ASPECT_NAME,
-            ChangeType.UPSERT,
-            buildAssertionRunEvent(
-                TEST_ASSERTION_URN, AssertionRunStatus.COMPLETE, AssertionResultType.SUCCESS));
+            TEST_DATASET_URN, STATUS_ASPECT_NAME, ChangeType.UPSERT, new Status().setRemoved(true));
     hook.invoke(event);
+    Mockito.verify(entityClient, Mockito.times(0))
+        .search(any(), anyString(), anyString(), any(), any(), anyInt(), anyInt());
     Mockito.verify(entityClient, Mockito.times(0))
         .getV2(
             any(OperationContext.class),
@@ -179,6 +181,8 @@ public class AssertionActionsHookTest {
             buildAssertionRunEvent(
                 TEST_ASSERTION_URN, AssertionRunStatus.$UNKNOWN, AssertionResultType.SUCCESS));
     hook.invoke(event);
+    Mockito.verify(entityClient, Mockito.times(0))
+        .search(any(), anyString(), anyString(), any(), any(), anyInt(), anyInt());
     Mockito.verify(entityClient, Mockito.times(0))
         .getV2(
             any(OperationContext.class),
