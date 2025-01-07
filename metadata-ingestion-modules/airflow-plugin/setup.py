@@ -119,6 +119,7 @@ per_version_test_requirements = {
         "pendulum<3.0",
         "Flask-Session<0.6.0",
         "connexion<3.0",
+        "marshmallow<3.24.0",
     },
 }
 
