@@ -1053,7 +1053,7 @@ redis==5.2.0
     # via
     #   -r requirements.txt
     #   celery
-redshift-connector==2.1.4
+redshift-connector==2.1.5
     # via
     #   -r requirements.txt
     #   acryl-datahub-executor (pyproject.toml)

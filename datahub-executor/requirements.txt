@@ -691,7 +691,7 @@ ratelimit==2.2.1
     # via acryl-datahub-actions
 redis==5.2.0
     # via celery
-redshift-connector==2.1.4
+redshift-connector==2.1.5
     # via
     #   acryl-datahub
     #   acryl-datahub-executor
