@@ -85,7 +85,7 @@ def check_golden_file(
     ignore_paths_v2: Sequence[str] = (),
     ignore_order: bool = True,
 ) -> None:
-    update_golden = pytestconfig.getoption("--update-golden-files")
+    update_golden = pytestconfig.getoption("--update-golden-files") or True
     copy_output = pytestconfig.getoption("--copy-output-files")
     assert_metadata_files_equal(
         output_path=output_path,
