@@ -26,7 +26,7 @@ plugins = {
         "scipy<=1.14.1",
         "pyarrow<=18.0.0",
     },
-    "datahub-metadata-sharing": {}, # No custom deps (yet)
+    "datahub-metadata-sharing": {"tenacity"},
     "acryl-cs-issues": {"zenpy", "openai", "jinja2", "slack-sdk"},
 }
 
