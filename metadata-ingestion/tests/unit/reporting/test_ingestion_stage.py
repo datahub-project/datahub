@@ -1,10 +1,10 @@
 import time
 
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageContextReport
+from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 
 
 def test_ingestion_stage_context_records_duration():
-    report = IngestionStageContextReport()
+    report = IngestionStageReport()
     with report.new_stage(stage="Test Stage"):
         pass
     assert len(report.ingestion_stage_durations) == 1
@@ -12,7 +12,7 @@ def test_ingestion_stage_context_records_duration():
 
 
 def test_ingestion_stage_context_handles_exceptions():
-    report = IngestionStageContextReport()
+    report = IngestionStageReport()
     try:
         with report.new_stage(stage="Test Stage"):
             raise ValueError("Test Exception")
@@ -23,7 +23,7 @@ def test_ingestion_stage_context_handles_exceptions():
 
 
 def test_ingestion_stage_context_report_handles_multiple_stages():
-    report = IngestionStageContextReport()
+    report = IngestionStageReport()
     with report.new_stage(stage="Test Stage 1"):
         time.sleep(0.1)
     with report.new_stage(stage="Test Stage 2"):

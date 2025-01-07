@@ -330,11 +330,11 @@ class BigqueryLineageExtractor:
             projects = ["*"]  # project_id not used when using exported metadata
 
         for project in projects:
-            self.report.set_ingestion_stage(project, LINEAGE_EXTRACTION)
-            yield from self.generate_lineage(
-                project,
-                table_refs,
-            )
+            with self.report.new_stage(f"{project}: {LINEAGE_EXTRACTION}"):
+                yield from self.generate_lineage(
+                    project,
+                    table_refs,
+                )
 
         if self.redundant_run_skip_handler:
             # Update the checkpoint state for this run.

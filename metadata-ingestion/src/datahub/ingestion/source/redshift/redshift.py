@@ -423,10 +423,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         database = self.config.database
         logger.info(f"Processing db {database}")
-        self.report.report_ingestion_stage_start(METADATA_EXTRACTION)
-        self.db_tables[database] = defaultdict()
-        self.db_views[database] = defaultdict()
-        self.db_schemas.setdefault(database, {})
+        with self.report.new_stage(METADATA_EXTRACTION):
+            self.db_tables[database] = defaultdict()
+            self.db_views[database] = defaultdict()
+            self.db_schemas.setdefault(database, {})
 
         # TODO: Ideally, we'd push down exception handling to the place where the connection is used, as opposed to keeping
         # this fallback. For now, this gets us broad coverage quickly.
@@ -462,12 +462,12 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     self.process_schemas(connection, database)
                 )
 
-                self.report.report_ingestion_stage_start(LINEAGE_EXTRACTION)
-                yield from self.extract_lineage_v2(
-                    connection=connection,
-                    database=database,
-                    lineage_extractor=lineage_extractor,
-                )
+                with self.report.new_stage(LINEAGE_EXTRACTION):
+                    yield from self.extract_lineage_v2(
+                        connection=connection,
+                        database=database,
+                        lineage_extractor=lineage_extractor,
+                    )
 
             all_tables = self.get_all_tables()
         else:
@@ -480,25 +480,25 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 or self.config.include_view_lineage
                 or self.config.include_copy_lineage
             ):
-                self.report.report_ingestion_stage_start(LINEAGE_EXTRACTION)
-                yield from self.extract_lineage(
+                with self.report.new_stage(LINEAGE_EXTRACTION):
+                    yield from self.extract_lineage(
+                        connection=connection, all_tables=all_tables, database=database
+                    )
+
+        if self.config.include_usage_statistics:
+            with self.report.new_stage(USAGE_EXTRACTION_INGESTION):
+                yield from self.extract_usage(
                     connection=connection, all_tables=all_tables, database=database
                 )
 
-        self.report.report_ingestion_stage_start(USAGE_EXTRACTION_INGESTION)
-        if self.config.include_usage_statistics:
-            yield from self.extract_usage(
-                connection=connection, all_tables=all_tables, database=database
-            )
-
         if self.config.is_profiling_enabled():
-            self.report.report_ingestion_stage_start(PROFILING)
-            profiler = RedshiftProfiler(
-                config=self.config,
-                report=self.report,
-                state_handler=self.profiling_state_handler,
-            )
-            yield from profiler.get_workunits(self.db_tables)
+            with self.report.new_stage(PROFILING):
+                profiler = RedshiftProfiler(
+                    config=self.config,
+                    report=self.report,
+                    state_handler=self.profiling_state_handler,
+                )
+                yield from profiler.get_workunits(self.db_tables)
 
     def process_schemas(self, connection, database):
         for schema in self.data_dictionary.get_schemas(

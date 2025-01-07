@@ -2,7 +2,6 @@ import logging
 from contextlib import AbstractContextManager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Optional
 
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict
@@ -23,32 +22,6 @@ PROFILING = "Profiling"
 
 @dataclass
 class IngestionStageReport:
-    ingestion_stage: Optional[str] = None
-    ingestion_stage_durations: TopKDict[str, float] = field(default_factory=TopKDict)
-
-    _timer: Optional[PerfTimer] = field(
-        default=None, init=False, repr=False, compare=False
-    )
-
-    def report_ingestion_stage_start(self, stage: str) -> None:
-        if self._timer:
-            elapsed = self._timer.elapsed_seconds(digits=2)
-            logger.info(
-                f"Time spent in stage <{self.ingestion_stage}>: {elapsed} seconds",
-                stacklevel=2,
-            )
-            if self.ingestion_stage:
-                self.ingestion_stage_durations[self.ingestion_stage] = elapsed
-        else:
-            self._timer = PerfTimer()
-
-        self.ingestion_stage = f"{stage} at {datetime.now(timezone.utc)}"
-        logger.info(f"Stage started: {self.ingestion_stage}")
-        self._timer.start()
-
-
-@dataclass
-class IngestionStageContextReport:
     ingestion_stage_durations: TopKDict[str, float] = field(default_factory=TopKDict)
 
     def new_stage(self, stage: str) -> "IngestionStageContext":
@@ -57,7 +30,7 @@ class IngestionStageContextReport:
 
 @dataclass
 class IngestionStageContext(AbstractContextManager):
-    def __init__(self, stage: str, report: IngestionStageContextReport):
+    def __init__(self, stage: str, report: IngestionStageReport):
         self._ingestion_stage = f"{stage} at {datetime.now(timezone.utc)}"
         self._timer: PerfTimer = PerfTimer()
         self._report = report

@@ -118,7 +118,7 @@ from datahub.ingestion.source.tableau.tableau_common import (
 )
 from datahub.ingestion.source.tableau.tableau_server_wrapper import UserInfo
 from datahub.ingestion.source.tableau.tableau_validation import check_user_role
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageContextReport
+from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -643,7 +643,7 @@ class SiteIdContentUrl:
 @dataclass
 class TableauSourceReport(
     StaleEntityRemovalSourceReport,
-    IngestionStageContextReport,
+    IngestionStageReport,
 ):
     get_all_datasources_query_failed: bool = False
     num_get_datasource_query_failures: int = 0
