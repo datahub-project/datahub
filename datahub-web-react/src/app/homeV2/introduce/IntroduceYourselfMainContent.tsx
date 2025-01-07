@@ -1,31 +1,30 @@
-import React, { useContext, useState } from 'react';
-import { Button, Select, message } from 'antd';
 import { Tooltip } from '@components';
-import { useHistory } from 'react-router';
-import styled from 'styled-components';
-import { orderBy } from 'lodash';
-import CheckIcon from '@mui/icons-material/Check';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
-import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import CheckIcon from '@mui/icons-material/Check';
 import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import colors from '@src/alchemy-components/theme/foundations/colors';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useListGlobalViewsQuery } from '@src/graphql/view.generated';
+import { Button, Select, message } from 'antd';
+import { orderBy } from 'lodash';
+import React, { useContext, useState } from 'react';
+import { useHistory } from 'react-router';
+import styled from 'styled-components';
 import { useListRecommendationsQuery } from '../../../graphql/recommendations.generated';
-import { DataHubViewType, DataPlatform, EntityType, ScenarioType } from '../../../types.generated';
-import { useUserContext } from '../../context/useUserContext';
-import { PLATFORMS_MODULE_ID } from '../content/tabs/discovery/sections/platform/useGetPlatforms';
-import { PERSONA_TYPE_TO_VIEW_URN, PersonaType, ROLE_TO_PERSONA_TYPE } from '../shared/types';
 import {
     useUpdateCorpUserPropertiesMutation,
     useUpdateCorpUserViewsSettingsMutation,
 } from '../../../graphql/user.generated';
-import { useGetDataPlatforms } from '../content/tabs/discovery/sections/platform/useGetDataPlatforms';
+import { DataHubViewType, DataPlatform, EntityType, ScenarioType } from '../../../types.generated';
 import analytics, { EventType } from '../../analytics';
-import PlatformIcon from '../../sharedV2/icons/PlatformIcon';
-import Loading from '../../shared/Loading';
+import { useUserContext } from '../../context/useUserContext';
 import OnboardingContext from '../../onboarding/OnboardingContext';
-import { PersonaSelector } from './PersonaSelector';
+import Loading from '../../shared/Loading';
+import PlatformIcon from '../../sharedV2/icons/PlatformIcon';
+import { useGetDataPlatforms } from '../content/tabs/discovery/sections/platform/useGetDataPlatforms';
+import { PLATFORMS_MODULE_ID } from '../content/tabs/discovery/sections/platform/useGetPlatforms';
+import { PERSONA_TYPE_TO_VIEW_URN, PersonaType, ROLE_TO_PERSONA_TYPE } from '../shared/types';
 
 const Container = styled.div`
     flex: 1;
@@ -273,7 +272,9 @@ export const IntroduceYourselfMainContent = () => {
     const currentUserUrn = authenticatedUser?.user?.urn || '';
     const entityRegistry = useEntityRegistry();
 
-    const [selectedPersona, setSelectedPersona] = useState('');
+    // commented out for now, but may be brought back in the future
+    // const [selectedPersona, setSelectedPersona] = useState<string>(PersonaType.TECHNICAL_USER);
+    const selectedPersona = PersonaType.TECHNICAL_USER;
     const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
     const [selectedTitle, setSelectedTitle] = useState('');
 
@@ -531,7 +532,8 @@ export const IntroduceYourselfMainContent = () => {
                         menuItemSelectedIcon
                     />
                 </SelectWrapper>
-                <PersonaSelector selectedPersona={selectedPersona} onSelect={setSelectedPersona} />
+                {/* Note: This is commented out for now, but may be brought back in the future. As of today, it causes more confusion than it helps */}
+                {/* <PersonaSelector selectedPersona={selectedPersona} onSelect={setSelectedPersona} /> */}
                 <DoneButton
                     type="primary"
                     size="large"
@@ -539,7 +541,7 @@ export const IntroduceYourselfMainContent = () => {
                     loading={loading}
                     disabled={!hasPersona}
                 >
-                    Done
+                    Get Started
                 </DoneButton>
                 <Footer>
                     <Tooltip placement="bottom" title="Continue to DataHub">
