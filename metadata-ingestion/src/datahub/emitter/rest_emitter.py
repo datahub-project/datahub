@@ -15,6 +15,7 @@ from requests.exceptions import HTTPError, RequestException
 from datahub import nice_version_name
 from datahub.cli import config_utils
 from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url, value_or
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import (
     ConfigModel,
     ConfigurationError,
@@ -49,6 +50,8 @@ _DEFAULT_RETRY_METHODS = ["HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS", "TR
 _DEFAULT_RETRY_MAX_TIMES = int(
     os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
 )
+
+_DATAHUB_EMITTER_TRACE = get_boolean_env_variable("DATAHUB_EMITTER_TRACE", False)
 
 # The limit is 16mb. We will use a max of 15mb to have some space
 # for overhead like request headers.
@@ -322,7 +325,8 @@ class DataHubRestEmitter(Closeable, Emitter):
         mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
         async_flag: Optional[bool] = None,
     ) -> int:
-        logger.debug("Attempting to emit batch mcps")
+        if _DATAHUB_EMITTER_TRACE:
+            logger.debug(f"Attempting to emit MCP batch of size {len(mcps)}")
         url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
         for mcp in mcps:
             ensure_has_system_metadata(mcp)
@@ -335,22 +339,25 @@ class DataHubRestEmitter(Closeable, Emitter):
         current_chunk_size = INGEST_MAX_PAYLOAD_BYTES
         for mcp_obj in mcp_objs:
             mcp_obj_size = len(json.dumps(mcp_obj))
-            logger.debug(
-                f"Iterating through object with size {mcp_obj_size} (type: {mcp_obj.get('aspectName')}"
-            )
+            if _DATAHUB_EMITTER_TRACE:
+                logger.debug(
+                    f"Iterating through object with size {mcp_obj_size} (type: {mcp_obj.get('aspectName')}"
+                )
 
             if (
                 mcp_obj_size + current_chunk_size > INGEST_MAX_PAYLOAD_BYTES
                 or len(mcp_obj_chunks[-1]) >= BATCH_INGEST_MAX_PAYLOAD_LENGTH
             ):
-                logger.debug("Decided to create new chunk")
+                if _DATAHUB_EMITTER_TRACE:
+                    logger.debug("Decided to create new chunk")
                 mcp_obj_chunks.append([])
                 current_chunk_size = 0
             mcp_obj_chunks[-1].append(mcp_obj)
             current_chunk_size += mcp_obj_size
-        logger.debug(
-            f"Decided to send {len(mcps)} mcps in {len(mcp_obj_chunks)} chunks"
-        )
+        if len(mcp_obj_chunks) > 0:
+            logger.debug(
+                f"Decided to send {len(mcps)} MCP batch in {len(mcp_obj_chunks)} chunks"
+            )
 
         for mcp_obj_chunk in mcp_obj_chunks:
             # TODO: We're calling json.dumps on each MCP object twice, once to estimate
