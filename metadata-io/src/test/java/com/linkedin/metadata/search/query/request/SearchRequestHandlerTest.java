@@ -774,7 +774,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                     .collect(Collectors.toSet()))
             .put(
                 EntityType.DATA_PROCESS_INSTANCE,
-                Stream.concat(COMMON.stream(), Stream.of("parentInstance", "parentTemplate", "status"))
+                Stream.concat(
+                        COMMON.stream(), Stream.of("parentInstance", "parentTemplate", "status"))
                     .collect(Collectors.toSet()))
             .build();
 
