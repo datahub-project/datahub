@@ -1252,19 +1252,19 @@ jobs:
           TEST_STRATEGY="-${{ matrix.test_strategy }}-${{ matrix.batch }}"
           source .github/scripts/docker_logs.sh
       - name: Upload logs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: docker-logs-${{ matrix.test_strategy }}-${{ matrix.batch }}
           path: "docker_logs/*.log"
           retention-days: 5
       - name: Upload screenshots
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: cypress-snapshots-${{ matrix.test_strategy }}-${{ matrix.batch }}
           path: smoke-test/tests/cypress/cypress/screenshots/
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Test Results (smoke tests) ${{ matrix.test_strategy }} ${{ matrix.batch }}
