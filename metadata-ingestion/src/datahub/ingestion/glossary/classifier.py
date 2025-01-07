@@ -1,4 +1,3 @@
-import os
 from abc import ABCMeta, abstractmethod
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
@@ -38,8 +37,8 @@ class ClassificationConfig(ConfigModel):
     )
 
     max_workers: int = Field(
-        default=(os.cpu_count() or 4),
-        description="Number of worker processes to use for classification. Set to 1 to disable.",
+        default=1,
+        description="Number of worker processes to use for classification. Note that any number above 1 might lead to a deadlock. Set to 1 to disable.",
     )
 
     table_pattern: AllowDenyPattern = Field(

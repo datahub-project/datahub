@@ -186,3 +186,15 @@ def test_query_fingerprint():
     assert get_query_fingerprint(
         "select 1 + 1", platform="postgres"
     ) != get_query_fingerprint("select 2", platform="postgres")
+
+
+def test_redshift_query_fingerprint():
+    query1 = "insert into insert_into_table (select * from base_table);"
+    query2 = "INSERT INTO insert_into_table (SELECT * FROM base_table)"
+
+    assert get_query_fingerprint(query1, "redshift") == get_query_fingerprint(
+        query2, "redshift"
+    )
+    assert get_query_fingerprint(query1, "redshift", True) != get_query_fingerprint(
+        query2, "redshift", True
+    )

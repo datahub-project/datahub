@@ -8,21 +8,17 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.entity.Aspect;
+import com.linkedin.identity.CorpUserInfo;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
-import com.linkedin.metadata.aspect.SystemAspect;
-import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
 import com.linkedin.metadata.models.registry.MergedEntityRegistry;
 import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
-import com.linkedin.metadata.query.filter.Filter;
-import com.linkedin.metadata.query.filter.RelationshipFilter;
-import com.linkedin.metadata.query.filter.SortCriterion;
-import com.linkedin.metadata.search.ScrollResult;
-import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.snapshot.Snapshot;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
@@ -32,15 +28,14 @@ import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
 import io.datahubproject.metadata.context.ValidationContext;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.Builder;
 
 /**
  * Useful for testing. If the defaults are not sufficient, try using the .toBuilder() and replacing
@@ -81,26 +76,53 @@ public class TestOperationContexts {
     return defaultEntityRegistryInstance;
   }
 
-  public static AspectRetriever emptyAspectRetriever(
-      @Nullable Supplier<EntityRegistry> entityRegistrySupplier) {
-    return new EmptyAspectRetriever(
-        () ->
-            Optional.ofNullable(entityRegistrySupplier)
-                .map(Supplier::get)
-                .orElse(defaultEntityRegistry()));
-  }
-
-  public static GraphRetriever emptyGraphRetriever = new EmptyGraphRetriever();
-  public static SearchRetriever emptySearchRetriever = new EmptySearchRetriever();
-
-  public static RetrieverContext emptyRetrieverContext(
+  public static RetrieverContext emptyActiveUsersRetrieverContext(
       @Nullable Supplier<EntityRegistry> entityRegistrySupplier) {
 
     return RetrieverContext.builder()
-        .aspectRetriever(emptyAspectRetriever(entityRegistrySupplier))
-        .graphRetriever(emptyGraphRetriever)
-        .searchRetriever(emptySearchRetriever)
+        .cachingAspectRetriever(emptyActiveUsersAspectRetriever(entityRegistrySupplier))
+        .graphRetriever(GraphRetriever.EMPTY)
+        .searchRetriever(SearchRetriever.EMPTY)
         .build();
+  }
+
+  public static CachingAspectRetriever emptyActiveUsersAspectRetriever(
+      @Nullable Supplier<EntityRegistry> entityRegistrySupplier) {
+
+    return new CachingAspectRetriever.EmptyAspectRetriever() {
+
+      @Nonnull
+      @Override
+      public Map<Urn, Map<String, Aspect>> getLatestAspectObjects(
+          Set<Urn> urns, Set<String> aspectNames) {
+        if (urns.stream().allMatch(urn -> urn.toString().startsWith("urn:li:corpuser:"))
+            && aspectNames.contains(Constants.CORP_USER_KEY_ASPECT_NAME)) {
+          return urns.stream()
+              .map(
+                  urn ->
+                      Map.entry(
+                          urn,
+                          Map.of(
+                              Constants.CORP_USER_KEY_ASPECT_NAME,
+                              new Aspect(
+                                  new CorpUserInfo()
+                                      .setActive(true)
+                                      .setEmail(urn.getId())
+                                      .setDisplayName(urn.getId())
+                                      .data()))))
+              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        }
+        return super.getLatestAspectObjects(urns, aspectNames);
+      }
+
+      @Nonnull
+      @Override
+      public EntityRegistry getEntityRegistry() {
+        return Optional.ofNullable(entityRegistrySupplier)
+            .map(Supplier::get)
+            .orElse(defaultEntityRegistry());
+      }
+    };
   }
 
   public static OperationContext systemContextNoSearchAuthorization(
@@ -140,8 +162,10 @@ public class TestOperationContexts {
     RetrieverContext retrieverContext =
         RetrieverContext.builder()
             .aspectRetriever(aspectRetriever)
-            .graphRetriever(emptyGraphRetriever)
-            .searchRetriever(emptySearchRetriever)
+            .cachingAspectRetriever(
+                emptyActiveUsersAspectRetriever(() -> aspectRetriever.getEntityRegistry()))
+            .graphRetriever(GraphRetriever.EMPTY)
+            .searchRetriever(SearchRetriever.EMPTY)
             .build();
     return systemContextNoSearchAuthorization(
         () -> retrieverContext.getAspectRetriever().getEntityRegistry(),
@@ -208,7 +232,7 @@ public class TestOperationContexts {
     RetrieverContext retrieverContext =
         Optional.ofNullable(retrieverContextSupplier)
             .map(Supplier::get)
-            .orElse(emptyRetrieverContext(entityRegistrySupplier));
+            .orElse(emptyActiveUsersRetrieverContext(entityRegistrySupplier));
 
     EntityRegistry entityRegistry =
         Optional.ofNullable(entityRegistrySupplier)
@@ -236,7 +260,8 @@ public class TestOperationContexts {
             servicesRegistryContext,
             indexConvention,
             retrieverContext,
-            validationContext);
+            validationContext,
+            true);
 
     if (postConstruct != null) {
       postConstruct.accept(operationContext);
@@ -296,67 +321,6 @@ public class TestOperationContexts {
       @Nonnull RequestContext requestContext) {
     return systemContextNoSearchAuthorization(defaultEntityRegistry())
         .asSession(requestContext, Authorizer.EMPTY, TEST_USER_AUTH);
-  }
-
-  @Builder
-  public static class EmptyAspectRetriever implements AspectRetriever {
-    private final Supplier<EntityRegistry> entityRegistrySupplier;
-
-    @Nonnull
-    @Override
-    public Map<Urn, Map<String, Aspect>> getLatestAspectObjects(
-        Set<Urn> urns, Set<String> aspectNames) {
-      return Map.of();
-    }
-
-    @Nonnull
-    @Override
-    public Map<Urn, Map<String, SystemAspect>> getLatestSystemAspects(
-        Map<Urn, Set<String>> urnAspectNames) {
-      return Map.of();
-    }
-
-    @Nonnull
-    @Override
-    public EntityRegistry getEntityRegistry() {
-      return entityRegistrySupplier.get();
-    }
-  }
-
-  public static class EmptyGraphRetriever implements GraphRetriever {
-
-    @Nonnull
-    @Override
-    public RelatedEntitiesScrollResult scrollRelatedEntities(
-        @Nullable List<String> sourceTypes,
-        @Nonnull Filter sourceEntityFilter,
-        @Nullable List<String> destinationTypes,
-        @Nonnull Filter destinationEntityFilter,
-        @Nonnull List<String> relationshipTypes,
-        @Nonnull RelationshipFilter relationshipFilter,
-        @Nonnull List<SortCriterion> sortCriterion,
-        @Nullable String scrollId,
-        int count,
-        @Nullable Long startTimeMillis,
-        @Nullable Long endTimeMillis) {
-      return new RelatedEntitiesScrollResult(0, 0, null, List.of());
-    }
-  }
-
-  public static class EmptySearchRetriever implements SearchRetriever {
-
-    @Override
-    public ScrollResult scroll(
-        @Nonnull List<String> entities,
-        @Nullable Filter filters,
-        @Nullable String scrollId,
-        int count) {
-      ScrollResult empty = new ScrollResult();
-      empty.setEntities(new SearchEntityArray());
-      empty.setNumEntities(0);
-      empty.setPageSize(0);
-      return empty;
-    }
   }
 
   private TestOperationContexts() {}

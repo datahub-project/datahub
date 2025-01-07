@@ -6,6 +6,9 @@ authentication:
   # Enable if you want all requests to the Metadata Service to be authenticated.
   enabled: ${METADATA_SERVICE_AUTH_ENABLED:true}
 
+  # Disable if you want to skip validation of deleted user's tokens
+  enforceExistenceEnabled: ${METADATA_SERVICE_AUTH_ENFORCE_EXISTENCE_ENABLED:true}
+
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:
     # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
@@ -164,6 +167,7 @@ ebean:
   waitTimeoutMillis: ${EBEAN_WAIT_TIMEOUT_MILLIS:1000}
   autoCreateDdl: ${EBEAN_AUTOCREATE:false}
   postgresUseIamAuth: ${EBEAN_POSTGRES_USE_AWS_IAM_AUTH:false}
+  batchGetMethod: ${EBEAN_BATCH_GET_METHOD:IN} # Alternative UNION
   locking:
     enabled: ${EBEAN_LOCKING_ENABLED:false}
     durationSeconds: ${EBEAN_LOCKING_DURATION_SECONDS:60}
@@ -466,6 +470,7 @@ featureFlags:
 entityChangeEvents:
   enabled: ${ENABLE_ENTITY_CHANGE_EVENTS_HOOK:true}
   consumerGroupSuffix: ${ECE_CONSUMER_GROUP_SUFFIX:}
+  entityExclusions: ${ECE_ENTITY_EXCLUSIONS:schemaField} # provides a comma separated list of entities to exclude from the ECE hook
 
 views:
   enabled: ${VIEWS_ENABLED:true}
@@ -522,12 +527,12 @@ cache:
       entityAspectTTLSeconds:
         # cache user aspects for 20s
         corpuser:
-          corpUserKey: 20
+          corpUserKey: 300 # 5 min
           corpUserInfo: 20
           corpUserEditableInfo: 20
-          corpUserStatus: 20
+          corpUserStatus: 300 # 5 min
           globalTags: 20
-          status: 20
+          status: 300 # 5 min
           corpUserCredentials: 20
           corpUserSettings: 20
           roleMembership: 20
@@ -561,7 +566,7 @@ springdoc.api-docs.groups.enabled: true
 
 forms:
   hook:
-    enabled: { $FORMS_HOOK_ENABLED:true }
+    enabled: ${FORMS_HOOK_ENABLED:true}
     consumerGroupSuffix: ${FORMS_HOOK_CONSUMER_GROUP_SUFFIX:}
 
 businessAttribute:

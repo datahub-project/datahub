@@ -3,7 +3,7 @@ import json
 import logging
 import os
 from json.decoder import JSONDecodeError
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Sequence, Union
 
 import requests
 from deprecated import deprecated
@@ -13,6 +13,7 @@ from requests.exceptions import HTTPError, RequestException
 from datahub import nice_version_name
 from datahub.cli import config_utils
 from datahub.cli.cli_utils import ensure_has_system_metadata, fixup_gms_url
+from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.configuration.common import ConfigurationError, OperationalError
 from datahub.emitter.generic_emitter import Emitter
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -46,8 +47,20 @@ _DEFAULT_RETRY_MAX_TIMES = int(
     os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
 )
 
-# The limit is 16mb. We will use a max of 15mb to have some space for overhead.
-_MAX_BATCH_INGEST_PAYLOAD_SIZE = 15 * 1024 * 1024
+_DATAHUB_EMITTER_TRACE = get_boolean_env_variable("DATAHUB_EMITTER_TRACE", False)
+
+# The limit is 16mb. We will use a max of 15mb to have some space
+# for overhead like request headers.
+# This applies to pretty much all calls to GMS.
+INGEST_MAX_PAYLOAD_BYTES = 15 * 1024 * 1024
+
+# This limit is somewhat arbitrary. All GMS endpoints will timeout
+# and return a 500 if processing takes too long. To avoid sending
+# too much to the backend and hitting a timeout, we try to limit
+# the number of MCPs we send in a batch.
+BATCH_INGEST_MAX_PAYLOAD_LENGTH = int(
+    os.getenv("DATAHUB_REST_EMITTER_BATCH_MAX_PAYLOAD_LENGTH", 200)
+)
 
 
 class DataHubRestEmitter(Closeable, Emitter):
@@ -278,9 +291,11 @@ class DataHubRestEmitter(Closeable, Emitter):
 
     def emit_mcps(
         self,
-        mcps: List[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
+        mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
         async_flag: Optional[bool] = None,
     ) -> int:
+        if _DATAHUB_EMITTER_TRACE:
+            logger.debug(f"Attempting to emit MCP batch of size {len(mcps)}")
         url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
         for mcp in mcps:
             ensure_has_system_metadata(mcp)
@@ -290,15 +305,28 @@ class DataHubRestEmitter(Closeable, Emitter):
         # As a safety mechanism, we need to make sure we don't exceed the max payload size for GMS.
         # If we will exceed the limit, we need to break it up into chunks.
         mcp_obj_chunks: List[List[str]] = []
-        current_chunk_size = _MAX_BATCH_INGEST_PAYLOAD_SIZE
+        current_chunk_size = INGEST_MAX_PAYLOAD_BYTES
         for mcp_obj in mcp_objs:
             mcp_obj_size = len(json.dumps(mcp_obj))
+            if _DATAHUB_EMITTER_TRACE:
+                logger.debug(
+                    f"Iterating through object with size {mcp_obj_size} (type: {mcp_obj.get('aspectName')}"
+                )
 
-            if mcp_obj_size + current_chunk_size > _MAX_BATCH_INGEST_PAYLOAD_SIZE:
+            if (
+                mcp_obj_size + current_chunk_size > INGEST_MAX_PAYLOAD_BYTES
+                or len(mcp_obj_chunks[-1]) >= BATCH_INGEST_MAX_PAYLOAD_LENGTH
+            ):
+                if _DATAHUB_EMITTER_TRACE:
+                    logger.debug("Decided to create new chunk")
                 mcp_obj_chunks.append([])
                 current_chunk_size = 0
             mcp_obj_chunks[-1].append(mcp_obj)
             current_chunk_size += mcp_obj_size
+        if len(mcp_obj_chunks) > 0:
+            logger.debug(
+                f"Decided to send {len(mcps)} MCP batch in {len(mcp_obj_chunks)} chunks"
+            )
 
         for mcp_obj_chunk in mcp_obj_chunks:
             # TODO: We're calling json.dumps on each MCP object twice, once to estimate
@@ -325,8 +353,15 @@ class DataHubRestEmitter(Closeable, Emitter):
 
     def _emit_generic(self, url: str, payload: str) -> None:
         curl_command = make_curl_command(self._session, "POST", url, payload)
+        payload_size = len(payload)
+        if payload_size > INGEST_MAX_PAYLOAD_BYTES:
+            # since we know total payload size here, we could simply avoid sending such payload at all and report a warning, with current approach we are going to cause whole ingestion to fail
+            logger.warning(
+                f"Apparent payload size exceeded {INGEST_MAX_PAYLOAD_BYTES}, might fail with an exception due to the size"
+            )
         logger.debug(
-            "Attempting to emit to DataHub GMS; using curl equivalent to:\n%s",
+            "Attempting to emit aspect (size: %s) to DataHub GMS; using curl equivalent to:\n%s",
+            payload_size,
             curl_command,
         )
         try:
