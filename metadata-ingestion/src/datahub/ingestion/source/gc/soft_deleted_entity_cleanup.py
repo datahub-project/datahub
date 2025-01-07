@@ -105,6 +105,8 @@ class SoftDeletedEntitiesReport(SourceReport):
     sample_hard_deleted_aspects_by_type: TopKDict[str, LossyList[str]] = field(
         default_factory=TopKDict
     )
+    runtime_limit_reached: bool = False
+    deletion_limit_reached: bool = False
 
 
 class SoftDeletedEntitiesCleanup:
@@ -163,6 +165,8 @@ class SoftDeletedEntitiesCleanup:
                 f"Dry run is on otherwise it would have deleted {urn} with hard deletion"
             )
             return
+        if self._deletion_limit_reached() or self._times_up():
+            return
         self._increment_removal_started_count()
         self.ctx.graph.delete_entity(urn=urn, hard=True)
         self.ctx.graph.delete_references_to_urn(
@@ -203,11 +207,10 @@ class SoftDeletedEntitiesCleanup:
         for future in done:
             self._print_report()
             if future.exception():
-                logger.error(
-                    f"Failed to delete entity {futures[future]}: {future.exception()}"
-                )
                 self.report.failure(
-                    f"Failed to delete entity {futures[future]}",
+                    title="Failed to delete entity",
+                    message="Failed to delete entity",
+                    context=futures[future],
                     exc=future.exception(),
                 )
             self.report.num_soft_deleted_entity_processed += 1
@@ -255,7 +258,7 @@ class SoftDeletedEntitiesCleanup:
                 )
                 break
             scroll_across_entities = result.get("scrollAcrossEntities")
-            if not scroll_across_entities:
+            if not scroll_across_entities or not scroll_across_entities.get("count"):
                 break
             scroll_id = scroll_across_entities.get("nextScrollId")
             self.report.num_queries_found += scroll_across_entities.get("count")
@@ -274,6 +277,26 @@ class SoftDeletedEntitiesCleanup:
         )
         yield from self._get_soft_deleted_queries()
 
+    def _times_up(self) -> bool:
+        if (
+            self.config.runtime_limit_seconds
+            and time.time() - self.start_time > self.config.runtime_limit_seconds
+        ):
+            with self._report_lock:
+                self.report.runtime_limit_reached = True
+            return True
+        return False
+
+    def _deletion_limit_reached(self) -> bool:
+        if (
+            self.config.limit_entities_delete
+            and self.report.num_hard_deleted > self.config.limit_entities_delete
+        ):
+            with self._report_lock:
+                self.report.deletion_limit_reached = True
+            return True
+        return False
+
     def cleanup_soft_deleted_entities(self) -> None:
         if not self.config.enabled:
             return
@@ -285,24 +308,8 @@ class SoftDeletedEntitiesCleanup:
                 self._print_report()
                 while len(futures) >= self.config.futures_max_at_time:
                     futures = self._process_futures(futures)
-                if (
-                    self.config.limit_entities_delete
-                    and self.report.num_hard_deleted > self.config.limit_entities_delete
-                ):
-                    logger.info(
-                        f"Limit of {self.config.limit_entities_delete} entities reached. Stopped adding more."
-                    )
+                if self._deletion_limit_reached() or self._times_up():
                     break
-                if (
-                    self.config.runtime_limit_seconds
-                    and time.time() - self.start_time
-                    > self.config.runtime_limit_seconds
-                ):
-                    logger.info(
-                        f"Runtime limit of {self.config.runtime_limit_seconds} seconds reached. Not submitting more futures."
-                    )
-                    break
-
                 future = executor.submit(self.delete_soft_deleted_entity, urn)
                 futures[future] = urn
 

@@ -87,42 +87,43 @@ public class ActorContextTest {
     Authentication userAuth = new Authentication(new Actor(ActorType.USER, "USER"), "");
 
     assertEquals(
-        ActorContext.asSessionRestricted(userAuth, Set.of(), Set.of()).getCacheKeyComponent(),
-        ActorContext.asSessionRestricted(userAuth, Set.of(), Set.of()).getCacheKeyComponent(),
+        ActorContext.asSessionRestricted(userAuth, Set.of(), Set.of(), true).getCacheKeyComponent(),
+        ActorContext.asSessionRestricted(userAuth, Set.of(), Set.of(), true).getCacheKeyComponent(),
         "Expected equality across instances");
 
     assertEquals(
-        ActorContext.asSessionRestricted(userAuth, Set.of(), Set.of()).getCacheKeyComponent(),
+        ActorContext.asSessionRestricted(userAuth, Set.of(), Set.of(), true).getCacheKeyComponent(),
         ActorContext.asSessionRestricted(
-                userAuth, Set.of(), Set.of(UrnUtils.getUrn("urn:li:corpGroup:group1")))
+                userAuth, Set.of(), Set.of(UrnUtils.getUrn("urn:li:corpGroup:group1")), true)
             .getCacheKeyComponent(),
         "Expected no impact to cache context from group membership");
 
     assertEquals(
-        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_ABC, POLICY_D), Set.of())
+        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_ABC, POLICY_D), Set.of(), true)
             .getCacheKeyComponent(),
-        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_ABC, POLICY_D), Set.of())
+        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_ABC, POLICY_D), Set.of(), true)
             .getCacheKeyComponent(),
         "Expected equality when non-ownership policies are identical");
 
     assertNotEquals(
-        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_ABC_RESOURCE, POLICY_D), Set.of())
+        ActorContext.asSessionRestricted(
+                userAuth, Set.of(POLICY_ABC_RESOURCE, POLICY_D), Set.of(), true)
             .getCacheKeyComponent(),
-        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_ABC, POLICY_D), Set.of())
+        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_ABC, POLICY_D), Set.of(), true)
             .getCacheKeyComponent(),
         "Expected differences with non-identical resource policy");
 
     assertNotEquals(
-        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_D_OWNER), Set.of())
+        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_D_OWNER), Set.of(), true)
             .getCacheKeyComponent(),
-        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_D), Set.of())
+        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_D), Set.of(), true)
             .getCacheKeyComponent(),
         "Expected differences with ownership policy");
 
     assertNotEquals(
-        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_D_OWNER_TYPE), Set.of())
+        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_D_OWNER_TYPE), Set.of(), true)
             .getCacheKeyComponent(),
-        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_D), Set.of())
+        ActorContext.asSessionRestricted(userAuth, Set.of(POLICY_D), Set.of(), true)
             .getCacheKeyComponent(),
         "Expected differences with ownership type policy");
   }
