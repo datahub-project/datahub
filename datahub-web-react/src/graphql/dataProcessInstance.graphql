@@ -107,14 +107,14 @@ fragment dataProcessInstanceFields on DataProcessInstance {
         ...dataPlatformInstanceFields
     }
     state(startTimeMillis: null, endTimeMillis: null, limit: 1) {
-            status
-            attempt
-            result {
-                resultType
-                nativeResultType
-            }
-            timestampMillis
-            durationMillis
+        status
+        attempt
+        result {
+            resultType
+            nativeResultType
+        }
+        timestampMillis
+        durationMillis
     }
     relationships(input: { types: ["InstanceOf", "Consumes", "Produces"], direction: OUTGOING, start: 0, count: 50 }) {
         ...processInstanceRelationshipResults
