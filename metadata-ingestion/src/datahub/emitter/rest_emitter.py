@@ -47,8 +47,6 @@ _DEFAULT_RETRY_MAX_TIMES = int(
     os.getenv("DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES", "4")
 )
 
-_DATAHUB_EMITTER_TRACE = get_boolean_env_variable("DATAHUB_EMITTER_TRACE", False)
-
 # The limit is 16mb. We will use a max of 15mb to have some space
 # for overhead like request headers.
 # This applies to pretty much all calls to GMS.
@@ -294,8 +292,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         mcps: Sequence[Union[MetadataChangeProposal, MetadataChangeProposalWrapper]],
         async_flag: Optional[bool] = None,
     ) -> int:
-        if _DATAHUB_EMITTER_TRACE:
-            logger.debug(f"Attempting to emit MCP batch of size {len(mcps)}")
+        logger.trace(f"Attempting to emit MCP batch of size {len(mcps)}")
         url = f"{self._gms_server}/aspects?action=ingestProposalBatch"
         for mcp in mcps:
             ensure_has_system_metadata(mcp)
@@ -308,24 +305,22 @@ class DataHubRestEmitter(Closeable, Emitter):
         current_chunk_size = INGEST_MAX_PAYLOAD_BYTES
         for mcp_obj in mcp_objs:
             mcp_obj_size = len(json.dumps(mcp_obj))
-            if _DATAHUB_EMITTER_TRACE:
-                logger.debug(
-                    f"Iterating through object with size {mcp_obj_size} (type: {mcp_obj.get('aspectName')}"
-                )
+            logger.trace(
+                f"Iterating through object with size {mcp_obj_size} (type: {mcp_obj.get('aspectName')}"
+            )
 
             if (
                 mcp_obj_size + current_chunk_size > INGEST_MAX_PAYLOAD_BYTES
                 or len(mcp_obj_chunks[-1]) >= BATCH_INGEST_MAX_PAYLOAD_LENGTH
             ):
-                if _DATAHUB_EMITTER_TRACE:
-                    logger.debug("Decided to create new chunk")
+                logger.trace("Decided to create new chunk")
                 mcp_obj_chunks.append([])
                 current_chunk_size = 0
             mcp_obj_chunks[-1].append(mcp_obj)
             current_chunk_size += mcp_obj_size
         if len(mcp_obj_chunks) > 0:
             logger.debug(
-                f"Decided to send {len(mcps)} MCP batch in {len(mcp_obj_chunks)} chunks"
+                f"Decided to send {len(mcps)} MCP batch(s) in {len(mcp_obj_chunks)} chunks"
             )
 
         for mcp_obj_chunk in mcp_obj_chunks:
