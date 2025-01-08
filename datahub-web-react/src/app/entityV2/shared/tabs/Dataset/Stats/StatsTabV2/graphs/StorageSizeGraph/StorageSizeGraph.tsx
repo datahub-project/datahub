@@ -13,15 +13,12 @@ import { GRAPH_LOOPBACK_WINDOWS, GRAPH_LOOPBACK_WINDOWS_OPTIONS } from '../const
 import useStorageSizeData from './useStorageSizeData';
 import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
 
-type RowCountGraphProps = {
-    urn?: string;
-};
-
-export default function StorageSizeGraph({ urn }: RowCountGraphProps) {
+export default function StorageSizeGraph() {
     const {
         sections,
         setSectionState,
         dataInfo: { capabilitiesLoading, oldestDatasetProfileTime },
+        statsEntityUrn,
     } = useStatsSectionsContext();
 
     const timeRangeOptions = useGetTimeRangeOptionsByLookbackWindow(
@@ -31,10 +28,11 @@ export default function StorageSizeGraph({ urn }: RowCountGraphProps) {
     const [lookbackWindow, setLookbackWindow] = useState<LookbackWindow>(GRAPH_LOOPBACK_WINDOWS.MONTH);
     const [rangeType, setRangeType] = useState<string | null>(TimeRange.Month);
 
-    const { data, loading: dataLoading } = useStorageSizeData(urn, lookbackWindow);
+    const { data, loading: dataLoading } = useStorageSizeData(statsEntityUrn, lookbackWindow);
 
     useEffect(() => {
         if (!sections.storage.hasData && data.length > 0) setSectionState(SectionKeys.STORAGE, true);
+        else if (!!sections.storage.hasData && !data.length) setSectionState(SectionKeys.STORAGE, false);
     }, [data, setSectionState, sections.storage]);
 
     useEffect(() => {

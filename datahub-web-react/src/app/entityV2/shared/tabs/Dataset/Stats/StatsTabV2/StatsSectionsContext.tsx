@@ -1,7 +1,9 @@
+import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
+import { GetDatasetQuery } from '@src/graphql/dataset.generated';
+import { Entity } from '@src/types.generated';
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import { SectionKeys } from './utils';
 import useGetTimeseriesCapabilities from './graphs/hooks/useGetTimeseriesCapabilities';
+import { getSiblingEntityWithStats, SectionKeys } from './utils';
 
 export interface Section {
     hasData: boolean;
@@ -19,6 +21,9 @@ interface StatsSectionsContextProps {
     sections: Record<SectionKeys, Section>;
     setSectionState: (key: SectionKeys, hasData: boolean) => void;
     dataInfo: DataInfo;
+    statsEntity: Entity | undefined;
+    statsEntityUrn: string | undefined;
+    setStatsEntityUrn: React.Dispatch<React.SetStateAction<string | undefined>>;
 }
 
 // Function to get default initial sections
@@ -35,6 +40,9 @@ const StatsSectionsContext = createContext<StatsSectionsContextProps>({
     sections: getDefaultSections(),
     setSectionState: () => {},
     dataInfo: defaultDataInfo,
+    statsEntity: undefined,
+    statsEntityUrn: undefined,
+    setStatsEntityUrn: () => {},
 });
 
 export const useStatsSectionsContext = () => useContext(StatsSectionsContext);
@@ -44,11 +52,19 @@ interface Props {
 }
 
 export const StatsSectionsContextProvider = ({ children }: Props) => {
-    const { urn } = useEntityData();
     const [sections, setSections] = useState<Record<SectionKeys, Section>>(getDefaultSections);
     const [dataInfo, setDataInfo] = useState<DataInfo>(defaultDataInfo);
 
-    const { data, loading } = useGetTimeseriesCapabilities(urn);
+    const baseEntity = useBaseEntity<GetDatasetQuery>();
+    const [statsEntityUrn, setStatsEntityUrn] = useState(getSiblingEntityWithStats(baseEntity));
+
+    const statsEntity: any =
+        baseEntity.dataset?.urn !== statsEntityUrn
+            ? baseEntity.dataset?.siblingsSearch?.searchResults.find((res) => res.entity.urn === statsEntityUrn)
+                  ?.entity || baseEntity.dataset?.siblingsSearch?.searchResults[0].entity
+            : baseEntity.dataset;
+
+    const { data, loading } = useGetTimeseriesCapabilities(statsEntityUrn);
 
     useEffect(() => {
         if (loading) {
@@ -72,7 +88,10 @@ export const StatsSectionsContextProvider = ({ children }: Props) => {
         }));
     }, []);
 
-    const value = useMemo(() => ({ sections, setSectionState, dataInfo }), [sections, setSectionState, dataInfo]);
+    const value = useMemo(
+        () => ({ sections, setSectionState, dataInfo, statsEntity, statsEntityUrn, setStatsEntityUrn }),
+        [sections, setSectionState, dataInfo, statsEntity, statsEntityUrn, setStatsEntityUrn],
+    );
 
     return <StatsSectionsContext.Provider value={value}>{children}</StatsSectionsContext.Provider>;
 };

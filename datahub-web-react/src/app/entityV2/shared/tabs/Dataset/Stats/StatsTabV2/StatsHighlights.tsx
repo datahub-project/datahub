@@ -1,15 +1,21 @@
 import { Button, Card, PageTitle, Text } from '@src/alchemy-components';
 import { capitalizeFirstLetter, pluralize } from '@src/app/shared/textUtil';
-import { Maybe, UserUsageCounts } from '@src/types.generated';
+import { Dataset, Maybe, UserUsageCounts } from '@src/types.generated';
 import { countFormatter } from '@src/utils/formatter';
 import { Divider } from 'antd';
 import React from 'react';
 import styled, { css } from 'styled-components';
 import { SectionKeys } from './utils';
+import SelectSiblingDropdown from './SelectSiblingDropdown';
 
 const FIRST_SECTION_MAX_WIDTH = 470;
 const NUM_CARDS_FIRST_SECTION = 2;
 const NUM_CARDS_SECOND_SECTION = 3;
+
+const Header = styled.div`
+    display: flex;
+    justify-content: space-between;
+`;
 
 const StatsContainer = styled.div`
     display: flex;
@@ -57,6 +63,10 @@ interface Props {
     totalOperations?: number;
     scrollToSection?: (sectionKey: SectionKeys) => void;
     hasColumnStats?: boolean;
+    isSiblingsMode?: boolean;
+    baseEntity?: Dataset;
+    statsEntityUrn: string | undefined;
+    setStatsEntityUrn: React.Dispatch<React.SetStateAction<string | undefined>>;
 }
 
 const StatsHighlights = ({
@@ -67,6 +77,10 @@ const StatsHighlights = ({
     totalOperations,
     scrollToSection,
     hasColumnStats,
+    isSiblingsMode,
+    statsEntityUrn,
+    setStatsEntityUrn,
+    baseEntity,
 }: Props) => {
     const ViewButton = () => {
         return (
@@ -77,11 +91,20 @@ const StatsHighlights = ({
     };
     return (
         <>
-            <PageTitle
-                title="Highlights"
-                subTitle="View the latest statistics for this table"
-                variant="sectionHeader"
-            />
+            <Header>
+                <PageTitle
+                    title="Highlights"
+                    subTitle="View the latest statistics for this table"
+                    variant="sectionHeader"
+                />
+                {isSiblingsMode && baseEntity && (
+                    <SelectSiblingDropdown
+                        baseEntity={baseEntity}
+                        selectedSiblingUrn={statsEntityUrn}
+                        setSelectedSiblingUrn={setStatsEntityUrn}
+                    />
+                )}
+            </Header>
             <StatsContainer>
                 <FirstSection>
                     <Text size="sm" weight="bold">

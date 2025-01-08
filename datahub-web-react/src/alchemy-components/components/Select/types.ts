@@ -1,3 +1,4 @@
+import React from 'react';
 import { IconNames } from '../Icon';
 
 export type SelectSizeOptions = 'sm' | 'md' | 'lg';
@@ -6,6 +7,7 @@ export interface SelectOption {
     value: string;
     label: string;
     description?: string;
+    icon?: React.ReactNode;
 }
 
 export interface SelectProps {

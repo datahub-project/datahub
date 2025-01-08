@@ -1,3 +1,4 @@
+import { GetDatasetQuery } from '@src/graphql/dataset.generated';
 import { EntityType } from '@src/types.generated';
 
 export const isPresent = (val?: string | number | null): val is string | number => {
@@ -38,3 +39,27 @@ export enum SectionKeys {
     CHANGES = 'changes',
     COLUMN_STATS = 'columnStats',
 }
+
+const hasStats = (entity) => {
+    return (
+        (entity?.latestFullTableProfile?.length || 0) > 0 ||
+        (entity?.latestPartitionProfile?.length || 0) > 0 ||
+        (entity?.usageStats?.buckets?.length || 0) > 0 ||
+        (entity?.operations?.length || 0) > 0
+    );
+};
+
+export const getSiblingEntityWithStats = (baseEntity: GetDatasetQuery) => {
+    const areStatsPresentInPrimaryEntity = hasStats(baseEntity.dataset);
+    const siblingEntity = baseEntity.dataset?.siblingsSearch?.searchResults[0]?.entity;
+    if (!areStatsPresentInPrimaryEntity && hasStats(siblingEntity)) return siblingEntity?.urn;
+    return baseEntity.dataset?.urn;
+};
+
+export const getIsSiblingsMode = (baseEntity: GetDatasetQuery, isSeparateSiblingsMode: boolean) => {
+    if ((baseEntity.dataset?.siblingsSearch?.searchResults.length || 0) > 0) {
+        if (isSeparateSiblingsMode) return false;
+        return true;
+    }
+    return false;
+};

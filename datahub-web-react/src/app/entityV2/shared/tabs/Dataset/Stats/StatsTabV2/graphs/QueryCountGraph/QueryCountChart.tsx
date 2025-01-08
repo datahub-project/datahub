@@ -1,7 +1,5 @@
 import { BarChart, GraphCard } from '@components';
-import { useBaseEntity } from '@src/app/entity/shared/EntityContext';
 import { pluralize } from '@src/app/shared/textUtil';
-import { GetDatasetQuery } from '@src/graphql/dataset.generated';
 import { Maybe, TimeRange, UsageAggregation } from '@src/types.generated';
 import React, { useEffect, useState } from 'react';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
@@ -19,11 +17,11 @@ interface Props {
 }
 
 const QueryCountChart = ({ queryCountBuckets }: Props) => {
-    const baseEntity = useBaseEntity<GetDatasetQuery>();
     const {
         sections,
         setSectionState,
         dataInfo: { capabilitiesLoading, oldestDatasetUsageTime },
+        statsEntityUrn,
     } = useStatsSectionsContext();
 
     const timeRangeOptions = useGetTimeRangeOptionsByTimeRange(AGGRAGATION_TIME_RANGE_OPTIONS, oldestDatasetUsageTime);
@@ -34,13 +32,14 @@ const QueryCountChart = ({ queryCountBuckets }: Props) => {
         loading: dataLoading,
         groupInterval,
     } = useQueryCountData(
-        baseEntity?.dataset?.urn as string,
+        statsEntityUrn,
         timeRange,
         timeRange === TimeRange.Month ? queryCountBuckets || [] : undefined,
     );
 
     useEffect(() => {
         if (!sections.queries.hasData && chartData.length > 0) setSectionState(SectionKeys.QUERIES, true);
+        else if (!!sections.queries.hasData && !chartData.length) setSectionState(SectionKeys.QUERIES, false);
     }, [chartData, setSectionState, sections.queries]);
 
     const handleFilterChange = (value: TimeRange) => {

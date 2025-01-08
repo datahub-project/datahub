@@ -62,7 +62,10 @@ const SelectLabelDisplay = ({
             {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
             {!isMultiSelect && (
                 <>
-                    <SelectValue>{selectedOptions[0]?.label}</SelectValue>
+                    <ActionButtonsContainer>
+                        {selectedOptions[0]?.icon}
+                        <SelectValue>{selectedOptions[0]?.label}</SelectValue>
+                    </ActionButtonsContainer>
                     {showDescriptions && !!selectedValues.length && (
                         <DescriptionContainer>{selectedOptions[0]?.description}</DescriptionContainer>
                     )}
@@ -310,9 +313,12 @@ export const BasicSelect = ({
                                     </LabelContainer>
                                 ) : (
                                     <OptionContainer>
-                                        <Text color="gray" weight="semiBold" size="md">
-                                            {option.label}
-                                        </Text>
+                                        <ActionButtonsContainer>
+                                            {option.icon}
+                                            <Text color="gray" weight="semiBold" size="md">
+                                                {option.label}
+                                            </Text>
+                                        </ActionButtonsContainer>
                                         {!!option.description && (
                                             <Text color="gray" weight="normal" size="sm">
                                                 {option.description}

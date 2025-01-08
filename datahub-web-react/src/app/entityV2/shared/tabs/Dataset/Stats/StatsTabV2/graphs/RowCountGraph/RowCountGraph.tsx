@@ -1,6 +1,6 @@
 import { GraphCard, LineChart } from '@components';
 import { pluralize } from '@src/app/shared/textUtil';
-import { AssertionType, TimeRange } from '@src/types.generated';
+import { AssertionType, Maybe, TimeRange, UserUsageCounts } from '@src/types.generated';
 import dayjs from 'dayjs';
 import React, { useEffect, useState } from 'react';
 import { LookbackWindow } from '../../../lookbackWindows';
@@ -15,14 +15,15 @@ import useRowCountData from './useRowCountData';
 import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
 
 type RowCountGraphProps = {
-    urn?: string;
+    users?: Array<Maybe<UserUsageCounts>>;
 };
 
-export default function RowCountGraph({ urn }: RowCountGraphProps) {
+export default function RowCountGraph({ users }: RowCountGraphProps) {
     const {
         sections,
         setSectionState,
         dataInfo: { capabilitiesLoading, oldestDatasetProfileTime },
+        statsEntityUrn,
     } = useStatsSectionsContext();
     const timeRangeOptions = useGetTimeRangeOptionsByLookbackWindow(
         GRAPH_LOOPBACK_WINDOWS_OPTIONS,
@@ -31,11 +32,13 @@ export default function RowCountGraph({ urn }: RowCountGraphProps) {
     const [lookbackWindow, setLookbackWindow] = useState<LookbackWindow>(GRAPH_LOOPBACK_WINDOWS.MONTH);
     const [rangeType, setRangeType] = useState<string | null>(TimeRange.Month);
 
-    const { data, loading: dataLoading } = useRowCountData(urn, lookbackWindow);
+    const { data, loading: dataLoading } = useRowCountData(statsEntityUrn, lookbackWindow);
 
     useEffect(() => {
         if (!sections.rowsAndUsers.hasData && data.length > 0) setSectionState(SectionKeys.ROWS_AND_USERS, true);
-    }, [data, setSectionState, sections.rowsAndUsers]);
+        else if (!!sections.rowsAndUsers.hasData && !data?.length && !users?.length)
+            setSectionState(SectionKeys.ROWS_AND_USERS, false);
+    }, [data, setSectionState, sections.rowsAndUsers, users]);
 
     useEffect(() => {
         if (rangeType) setLookbackWindow(GRAPH_LOOPBACK_WINDOWS[rangeType]);

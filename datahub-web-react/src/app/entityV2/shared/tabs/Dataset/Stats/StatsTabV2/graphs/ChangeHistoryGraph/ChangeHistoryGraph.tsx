@@ -23,15 +23,12 @@ const TIME_RANGE_OPTIONS = AGGRAGATION_TIME_RANGE_OPTIONS.filter(
     (option) => !NOT_AVAILABLE_RANGES.includes(option.value),
 );
 
-type ChangeHistoryGraphProps = {
-    urn?: string;
-};
-
-export default function ChangeHistoryGraph({ urn }: ChangeHistoryGraphProps) {
+export default function ChangeHistoryGraph() {
     const {
         sections,
         setSectionState,
         dataInfo: { capabilitiesLoading, oldestOperationTime },
+        statsEntityUrn,
     } = useStatsSectionsContext();
 
     // The time range select
@@ -56,7 +53,7 @@ export default function ChangeHistoryGraph({ urn }: ChangeHistoryGraphProps) {
     // Operation types
     const [selectedOperationTypes, setSelectedOperationTypes] = useState<OperationType[]>(DEFAULT_OPERATION_TYPES);
     // The data of change history
-    const { data, loading: dataLoading } = useChangeHistoryData(urn, selectedTimeRange);
+    const { data, loading: dataLoading } = useChangeHistoryData(statsEntityUrn, selectedTimeRange);
     // Map of color accessors for day, inserts, updates, deletes
     const colorAccessors = useColorAccessors(data, selectedOperationTypes);
     // The interval of the calendar chart
@@ -66,6 +63,7 @@ export default function ChangeHistoryGraph({ urn }: ChangeHistoryGraphProps) {
 
     useEffect(() => {
         if (!sections.changes.hasData && data.length > 0) setSectionState(SectionKeys.CHANGES, true);
+        else if (!!sections.changes.hasData && !data.length) setSectionState(SectionKeys.CHANGES, false);
     }, [data, setSectionState, sections.changes]);
 
     const loading = capabilitiesLoading || dataLoading;
@@ -120,10 +118,10 @@ export default function ChangeHistoryGraph({ urn }: ChangeHistoryGraphProps) {
                 graphHeight="fit-content"
             />
 
-            {urn && isDayDetailsDrawerShown && (
+            {statsEntityUrn && isDayDetailsDrawerShown && (
                 <ChangeHistoryDrawer
                     selectedDay={dayOfDayDetailsDrawer}
-                    urn={urn}
+                    urn={statsEntityUrn}
                     open={isDayDetailsDrawerShown}
                     onClose={() => setIsDayDetailsDrawerShown(false)}
                     operationTypes={selectedOperationTypes}

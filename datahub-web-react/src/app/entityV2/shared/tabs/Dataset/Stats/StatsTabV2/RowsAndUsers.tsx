@@ -19,16 +19,15 @@ const Container = styled.div`
 
 interface Props {
     hasHistoricalStats: boolean;
-    urn?: string;
     users?: Array<Maybe<UserUsageCounts>>;
 }
 
-const RowsAndUsers = ({ hasHistoricalStats, urn, users }: Props) => {
+const RowsAndUsers = ({ hasHistoricalStats, users }: Props) => {
     return (
         <SectionWrapper>
             {!hasHistoricalStats && <HistoricalSectionHeader />}
             <Container>
-                <RowCountGraph urn={urn} />
+                <RowCountGraph users={users} />
                 <TopUsers users={users || undefined} />
             </Container>
         </SectionWrapper>

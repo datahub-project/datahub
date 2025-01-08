@@ -67,7 +67,10 @@ const SelectLabelDisplay = ({
                             <HighlightedLabel>{selectedOptions[0]?.label}</HighlightedLabel>
                         </ActionButtonsContainer>
                     ) : (
-                        <SelectValue>{selectedOptions[0]?.label}</SelectValue>
+                        <ActionButtonsContainer>
+                            {selectedOptions[0]?.icon}
+                            <SelectValue>{selectedOptions[0]?.label}</SelectValue>
+                        </ActionButtonsContainer>
                     )}
                     {showDescriptions && !!selectedValues.length && (
                         <DescriptionContainer>{selectedOptions[0]?.description}</DescriptionContainer>
@@ -310,18 +313,21 @@ export const SimpleSelect = ({
                                     </LabelContainer>
                                 ) : (
                                     <OptionContainer>
-                                        <Text
-                                            weight="semiBold"
-                                            size="md"
-                                            style={{
-                                                color:
-                                                    isCustomisedLabel && selectedValues.includes(option.value)
-                                                        ? colors.violet[500]
-                                                        : 'gray',
-                                            }}
-                                        >
-                                            {option.label}
-                                        </Text>
+                                        <ActionButtonsContainer>
+                                            {option.icon}
+                                            <Text
+                                                weight="semiBold"
+                                                size="md"
+                                                style={{
+                                                    color:
+                                                        isCustomisedLabel && selectedValues.includes(option.value)
+                                                            ? colors.violet[500]
+                                                            : 'gray',
+                                                }}
+                                            >
+                                                {option.label}
+                                            </Text>
+                                        </ActionButtonsContainer>
                                         {!!option.description && (
                                             <Text color="gray" weight="normal" size="sm">
                                                 {option.description}

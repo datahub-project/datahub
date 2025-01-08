@@ -42,7 +42,7 @@ const getChartData = (rawData: UsageAggregation[], interval: TimeInterval) => {
 };
 
 export default function useQueryCountData(
-    urn: string,
+    urn: string | undefined,
     timeRange?: TimeRange,
     initialData?: Array<Maybe<UsageAggregation>>,
 ) {
@@ -66,7 +66,7 @@ export default function useQueryCountData(
     }, [initialData, aggregationData]);
 
     useEffect(() => {
-        if (timeRange && !initialData) {
+        if (timeRange && !initialData && urn !== undefined) {
             getTimeRangeUsageAggregations({
                 variables: { urn, timeRange },
             });
@@ -74,7 +74,7 @@ export default function useQueryCountData(
     }, [timeRange, initialData, getTimeRangeUsageAggregations, urn]);
 
     useEffect(() => {
-        if (initialData?.length) {
+        if (initialData) {
             const normalizedData: UsageAggregation[] = normalizeData(initialData);
             const processedData = getChartData(normalizedData, groupInterval);
             setChartData(processedData);
