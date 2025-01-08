@@ -24,4 +24,10 @@ record OperationsAggregationsResult {
 
     /** Total number of drops in the bucket */
     totalDrops: optional int
+
+    /** Total number of custom types in the bucket */
+    totalCustoms: optional int
+
+    /** A map from each custom operation type to the total count for that type*/
+    customOperationsMap: optional map[string, int]
 }

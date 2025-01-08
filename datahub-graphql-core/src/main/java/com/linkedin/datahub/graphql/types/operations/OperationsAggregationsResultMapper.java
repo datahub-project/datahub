@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.operations;
 
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.OperationsAggregationsResult;
+import com.linkedin.datahub.graphql.types.common.mappers.IntMapMapper;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -32,6 +33,14 @@ public class OperationsAggregationsResultMapper
     result.setTotalDeletes(pdlOperationsResultAggregations.getTotalDeletes());
     result.setTotalInserts(pdlOperationsResultAggregations.getTotalInserts());
     result.setTotalUpdates(pdlOperationsResultAggregations.getTotalUpdates());
+    result.setTotalAlters(pdlOperationsResultAggregations.getTotalAlters());
+    result.setTotalCreates(pdlOperationsResultAggregations.getTotalCreates());
+    result.setTotalDrops(pdlOperationsResultAggregations.getTotalDrops());
+    result.setTotalCustoms(pdlOperationsResultAggregations.getTotalCustoms());
+    if (pdlOperationsResultAggregations.getCustomOperationsMap() != null) {
+      result.setCustomOperationsMap(
+          IntMapMapper.map(context, pdlOperationsResultAggregations.getCustomOperationsMap()));
+    }
     return result;
   }
 }

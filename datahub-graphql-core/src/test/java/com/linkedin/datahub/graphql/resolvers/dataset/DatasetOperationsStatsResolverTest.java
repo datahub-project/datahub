@@ -55,16 +55,35 @@ public class DatasetOperationsStatsResolverTest {
     OperationsQueryResult result = resolver.get(mockEnv).get();
 
     // Validate aggregations
-    Assert.assertEquals(result.getAggregations().getTotalOperations(), 58);
+    Assert.assertEquals(result.getAggregations().getTotalOperations(), 90);
     Assert.assertEquals(result.getAggregations().getTotalInserts(), 37);
     Assert.assertEquals(result.getAggregations().getTotalUpdates(), 9);
     Assert.assertEquals(result.getAggregations().getTotalDeletes(), 12);
+    Assert.assertEquals(result.getAggregations().getTotalCustoms(), 10);
+    Assert.assertEquals(result.getAggregations().getTotalAlters(), 20);
+    Assert.assertEquals(result.getAggregations().getTotalCreates(), 1);
+    Assert.assertEquals(result.getAggregations().getTotalDrops(), 1);
+    Assert.assertEquals(result.getAggregations().getCustomOperationsMap().size(), 2);
+    Assert.assertEquals(
+        result.getAggregations().getCustomOperationsMap().get(0).getKey(), "customDelete");
+    Assert.assertEquals(result.getAggregations().getCustomOperationsMap().get(0).getValue(), 5);
+    Assert.assertEquals(
+        result.getAggregations().getCustomOperationsMap().get(1).getKey(), "customInsert");
+    Assert.assertEquals(result.getAggregations().getCustomOperationsMap().get(1).getValue(), 5);
     // Validate buckets
     Assert.assertEquals(result.getBuckets().size(), 30);
     // validate first bucket
     Assert.assertEquals(result.getBuckets().get(0).getBucket(), 1731801600000L);
-    Assert.assertEquals(result.getBuckets().get(0).getAggregations().getTotalOperations(), 1);
+    Assert.assertEquals(result.getBuckets().get(0).getAggregations().getTotalOperations(), 2);
     Assert.assertEquals(result.getBuckets().get(0).getAggregations().getTotalDeletes(), 1);
+    Assert.assertEquals(result.getBuckets().get(0).getAggregations().getTotalCustoms(), 1);
+    Assert.assertEquals(
+        result.getBuckets().get(0).getAggregations().getCustomOperationsMap().size(), 1);
+    Assert.assertEquals(
+        result.getBuckets().get(0).getAggregations().getCustomOperationsMap().get(0).getKey(),
+        "customInsert");
+    Assert.assertEquals(
+        result.getBuckets().get(0).getAggregations().getCustomOperationsMap().get(0).getValue(), 1);
     // validate last bucket
     Assert.assertEquals(result.getBuckets().get(29).getBucket(), 1734307200000L);
     Assert.assertEquals(result.getBuckets().get(29).getAggregations().getTotalOperations(), 18);
@@ -139,10 +158,32 @@ public class DatasetOperationsStatsResolverTest {
                     new StringArrayArray(
                         new StringArray(ImmutableList.of("DELETE", "12")),
                         new StringArray(ImmutableList.of("INSERT", "37")),
+                        new StringArray(ImmutableList.of("ALTER", "20")),
+                        new StringArray(ImmutableList.of("CREATE", "1")),
+                        new StringArray(ImmutableList.of("DROP", "1")),
+                        new StringArray(ImmutableList.of("CUSTOM", "10")),
                         new StringArray(ImmutableList.of("UPDATE", "9"))))
                 .setColumnNames(
                     new StringArray(
                         ImmutableList.of("operationType", "cardinality_timestampMillis")))
+                .setColumnTypes(new StringArray()));
+    // mock aggregating overall by customOperationType
+    when(mockService.getAggregatedStats(
+            any(),
+            Mockito.eq(Constants.DATASET_ENTITY_NAME),
+            Mockito.eq(Constants.OPERATION_ASPECT_NAME),
+            Mockito.eq(getTimestampAggSpec()),
+            any(Filter.class),
+            Mockito.eq(getCustomOperationsBuckets())))
+        .thenReturn(
+            new GenericTable()
+                .setRows(
+                    new StringArrayArray(
+                        new StringArray(ImmutableList.of("customInsert", "5")),
+                        new StringArray(ImmutableList.of("customDelete", "5"))))
+                .setColumnNames(
+                    new StringArray(
+                        ImmutableList.of("customOperationType", "cardinality_timestampMillis")))
                 .setColumnTypes(new StringArray()));
 
     // mock aggregating by day
@@ -158,12 +199,15 @@ public class DatasetOperationsStatsResolverTest {
                 .setRows(
                     new StringArrayArray(
                         new StringArray(ImmutableList.of("1731801600000", "DELETE", "1")),
+                        new StringArray(ImmutableList.of("1731801600000", "CUSTOM", "1")),
                         new StringArray(ImmutableList.of("1731888000000", "INSERT", "1")),
                         new StringArray(ImmutableList.of("1731974400000", "DELETE", "1")),
                         new StringArray(ImmutableList.of("1732060800000", "INSERT", "1")),
                         new StringArray(ImmutableList.of("1732147200000", "UPDATE", "1")),
                         new StringArray(ImmutableList.of("1732233600000", "DELETE", "1")),
+                        new StringArray(ImmutableList.of("1732233600000", "ALTER", "20")),
                         new StringArray(ImmutableList.of("1732320000000", "INSERT", "1")),
+                        new StringArray(ImmutableList.of("1732320000000", "CUSTOM", "4")),
                         new StringArray(ImmutableList.of("1732406400000", "INSERT", "1")),
                         new StringArray(ImmutableList.of("1732492800000", "INSERT", "1")),
                         new StringArray(ImmutableList.of("1732579200000", "DELETE", "1")),
@@ -174,15 +218,18 @@ public class DatasetOperationsStatsResolverTest {
                         new StringArray(ImmutableList.of("1733011200000", "INSERT", "1")),
                         new StringArray(ImmutableList.of("1733097600000", "DELETE", "1")),
                         new StringArray(ImmutableList.of("1733184000000", "DELETE", "1")),
+                        new StringArray(ImmutableList.of("1733184000000", "CUSTOM", "5")),
                         new StringArray(ImmutableList.of("1733270400000", "DELETE", "1")),
                         new StringArray(ImmutableList.of("1733356800000", "INSERT", "1")),
                         new StringArray(ImmutableList.of("1733443200000", "DELETE", "1")),
                         new StringArray(ImmutableList.of("1733529600000", "INSERT", "1")),
                         new StringArray(ImmutableList.of("1733616000000", "UPDATE", "1")),
                         new StringArray(ImmutableList.of("1733702400000", "UPDATE", "1")),
+                        new StringArray(ImmutableList.of("1733702400000", "CREATE", "1")),
                         new StringArray(ImmutableList.of("1733788800000", "DELETE", "1")),
                         new StringArray(ImmutableList.of("1733875200000", "INSERT", "1")),
                         new StringArray(ImmutableList.of("1733961600000", "UPDATE", "1")),
+                        new StringArray(ImmutableList.of("1733961600000", "DROP", "1")),
                         new StringArray(ImmutableList.of("1734048000000", "UPDATE", "1")),
                         new StringArray(ImmutableList.of("1734134400000", "UPDATE", "1")),
                         new StringArray(ImmutableList.of("1734220800000", "INSERT", "11")),
@@ -193,6 +240,29 @@ public class DatasetOperationsStatsResolverTest {
                     new StringArray(
                         ImmutableList.of(
                             "timestampMillis", "operationType", "cardinality_timestampMillis")))
+                .setColumnTypes(new StringArray()));
+
+    // mock aggregating custom operations by day
+    when(mockService.getAggregatedStats(
+            any(),
+            Mockito.eq(Constants.DATASET_ENTITY_NAME),
+            Mockito.eq(Constants.OPERATION_ASPECT_NAME),
+            Mockito.eq(getTimestampAggSpec()),
+            any(Filter.class),
+            Mockito.eq(getCustomOperationsGroupingBuckets())))
+        .thenReturn(
+            new GenericTable()
+                .setRows(
+                    new StringArrayArray(
+                        new StringArray(ImmutableList.of("1731801600000", "customInsert", "1")),
+                        new StringArray(ImmutableList.of("1732320000000", "customInsert", "4")),
+                        new StringArray(ImmutableList.of("1733184000000", "customDelete", "5"))))
+                .setColumnNames(
+                    new StringArray(
+                        ImmutableList.of(
+                            "timestampMillis",
+                            "customOperationType",
+                            "cardinality_timestampMillis")))
                 .setColumnTypes(new StringArray()));
 
     return mockService;
@@ -220,10 +290,33 @@ public class DatasetOperationsStatsResolverTest {
     return new GroupingBucket[] {timestampBucket, operationTypeBucket};
   }
 
+  private GroupingBucket[] getCustomOperationsGroupingBuckets() {
+    GroupingBucket timestampBucket =
+        new GroupingBucket()
+            .setKey(com.linkedin.metadata.timeseries.elastic.Constants.ES_FIELD_TIMESTAMP)
+            .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
+            .setTimeWindowSize(new TimeWindowSize().setMultiple(1).setUnit(CalendarInterval.DAY));
+    GroupingBucket operationTypeBucket =
+        new GroupingBucket()
+            .setKey("customOperationType")
+            .setType(GroupingBucketType.STRING_GROUPING_BUCKET);
+
+    return new GroupingBucket[] {timestampBucket, operationTypeBucket};
+  }
+
   private GroupingBucket[] getGroupingBucketsByType() {
     GroupingBucket operationTypeBucket =
         new GroupingBucket()
             .setKey("operationType")
+            .setType(GroupingBucketType.STRING_GROUPING_BUCKET);
+
+    return new GroupingBucket[] {operationTypeBucket};
+  }
+
+  private GroupingBucket[] getCustomOperationsBuckets() {
+    GroupingBucket operationTypeBucket =
+        new GroupingBucket()
+            .setKey("customOperationType")
             .setType(GroupingBucketType.STRING_GROUPING_BUCKET);
 
     return new GroupingBucket[] {operationTypeBucket};

@@ -113,7 +113,8 @@ public class RaiseIncidentResolver implements DataFetcher<CompletableFuture<Stri
                 .getType()
                 .name())); // Assumption Alert: This assumes that GMS incident type === GraphQL
     // incident type.
-    if (IncidentType.CUSTOM.name().equals(input.getType().name()) && input.getCustomType() == null) {
+    if (IncidentType.CUSTOM.name().equals(input.getType().name())
+        && input.getCustomType() == null) {
       throw new URISyntaxException("Failed to create incident.", "customType is required");
     }
     result.setCustomType(input.getCustomType(), SetMode.IGNORE_NULL);

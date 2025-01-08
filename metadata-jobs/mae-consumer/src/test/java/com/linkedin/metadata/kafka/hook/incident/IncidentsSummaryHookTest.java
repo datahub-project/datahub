@@ -375,7 +375,8 @@ public class IncidentsSummaryHookTest {
             any(OperationContext.class), eq(TEST_DATASET_URN), summaryCaptor.capture());
 
     IncidentsSummary capturedSummary = summaryCaptor.getValue();
-    Assert.assertEquals(capturedSummary.getActiveIncidentDetails().get(0).getType(), IncidentType.CUSTOM.name());
+    Assert.assertEquals(
+        capturedSummary.getActiveIncidentDetails().get(0).getType(), IncidentType.CUSTOM.name());
   }
 
   private IncidentInfo mockIncidentInfo(final List<Urn> entityUrns, final IncidentState state) {
@@ -420,7 +421,8 @@ public class IncidentsSummaryHookTest {
     incidentSummaryDetails.setUrn(incidentUrn);
     incidentSummaryDetails.setCreatedAt(info.getCreated().getTime());
     if (IncidentType.CUSTOM.equals(info.getType())) {
-      String type = info.getCustomType() != null ? info.getCustomType() : IncidentType.CUSTOM.name();
+      String type =
+          info.getCustomType() != null ? info.getCustomType() : IncidentType.CUSTOM.name();
       incidentSummaryDetails.setType(type);
     } else {
       incidentSummaryDetails.setType(info.getType().toString());

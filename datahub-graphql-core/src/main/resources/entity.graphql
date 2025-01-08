@@ -3938,9 +3938,24 @@ type StringMapEntry {
     key: String!
 
     """
-    The value fo the map entry
+    The value for the map entry
     """
     value: String
+}
+
+"""
+An entry in a integer string map represented as a tuple
+"""
+type IntMapEntry {
+    """
+    The key of the map entry
+    """
+    key: String!
+
+    """
+    The value for the map entry
+    """
+    value: Int
 }
 
 """

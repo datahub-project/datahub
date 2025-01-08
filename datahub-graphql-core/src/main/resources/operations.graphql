@@ -68,4 +68,29 @@ type OperationsAggregationsResult {
     The total number of DELETE operations performed within the queried time range
     """
     totalDeletes: Int
+
+    """
+    The total number of CREATE operations performed within the queried time range
+    """
+    totalCreates: Int
+
+    """
+    The total number of ALTER operations performed within the queried time range
+    """
+    totalAlters: Int
+
+    """
+    The total number of DROP operations performed within the queried time range
+    """
+    totalDrops: Int
+
+    """
+    The total number of CUSTOM operations performed within the queried time range
+    """
+    totalCustoms: Int
+
+    """
+    A map from each custom operation type to the total count for that type
+    """
+    customOperationsMap: [IntMapEntry!]
 }
