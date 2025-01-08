@@ -284,12 +284,22 @@ class GlueSource(StatefulIngestionSourceBase):
         "Action": [
             "glue:GetDataflowGraph",
             "glue:GetJobs",
+            "s3:GetObject",
         ],
         "Resource": "*"
     }
     ```
 
-    plus `s3:GetObject` for the job script locations.
+    For profiling datasets, the following additional permissions are required:
+    ```json
+        {
+        "Effect": "Allow",
+        "Action": [
+            "glue:GetPartitions",
+        ],
+        "Resource": "*"
+    }
+    ```
 
     """
 
