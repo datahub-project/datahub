@@ -839,3 +839,47 @@ def test_dataset_structured_property_delete(ingest_cleanup_data, graph_client, c
     # Validate search works for property #1 & #2
     validate_search(property1.qualified_name, expected=[])
     validate_search(property2.qualified_name, expected=[dataset_urns[0]])
+
+
+def test_structured_properties_list(ingest_cleanup_data, graph_client, caplog):
+    # Create property, assign value to target dataset urn
+    def create_property():
+        property_name = f"listTest{randint(10, 10000)}Property"
+        value_type = "string"
+        property_urn = f"urn:li:structuredProperty:{default_namespace}.{property_name}"
+
+        create_property_definition(
+            property_name=property_name,
+            graph=graph_client,
+            value_type=value_type,
+            cardinality="SINGLE",
+        )
+
+        test_property = StructuredProperties.from_datahub(
+            graph=graph_client, urn=property_urn
+        )
+        assert test_property is not None
+
+        return test_property
+
+    # create 2 structured properties
+    property1 = create_property()
+    property2 = create_property()
+    wait_for_writes_to_sync()
+
+    # validate that urns are in the list
+    structured_properties_urns = StructuredProperties.list_urns(graph_client)
+    assert property1.urn in structured_properties_urns
+    assert property2.urn in structured_properties_urns
+
+    # list structured properties (full)
+    structured_properties = StructuredProperties.list(graph_client)
+    matched_properties = [
+        p for p in structured_properties if p.urn in [property1.urn, property2.urn]
+    ]
+    assert len(matched_properties) == 2
+    retrieved_property1 = next(p for p in matched_properties if p.urn == property1.urn)
+    retrieved_property2 = next(p for p in matched_properties if p.urn == property2.urn)
+
+    assert property1.dict() == retrieved_property1.dict()
+    assert property2.dict() == retrieved_property2.dict()
