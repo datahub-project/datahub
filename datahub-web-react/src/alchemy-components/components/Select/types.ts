@@ -12,6 +12,7 @@ export interface SelectProps {
     options: SelectOption[];
     label?: string;
     values?: string[];
+    initialValues?: string[];
     onCancel?: () => void;
     onUpdate?: (selectedValues: string[]) => void;
     size?: SelectSizeOptions;

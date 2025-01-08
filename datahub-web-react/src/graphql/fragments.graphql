@@ -2075,6 +2075,8 @@ fragment formsFields on Forms {
     verifications {
         form {
             urn
+            type
+            exists
         }
         lastModified {
             time

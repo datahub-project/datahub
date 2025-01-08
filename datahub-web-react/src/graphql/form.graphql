@@ -64,6 +64,8 @@ query getFormsForActor($input: GetFormsForActorInput) {
         formsForActor {
             form {
                 urn
+                type
+                exists
                 info {
                     name
                     description

@@ -5,7 +5,10 @@ import React, { useEffect, useState } from 'react';
 import { SimpleSelect } from '@src/alchemy-components';
 import { FieldLabel } from '../styledComponents';
 
+const STRUCTURED_PROP_FIELD = ['structuredPropertyParams', 'structuredProperty', 'urn'];
+
 const StructuredPropertyQuestion = () => {
+    const form = Form.useFormInstance();
     const [structuredProperties, setStructuredProperties] = useState<
         | {
               label: string;
@@ -27,6 +30,7 @@ const StructuredPropertyQuestion = () => {
         variables: {
             input: inputs,
         },
+        fetchPolicy: 'cache-first',
     });
 
     useEffect(() => {
@@ -39,24 +43,25 @@ const StructuredPropertyQuestion = () => {
         setStructuredProperties(properties);
     }, [data]);
 
+    const value = form.getFieldValue(STRUCTURED_PROP_FIELD);
+
     return (
         <>
             <FieldLabel> Select Structured Property</FieldLabel>
             <Form.Item
-                name={['structuredPropertyParams', 'structuredProperty', 'urn']}
+                name={STRUCTURED_PROP_FIELD}
                 rules={[
                     {
                         required: true,
                         message: 'Please select the structured property',
                     },
                 ]}
-                trigger="onUpdate"
-                valuePropName="values"
-                normalize={(value) => value?.[0]}
             >
                 <SimpleSelect
                     placeholder="Select Structured Property"
                     options={structuredProperties ?? []}
+                    onUpdate={(values) => form.setFieldValue(STRUCTURED_PROP_FIELD, values[0])}
+                    initialValues={value ? [value] : undefined}
                     width="full"
                     showSearch
                 />

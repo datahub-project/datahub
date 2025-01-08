@@ -34,6 +34,7 @@ const OwnerPopoverTitleContainer = styled.div`
     flex-direction: row;
     align-items: center;
     justify-content: flex-start;
+    gap: 6px;
 `;
 
 const OwnerEntityTypeText = styled(Typography.Text)`

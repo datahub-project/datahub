@@ -111,6 +111,7 @@ export const BasicSelect = ({
     options = selectDefaults.options,
     label = selectDefaults.label,
     values = [],
+    initialValues,
     onCancel,
     onUpdate,
     showSearch = selectDefaults.showSearch,
@@ -130,7 +131,7 @@ export const BasicSelect = ({
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [isOpen, setIsOpen] = useState(false);
-    const [selectedValues, setSelectedValues] = useState<string[]>(values);
+    const [selectedValues, setSelectedValues] = useState<string[]>(initialValues || values);
     const [tempValues, setTempValues] = useState<string[]>(values);
     const selectRef = useRef<HTMLDivElement>(null);
     const [areAllSelected, setAreAllSelected] = useState(false);
