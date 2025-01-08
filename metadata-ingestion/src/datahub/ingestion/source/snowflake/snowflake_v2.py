@@ -528,6 +528,8 @@ class SnowflakeV2Source(
                     include_lineage=self.config.include_table_lineage,
                     include_usage_statistics=self.config.include_usage_stats,
                     include_operations=self.config.include_operational_stats,
+                    include_queries=self.config.include_queries,
+                    include_query_usage_statistics=self.config.include_query_usage_statistics,
                     user_email_pattern=self.config.user_email_pattern,
                 ),
                 structured_report=self.report,
