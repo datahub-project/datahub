@@ -1056,17 +1056,17 @@ class GlueSource(StatefulIngestionSourceBase):
         for table in tables:
             table_name = table["Name"]
             try:
-                yield from self.gen_table_wu(table=table)
+                yield from self._gen_table_wu(table=table)
             except KeyError as e:
                 self.report.report_failure(
-                    message="Failed to extract wu for table",
+                    message="Failed to extract workunit for table",
                     context=f"Table: {table_name}",
                     exc=e,
                 )
         if self.extract_transforms:
             yield from self._transform_extraction()
 
-    def gen_table_wu(self, table: Dict) -> Iterable[MetadataWorkUnit]:
+    def _gen_table_wu(self, table: Dict) -> Iterable[MetadataWorkUnit]:
         database_name = table["DatabaseName"]
         table_name = table["Name"]
         full_table_name = f"{database_name}.{table_name}"
