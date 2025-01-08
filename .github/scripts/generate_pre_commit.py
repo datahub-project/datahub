@@ -161,7 +161,6 @@ class HookGenerator:
             "entry": f"./gradlew {project.gradle_path}:lintFix",
             "language": "system",
             "files": f"^{project.path}/.*\\.py$",
-            "pass_filenames": False,
         }
 
     def _generate_spotless_hook(self, project: Project) -> dict:
@@ -172,7 +171,6 @@ class HookGenerator:
             "entry": f"./gradlew {project.gradle_path}:spotlessApply",
             "language": "system",
             "files": f"^{project.path}/.*\\.java$",
-            "pass_filenames": False,
         }
 
 
