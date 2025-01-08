@@ -51,6 +51,8 @@ runs:
   using: "composite"
 
   steps:
+    - name: Print tag
+      run: echo "Tag: ${{ inputs.image_tag }}"
     - name: Docker meta
       id: docker_meta
       uses: docker/metadata-action@v5
