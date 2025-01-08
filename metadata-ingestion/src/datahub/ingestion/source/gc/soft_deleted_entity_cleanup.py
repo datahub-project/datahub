@@ -19,7 +19,7 @@ from datahub.utilities.urns._urn_base import Urn
 
 logger = logging.getLogger(__name__)
 
-QUERY_QUERY_ENTITY = """
+QUERY_ENTITIES = """
 query listQueries($input: ScrollAcrossEntitiesInput!) {
   scrollAcrossEntities(input: $input) {
     nextScrollId
@@ -27,6 +27,9 @@ query listQueries($input: ScrollAcrossEntitiesInput!) {
     searchResults {
       entity {
         ... on QueryEntity {
+          urn
+        }
+        ... on DataProcessInstance {
           urn
         }
       }
@@ -225,16 +228,16 @@ class SoftDeletedEntitiesCleanup:
                     time.sleep(self.config.delay)
         return futures
 
-    def _get_soft_deleted_queries(self) -> Iterable[str]:
+    def _get_soft_deleted(self, graphql_query: str, entity_type: str) -> Iterable[str]:
         assert self.ctx.graph
         scroll_id: Optional[str] = None
         while True:
             try:
                 result = self.ctx.graph.execute_graphql(
-                    QUERY_QUERY_ENTITY,
+                    graphql_query,
                     {
                         "input": {
-                            "types": ["QUERY"],
+                            "types": [entity_type],
                             "query": "*",
                             "scrollId": scroll_id if scroll_id else None,
                             "count": self.config.batch_size,
@@ -254,7 +257,7 @@ class SoftDeletedEntitiesCleanup:
                 )
             except Exception as e:
                 self.report.failure(
-                    f"While trying to get queries with {scroll_id}", exc=e
+                    f"While trying to get {entity_type} with {scroll_id}", exc=e
                 )
                 break
             scroll_across_entities = result.get("scrollAcrossEntities")
@@ -275,7 +278,8 @@ class SoftDeletedEntitiesCleanup:
             status=RemovedStatusFilter.ONLY_SOFT_DELETED,
             batch_size=self.config.batch_size,
         )
-        yield from self._get_soft_deleted_queries()
+        yield from self._get_soft_deleted(QUERY_ENTITIES, "QUERY")
+        yield from self._get_soft_deleted(QUERY_ENTITIES, "DATA_PROCESS_INSTANCE")
 
     def _times_up(self) -> bool:
         if (
