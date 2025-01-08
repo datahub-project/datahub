@@ -79,11 +79,7 @@ include ':metadata-service:openapi-servlet:models'
 include ':metadata-integration:java:datahub-schematron:lib'
 include ':metadata-integration:java:datahub-schematron:cli'
 
-
-// Add this to your build.gradle file
-
 def installPreCommitHooks() {
-    // Check if pre-commit is installed
     def preCommitInstalled = false
     try {
         def process = "pre-commit --version".execute()
@@ -103,7 +99,6 @@ def installPreCommitHooks() {
         println "pre-commit installed successfully"
     }
 
-    // Install the pre-commit hooks
     println "Installing pre-commit hooks..."
     def installHooksProcess = "pre-commit install".execute()
     installHooksProcess.waitFor()
