@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity.versioning;
 import static com.linkedin.metadata.Constants.INITIAL_VERSION_SORT_ID;
 import static com.linkedin.metadata.Constants.VERSION_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.VERSION_SET_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_SORT_ID_FIELD_NAME;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
@@ -90,6 +91,15 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
               + newLatestVersion.getEntityType());
     }
     if (!aspectRetriever.entityExists(ImmutableSet.of(versionSet)).get(versionSet)) {
+      MetadataChangeProposal versionSetKeyProposal = new MetadataChangeProposal();
+      versionSetKeyProposal.setEntityUrn(versionSet);
+      versionSetKeyProposal.setEntityType(VERSION_SET_ENTITY_NAME);
+      versionSetKeyProposal.setAspectName(VERSION_SET_KEY_ASPECT_NAME);
+      versionSetKeyProposal.setAspect(GenericRecordUtils.serializeAspect(versionSetKey));
+      versionSetKeyProposal.setChangeType(ChangeType.CREATE_ENTITY);
+      entityService.ingestProposal(
+          opContext, versionSetKeyProposal, opContext.getAuditStamp(), false);
+
       sortId = INITIAL_VERSION_SORT_ID;
       versionSetConstraint = -1L;
       versionPropertiesConstraint = -1L;
