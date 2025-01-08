@@ -40,6 +40,7 @@ from datahub.sql_parsing.sqlglot_lineage import (
     ColumnRef,
     DownstreamColumnRef,
 )
+from datahub.sql_parsing.sqlglot_utils import get_query_fingerprint
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.time import ts_millis_to_datetime
 
@@ -239,6 +240,9 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
         downstream_table_urn = self.identifiers.gen_dataset_urn(dataset_name)
 
         known_lineage = KnownQueryLineageInfo(
+            query_id=get_query_fingerprint(
+                query.query_text, self.identifiers.platform, fast=True
+            ),
             query_text=query.query_text,
             downstream=downstream_table_urn,
             upstreams=self.map_query_result_upstreams(
