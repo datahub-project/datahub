@@ -134,6 +134,11 @@ jobs:
           flags: ${{ matrix.timezone }}
           name: ${{ matrix.command }}
           verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   quickstart-compose-validation:
     runs-on: ubuntu-latest
