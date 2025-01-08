@@ -3,7 +3,7 @@ import logging
 import time
 import typing
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
 import click
 import requests
@@ -31,6 +31,15 @@ log = logging.getLogger(__name__)
 
 def first_non_null(ls: List[Optional[str]]) -> Optional[str]:
     return next((el for el in ls if el is not None and el.strip() != ""), None)
+
+
+_T = TypeVar("_T")
+
+
+def get_or_else(value: Optional[_T], default: _T) -> _T:
+    # Normally we'd use `value or default`. However, that runs into issues
+    # when value is falsey but not None.
+    return value if value is not None else default
 
 
 def parse_run_restli_response(response: requests.Response) -> dict:
