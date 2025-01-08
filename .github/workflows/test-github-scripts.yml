@@ -1,0 +1,30 @@
+name: Python Tests for github scripts
+
+on:
+  push:
+    paths:
+      - '.github/scripts/docker_helper/**'
+  pull_request:
+    paths:
+      - '.github/scripts/docker_helper/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest
+        
+    - name: Run tests
+      run: |
+        pytest .github/scripts/docker_helper/test_version_updater.py
