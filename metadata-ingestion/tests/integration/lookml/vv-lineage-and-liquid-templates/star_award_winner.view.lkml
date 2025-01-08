@@ -1,5 +1,6 @@
 view: star_award_winner {
-  sql_table_name: @{star_award_winner_year} ;;
+  sql_table_name: ${db}.@{star_award_winner_year};;
+
 
   dimension: id {
     label: "id"

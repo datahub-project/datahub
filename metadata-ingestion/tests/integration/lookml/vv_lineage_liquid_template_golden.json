@@ -2853,7 +2853,7 @@
     "aspect": {
         "json": {
             "materialized": false,
-            "viewLogic": "view: star_award_winner {\n  sql_table_name: @{star_award_winner_year} ;;\n\n  dimension: id {\n    label: \"id\"\n    primary_key: yes\n    type: number\n    sql: ${TABLE}.id ;;\n  }\n\n  parameter: star_award_winner_year {\n    type: string\n    allowed_value: {\n      label: \"Star Award Winner Of 2025\"\n      value: \"public.winner_2025\"\n    }\n    allowed_value: {\n      label: \"Star Award Winner Of 2024\"\n      value: \"public.winner_2024\"\n    }\n  }\n\n}",
+            "viewLogic": "view: star_award_winner {\n  sql_table_name: ${db}.@{star_award_winner_year};;\n\n\n  dimension: id {\n    label: \"id\"\n    primary_key: yes\n    type: number\n    sql: ${TABLE}.id ;;\n  }\n\n  parameter: star_award_winner_year {\n    type: string\n    allowed_value: {\n      label: \"Star Award Winner Of 2025\"\n      value: \"public.winner_2025\"\n    }\n    allowed_value: {\n      label: \"Star Award Winner Of 2024\"\n      value: \"public.winner_2024\"\n    }\n  }\n\n}",
             "viewLanguage": "lookml"
         }
     },
@@ -2904,7 +2904,7 @@
                                     "time": 1586847600000,
                                     "actor": "urn:li:corpuser:datahub"
                                 },
-                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,.public.winner_2025,PROD)",
+                                "dataset": "urn:li:dataset:(urn:li:dataPlatform:postgres,test-db.public.winner_2025,PROD)",
                                 "type": "VIEW"
                             }
                         ],
@@ -2912,7 +2912,7 @@
                             {
                                 "upstreamType": "FIELD_SET",
                                 "upstreams": [
-                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,.public.winner_2025,PROD),id)"
+                                    "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:postgres,test-db.public.winner_2025,PROD),id)"
                                 ],
                                 "downstreamType": "FIELD",
                                 "downstreams": [

@@ -873,7 +873,10 @@ def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_t
             "_is_selected": True,
         },
         "source_region": "ap-south-1",
-        "star_award_winner_year": "public.winner_2025",
+        "db": "test-db",
+    }
+    new_recipe["source"]["config"]["lookml_parameter"] = {
+        "star_award_winner_year": "public.winner_2025"
     }
 
     pipeline = Pipeline.create(new_recipe)
