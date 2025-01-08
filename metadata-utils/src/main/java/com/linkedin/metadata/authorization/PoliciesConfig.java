@@ -408,9 +408,7 @@ public class PoliciesConfig {
 
   public static final Privilege DATA_READ_ONLY_PRIVILEGE =
       Privilege.of(
-          "DATA_READ_ONLY",
-          "Read only data-access",
-          "The ability to read the data in a dataset.");
+          "DATA_READ_ONLY", "Read only data-access", "The ability to read the data in a dataset.");
 
   public static final Privilege DATA_READ_WRITE_PRIVILEGE =
       Privilege.of(
@@ -429,6 +427,12 @@ public class PoliciesConfig {
           "DATA_MANAGE_NAMESPACES",
           "Manage namespaces",
           "The ability to create and drop namespaces.");
+
+  public static final Privilege DATA_LIST_ENTITIES_PRIVILEGE =
+      Privilege.of(
+          "DATA_LIST_ENTITIES",
+          "List tables, views & namespaces",
+          "The ability to list tables, views and namespaces.");
 
   // Tag Privileges
   public static final Privilege EDIT_TAG_COLOR_PRIVILEGE =
@@ -798,7 +802,8 @@ public class PoliciesConfig {
           ImmutableList.of(
               DATA_MANAGE_VIEWS_PRIVILEGE,
               DATA_MANAGE_TABLES_PRIVILEGE,
-              DATA_MANAGE_NAMESPACES_PRIVILEGE));
+              DATA_MANAGE_NAMESPACES_PRIVILEGE,
+              DATA_LIST_ENTITIES_PRIVILEGE));
 
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(

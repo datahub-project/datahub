@@ -5,6 +5,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 
 @EnableWebMvc
-@ComponentScan(basePackages = {"com.datahub.iceberg.catalog"})
+@ComponentScan(basePackages = {"io.datahubproject.iceberg.catalog.rest"})
 @Configuration
 public class IcebergCatalogServletConfig {}

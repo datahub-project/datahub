@@ -20,6 +20,7 @@ from datahub.cli.docker_cli import docker
 from datahub.cli.env_utils import get_boolean_env_variable
 from datahub.cli.exists_cli import exists
 from datahub.cli.get_cli import get
+from datahub.cli.iceberg_cli import iceberg
 from datahub.cli.ingest_cli import ingest
 from datahub.cli.migrate import migrate
 from datahub.cli.put_cli import put
@@ -182,6 +183,7 @@ datahub.add_command(forms)
 datahub.add_command(datacontract)
 datahub.add_command(assertions)
 datahub.add_command(container)
+datahub.add_command(iceberg)
 
 try:
     from datahub.cli.lite_cli import lite
