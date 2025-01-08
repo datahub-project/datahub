@@ -300,11 +300,14 @@ class LookerDashboardSourceConfig(
 
     folder_path_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
-        description="Allow or deny dashboards from specific folders. "
+        description="Allow or deny dashboards from specific folders using their fully qualified paths. "
         "For example: \n"
         "deny: \n"
         " - sales/deprecated \n"
         "This pattern will deny the ingestion of all dashboards and looks within the sales/deprecated folder. \n"
+        "allow: \n"
+        " - sales/customers \n"
+        "This pattern will allow only the ingestion of dashboards within the sales/customers folder. \n"
         "Dashboards will only be ingested if they're allowed by both this config and dashboard_pattern.",
     )
 
