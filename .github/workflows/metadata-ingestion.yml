@@ -98,6 +98,11 @@ jobs:
           flags: ingestion-${{ matrix.python-version }}-${{ matrix.command }}
           name: pytest-ingestion
           verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   event-file:
     runs-on: ubuntu-latest

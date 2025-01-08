@@ -10,7 +10,7 @@ class DatahubClientConfig(ConfigModel):
     # by callers / the CLI, but the actual client should not have any magic.
     server: str
     token: Optional[str] = None
-    timeout_sec: Optional[int] = None
+    timeout_sec: Optional[float] = None
     retry_status_codes: Optional[List[int]] = None
     retry_max_times: Optional[int] = None
     extra_headers: Optional[Dict[str, str]] = None
