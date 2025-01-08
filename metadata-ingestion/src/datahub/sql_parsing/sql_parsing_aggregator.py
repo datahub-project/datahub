@@ -323,7 +323,7 @@ class SqlParsingAggregator(Closeable):
         platform_instance: Optional[str] = None,
         env: str = builder.DEFAULT_ENV,
         schema_resolver: Optional[SchemaResolver] = None,
-        default_dialect: Optional[Str] = None,
+        default_dialect: Optional[str] = None,
         graph: Optional[DataHubGraph] = None,
         eager_graph_load: bool = True,
         generate_lineage: bool = True,
