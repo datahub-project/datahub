@@ -20,7 +20,7 @@ from datahub.utilities.urns._urn_base import Urn
 logger = logging.getLogger(__name__)
 
 QUERY_ENTITIES = """
-query listQueries($input: ScrollAcrossEntitiesInput!) {
+query listEntities($input: ScrollAcrossEntitiesInput!) {
   scrollAcrossEntities(input: $input) {
     nextScrollId
     count
