@@ -1,8 +1,11 @@
 import dataclasses
 import json
+import os
 import pathlib
 import random
 import sqlite3
+from unittest.mock import patch
+
 from dataclasses import dataclass
 from typing import Counter, Dict
 
@@ -13,6 +16,36 @@ from datahub.utilities.file_backed_collections import (
     FileBackedDict,
     FileBackedList,
 )
+
+
+def test_set_use_sqlite_on_conflict():
+    with patch("sqlite3.sqlite_version_info", (3, 24, 0)):
+        cache = FileBackedDict[int](
+            tablename="cache",
+            cache_max_size=10,
+            cache_eviction_batch_size=10,
+        )
+        assert cache._use_sqlite_on_conflict == True
+
+    with pytest.raises(RuntimeError):
+        with patch("sqlite3.sqlite_version_info", (3, 23, 1)):
+            cache = FileBackedDict[int](
+                tablename="cache",
+                cache_max_size=10,
+                cache_eviction_batch_size=10,
+            )
+            assert cache._use_sqlite_on_conflict == False
+
+    with patch("sqlite3.sqlite_version_info", (3, 23, 1)), patch(
+        "datahub.utilities.file_backed_collections.OVERRIDE_SQLITE_VERSION_REQUIREMENT",
+        True,
+    ):
+        cache = FileBackedDict[int](
+            tablename="cache",
+            cache_max_size=10,
+            cache_eviction_batch_size=10,
+        )
+        assert cache._use_sqlite_on_conflict == False
 
 
 @pytest.mark.parametrize("use_sqlite_on_conflict", [True, False])
