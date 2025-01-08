@@ -337,19 +337,51 @@ class LookMlIfCommentTransformer(LookMLViewTransformer):
 
 class LookmlParameterTransformer(LookMLViewTransformer):
     """
-    Replace the lookml parameter @{variable} with their values.
+    Replace LookML parameters (@{param} or ${var}) from the configuration.
     """
 
-    PATTERN = r"@{(\w+)}"
+    PARAMETER_PATTERN = r"@{(\w+)}"  # Matches @{param}
+    LIQUID_VARIABLE_PATTERN = r"\${(\w+)}"  # Matches ${var}
 
     def resolve_lookml_parameter(self, text: str) -> str:
-        return re.sub(
-            LookmlParameterTransformer.PATTERN,
-            lambda match: self.source_config.liquid_variable.get(
-                match.group(1), match.group(0)
-            ),  # Replace or keep original
-            text,
-        )
+        """
+        Resolves LookML parameters (@{param}) and liquid variables (${var}).
+        Logs warnings for misplaced or missing variables.
+        """
+
+        def replace_parameters(match):
+            key = match.group(1)
+            # Check if it's a misplaced liquid variable
+            if key in self.source_config.liquid_variable:
+                logger.warning(
+                    f"Misplaced liquid variable '@{{{key}}}' detected. Use '${{{key}}}' instead."
+                )
+                return f"@{{{key}}}"
+
+            # Resolve parameter
+            if key in self.source_config.lookml_parameter:
+                return str(self.source_config.lookml_parameter.get(key))
+
+            # Log warning for missing parameter
+            logger.warning(f"Parameter '@{{{key}}}' not found in configuration.")
+            return ""
+
+        def replace_liquid_variables(match):
+            key = match.group(1)
+            # Resolve liquid variable
+            if key in self.source_config.liquid_variable:
+                return str(self.source_config.liquid_variable.get(key))
+
+            # Log warning for missing liquid variable
+            logger.warning(f"Liquid variable '${{{key}}}' not found in configuration.")
+            return ""
+
+        # Resolve @{param} (parameters)
+        text = re.sub(self.PARAMETER_PATTERN, replace_parameters, text)
+
+        # Resolve ${var} (liquid variables)
+        text = re.sub(self.LIQUID_VARIABLE_PATTERN, replace_liquid_variables, text)
+        return text
 
     def _apply_transformation(self, value: str, view: dict) -> str:
         return self.resolve_lookml_parameter(text=value)

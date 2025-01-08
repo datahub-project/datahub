@@ -165,6 +165,15 @@ class LookMLSourceConfig(
         "view.sql_table_name. Defaults to an empty dictionary.",
     )
 
+    lookml_parameter: Dict[Any, Any] = Field(
+        {},
+        description=(
+            "A dictionary containing LookML parameters (`@{param_name}`) and their values. "
+            "Parameters are used to define dynamic references in LookML views, such as `view.sql_table_name`."
+            "Defaults to an empty dictionary."
+        ),
+    )
+
     looker_environment: Literal["prod", "dev"] = Field(
         "prod",
         description="A looker prod or dev environment. "
