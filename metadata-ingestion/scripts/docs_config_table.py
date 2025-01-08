@@ -1,19 +1,15 @@
 import html
 import json
-import pathlib
 import re
 from typing import Any, Dict, Iterable, List, Optional, Type
 
 from pydantic import BaseModel, Field
 
+from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
 from datahub.metadata.schema_classes import SchemaFieldClass
 
 DEFAULT_VALUE_MAX_LENGTH = 50
 DEFAULT_VALUE_TRUNCATION_MESSAGE = "..."
-
-
-def gen_md_table_from_pydantic(model: Type[BaseModel]) -> List[str]:
-    return gen_md_table_from_json_schema(model.schema())
 
 
 def _truncate_default_value(value: str) -> str:
@@ -332,7 +328,12 @@ class FieldTree:
 
 def priority_value(path: str) -> str:
     # A map of low value tokens to their relative importance
-    low_value_token_map = {"env": "X", "profiling": "Y", "stateful_ingestion": "Z"}
+    low_value_token_map = {
+        "env": "X",
+        "classification": "Y",
+        "profiling": "Y",
+        "stateful_ingestion": "Z",
+    }
     tokens = path.split(".")
     for low_value_token in low_value_token_map:
         if low_value_token in tokens:
@@ -342,9 +343,7 @@ def priority_value(path: str) -> str:
     return "A"
 
 
-def gen_md_table_from_json_schema(schema_dict: Dict[str, Any]) -> List[str]:
-    from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
-
+def gen_md_table_from_json_schema(schema_dict: Dict[str, Any]) -> str:
     # we don't want default field values to be injected into the description of the field
     JsonSchemaTranslator._INJECT_DEFAULTS_INTO_DESCRIPTION = False
     schema_fields = list(JsonSchemaTranslator.get_fields_from_schema(schema_dict))
@@ -363,16 +362,15 @@ def gen_md_table_from_json_schema(schema_dict: Dict[str, Any]) -> List[str]:
     # Wrap with a .config-table div.
     result = ["\n<div className='config-table'>\n\n", *result, "\n</div>\n"]
 
-    return result
+    return "".join(result)
+
+
+def gen_md_table_from_pydantic(model: Type[BaseModel]) -> str:
+    return gen_md_table_from_json_schema(model.schema())
 
 
 if __name__ == "__main__":
     # Simple test code.
-    # from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
-    # print("".join(gen_md_table_from_pydantic(SnowflakeV2Config)))
+    from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 
-    import sys
-
-    json_schema_file = pathlib.Path(sys.argv[1])
-    json_schema = json.loads(json_schema_file.read_text())
-    print("".join(gen_md_table_from_json_schema(json_schema)))
+    print("".join(gen_md_table_from_pydantic(SnowflakeV2Config)))

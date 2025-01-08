@@ -10,6 +10,7 @@ from importlib.metadata import metadata, requires
 from typing import Any, Dict, List, Optional
 
 import click
+from docs_config_table import gen_md_table_from_json_schema
 
 from datahub.configuration.common import ConfigModel
 from datahub.ingestion.api.decorators import (
@@ -340,6 +341,13 @@ def generate(
                     source_config_class.schema_json(indent=2)
                 )
 
+                source_plugin_config_md_table = (
+                    source_plugin_config_json_schema.with_suffix(".md.snippet")
+                )
+                source_plugin_config_md_table.write_text(
+                    gen_md_table_from_json_schema(source_config_class.schema())
+                )
+
                 create_or_update(
                     source_documentation,
                     [platform_id, "plugins", plugin_name, "config_schema"],
@@ -347,8 +355,8 @@ def generate(
                 )
 
                 # table_md = gen_md_table_from_struct(source_config_class.schema())
-                table_md_command = f"metadata-ingestion/venv/bin/python metadata-ingestion/scripts/docs_config_table.py {source_plugin_config_json_schema.resolve()}"
-                table_md = f"{{{{ command-output {table_md_command} }}}}\n"
+                repo_root_dir = pathlib.Path(__file__).parent.parent.parent
+                table_md = f"{{{{ inline /{source_plugin_config_md_table.resolve().relative_to(repo_root_dir)} }}}}\n\n"
                 create_or_update(
                     source_documentation,
                     [platform_id, "plugins", plugin_name, "source_doc"],
