@@ -7,17 +7,14 @@ import re
 import sys
 import textwrap
 from importlib.metadata import metadata, requires
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 import click
+from docgen_types import Platform, Plugin
 from docs_config_table import gen_md_table_from_json_schema
 
 from datahub.configuration.common import ConfigModel
-from datahub.ingestion.api.decorators import (
-    CapabilitySetting,
-    SourceCapability,
-    SupportStatus,
-)
+from datahub.ingestion.api.decorators import SourceCapability, SupportStatus
 from datahub.ingestion.source.source_registry import source_registry
 
 logger = logging.getLogger(__name__)
@@ -68,19 +65,6 @@ def get_capability_text(src_capability: SourceCapability) -> str:
         if not capability_doc
         else f"[{src_capability.value}]({capability_doc})"
     )
-
-
-def create_or_update(
-    something: Dict[Any, Any], path: List[str], value: Any
-) -> Dict[Any, Any]:
-    dict_under_operation = something
-    for p in path[:-1]:
-        if p not in dict_under_operation:
-            dict_under_operation[p] = {}
-        dict_under_operation = dict_under_operation[p]
-
-    dict_under_operation[path[-1]] = value
-    return something
 
 
 def does_extra_exist(extra_name: str) -> bool:
@@ -144,6 +128,101 @@ def rewrite_markdown(file_contents: str, path: str, relocated_path: str) -> str:
     return new_content
 
 
+def load_plugin(plugin_name: str, out_dir: str) -> Plugin:
+    logger.debug(f"Loading {plugin_name}")
+    class_or_exception = source_registry._ensure_not_lazy(plugin_name)
+    if isinstance(class_or_exception, Exception):
+        raise class_or_exception
+    source_type = source_registry.get(plugin_name)
+    logger.debug(f"Source class is {source_type}")
+
+    if hasattr(source_type, "get_platform_name"):
+        platform_name = source_type.get_platform_name()
+    else:
+        platform_name = (
+            plugin_name.title()
+        )  # we like platform names to be human readable
+
+    platform_id = None
+    if hasattr(source_type, "get_platform_id"):
+        platform_id = source_type.get_platform_id()
+    if platform_id is None:
+        raise ValueError(f"Platform ID not found for {plugin_name}")
+
+    plugin = Plugin(
+        name=plugin_name,
+        platform_id=platform_id,
+        platform_name=platform_name,
+        classname=".".join([source_type.__module__, source_type.__name__]),
+    )
+
+    if hasattr(source_type, "get_platform_doc_order"):
+        platform_doc_order = source_type.get_platform_doc_order()
+        plugin.doc_order = platform_doc_order
+
+    plugin_file_name = "src/" + "/".join(source_type.__module__.split("."))
+    if os.path.exists(plugin_file_name) and os.path.isdir(plugin_file_name):
+        plugin_file_name = plugin_file_name + "/__init__.py"
+    else:
+        plugin_file_name = plugin_file_name + ".py"
+    if os.path.exists(plugin_file_name):
+        plugin.filename = plugin_file_name
+    else:
+        logger.info(
+            f"Failed to locate filename for {plugin_name}. Guessed {plugin_file_name}, but that doesn't exist"
+        )
+
+    if hasattr(source_type, "__doc__"):
+        plugin.source_docstring = textwrap.dedent(source_type.__doc__ or "")
+
+    if hasattr(source_type, "get_support_status"):
+        plugin.support_status = source_type.get_support_status()
+
+    if hasattr(source_type, "get_capabilities"):
+        capabilities = list(source_type.get_capabilities())
+        capabilities.sort(key=lambda x: x.capability.value)
+        plugin.capabilities = capabilities
+
+    try:
+        extra_plugin = plugin_name if does_extra_exist(plugin_name) else None
+        plugin.extra_deps = (
+            get_additional_deps_for_extra(extra_plugin) if extra_plugin else []
+        )
+    except Exception as e:
+        logger.info(
+            f"Failed to load extras for {plugin_name} due to exception {e}", exc_info=e
+        )
+
+    if hasattr(source_type, "get_config_class"):
+        source_config_class: ConfigModel = source_type.get_config_class()
+
+        plugin.config_json_schema = source_config_class.schema_json(indent=2)
+        plugin.config_md = gen_md_table_from_json_schema(source_config_class.schema())
+
+        # Also write the config details to the out_dir.
+        config_dir = pathlib.Path(out_dir) / "config_schemas"
+        config_dir.mkdir(parents=True, exist_ok=True)
+        source_plugin_config_json_schema = config_dir / f"{plugin_name}_config.json"
+
+        source_plugin_config_json_schema.write_text(plugin.config_json_schema)
+
+        source_plugin_config_md_table = source_plugin_config_json_schema.with_suffix(
+            ".md.snippet"
+        )
+        source_plugin_config_md_table.write_text(plugin.config_md)
+
+        # # table_md = gen_md_table_from_struct(source_config_class.schema())
+        # repo_root_dir = pathlib.Path(__file__).parent.parent.parent
+        # table_md = f"{{{{ inline /{source_plugin_config_md_table.resolve().relative_to(repo_root_dir)} }}}}\n\n"
+        # create_or_update(
+        #     source_documentation,
+        #     [platform_id, "plugins", plugin_name, "config"],
+        #     table_md,
+        # )
+
+    return plugin
+
+
 @click.command()
 @click.option("--out-dir", type=str, required=True)
 @click.option("--extra-docs", type=str, required=False)
@@ -151,16 +230,49 @@ def rewrite_markdown(file_contents: str, path: str, relocated_path: str) -> str:
 def generate(
     out_dir: str, extra_docs: Optional[str] = None, source: Optional[str] = None
 ) -> None:  # noqa: C901
-    source_documentation: Dict[str, Any] = {}
     metrics = {}
     metrics["source_platforms"] = {"discovered": 0, "generated": 0, "warnings": []}
-    metrics["plugins"] = {"discovered": 0, "generated": 0, "failed": 0}
+    metrics["plugins"] = {"discovered": 0, "loaded": 0, "generated": 0, "failed": 0}
+
+    platforms: Dict[str, Platform] = {}
+    for plugin_name in sorted(source_registry.mapping.keys()):
+        if source and source != plugin_name:
+            continue
+
+        if plugin_name in {
+            "snowflake-summary",
+            "snowflake-queries",
+            "bigquery-queries",
+        }:
+            logger.info(f"Skipping {plugin_name} as it is on the deny list")
+            continue
+
+        metrics["plugins"]["discovered"] = metrics["plugins"]["discovered"] + 1  # type: ignore
+        try:
+            plugin = load_plugin(plugin_name, out_dir=out_dir)
+        except Exception as e:
+            logger.error(
+                f"Failed to load {plugin_name} due to exception {e}", exc_info=e
+            )
+            metrics["plugins"]["failed"] = metrics["plugins"].get("failed", 0) + 1  # type: ignore
+            continue
+        else:
+            metrics["plugins"]["loaded"] = metrics["plugins"]["loaded"] + 1  # type: ignore
+
+            # Add to the platform list if not already present.
+            platforms.setdefault(
+                plugin.platform_id,
+                Platform(
+                    id=plugin.platform_id,
+                    name=plugin.platform_name,
+                ),
+            ).add_plugin(plugin_name=plugin.name, plugin=plugin)
 
     if extra_docs:
         for path in glob.glob(f"{extra_docs}/**/*[.md|.yaml|.yml]", recursive=True):
             m = re.search("/docs/sources/(.*)/(.*).md", path)
             if m:
-                platform_name = m.group(1).lower()
+                platform_name = m.group(1).lower()  # TODO: rename this to platform_id
                 file_name = m.group(2)
                 destination_md: str = (
                     f"../docs/generated/ingestion/sources/{platform_name}.md"
@@ -175,43 +287,33 @@ def generate(
                     if file_name == "README":
                         # README goes as platform level docs
                         # all other docs are assumed to be plugin level
-                        create_or_update(
-                            source_documentation,
-                            [platform_name, "custom_docs"],
-                            final_markdown,
-                        )
-                    else:
-                        if "_" in file_name:
-                            plugin_doc_parts = file_name.split("_")
-                            if len(plugin_doc_parts) != 2 or plugin_doc_parts[
-                                1
-                            ] not in ["pre", "post"]:
-                                raise Exception(
-                                    f"{file_name} needs to be of the form <plugin>_pre.md or <plugin>_post.md"
-                                )
+                        platforms[platform_name].custom_docs_pre = final_markdown
 
-                            docs_key_name = f"custom_docs_{plugin_doc_parts[1]}"
-                            create_or_update(
-                                source_documentation,
-                                [
-                                    platform_name,
-                                    "plugins",
-                                    plugin_doc_parts[0],
-                                    docs_key_name,
-                                ],
-                                final_markdown,
+                    elif "_" in file_name:
+                        plugin_doc_parts = file_name.split("_")
+                        if len(plugin_doc_parts) != 2:
+                            raise ValueError(
+                                f"{file_name} needs to be of the form <plugin>_pre.md or <plugin>_post.md"
                             )
+                        plugin_name, suffix = plugin_doc_parts
+                        if suffix == "pre":
+                            platforms[platform_name].plugins[
+                                plugin_name
+                            ].custom_docs_pre = final_markdown
+                        elif suffix == "post":
+                            platforms[platform_name].plugins[
+                                plugin_name
+                            ].custom_docs_post = final_markdown
                         else:
-                            create_or_update(
-                                source_documentation,
-                                [
-                                    platform_name,
-                                    "plugins",
-                                    file_name,
-                                    "custom_docs_post",
-                                ],
-                                final_markdown,
+                            raise ValueError(
+                                f"{file_name} needs to be of the form <plugin>_pre.md or <plugin>_post.md"
                             )
+
+                    else:  # assume this is the platform post.
+                        # TODO: Probably need better error checking here.
+                        platforms[platform_name].plugins[
+                            file_name
+                        ].custom_docs_post = final_markdown
             else:
                 yml_match = re.search("/docs/sources/(.*)/(.*)_recipe.yml", path)
                 if yml_match:
@@ -219,172 +321,17 @@ def generate(
                     plugin_name = yml_match.group(2)
                     with open(path, "r") as doc_file:
                         file_contents = doc_file.read()
-                        create_or_update(
-                            source_documentation,
-                            [platform_name, "plugins", plugin_name, "recipe"],
-                            file_contents,
-                        )
-
-    for plugin_name in sorted(source_registry.mapping.keys()):
-        if source and source != plugin_name:
-            continue
-
-        if plugin_name in {
-            "snowflake-summary",
-        }:
-            logger.info(f"Skipping {plugin_name} as it is on the deny list")
-            continue
-
-        metrics["plugins"]["discovered"] = metrics["plugins"]["discovered"] + 1  # type: ignore
-        # We want to attempt to load all plugins before printing a summary.
-        source_type = None
-        try:
-            # output = subprocess.check_output(
-            #    ["/bin/bash", "-c", f"pip install -e '.[{key}]'"]
-            # )
-            class_or_exception = source_registry._ensure_not_lazy(plugin_name)
-            if isinstance(class_or_exception, Exception):
-                raise class_or_exception
-            logger.debug(f"Processing {plugin_name}")
-            source_type = source_registry.get(plugin_name)
-            logger.debug(f"Source class is {source_type}")
-            extra_plugin = plugin_name if does_extra_exist(plugin_name) else None
-            extra_deps = (
-                get_additional_deps_for_extra(extra_plugin) if extra_plugin else []
-            )
-        except Exception as e:
-            logger.warning(
-                f"Failed to process {plugin_name} due to exception {e}", exc_info=e
-            )
-            metrics["plugins"]["failed"] = metrics["plugins"].get("failed", 0) + 1  # type: ignore
-
-        if source_type and hasattr(source_type, "get_config_class"):
-            try:
-                source_config_class: ConfigModel = source_type.get_config_class()
-                support_status = SupportStatus.UNKNOWN
-                capabilities = []
-                if hasattr(source_type, "__doc__"):
-                    source_doc = textwrap.dedent(source_type.__doc__ or "")
-                if hasattr(source_type, "get_platform_name"):
-                    platform_name = source_type.get_platform_name()
-                else:
-                    platform_name = (
-                        plugin_name.title()
-                    )  # we like platform names to be human readable
-
-                if hasattr(source_type, "get_platform_id"):
-                    platform_id = source_type.get_platform_id()
-
-                if hasattr(source_type, "get_platform_doc_order"):
-                    platform_doc_order = source_type.get_platform_doc_order()
-                    create_or_update(
-                        source_documentation,
-                        [platform_id, "plugins", plugin_name, "doc_order"],
-                        platform_doc_order,
-                    )
-
-                source_documentation[platform_id] = (
-                    source_documentation.get(platform_id) or {}
-                )
-
-                create_or_update(
-                    source_documentation,
-                    [platform_id, "plugins", plugin_name, "classname"],
-                    ".".join([source_type.__module__, source_type.__name__]),
-                )
-                plugin_file_name = "src/" + "/".join(source_type.__module__.split("."))
-                if os.path.exists(plugin_file_name) and os.path.isdir(plugin_file_name):
-                    plugin_file_name = plugin_file_name + "/__init__.py"
-                else:
-                    plugin_file_name = plugin_file_name + ".py"
-                if os.path.exists(plugin_file_name):
-                    create_or_update(
-                        source_documentation,
-                        [platform_id, "plugins", plugin_name, "filename"],
-                        plugin_file_name,
-                    )
-                else:
-                    logger.info(
-                        f"Failed to locate filename for {plugin_name}. Guessed {plugin_file_name}"
-                    )
-
-                if hasattr(source_type, "get_support_status"):
-                    support_status = source_type.get_support_status()
-
-                if hasattr(source_type, "get_capabilities"):
-                    capabilities = list(source_type.get_capabilities())
-                    capabilities.sort(key=lambda x: x.capability.value)
-
-                create_or_update(
-                    source_documentation,
-                    [platform_id, "plugins", plugin_name, "capabilities"],
-                    capabilities,
-                )
-
-                create_or_update(
-                    source_documentation, [platform_id, "name"], platform_name
-                )
-
-                create_or_update(
-                    source_documentation,
-                    [platform_id, "plugins", plugin_name, "extra_deps"],
-                    extra_deps,
-                )
-
-                config_dir = pathlib.Path(out_dir) / "config_schemas"
-                config_dir.mkdir(parents=True, exist_ok=True)
-                source_plugin_config_json_schema = (
-                    config_dir / f"{plugin_name}_config.json"
-                )
-
-                source_plugin_config_json_schema.write_text(
-                    source_config_class.schema_json(indent=2)
-                )
-
-                source_plugin_config_md_table = (
-                    source_plugin_config_json_schema.with_suffix(".md.snippet")
-                )
-                source_plugin_config_md_table.write_text(
-                    gen_md_table_from_json_schema(source_config_class.schema())
-                )
-
-                create_or_update(
-                    source_documentation,
-                    [platform_id, "plugins", plugin_name, "config_schema"],
-                    source_config_class.schema_json(indent=2) or "",
-                )
-
-                # table_md = gen_md_table_from_struct(source_config_class.schema())
-                repo_root_dir = pathlib.Path(__file__).parent.parent.parent
-                table_md = f"{{{{ inline /{source_plugin_config_md_table.resolve().relative_to(repo_root_dir)} }}}}\n\n"
-                create_or_update(
-                    source_documentation,
-                    [platform_id, "plugins", plugin_name, "source_doc"],
-                    source_doc or "",
-                )
-                create_or_update(
-                    source_documentation,
-                    [platform_id, "plugins", plugin_name, "config"],
-                    table_md,
-                )
-                create_or_update(
-                    source_documentation,
-                    [platform_id, "plugins", plugin_name, "support_status"],
-                    support_status,
-                )
-
-            except Exception as e:
-                raise e
+                        platforms[platform_name].plugins[
+                            plugin_name
+                        ].starter_recipe = file_contents
 
     sources_dir = f"{out_dir}/sources"
     os.makedirs(sources_dir, exist_ok=True)
 
     i = 0
-    for platform_id, platform_docs in sorted(
-        source_documentation.items(),
-        key=lambda x: (x[1]["name"].casefold(), x[1]["name"])
-        if "name" in x[1]
-        else (x[0].casefold(), x[0]),
+    for platform_id, platform in sorted(
+        platforms.items(),
+        key=lambda x: (x[1].name.casefold(), x[1].name),
     ):
         if source and platform_id != source:
             continue
@@ -392,12 +339,12 @@ def generate(
             metrics["source_platforms"]["discovered"] + 1  # type: ignore
         )
         platform_doc_file = f"{sources_dir}/{platform_id}.md"
-        if "name" not in platform_docs:
-            # We seem to have discovered written docs that corresponds to a platform, but haven't found linkage to it from the source classes
-            warning_msg = f"Failed to find source classes for platform {platform_id}. Did you remember to annotate your source class with @platform_name({platform_id})?"
-            logger.error(warning_msg)
-            metrics["source_platforms"]["warnings"].append(warning_msg)  # type: ignore
-            continue
+        # if "name" not in platform_docs:
+        #     # We seem to have discovered written docs that corresponds to a platform, but haven't found linkage to it from the source classes
+        #     warning_msg = f"Failed to find source classes for platform {platform_id}. Did you remember to annotate your source class with @platform_name({platform_id})?"
+        #     logger.error(warning_msg)
+        #     metrics["source_platforms"]["warnings"].append(warning_msg)  # type: ignore
+        #     continue
 
         with open(platform_doc_file, "w") as f:
             i += 1
@@ -405,12 +352,12 @@ def generate(
             f.write(
                 "import Tabs from '@theme/Tabs';\nimport TabItem from '@theme/TabItem';\n\n"
             )
-            f.write(f"# {platform_docs['name']}\n")
+            f.write(f"# {platform.name}\n")
 
-            if len(platform_docs["plugins"].keys()) > 1:
+            if len(platform.plugins) > 1:
                 # More than one plugin used to provide integration with this platform
                 f.write(
-                    f"There are {len(platform_docs['plugins'].keys())} sources that provide integration with {platform_docs['name']}\n"
+                    f"There are {len(platform.plugins)} sources that provide integration with {platform.name}\n"
                 )
                 f.write("\n")
                 f.write("<table>\n")
@@ -419,18 +366,22 @@ def generate(
                     f.write(f"<td>{col_header}</td>")
                 f.write("</tr>")
 
+                # Sort plugins in the platform.
+                # It's a dict, so we need to recreate it.
+                platform.plugins = dict(
+                    sorted(
+                        platform.plugins.items(),
+                        key=lambda x: str(x[1].doc_order) if x[1].doc_order else x[0],
+                    )
+                )
+
                 #                f.write("| Source Module | Documentation |\n")
                 #                f.write("| ------ | ---- |\n")
-                for plugin, plugin_docs in sorted(
-                    platform_docs["plugins"].items(),
-                    key=lambda x: str(x[1].get("doc_order"))
-                    if x[1].get("doc_order")
-                    else x[0],
-                ):
+                for plugin_name, plugin in platform.plugins.items():
                     f.write("<tr>\n")
-                    f.write(f"<td>\n\n`{plugin}`\n\n</td>\n")
+                    f.write(f"<td>\n\n`{plugin_name}`\n\n</td>\n")
                     f.write(
-                        f"<td>\n\n\n{platform_docs['plugins'][plugin].get('source_doc') or ''} [Read more...](#module-{plugin})\n\n\n</td>\n"
+                        f"<td>\n\n\n{plugin.source_docstring or ''} [Read more...](#module-{plugin_name})\n\n\n</td>\n"
                     )
                     f.write("</tr>\n")
                 #                    f.write(
@@ -438,43 +389,33 @@ def generate(
                 #                    )
                 f.write("</table>\n\n")
             # insert platform level custom docs before plugin section
-            f.write(platform_docs.get("custom_docs") or "")
+            f.write(platform.custom_docs_pre or "")
             # all_plugins = platform_docs["plugins"].keys()
 
-            for plugin, plugin_docs in sorted(
-                platform_docs["plugins"].items(),
-                key=lambda x: str(x[1].get("doc_order"))
-                if x[1].get("doc_order")
-                else x[0],
-            ):
-                if len(platform_docs["plugins"].keys()) > 1:
+            for plugin_name, plugin in platform.plugins.items():
+                if len(platform.plugins) > 1:
                     # We only need to show this if there are multiple modules.
-                    f.write(f"\n\n## Module `{plugin}`\n")
+                    f.write(f"\n\n## Module `{plugin_name}`\n")
 
-                if "support_status" in plugin_docs:
-                    f.write(
-                        get_support_status_badge(plugin_docs["support_status"]) + "\n\n"
-                    )
-                if "capabilities" in plugin_docs and len(plugin_docs["capabilities"]):
+                if plugin.support_status != SupportStatus.UNKNOWN:
+                    f.write(get_support_status_badge(plugin.support_status) + "\n\n")
+                if plugin.capabilities and len(plugin.capabilities):
                     f.write("\n### Important Capabilities\n")
                     f.write("| Capability | Status | Notes |\n")
                     f.write("| ---------- | ------ | ----- |\n")
-                    plugin_capabilities: List[CapabilitySetting] = plugin_docs[
-                        "capabilities"
-                    ]
-                    for cap_setting in plugin_capabilities:
+                    for cap_setting in plugin.capabilities:
                         f.write(
                             f"| {get_capability_text(cap_setting.capability)} | {get_capability_supported_badge(cap_setting.supported)} | {cap_setting.description} |\n"
                         )
                     f.write("\n")
 
-                f.write(f"{plugin_docs.get('source_doc') or ''}\n")
+                f.write(f"{plugin.source_docstring or ''}\n")
                 # Insert custom pre section
-                f.write(plugin_docs.get("custom_docs_pre", ""))
+                f.write(plugin.custom_docs_pre or "")
                 f.write("\n### CLI based Ingestion\n")
-                if "extra_deps" in plugin_docs:
+                if plugin.extra_deps and len(plugin.extra_deps):
                     f.write("\n#### Install the Plugin\n")
-                    if plugin_docs["extra_deps"] != []:
+                    if plugin.extra_deps != []:
                         f.write("```shell\n")
                         f.write(f"pip install 'acryl-datahub[{plugin}]'\n")
                         f.write("```\n")
@@ -482,7 +423,7 @@ def generate(
                         f.write(
                             f"The `{plugin}` source works out of the box with `acryl-datahub`.\n"
                         )
-                if "recipe" in plugin_docs:
+                if plugin.starter_recipe:
                     f.write("\n### Starter Recipe\n")
                     f.write(
                         "Check out the following recipe to get started with ingestion! See [below](#config-details) for full configuration options.\n\n\n"
@@ -491,9 +432,10 @@ def generate(
                         "For general pointers on writing and running a recipe, see our [main recipe guide](../../../../metadata-ingestion/README.md#recipes).\n"
                     )
                     f.write("```yaml\n")
-                    f.write(plugin_docs["recipe"])
+                    f.write(plugin.starter_recipe)
                     f.write("\n```\n")
-                if "config" in plugin_docs:
+                if plugin.config_json_schema:
+                    assert plugin.config_md is not None
                     f.write("\n### Config Details\n")
                     f.write(
                         """<Tabs>
@@ -505,8 +447,8 @@ def generate(
                     # f.write(
                     #     "\n<details open>\n<summary>View All Configuration Options</summary>\n\n"
                     # )
-                    for doc in plugin_docs["config"]:
-                        f.write(doc)
+                    f.write(plugin.config_md)
+                    f.write("\n\n")
                     # f.write("\n</details>\n\n")
                     f.write(
                         f"""</TabItem>
@@ -514,26 +456,27 @@ def generate(
 
 The [JSONSchema](https://json-schema.org/) for this configuration is inlined below.\n\n
 ```javascript
-{plugin_docs['config_schema']}
+{plugin.config_json_schema}
 ```\n\n
 </TabItem>
 </Tabs>\n\n"""
                     )
+
                 # insert custom plugin docs after config details
-                f.write(plugin_docs.get("custom_docs_post", ""))
-                if "classname" in plugin_docs:
+                f.write(plugin.custom_docs_post or "")
+                if plugin.classname:
                     f.write("\n### Code Coordinates\n")
-                    f.write(f"- Class Name: `{plugin_docs['classname']}`\n")
-                    if "filename" in plugin_docs:
+                    f.write(f"- Class Name: `{plugin.classname}`\n")
+                    if plugin.filename:
                         f.write(
-                            f"- Browse on [GitHub](../../../../metadata-ingestion/{plugin_docs['filename']})\n\n"
+                            f"- Browse on [GitHub](../../../../metadata-ingestion/{plugin.filename})\n\n"
                         )
                 metrics["plugins"]["generated"] = metrics["plugins"]["generated"] + 1  # type: ignore
 
             # Using an h2 tag to prevent this from showing up in page's TOC sidebar.
             f.write("\n<h2>Questions</h2>\n\n")
             f.write(
-                f"If you've got any questions on configuring ingestion for {platform_docs.get('name',platform_id)}, feel free to ping us on [our Slack](https://slack.datahubproject.io).\n"
+                f"If you've got any questions on configuring ingestion for {platform.name}, feel free to ping us on [our Slack](https://slack.datahubproject.io).\n"
             )
             metrics["source_platforms"]["generated"] = (
                 metrics["source_platforms"]["generated"] + 1  # type: ignore
@@ -656,30 +599,27 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
         )
         f.write("| ---------- | ------ | ----- |----- |\n")
 
-        for platform_id, platform_docs in sorted(
-            source_documentation.items(),
-            key=lambda x: (x[1]["name"].casefold(), x[1]["name"])
-            if "name" in x[1]
-            else (x[0].casefold(), x[0]),
+        for platform_id, platform in sorted(
+            platforms.items(),
+            key=lambda x: (x[1].name.casefold(), x[1].name),
         ):
-            for plugin, plugin_docs in sorted(
-                platform_docs["plugins"].items(),
-                key=lambda x: str(x[1].get("doc_order"))
-                if x[1].get("doc_order")
-                else x[0],
+            for plugin in sorted(
+                platform.plugins.values(),
+                key=lambda x: str(x.doc_order) if x.doc_order else x.name,
             ):
-                platform_name = platform_docs["name"]
-                if len(platform_docs["plugins"].keys()) > 1:
+                if len(platform.plugins) > 1:
                     # We only need to show this if there are multiple modules.
-                    platform_name = f"{platform_name} `{plugin}`"
+                    platform_plugin_name = f"{platform.name} `{plugin.name}`"
+                else:
+                    platform_plugin_name = platform.name
 
                 # Initialize variables
                 table_level_supported = "❌"
                 column_level_supported = "❌"
                 config_names = ""
 
-                if "capabilities" in plugin_docs:
-                    plugin_capabilities = plugin_docs["capabilities"]
+                if plugin.capabilities and len(plugin.capabilities):
+                    plugin_capabilities = plugin.capabilities
 
                     for cap_setting in plugin_capabilities:
                         capability_text = get_capability_text(cap_setting.capability)
@@ -700,10 +640,10 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
                             column_level_supported = "✅"
 
                 if not (table_level_supported == "❌" and column_level_supported == "❌"):
-                    if "config_schema" in plugin_docs:
-                        config_properties = json.loads(
-                            plugin_docs["config_schema"]
-                        ).get("properties", {})
+                    if plugin.config_json_schema:
+                        config_properties = json.loads(plugin.config_json_schema).get(
+                            "properties", {}
+                        )
                         config_names = "<br />".join(
                             [
                                 f"- {property_name}"
@@ -725,7 +665,7 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
                 ]
                 if platform_id not in lineage_not_applicable_sources:
                     f.write(
-                        f"| [{platform_name}](../../generated/ingestion/sources/{platform_id}.md) | {table_level_supported} | {column_level_supported} | {config_names}|\n"
+                        f"| [{platform_plugin_name}](../../generated/ingestion/sources/{platform_id}.md) | {table_level_supported} | {column_level_supported} | {config_names}|\n"
                     )
 
         f.write(
