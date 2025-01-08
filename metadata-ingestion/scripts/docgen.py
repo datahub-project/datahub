@@ -319,11 +319,9 @@ def generate(
                 if yml_match:
                     platform_name = yml_match.group(1).lower()
                     plugin_name = yml_match.group(2)
-                    with open(path, "r") as doc_file:
-                        file_contents = doc_file.read()
-                        platforms[platform_name].plugins[
-                            plugin_name
-                        ].starter_recipe = file_contents
+                    platforms[platform_name].plugins[
+                        plugin_name
+                    ].starter_recipe = pathlib.Path(path).read_text()
 
     sources_dir = f"{out_dir}/sources"
     os.makedirs(sources_dir, exist_ok=True)
@@ -497,7 +495,7 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
         f.write(
             "import FeatureAvailability from '@site/src/components/FeatureAvailability';\n\n"
         )
-        f.write(f"# About DataHub Lineage\n\n")
+        f.write("# About DataHub Lineage\n\n")
         f.write("<FeatureAvailability/>\n")
 
         f.write(
