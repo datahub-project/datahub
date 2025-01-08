@@ -82,30 +82,48 @@ include ':metadata-integration:java:datahub-schematron:cli'
 def installPreCommitHooks() {
     def preCommitInstalled = false
     try {
-        def process = "pre-commit --version".execute()
-        process.waitFor()
+        def process = ["which", "pre-commit"].execute()
+        def stdout = new StringBuilder()
+        def stderr = new StringBuilder()
+        process.waitForProcessOutput(stdout, stderr)
         preCommitInstalled = (process.exitValue() == 0)
+        println "Pre-commit check: ${stdout}"
     } catch (Exception e) {
-        println "pre-commit is not installed"
+        println "Error checking pre-commit: ${e.message}"
+        return
     }
 
     if (!preCommitInstalled) {
-        println "Installing pre-commit..."
-        def installProcess = "pip install pre-commit".execute()
-        installProcess.waitFor()
-        if (installProcess.exitValue() != 0) {
-            throw new GradleException("Failed to install pre-commit. Error: ${installProcess.err.text}")
+        try {
+            def installProcess = ["python", "-m", "pip", "install", "pre-commit"].execute()
+            def stdout = new StringBuilder()
+            def stderr = new StringBuilder()
+            installProcess.waitForProcessOutput(stdout, stderr)
+            if (installProcess.exitValue() != 0) {
+                println "Failed to install pre-commit: ${stderr}"
+                return
+            }
+            println "Install output: ${stdout}"
+        } catch (Exception e) {
+            println "Error installing pre-commit: ${e.message}"
+            return 
         }
-        println "pre-commit installed successfully"
     }
 
-    println "Installing pre-commit hooks..."
-    def installHooksProcess = "pre-commit install".execute()
-    installHooksProcess.waitFor()
-    if (installHooksProcess.exitValue() != 0) {
-        throw new GradleException("Failed to install pre-commit hooks. Error: ${installHooksProcess.err.text}")
+    try {
+        def installHooksProcess = ["python", "-m", "pre_commit", "install"].execute()
+        def stdout = new StringBuilder()
+        def stderr = new StringBuilder()
+        installHooksProcess.waitForProcessOutput(stdout, stderr)
+        if (installHooksProcess.exitValue() != 0) {
+            println "Failed to install hooks: ${stderr}"
+            return
+        }
+        println "Hooks output: ${stdout}"
+    } catch (Exception e) {
+        println "Error installing hooks: ${e.message}"
+        return
     }
-    println "pre-commit hooks installed successfully"
 }
 
 installPreCommitHooks()
