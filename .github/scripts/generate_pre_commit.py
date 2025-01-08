@@ -1,7 +1,8 @@
 """Generate pre-commit hooks for Java and Python projects.
 
 This script scans a repository for Java and Python projects and generates appropriate
-pre-commit hooks for linting and formatting.
+pre-commit hooks for linting and formatting. It also merges in additional hooks from
+an override file.
 """
 
 import os
@@ -138,8 +139,9 @@ class ProjectFinder:
 class HookGenerator:
     """Generate pre-commit hooks for projects."""
 
-    def __init__(self, projects: list[Project]):
+    def __init__(self, projects: list[Project], override_file: str = None):
         self.projects = projects
+        self.override_file = override_file
 
     def generate_config(self) -> dict:
         """Generate the complete pre-commit config."""
@@ -151,7 +153,32 @@ class HookGenerator:
             else:  # ProjectType.JAVA
                 hooks.append(self._generate_spotless_hook(project))
 
-        return {"repos": [{"repo": "local", "hooks": hooks}]}
+        config = {"repos": [{"repo": "local", "hooks": hooks}]}
+        
+        # Merge override hooks if they exist
+        if self.override_file and os.path.exists(self.override_file):
+            try:
+                with open(self.override_file, 'r') as f:
+                    override_config = yaml.safe_load(f)
+                
+                if override_config and 'repos' in override_config:
+                    for override_repo in override_config['repos']:
+                        matching_repo = next(
+                            (repo for repo in config['repos'] 
+                             if repo['repo'] == override_repo['repo']),
+                            None
+                        )
+                        
+                        if matching_repo:
+                            matching_repo['hooks'].extend(override_repo.get('hooks', []))
+                        else:
+                            config['repos'].append(override_repo)
+                
+                print(f"Merged additional hooks from {self.override_file}")
+            except Exception as e:
+                print(f"Warning: Error reading override file {self.override_file}: {e}")
+
+        return config
 
     def _generate_lint_fix_hook(self, project: Project) -> dict:
         """Generate a lint-fix hook for Python projects."""
@@ -208,6 +235,7 @@ def write_yaml_with_spaces(file_path: str, data: dict):
 
 def main():
     root_dir = os.path.abspath(os.curdir)
+    override_file = ".github/scripts/pre-commit-override.yaml"
 
     # Find projects
     finder = ProjectFinder(root_dir)
@@ -226,7 +254,7 @@ def main():
             print(f"  - {project.path}")
 
     # Generate and write config
-    generator = HookGenerator(projects)
+    generator = HookGenerator(projects, override_file)
     config = generator.generate_config()
     write_yaml_with_spaces(".pre-commit-config.yaml", config)
 
