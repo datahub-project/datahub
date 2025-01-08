@@ -50,8 +50,11 @@ export default function useChangeHistoryData(urn: string | undefined, range: Tim
             };
         });
 
+        // FYI: the data from backend come unsorted. Sort them by date
+        const sortedData = [...convertedData].sort((a, b) => a.day.localeCompare(b.day));
+
         return addMonthOverMonthValue(
-            convertedData,
+            sortedData,
             (d) => d.day,
             (d) => d.value.total,
         ).map((datum) => ({
