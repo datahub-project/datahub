@@ -130,7 +130,7 @@ class DataHubSource(StatefulIngestionSourceBase):
             self._commit_progress(i)
 
     def _get_kafka_workunits(
-        self, from_offsets: Dict[int, int], soft_deleted_urns: List[str] = []
+        self, from_offsets: Dict[int, int], soft_deleted_urns: List[str]
     ) -> Iterable[MetadataWorkUnit]:
         if self.config.kafka_connection is None:
             return

@@ -78,6 +78,11 @@ jobs:
           flags: gx-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}
           name: pytest-gx
           verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   event-file:
     runs-on: ubuntu-latest
