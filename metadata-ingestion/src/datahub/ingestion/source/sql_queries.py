@@ -70,11 +70,6 @@ class SqlQueriesSourceConfig(PlatformInstanceConfigMixin, EnvConfigMixin):
         description="The SQL dialect to use when parsing queries. Overrides automatic dialect detection.",
         default=None,
     )
-    # Configuration option for column-level lineage aggregation
-    aggregate_column_lineage: bool = Field(
-        description="If set to true, column-level lineage is aggregated across queries in the same file.",
-        default=False,
-    )
 
 
 class SqlQueriesSourceReport(SourceReport):
@@ -163,14 +158,6 @@ class SqlQueriesSource(Source):
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Parsing queries from {os.path.basename(self.config.query_file)}")
-        
-        # Initialize the aggregated lineage map if aggregate_column_lineage is enabled
-        if self.config.aggregate_column_lineage:
-            logger.info("Column-level lineage aggregation is enabled.")
-            self.aggregated_lineage = defaultdict(set)  # Tracks lineage for columns across queries in the same file
-        else:
-            logger.info("Column-level lineage aggregation is disabled.")
-        
         with open(self.config.query_file) as f:
             for line in f:
                 try:
@@ -180,30 +167,6 @@ class SqlQueriesSource(Source):
                 except Exception as e:
                     logger.warning("Error processing query", exc_info=True)
                     self.report.report_warning("process-query", str(e))
-
-        # Emit final aggregated lineage if aggregate_column_lineage is enabled
-        if self.config.aggregate_column_lineage:
-            for (table, column), upstreams in self.aggregated_lineage.items():
-                downstream_urn = make_dataset_urn_with_platform_instance(
-                    name=f"{table}.{column}",
-                    platform=self.config.platform,
-                    platform_instance=self.config.platform_instance,
-                    env=self.config.env,
-                )
-                upstream_urns = [
-                    make_dataset_urn_with_platform_instance(
-                        name=f"{upstream_table}.{upstream_column}",
-                        platform=self.config.platform,
-                        platform_instance=self.config.platform_instance,
-                        env=self.config.env,
-                    )
-                    for upstream_table, upstream_column in upstreams
-                ]
-                logger.debug(f"Emitting aggregated lineage for {table}.{column}: {upstreams}")
-                self.builder.add_lineage(
-                    downstream_urn=downstream_urn,
-                    upstream_urns=upstream_urns,
-                )
 
         logger.info("Generating workunits")
         yield from self.builder.gen_workunits()
@@ -236,17 +199,6 @@ class SqlQueriesSource(Source):
                 f"Error parsing column lineage, {result.debug_info.column_error}"
             )
             self.report.num_column_parse_failures += 1
-
-        # Aggregate column-level lineage if aggregate_column_lineage is enabled
-        if self.config.aggregate_column_lineage and result.column_lineage:
-            for col_lineage in result.column_lineage:
-                downstream_col = (col_lineage.downstream.table, col_lineage.downstream.column)
-                previous_upstreams = self.aggregated_lineage[downstream_col]
-                new_upstreams = {
-                    (upstream.table, upstream.column) for upstream in col_lineage.upstreams
-                }
-                self.aggregated_lineage[downstream_col].update(new_upstreams)
-                logger.debug(f"Updated lineage for {downstream_col}: Previous={previous_upstreams}, New={new_upstreams}")
 
         yield from self.builder.process_sql_parsing_result(
             result,
