@@ -88,7 +88,7 @@ class ProjectFinder:
         return {
             p
             for p in java_projects
-            if "buildSrc" not in p and "spark-smoke-test" not in p
+            if "buildSrc" not in p and "spark-smoke-test" not in p and p != "."
         }
 
     def _find_python_projects(self) -> set[str]:

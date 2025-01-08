@@ -1,12 +1,6 @@
 repos:
   - repo: local
     hooks:
-      - id: --spotless
-        name: . Spotless Apply
-        entry: ./gradlew :.:spotlessApply
-        language: system
-        files: ^./.*\.java$
-
       - id: datahub-graphql-core-spotless
         name: datahub-graphql-core Spotless Apply
         entry: ./gradlew :datahub-graphql-core:spotlessApply
