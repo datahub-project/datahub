@@ -1,18 +1,14 @@
-import { Pill, Text, colors } from '@components';
+import { Text } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActionButtonsContainer,
     Container,
-    DescriptionContainer,
     Dropdown,
-    HighlightedLabel,
     LabelContainer,
-    LabelsWrapper,
     OptionContainer,
     OptionLabel,
     OptionList,
-    Placeholder,
     SearchIcon,
     SearchInput,
     SearchInputContainer,
@@ -20,66 +16,12 @@ import {
     SelectBase,
     SelectLabel,
     SelectLabelContainer,
-    SelectValue,
     StyledCheckbox,
     StyledClearButton,
     StyledIcon,
 } from './components';
-import { ActionButtonsProps, SelectLabelDisplayProps, SelectOption, SelectProps } from './types';
-
-const SelectLabelDisplay = ({
-    selectedValues,
-    options,
-    placeholder,
-    isMultiSelect,
-    removeOption,
-    disabledValues,
-    showDescriptions,
-    isCustomisedLabel,
-}: SelectLabelDisplayProps) => {
-    const selectedOptions = options.filter((opt) => selectedValues.includes(opt.value));
-    return (
-        <LabelsWrapper>
-            {!!selectedOptions.length &&
-                isMultiSelect &&
-                selectedOptions.map((o) => {
-                    const isDisabled = disabledValues?.includes(o.value);
-                    return (
-                        <Pill
-                            label={o.label}
-                            rightIcon={!isDisabled ? 'Close' : ''}
-                            size="sm"
-                            key={o.value}
-                            onClickRightIcon={(e) => {
-                                e.stopPropagation();
-                                removeOption?.(o);
-                            }}
-                            clickable={!isDisabled}
-                        />
-                    );
-                })}
-            {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
-            {!isMultiSelect && (
-                <>
-                    {isCustomisedLabel && selectedValues.length > 0 ? (
-                        <ActionButtonsContainer>
-                            <SelectValue>Group</SelectValue>
-                            <HighlightedLabel>{selectedOptions[0]?.label}</HighlightedLabel>
-                        </ActionButtonsContainer>
-                    ) : (
-                        <ActionButtonsContainer>
-                            {selectedOptions[0]?.icon}
-                            <SelectValue>{selectedOptions[0]?.label}</SelectValue>
-                        </ActionButtonsContainer>
-                    )}
-                    {showDescriptions && !!selectedValues.length && (
-                        <DescriptionContainer>{selectedOptions[0]?.description}</DescriptionContainer>
-                    )}
-                </>
-            )}
-        </LabelsWrapper>
-    );
-};
+import SelectLabelRenderer from './private/SelectLabelRenderer/SelectLabelRenderer';
+import { ActionButtonsProps, SelectOption, SelectProps } from './types';
 
 const SelectActionButtons = ({
     selectedValues,
@@ -135,8 +77,9 @@ export const SimpleSelect = ({
     showSelectAll = selectDefaults.showSelectAll,
     selectAllLabel = selectDefaults.selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
-    isCustomisedLabel = false,
     optionListTestId,
+    optionSwitchable,
+    selectLabelProps,
     ...props
 }: SelectProps) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -220,7 +163,7 @@ export const SimpleSelect = ({
             ref={selectRef}
             size={size || 'md'}
             width={props.width || 255}
-            isCustomisedLabel={isCustomisedLabel}
+            $selectLabelVariant={selectLabelProps?.variant}
             isSelected={selectedValues.length > 0}
         >
             {label && <SelectLabel onClick={handleSelectClick}>{label}</SelectLabel>}
@@ -235,7 +178,7 @@ export const SimpleSelect = ({
             >
                 <SelectLabelContainer>
                     {icon && <StyledIcon icon={icon} size="lg" />}
-                    <SelectLabelDisplay
+                    <SelectLabelRenderer
                         selectedValues={selectedValues}
                         options={options}
                         placeholder={placeholder || 'Select an option'}
@@ -243,7 +186,7 @@ export const SimpleSelect = ({
                         removeOption={handleOptionChange}
                         disabledValues={disabledValues}
                         showDescriptions={showDescriptions}
-                        isCustomisedLabel={isCustomisedLabel}
+                        {...(selectLabelProps || {})}
                     />
                 </SelectLabelContainer>
                 <SelectActionButtons
@@ -290,7 +233,7 @@ export const SimpleSelect = ({
                                 key={option.value}
                                 onClick={() => {
                                     if (!isMultiSelect) {
-                                        if (isCustomisedLabel && selectedValues.includes(option.value)) {
+                                        if (optionSwitchable && selectedValues.includes(option.value)) {
                                             handleClearSelection();
                                         } else {
                                             handleOptionChange(option);
@@ -300,7 +243,6 @@ export const SimpleSelect = ({
                                 isSelected={selectedValues.includes(option.value)}
                                 isMultiSelect={isMultiSelect}
                                 isDisabled={disabledValues?.includes(option.value)}
-                                isCustomisedLabel={isCustomisedLabel}
                             >
                                 {isMultiSelect ? (
                                     <LabelContainer>
@@ -318,12 +260,7 @@ export const SimpleSelect = ({
                                             <Text
                                                 weight="semiBold"
                                                 size="md"
-                                                style={{
-                                                    color:
-                                                        isCustomisedLabel && selectedValues.includes(option.value)
-                                                            ? colors.violet[500]
-                                                            : 'gray',
-                                                }}
+                                                color={selectedValues.includes(option.value) ? 'violet' : 'gray'}
                                             >
                                                 {option.label}
                                             </Text>

@@ -1,18 +1,15 @@
-import { Button, Pill, Text } from '@components';
+import { Button, Text } from '@components';
 import { isEqual } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     ActionButtonsContainer,
     Container,
-    DescriptionContainer,
     Dropdown,
     FooterBase,
     LabelContainer,
-    LabelsWrapper,
     OptionContainer,
     OptionLabel,
     OptionList,
-    Placeholder,
     SearchIcon,
     SearchInput,
     SearchInputContainer,
@@ -20,60 +17,14 @@ import {
     SelectBase,
     SelectLabel,
     SelectLabelContainer,
-    SelectValue,
     StyledCancelButton,
     StyledCheckbox,
     StyledClearButton,
     StyledIcon,
 } from './components';
-import { ActionButtonsProps, SelectLabelDisplayProps, SelectOption, SelectProps } from './types';
+import SelectLabelRenderer from './private/SelectLabelRenderer/SelectLabelRenderer';
+import { ActionButtonsProps, SelectOption, SelectProps } from './types';
 import { getFooterButtonSize } from './utils';
-
-const SelectLabelDisplay = ({
-    selectedValues,
-    options,
-    placeholder,
-    isMultiSelect,
-    removeOption,
-    disabledValues,
-    showDescriptions,
-}: SelectLabelDisplayProps) => {
-    const selectedOptions = options.filter((opt) => selectedValues.includes(opt.value));
-    return (
-        <LabelsWrapper>
-            {!!selectedOptions.length &&
-                isMultiSelect &&
-                selectedOptions.map((o) => {
-                    const isDisabled = disabledValues?.includes(o.value);
-                    return (
-                        <Pill
-                            label={o.label}
-                            rightIcon={!isDisabled ? 'Close' : ''}
-                            size="sm"
-                            key={o.value}
-                            onClickRightIcon={(e) => {
-                                e.stopPropagation();
-                                removeOption?.(o);
-                            }}
-                            clickable={!isDisabled}
-                        />
-                    );
-                })}
-            {!selectedValues.length && <Placeholder>{placeholder}</Placeholder>}
-            {!isMultiSelect && (
-                <>
-                    <ActionButtonsContainer>
-                        {selectedOptions[0]?.icon}
-                        <SelectValue>{selectedOptions[0]?.label}</SelectValue>
-                    </ActionButtonsContainer>
-                    {showDescriptions && !!selectedValues.length && (
-                        <DescriptionContainer>{selectedOptions[0]?.description}</DescriptionContainer>
-                    )}
-                </>
-            )}
-        </LabelsWrapper>
-    );
-};
 
 const SelectActionButtons = ({
     selectedValues,
@@ -245,7 +196,7 @@ export const BasicSelect = ({
             >
                 <SelectLabelContainer>
                     {icon && <StyledIcon icon={icon} size="lg" />}
-                    <SelectLabelDisplay
+                    <SelectLabelRenderer
                         selectedValues={selectedValues}
                         options={options}
                         placeholder={placeholder || 'Select an option'}

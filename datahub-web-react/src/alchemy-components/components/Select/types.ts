@@ -10,6 +10,8 @@ export interface SelectOption {
     icon?: React.ReactNode;
 }
 
+export type SelectLabelVariants = 'default' | 'labeled';
+
 export interface SelectProps {
     options: SelectOption[];
     label?: string;
@@ -31,8 +33,12 @@ export interface SelectProps {
     showSelectAll?: boolean;
     selectAllLabel?: string;
     showDescriptions?: boolean;
-    isCustomisedLabel?: boolean;
     optionListTestId?: string;
+    optionSwitchable?: boolean;
+    selectLabelProps?: {
+        variant?: SelectLabelVariants;
+        label?: string;
+    };
 }
 
 export interface SelectStyleProps {
@@ -61,7 +67,12 @@ export interface SelectLabelDisplayProps {
     removeOption?: (option: SelectOption) => void;
     disabledValues?: string[];
     showDescriptions?: boolean;
-    isCustomisedLabel?: boolean;
+    variant?: SelectLabelVariants;
+    label?: string;
+}
+
+export interface SelectLabelVariantProps extends Omit<SelectLabelDisplayProps, 'variant'> {
+    selectedOptions: SelectOption[];
 }
 
 export interface SearchInputProps extends React.InputHTMLAttributes<HTMLInputElement> {

@@ -170,6 +170,22 @@ const meta: Meta = {
                 type: 'select',
             },
         },
+        optionSwitchable: {
+            description: 'Set to `true` to uselect option by clicking on it',
+            type: 'boolean',
+            table: {
+                defaultValue: { summary: 'undefined' },
+            },
+            control: {
+                type: 'boolean',
+            },
+        },
+        selectLabelProps: {
+            description: 'Additional props for rendering of select label',
+            table: {
+                defaultValue: { summary: 'undefined' },
+            },
+        },
     },
 
     // Define defaults

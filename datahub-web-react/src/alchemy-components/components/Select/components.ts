@@ -3,7 +3,7 @@ import { borders, colors, radius, shadows, spacing, transition, typography } fro
 import { Checkbox } from 'antd';
 import styled from 'styled-components';
 import { formLabelTextStyles, inputPlaceholderTextStyles, inputValueTextStyles } from '../commonStyles';
-import { SelectSizeOptions, SelectStyleProps } from './types';
+import { SelectLabelVariants, SelectSizeOptions, SelectStyleProps } from './types';
 import { getOptionLabelStyle, getSelectFontStyles, getSelectStyle } from './utils';
 
 const sharedTransition = `${transition.property.colors} ${transition.easing['ease-in-out']} ${transition.duration.normal}`;
@@ -44,13 +44,13 @@ export const SelectLabelContainer = styled.div({
 interface ContainerProps {
     size: SelectSizeOptions;
     width?: number | 'full';
-    isCustomisedLabel?: boolean;
+    $selectLabelVariant?: SelectLabelVariants;
     isSelected?: boolean;
 }
 
-export const Container = styled.div<ContainerProps>(({ size, width, isCustomisedLabel, isSelected }) => {
+export const Container = styled.div<ContainerProps>(({ size, width, $selectLabelVariant, isSelected }) => {
     const getMinWidth = () => {
-        if (isCustomisedLabel) {
+        if ($selectLabelVariant === 'labeled') {
             return isSelected ? '145px' : '103px';
         }
         return '175px';
@@ -188,9 +188,8 @@ export const OptionLabel = styled.label<{
     isSelected: boolean;
     isMultiSelect?: boolean;
     isDisabled?: boolean;
-    isCustomisedLabel?: boolean;
-}>(({ isSelected, isMultiSelect, isDisabled, isCustomisedLabel }) => ({
-    ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled, isCustomisedLabel),
+}>(({ isSelected, isMultiSelect, isDisabled }) => ({
+    ...getOptionLabelStyle(isSelected, isMultiSelect, isDisabled),
 }));
 export const SelectAllOption = styled.div<{ isSelected: boolean; isDisabled?: boolean }>(
     ({ isSelected, isDisabled }) => ({

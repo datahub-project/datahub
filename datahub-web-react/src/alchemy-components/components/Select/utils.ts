@@ -3,21 +3,9 @@ import { getFontSize } from '@components/theme/utils';
 
 import { SelectStyleProps } from './types';
 
-export const getOptionLabelStyle = (
-    isSelected: boolean,
-    isMultiSelect?: boolean,
-    isDisabled?: boolean,
-    isCustomisedLabel?: boolean,
-) => {
-    let backgroundColor = 'transparent';
-
-    if (!isDisabled) {
-        if (isSelected && !isMultiSelect) {
-            backgroundColor = isCustomisedLabel ? colors.gray[1000] : colors.violet[100];
-        }
-    }
-
+export const getOptionLabelStyle = (isSelected: boolean, isMultiSelect?: boolean, isDisabled?: boolean) => {
     const color = isSelected ? colors.gray[600] : colors.gray[500];
+    const backgroundColor = !isDisabled && !isMultiSelect && isSelected ? colors.gray[1000] : 'transparent';
 
     return {
         cursor: isDisabled ? 'not-allowed' : 'pointer',

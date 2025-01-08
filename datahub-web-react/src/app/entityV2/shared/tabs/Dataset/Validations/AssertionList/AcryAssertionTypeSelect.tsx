@@ -21,6 +21,7 @@ export function AcryAssertionTypeSelect({ options, selectedValue, onSelect }: Pr
         <SimpleSelect
             options={options}
             values={selectedValue ? [selectedValue] : []}
+            selectLabelProps={{ variant: 'labeled', label: 'Group' }}
             onUpdate={(value) => {
                 if (value.length) {
                     onSelect(value[0]);
@@ -31,7 +32,7 @@ export function AcryAssertionTypeSelect({ options, selectedValue, onSelect }: Pr
             placeholder={displayValue}
             size="md"
             showClear={false}
-            isCustomisedLabel
+            optionSwitchable
             width={50}
         />
     );
