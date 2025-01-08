@@ -322,7 +322,7 @@ def _ensure_valid_gms_url_acryl_cloud(url: str) -> str:
     if "acryl.io" not in url:
         return url
     if url.endswith(":8080"):
-        url = url.removesuffix(":8080")
+        url = url.rstrip(":8080")
     if url.startswith("http://"):
         url = url.replace("http://", "https://")
     if url.endswith("acryl.io"):
