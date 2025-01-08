@@ -303,11 +303,13 @@ class LookerDashboardSourceConfig(
         description="Allow or deny dashboards from specific folders using their fully qualified paths. "
         "For example: \n"
         "deny: \n"
-        " - sales/deprecated \n"
-        "This pattern will deny the ingestion of all dashboards and looks within the sales/deprecated folder. \n"
+        " - Shared/deprecated \n"
+        "This pattern will deny the ingestion of all dashboards and looks within the Shared/deprecated folder. \n"
         "allow: \n"
-        " - sales/customers \n"
-        "This pattern will allow only the ingestion of dashboards within the sales/customers folder. \n"
+        " - Shared/sales \n"
+        "This pattern will allow only the ingestion of dashboards within the Shared/sales folder. \n"
+        "To get the correct path from Looker, take the folder hierarchy shown in the UI and join it with slashes. "
+        "For example, Shared -> Customer Reports -> Sales becomes Shared/Customer Reports/Sales. "
         "Dashboards will only be ingested if they're allowed by both this config and dashboard_pattern.",
     )
 
