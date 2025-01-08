@@ -64,6 +64,12 @@ const meta = {
                 type: 'text',
             },
         },
+        width: {
+            description: 'The width of the card',
+            control: {
+                type: 'text',
+            },
+        },
         maxWidth: {
             description: 'The maximum width of the card',
             control: {

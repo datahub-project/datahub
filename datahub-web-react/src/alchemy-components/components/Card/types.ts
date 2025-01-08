@@ -9,6 +9,7 @@ export interface CardProps {
     icon?: React.ReactNode;
     iconAlignment?: IconAlignmentOptions;
     children?: React.ReactNode;
+    width?: string;
     maxWidth?: string;
     height?: string;
     isEmpty?: boolean;

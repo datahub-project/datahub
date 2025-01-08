@@ -18,6 +18,7 @@ export const Card = ({
     onClick,
     icon,
     children,
+    width,
     maxWidth,
     height,
     isEmpty,
@@ -25,14 +26,14 @@ export const Card = ({
     return (
         <>
             {isEmpty ? (
-                <CardContainer maxWidth={maxWidth} height={height}>
+                <CardContainer maxWidth={maxWidth} height={height} width={width}>
                     <TitleContainer>
                         <Title $isEmpty={isEmpty}>No Data</Title>
                         <SubTitle>{subTitle}</SubTitle>
                     </TitleContainer>
                 </CardContainer>
             ) : (
-                <CardContainer hasButton={!!button} onClick={onClick} maxWidth={maxWidth} height={height}>
+                <CardContainer hasButton={!!button} onClick={onClick} maxWidth={maxWidth} height={height} width={width}>
                     <Header iconAlignment={iconAlignment}>
                         {icon}
                         <TitleContainer>

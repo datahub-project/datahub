@@ -7,7 +7,7 @@ import { Maybe, UserUsageCounts } from '@src/types.generated';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { getMockTopUsersData } from './utils';
+import { getMockTopUsersData, getUserOrGroupAvatarUrl } from './utils';
 
 const CardWrapper = styled.div`
     display: flex;
@@ -32,7 +32,7 @@ const TopUsers = ({ users }: Props) => {
             key: 'name',
             render: (record) => {
                 const userEntity = record.user;
-                const avatarUrl = userEntity.editableProperties?.pictureLink || undefined;
+                const avatarUrl = getUserOrGroupAvatarUrl(userEntity) || undefined;
 
                 return (
                     <HoverEntityTooltip entity={userEntity} showArrow={false}>
@@ -48,7 +48,7 @@ const TopUsers = ({ users }: Props) => {
             width: '50%',
         },
         {
-            title: 'Queries per month',
+            title: 'Queries last month',
             key: 'queries',
             alignment: 'right' as AlignmentOptions,
             render: (record) => {

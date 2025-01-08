@@ -10,7 +10,7 @@ import AddAssertionButton from '../components/AddAssertionButton';
 import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
 import TimeRangeSelect from '../components/TimeRangeSelect';
-import { GRAPH_LOOPBACK_WINDOWS, GRAPH_LOOPBACK_WINDOWS_OPTIONS } from '../constants';
+import { GRAPH_LOOKBACK_WINDOWS, GRAPH_LOOKBACK_WINDOWS_OPTIONS } from '../constants';
 import useRowCountData from './useRowCountData';
 import useGetTimeRangeOptionsByLookbackWindow from '../hooks/useGetTimeRangeOptionsByLookbackWindow';
 
@@ -26,10 +26,10 @@ export default function RowCountGraph({ users }: RowCountGraphProps) {
         statsEntityUrn,
     } = useStatsSectionsContext();
     const timeRangeOptions = useGetTimeRangeOptionsByLookbackWindow(
-        GRAPH_LOOPBACK_WINDOWS_OPTIONS,
+        GRAPH_LOOKBACK_WINDOWS_OPTIONS,
         oldestDatasetProfileTime,
     );
-    const [lookbackWindow, setLookbackWindow] = useState<LookbackWindow>(GRAPH_LOOPBACK_WINDOWS.MONTH);
+    const [lookbackWindow, setLookbackWindow] = useState<LookbackWindow>(GRAPH_LOOKBACK_WINDOWS.MONTH);
     const [rangeType, setRangeType] = useState<string | null>(TimeRange.Month);
 
     const { data, loading: dataLoading } = useRowCountData(statsEntityUrn, lookbackWindow);
@@ -41,7 +41,7 @@ export default function RowCountGraph({ users }: RowCountGraphProps) {
     }, [data, setSectionState, sections.rowsAndUsers, users]);
 
     useEffect(() => {
-        if (rangeType) setLookbackWindow(GRAPH_LOOPBACK_WINDOWS[rangeType]);
+        if (rangeType) setLookbackWindow(GRAPH_LOOKBACK_WINDOWS[rangeType]);
     }, [rangeType, setLookbackWindow]);
 
     const loading = capabilitiesLoading || dataLoading;

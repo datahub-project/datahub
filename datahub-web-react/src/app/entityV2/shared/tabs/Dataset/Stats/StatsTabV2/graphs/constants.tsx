@@ -1,15 +1,15 @@
 import { DateInterval, TimeRange } from '@src/types.generated';
 
-export const GRAPH_LOOPBACK_WINDOWS = {
+export const GRAPH_LOOKBACK_WINDOWS = {
     WEEK: { text: 'Last Week', windowSize: { interval: DateInterval.Week, count: 1 } },
     MONTH: { text: 'Last 30 Days', windowSize: { interval: DateInterval.Day, count: 30 } },
-    QUATER: { text: 'Last 3 Months', windowSize: { interval: DateInterval.Month, count: 3 } },
+    QUARTER: { text: 'Last 3 Months', windowSize: { interval: DateInterval.Month, count: 3 } },
     HALF_OF_YEAR: { text: 'Last 6 Months', windowSize: { interval: DateInterval.Month, count: 6 } },
     YEAR: { text: 'Last Year', windowSize: { interval: DateInterval.Year, count: 1 } },
 };
 
-export const GRAPH_LOOPBACK_WINDOWS_OPTIONS = [
-    ...Object.entries(GRAPH_LOOPBACK_WINDOWS).map(([key, value]) => ({
+export const GRAPH_LOOKBACK_WINDOWS_OPTIONS = [
+    ...Object.entries(GRAPH_LOOKBACK_WINDOWS).map(([key, value]) => ({
         label: value.text,
         value: key,
     })),
@@ -18,8 +18,6 @@ export const GRAPH_LOOPBACK_WINDOWS_OPTIONS = [
 const getTimeRangeLabel = (value: TimeRange) => {
     // Todo: add the 6 month time range when it's implemented
     switch (value) {
-        case TimeRange.Day:
-            return 'Last day';
         case TimeRange.Week:
             return 'Last Week';
         case TimeRange.Month:
@@ -28,8 +26,6 @@ const getTimeRangeLabel = (value: TimeRange) => {
             return 'Last 3 months';
         case TimeRange.Year:
             return 'Last Year';
-        case TimeRange.All:
-            return 'All the time';
         default:
             return value;
     }

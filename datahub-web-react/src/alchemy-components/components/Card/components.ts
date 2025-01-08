@@ -2,8 +2,8 @@ import { colors, radius, spacing, typography } from '@src/alchemy-components/the
 import { IconAlignmentOptions } from '@src/alchemy-components/theme/config';
 import styled from 'styled-components';
 
-export const CardContainer = styled.div<{ hasButton?: boolean; maxWidth?: string; height?: string }>(
-    ({ hasButton, maxWidth, height }) => ({
+export const CardContainer = styled.div<{ hasButton?: boolean; width?: string; maxWidth?: string; height?: string }>(
+    ({ hasButton, width, maxWidth, height }) => ({
         border: `1px solid ${colors.gray[100]}`,
         borderRadius: radius.lg,
         padding: spacing.md,
@@ -14,7 +14,8 @@ export const CardContainer = styled.div<{ hasButton?: boolean; maxWidth?: string
         backgroundColor: colors.white,
         flexDirection: 'column',
         gap: spacing.md,
-        maxWidth: maxWidth || '100%',
+        maxWidth,
+        width,
         height,
 
         '&:hover': hasButton

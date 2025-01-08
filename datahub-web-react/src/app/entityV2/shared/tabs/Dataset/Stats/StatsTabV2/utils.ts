@@ -1,5 +1,5 @@
+import { CorpGroup, CorpUser, EntityType } from '@src/types.generated';
 import { GetDatasetQuery } from '@src/graphql/dataset.generated';
-import { EntityType } from '@src/types.generated';
 
 export const isPresent = (val?: string | number | null): val is string | number => {
     return val !== undefined && val !== null;
@@ -39,6 +39,10 @@ export enum SectionKeys {
     CHANGES = 'changes',
     COLUMN_STATS = 'columnStats',
 }
+
+export const getUserOrGroupAvatarUrl = (entity: CorpUser | CorpGroup) => {
+    return entity.editableProperties?.pictureLink;
+};
 
 const hasStats = (entity) => {
     return (
