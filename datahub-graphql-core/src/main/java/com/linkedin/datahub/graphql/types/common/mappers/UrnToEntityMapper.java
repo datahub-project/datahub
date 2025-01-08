@@ -240,6 +240,11 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       ((OwnershipTypeEntity) partialEntity).setUrn(input.toString());
       ((OwnershipTypeEntity) partialEntity).setType(EntityType.CUSTOM_OWNERSHIP_TYPE);
     }
+    if (input.getEntityType().equals(DATA_PROCESS_INSTANCE_ENTITY_NAME)) {
+      partialEntity = new DataProcessInstance();
+      ((DataProcessInstance) partialEntity).setUrn(input.toString());
+      ((DataProcessInstance) partialEntity).setType(EntityType.DATA_PROCESS_INSTANCE);
+    }
     return partialEntity;
   }
 }
