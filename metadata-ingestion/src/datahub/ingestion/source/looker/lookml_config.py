@@ -165,7 +165,7 @@ class LookMLSourceConfig(
         "view.sql_table_name. Defaults to an empty dictionary.",
     )
 
-    lookml_parameter: Dict[Any, Any] = Field(
+    lookml_parameter: Dict[str, str] = Field(
         {},
         description=(
             "A dictionary containing LookML parameters (`@{param_name}`) and their values. "
