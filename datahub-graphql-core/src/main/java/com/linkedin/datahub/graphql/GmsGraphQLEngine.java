@@ -346,6 +346,7 @@ import com.linkedin.datahub.graphql.types.dataflow.DataFlowType;
 import com.linkedin.datahub.graphql.types.datajob.DataJobType;
 import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
 import com.linkedin.datahub.graphql.types.dataplatforminstance.DataPlatformInstanceType;
+import com.linkedin.datahub.graphql.types.dataprocessinst.DataProcessInstanceType;
 import com.linkedin.datahub.graphql.types.dataprocessinst.mappers.DataProcessInstanceRunEventMapper;
 import com.linkedin.datahub.graphql.types.dataproduct.DataProductType;
 import com.linkedin.datahub.graphql.types.dataset.DatasetType;
@@ -530,6 +531,7 @@ public class GmsGraphQLEngine {
   private final FormType formType;
   private final IncidentType incidentType;
   private final RestrictedType restrictedType;
+  private final DataProcessInstanceType dataProcessInstanceType;
 
   private final int graphQLQueryComplexityLimit;
   private final int graphQLQueryDepthLimit;
@@ -649,6 +651,7 @@ public class GmsGraphQLEngine {
     this.formType = new FormType(entityClient);
     this.incidentType = new IncidentType(entityClient);
     this.restrictedType = new RestrictedType(entityClient, restrictedService);
+    this.dataProcessInstanceType = new DataProcessInstanceType(entityClient);
 
     this.graphQLQueryComplexityLimit = args.graphQLQueryComplexityLimit;
     this.graphQLQueryDepthLimit = args.graphQLQueryDepthLimit;
@@ -699,7 +702,8 @@ public class GmsGraphQLEngine {
                 formType,
                 incidentType,
                 restrictedType,
-                businessAttributeType));
+                businessAttributeType,
+                dataProcessInstanceType));
     this.loadableTypes = new ArrayList<>(entityTypes);
     // Extend loadable types with types from the plugins
     // This allows us to offer search and browse capabilities out of the box for

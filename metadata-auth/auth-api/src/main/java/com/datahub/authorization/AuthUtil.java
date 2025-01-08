@@ -1,21 +1,6 @@
 package com.datahub.authorization;
 
-import static com.linkedin.metadata.Constants.CHART_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DASHBOARD_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_FLOW_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_JOB_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_NODE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.GLOSSARY_TERM_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_FEATURE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_FEATURE_TABLE_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_MODEL_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_MODEL_GROUP_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.ML_PRIMARY_KEY_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.NOTEBOOK_ENTITY_NAME;
-import static com.linkedin.metadata.Constants.REST_API_AUTHORIZATION_ENABLED_ENV;
+import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
@@ -89,7 +74,8 @@ public class AuthUtil {
           GLOSSARY_NODE_ENTITY_NAME,
           DOMAIN_ENTITY_NAME,
           DATA_PRODUCT_ENTITY_NAME,
-          NOTEBOOK_ENTITY_NAME);
+          NOTEBOOK_ENTITY_NAME,
+          DATA_PROCESS_INSTANCE_ENTITY_NAME);
 
   /** OpenAPI/Rest.li Methods */
   public static List<Pair<MetadataChangeProposal, Integer>> isAPIAuthorized(
