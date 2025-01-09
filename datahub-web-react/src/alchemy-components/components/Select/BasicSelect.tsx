@@ -266,7 +266,11 @@ export const BasicSelect = ({
                                     <OptionContainer>
                                         <ActionButtonsContainer>
                                             {option.icon}
-                                            <Text color="gray" weight="semiBold" size="md">
+                                            <Text
+                                                color={selectedValues.includes(option.value) ? 'violet' : 'gray'}
+                                                weight="semiBold"
+                                                size="md"
+                                            >
                                                 {option.label}
                                             </Text>
                                         </ActionButtonsContainer>

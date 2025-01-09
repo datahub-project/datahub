@@ -36,8 +36,8 @@ export interface SelectProps {
     optionListTestId?: string;
     optionSwitchable?: boolean;
     selectLabelProps?: {
-        variant?: SelectLabelVariants;
-        label?: string;
+        variant: SelectLabelVariants;
+        label: string;
     };
 }
 
