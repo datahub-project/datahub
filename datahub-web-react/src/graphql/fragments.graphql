@@ -403,6 +403,9 @@ fragment dataJobFields on DataJob {
     dataPlatformInstance {
         ...dataPlatformInstanceFields
     }
+    parentContainers {
+        ...parentContainersFields
+    }
     privileges {
         canEditLineage
     }
