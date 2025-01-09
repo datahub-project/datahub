@@ -334,6 +334,8 @@ class SourceReport(Report):
         }
 
     def compute_stats(self) -> None:
+        super().compute_stats()
+
         duration = datetime.datetime.now() - self.start_time
         workunits_produced = self.events_produced
         if duration.total_seconds() > 0:
