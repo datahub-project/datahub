@@ -9,18 +9,6 @@ on:
       - "docker/datahub-ingestion-base/**"
       - "smoke-test/**"
       - ".github/workflows/docker-ingestion-smoke.yml"
-  pull_request:
-    branches:
-      - "**"
-    types:
-      - labeled
-      - opened
-      - synchronize
-      - reopened
-    paths:
-      - "docker/datahub-ingestion-base/**"
-      - "smoke-test/**"
-      - ".github/workflows/docker-ingestion-smoke.yml"
   workflow_dispatch:
 
 concurrency:
@@ -36,8 +24,7 @@ jobs:
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
       publish: ${{ steps.publish.outputs.publish }}
-      pr-publish: ${{ steps.pr-publish.outputs.publish }}
-      python_release_version: ${{ steps.tag.outputs.python_release_version }}
+      python_release_version: ${{ steps.python_release_version.outputs.release_version }}
     steps:
       - name: Checkout
         uses: acryldata/sane-checkout-action@v3
@@ -45,53 +32,38 @@ jobs:
         id: tag
         run: |
           source .github/scripts/docker_helpers.sh
-          echo "tag=$(get_tag)" >> "$GITHUB_OUTPUT"
-          echo "python_release_version=$(get_python_docker_release_v)" >> "$GITHUB_OUTPUT"
-          echo_tags
+          echo "tag=$(get_tag)" >> $GITHUB_OUTPUT
+      - name: Compute Python Release Version
+        id: python_release_version
+        run: |
+          source .github/scripts/docker_helpers.sh
+          echo "release_version=$(get_python_docker_release_v)" >> $GITHUB_OUTPUT
       - name: Check whether publishing enabled
         id: publish
         env:
-          ENABLE_PUBLISH: >-
-            ${{
-               github.event_name != 'pull_request'
-               && (( secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' ) || secrets.AWS_ECR_SECRET_ACCESS_KEY != '')
-            }}
+          ENABLE_PUBLISH: ${{ secrets.ACRYL_DOCKER_PASSWORD }}
         run: |
-          echo "Enable publish: ${{ env.ENABLE_PUBLISH }}"
-          echo "publish=${{ env.ENABLE_PUBLISH }}" >> "$GITHUB_OUTPUT"
-      - name: Check whether PR publishing enabled
-        id: pr-publish
-        env:
-          ENABLE_PUBLISH: >-
-            ${{
-               (github.event_name == 'pull_request' && (contains(github.event.pull_request.labels.*.name, 'publish') || contains(github.event.pull_request.labels.*.name, 'publish-docker')))
-               && (( secrets.DOCKER_PASSWORD != '' && secrets.ACRYL_DOCKER_PASSWORD != '' ) || secrets.AWS_ECR_SECRET_ACCESS_KEY != '')
-            }}
-        run: |
-          echo "Enable PR publish: ${{ env.ENABLE_PUBLISH }}"
-          echo "publish=${{ env.ENABLE_PUBLISH }}" >> "$GITHUB_OUTPUT"
+          echo "Enable publish: ${{ env.ENABLE_PUBLISH != '' }}"
+          echo "publish=${{ env.ENABLE_PUBLISH != '' }}" >> $GITHUB_OUTPUT
   build-smoke:
     name: Build and Push Docker Image to Docker Hub
     runs-on: depot-ubuntu-22.04
     needs: setup
-    if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+    if: ${{ needs.setup.outputs.publish == 'true' }}
     steps:
       - name: Check out the repo
         uses: acryldata/sane-checkout-action@v3
-      - name: Update versions
-        run: |
-          python .github/scripts/docker_helper/version_updater.py --version "${{ needs.setup.outputs.python_release_version }}"  --init "./metadata-ingestion/src/datahub/__init__.py"
-          python .github/scripts/docker_helper/version_updater.py --version "${{ needs.setup.outputs.python_release_version }}"  --init "./metadata-ingestion-modules/airflow-plugin/src/datahub_airflow_plugin/__init__.py"
       - name: Build and push
         uses: ./.github/actions/docker-custom-build-and-push
         with:
           images: |
             ${{ env.IMAGE }}
-          image_tag: ${{ needs.setup.outputs.tag }}
+          tags: ${{ needs.setup.outputs.tag }}
           username: ${{ secrets.AWS_ECR_ACCESS_KEY_ID }}
           password: ${{ secrets.AWS_ECR_SECRET_ACCESS_KEY }}
-          publish: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
+          publish: ${{ needs.setup.outputs.publish == 'true' }}
           context: .
           file: ./docker/datahub-ingestion-base/smoke.Dockerfile
           platforms: linux/amd64,linux/arm64/v8
-
+          build-args: |
+            RELEASE_VERSION=${{ needs.setup.outputs.python_release_version }}

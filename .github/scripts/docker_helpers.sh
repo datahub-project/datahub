@@ -25,13 +25,11 @@ function get_tag_full {
 
 # "refs/pull/4788/merge"         -> turn into 1!0.0.0+docker.pr4788
 # "refs/tags/v0.3.7.7-aseemtest" -> turn into 0.3.7.7
-# refs/tags/v0.3.8rc1-acryl      -> turn into 0.3.8rc1
 function get_python_docker_release_v() {
     echo "$(echo "${GITHUB_REF}" | \
-        sed -e "s,refs/heads/${MAIN_BRANCH},1\!0.0.0+docker.${SHORT_SHA},g" \
-            -e 's,refs/tags/v\(.*\),1\!\1+docker,g' \
+        sed -e "s,refs/heads/${MAIN_BRANCH},1!0.0.0+docker.${SHORT_SHA},g" \
+            -e 's,refs/tags/v\(.*\),1!\1+docker,g' \
             -e 's,refs/pull/\([0-9]*\).*,1!0.0.0+docker.pr\1,g' \
-            -e 's,1\!\([0-9]*\.[0-9]*\.[0-9]*rc[0-9]*\).*+docker.*,\1,g' \
             -e 's,1!\([0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\).*+docker.*,\1,g')"
 }
 
