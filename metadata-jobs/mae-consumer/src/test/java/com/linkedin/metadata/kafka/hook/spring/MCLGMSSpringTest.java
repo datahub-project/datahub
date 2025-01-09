@@ -37,7 +37,8 @@ import org.testng.annotations.Test;
     properties = {
       "ingestionScheduler.enabled=false",
       "configEntityRegistry.path=../../metadata-jobs/mae-consumer/src/test/resources/test-entity-registry.yml",
-      "kafka.schemaRegistry.type=INTERNAL"
+      "kafka.schemaRegistry.type=INTERNAL",
+      "kafka.consumer.mcl.aspectsToDrop={\"*\":[\"status\"],\"dataset\":[\"datasetProperties\"]}"
     })
 @TestPropertySource(
     locations = "classpath:/application.yaml",

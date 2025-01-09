@@ -2,18 +2,25 @@ package com.linkedin.metadata.kafka;
 
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.MCL_EVENT_CONSUMER_NAME;
 
+import com.fasterxml.jackson.databind.JavaType;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.kafka.ConsumerConfiguration;
 import com.linkedin.metadata.kafka.config.MetadataChangeLogProcessorCondition;
 import com.linkedin.metadata.kafka.hook.MetadataChangeLogHook;
 import com.linkedin.mxe.Topics;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.generic.GenericRecord;
+import org.apache.commons.lang.StringUtils;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,6 +62,10 @@ public class MCLKafkaListenerRegistrar implements InitializingBean {
   private String mclTimeseriesTopicName;
 
   @Autowired private List<MetadataChangeLogHook> metadataChangeLogHooks;
+
+  @Autowired private ConfigurationProvider configurationProvider;
+
+  @Autowired private ObjectMapper objectMapper;
 
   @Override
   public void afterPropertiesSet() {
@@ -100,8 +111,31 @@ public class MCLKafkaListenerRegistrar implements InitializingBean {
     kafkaListenerEndpoint.setAutoStartup(true);
     kafkaListenerEndpoint.setTopics(topics.toArray(new String[topics.size()]));
     kafkaListenerEndpoint.setMessageHandlerMethodFactory(new DefaultMessageHandlerMethodFactory());
+    ConsumerConfiguration.ConsumerOptions mclConsumerOptions =
+        configurationProvider.getKafka().getConsumer().getMcl();
+    Map<String, Set<String>> aspectsToDrop;
+    if (StringUtils.isBlank(mclConsumerOptions.getAspectsToDrop())) {
+      aspectsToDrop = Collections.emptyMap();
+    } else {
+      JavaType type =
+          objectMapper.getTypeFactory().constructMapType(Map.class, String.class, Set.class);
+      try {
+        aspectsToDrop = objectMapper.readValue(mclConsumerOptions.getAspectsToDrop(), type);
+      } catch (Exception e) {
+        log.error(
+            "Unable to parse aspects to drop configuration: {}",
+            mclConsumerOptions.getAspectsToDrop(),
+            e);
+        aspectsToDrop = Collections.emptyMap();
+      }
+    }
     kafkaListenerEndpoint.setBean(
-        new MCLKafkaListener(systemOperationContext, consumerGroupId, hooks));
+        new MCLKafkaListener(
+            systemOperationContext,
+            consumerGroupId,
+            hooks,
+            mclConsumerOptions.isFineGrainedLoggingEnabled(),
+            aspectsToDrop));
     try {
       kafkaListenerEndpoint.setMethod(
           MCLKafkaListener.class.getMethod("consume", ConsumerRecord.class));
