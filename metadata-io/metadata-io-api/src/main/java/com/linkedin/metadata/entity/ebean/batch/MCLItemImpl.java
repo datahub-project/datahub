@@ -5,6 +5,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.entity.AspectUtils;
@@ -156,6 +157,11 @@ public class MCLItemImpl implements MCLItem {
 
       return Pair.of(aspect, prevAspect);
     }
+  }
+
+  @Override
+  public boolean isDatabaseDuplicateOf(BatchItem other) {
+    return equals(other);
   }
 
   @Override

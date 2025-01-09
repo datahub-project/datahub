@@ -66,4 +66,10 @@ public class TransactionContext {
     }
     success();
   }
+
+  public void flush() {
+    if (tx != null) {
+      tx.flush();
+    }
+  }
 }

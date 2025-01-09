@@ -76,6 +76,7 @@ entities:
       - subTypes
       - incidentsSummary
       - testResults
+      - dataTransformLogic
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -116,6 +117,10 @@ entities:
       - dataProcessInstanceRunEvent
       - status
       - testResults
+      - dataPlatformInstance
+      - subTypes
+      - container
+      - mlTrainingRunProperties
   - name: chart
     category: core
     keyAspect: chartKey
@@ -602,6 +607,7 @@ entities:
     keyAspect: structuredPropertyKey
     aspects:
       - propertyDefinition
+      - structuredPropertySettings
       - institutionalMemory
       - status
   - name: form

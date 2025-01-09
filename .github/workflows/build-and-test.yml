@@ -109,13 +109,11 @@ jobs:
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |
           ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel
-        env:
-          NODE_OPTIONS: "--max-old-space-size=3072"
       - name: Gradle compile (jdk8) for legacy Spark
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         run: |
           ./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:spark-lineage:compileJava
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Test Results (build)
@@ -126,6 +124,21 @@ jobs:
             !**/binary/**
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./build/coverage-reports/
+          fail_ci_if_error: false
+          flags: ${{ matrix.timezone }}
+          name: ${{ matrix.command }}
+          verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   quickstart-compose-validation:
     runs-on: ubuntu-latest
@@ -144,7 +157,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Event File
           path: ${{ github.event_path }}

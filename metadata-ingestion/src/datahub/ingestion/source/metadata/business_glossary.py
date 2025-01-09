@@ -45,6 +45,9 @@ class Owners(ConfigModel):
     groups: Optional[List[str]] = None
 
 
+OwnersMultipleTypes = Union[List[Owners], Owners]
+
+
 class KnowledgeCard(ConfigModel):
     url: Optional[str] = None
     label: Optional[str] = None
@@ -57,7 +60,7 @@ class GlossaryTermConfig(ConfigModel):
     term_source: Optional[str] = None
     source_ref: Optional[str] = None
     source_url: Optional[str] = None
-    owners: Optional[Owners] = None
+    owners: Optional[OwnersMultipleTypes] = None
     inherits: Optional[List[str]] = None
     contains: Optional[List[str]] = None
     values: Optional[List[str]] = None
@@ -74,7 +77,7 @@ class GlossaryNodeConfig(ConfigModel):
     id: Optional[str] = None
     name: str
     description: str
-    owners: Optional[Owners] = None
+    owners: Optional[OwnersMultipleTypes] = None
     terms: Optional[List["GlossaryTermConfig"]] = None
     nodes: Optional[List["GlossaryNodeConfig"]] = None
     knowledge_links: Optional[List[KnowledgeCard]] = None
@@ -88,7 +91,7 @@ class DefaultConfig(ConfigModel):
     """Holds defaults for populating fields in glossary terms"""
 
     source: Optional[str] = None
-    owners: Owners
+    owners: OwnersMultipleTypes
     url: Optional[str] = None
     source_type: str = "INTERNAL"
 
@@ -153,30 +156,44 @@ def make_glossary_term_urn(
     return "urn:li:glossaryTerm:" + create_id(path, default_id, enable_auto_id)
 
 
-def get_owners(owners: Owners) -> models.OwnershipClass:
-    ownership_type, ownership_type_urn = validate_ownership_type(owners.type)
+def get_owners_multiple_types(owners: OwnersMultipleTypes) -> models.OwnershipClass:
+    """Allows owner types to be a list and maintains backward compatibility"""
+    if isinstance(owners, Owners):
+        return models.OwnershipClass(owners=list(get_owners(owners)))
+
+    owners_meta: List[models.OwnerClass] = []
+    for owner in owners:
+        owners_meta.extend(get_owners(owner))
+
+    return models.OwnershipClass(owners=owners_meta)
+
+
+def get_owners(owners: Owners) -> Iterable[models.OwnerClass]:
+    actual_type = owners.type or models.OwnershipTypeClass.DEVELOPER
+
+    if actual_type.startswith("urn:li:ownershipType:"):
+        ownership_type: str = "CUSTOM"
+        ownership_type_urn: Optional[str] = actual_type
+    else:
+        ownership_type, ownership_type_urn = validate_ownership_type(actual_type)
+
     if owners.typeUrn is not None:
         ownership_type_urn = owners.typeUrn
-    owners_meta: List[models.OwnerClass] = []
+
     if owners.users is not None:
-        owners_meta = owners_meta + [
-            models.OwnerClass(
+        for o in owners.users:
+            yield models.OwnerClass(
                 owner=make_user_urn(o),
                 type=ownership_type,
                 typeUrn=ownership_type_urn,
             )
-            for o in owners.users
-        ]
     if owners.groups is not None:
-        owners_meta = owners_meta + [
-            models.OwnerClass(
+        for o in owners.groups:
+            yield models.OwnerClass(
                 owner=make_group_urn(o),
                 type=ownership_type,
                 typeUrn=ownership_type_urn,
             )
-            for o in owners.groups
-        ]
-    return models.OwnershipClass(owners=owners_meta)
 
 
 def get_mces(
@@ -185,7 +202,7 @@ def get_mces(
     ingestion_config: BusinessGlossarySourceConfig,
     ctx: PipelineContext,
 ) -> Iterable[Union[MetadataChangeProposalWrapper, models.MetadataChangeEventClass]]:
-    root_owners = get_owners(glossary.owners)
+    root_owners = get_owners_multiple_types(glossary.owners)
 
     if glossary.nodes:
         for node in glossary.nodes:
@@ -270,7 +287,7 @@ def get_mces_from_node(
     node_owners = parentOwners
     if glossaryNode.owners is not None:
         assert glossaryNode.owners is not None
-        node_owners = get_owners(glossaryNode.owners)
+        node_owners = get_owners_multiple_types(glossaryNode.owners)
 
     node_snapshot = models.GlossaryNodeSnapshotClass(
         urn=node_urn,
@@ -426,7 +443,7 @@ def get_mces_from_term(
     ownership: models.OwnershipClass = parentOwnership
     if glossaryTerm.owners is not None:
         assert glossaryTerm.owners is not None
-        ownership = get_owners(glossaryTerm.owners)
+        ownership = get_owners_multiple_types(glossaryTerm.owners)
     aspects.append(ownership)
 
     if glossaryTerm.domain is not None:

@@ -84,13 +84,14 @@ class DataResolverBase(ABC):
         tenant_id: str,
         metadata_api_timeout: int,
     ):
-        self.__access_token: Optional[str] = None
-        self.__access_token_expiry_time: Optional[datetime] = None
-        self.__tenant_id = tenant_id
+        self._access_token: Optional[str] = None
+        self._access_token_expiry_time: Optional[datetime] = None
+
+        self._tenant_id = tenant_id
         # Test connection by generating access token
         logger.info(f"Trying to connect to {self._get_authority_url()}")
         # Power-Bi Auth (Service Principal Auth)
-        self.__msal_client = msal.ConfidentialClientApplication(
+        self._msal_client = msal.ConfidentialClientApplication(
             client_id,
             client_credential=client_secret,
             authority=DataResolverBase.AUTHORITY + tenant_id,
@@ -168,18 +169,18 @@ class DataResolverBase(ABC):
         pass
 
     def _get_authority_url(self):
-        return f"{DataResolverBase.AUTHORITY}{self.__tenant_id}"
+        return f"{DataResolverBase.AUTHORITY}{self._tenant_id}"
 
     def get_authorization_header(self):
         return {Constant.Authorization: self.get_access_token()}
 
-    def get_access_token(self):
-        if self.__access_token is not None and not self._is_access_token_expired():
-            return self.__access_token
+    def get_access_token(self) -> str:
+        if self._access_token is not None and not self._is_access_token_expired():
+            return self._access_token
 
         logger.info("Generating PowerBi access token")
 
-        auth_response = self.__msal_client.acquire_token_for_client(
+        auth_response = self._msal_client.acquire_token_for_client(
             scopes=[DataResolverBase.SCOPE]
         )
 
@@ -193,24 +194,24 @@ class DataResolverBase(ABC):
 
         logger.info("Generated PowerBi access token")
 
-        self.__access_token = "Bearer {}".format(
+        self._access_token = "Bearer {}".format(
             auth_response.get(Constant.ACCESS_TOKEN)
         )
         safety_gap = 300
-        self.__access_token_expiry_time = datetime.now() + timedelta(
+        self._access_token_expiry_time = datetime.now() + timedelta(
             seconds=(
                 max(auth_response.get(Constant.ACCESS_TOKEN_EXPIRY, 0) - safety_gap, 0)
             )
         )
 
-        logger.debug(f"{Constant.PBIAccessToken}={self.__access_token}")
+        logger.debug(f"{Constant.PBIAccessToken}={self._access_token}")
 
-        return self.__access_token
+        return self._access_token
 
     def _is_access_token_expired(self) -> bool:
-        if not self.__access_token_expiry_time:
+        if not self._access_token_expiry_time:
             return True
-        return self.__access_token_expiry_time < datetime.now()
+        return self._access_token_expiry_time < datetime.now()
 
     def get_dashboards(self, workspace: Workspace) -> List[Dashboard]:
         """

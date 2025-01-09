@@ -31,6 +31,9 @@ from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.auto_work_units.auto_dataset_properties_aspect import (
     auto_patch_last_modified,
 )
+from datahub.ingestion.api.auto_work_units.auto_ensure_aspect_size import (
+    EnsureAspectSizeProcessor,
+)
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope, WorkUnit
 from datahub.ingestion.api.report import Report
@@ -184,6 +187,7 @@ class StructuredLogs(Report):
 
 @dataclass
 class SourceReport(Report):
+    event_not_produced_warn: bool = True
     events_produced: int = 0
     events_produced_per_sec: int = 0
 
@@ -449,6 +453,7 @@ class Source(Closeable, metaclass=ABCMeta):
             browse_path_processor,
             partial(auto_workunit_reporter, self.get_report()),
             auto_patch_last_modified,
+            EnsureAspectSizeProcessor(self.get_report()).ensure_aspect_size,
         ]
 
     @staticmethod
@@ -492,11 +497,15 @@ class Source(Closeable, metaclass=ABCMeta):
 
     def _infer_platform(self) -> Optional[str]:
         config = self.get_config()
-        return (
+        platform = (
             getattr(config, "platform_name", None)
             or getattr(self, "platform", None)
             or getattr(config, "platform", None)
         )
+        if platform is None and hasattr(self, "get_platform_id"):
+            platform = type(self).get_platform_id()
+
+        return platform
 
     def _get_browse_path_processor(self, dry_run: bool) -> MetadataWorkUnitProcessor:
         config = self.get_config()

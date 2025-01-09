@@ -491,7 +491,7 @@ public class MappingUtil {
     try {
       AspectsBatch batch =
           AspectsBatchImpl.builder()
-              .mcps(serviceProposals, auditStamp, opContext.getRetrieverContext().get())
+              .mcps(serviceProposals, auditStamp, opContext.getRetrieverContext())
               .build();
 
       Map<Urn, List<IngestResult>> resultMap =

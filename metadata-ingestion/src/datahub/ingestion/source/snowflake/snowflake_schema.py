@@ -90,6 +90,12 @@ class SnowflakeTable(BaseTable):
     foreign_keys: List[SnowflakeFK] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
+    is_dynamic: bool = False
+    is_iceberg: bool = False
+
+    @property
+    def is_hybrid(self) -> bool:
+        return self.type is not None and self.type == "HYBRID TABLE"
 
 
 @dataclass
@@ -98,6 +104,7 @@ class SnowflakeView(BaseView):
     columns: List[SnowflakeColumn] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
+    is_secure: bool = False
 
 
 @dataclass
@@ -260,6 +267,22 @@ class SnowflakeDataDictionary(SupportsAsObj):
         return snowflake_schemas
 
     @serialized_lru_cache(maxsize=1)
+    def get_secure_view_definitions(self) -> Dict[str, Dict[str, Dict[str, str]]]:
+        secure_view_definitions: Dict[str, Dict[str, Dict[str, str]]] = defaultdict(
+            lambda: defaultdict(lambda: defaultdict())
+        )
+        cur = self.connection.query(SnowflakeQuery.get_secure_view_definitions())
+        for view in cur:
+            db_name = view["TABLE_CATALOG"]
+            schema_name = view["TABLE_SCHEMA"]
+            view_name = view["TABLE_NAME"]
+            secure_view_definitions[db_name][schema_name][view_name] = view[
+                "VIEW_DEFINITION"
+            ]
+
+        return secure_view_definitions
+
+    @serialized_lru_cache(maxsize=1)
     def get_tables_for_database(
         self, db_name: str
     ) -> Optional[Dict[str, List[SnowflakeTable]]]:
@@ -289,6 +312,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     rows_count=table["ROW_COUNT"],
                     comment=table["COMMENT"],
                     clustering_key=table["CLUSTERING_KEY"],
+                    is_dynamic=table.get("IS_DYNAMIC", "NO").upper() == "YES",
+                    is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
                 )
             )
         return tables
@@ -313,6 +338,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
                     rows_count=table["ROW_COUNT"],
                     comment=table["COMMENT"],
                     clustering_key=table["CLUSTERING_KEY"],
+                    is_dynamic=table.get("IS_DYNAMIC", "NO").upper() == "YES",
+                    is_iceberg=table.get("IS_ICEBERG", "NO").upper() == "YES",
                 )
             )
         return tables
@@ -356,6 +383,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
                         materialized=(
                             view.get("is_materialized", "false").lower() == "true"
                         ),
+                        is_secure=(view.get("is_secure", "false").lower() == "true"),
                     )
                 )
 

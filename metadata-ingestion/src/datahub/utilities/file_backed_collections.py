@@ -1,6 +1,7 @@
 import collections
 import gzip
 import logging
+import os
 import pathlib
 import pickle
 import shutil
@@ -32,6 +33,14 @@ from typing import (
 from datahub.ingestion.api.closeable import Closeable
 
 logger: logging.Logger = logging.getLogger(__name__)
+
+OVERRIDE_SQLITE_VERSION_REQUIREMENT_STR = (
+    os.environ.get("OVERRIDE_SQLITE_VERSION_REQ") or ""
+)
+OVERRIDE_SQLITE_VERSION_REQUIREMENT = (
+    OVERRIDE_SQLITE_VERSION_REQUIREMENT_STR
+    and OVERRIDE_SQLITE_VERSION_REQUIREMENT_STR.lower() != "false"
+)
 
 _DEFAULT_FILE_NAME = "sqlite.db"
 _DEFAULT_TABLE_NAME = "data"
@@ -212,6 +221,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
     _active_object_cache: OrderedDict[str, Tuple[_VT, bool]] = field(
         init=False, repr=False
     )
+    _use_sqlite_on_conflict: bool = field(repr=False, default=True)
 
     def __post_init__(self) -> None:
         assert (
@@ -232,7 +242,10 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
             # We use the ON CONFLICT clause to implement UPSERTs with sqlite.
             # This was added in 3.24.0 from 2018-06-04.
             # See https://www.sqlite.org/lang_conflict.html
-            raise RuntimeError("SQLite version 3.24.0 or later is required")
+            if OVERRIDE_SQLITE_VERSION_REQUIREMENT:
+                self._use_sqlite_on_conflict = False
+            else:
+                raise RuntimeError("SQLite version 3.24.0 or later is required")
 
         # We keep a small cache in memory to avoid having to serialize/deserialize
         # data from the database too often. We use an OrderedDict to build
@@ -295,7 +308,7 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                     values.append(column_serializer(value))
                 items_to_write.append(tuple(values))
 
-        if items_to_write:
+        if items_to_write and self._use_sqlite_on_conflict:
             # Tricky: By using a INSERT INTO ... ON CONFLICT (key) structure, we can
             # ensure that the rowid remains the same if a value is updated but is
             # autoincremented when rows are inserted.
@@ -312,6 +325,26 @@ class FileBackedDict(MutableMapping[str, _VT], Closeable, Generic[_VT]):
                 """,
                 items_to_write,
             )
+        else:
+            for item in items_to_write:
+                try:
+                    self._conn.execute(
+                        f"""INSERT INTO {self.tablename} (
+                            key,
+                            value
+                            {''.join(f', {column_name}' for column_name in self.extra_columns.keys())}
+                        )
+                        VALUES ({', '.join(['?'] *(2 + len(self.extra_columns)))})""",
+                        item,
+                    )
+                except sqlite3.IntegrityError:
+                    self._conn.execute(
+                        f"""UPDATE {self.tablename} SET
+                            value = ?
+                            {''.join(f', {column_name} = ?' for column_name in self.extra_columns.keys())}
+                        WHERE key = ?""",
+                        (*item[1:], item[0]),
+                    )
 
     def flush(self) -> None:
         self._prune_cache(len(self._active_object_cache))

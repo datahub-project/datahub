@@ -15,7 +15,7 @@ _self_pin = (
 
 base_requirements = {
     # Our min version of typing_extensions is somewhat constrained by Airflow.
-    "typing_extensions>=3.10.0.2",
+    "typing_extensions>=4.2.0",
     # Actual dependencies.
     "typing-inspect",
     # pydantic 1.8.2 is incompatible with mypy 0.910.
@@ -76,7 +76,7 @@ kafka_common = {
     # now provide prebuilt wheels for most platforms, including M1 Macs and
     # Linux aarch64 (e.g. Docker's linux/arm64). Installing confluent_kafka
     # from source remains a pain.
-    "confluent_kafka>=1.9.0",
+    "confluent_kafka[schemaregistry]>=1.9.0",
     # We currently require both Avro libraries. The codegen uses avro-python3 (above)
     # schema parsers at runtime for generating and reading JSON into Python objects.
     # At the same time, we use Kafka's AvroSerializer, which internally relies on
@@ -101,7 +101,7 @@ sqlglot_lib = {
     # We heavily monkeypatch sqlglot.
     # Prior to the patching, we originally maintained an acryl-sqlglot fork:
     # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main?expand=1
-    "sqlglot[rs]==25.26.0",
+    "sqlglot[rs]==25.32.1",
     "patchy==2.8.0",
 }
 
@@ -159,14 +159,6 @@ sql_common = (
     | classification_lib
 )
 
-sqllineage_lib = {
-    "sqllineage==1.3.8",
-    # We don't have a direct dependency on sqlparse but it is a dependency of sqllineage.
-    # There have previously been issues from not pinning sqlparse, so it's best to pin it.
-    # Related: https://github.com/reata/sqllineage/issues/361 and https://github.com/reata/sqllineage/pull/360
-    "sqlparse==0.4.4",
-}
-
 aws_common = {
     # AWS Python SDK
     "boto3",
@@ -215,8 +207,7 @@ redshift_common = {
     # Clickhouse 0.8.3 adds support for SQLAlchemy 1.4.x
     "sqlalchemy-redshift>=0.8.3",
     "GeoAlchemy2",
-    "redshift-connector>=2.1.0",
-    *sqllineage_lib,
+    "redshift-connector>=2.1.5",
     *path_spec_common,
 }
 
@@ -307,8 +298,8 @@ abs_base = {
 }
 
 data_lake_profiling = {
-    "pydeequ~=1.1.0",
-    "pyspark~=3.3.0",
+    "pydeequ>=1.1.0",
+    "pyspark~=3.5.0",
 }
 
 delta_lake = {
@@ -327,7 +318,7 @@ databricks = {
     # 0.1.11 appears to have authentication issues with azure databricks
     # 0.22.0 has support for `include_browse` in metadata list apis
     "databricks-sdk>=0.30.0",
-    "pyspark~=3.3.0",
+    "pyspark~=3.5.0",
     "requests",
     # Version 2.4.0 includes sqlalchemy dialect, 2.8.0 includes some bug fixes
     # Version 3.0.0 required SQLAlchemy > 2.0.21
@@ -464,15 +455,13 @@ plugins: Dict[str, Set[str]] = {
         # It's technically wrong for packages to depend on setuptools. However, it seems mlflow does it anyways.
         "setuptools",
     },
-    "mode": {"requests", "python-liquid", "tenacity>=8.0.1"}
-    | sqllineage_lib
-    | sqlglot_lib,
+    "mode": {"requests", "python-liquid", "tenacity>=8.0.1"} | sqlglot_lib,
     "mongodb": {"pymongo[srv]>=3.11", "packaging"},
     "mssql": sql_common | mssql_common,
     "mssql-odbc": sql_common | mssql_common | {"pyodbc"},
     "mysql": mysql,
     # mariadb should have same dependency as mysql
-    "mariadb": sql_common | {"pymysql>=1.0.2"},
+    "mariadb": sql_common | mysql,
     "okta": {"okta~=1.7.0", "nest-asyncio"},
     "oracle": sql_common | {"oracledb"},
     "postgres": sql_common | postgres_common,
@@ -482,7 +471,7 @@ plugins: Dict[str, Set[str]] = {
     | pyhive_common
     | {"psycopg2-binary", "pymysql>=1.0.2"},
     "pulsar": {"requests"},
-    "redash": {"redash-toolbelt", "sql-metadata"} | sqllineage_lib,
+    "redash": {"redash-toolbelt", "sql-metadata"} | sqlglot_lib,
     "redshift": sql_common
     | redshift_common
     | usage_common
@@ -503,9 +492,7 @@ plugins: Dict[str, Set[str]] = {
     "slack": slack,
     "superset": superset_common,
     "preset": superset_common,
-    # FIXME: I don't think tableau uses sqllineage anymore so we should be able
-    # to remove that dependency.
-    "tableau": {"tableauserverclient>=0.24.0"} | sqllineage_lib | sqlglot_lib,
+    "tableau": {"tableauserverclient>=0.24.0"} | sqlglot_lib,
     "teradata": sql_common
     | usage_common
     | sqlglot_lib
@@ -527,9 +514,9 @@ plugins: Dict[str, Set[str]] = {
     ),
     "powerbi-report-server": powerbi_report_server,
     "vertica": sql_common | {"vertica-sqlalchemy-dialect[vertica-python]==0.0.8.2"},
-    "unity-catalog": databricks | sql_common | sqllineage_lib,
+    "unity-catalog": databricks | sql_common,
     # databricks is alias for unity-catalog and needs to be kept in sync
-    "databricks": databricks | sql_common | sqllineage_lib,
+    "databricks": databricks | sql_common,
     "fivetran": snowflake_common | bigquery_common | sqlglot_lib,
     "qlik-sense": sqlglot_lib | {"requests", "websocket-client"},
     "sigma": sqlglot_lib | {"requests"},
@@ -754,7 +741,7 @@ entry_points = {
         "hive-metastore = datahub.ingestion.source.sql.hive_metastore:HiveMetastoreSource",
         "json-schema = datahub.ingestion.source.schema.json_schema:JsonSchemaSource",
         "kafka = datahub.ingestion.source.kafka.kafka:KafkaSource",
-        "kafka-connect = datahub.ingestion.source.kafka.kafka_connect:KafkaConnectSource",
+        "kafka-connect = datahub.ingestion.source.kafka_connect.kafka_connect:KafkaConnectSource",
         "ldap = datahub.ingestion.source.ldap:LDAPSource",
         "looker = datahub.ingestion.source.looker.looker_source:LookerDashboardSource",
         "lookml = datahub.ingestion.source.looker.lookml_source:LookMLSource",
@@ -887,9 +874,6 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
@@ -930,6 +914,7 @@ See the [DataHub docs](https://datahubproject.io/docs/metadata-ingestion).
                         "sync-file-emitter",
                         "sql-parser",
                         "iceberg",
+                        "feast",
                     }
                     else set()
                 )

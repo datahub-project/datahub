@@ -3,9 +3,7 @@ package com.linkedin.metadata.search.query.request;
 import static com.linkedin.metadata.Constants.DATA_TYPE_URN_PREFIX;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.utils.SearchUtil.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anySet;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -20,6 +18,7 @@ import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
@@ -51,8 +50,9 @@ import org.testng.annotations.Test;
 
 public class AggregationQueryBuilderTest {
 
-  private static AspectRetriever aspectRetriever;
-  private static AspectRetriever aspectRetrieverV1;
+  private static CachingAspectRetriever aspectRetriever;
+  private static CachingAspectRetriever aspectRetrieverV1;
+  private static String DEFAULT_FILTER = "_index";
 
   @BeforeClass
   public void setup() throws RemoteInvocationException, URISyntaxException {
@@ -62,7 +62,7 @@ public class AggregationQueryBuilderTest {
         Urn.createFromString("urn:li:structuredProperty:under.scores.and.dots_make_a_mess");
 
     // legacy
-    aspectRetriever = mock(AspectRetriever.class);
+    aspectRetriever = mock(CachingAspectRetriever.class);
     when(aspectRetriever.getEntityRegistry())
         .thenReturn(TestOperationContexts.defaultEntityRegistry());
 
@@ -107,7 +107,7 @@ public class AggregationQueryBuilderTest {
                     new Aspect(structPropUnderscoresAndDotsDefinition.data()))));
 
     // V1
-    aspectRetrieverV1 = mock(AspectRetriever.class);
+    aspectRetrieverV1 = mock(CachingAspectRetriever.class);
     when(aspectRetrieverV1.getEntityRegistry())
         .thenReturn(TestOperationContexts.defaultEntityRegistry());
 
@@ -267,16 +267,17 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(),
             ImmutableList.of("test1", "test2", "hasTest1"));
-    Assert.assertEquals(aggs.size(), 3);
+    Assert.assertEquals(aggs.size(), 4);
     Set<String> facets = aggs.stream().map(AggregationBuilder::getName).collect(Collectors.toSet());
-    Assert.assertEquals(ImmutableSet.of("test1", "test2", "hasTest1"), facets);
+    Assert.assertEquals(ImmutableSet.of("test1", "test2", "hasTest1", "_entityType"), facets);
 
     // Case 2: Ask for fields that should NOT exist.
     aggs =
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(),
             ImmutableList.of("hasTest2"));
-    Assert.assertEquals(aggs.size(), 0);
+    Assert.assertEquals(
+        aggs.size(), 1); // default has one field already, hasTest2 will not be in there
   }
 
   @Test
@@ -292,7 +293,7 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
             List.of("structuredProperties.ab.fgh.ten"));
-    Assert.assertEquals(aggs.size(), 1);
+    Assert.assertEquals(aggs.size(), 2);
     AggregationBuilder aggBuilder = aggs.get(0);
     Assert.assertTrue(aggBuilder instanceof TermsAggregationBuilder);
     TermsAggregationBuilder agg = (TermsAggregationBuilder) aggBuilder;
@@ -307,12 +308,16 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
             List.of("structuredProperties.ab.fgh.ten", "structuredProperties.hello"));
-    Assert.assertEquals(aggs.size(), 2);
+    Assert.assertEquals(
+        aggs.size(), 3); // has one default filter (_entityType) both get mapped to _index
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
             .collect(Collectors.toSet()),
-        Set.of("structuredProperties.ab_fgh_ten.keyword", "structuredProperties.hello.keyword"));
+        Set.of(
+            "structuredProperties.ab_fgh_ten.keyword",
+            "structuredProperties.hello.keyword",
+            DEFAULT_FILTER));
   }
 
   @Test
@@ -328,16 +333,12 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever),
             List.of("structuredProperties.under.scores.and.dots_make_a_mess"));
-    Assert.assertEquals(aggs.size(), 1);
-    AggregationBuilder aggBuilder = aggs.get(0);
-    Assert.assertTrue(aggBuilder instanceof TermsAggregationBuilder);
-    TermsAggregationBuilder agg = (TermsAggregationBuilder) aggBuilder;
-    // Check that field name is sanitized to correct field name
+    Assert.assertEquals(aggs.size(), 2);
     Assert.assertEquals(
-        agg.field(),
-        "structuredProperties.under_scores_and_dots_make_a_mess.keyword",
-        "Terms aggregate must be on a keyword or subfield keyword");
-
+        aggs.stream()
+            .map(aggr -> ((TermsAggregationBuilder) aggr).field())
+            .collect(Collectors.toSet()),
+        Set.of("structuredProperties.under_scores_and_dots_make_a_mess.keyword", DEFAULT_FILTER));
     // Two structured properties
     aggs =
         builder.getAggregations(
@@ -345,14 +346,15 @@ public class AggregationQueryBuilderTest {
             List.of(
                 "structuredProperties.under.scores.and.dots_make_a_mess",
                 "structuredProperties.hello"));
-    Assert.assertEquals(aggs.size(), 2);
+    Assert.assertEquals(aggs.size(), 3);
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
             .collect(Collectors.toSet()),
         Set.of(
             "structuredProperties.under_scores_and_dots_make_a_mess.keyword",
-            "structuredProperties.hello.keyword"));
+            "structuredProperties.hello.keyword",
+            DEFAULT_FILTER));
   }
 
   @Test
@@ -368,7 +370,7 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetrieverV1),
             List.of("structuredProperties.ab.fgh.ten"));
-    Assert.assertEquals(aggs.size(), 1);
+    Assert.assertEquals(aggs.size(), 2);
     AggregationBuilder aggBuilder = aggs.get(0);
     Assert.assertTrue(aggBuilder instanceof TermsAggregationBuilder);
     TermsAggregationBuilder agg = (TermsAggregationBuilder) aggBuilder;
@@ -385,14 +387,16 @@ public class AggregationQueryBuilderTest {
             List.of(
                 "structuredProperties.ab.fgh.ten",
                 "structuredProperties._versioned.hello.00000000000001.string"));
-    Assert.assertEquals(aggs.size(), 2);
+    Assert.assertEquals(
+        aggs.size(), 3); // has two one filter (_entityType) both get mapped to _index
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
             .collect(Collectors.toSet()),
         Set.of(
             "structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword",
-            "structuredProperties._versioned.hello.00000000000001.string.keyword"));
+            "structuredProperties._versioned.hello.00000000000001.string.keyword",
+            DEFAULT_FILTER));
   }
 
   @Test
@@ -408,15 +412,14 @@ public class AggregationQueryBuilderTest {
         builder.getAggregations(
             TestOperationContexts.systemContextNoSearchAuthorization(aspectRetrieverV1),
             List.of("structuredProperties.under.scores.and.dots_make_a_mess"));
-    Assert.assertEquals(aggs.size(), 1);
-    AggregationBuilder aggBuilder = aggs.get(0);
-    Assert.assertTrue(aggBuilder instanceof TermsAggregationBuilder);
-    TermsAggregationBuilder agg = (TermsAggregationBuilder) aggBuilder;
-    // Check that field name is sanitized to correct field name
+    Assert.assertEquals(aggs.size(), 2);
     Assert.assertEquals(
-        agg.field(),
-        "structuredProperties._versioned.under_scores_and_dots_make_a_mess.00000000000001.string.keyword",
-        "Terms aggregation must be on a keyword field or subfield.");
+        aggs.stream()
+            .map(aggr -> ((TermsAggregationBuilder) aggr).field())
+            .collect(Collectors.toSet()),
+        Set.of(
+            "structuredProperties._versioned.under_scores_and_dots_make_a_mess.00000000000001.string.keyword",
+            DEFAULT_FILTER));
 
     // Two structured properties
     aggs =
@@ -425,14 +428,15 @@ public class AggregationQueryBuilderTest {
             List.of(
                 "structuredProperties.under.scores.and.dots_make_a_mess",
                 "structuredProperties._versioned.hello.00000000000001.string"));
-    Assert.assertEquals(aggs.size(), 2);
+    Assert.assertEquals(aggs.size(), 3);
     Assert.assertEquals(
         aggs.stream()
             .map(aggr -> ((TermsAggregationBuilder) aggr).field())
             .collect(Collectors.toSet()),
         Set.of(
             "structuredProperties._versioned.under_scores_and_dots_make_a_mess.00000000000001.string.keyword",
-            "structuredProperties._versioned.hello.00000000000001.string.keyword"));
+            "structuredProperties._versioned.hello.00000000000001.string.keyword",
+            DEFAULT_FILTER));
   }
 
   @Test
@@ -489,7 +493,7 @@ public class AggregationQueryBuilderTest {
                 "hasTest1",
                 "structuredProperties.ab.fgh.ten",
                 "structuredProperties.hello"));
-    Assert.assertEquals(aggs.size(), 5);
+    Assert.assertEquals(aggs.size(), 6);
     Set<String> facets =
         aggs.stream()
             .map(aggB -> ((TermsAggregationBuilder) aggB).field())
@@ -501,7 +505,8 @@ public class AggregationQueryBuilderTest {
             "test2.keyword",
             "hasTest1",
             "structuredProperties.ab_fgh_ten.keyword",
-            "structuredProperties.hello.keyword"));
+            "structuredProperties.hello.keyword",
+            DEFAULT_FILTER));
   }
 
   @Test
@@ -558,7 +563,8 @@ public class AggregationQueryBuilderTest {
                 "hasTest1",
                 "structuredProperties.ab.fgh.ten",
                 "structuredProperties.hello"));
-    Assert.assertEquals(aggs.size(), 5);
+    Assert.assertEquals(
+        aggs.size(), 6); // has one default filter (_entityType) both get mapped to _index
     Set<String> facets =
         aggs.stream()
             .map(aggB -> ((TermsAggregationBuilder) aggB).field())
@@ -570,7 +576,8 @@ public class AggregationQueryBuilderTest {
             "test2.keyword",
             "hasTest1",
             "structuredProperties._versioned.ab_fgh_ten.00000000000001.string.keyword",
-            "structuredProperties._versioned.hello.00000000000001.string.keyword"));
+            "structuredProperties._versioned.hello.00000000000001.string.keyword",
+            DEFAULT_FILTER));
   }
 
   @Test
@@ -614,6 +621,39 @@ public class AggregationQueryBuilderTest {
   }
 
   @Test
+  public void testUpdateAggregationEntityWithStructuredProp() {
+    final AggregationMetadata aggregationMetadata = new AggregationMetadata();
+    aggregationMetadata.setName("structuredProperties.test_me.one");
+
+    SearchConfiguration config = new SearchConfiguration();
+    config.setMaxTermBucketSize(25);
+
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    builder.updateAggregationEntity(aggregationMetadata);
+    Assert.assertEquals(
+        aggregationMetadata.getEntity(), UrnUtils.getUrn("urn:li:structuredProperty:test_me.one"));
+  }
+
+  @Test
+  public void testUpdateAggregationEntityWithRegularFilter() {
+    final AggregationMetadata aggregationMetadata = new AggregationMetadata();
+    aggregationMetadata.setName("domains");
+
+    SearchConfiguration config = new SearchConfiguration();
+    config.setMaxTermBucketSize(25);
+
+    AggregationQueryBuilder builder =
+        new AggregationQueryBuilder(
+            config, ImmutableMap.of(mock(EntitySpec.class), ImmutableList.of()));
+
+    builder.updateAggregationEntity(aggregationMetadata);
+    Assert.assertNull(aggregationMetadata.getEntity());
+  }
+
+  @Test
   public void testAddFiltersToMetadataWithStructuredPropsNoResults() {
     final Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test_me.one");
 
@@ -638,7 +678,7 @@ public class AggregationQueryBuilderTest {
 
     // ensure we add the correct structured prop aggregation here
     Assert.assertEquals(aggregationMetadataList.size(), 1);
-    //    Assert.assertEquals(aggregationMetadataList.get(0).getEntity(), propertyUrn);
+    Assert.assertEquals(aggregationMetadataList.get(0).getEntity(), propertyUrn);
     Assert.assertEquals(
         aggregationMetadataList.get(0).getName(), "structuredProperties.test_me.one");
     Assert.assertEquals(aggregationMetadataList.get(0).getAggregations().size(), 1);
@@ -651,6 +691,7 @@ public class AggregationQueryBuilderTest {
 
     final AggregationMetadata aggregationMetadata = new AggregationMetadata();
     aggregationMetadata.setName("structuredProperties.test_me.one");
+    aggregationMetadata.setEntity(propertyUrn);
     FilterValue filterValue =
         new FilterValue().setValue("test123").setFiltered(false).setFacetCount(1);
     aggregationMetadata.setFilterValues(new FilterValueArray(filterValue));
@@ -679,6 +720,7 @@ public class AggregationQueryBuilderTest {
         criterion, aggregationMetadataList, mockAspectRetriever);
 
     Assert.assertEquals(aggregationMetadataList.size(), 1);
+    Assert.assertEquals(aggregationMetadataList.get(0).getEntity(), propertyUrn);
     Assert.assertEquals(
         aggregationMetadataList.get(0).getName(), "structuredProperties.test_me.one");
     Assert.assertEquals(aggregationMetadataList.get(0).getAggregations().size(), 1);

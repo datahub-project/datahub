@@ -556,6 +556,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 )
 
         if table_props:
+            # TODO: use auto_incremental_properties workunit processor instead
+            # Consider enabling incremental_properties by default
             patch_builder = create_dataset_props_patch_builder(dataset_urn, table_props)
             for patch_mcp in patch_builder.build():
                 yield MetadataWorkUnit(

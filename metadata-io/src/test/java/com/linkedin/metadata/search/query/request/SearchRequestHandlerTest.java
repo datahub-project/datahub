@@ -298,7 +298,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         String.format("_entityType%stextFieldOverride", AGGREGATION_SEPARATOR_CHAR);
     SearchRequest searchRequest =
         requestHandler.getSearchRequest(
-            operationContext.withSearchFlags(flags -> flags.setFulltext(true)),
+            operationContext.withSearchFlags(
+                flags -> flags.setFulltext(true).setIncludeDefaultFacets(false)),
             "*",
             null,
             null,
@@ -661,6 +662,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         TestOperationContexts.systemContextNoSearchAuthorization(
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
+                .cachingAspectRetriever(TestOperationContexts.emptyActiveUsersAspectRetriever(null))
                 .graphRetriever(mock(GraphRetriever.class))
                 .searchRetriever(mock(SearchRetriever.class))
                 .build());

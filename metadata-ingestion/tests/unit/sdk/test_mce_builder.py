@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 import datahub.emitter.mce_builder as builder
 from datahub.metadata.schema_classes import (
     DataFlowInfoClass,
@@ -55,3 +57,18 @@ def test_make_group_urn() -> None:
     assert (
         builder.make_group_urn("urn:li:corpuser:someUser") == "urn:li:corpuser:someUser"
     )
+
+
+def test_ts_millis() -> None:
+    assert builder.make_ts_millis(None) is None
+    assert builder.parse_ts_millis(None) is None
+
+    assert (
+        builder.make_ts_millis(datetime(2024, 1, 1, 2, 3, 4, 5, timezone.utc))
+        == 1704074584000
+    )
+
+    # We only have millisecond precision, don't support microseconds.
+    ts = datetime.now(timezone.utc).replace(microsecond=0)
+    ts_millis = builder.make_ts_millis(ts)
+    assert builder.parse_ts_millis(ts_millis) == ts
