@@ -53,11 +53,12 @@ export const lineChartDefault: LineChartProps<any> = {
             textAnchor: 'middle',
             verticalAnchor: 'start',
         },
-        computeNumTicks: (width, _, margin) => {
-            const widthOfTick = 40;
+        computeNumTicks: (width, _, margin, data) => {
+            const widthOfTick = 80;
             const widthOfAxis = width - margin.right - margin.left;
             const maxCountOfTicks = Math.ceil(widthOfAxis / widthOfTick);
-            return roundToEven(maxCountOfTicks / 2);
+            const numOfTicks = roundToEven(maxCountOfTicks / 2);
+            return Math.min(numOfTicks, data.length - 1);
         },
         hideAxisLine: true,
         hideTicks: true,
@@ -162,11 +163,19 @@ export function LineChart<DatumType extends object>({
                                 numTicks={computeBottomAxisNumTicks?.(width, height, internalMargin, data)}
                                 {...mergedBottomAxisProps}
                             />
-
+                            {/* Left vertical line for y-axis */}
                             <line
                                 x1={internalMargin.left}
                                 x2={internalMargin.left}
                                 y1={0}
+                                y2={height - internalMargin.bottom}
+                                stroke={mergedGridProps.stroke}
+                            />
+                            {/* Bottom horizontal line for x-axis */}
+                            <line
+                                x1={internalMargin.left}
+                                x2={width - internalMargin.right}
+                                y1={height - internalMargin.bottom}
                                 y2={height - internalMargin.bottom}
                                 stroke={mergedGridProps.stroke}
                             />
