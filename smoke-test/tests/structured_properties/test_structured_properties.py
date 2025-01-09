@@ -868,7 +868,7 @@ def test_structured_properties_list(ingest_cleanup_data, graph_client, caplog):
     wait_for_writes_to_sync()
 
     # validate that urns are in the list
-    structured_properties_urns = StructuredProperties.list_urns(graph_client)
+    structured_properties_urns = [u for u in StructuredProperties.list_urns(graph_client)]
     assert property1.urn in structured_properties_urns
     assert property2.urn in structured_properties_urns
 
