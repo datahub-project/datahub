@@ -2383,8 +2383,8 @@ public class GmsGraphQLEngine {
                             containerType,
                             (env) -> {
                               final DataJob dataJob = env.getSource();
-                              return dataJob.getDataPlatformInstance() != null
-                                  ? dataJob.getDataPlatformInstance().getUrn()
+                              return dataJob.getContainer() != null
+                                  ? dataJob.getContainer().getUrn()
                                   : null;
                             }))
                     .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
