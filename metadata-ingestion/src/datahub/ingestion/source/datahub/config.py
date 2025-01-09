@@ -108,9 +108,9 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
 
     urn_pattern: AllowDenyPattern = Field(default=AllowDenyPattern())
 
-    drop_duplicate_schema_field_paths: bool = Field(
+    drop_duplicate_schema_fields: bool = Field(
         default=False,
-        description="Whether to drop duplicate schema field paths. "
+        description="Whether to drop duplicate schema fields in the schemaMetadata aspect. "
         "Useful if the source system has duplicate field paths in the db, but we're pushing to a system with server-side duplicate checking.",
     )
 

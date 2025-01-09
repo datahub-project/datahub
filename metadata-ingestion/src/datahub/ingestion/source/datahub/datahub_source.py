@@ -63,7 +63,7 @@ class DataHubSource(StatefulIngestionSourceBase):
         return [
             (
                 auto_fix_duplicate_schema_field_paths
-                if self.config.drop_duplicate_schema_field_paths
+                if self.config.drop_duplicate_schema_fields
                 else None
             ),
             partial(auto_workunit_reporter, self.get_report()),
