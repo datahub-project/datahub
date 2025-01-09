@@ -22,6 +22,7 @@ from datahub.emitter.mce_builder import (
     parse_ts_millis,
     validate_ownership_type,
 )
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.errors import SdkUsageError
 from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn, OwnershipTypeUrn, Urn
@@ -107,6 +108,20 @@ class Entity(HasUrn):
             return existing_aspect
         self._set_aspect(default_aspect)
         return default_aspect
+
+    def _as_mcps(
+        self,
+        change_type: Union[str, models.ChangeTypeClass] = models.ChangeTypeClass.UPSERT,
+    ) -> List[MetadataChangeProposalWrapper]:
+        urn_str = str(self.urn)
+        return [
+            MetadataChangeProposalWrapper(
+                entityUrn=urn_str,
+                aspect=aspect,
+                changeType=change_type,
+            )
+            for aspect in self._aspects.values()
+        ]
 
 
 class HasSubtype(Entity):
