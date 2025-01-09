@@ -29,23 +29,31 @@ import lombok.Getter;
 @EqualsAndHashCode
 public class ActorContext implements ContextInterface {
 
-  public static ActorContext asSystem(Authentication systemAuthentication) {
-    return ActorContext.builder().systemAuth(true).authentication(systemAuthentication).build();
+  public static ActorContext asSystem(
+      Authentication systemAuthentication, boolean enforceExistenceEnabled) {
+    return ActorContext.builder()
+        .systemAuth(true)
+        .authentication(systemAuthentication)
+        .enforceExistenceEnabled(enforceExistenceEnabled)
+        .build();
   }
 
   public static ActorContext asSessionRestricted(
       Authentication authentication,
       Set<DataHubPolicyInfo> dataHubPolicySet,
-      Collection<Urn> groupMembership) {
+      Collection<Urn> groupMembership,
+      boolean enforceExistenceEnabled) {
     return ActorContext.builder()
         .systemAuth(false)
         .authentication(authentication)
         .policyInfoSet(dataHubPolicySet)
         .groupMembership(groupMembership)
+        .enforceExistenceEnabled(enforceExistenceEnabled)
         .build();
   }
 
   private final Authentication authentication;
+  private final boolean enforceExistenceEnabled;
 
   @EqualsAndHashCode.Exclude @Builder.Default
   private final Set<DataHubPolicyInfo> policyInfoSet = Collections.emptySet();
@@ -79,7 +87,7 @@ public class ActorContext implements ContextInterface {
 
     Map<String, Aspect> aspectMap = urnAspectMap.getOrDefault(selfUrn, Map.of());
 
-    if (!aspectMap.containsKey(CORP_USER_KEY_ASPECT_NAME)) {
+    if (enforceExistenceEnabled && !aspectMap.containsKey(CORP_USER_KEY_ASPECT_NAME)) {
       // user is hard deleted
       return false;
     }

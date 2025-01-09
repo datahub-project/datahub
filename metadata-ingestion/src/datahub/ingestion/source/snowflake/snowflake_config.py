@@ -221,6 +221,14 @@ class SnowflakeV2Config(
         default=False,
         description="If enabled, uses the new queries extractor to extract queries from snowflake.",
     )
+    include_queries: bool = Field(
+        default=True,
+        description="If enabled, generate query entities associated with lineage edges. Only applicable if `use_queries_v2` is enabled.",
+    )
+    include_query_usage_statistics: bool = Field(
+        default=True,
+        description="If enabled, generate query popularity statistics. Only applicable if `use_queries_v2` is enabled.",
+    )
 
     lazy_schema_resolver: bool = Field(
         default=True,

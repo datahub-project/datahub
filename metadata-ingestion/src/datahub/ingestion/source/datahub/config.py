@@ -1,6 +1,7 @@
 import os
 from typing import Optional, Set
 
+import pydantic
 from pydantic import Field, root_validator
 
 from datahub.configuration.common import AllowDenyPattern
@@ -119,3 +120,12 @@ class DataHubSourceConfig(StatefulIngestionConfigBase):
                 " Please specify at least one of `database_connection` or `kafka_connection`, ideally both."
             )
         return values
+
+    @pydantic.validator("database_connection")
+    def validate_mysql_scheme(
+        cls, v: SQLAlchemyConnectionConfig
+    ) -> SQLAlchemyConnectionConfig:
+        if "mysql" in v.scheme:
+            if v.scheme != "mysql+pymysql":
+                raise ValueError("For MySQL, the scheme must be mysql+pymysql.")
+        return v

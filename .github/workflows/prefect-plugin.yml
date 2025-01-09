@@ -67,9 +67,14 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           directory: ./build/coverage-reports/
           fail_ci_if_error: false
-          flags: prefect,prefect-${{ matrix.python-version }}
-          name: pytest-prefect-${{ matrix.python-version }}
+          flags: prefect-${{ matrix.python-version }}
+          name: pytest-prefect
           verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   event-file:
     runs-on: ubuntu-latest

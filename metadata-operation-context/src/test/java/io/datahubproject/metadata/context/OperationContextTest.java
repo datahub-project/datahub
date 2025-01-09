@@ -27,7 +27,8 @@ public class OperationContextTest {
             mock(ServicesRegistryContext.class),
             null,
             TestOperationContexts.emptyActiveUsersRetrieverContext(null),
-            mock(ValidationContext.class));
+            mock(ValidationContext.class),
+            true);
 
     OperationContext opContext =
         systemOpContext.asSession(RequestContext.TEST, Authorizer.EMPTY, userAuth);
@@ -51,7 +52,7 @@ public class OperationContextTest {
                 systemOpContext.getOperationContextConfig().toBuilder()
                     .allowSystemAuthentication(false)
                     .build())
-            .build(userAuth);
+            .build(userAuth, true);
 
     assertEquals(
         opContextNoSystem.getAuthentication(),

@@ -141,7 +141,9 @@ class DatahubExecutionRequestCleanup:
                 break
             if self.report.ergc_read_errors >= self.config.max_read_errors:
                 self.report.failure(
-                    f"ergc({self.instance_id}): too many read errors, aborting."
+                    title="Too many read errors, aborting",
+                    message="Too many read errors, aborting",
+                    context=str(self.instance_id),
                 )
                 break
             try:
@@ -158,8 +160,11 @@ class DatahubExecutionRequestCleanup:
                     break
                 params["scrollId"] = document["scrollId"]
             except Exception as e:
-                logger.error(
-                    f"ergc({self.instance_id}): failed to fetch next batch of execution requests: {e}"
+                self.report.failure(
+                    title="Failed to fetch next batch of execution requests",
+                    message="Failed to fetch next batch of execution requests",
+                    context=str(self.instance_id),
+                    exc=e,
                 )
                 self.report.ergc_read_errors += 1
 
@@ -231,8 +236,11 @@ class DatahubExecutionRequestCleanup:
             self.graph.delete_entity(entry.urn, True)
         except Exception as e:
             self.report.ergc_delete_errors += 1
-            logger.error(
-                f"ergc({self.instance_id}): failed to delete ExecutionRequest {entry.request_id}: {e}"
+            self.report.failure(
+                title="Failed to delete ExecutionRequest",
+                message="Failed to delete ExecutionRequest",
+                context=str(self.instance_id),
+                exc=e,
             )
 
     def _reached_runtime_limit(self) -> bool:
