@@ -1,0 +1,150 @@
+[
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
+    "aspectName": "dataProcessInstanceKey",
+    "aspect": {
+      "value": {
+        "id": "my-pipeline-run-123"
+      }
+    },
+    "changeType": "UPSERT"
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
+    "aspectName": "dataProcessInstanceProperties",
+    "aspect": {
+      "value": {
+        "name": "Daily User Analytics Pipeline Run",
+        "type": "BATCH",
+        "externalUrl": "http://airflow.example.com/runs/123",
+        "code": "SELECT * FROM users WHERE date = '${execution_date}'",
+        "orchestrator": "airflow"
+      }
+    },
+    "changeType": "UPSERT"
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
+    "aspectName": "dataProcessInstanceInput",
+    "aspect": {
+      "value": {
+        "inputs": [
+          "urn:li:dataset:(urn:li:dataPlatform:snowflake,raw_users,PROD)"
+        ]
+      }
+    },
+    "changeType": "UPSERT"
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
+    "aspectName": "dataProcessInstanceOutput",
+    "aspect": {
+      "value": {
+        "outputs": [
+          "urn:li:dataset:(urn:li:dataPlatform:snowflake,processed_users,PROD)"
+        ]
+      }
+    },
+    "changeType": "UPSERT"
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
+    "aspectName": "dataProcessInstanceRelationships",
+    "aspect": {
+      "value": {
+        "parentTemplate": "urn:li:dataProcess:user-analytics-pipeline",
+        "upstreamInstances": [
+          "urn:li:dataProcessInstance:upstream-job-run-456"
+        ],
+        "parentInstance": "urn:li:dataProcessInstance:parent-job-run-789"
+      }
+    },
+    "changeType": "UPSERT"
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
+    "aspectName": "dataProcessInstanceRunEvent",
+    "aspect": {
+      "value": {
+        "timestampMillis": 1704067200000,
+        "eventGranularity": "WEEK",
+        "eventType": "END",
+        "status": "COMPLETE",
+        "startTimeMillis": 1704060000000,
+        "endTimeMillis": 1704067200000,
+        "attempts": 1
+      }
+    },
+    "changeType": "UPSERT"
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
+    "aspectName": "status",
+    "aspect": {
+      "value": {
+        "removed": false
+      }
+    },
+    "changeType": "UPSERT"
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "value": {
+        "platform": "urn:li:dataPlatform:airflow",
+        "instanceName": "prod-airflow-01"
+      }
+    },
+    "changeType": "UPSERT"
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
+    "aspectName": "subTypes",
+    "aspect": {
+      "value": {
+        "typeNames": ["ETL", "BATCH_JOB"]
+      }
+    },
+    "changeType": "UPSERT"
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
+    "aspectName": "container",
+    "aspect": {
+      "value": {
+        "container": "urn:li:container:dataPipelineGroup1"
+      }
+    },
+    "changeType": "UPSERT"
+  },
+  {
+    "entityType": "dataProcessInstance",
+    "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
+    "aspectName": "mlTrainingRunProperties",
+    "aspect": {
+      "value": {
+        "id": "training-run-123",
+        "metrics": {
+          "accuracy": 0.95,
+          "loss": 0.05
+        },
+        "hyperparameters": {
+          "learningRate": 0.001,
+          "batchSize": 32
+        }
+      }
+    },
+    "changeType": "UPSERT"
+  }
+]

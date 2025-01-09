@@ -26,6 +26,7 @@ from tests.utils import (
 )
 
 bootstrap_sample_data = "../metadata-ingestion/examples/mce_files/bootstrap_mce.json"
+bootstrap_dpi_data = "./test_resources/dpi_data.json"
 usage_sample_data = "./test_resources/bigquery_usages_golden.json"
 bq_sample_data = "./sample_bq_data.json"
 restli_default_headers = {
@@ -139,6 +140,10 @@ def fixture_ingestion_usage_via_rest(auth_session):
     ingest_file_via_rest(auth_session, usage_sample_data)
 
 
+def fixture_ingestion_dpi_via_rest(auth_session):
+    ingest_file_via_rest(auth_session, bootstrap_dpi_data)
+
+
 def fixture_ingestion_via_kafka(auth_session):
     pipeline = Pipeline.create(
         {
@@ -174,6 +179,7 @@ def test_run_ingestion(auth_session):
 
     # The rest sink fixtures cannot run at the same time, limitation of the Pipeline code
     fixture_ingestion_usage_via_rest(auth_session)
+    fixture_ingestion_dpi_via_rest(auth_session)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
         futures = []
@@ -410,6 +416,124 @@ def test_frontend_search_datasets(auth_session, query, min_expected_results):
     assert res_data["data"]["search"]
     assert res_data["data"]["search"]["total"] >= min_expected_results
     assert len(res_data["data"]["search"]["searchResults"]) >= min_expected_results
+
+
+@pytest.mark.parametrize(
+    "query,min_expected_results",
+    [
+        ("", 1),
+    ],
+)
+def test_search_dpi(auth_session, query, min_expected_results):
+    json = {
+        "query": """query scrollAcrossEntities($input: ScrollAcrossEntitiesInput!) {
+            searchAcrossEntities(input: $input) {
+                nextScrollId
+                count
+                total
+                searchResults {
+                    entity {
+                        ... on DataProcessInstance {
+                            urn
+                            properties {
+                                name
+                                type
+                                externalUrl
+                                orchestrator
+                            }
+                            dataPlatformInstance {
+                                platform {
+                                    urn
+                                    name
+                                }
+                                instanceName
+                            }
+                            subTypes {
+                                typeNames
+                            }
+                            container {
+                                container {
+                                    urn
+                                }
+                            }
+                            platform {
+                                urn
+                                name
+                                properties {
+                                    type
+                                }
+                            }
+                            mlTrainingRunProperties {
+                                id
+                                metrics
+                                hyperparameters
+                            }
+                        }
+                    }
+                    matchedFields {
+                        name
+                        value
+                    }
+                }
+            }
+        }""",
+        "variables": {
+            "input": {"types": ["DATA_PROCESS_INSTANCE"], "query": f"{query}", "count": 10}
+        },
+    }
+
+    response = auth_session.post(f"{auth_session.frontend_url()}/api/v2/graphql", json=json)
+    response.raise_for_status()
+    res_data = response.json()
+
+    # Basic response structure validation
+    assert res_data, "Response should not be empty"
+    assert "data" in res_data, "Response should contain 'data' field"
+    assert "searchAcrossEntities" in res_data["data"], "Response should contain 'searchAcrossEntities' field"
+
+    search_results = res_data["data"]["searchAcrossEntities"]
+    assert "total" in search_results, "Response should contain 'total' field"
+    assert "searchResults" in search_results, "Response should contain 'searchResults' field"
+    assert search_results["total"] >= min_expected_results, f"Expected at least {min_expected_results} results"
+
+    # Validate individual search results
+    results = search_results["searchResults"]
+    assert len(results) >= min_expected_results, f"Expected at least {min_expected_results} results"
+
+    for result in results:
+        entity = result["entity"]
+        assert entity, "Each result should have an entity"
+
+        # Required fields validation
+        assert "urn" in entity, "Entity should have URN"
+        assert entity["urn"].startswith("urn:li:dataProcessInstance:"), "URN should have correct format"
+        assert "platform" in entity, "Entity should have platform (required field)"
+        assert entity["platform"]["urn"].startswith("urn:li:dataPlatform:"), "Platform URN should have correct format"
+
+        # Optional but expected fields validation
+        if "properties" in entity and entity["properties"]:
+            props = entity["properties"]
+            assert "name" in props, "Properties should contain name"
+            assert "type" in props, "Properties should contain type"
+            if props["type"]:
+                assert props["type"] in ["BATCH", "STREAMING"], "Type should be BATCH or STREAMING"
+
+        if "dataPlatformInstance" in entity and entity["dataPlatformInstance"]:
+            platform_instance = entity["dataPlatformInstance"]
+            assert "instanceName" in platform_instance, "Platform instance should have instance name"
+            assert "platform" in platform_instance, "Platform instance should have platform info"
+
+        if "subTypes" in entity and entity["subTypes"]:
+            assert "typeNames" in entity["subTypes"], "SubTypes should contain typeNames"
+
+        if "container" in entity and entity["container"]:
+            assert "container" in entity["container"], "Container should have nested container URN"
+            assert entity["container"]["container"]["urn"].startswith("urn:li:container:"), \
+                "Container URN should have correct format"
+
+        if "mlTrainingRunProperties" in entity and entity["mlTrainingRunProperties"]:
+            ml_props = entity["mlTrainingRunProperties"]
+            assert "id" in ml_props, "ML training run properties should have id"
 
 
 @pytest.mark.parametrize(

@@ -25,17 +25,21 @@ import javax.annotation.Nonnull;
 public class DataProcessInstanceType
     implements com.linkedin.datahub.graphql.types.EntityType<DataProcessInstance, String> {
 
-  private static final Set<String> ASPECTS_TO_RESOLVE =
+  static final Set<String> ASPECTS_TO_RESOLVE =
       ImmutableSet.of(
           DATA_PROCESS_INSTANCE_KEY_ASPECT_NAME,
           DATA_PROCESS_INSTANCE_INPUT_ASPECT_NAME,
           DATA_PROCESS_INSTANCE_OUTPUT_ASPECT_NAME,
           DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME,
+          DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
+          DATA_PLATFORM_INSTANCE_ASPECT_NAME,
           STATUS_ASPECT_NAME,
           TEST_RESULTS_ASPECT_NAME,
-          LINEAGE_FEATURES_ASPECT_NAME);
+          SUB_TYPES_ASPECT_NAME,
+          CONTAINER_ASPECT_NAME,
+          DATA_PROCESS_INSTANCE_PROPERTIES_ASPECT_NAME,
+          ML_TRAINING_RUN_PROPERTIES_ASPECT_NAME);
 
-  private static final Set<String> FACET_FIELDS = ImmutableSet.of("origin", "platform");
   private static final String ENTITY_NAME = "dataProcessInstance";
 
   private final EntityClient entityClient;
@@ -88,7 +92,7 @@ public class DataProcessInstanceType
                           .build())
           .collect(Collectors.toList());
     } catch (Exception e) {
-      throw new RuntimeException("Failed to batch load Datasets", e);
+      throw new RuntimeException("Failed to batch load Data Process Instances", e);
     }
   }
 }
