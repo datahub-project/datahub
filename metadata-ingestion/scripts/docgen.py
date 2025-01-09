@@ -199,26 +199,12 @@ def load_plugin(plugin_name: str, out_dir: str) -> Plugin:
         plugin.config_json_schema = source_config_class.schema_json(indent=2)
         plugin.config_md = gen_md_table_from_json_schema(source_config_class.schema())
 
-        # Also write the config details to the out_dir.
+        # Write the config json schema to the out_dir.
         config_dir = pathlib.Path(out_dir) / "config_schemas"
         config_dir.mkdir(parents=True, exist_ok=True)
-        source_plugin_config_json_schema = config_dir / f"{plugin_name}_config.json"
-
-        source_plugin_config_json_schema.write_text(plugin.config_json_schema)
-
-        source_plugin_config_md_table = source_plugin_config_json_schema.with_suffix(
-            ".md.snippet"
+        (config_dir / f"{plugin_name}_config.json").write_text(
+            plugin.config_json_schema
         )
-        source_plugin_config_md_table.write_text(plugin.config_md)
-
-        # # table_md = gen_md_table_from_struct(source_config_class.schema())
-        # repo_root_dir = pathlib.Path(__file__).parent.parent.parent
-        # table_md = f"{{{{ inline /{source_plugin_config_md_table.resolve().relative_to(repo_root_dir)} }}}}\n\n"
-        # create_or_update(
-        #     source_documentation,
-        #     [platform_id, "plugins", plugin_name, "config"],
-        #     table_md,
-        # )
 
     return plugin
 
@@ -326,11 +312,11 @@ def generate(
     sources_dir = f"{out_dir}/sources"
     os.makedirs(sources_dir, exist_ok=True)
 
+    # Sort platforms by platform name.
+    platforms = dict(sorted(platforms.items(), key=lambda x: x[1].name.casefold()))
+
     i = 0
-    for platform_id, platform in sorted(
-        platforms.items(),
-        key=lambda x: (x[1].name.casefold(), x[1].name),
-    ):
+    for platform_id, platform in platforms.items():
         if source and platform_id != source:
             continue
         metrics["source_platforms"]["discovered"] = (
@@ -486,8 +472,11 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
     if metrics["plugins"].get("failed", 0) > 0:  # type: ignore
         sys.exit(1)
 
-    ### Create Lineage doc
+    # Create Lineage doc
+    generate_lineage_doc(platforms)
 
+
+def generate_lineage_doc(platforms: Dict[str, Platform]) -> None:
     source_dir = "../docs/generated/lineage"
     os.makedirs(source_dir, exist_ok=True)
     doc_file = f"{source_dir}/lineage-feature-guide.md"
@@ -597,10 +586,7 @@ This is a summary of automatic lineage extraciton support in our data source. Pl
         )
         f.write("| ---------- | ------ | ----- |----- |\n")
 
-        for platform_id, platform in sorted(
-            platforms.items(),
-            key=lambda x: (x[1].name.casefold(), x[1].name),
-        ):
+        for platform_id, platform in platforms.items():
             for plugin in sorted(
                 platform.plugins.values(),
                 key=lambda x: str(x.doc_order) if x.doc_order else x.name,
