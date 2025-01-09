@@ -5,6 +5,7 @@ import { ConfirmationModal } from '@src/app/sharedV2/modals/ConfirmationModal';
 import { showToastMessage, ToastType } from '@src/app/sharedV2/toastMessageUtils';
 import { useRemoveStructuredPropertiesMutation } from '@src/graphql/structuredProperties.generated';
 import { EntityType, StructuredPropertyEntity } from '@src/types.generated';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Dropdown } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export function EditColumn({ structuredProperty, associatedUrn, values, refetch, isAddMode }: Props) {
+    const entityRegistry = useEntityRegistry();
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const { refetch: entityRefetch } = useEntityContext();
     const { entityType } = useEntityData();
@@ -137,7 +139,10 @@ export function EditColumn({ structuredProperty, associatedUrn, values, refetch,
                 handleClose={handleRemoveClose}
                 handleConfirm={() => handleRemoveProperty()}
                 modalTitle="Confirm Remove Structured Property"
-                modalText={`Are you sure you want to remove ${structuredProperty.definition.displayName} from this asset?`}
+                modalText={`Are you sure you want to remove ${entityRegistry.getDisplayName(
+                    structuredProperty.type,
+                    structuredProperty,
+                )} from this asset?`}
             />
         </>
     );

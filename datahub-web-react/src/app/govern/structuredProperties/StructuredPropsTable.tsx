@@ -72,7 +72,12 @@ const StructuredPropsTable = ({
 
     // Filter the table data based on the search query
     const filteredProperties = structuredProperties
-        .filter((prop: any) => prop.entity.definition?.displayName?.toLowerCase().includes(searchQuery.toLowerCase()))
+        .filter((prop: any) =>
+            entityRegistry
+                .getDisplayName(prop.entity.type, prop.entity)
+                ?.toLowerCase()
+                .includes(searchQuery.toLowerCase()),
+        )
         .sort(
             (propA, propB) =>
                 ((propB.entity as StructuredPropertyEntity).definition.created?.time || 0) -

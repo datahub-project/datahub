@@ -134,19 +134,20 @@ const AddPropertyButton = ({ fieldUrn, refetch, fieldProperties, isV1Drawer }: P
                 )
                 .map((prop) => {
                     const entity = prop.entity as StructuredPropertyEntity;
+                    const name = entityRegistry.getDisplayName(entity.type, entity);
                     return {
                         label: (
                             <Option key={entity.urn} onClick={() => handleOptionClick(entity)}>
                                 <Text weight="semiBold" color="gray">
-                                    {entity.definition?.displayName}
+                                    {name}
                                 </Text>
                             </Option>
                         ),
                         key: entity.urn,
-                        name: entity.definition?.displayName || entity.urn,
+                        name: name || entity.urn,
                     };
                 }),
-        [data, fieldUrn, fieldPropertiesUrns, entityPropertiesUrns],
+        [data, fieldUrn, fieldPropertiesUrns, entityPropertiesUrns, entityRegistry],
     );
 
     const canEditProperties =

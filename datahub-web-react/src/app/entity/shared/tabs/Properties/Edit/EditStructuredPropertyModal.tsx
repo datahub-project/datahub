@@ -3,6 +3,7 @@ import { getFieldPathFromSchemaFieldUrn, getSourceUrnFromSchemaFieldUrn } from '
 import { Button, Modal, message } from 'antd';
 import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import {
     // Saas-only mutation
     useProposeStructuredPropetiesMutation,
@@ -44,6 +45,7 @@ export default function EditStructuredPropertyModal({
     refetch,
     isAddMode,
 }: Props) {
+    const entityRegistry = useEntityRegistryV2();
     const { refetch: entityRefetch } = useEntityContext();
     const mutationUrn = useMutationUrn();
     const { entityType } = useEntityData();
@@ -175,7 +177,10 @@ export default function EditStructuredPropertyModal({
 
     return (
         <Modal
-            title={`${isAddMode ? 'Add property' : 'Edit property'} ${structuredProperty?.definition?.displayName}`}
+            title={`${isAddMode ? 'Add property' : 'Edit property'} ${entityRegistry.getDisplayName(
+                structuredProperty.type,
+                structuredProperty,
+            )}`}
             onCancel={closeModal}
             open={isOpen}
             width={650}

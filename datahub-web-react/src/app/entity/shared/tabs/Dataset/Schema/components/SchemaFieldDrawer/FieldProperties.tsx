@@ -1,6 +1,7 @@
 import { useEntityData } from '@src/app/entity/shared/EntityContext';
 import React from 'react';
 import styled from 'styled-components';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { SchemaField, SearchResult, StdDataType } from '../../../../../../../../types.generated';
 import AddPropertyButton from '../../../../Properties/AddPropertyButton';
 import { EditColumn } from '../../../../Properties/Edit/EditColumn';
@@ -44,6 +45,7 @@ interface Props {
 }
 
 export default function FieldProperties({ expandedField, schemaColumnProperties }: Props) {
+    const entityRegistry = useEntityRegistry();
     const { schemaFieldEntity } = expandedField;
     const { refetch } = useGetEntityWithSchema(true);
     const { entityData } = useEntityData();
@@ -82,7 +84,10 @@ export default function FieldProperties({ expandedField, schemaColumnProperties 
                         <PropertyWrapper key={structuredProp.structuredProperty.urn}>
                             <div>
                                 <PropertyTitle>
-                                    {structuredProp.structuredProperty.definition.displayName}
+                                    {entityRegistry.getDisplayName(
+                                        structuredProp.structuredProperty.type,
+                                        structuredProp.structuredProperty,
+                                    )}
                                 </PropertyTitle>
                                 {hasMultipleValues ? (
                                     <StyledList>

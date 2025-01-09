@@ -1751,6 +1751,7 @@ fragment datasetERModelRelationshipFields on Dataset {
 fragment structuredPropertyFields on StructuredPropertyEntity {
     urn
     type
+    exists
     definition {
         displayName
         qualifiedName
@@ -1829,7 +1830,6 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
 
 fragment structuredPropertiesFields on StructuredPropertiesEntry {
     structuredProperty {
-        exists
         ...structuredPropertyFields
     }
     values {

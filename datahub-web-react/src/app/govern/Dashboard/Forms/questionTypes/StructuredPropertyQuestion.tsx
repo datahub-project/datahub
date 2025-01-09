@@ -1,5 +1,6 @@
 import { useGetSearchResultsForMultipleQuery } from '@src/graphql/search.generated';
 import { EntityType } from '@src/types.generated';
+import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
 import { Form } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { SimpleSelect } from '@src/alchemy-components';
@@ -9,6 +10,7 @@ const STRUCTURED_PROP_FIELD = ['structuredPropertyParams', 'structuredProperty',
 
 const StructuredPropertyQuestion = () => {
     const form = Form.useFormInstance();
+    const entityRegistry = useEntityRegistryV2();
     const [structuredProperties, setStructuredProperties] = useState<
         | {
               label: string;
@@ -36,12 +38,12 @@ const StructuredPropertyQuestion = () => {
     useEffect(() => {
         const properties = data?.searchAcrossEntities?.searchResults.map((prop) => {
             return {
-                label: (prop.entity as any).definition?.displayName,
+                label: entityRegistry.getDisplayName(prop.entity.type, prop.entity),
                 value: prop.entity.urn,
             };
         });
         setStructuredProperties(properties);
-    }, [data]);
+    }, [data, entityRegistry]);
 
     const value = form.getFieldValue(STRUCTURED_PROP_FIELD);
 
