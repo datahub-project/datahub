@@ -64,16 +64,6 @@ jobs:
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
-      - name: Upload coverage to Codecov
-        if: always()
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./build/coverage-reports/
-          fail_ci_if_error: false
-          flags: dagster-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}
-          name: pytest-dagster
-          verbose: true
       - name: Upload coverage to Codecov with ingestion flag
         if: always()
         uses: codecov/codecov-action@v5
