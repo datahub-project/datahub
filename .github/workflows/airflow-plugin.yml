@@ -87,6 +87,11 @@ jobs:
           flags: airflow-${{ matrix.python-version }}-${{ matrix.extra_pip_extras }}
           name: pytest-airflow
           verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   event-file:
     runs-on: ubuntu-latest
