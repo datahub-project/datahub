@@ -4,9 +4,8 @@
     "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
     "aspectName": "dataProcessInstanceKey",
     "aspect": {
-      "value": {
-        "id": "my-pipeline-run-123"
-      }
+        "value": "{\"id\": \"my-pipeline-run-123\"}",
+        "contentType": "application/json"
     },
     "changeType": "UPSERT"
   },
@@ -15,13 +14,8 @@
     "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
     "aspectName": "dataProcessInstanceProperties",
     "aspect": {
-      "value": {
-        "name": "Daily User Analytics Pipeline Run",
-        "type": "BATCH",
-        "externalUrl": "http://airflow.example.com/runs/123",
-        "code": "SELECT * FROM users WHERE date = '${execution_date}'",
-        "orchestrator": "airflow"
-      }
+      "value" : "{\n        \"name\": \"Daily User Analytics Pipeline Run\",\n        \"type\": \"BATCH\",\n        \"externalUrl\": \"http://airflow.example.com/runs/123\",\n        \"code\": \"SELECT * FROM users WHERE date = '${execution_date}'\",\n        \"orchestrator\": \"airflow\"\n      }",
+      "contentType": "application/json"
     },
     "changeType": "UPSERT"
   },
@@ -30,11 +24,8 @@
     "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
     "aspectName": "dataProcessInstanceInput",
     "aspect": {
-      "value": {
-        "inputs": [
-          "urn:li:dataset:(urn:li:dataPlatform:snowflake,raw_users,PROD)"
-        ]
-      }
+      "value": "{\n        \"inputs\": [\n          \"urn:li:dataset:(urn:li:dataPlatform:snowflake,raw_users,PROD)\"\n        ]\n      }",
+      "contentType": "application/json"
     },
     "changeType": "UPSERT"
   },
@@ -43,11 +34,8 @@
     "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
     "aspectName": "dataProcessInstanceOutput",
     "aspect": {
-      "value": {
-        "outputs": [
-          "urn:li:dataset:(urn:li:dataPlatform:snowflake,processed_users,PROD)"
-        ]
-      }
+      "value": "{\n        \"outputs\": [\n          \"urn:li:dataset:(urn:li:dataPlatform:snowflake,processed_users,PROD)\"\n        ]\n      }",
+      "contentType": "application/json"
     },
     "changeType": "UPSERT"
   },
@@ -56,13 +44,8 @@
     "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
     "aspectName": "dataProcessInstanceRelationships",
     "aspect": {
-      "value": {
-        "parentTemplate": "urn:li:dataProcess:user-analytics-pipeline",
-        "upstreamInstances": [
-          "urn:li:dataProcessInstance:upstream-job-run-456"
-        ],
-        "parentInstance": "urn:li:dataProcessInstance:parent-job-run-789"
-      }
+      "value": "{\n        \"parentTemplate\": \"urn:li:dataProcess:user-analytics-pipeline\",\n        \"upstreamInstances\": [\n          \"urn:li:dataProcessInstance:upstream-job-run-456\"\n        ],\n        \"parentInstance\": \"urn:li:dataProcessInstance:parent-job-run-789\"\n      }",
+      "contentType": "application/json"
     },
     "changeType": "UPSERT"
   },
@@ -71,15 +54,8 @@
     "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
     "aspectName": "dataProcessInstanceRunEvent",
     "aspect": {
-      "value": {
-        "timestampMillis": 1704067200000,
-        "eventGranularity": "WEEK",
-        "eventType": "END",
-        "status": "COMPLETE",
-        "startTimeMillis": 1704060000000,
-        "endTimeMillis": 1704067200000,
-        "attempts": 1
-      }
+      "value": "{\n        \"timestampMillis\": 1704067200000,\n        \"eventGranularity\": \"WEEK\",\n        \"eventType\": \"END\",\n        \"status\": \"COMPLETE\",\n        \"startTimeMillis\": 1704060000000,\n        \"endTimeMillis\": 1704067200000,\n        \"attempts\": 1\n      }",
+      "contentType": "application/json"
     },
     "changeType": "UPSERT"
   },
@@ -88,9 +64,8 @@
     "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
     "aspectName": "status",
     "aspect": {
-      "value": {
-        "removed": false
-      }
+      "value": "{\n        \"removed\": false\n      }",
+      "contentType": "application/json"
     },
     "changeType": "UPSERT"
   },
@@ -99,10 +74,8 @@
     "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
     "aspectName": "dataPlatformInstance",
     "aspect": {
-      "value": {
-        "platform": "urn:li:dataPlatform:airflow",
-        "instanceName": "prod-airflow-01"
-      }
+      "value": "{\n        \"platform\": \"urn:li:dataPlatform:airflow\",\n        \"instanceName\": \"prod-airflow-01\"\n      }",
+      "contentType": "application/json"
     },
     "changeType": "UPSERT"
   },
@@ -111,9 +84,8 @@
     "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
     "aspectName": "subTypes",
     "aspect": {
-      "value": {
-        "typeNames": ["ETL", "BATCH_JOB"]
-      }
+      "value": "{\n        \"typeNames\": [\"ETL\", \"BATCH_JOB\"]\n      }",
+      "contentType": "application/json"
     },
     "changeType": "UPSERT"
   },
@@ -122,9 +94,8 @@
     "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
     "aspectName": "container",
     "aspect": {
-      "value": {
-        "container": "urn:li:container:dataPipelineGroup1"
-      }
+      "value": "{\n        \"container\": \"urn:li:container:dataPipelineGroup1\"\n      }",
+      "contentType": "application/json"
     },
     "changeType": "UPSERT"
   },
@@ -133,17 +104,8 @@
     "entityUrn": "urn:li:dataProcessInstance:my-pipeline-run-123",
     "aspectName": "mlTrainingRunProperties",
     "aspect": {
-      "value": {
-        "id": "training-run-123",
-        "metrics": {
-          "accuracy": 0.95,
-          "loss": 0.05
-        },
-        "hyperparameters": {
-          "learningRate": 0.001,
-          "batchSize": 32
-        }
-      }
+      "value": "{\n        \"id\": \"training-run-123\",\n        \"metrics\": {\n          \"accuracy\": 0.95,\n          \"loss\": 0.05\n        },\n        \"hyperparameters\": {\n          \"learningRate\": 0.001,\n          \"batchSize\": 32\n        }\n      }",
+      "contentType": "application/json"
     },
     "changeType": "UPSERT"
   }
