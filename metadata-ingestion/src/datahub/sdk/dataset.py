@@ -314,15 +314,7 @@ def graph_create(self: DataHubGraph, dataset: Dataset) -> None:
         )
     )
 
-    for aspect in dataset._aspects.values():
-        assert isinstance(aspect, models._Aspect)
-        mcps.append(
-            MetadataChangeProposalWrapper(
-                entityUrn=str(dataset.urn),
-                aspect=aspect,
-                changeType=models.ChangeTypeClass.CREATE,
-            )
-        )
+    mcps.extend(dataset._as_mcps(models.ChangeTypeClass.CREATE))
 
     self.emit_mcps(mcps)
 
