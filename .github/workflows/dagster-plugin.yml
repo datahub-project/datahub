@@ -64,16 +64,21 @@ jobs:
             **/build/reports/tests/test/**
             **/build/test-results/test/**
             **/junit.*.xml
-      - name: Upload coverage to Codecov
+      - name: Upload coverage to Codecov with ingestion flag
         if: always()
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./build/coverage-reports/
+          directory: ./build/coverage-reports/metadata-ingestion-modules/dagster-plugin/
           fail_ci_if_error: false
-          flags: dagster-${{ matrix.python-version }}-${{ matrix.extraPythonRequirement }}
+          flags: ingestion-dagster-plugin
           name: pytest-dagster
           verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   event-file:
     runs-on: ubuntu-latest

@@ -70,7 +70,7 @@ jobs:
       - name: Gradle build (and test)
         run: |
           ./gradlew :metadata-io:test
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Test Results (metadata-io)
@@ -86,16 +86,22 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./build/coverage-reports/
+          directory: ./build/coverage-reports/metadata-io/
           fail_ci_if_error: false
+          flags: metadata-io
           name: metadata-io-test
           verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   event-file:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Event File
           path: ${{ github.event_path }}

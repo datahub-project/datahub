@@ -248,9 +248,9 @@ class BigQuerySchemaGenerator:
     def get_project_workunits(
         self, project: BigqueryProject
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.set_ingestion_stage(project.id, METADATA_EXTRACTION)
-        logger.info(f"Processing project: {project.id}")
-        yield from self._process_project(project)
+        with self.report.new_stage(f"{project.id}: {METADATA_EXTRACTION}"):
+            logger.info(f"Processing project: {project.id}")
+            yield from self._process_project(project)
 
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str, project_id: str
@@ -405,11 +405,11 @@ class BigQuerySchemaGenerator:
 
         if self.config.is_profiling_enabled():
             logger.info(f"Starting profiling project {project_id}")
-            self.report.set_ingestion_stage(project_id, PROFILING)
-            yield from self.profiler.get_workunits(
-                project_id=project_id,
-                tables=db_tables,
-            )
+            with self.report.new_stage(f"{project_id}: {PROFILING}"):
+                yield from self.profiler.get_workunits(
+                    project_id=project_id,
+                    tables=db_tables,
+                )
 
     def _process_project_datasets(
         self,
@@ -1203,9 +1203,9 @@ class BigQuerySchemaGenerator:
                     report=self.report,
                 )
 
-        self.report.metadata_extraction_sec[f"{project_id}.{dataset.name}"] = round(
-            timer.elapsed_seconds(), 2
-        )
+        self.report.metadata_extraction_sec[
+            f"{project_id}.{dataset.name}"
+        ] = timer.elapsed_seconds(digits=2)
 
     def get_core_table_details(
         self, dataset_name: str, project_id: str, temp_table_dataset_prefix: str

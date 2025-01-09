@@ -88,16 +88,21 @@ jobs:
             **/build/test-results/test/**
             **/junit.*.xml
             !**/binary/**
-      - name: Upload coverage to Codecov
-        if: ${{ always() }}
+      - name: Upload coverage to Codecov with ingestion flag
+        if: ${{ always() && matrix.python-version == '3.11' }}
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./build/coverage-reports/
+          directory: ./build/coverage-reports/metadata-ingestion/
           fail_ci_if_error: false
-          flags: ingestion-${{ matrix.python-version }}-${{ matrix.command }}
-          name: pytest-ingestion
+          flags: ingestion
+          name: pytest-${{ matrix.python-version }}-${{ matrix.command }}
           verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   event-file:
     runs-on: ubuntu-latest
