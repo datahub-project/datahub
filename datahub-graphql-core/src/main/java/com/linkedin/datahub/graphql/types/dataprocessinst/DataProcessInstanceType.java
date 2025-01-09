@@ -1,4 +1,4 @@
-package com.linkedin.datahub.graphql.types.dataprocessinstance;
+package com.linkedin.datahub.graphql.types.dataprocessinst;
 
 import static com.linkedin.metadata.Constants.*;
 
