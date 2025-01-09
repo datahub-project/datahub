@@ -1,7 +1,7 @@
 import logging
 from enum import Enum
 from pathlib import Path
-from typing import List, Optional
+from typing import Iterable, List, Optional
 
 import yaml
 from pydantic import validator
@@ -226,3 +226,14 @@ class StructuredProperties(ConfigModel):
             yaml.indent(mapping=2, sequence=4, offset=2)
             yaml.default_flow_style = False
             yaml.dump(self.dict(), fp)
+
+    @staticmethod
+    def list_urns(graph: DataHubGraph) -> Iterable[str]:
+        return graph.get_urns_by_filter(
+            entity_types=["structuredProperty"],
+        )
+
+    @staticmethod
+    def list(graph: DataHubGraph) -> Iterable["StructuredProperties"]:
+        for urn in StructuredProperties.list_urns(graph):
+            yield StructuredProperties.from_datahub(graph, urn)
