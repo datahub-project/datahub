@@ -25,6 +25,7 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
   private static final Map<String, Supplier<SchemaFieldDataType.Type>> LOGICAL_TYPE_MAPPING;
   public static final String ARRAY_ITEMS_FIELD_NAME = "items";
   public static final String MAP_VALUE_FIELD_NAME = "value";
+  public static final String UNION_TYPE_FIELD_NAME = "type";
 
   static {
     Map<String, Supplier<SchemaFieldDataType.Type>> logicalTypeMap = new HashMap<>();
@@ -335,7 +336,10 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
     Schema elementSchema = arraySchema.getElementType();
     String elementType = getDiscriminatedType(elementSchema);
 
+    log.debug("Array Field Path before expand: {}", fieldPath.asString());
     fieldPath = fieldPath.expandType("array", arraySchema);
+    log.debug("Array Field Path after expand: {}", fieldPath.asString());
+
     // Set parent type for proper array handling
     DataHubType arrayDataHubType = new DataHubType(ArrayType.class, elementType);
 
@@ -348,7 +352,7 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
             .setIsPartOfKey(fieldPath.isKeySchema());
 
     populateCommonProperties(field, arrayField);
-    log.debug("Array field path: {} with doc: {}", fieldPath.asString(), field.doc());
+
     fields.add(arrayField);
 
     // Process element type if it's complex
@@ -356,11 +360,6 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
         || elementSchema.getType() == Schema.Type.ARRAY
         || elementSchema.getType() == Schema.Type.MAP
         || elementSchema.getType() == Schema.Type.UNION) {
-      log.debug("Array Field Path before expand: {}", fieldPath.asString());
-      fieldPath = fieldPath.popLast();
-      fieldPath =
-          fieldPath.clonePlus(
-              new FieldElement(Collections.singletonList("array"), new ArrayList<>(), null, null));
       Schema.Field elementField =
           new Schema.Field(
               ARRAY_ITEMS_FIELD_NAME,
@@ -368,7 +367,7 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
               elementSchema.getDoc() != null ? elementSchema.getDoc() : field.doc(),
               null // TODO: What is the default value for an array element?
               );
-      processField(elementField, fieldPath, defaultNullable, fields, true, arrayDataHubType);
+      processField(elementField, fieldPath, defaultNullable, fields, true);
     }
   }
 
@@ -385,7 +384,9 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
     String valueType = getDiscriminatedType(valueSchema);
 
     DataHubType mapDataHubType = new DataHubType(MapType.class, valueType);
+    log.debug("Map Field Path before expand: {}", fieldPath.asString());
     fieldPath = fieldPath.expandType("map", mapSchema);
+    log.debug("Map Field Path fater expand: {}", fieldPath.asString());
 
     SchemaField mapField =
         new SchemaField()
@@ -410,13 +411,7 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
               valueSchema.getDoc() != null ? valueSchema.getDoc() : field.doc(),
               null // TODO: What is the default value for a map value?
               ); // Nullability for map values follows the nullability of the map itself
-      FieldPath valueFieldPath =
-          fieldPath
-              .popLast()
-              .clonePlus(
-                  new FieldElement(
-                      Collections.singletonList("map"), new ArrayList<>(), null, null));
-      processField(valueField, valueFieldPath, defaultNullable, fields, true, mapDataHubType);
+      processField(valueField, fieldPath, defaultNullable, fields, true);
     }
   }
 
@@ -453,6 +448,7 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
 
     // Otherwise, process as a true union type
     DataHubType unionDataHubType = new DataHubType(UnionType.class, discriminatedType);
+    log.debug("Union Field Path before expand: {}", fieldPath.asString());
     FieldPath unionFieldPath = fieldPath.expandType("union", field.schema().toString());
     log.debug("Union Field Path after expand: {}", unionFieldPath.asString());
 
@@ -476,21 +472,9 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
     int typeIndex = 0;
     for (Schema unionSchema : unionTypes) {
       if (unionSchema.getType() != Schema.Type.NULL) {
-        log.debug("TypeIndex: {}, Field path : {}", typeIndex, fieldPath.asString());
-        FieldPath indexedFieldPath = fieldPath.popLast();
-        indexedFieldPath =
-            indexedFieldPath.clonePlus(
-                new FieldElement(
-                    Collections.singletonList("union"), new ArrayList<>(), null, null));
-        log.debug("TypeIndex: {}, Indexed Field path : {}", typeIndex, indexedFieldPath.asString());
-        // FieldPath unionFieldPath =
-        // fieldPath.expandType(getDiscriminatedType(unionSchema),
-        // unionSchema.toString());
-        log.debug("TypeIndex: {}, Union Field path : {}", typeIndex, unionFieldPath.asString());
-        String unionFieldName = field.name();
         Schema.Field unionFieldInner =
             new Schema.Field(
-                unionFieldName,
+                UNION_TYPE_FIELD_NAME,
                 unionSchema,
                 unionSchema.getDoc() != null ? unionSchema.getDoc() : unionDescription,
                 null);
@@ -499,7 +483,7 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
             typeIndex,
             unionFieldPath.asString(),
             unionFieldInner.doc());
-        processField(unionFieldInner, indexedFieldPath, defaultNullable, fields);
+        processField(unionFieldInner, unionFieldPath, defaultNullable, fields);
       }
       typeIndex++;
     }
@@ -581,9 +565,12 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
       } else {
         return schema.getFullName();
       }
-    } else if(schema.getType() == Schema.Type.UNION && schema.getTypes().size() == 2 && schema.getTypes().stream().anyMatch(s -> s.getType() == Schema.Type.NULL)) {
+    } else if (schema.getType() == Schema.Type.UNION
+        && schema.getTypes().size() == 2
+        && schema.getTypes().stream().anyMatch(s -> s.getType() == Schema.Type.NULL)) {
       // If this is a union with null, we want to use the non-null type for the discriminated type
-      Schema nonNullSchema = schema.getTypes().stream().filter(s -> s.getType() != Schema.Type.NULL).findFirst().get();
+      Schema nonNullSchema =
+          schema.getTypes().stream().filter(s -> s.getType() != Schema.Type.NULL).findFirst().get();
       return nonNullSchema.getFullName();
     }
     return schema.getType().getName().toLowerCase();
