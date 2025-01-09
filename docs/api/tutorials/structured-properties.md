@@ -307,6 +307,53 @@ urn:li:structuredProperty:io.acryl.dataManagement.deprecationDate
 urn:li:structuredProperty:projectNames
 ```
 
+To download all the structured property definitions into a single file that you can use with the `upsert` command as described in the [create section](#create-structured-properties), you can run the list command with the `--to-file` option.
+
+```shell
+datahub properties list --to-file structured_properties.yaml
+```
+
+Example Response:
+```yaml
+  - urn: urn:li:structuredProperty:clusterName
+    qualified_name: clusterName
+    type: urn:li:dataType:datahub.string
+    description: Test Cluster Name Property
+    display_name: Cluster's name
+    entity_types:
+      - urn:li:entityType:datahub.dataset
+    cardinality: SINGLE
+  - urn: urn:li:structuredProperty:clusterType
+    qualified_name: clusterType
+    type: urn:li:dataType:datahub.string
+    description: Test Cluster Type Property
+    display_name: Cluster's type
+    entity_types:
+      - urn:li:entityType:datahub.dataset
+    cardinality: SINGLE
+  - urn: urn:li:structuredProperty:io.acryl.dataManagement.deprecationDate
+    qualified_name: io.acryl.dataManagement.deprecationDate
+    type: urn:li:dataType:datahub.date
+    display_name: Deprecation Date
+    entity_types:
+      - urn:li:entityType:datahub.dataset
+      - urn:li:entityType:datahub.dataFlow
+      - urn:li:entityType:datahub.dataJob
+      - urn:li:entityType:datahub.schemaField
+    cardinality: SINGLE
+  - urn: urn:li:structuredProperty:io.acryl.privacy.enumProperty5712
+    qualified_name: io.acryl.privacy.enumProperty5712
+    type: urn:li:dataType:datahub.string
+    description: The retention policy for the dataset
+    entity_types:
+      - urn:li:entityType:datahub.dataset
+    cardinality: MULTIPLE
+    allowed_values:
+      - value: foo
+      - value: bar
+... etc.
+```
+
 </TabItem>
 
 <TabItem value="OpenAPI v3" label="OpenAPI v3">
