@@ -12,7 +12,8 @@ wheel_dirs = [
     ROOT_DIR / "metadata-ingestion-modules/dagster-plugin/dist",
     ROOT_DIR / "metadata-ingestion-modules/prefect-plugin/dist",
     ROOT_DIR / "metadata-ingestion-modules/gx-plugin/dist",
-]
+    ROOT_DIR / "metadata-ingestion-modules/acryl-cloud/dist",
+    ]
 
 # Delete and recreate the output directory.
 if WHEEL_OUTPUT_DIR.exists():

@@ -4,13 +4,24 @@ import os
 import pathlib
 import tempfile
 from functools import partial
-from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Optional, Sequence
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    Iterable,
+    Optional,
+    Sequence,
+    Union,
+)
 from unittest.mock import Mock, patch
 
 import polars
 import pyarrow as pa
 import pytest
 from freezegun import freeze_time
+from polars import DataType
+from polars.datatypes import DataTypeClass
 
 from tests.utils import PytestConfig
 
@@ -34,11 +45,13 @@ FROZEN_TIME = "2024-07-11 07:00:00"
 
 def test_polars_to_arrow_schema() -> None:
     # Create a sample Polars schema
-    polars_schema = {
+    polars_schema: Dict[str, Union[DataTypeClass, DataType]] = {
         "column1": polars.Int32(),
         "column2": polars.Float64(),
         "column3": polars.Utf8(),
-        "column4": polars.Categorical(),
+        "column4": polars.String(),
+        "column5": polars.Struct({"field1": polars.Int32(), "field2": polars.Utf8()}),
+        "column6": polars.List(polars.Int32()),
     }
 
     # Expected Arrow schema
@@ -47,7 +60,14 @@ def test_polars_to_arrow_schema() -> None:
             pa.field("column1", pa.int32()),
             pa.field("column2", pa.float64()),
             pa.field("column3", pa.string()),
-            pa.field("column4", pa.dictionary(pa.int32(), pa.string())),
+            pa.field("column4", pa.string()),
+            pa.field(
+                "column5",
+                pa.struct(
+                    [pa.field("field1", pa.int32()), pa.field("field2", pa.string())]
+                ),
+            ),
+            pa.field("column6", pa.list_(pa.int32())),
         ]
     )
 
@@ -191,27 +211,29 @@ def load_data_from_es_mock(
     process_function: Callable,
     aggregation_key: Optional[str] = None,
 ) -> Iterable[Dict]:
-    if index == "datasetindex_v2":
-        with open(f"tests/test_data/test_{test_file_prefix}_datasets.json") as f:
-            docs = json.load(f)
-    elif index == "dataset_datasetusagestatisticsaspect_v1":
-        with open(f"tests/test_data/test_{test_file_prefix}_datasetusages.json") as f:
-            docs = json.load(f)
+    batch_size = 5000
+    file_map = {
+        "datasetindex_v2": f"tests/test_data/test_{test_file_prefix}_datasets.jsonl",
+        "dataset_datasetusagestatisticsaspect_v1": f"tests/test_data/test_{test_file_prefix}_datasetusages.jsonl",
+        "graph_service_v1": f"tests/test_data/test_{test_file_prefix}_graph_service.jsonl",
+    }
+
+    if index in file_map:
+        if os.path.isfile(file_map[index]):
+            with open(file_map[index]) as f:
+                batch = []
+                for line in f:
+                    json_line = json.loads(line)
+                    batch.append(json_line)
+                    if len(batch) % batch_size == 0:
+                        yield from process_function(batch)
+                        batch = []
+                if batch:
+                    yield from process_function(batch)
     elif index == "dataset_operationaspect_v1":
-        docs = []
-    elif index == "graph_service_v1":
-        docs = []
-        if os.path.isfile(
-            f"tests/test_data/test_{test_file_prefix}_graph_service.json"
-        ):
-            with open(
-                f"tests/test_data/test_{test_file_prefix}_graph_service.json"
-            ) as f:
-                docs = json.load(f)
+        return
     else:
         raise AssertionError(f"Unhandled index {index}")
-
-    yield from process_function(docs)
 
 
 def pytest_addoption(parser: "Parser") -> None:
@@ -255,7 +277,6 @@ def test_dataset_usage(
         generate_patch=False,
     )
     tmp_path = pathlib.Path(tempfile.mkdtemp("usage_feature_reporter_test"))
-    load_data_from_es.side_effect = partial(load_data_from_es_mock, test_name)
     pipeline_config_dict: Dict[str, Any] = {
         "source": {
             "type": "datahub-usage-reporting",
@@ -268,6 +289,7 @@ def test_dataset_usage(
             },
         },
     }
+    load_data_from_es.side_effect = partial(load_data_from_es_mock, test_name)
 
     run_and_get_pipeline(pipeline_config_dict)
 
@@ -375,6 +397,7 @@ def check_golden_file(
 
 
 @pytest.mark.parametrize("test_name", ["dataset_usage", "dataset_usage_small"])
+# @pytest.mark.parametrize("test_name", ["dataset_usage", "dataset_usage_small"])
 @patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
 @freeze_time(FROZEN_TIME)
 def test_dataset_usage_with_ranking_factors_patch_enabled(
@@ -429,6 +452,88 @@ def test_dataset_usage_with_ranking_factors_patch_enabled(
         tempfile.mkdtemp("usage_feature_reporter_ranking_test_patch_enabled")
     )
     mcp_output_file = f"{tmp_path}/{test_name}_ranking_mcps.json"
+    load_data_from_es.side_effect = partial(load_data_from_es_mock, test_name)
+    pipeline_config_dict: Dict[str, Any] = {
+        "source": {
+            "type": "datahub-usage-reporting",
+            "config": dict(config),
+        },
+        "sink": {
+            "type": "file",
+            "config": {
+                "filename": f"{mcp_output_file}",
+            },
+        },
+    }
+
+    pipeline = run_and_get_pipeline(pipeline_config_dict)
+    pipeline.raise_from_status()
+
+    check_golden_file(
+        pytestconfig=pytestconfig,
+        output_path=pathlib.Path(mcp_output_file),
+        golden_path=pathlib.Path(f"tests/golden/golden_{test_name}_ranking_patch.json"),
+        ignore_paths=["root[*]['systemMetadata']['created']"],
+    )
+
+
+@pytest.mark.parametrize("test_name", ["dataset_usage", "dataset_usage_small"])
+# @pytest.mark.parametrize("test_name", ["dataset_usage", "dataset_usage_small"])
+@patch.object(DataHubUsageFeatureReportingSource, "load_data_from_es")
+@freeze_time(FROZEN_TIME)
+def test_dataset_usage_with_ranking_factors_patch_enabled_in_streaming(
+    load_data_from_es: Mock, pytestconfig: PytestConfig, test_name: str
+) -> None:
+    config = DataHubUsageFeatureReportingSourceConfig(
+        dashboard_usage_enabled=False,
+        chart_usage_enabled=False,
+        dataset_usage_enabled=True,
+        stateful_ingestion=None,
+        server=None,
+        query_timeout=10,
+        extract_batch_size=500,
+        extract_delay=0.25,
+        use_exp_cdf=True,
+        sibling_usage_enabled=False,
+        streaming_mode=True,
+        use_server_side_aggregation=True,
+        disable_write_usage=True,
+        set_upstream_table_max_modification_time_for_views=True,
+        generate_patch=True,
+        lookback_days=30,
+        ranking_policy=RankingPolicy(
+            freshness_factors=[
+                FreshnessFactor(age_in_days=[0, 7], value=3.6),
+                FreshnessFactor(age_in_days=[7, 30], value=1.3),
+                FreshnessFactor(age_in_days=[30, 90], value=0.6),
+                FreshnessFactor(age_in_days=[90], value=0.4),
+            ],
+            usage_percentile_factors=[
+                UsagePercentileFactor(percentile=[0, 10], value=0.5),
+                UsagePercentileFactor(percentile=[10, 20], value=0.6),
+                UsagePercentileFactor(percentile=[20, 30], value=0.7),
+                UsagePercentileFactor(percentile=[30, 40], value=0.8),
+                UsagePercentileFactor(percentile=[40, 45], value=0.91),
+                UsagePercentileFactor(percentile=[45, 50], value=1.0),
+                UsagePercentileFactor(percentile=[50, 55], value=1.25),
+                UsagePercentileFactor(percentile=[55, 60], value=1.5),
+                UsagePercentileFactor(percentile=[60, 65], value=1.75),
+                UsagePercentileFactor(percentile=[70, 75], value=2.0),
+                UsagePercentileFactor(percentile=[75, 80], value=2.5),
+                UsagePercentileFactor(percentile=[80, 85], value=2.75),
+                UsagePercentileFactor(percentile=[85, 90], value=3.0),
+                UsagePercentileFactor(percentile=[90, 92], value=3.5),
+                UsagePercentileFactor(percentile=[92, 95], value=4.0),
+                UsagePercentileFactor(percentile=[95, 97], value=5.0),
+                UsagePercentileFactor(percentile=[97, 100], value=6.0),
+            ],
+        ),
+    )
+    tmp_path = pathlib.Path(
+        tempfile.mkdtemp("usage_feature_reporter_ranking_test_patch_enabled")
+    )
+    mcp_output_file = f"{tmp_path}/{test_name}_ranking_mcps.json"
+
     load_data_from_es.side_effect = partial(load_data_from_es_mock, test_name)
     pipeline_config_dict: Dict[str, Any] = {
         "source": {

@@ -33,7 +33,7 @@ jobs:
       # DATAHUB_LOOKML_GIT_TEST_SSH_KEY: ${{ secrets.DATAHUB_LOOKML_GIT_TEST_SSH_KEY }}
     strategy:
       matrix:
-        python-version: ["3.8", "3.10"]
+        python-version: ["3.9", "3.10"]
         command:
           [
             "testQuick",
@@ -42,7 +42,7 @@ jobs:
             "testIntegrationBatch2",
           ]
         include:
-          - python-version: "3.8"
+          - python-version: "3.9"
           - python-version: "3.10"
       fail-fast: false
     steps:

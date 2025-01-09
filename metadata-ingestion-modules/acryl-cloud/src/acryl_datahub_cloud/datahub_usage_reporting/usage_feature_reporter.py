@@ -9,7 +9,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from functools import partial
 from itertools import chain
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+from tempfile import TemporaryDirectory
+from typing import Any, Callable, Dict, Iterable, Iterator, List, Optional, Tuple, Union
 
 import numpy
 import polars
@@ -17,6 +18,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from elasticsearch.client import Elasticsearch
 from opensearchpy import OpenSearch
+from polars.datatypes import DataTypeClass
 from pydantic import Field
 from scipy.stats import expon
 
@@ -171,7 +173,7 @@ class DataHubUsageFeatureReportingSourceConfig(
     )
 
     disable_write_usage: bool = Field(
-        False,
+        True,
         description="Flag to disable write usage statistics collection.'",
     )
 
@@ -245,6 +247,7 @@ class DatahubUsageFeatureReport(IngestionStageReport, StatefulIngestionReport):
 class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     platform = "datahub"
     temp_files_to_clean: List[str] = []
+    temp_dir: Optional[TemporaryDirectory] = None
 
     def __init__(
         self, ctx: PipelineContext, config: DataHubUsageFeatureReportingSourceConfig
@@ -266,6 +269,10 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
         if num > 0:
             logger.info(f"Compiled {num} regexp factors")
+
+        if self.config.streaming_mode:
+            self.temp_dir = tempfile.TemporaryDirectory(prefix="datahub-usage-")
+            logger.info(f"Using temp dir: {self.temp_dir.name}")
 
     def soft_deleted_batch(self, results: Iterable) -> Iterable[Dict]:
         with PerfTimer() as timer:
@@ -397,7 +404,6 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                     if "eventGranularity" in doc["_source"]
                     else None
                 ),
-                "partitionSpec": doc["_source"]["partitionSpec"],
                 "viewsCount": (
                     doc["_source"]["viewsCount"]
                     if "viewsCount" in doc["_source"]
@@ -410,7 +416,8 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 ),
                 "userCounts": (
                     doc["_source"]["event"]["userCounts"]
-                    if "userCounts" in doc["_source"]["event"]
+                    if "event" in doc["_source"]
+                    and "userCounts" in doc["_source"]["event"]
                     else []
                 ),
                 "platform": platform,
@@ -427,7 +434,6 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                     if "eventGranularity" in doc["_source"]
                     else None
                 ),
-                "partitionSpec": doc["_source"]["partitionSpec"],
                 "queryCount": (
                     doc["_source"]["queryCount"]
                     if "queryCount" in doc["_source"]
@@ -497,7 +503,6 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                     "timestampMillis": doc["_source"]["timestampMillis"],
                     "urn": doc["_source"]["urn"],
                     "eventGranularity": doc["_source"]["eventGranularity"],
-                    "partitionSpec": doc["_source"]["partitionSpec"],
                     "totalSqlQueries": doc["_source"]["totalSqlQueries"],
                     "uniqueUserCount": doc["_source"]["uniqueUserCount"],
                     "userCounts": (
@@ -695,9 +700,13 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         return lf
 
     @staticmethod
-    def polars_to_arrow_schema(polars_schema: Dict[str, polars.DataType]) -> pa.Schema:
-        def convert_dtype(polars_dtype: polars.DataType) -> pa.DataType:
-            type_mapping: Dict[polars.DataType, pa.DataType] = {
+    def polars_to_arrow_schema(
+        polars_schema: Dict[str, Union[DataTypeClass, polars.DataType]]
+    ) -> pa.Schema:
+        def convert_dtype(
+            polars_dtype: Union[DataTypeClass, polars.DataType]
+        ) -> pa.DataType:
+            type_mapping: Dict[Union[DataTypeClass, polars.DataType], pa.DataType] = {
                 polars.Boolean(): pa.bool_(),
                 polars.Int8(): pa.int8(),
                 polars.Int16(): pa.int16(),
@@ -710,6 +719,8 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                 polars.Float32(): pa.float32(),
                 polars.Float64(): pa.float64(),
                 polars.Utf8(): pa.string(),
+                polars.Utf8(): pa.utf8(),
+                polars.String(): pa.string(),
                 polars.Date(): pa.date32(),
                 polars.Datetime(): pa.timestamp("ns"),
                 polars.Time(): pa.time64("ns"),
@@ -718,85 +729,97 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
             if polars_dtype in [type(key) for key in type_mapping.keys()]:
                 return type_mapping[polars_dtype]
-            elif polars_dtype == polars.Categorical():
+            elif polars_dtype == polars.Categorical:
                 return pa.dictionary(index_type=pa.int32(), value_type=pa.string())
+            elif isinstance(polars_dtype, polars.Struct):
+                return pa.struct(
+                    {
+                        field.name: convert_dtype(field.dtype)
+                        for field in polars_dtype.fields
+                    }
+                )
+            elif isinstance(polars_dtype, polars.List):
+                return pa.list_(convert_dtype(polars_dtype.inner))
             else:
                 raise ValueError(f"Unsupported Polars dtype: {polars_dtype}")
 
         fields = [(name, convert_dtype(dtype)) for name, dtype in polars_schema.items()]
         return pa.schema(fields)
 
-    def load_es_data_to_lf(
-        self, index: str, query: Dict, read_function: Callable, schema: Dict
-    ) -> polars.LazyFrame:
-        es_data = self.load_data_from_es(
-            index,
-            query,
-            read_function,
-        )
+    def batch_write_parquet(
+        self,
+        data_iterator: Iterable[Dict[Any, Any]],
+        pl_schema: Dict,
+        output_path: str,
+        batch_size: int = 50000,
+        append: bool = False,
+        parquet_writer: Optional[pq.ParquetWriter] = None,
+    ) -> None:
+        """
+        Write data in batches to a file with support for appending to existing files.
 
-        with tempfile.NamedTemporaryFile(
-            delete=False, mode="wb", suffix=".parquet"
-        ) as temp_file:
-            tempfile_name = temp_file.name
-            logger.debug(f"Creating temporary file {tempfile_name}")
-            self.temp_files_to_clean.append(tempfile_name)
+        Args:
+            data_iterator: Iterator of dictionaries containing the data
+            pa_schema: PyArrow schema for the data
+            output_path: Path for the output file
+            format_type: One of "ipc", "feather", "csv", "parquet", "pl_parquet"
+            batch_size: Number of rows per batch
+            append: If True, append to existing file. If False, create new file.
+            parquet_writer: Parquet doesn't let to append to existing file, so we need to pass the writer object
+        Returns:
+            LazyFrame pointing to the written data
+        """
+        arrow_schema = self.polars_to_arrow_schema(pl_schema)
 
-            # Create a PyArrow schema from the provided schema dict
-            pa_schema = self.polars_to_arrow_schema(schema)
+        total_rows = 0
+        total_batches = 0
 
-            # Initialize the ParquetWriter
-            with pq.ParquetWriter(tempfile_name, pa_schema) as writer:
-                batch_size = (
-                    1000  # Adjust this value based on your data and memory constraints
-                )
+        try:
+            if parquet_writer:
+                writer = parquet_writer
+            else:
+                writer = pq.ParquetWriter(output_path, arrow_schema)
+
+            try:
+                for batch in self._get_batches(data_iterator, batch_size):
+                    table = pa.Table.from_pylist(batch, schema=arrow_schema)
+                    writer.write_table(table)
+                    total_rows += len(batch)
+                    total_batches += 1
+                    logger.debug(f"Wrote batch {total_batches} ({len(batch)} rows)")
+            finally:
+                if not parquet_writer:
+                    writer.close()
+        except Exception as e:
+            logger.exception(f"Error during batch writing: {str(e)}", exc_info=True)
+            raise
+
+    def _get_batches(
+        self, iterator: Iterable[Dict], batch_size: int
+    ) -> Iterator[List[Dict]]:
+        """Helper generator to create batches from an iterator."""
+        current_batch = []
+        for item in iterator:
+            current_batch.append(item)
+            if len(current_batch) >= batch_size:
+                yield current_batch
                 current_batch = []
 
-                for row in es_data:
-                    current_batch.append(row)
-
-                    if len(current_batch) >= batch_size:
-                        # Convert the batch to a PyArrow Table
-                        table = pa.Table.from_pylist(current_batch, schema=pa_schema)
-
-                        # Write the batch
-                        writer.write_table(table)
-
-                        # Clear the current batch
-                        current_batch = []
-
-                # Write any remaining rows
-                if current_batch:
-                    table = pa.Table.from_pylist(current_batch, schema=pa_schema)
-                    writer.write_table(table)
-
-        return polars.scan_parquet(tempfile_name)
+        if current_batch:
+            yield current_batch
 
     def load_write_usage(
         self, soft_deleted_entities_df: polars.LazyFrame
     ) -> polars.LazyFrame:
-        if self.config.streaming_mode:
-            wdf = self.load_es_data_to_lf(
-                index="dataset_operationaspect_v1",
-                query=QueryBuilder.get_dataset_write_usage_raw_query(
-                    self.config.lookback_days
-                ),
-                read_function=self.write_stat_raw_batch,
-                schema={"urn": polars.Categorical, "platform": polars.Categorical},
-            )
-            wdf = wdf.cast({polars.String: polars.Categorical})
-        else:
-            wdf = polars.LazyFrame(
-                self.load_data_from_es(
-                    "dataset_operationaspect_v1",
-                    QueryBuilder.get_dataset_write_usage_raw_query(
-                        self.config.lookback_days
-                    ),
-                    self.write_stat_raw_batch,
-                ),
-                schema={"urn": polars.Categorical, "platform": polars.Categorical},
-                strict=True,
-            )
+        wdf = self.load_data_from_es_to_lf(
+            index="dataset_operationaspect_v1",
+            query=QueryBuilder.get_dataset_write_usage_raw_query(
+                self.config.lookback_days
+            ),
+            process_function=self.write_stat_raw_batch,
+            schema={"urn": polars.Categorical, "platform": polars.Categorical},
+        )
+        wdf = wdf.cast({polars.String: polars.Categorical})
 
         wdf = wdf.group_by(polars.col("urn"), polars.col("platform")).agg(
             polars.col("urn").count().alias("write_count"),
@@ -851,18 +874,18 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     def set_table_modification_time_for_views(
         self, datasets_df: polars.LazyFrame
     ) -> polars.LazyFrame:
-        upstreams_lf = polars.LazyFrame(
-            self.load_data_from_es(
-                "graph_service_v1",
-                QueryBuilder.get_upstreams_query(),
-                self.upstream_lineage_batch,
-            ),
-            schema={
-                "source_urn": polars.Categorical,
-                "destination_urn": polars.Categorical,
-            },
-            strict=True,
+        schema = {
+            "source_urn": polars.Categorical,
+            "destination_urn": polars.Categorical,
+        }
+
+        upstreams_lf = self.load_data_from_es_to_lf(
+            schema=schema,
+            index="graph_service_v1",
+            query=QueryBuilder.get_upstreams_query(),
+            process_function=self.upstream_lineage_batch,
         )
+
         wdf = (
             (
                 upstreams_lf.join(
@@ -1116,7 +1139,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         self, lazy_frame: polars.LazyFrame
     ) -> Iterable[MetadataWorkUnit]:
         num = 0
-        for row in lazy_frame.collect().to_struct():
+        for row in lazy_frame.collect().iter_rows(named=True):
             num += 1
 
             query_usage_features = QueryUsageFeaturesClass(
@@ -1186,49 +1209,43 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     def generate_dashboard_chart_usage(
         self, entity_index: str, usage_index: str
     ) -> polars.LazyFrame:
-        soft_deleted_df = polars.LazyFrame(
-            self.load_data_from_es(
-                index=entity_index,
-                query=QueryBuilder.get_soft_deleted_entities_query(),
-                process_function=self.soft_deleted_batch,
-            ),
-            schema={
-                "entity_urn": polars.Categorical,
-                "removed": bool,
-                "last_modified_at": polars.Int64,
-                "siblings": polars.List(polars.String),
-                "isView": polars.Boolean,
-            },
-            strict=True,
+        soft_deleted_schema = {
+            "entity_urn": polars.Categorical,
+            "removed": polars.Boolean,
+            "last_modified_at": polars.Int64,
+            "siblings": polars.List(polars.String),
+            "isView": polars.Boolean,
+        }
+
+        soft_deleted_df = self.load_data_from_es_to_lf(
+            schema=soft_deleted_schema,
+            index=entity_index,
+            query=QueryBuilder.get_dataset_entities_query(),
+            process_function=self.soft_deleted_batch,
         )
 
-        lf: polars.LazyFrame = polars.LazyFrame(
-            self.load_data_from_es(
-                index=usage_index,
-                query=QueryBuilder.get_dashboard_usage_query(self.config.lookback_days),
-                process_function=self.process_dashboard_usage,
-            ),
-            schema={
-                "timestampMillis": polars.Int64,
-                "lastObserved": polars.Int64,
-                "urn": polars.Categorical,
-                "platform": polars.Categorical,
-                "eventGranularity": polars.String,
-                "partitionSpec": polars.Struct(
+        dashboard_usage_schema = {
+            "timestampMillis": polars.Int64,
+            "lastObserved": polars.Int64,
+            "urn": polars.Categorical,
+            "platform": polars.Categorical,
+            "eventGranularity": polars.String,
+            "viewsCount": polars.Int64,
+            "userCounts": polars.List(
+                polars.Struct(
                     {
-                        "partition": polars.String,
+                        "usageCount": polars.Int64,
+                        "user": polars.String,
                     }
-                ),
-                "viewsCount": polars.Int64,
-                "userCounts": polars.List(
-                    polars.Struct(
-                        {
-                            "usageCount": polars.Int64,
-                            "user": polars.String,
-                        }
-                    )
-                ),
-            },
+                )
+            ),
+        }
+
+        lf = self.load_data_from_es_to_lf(
+            schema=dashboard_usage_schema,
+            index=usage_index,
+            query=QueryBuilder.get_dashboard_usage_query(self.config.lookback_days),
+            process_function=self.process_dashboard_usage,
         )
 
         lf = (
@@ -1301,48 +1318,41 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
     def generate_query_usage(self) -> polars.LazyFrame:
         usage_index = "query_queryusagestatisticsaspect_v1"
         entity_index = "queryindex_v2"
+        query_entities_schema = {
+            "entity_urn": polars.Categorical,
+            "last_modified_at": polars.Int64,
+            "platform": polars.Categorical,
+            "removed": polars.Boolean,
+        }
 
-        query_entities = polars.LazyFrame(
-            self.load_data_from_es(
-                index=entity_index,
-                query=QueryBuilder.get_query_entities_query(),
-                process_function=self.queries_entities_batch,
-            ),
-            schema={
-                "entity_urn": polars.Categorical,
-                "last_modified_at": polars.Int64,
-                "platform": polars.Categorical,
-                "removed": polars.Boolean,
-            },
-            strict=True,
+        query_entities = self.load_data_from_es_to_lf(
+            schema=query_entities_schema,
+            index=entity_index,
+            query=QueryBuilder.get_query_entities_query(),
+            process_function=self.queries_entities_batch,
         )
 
-        lf: polars.LazyFrame = polars.LazyFrame(
-            self.load_data_from_es(
-                index=usage_index,
-                query=QueryBuilder.get_query_usage_query(self.config.lookback_days),
-                process_function=self.process_query_usage,
-            ),
-            schema={
-                "timestampMillis": polars.Int64,
-                "lastObserved": polars.Int64,
-                "urn": polars.Categorical,
-                "eventGranularity": polars.String,
-                "partitionSpec": polars.Struct(
+        query_usage_schema = {
+            "timestampMillis": polars.Int64,
+            "lastObserved": polars.Int64,
+            "urn": polars.Categorical,
+            "eventGranularity": polars.String,
+            "queryCount": polars.Int64,
+            "userCounts": polars.List(
+                polars.Struct(
                     {
-                        "partition": polars.String,
+                        "usageCount": polars.Int64,
+                        "user": polars.String,
                     }
-                ),
-                "queryCount": polars.Int64,
-                "userCounts": polars.List(
-                    polars.Struct(
-                        {
-                            "usageCount": polars.Int64,
-                            "user": polars.String,
-                        }
-                    )
-                ),
-            },
+                )
+            ),
+        }
+
+        lf = self.load_data_from_es_to_lf(
+            schema=query_usage_schema,
+            index=usage_index,
+            query=QueryBuilder.get_query_usage_query(self.config.lookback_days),
+            process_function=self.process_query_usage,
         )
 
         lf = query_entities.join(
@@ -1380,36 +1390,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         if self.config.set_upstream_table_max_modification_time_for_views:
             datasets_lf = self.set_table_modification_time_for_views(datasets_lf)
 
-        index = "dataset_datasetusagestatisticsaspect_v1"
-        lf: polars.LazyFrame = polars.LazyFrame(
-            self.load_data_from_es(
-                index=index,
-                query=QueryBuilder.get_dataset_usage_query(self.config.lookback_days),
-                process_function=self.process_batch,
-            ),
-            schema={
-                "timestampMillis": polars.Int64,
-                "urn": polars.Categorical,
-                "platform": polars.Categorical,
-                "eventGranularity": polars.String,
-                "partitionSpec": polars.Struct(
-                    {
-                        "partition": polars.String,
-                    }
-                ),
-                "totalSqlQueries": polars.Int64,
-                "uniqueUserCount": polars.Int64,
-                "userCounts": polars.List(
-                    polars.Struct(
-                        {
-                            "count": polars.Int64,
-                            "user": polars.String,
-                            "userEmail": polars.String,
-                        }
-                    )
-                ),
-            },
-        )
+        lf = self.load_dataset_usage()
 
         # Polaris/pandas join merges the join column into one column and that's why we need to filter based on the removed column
         lf = (
@@ -1472,23 +1453,101 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         )
         return usage_and_write_lf
 
-    def get_datasets(self) -> polars.LazyFrame:
-        datasets_df = polars.LazyFrame(
-            self.load_data_from_es(
-                index="datasetindex_v2",
-                query=QueryBuilder.get_soft_deleted_entities_query(),
-                process_function=self.soft_deleted_batch,
-            ),
-            schema={
-                "entity_urn": polars.Categorical,
-                "removed": bool,
-                "last_modified_at": polars.Int64,
-                "siblings": polars.List(polars.String),
-                "isView": polars.Boolean,
-            },
-            strict=True,
+    def load_data_from_es_to_lf(
+        self,
+        index: str,
+        schema: Dict,
+        query: Dict,
+        process_function: Callable,
+        aggregation_key: Optional[str] = None,
+        file_to_load: Optional[str] = None,
+    ) -> polars.LazyFrame:
+        data = self.load_data_from_es(
+            index=index,
+            query=query,
+            process_function=process_function,
+            aggregation_key=aggregation_key,
         )
-        return datasets_df
+
+        if not self.config.streaming_mode:
+            return polars.LazyFrame(data, schema)
+        else:
+            assert (
+                self.temp_dir is not None
+            ), "In Streaming mode temp dir should be set. Normally this should not happen..."
+
+            with tempfile.NamedTemporaryFile(
+                delete=False,
+                mode="wb",
+                dir=self.temp_dir.name,
+                prefix=f"{index}_",
+                suffix=".parquet",
+            ) as temp_file:
+                tempfile_name = temp_file.name
+                with pq.ParquetWriter(
+                    tempfile_name, self.polars_to_arrow_schema(schema)
+                ) as writer:
+                    logger.debug(f"Creating temporary file {tempfile_name}")
+
+                    self.batch_write_parquet(
+                        data,
+                        schema,
+                        temp_file.name,
+                        parquet_writer=writer,
+                    )
+                # Scan parquet fails in some cases with
+            # thread 'polars-1' panicked at crates/polars-parquet/src/arrow/read/deserialize/dictionary_encoded/required_masked_dense.rs:113:72:
+            # called `Option::unwrap()` on a `None` value
+            # Which only happens if we don't collect immediately
+            # return polars.scan_parquet(temp_file.name, schema=schema, low_memory=True).collect().lazy()
+            return (
+                polars.scan_parquet(temp_file.name, schema=schema, low_memory=True)
+                .collect()
+                .lazy()
+            )
+
+    def load_dataset_usage(self) -> polars.LazyFrame:
+        index = "dataset_datasetusagestatisticsaspect_v1"
+        schema = {
+            "timestampMillis": polars.Int64,
+            "urn": polars.Categorical,
+            "platform": polars.Categorical,
+            "eventGranularity": polars.String,
+            "totalSqlQueries": polars.Int64,
+            "uniqueUserCount": polars.Int64,
+            "userCounts": polars.List(
+                polars.Struct(
+                    {
+                        "count": polars.Int64,
+                        "user": polars.String,
+                        "userEmail": polars.String,
+                    }
+                )
+            ),
+        }
+
+        return self.load_data_from_es_to_lf(
+            schema=schema,
+            index=index,
+            query=QueryBuilder.get_dataset_usage_query(self.config.lookback_days),
+            process_function=self.process_batch,
+        )
+
+    def get_datasets(self) -> polars.LazyFrame:
+        schema = {
+            "entity_urn": polars.Categorical,
+            "removed": polars.Boolean,
+            "last_modified_at": polars.Int64,
+            "siblings": polars.List(polars.String),
+            "isView": polars.Boolean,
+        }
+
+        return self.load_data_from_es_to_lf(
+            schema=schema,
+            index="datasetindex_v2",
+            query=QueryBuilder.get_dataset_entities_query(),
+            process_function=self.soft_deleted_batch,
+        )
 
     def generate_top_users(
         self, lf: polars.LazyFrame, count_field_name: str = "count"
@@ -1560,6 +1619,7 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
         batch_size: int = 1000,
         delay: Optional[float] = None,
     ) -> Iterable[Dict[str, Any]]:
+        processed_count = 0
         while True:
             with PerfTimer() as timer:
                 logger.debug(f"ES query: {query}")
@@ -1581,8 +1641,9 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
                     yield from process_function(results["hits"]["hits"])
 
                     time_taken = timer.elapsed_seconds()
+                    processed_count += len(results["hits"]["hits"])
                     logger.info(
-                        f"Processed {len(results['hits']['hits'''])} data from {index} index in {time_taken:.3f} seconds"
+                        f"Processed {len(results['hits']['hits'''])} data from {index} index in {time_taken:.3f} seconds. Total: {processed_count} processed."
                     )
                     if len(results["hits"]["hits"]) < batch_size:
                         break
@@ -1609,9 +1670,3 @@ class DataHubUsageFeatureReportingSource(StatefulIngestionSourceBase):
 
     def get_report(self) -> SourceReport:
         return self.report
-
-    def __del__(self) -> None:
-        for temp_file in self.temp_files_to_clean:
-            logger.info(f"Cleaning up temp file: {temp_file}")
-            os.remove(temp_file)
-        self.temp_files_to_clean = []

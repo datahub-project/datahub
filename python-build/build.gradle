@@ -18,6 +18,7 @@ task buildWheels(type: Exec, dependsOn: [
   ':metadata-ingestion-modules:dagster-plugin:buildWheel',
   ':metadata-ingestion-modules:prefect-plugin:buildWheel',
   ':metadata-ingestion-modules:gx-plugin:buildWheel',
+  ':metadata-ingestion-modules:acryl-cloud:buildWheel',
 ]) {
   commandLine python_executable, "copy_wheels.py"
 }

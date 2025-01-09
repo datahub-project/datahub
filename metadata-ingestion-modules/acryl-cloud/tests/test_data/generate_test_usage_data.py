@@ -87,12 +87,12 @@ def generate_test_data(num_events: int, num_users: int) -> List[Dict[str, Any]]:
     return events
 
 
-num_datasets = 5
+num_datasets = 10000000
 # Generate 10 test events with 5 topSqlQueries and 3 users each
-name = "test_dataset_usage_small"
+name = "test_dataset_usage_huge"
 
 test_datasets = generate_test_datasets(num_datasets)
 json.dump(test_datasets, open(f"{name}_datasets.json", "w"), indent=4)
 
-test_events = generate_test_data(5, num_datasets)
+test_events = generate_test_data(5000, num_datasets)
 json.dump(test_events, open(f"{name}_datasetusages.json", "w"), indent=4)
