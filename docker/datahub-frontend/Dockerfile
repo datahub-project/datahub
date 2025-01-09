@@ -1,7 +1,7 @@
 # Defining environment
 ARG APP_ENV=prod
 
-FROM alpine:3.20 AS base
+FROM alpine:3.21 AS base
 
 # Configurable repositories
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
