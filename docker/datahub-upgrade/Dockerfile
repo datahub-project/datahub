@@ -36,10 +36,16 @@ RUN if [ "${ALPINE_REPO_URL}" != "http://dl-cdn.alpinelinux.org/alpine" ] ; then
 ENV JMX_VERSION=0.18.0
 ENV JETTY_VERSION=11.0.21
 
+# Install Java (required for org.xerial.snappy)
+RUN apt-get update && apt-get install -y openjdk-11-jre-headless
+
+# Install the org.xerial.snappy package
+RUN pip install snappy
+
 # Upgrade Alpine and base packages
 # PFP-260: Upgrade Sqlite to >=3.28.0-r0 to fix https://security.snyk.io/vuln/SNYK-ALPINE39-SQLITE-449762
 RUN apk --no-cache --update-cache --available upgrade \
-    && apk --no-cache add curl bash coreutils gcompat sqlite libc6-compat snappy \
+    && apk --no-cache add curl bash coreutils gcompat sqlite libc6-compat \
     && apk --no-cache add openjdk17-jre-headless --repository=${ALPINE_REPO_URL}/edge/community \
     && curl -sS ${MAVEN_CENTRAL_REPO_URL}/org/eclipse/jetty/jetty-runner/${JETTY_VERSION}/jetty-runner-${JETTY_VERSION}.jar --output jetty-runner.jar \
     && curl -sS ${MAVEN_CENTRAL_REPO_URL}/org/eclipse/jetty/jetty-jmx/${JETTY_VERSION}/jetty-jmx-${JETTY_VERSION}.jar --output jetty-jmx.jar \
