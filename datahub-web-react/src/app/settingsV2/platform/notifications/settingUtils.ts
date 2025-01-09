@@ -81,6 +81,8 @@ export const updateSinkNotificationType = (
     })
         .then(() => {
             refetch();
+            message.destroy();
+            message.success({ content: 'Preferences saved. This may take a few minutes to reflect in the system.' });
         })
         .catch((e: unknown) => {
             message.destroy();

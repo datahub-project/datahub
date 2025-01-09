@@ -27,9 +27,10 @@ type Props = {
     selectedKey: string;
     isCollapsed: boolean;
     style?: any;
+    iconSize?: number;
 } & Omit<MenuProps, 'items'>;
 
-export default function NavBarMenu({ menu, selectedKey, isCollapsed, style }: Props) {
+export default function NavBarMenu({ menu, selectedKey, isCollapsed, iconSize, style }: Props) {
     const renderMenuItem = (item: AnyMenuItem) => {
         if (item.isHidden) return null;
 
@@ -44,7 +45,15 @@ export default function NavBarMenu({ menu, selectedKey, isCollapsed, style }: Pr
         }
 
         if (item.type === NavBarMenuItemTypes.Item) {
-            return <NavBarMenuItem item={item} key={item.key} isCollapsed={isCollapsed} isSelected={isSelected} />;
+            return (
+                <NavBarMenuItem
+                    item={item}
+                    key={item.key}
+                    isCollapsed={isCollapsed}
+                    isSelected={isSelected}
+                    iconSize={iconSize}
+                />
+            );
         }
 
         if (item.type === NavBarMenuItemTypes.Dropdown) {

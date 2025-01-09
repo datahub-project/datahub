@@ -2,6 +2,20 @@ import React from 'react';
 import { useHistory, useLocation, useRouteMatch, Redirect, Route, Switch } from 'react-router';
 import { colors } from '@src/alchemy-components';
 import { Button } from 'antd';
+import {
+    SquaresFour,
+    Bank,
+    Bell,
+    Funnel,
+    SignIn,
+    House,
+    Question,
+    ShieldCheck,
+    Star,
+    Users,
+    Wrench,
+    UsersThree,
+} from '@phosphor-icons/react';
 import styled from 'styled-components';
 import { useUserContext } from '../context/useUserContext';
 import { useSubscriptionsEnabled } from './personal/notifications/utils';
@@ -115,7 +129,7 @@ export const SettingsPage = () => {
                         key: 'views',
                         link: `${url}/views`,
                         isHidden: !showViews,
-                        icon: null,
+                        icon: <Funnel />,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -123,7 +137,7 @@ export const SettingsPage = () => {
                         key: 'personal-notifications',
                         link: `${url}/personal-notifications`,
                         isHidden: !subscriptionsEnabled,
-                        icon: null,
+                        icon: <Bell />,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -131,7 +145,7 @@ export const SettingsPage = () => {
                         key: 'personal-subscriptions',
                         link: `${url}/personal-subscriptions`,
                         isHidden: !subscriptionsEnabled,
-                        icon: null,
+                        icon: <Star />,
                     },
                 ],
             },
@@ -147,7 +161,7 @@ export const SettingsPage = () => {
                         key: 'tokens',
                         link: `${url}/tokens`,
                         isHidden: !showAccessTokens,
-                        icon: null,
+                        icon: <ShieldCheck />,
                     },
                 ],
             },
@@ -163,7 +177,7 @@ export const SettingsPage = () => {
                         key: 'identities',
                         link: `${url}/identities`,
                         isHidden: !showUsersGroups,
-                        icon: null,
+                        icon: <UsersThree />,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -171,7 +185,7 @@ export const SettingsPage = () => {
                         key: 'permissions',
                         link: `${url}/permissions`,
                         isHidden: !showPolicies,
-                        icon: null,
+                        icon: <Bank />,
                     },
                 ],
             },
@@ -187,7 +201,7 @@ export const SettingsPage = () => {
                         key: 'sso',
                         link: `${url}/sso`,
                         isHidden: !showGlobalSettings,
-                        icon: null,
+                        icon: <SignIn />,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -195,7 +209,7 @@ export const SettingsPage = () => {
                         key: 'integrations',
                         link: `${url}/integrations`,
                         isHidden: !showGlobalSettings,
-                        icon: null,
+                        icon: <SquaresFour />,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -203,7 +217,7 @@ export const SettingsPage = () => {
                         key: 'notifications',
                         link: `${url}/notifications`,
                         isHidden: !showGlobalSettings,
-                        icon: null,
+                        icon: <Bell />,
                     },
                 ],
             },
@@ -219,7 +233,7 @@ export const SettingsPage = () => {
                         key: 'posts',
                         link: `${url}/posts`,
                         isHidden: !showHomePagePosts,
-                        icon: null,
+                        icon: <House />,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -227,7 +241,7 @@ export const SettingsPage = () => {
                         key: 'ownership',
                         link: `${url}/ownership`,
                         isHidden: !showOwnershipTypes,
-                        icon: null,
+                        icon: <Users />,
                     },
                     {
                         type: NavBarMenuItemTypes.Item,
@@ -235,7 +249,7 @@ export const SettingsPage = () => {
                         key: 'helpLink',
                         link: `${url}/helpLink`,
                         isHidden: !showCustomHelpLink,
-                        icon: null,
+                        icon: <Question />,
                     },
                 ],
             },
@@ -250,7 +264,7 @@ export const SettingsPage = () => {
                         title: 'Appearance',
                         key: 'preferences',
                         link: `${url}/preferences`,
-                        icon: null,
+                        icon: <Wrench />,
                     },
                 ],
             },
@@ -279,6 +293,7 @@ export const SettingsPage = () => {
                         isCollapsed={false}
                         selectedKey={activePath}
                         menu={menuItems}
+                        iconSize={16}
                         onSelect={(key) => history.push(`${url}/${key}`)}
                     />
                 </NavBarMenuContainer>

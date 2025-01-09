@@ -63,14 +63,14 @@ const StyledMenuItem = styled(Menu.Item)<{ isCollapsed?: boolean }>`
     }
 `;
 
-const Icon = styled.div<{ $isSelected?: boolean }>`
-    width: 20px;
-    height: 20px;
+const Icon = styled.div<{ $isSelected?: boolean; $size?: number }>`
+    width: ${(props) => props.$size ?? 20}px;
+    height: ${(props) => props.$size ?? 20}px;
 
     && svg {
         ${(props) => (props.$isSelected ? 'fill: url(#menu-item-selected-gradient) #533fd1;' : 'color: #8088a3;')}
-        width: 20px;
-        height: 20px;
+        width: ${(props) => props.$size ?? 20}px;
+        height: ${(props) => props.$size ?? 20}px;
     }
 `;
 
@@ -105,9 +105,10 @@ type Props = {
     item: NavBarMenuBaseItem;
     isCollapsed?: boolean;
     isSelected?: boolean;
+    iconSize?: number;
 } & MenuItemProps;
 
-export default function NavBarMenuItem({ item, isCollapsed, isSelected, ...props }: Props) {
+export default function NavBarMenuItem({ item, isCollapsed, isSelected, iconSize, ...props }: Props) {
     const history = useHistory();
 
     const onClick = () => {
@@ -120,7 +121,9 @@ export default function NavBarMenuItem({ item, isCollapsed, isSelected, ...props
         <Tooltip title={isCollapsed ? item.title : null} placement="right" showArrow={false}>
             <StyledMenuItem isCollapsed={isCollapsed} onClick={onClick} aria-label={item.title} {...props}>
                 {item.icon || item.selectedIcon ? (
-                    <Icon $isSelected={isSelected}>{isSelected ? item.selectedIcon || item.icon : item.icon}</Icon>
+                    <Icon $size={iconSize} $isSelected={isSelected}>
+                        {isSelected ? item.selectedIcon || item.icon : item.icon}
+                    </Icon>
                 ) : null}
                 {isCollapsed ? (
                     <>{item?.badge?.show && <PillDot />}</>
