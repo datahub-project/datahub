@@ -26,6 +26,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
+from datahub.ingestion.api.source import StructuredLogLevel
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     make_sqlalchemy_type,
@@ -135,8 +136,15 @@ class OracleInspectorObjectWrapper:
                 sql.text("select sys_context('USERENV','DB_NAME') from dual")
             ).scalar()
             return str(db_name)
-        except sqlalchemy.exc.DatabaseError as e:
-            logger.error("Error fetching DB name: " + str(e))
+        except sqlalchemy.exc.DatabaseError as exc:
+            logger.error("Error fetching DB name: " + str(exc))
+            self.report.report_exc(
+                title="Error fetching database name",
+                message="Error extracting dataset info from API response.",
+                context=db_name,
+                level=StructuredLogLevel.ERROR,
+                exc=exc,
+            )
             return ""
 
     def get_schema_names(self) -> List[str]:
