@@ -69,6 +69,13 @@ setup(
                 "acryl-cs-issues = acryl_datahub_cloud.acryl_cs_issues.source:AcrylCSIssuesSource",
             ],
         },
+        "include_package_data": True,
+        "package_data": {
+            "acryl_datahub_cloud.datahub_metadata_sharing": [
+                "scroll_shared_entities.gql",
+                "share_entity.gql",
+            ],
+        },
     },
     extras_require={
         **{plugin: list(dependencies) for (plugin, dependencies) in plugins.items()},
