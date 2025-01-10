@@ -114,14 +114,18 @@ class Entity(HasUrn):
         change_type: Union[str, models.ChangeTypeClass] = models.ChangeTypeClass.UPSERT,
     ) -> List[MetadataChangeProposalWrapper]:
         urn_str = str(self.urn)
-        return [
-            MetadataChangeProposalWrapper(
-                entityUrn=urn_str,
-                aspect=aspect,
-                changeType=change_type,
+
+        mcps = []
+        for aspect in self._aspects.values():
+            assert isinstance(aspect, models._Aspect)
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=urn_str,
+                    aspect=aspect,
+                    changeType=change_type,
+                )
             )
-            for aspect in self._aspects.values()
-        ]
+        return mcps
 
 
 class HasSubtype(Entity):

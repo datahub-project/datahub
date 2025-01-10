@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
@@ -11,7 +13,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
-from datahub.metadata.urns import DatasetUrn, Urn
+from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.sdk._shared import (
     ContainerInputType,
     Entity,
@@ -42,6 +44,7 @@ class DatasetEditMode(Enum):
 
 
 _DEFAULT_EDIT_MODE = DatasetEditMode.DEFER_TO_UI
+# TODO: Add a way for ingestion to change the default edit mode
 # TODO: Add default edit attribution for basic props e.g. tags/terms/owners/etc?
 
 SchemaFieldInputType: TypeAlias = Union[
@@ -53,6 +56,87 @@ SchemaFieldInputType: TypeAlias = Union[
 SchemaFieldsInputType: TypeAlias = (
     List[SchemaFieldInputType] | models.SchemaMetadataClass
 )
+
+DatasetUrnOrStr: TypeAlias = Union[str, DatasetUrn]
+UpstreamInputType: TypeAlias = Union[
+    # Dataset upstream variants.
+    DatasetUrnOrStr,
+    models.UpstreamClass,
+    # Column upstream variants.
+    models.FineGrainedLineageClass,
+]
+UpstreamLineageInputType: TypeAlias = Union[
+    models.UpstreamLineageClass,
+    List[UpstreamInputType],
+    # Combined variant.
+    # Map of { upstream_dataset -> { downstream_column -> [upstream_column] } }
+    Dict[DatasetUrnOrStr, Dict[str, List[str]]],
+]
+
+
+def _parse_upstream_input(
+    upstream_input: UpstreamInputType,
+) -> models.UpstreamClass | models.FineGrainedLineageClass:
+    if isinstance(upstream_input, models.UpstreamClass):
+        return upstream_input
+    elif isinstance(upstream_input, models.FineGrainedLineageClass):
+        return upstream_input
+    elif isinstance(upstream_input, (str, DatasetUrn)):
+        return models.UpstreamClass(
+            dataset=str(upstream_input),
+            type=models.DatasetLineageTypeClass.TRANSFORMED,
+        )
+    else:
+        assert_never(upstream_input)
+
+
+def _parse_upstream_lineage_input(
+    upstream_input: UpstreamLineageInputType, downstream_urn: DatasetUrn
+) -> models.UpstreamLineageClass:
+    if isinstance(upstream_input, models.UpstreamLineageClass):
+        return upstream_input
+    elif isinstance(upstream_input, list):
+        upstreams = [_parse_upstream_input(upstream) for upstream in upstream_input]
+
+        # Partition into table and column lineages.
+        tll = [
+            upstream
+            for upstream in upstreams
+            if isinstance(upstream, models.UpstreamClass)
+        ]
+        cll = [
+            upstream
+            for upstream in upstreams
+            if not isinstance(upstream, models.UpstreamClass)
+        ]
+
+        # TODO: check that all things in cll are also in tll
+        return models.UpstreamLineageClass(upstreams=tll, fineGrainedLineages=cll)
+    elif isinstance(upstream_input, dict):
+        tll = []
+        cll = []
+        for dataset_urn, column_lineage in upstream_input.items():
+            tll.append(
+                models.UpstreamClass(
+                    dataset=str(dataset_urn),
+                    type=models.DatasetLineageTypeClass.TRANSFORMED,
+                )
+            )
+            for column_name, upstream_columns in column_lineage.items():
+                cll.append(
+                    models.FineGrainedLineageClass(
+                        upstreamType=models.FineGrainedLineageUpstreamTypeClass.FIELD_SET,
+                        downstreamType=models.FineGrainedLineageDownstreamTypeClass.FIELD,
+                        upstreams=[
+                            SchemaFieldUrn(dataset_urn, upstream_column).urn()
+                            for upstream_column in upstream_columns
+                        ],
+                        downstreams=[SchemaFieldUrn(downstream_urn, column_name).urn()],
+                    )
+                )
+        raise NotImplementedError("TODO")
+    else:
+        assert_never(upstream_input)
 
 
 class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
@@ -87,11 +171,10 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
         # TODO tags
         # TODO: do we need to support edit_mode for tags / other aspects?
         # TODO terms
-        # structured_properties
+        # TODO structured_properties
         # Dataset-specific aspects.
         schema: Optional[SchemaFieldsInputType] = None,
-        # TODO: schema -> how do we make this feel nice
-        # TODO: lineage?
+        upstreams: Optional[models.UpstreamLineageClass] = None,
     ):
         urn = DatasetUrn.create_from_ids(
             platform_id=platform,
@@ -114,6 +197,8 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
 
         if schema is not None:
             self.set_schema(schema)
+        if upstreams is not None:
+            self.set_upstreams(upstreams)
 
         if description is not None:
             self.set_description(description)
@@ -147,6 +232,7 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
 
     @property
     def platform_instance(self) -> Optional[str]:
+        # TODO: Move this to a HasPlatformInstance mixin
         dataPlatformInstance = self._get_aspect(models.DataPlatformInstanceClass)
         if dataPlatformInstance and dataPlatformInstance.instance:
             return dataPlatformInstance.instance
@@ -286,6 +372,13 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
                     platformSchema=models.SchemalessClass(),
                 )
             )
+
+    @property
+    def upstreams(self) -> Optional[models.UpstreamLineageClass]:
+        return self._get_aspect(models.UpstreamLineageClass)
+
+    def set_upstreams(self, upstreams: UpstreamLineageInputType) -> None:
+        self._set_aspect(_parse_upstream_lineage_input(upstreams, self.urn))
 
 
 def graph_get_dataset(self: DataHubGraph, urn: UrnOrStr) -> Dataset:
