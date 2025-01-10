@@ -149,7 +149,7 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
 
 class TopTableTimings:
     _VALUE_FIELD: str = "timing"
-    top_entites: SortedList[Dict[str, Any]]
+    top_entites: SortedList
     _size: int
 
     def __init__(self, size: int = 10):
