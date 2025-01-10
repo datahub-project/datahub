@@ -54,9 +54,6 @@ class CassandraSourceReport(StaleEntityRemovalSourceReport, IngestionStageReport
         else:
             raise KeyError(f"Unknown entity {ent_type}.")
 
-    def set_ingestion_stage(self, keyspace: str, stage: str) -> None:
-        self.report_ingestion_stage_start(f"{keyspace}: {stage}")
-
     # TODO Need to create seperate common config for profiling report
     profiling_skipped_other: TopKDict[str, int] = field(default_factory=int_top_k_dict)
     profiling_skipped_table_profile_pattern: TopKDict[str, int] = field(
