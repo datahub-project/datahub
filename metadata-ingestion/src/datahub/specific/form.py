@@ -5,15 +5,13 @@ from datahub.metadata.schema_classes import (
     FormInfoClass as FormInfo,
     FormPromptClass,
     KafkaAuditHeaderClass,
-    OwnerClass as Owner,
-    OwnershipTypeClass,
     SystemMetadataClass,
 )
-from datahub.specific.ownership import OwnershipPatchHelper
+from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
 from datahub.utilities.urns.urn import Urn
 
 
-class FormPatchBuilder(MetadataPatchProposal):
+class FormPatchBuilder(HasOwnershipPatch, MetadataPatchProposal):
     def __init__(
         self,
         urn: str,
@@ -23,31 +21,13 @@ class FormPatchBuilder(MetadataPatchProposal):
         super().__init__(
             urn, system_metadata=system_metadata, audit_header=audit_header
         )
-        self.ownership_patch_helper = OwnershipPatchHelper(self)
-
-    def add_owner(self, owner: Owner) -> "FormPatchBuilder":
-        self.ownership_patch_helper.add_owner(owner)
-        return self
-
-    def remove_owner(
-        self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
-    ) -> "FormPatchBuilder":
-        """
-        param: owner_type is optional
-        """
-        self.ownership_patch_helper.remove_owner(owner, owner_type)
-        return self
-
-    def set_owners(self, owners: List[Owner]) -> "FormPatchBuilder":
-        self.ownership_patch_helper.set_owners(owners)
-        return self
 
     def set_name(self, name: Optional[str] = None) -> "FormPatchBuilder":
         if name is not None:
             self._add_patch(
                 FormInfo.ASPECT_NAME,
                 "add",
-                path="/name",
+                path=("name",),
                 value=name,
             )
         return self
@@ -57,7 +37,7 @@ class FormPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 FormInfo.ASPECT_NAME,
                 "add",
-                path="/description",
+                path=("description",),
                 value=description,
             )
         return self
@@ -67,7 +47,7 @@ class FormPatchBuilder(MetadataPatchProposal):
             self._add_patch(
                 FormInfo.ASPECT_NAME,
                 "add",
-                path="/type",
+                path=("type",),
                 value=type,
             )
         return self
@@ -76,7 +56,7 @@ class FormPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             FormInfo.ASPECT_NAME,
             "add",
-            path=f"/prompts/{self.quote(prompt.id)}",
+            path=("prompts", prompt.id),
             value=prompt,
         )
         return self
@@ -90,7 +70,7 @@ class FormPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             FormInfo.ASPECT_NAME,
             "remove",
-            path=f"/prompts/{self.quote(prompt_id)}",
+            path=("prompts", prompt_id),
             value=prompt_id,
         )
         return self
@@ -104,7 +84,7 @@ class FormPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             FormInfo.ASPECT_NAME,
             "add",
-            path="/actors/owners",
+            path=("actors", "owners"),
             value=is_ownership,
         )
         return self
@@ -113,7 +93,7 @@ class FormPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             FormInfo.ASPECT_NAME,
             "add",
-            path=f"/actors/users/{self.quote(str(user_urn))}",
+            path=("actors", "users", user_urn),
             value=user_urn,
         )
         return self
@@ -122,7 +102,7 @@ class FormPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             FormInfo.ASPECT_NAME,
             "remove",
-            path=f"/actors/users/{self.quote(str(user_urn))}",
+            path=("actors", "users", user_urn),
             value=user_urn,
         )
         return self
@@ -131,7 +111,7 @@ class FormPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             FormInfo.ASPECT_NAME,
             "add",
-            path=f"/actors/groups/{self.quote(str(group_urn))}",
+            path=("actors", "groups", group_urn),
             value=group_urn,
         )
         return self
@@ -140,7 +120,7 @@ class FormPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             FormInfo.ASPECT_NAME,
             "remove",
-            path=f"/actors/groups/{self.quote(str(group_urn))}",
+            path=("actors", "groups", group_urn),
             value=group_urn,
         )
         return self

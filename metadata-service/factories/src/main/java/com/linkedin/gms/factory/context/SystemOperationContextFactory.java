@@ -79,7 +79,8 @@ public class SystemOperationContextFactory {
             ValidationContext.builder()
                 .alternateValidation(
                     configurationProvider.getFeatureFlags().isAlternateMCPValidation())
-                .build());
+                .build(),
+            configurationProvider.getAuthentication().isEnforceExistenceEnabled());
 
     entityClientAspectRetriever.setSystemOperationContext(systemOperationContext);
     entityServiceAspectRetriever.setSystemOperationContext(systemOperationContext);
@@ -134,7 +135,8 @@ public class SystemOperationContextFactory {
             ValidationContext.builder()
                 .alternateValidation(
                     configurationProvider.getFeatureFlags().isAlternateMCPValidation())
-                .build());
+                .build(),
+            configurationProvider.getAuthentication().isEnforceExistenceEnabled());
 
     entityClientAspectRetriever.setSystemOperationContext(systemOperationContext);
     systemGraphRetriever.setSystemOperationContext(systemOperationContext);

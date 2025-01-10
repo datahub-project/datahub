@@ -1,25 +1,27 @@
-from typing import Dict, List, Optional, Union
+from typing import List, Optional, Tuple, Union
 
-from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal, PatchPath
 from datahub.metadata.schema_classes import (
     DataJobInfoClass as DataJobInfo,
     DataJobInputOutputClass as DataJobInputOutput,
     EdgeClass as Edge,
-    GlobalTagsClass as GlobalTags,
-    GlossaryTermAssociationClass as Term,
-    GlossaryTermsClass as GlossaryTerms,
     KafkaAuditHeaderClass,
-    OwnerClass as Owner,
-    OwnershipTypeClass,
     SystemMetadataClass,
-    TagAssociationClass as Tag,
 )
-from datahub.metadata.urns import SchemaFieldUrn, TagUrn, Urn
-from datahub.specific.custom_properties import CustomPropertiesPatchHelper
-from datahub.specific.ownership import OwnershipPatchHelper
+from datahub.metadata.urns import SchemaFieldUrn, Urn
+from datahub.specific.aspect_helpers.custom_properties import HasCustomPropertiesPatch
+from datahub.specific.aspect_helpers.ownership import HasOwnershipPatch
+from datahub.specific.aspect_helpers.tags import HasTagsPatch
+from datahub.specific.aspect_helpers.terms import HasTermsPatch
 
 
-class DataJobPatchBuilder(MetadataPatchProposal):
+class DataJobPatchBuilder(
+    HasOwnershipPatch,
+    HasCustomPropertiesPatch,
+    HasTagsPatch,
+    HasTermsPatch,
+    MetadataPatchProposal,
+):
     def __init__(
         self,
         urn: str,
@@ -37,55 +39,10 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         super().__init__(
             urn, system_metadata=system_metadata, audit_header=audit_header
         )
-        self.custom_properties_patch_helper = CustomPropertiesPatchHelper(
-            self, DataJobInfo.ASPECT_NAME
-        )
-        self.ownership_patch_helper = OwnershipPatchHelper(self)
 
-    def add_owner(self, owner: Owner) -> "DataJobPatchBuilder":
-        """
-        Adds an owner to the DataJobPatchBuilder.
-
-        Args:
-            owner: The Owner object to add.
-
-        Returns:
-            The DataJobPatchBuilder instance.
-        """
-        self.ownership_patch_helper.add_owner(owner)
-        return self
-
-    def remove_owner(
-        self, owner: str, owner_type: Optional[OwnershipTypeClass] = None
-    ) -> "DataJobPatchBuilder":
-        """
-        Removes an owner from the DataJobPatchBuilder.
-
-        Args:
-            owner: The owner to remove.
-            owner_type: The ownership type of the owner (optional).
-
-        Returns:
-            The DataJobPatchBuilder instance.
-
-        Notes:
-            `owner_type` is optional.
-        """
-        self.ownership_patch_helper.remove_owner(owner, owner_type)
-        return self
-
-    def set_owners(self, owners: List[Owner]) -> "DataJobPatchBuilder":
-        """
-        Sets the owners of the DataJobPatchBuilder.
-
-        Args:
-            owners: A list of Owner objects.
-
-        Returns:
-            The DataJobPatchBuilder instance.
-        """
-        self.ownership_patch_helper.set_owners(owners)
-        return self
+    @classmethod
+    def _custom_properties_location(cls) -> Tuple[str, PatchPath]:
+        return DataJobInfo.ASPECT_NAME, ("customProperties",)
 
     def add_input_datajob(self, input: Union[Edge, Urn, str]) -> "DataJobPatchBuilder":
         """
@@ -120,7 +77,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/inputDatajobEdges/{self.quote(input_urn)}",
+            path=("inputDatajobEdges", input_urn),
             value=input_edge,
         )
         return self
@@ -138,7 +95,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "remove",
-            path=f"/inputDatajobEdges/{input}",
+            path=("inputDatajobEdges", input),
             value={},
         )
         return self
@@ -163,7 +120,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path="/inputDatajobEdges",
+            path=("inputDatajobEdges",),
             value=inputs,
         )
         return self
@@ -201,7 +158,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/inputDatasetEdges/{self.quote(input_urn)}",
+            path=("inputDatasetEdges", input_urn),
             value=input_edge,
         )
         return self
@@ -219,7 +176,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "remove",
-            path=f"/inputDatasetEdges/{self.quote(str(input))}",
+            path=("inputDatasetEdges", input),
             value={},
         )
         return self
@@ -244,7 +201,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path="/inputDatasetEdges",
+            path=("inputDatasetEdges",),
             value=inputs,
         )
         return self
@@ -284,7 +241,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/outputDatasetEdges/{self.quote(output_urn)}",
+            path=("outputDatasetEdges", output_urn),
             value=output_edge,
         )
         return self
@@ -302,7 +259,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "remove",
-            path=f"/outputDatasetEdges/{self.quote(str(output))}",
+            path=("outputDatasetEdges", output),
             value={},
         )
         return self
@@ -327,7 +284,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path="/outputDatasetEdges",
+            path=("outputDatasetEdges",),
             value=outputs,
         )
         return self
@@ -351,7 +308,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/inputDatasetFields/{self.quote(input_urn)}",
+            path=("inputDatasetFields", input_urn),
             value={},
         )
         return self
@@ -372,7 +329,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "remove",
-            path=f"/inputDatasetFields/{self.quote(input_urn)}",
+            path=("inputDatasetFields", input_urn),
             value={},
         )
         return self
@@ -397,7 +354,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path="/inputDatasetFields",
+            path=("inputDatasetFields",),
             value=inputs,
         )
         return self
@@ -423,7 +380,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path=f"/outputDatasetFields/{self.quote(output_urn)}",
+            path=("outputDatasetFields", output_urn),
             value={},
         )
         return self
@@ -444,7 +401,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "remove",
-            path=f"/outputDatasetFields/{self.quote(output_urn)}",
+            path=("outputDatasetFields", output_urn),
             value={},
         )
         return self
@@ -469,119 +426,7 @@ class DataJobPatchBuilder(MetadataPatchProposal):
         self._add_patch(
             DataJobInputOutput.ASPECT_NAME,
             "add",
-            path="/outputDatasetFields",
+            path=("outputDatasetFields",),
             value=outputs,
         )
-        return self
-
-    def add_tag(self, tag: Tag) -> "DataJobPatchBuilder":
-        """
-        Adds a tag to the DataJobPatchBuilder.
-
-        Args:
-            tag: The Tag object representing the tag to be added.
-
-        Returns:
-            The DataJobPatchBuilder instance.
-        """
-        self._add_patch(
-            GlobalTags.ASPECT_NAME, "add", path=f"/tags/{tag.tag}", value=tag
-        )
-        return self
-
-    def remove_tag(self, tag: Union[str, Urn]) -> "DataJobPatchBuilder":
-        """
-        Removes a tag from the DataJobPatchBuilder.
-
-        Args:
-            tag: The tag to remove, specified as a string or Urn object.
-
-        Returns:
-            The DataJobPatchBuilder instance.
-        """
-        if isinstance(tag, str) and not tag.startswith("urn:li:tag:"):
-            tag = TagUrn.create_from_id(tag)
-        self._add_patch(GlobalTags.ASPECT_NAME, "remove", path=f"/tags/{tag}", value={})
-        return self
-
-    def add_term(self, term: Term) -> "DataJobPatchBuilder":
-        """
-        Adds a glossary term to the DataJobPatchBuilder.
-
-        Args:
-            term: The Term object representing the glossary term to be added.
-
-        Returns:
-            The DataJobPatchBuilder instance.
-        """
-        self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "add", path=f"/terms/{term.urn}", value=term
-        )
-        return self
-
-    def remove_term(self, term: Union[str, Urn]) -> "DataJobPatchBuilder":
-        """
-        Removes a glossary term from the DataJobPatchBuilder.
-
-        Args:
-            term: The term to remove, specified as a string or Urn object.
-
-        Returns:
-            The DataJobPatchBuilder instance.
-        """
-        if isinstance(term, str) and not term.startswith("urn:li:glossaryTerm:"):
-            term = "urn:li:glossaryTerm:" + term
-        self._add_patch(
-            GlossaryTerms.ASPECT_NAME, "remove", path=f"/terms/{term}", value={}
-        )
-        return self
-
-    def set_custom_properties(
-        self, custom_properties: Dict[str, str]
-    ) -> "DataJobPatchBuilder":
-        """
-        Sets the custom properties for the DataJobPatchBuilder.
-
-        Args:
-            custom_properties: A dictionary containing the custom properties to be set.
-
-        Returns:
-            The DataJobPatchBuilder instance.
-
-        Notes:
-            This method replaces all existing custom properties with the given dictionary.
-        """
-        self._add_patch(
-            DataJobInfo.ASPECT_NAME,
-            "add",
-            path="/customProperties",
-            value=custom_properties,
-        )
-        return self
-
-    def add_custom_property(self, key: str, value: str) -> "DataJobPatchBuilder":
-        """
-        Adds a custom property to the DataJobPatchBuilder.
-
-        Args:
-            key: The key of the custom property.
-            value: The value of the custom property.
-
-        Returns:
-            The DataJobPatchBuilder instance.
-        """
-        self.custom_properties_patch_helper.add_property(key, value)
-        return self
-
-    def remove_custom_property(self, key: str) -> "DataJobPatchBuilder":
-        """
-        Removes a custom property from the DataJobPatchBuilder.
-
-        Args:
-            key: The key of the custom property to remove.
-
-        Returns:
-            The DataJobPatchBuilder instance.
-        """
-        self.custom_properties_patch_helper.remove_property(key)
         return self

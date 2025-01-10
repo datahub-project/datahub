@@ -878,7 +878,7 @@ ORDER by DataBaseName, TableName;
 
         urns = self.schema_resolver.get_urns()
         if self.config.include_table_lineage or self.config.include_usage_statistics:
-            self.report.report_ingestion_stage_start("audit log extraction")
-            yield from self.get_audit_log_mcps(urns=urns)
+            with self.report.new_stage("Audit log extraction"):
+                yield from self.get_audit_log_mcps(urns=urns)
 
         yield from self.builder.gen_workunits()

@@ -123,6 +123,10 @@ class HiveMetastore(BasicSQLAlchemyConfig):
         description="Dataset Subtype name to be 'Table' or 'View' Valid options: ['True', 'False']",
     )
 
+    include_view_lineage: bool = Field(
+        default=False, description="", hidden_from_docs=True
+    )
+
     include_catalog_name_in_ids: bool = Field(
         default=False,
         description="Add the Presto catalog name (e.g. hive) to the generated dataset urns. `urn:li:dataset:(urn:li:dataPlatform:hive,hive.user.logging_events,PROD)` versus `urn:li:dataset:(urn:li:dataPlatform:hive,user.logging_events,PROD)`",
@@ -160,6 +164,9 @@ class HiveMetastore(BasicSQLAlchemyConfig):
 @capability(SourceCapability.DELETION_DETECTION, "Enabled via stateful ingestion")
 @capability(SourceCapability.DATA_PROFILING, "Not Supported", False)
 @capability(SourceCapability.CLASSIFICATION, "Not Supported", False)
+@capability(
+    SourceCapability.LINEAGE_COARSE, "View lineage is not supported", supported=False
+)
 class HiveMetastoreSource(SQLAlchemySource):
     """
     This plugin extracts the following:

@@ -6276,6 +6276,16 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     dataPlatformInstance: DataPlatformInstance
 
     """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
+    Recursively get the lineage of containers for this entity
+    """
+    parentContainers: ParentContainersResult
+
+    """
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -6458,6 +6468,16 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     dataPlatformInstance: DataPlatformInstance
 
     """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
+    Recursively get the lineage of containers for this entity
+    """
+    parentContainers: ParentContainersResult
+
+    """
     Additional read write properties associated with the Data Job
     """
     editableProperties: DataJobEditableProperties
@@ -6569,6 +6589,11 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     The forms associated with the Dataset
     """
     forms: Forms
+
+    """
+    Data Transform Logic associated with the Data Job
+    """
+    dataTransformLogic: DataTransformLogic
 }
 
 """
@@ -6784,6 +6809,26 @@ type DataJobInputOutput {
     The upstream and downstream columns are from datasets.
     """
     fineGrainedLineages: [FineGrainedLineage!]
+}
+
+"""
+Information about a transformation applied to data assets
+"""
+type DataTransform {
+  """
+  The transformation may be defined by a query statement
+  """
+  queryStatement: QueryStatement
+}
+
+"""
+Information about transformations applied to data assets
+"""
+type DataTransformLogic {
+  """
+  List of transformations applied
+  """
+  transforms: [DataTransform!]!
 }
 
 """

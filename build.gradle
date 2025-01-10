@@ -35,7 +35,7 @@ buildscript {
   ext.pegasusVersion = '29.57.0'
   ext.mavenVersion = '3.6.3'
   ext.versionGradle = '8.11.1'
-  ext.springVersion = '6.1.13'
+  ext.springVersion = '6.1.14'
   ext.springBootVersion = '3.2.9'
   ext.springKafkaVersion = '3.1.6'
   ext.openTelemetryVersion = '1.18.0'
@@ -211,7 +211,7 @@ project.ext.externalDependency = [
     'mockitoInline': 'org.mockito:mockito-inline:4.11.0',
     'mockServer': 'org.mock-server:mockserver-netty:5.11.2',
     'mockServerClient': 'org.mock-server:mockserver-client-java:5.11.2',
-    'mysqlConnector': 'mysql:mysql-connector-java:8.0.28',
+    'mysqlConnector': 'com.mysql:mysql-connector-j:8.4.0',
     'neo4jHarness': 'org.neo4j.test:neo4j-harness:' + neo4jTestVersion,
     'neo4jJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jVersion,
     'neo4jTestJavaDriver': 'org.neo4j.driver:neo4j-java-driver:' + neo4jTestVersion,
@@ -235,7 +235,7 @@ project.ext.externalDependency = [
     'playFilters': "com.typesafe.play:filters-helpers_$playScalaVersion:$playVersion",
     'pac4j': 'org.pac4j:pac4j-oidc:6.0.6',
     'playPac4j': "org.pac4j:play-pac4j_$playScalaVersion:12.0.0-PLAY2.8",
-    'postgresql': 'org.postgresql:postgresql:42.3.9',
+    'postgresql': 'org.postgresql:postgresql:42.7.4',
     'protobuf': 'com.google.protobuf:protobuf-java:3.25.5',
     'grpcProtobuf': 'io.grpc:grpc-protobuf:1.53.0',
     'rangerCommons': 'org.apache.ranger:ranger-plugins-common:2.3.0',
@@ -286,7 +286,8 @@ project.ext.externalDependency = [
     'annotationApi': 'javax.annotation:javax.annotation-api:1.3.2',
     'jakartaAnnotationApi': 'jakarta.annotation:jakarta.annotation-api:3.0.0',
     'classGraph': 'io.github.classgraph:classgraph:4.8.172',
-    'mustache': 'com.github.spullara.mustache.java:compiler:0.9.14'
+    'mustache': 'com.github.spullara.mustache.java:compiler:0.9.14',
+    'javaxMail': 'com.sun.mail:jakarta.mail:1.6.7'
 ]
 
 allprojects {
@@ -374,6 +375,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: "org.slf4j", module: "slf4j-nop"
     exclude group: "org.slf4j", module: "slf4j-ext"
     exclude group: "org.codehaus.jackson", module: "jackson-mapper-asl"
+    exclude group: "javax.mail", module: "mail"
 
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4
@@ -474,10 +476,6 @@ subprojects {
       if (compileJavaTask != null) {
         spotlessJavaTask.dependsOn compileJavaTask
       }
-      // TODO - Do not run this in CI. How?
-      // tasks.withType(JavaCompile) {
-      //   finalizedBy(tasks.findByName('spotlessApply'))
-      // }
     }
   }
 

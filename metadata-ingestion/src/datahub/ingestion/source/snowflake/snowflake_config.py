@@ -138,12 +138,20 @@ class SnowflakeIdentifierConfig(
         description="Whether to convert dataset urns to lowercase.",
     )
 
-
-class SnowflakeUsageConfig(BaseUsageConfig):
     email_domain: Optional[str] = pydantic.Field(
         default=None,
         description="Email domain of your organization so users can be displayed on UI appropriately.",
     )
+
+    email_as_user_identifier: bool = Field(
+        default=True,
+        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is "
+        "provided, generates email addresses for snowflake users with unset emails, based on their "
+        "username.",
+    )
+
+
+class SnowflakeUsageConfig(BaseUsageConfig):
     apply_view_usage_to_tables: bool = pydantic.Field(
         default=False,
         description="Whether to apply view's usage to its base tables. If set to True, usage is applied to base tables only.",
@@ -213,6 +221,14 @@ class SnowflakeV2Config(
         default=False,
         description="If enabled, uses the new queries extractor to extract queries from snowflake.",
     )
+    include_queries: bool = Field(
+        default=True,
+        description="If enabled, generate query entities associated with lineage edges. Only applicable if `use_queries_v2` is enabled.",
+    )
+    include_query_usage_statistics: bool = Field(
+        default=True,
+        description="If enabled, generate query popularity statistics. Only applicable if `use_queries_v2` is enabled.",
+    )
 
     lazy_schema_resolver: bool = Field(
         default=True,
@@ -265,13 +281,6 @@ class SnowflakeV2Config(
         "If specified, connector creates lineage and siblings relationship between current account's database tables "
         "and consumer/producer account's database tables."
         " Map of share name -> details of share.",
-    )
-
-    email_as_user_identifier: bool = Field(
-        default=True,
-        description="Format user urns as an email, if the snowflake user's email is set. If `email_domain` is "
-        "provided, generates email addresses for snowflake users with unset emails, based on their "
-        "username.",
     )
 
     include_assertion_results: bool = Field(
