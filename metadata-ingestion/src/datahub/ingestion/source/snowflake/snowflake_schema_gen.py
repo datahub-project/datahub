@@ -216,21 +216,23 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         try:
             for snowflake_db in self.databases:
-                self.report.set_ingestion_stage(snowflake_db.name, METADATA_EXTRACTION)
-                yield from self._process_database(snowflake_db)
+                with self.report.new_stage(
+                    f"{snowflake_db.name}: {METADATA_EXTRACTION}"
+                ):
+                    yield from self._process_database(snowflake_db)
 
-            self.report.set_ingestion_stage("*", EXTERNAL_TABLE_DDL_LINEAGE)
-            discovered_tables: List[str] = [
-                self.identifiers.get_dataset_identifier(
-                    table_name, schema.name, db.name
-                )
-                for db in self.databases
-                for schema in db.schemas
-                for table_name in schema.tables
-            ]
-            if self.aggregator:
-                for entry in self._external_tables_ddl_lineage(discovered_tables):
-                    self.aggregator.add(entry)
+            with self.report.new_stage(f"*: {EXTERNAL_TABLE_DDL_LINEAGE}"):
+                discovered_tables: List[str] = [
+                    self.identifiers.get_dataset_identifier(
+                        table_name, schema.name, db.name
+                    )
+                    for db in self.databases
+                    for schema in db.schemas
+                    for table_name in schema.tables
+                ]
+                if self.aggregator:
+                    for entry in self._external_tables_ddl_lineage(discovered_tables):
+                        self.aggregator.add(entry)
 
         except SnowflakePermissionError as e:
             self.structured_reporter.failure(
@@ -332,8 +334,8 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         yield from self._process_db_schemas(snowflake_db, db_tables)
 
         if self.profiler and db_tables:
-            self.report.set_ingestion_stage(snowflake_db.name, PROFILING)
-            yield from self.profiler.get_workunits(snowflake_db, db_tables)
+            with self.report.new_stage(f"{snowflake_db.name}: {PROFILING}"):
+                yield from self.profiler.get_workunits(snowflake_db, db_tables)
 
     def _process_db_schemas(
         self,
