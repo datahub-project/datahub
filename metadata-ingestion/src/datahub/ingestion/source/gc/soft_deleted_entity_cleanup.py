@@ -231,6 +231,15 @@ class SoftDeletedEntitiesCleanup:
     def _get_soft_deleted(self, graphql_query: str, entity_type: str) -> Iterable[str]:
         assert self.ctx.graph
         scroll_id: Optional[str] = None
+
+        batch_size = self.config.batch_size
+        if entity_type == "DATA_PROCESS_INSTANCE":
+            # Due to a bug in Data process instance querying this is a temp workaround
+            # to avoid a giant stacktrace by having a smaller batch size in first call
+            # This will be remove in future version after server with fix has been
+            # around for a while
+            batch_size = 10
+
         while True:
             try:
                 result = self.ctx.graph.execute_graphql(
@@ -240,7 +249,7 @@ class SoftDeletedEntitiesCleanup:
                             "types": [entity_type],
                             "query": "*",
                             "scrollId": scroll_id if scroll_id else None,
-                            "count": self.config.batch_size,
+                            "count": batch_size,
                             "orFilters": [
                                 {
                                     "and": [
@@ -263,6 +272,10 @@ class SoftDeletedEntitiesCleanup:
             scroll_across_entities = result.get("scrollAcrossEntities")
             if not scroll_across_entities or not scroll_across_entities.get("count"):
                 break
+            if entity_type == "DATA_PROCESS_INSTANCE":
+                # Temp workaround. See note in beginning of the function
+                # We make the batch size = config after call has succeeded once
+                batch_size = self.config.batch_size
             scroll_id = scroll_across_entities.get("nextScrollId")
             self.report.num_queries_found += scroll_across_entities.get("count")
             for query in scroll_across_entities.get("searchResults"):
