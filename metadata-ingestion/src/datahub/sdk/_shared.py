@@ -222,6 +222,7 @@ class HasContainer(Entity):
     def _set_container(self, container: Optional[ContainerInputType]) -> None:
         # We need to allow container to be None. It won't happen for datasets much, but
         # will be required for root containers.
+        from datahub.sdk.container import Container
 
         browse_path: List[Union[str, models.BrowsePathEntryClass]] = []
         if isinstance(container, Container):
