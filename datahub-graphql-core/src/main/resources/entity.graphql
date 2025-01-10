@@ -10098,7 +10098,7 @@ type MLModelProperties {
     """
     The display name of the model used in the UI
     """
-    name: String!
+    name: String
 
     """
     Detailed description of the model's purpose and characteristics
