@@ -13,17 +13,17 @@ import org.testng.annotations.Test;
 
 public class DataProcessInstanceMapperTest {
 
-    @Test
-    public void testMap() throws Exception {
-        EntityResponse entityResponse = new EntityResponse();
-        Urn urn = Urn.createFromString("urn:li:dataProcessInstance:(test-workflow,test-instance)");
-        entityResponse.setUrn(urn);
-        entityResponse.setAspects(new EnvelopedAspectMap(ImmutableMap.of()));
+  @Test
+  public void testMap() throws Exception {
+    EntityResponse entityResponse = new EntityResponse();
+    Urn urn = Urn.createFromString("urn:li:dataProcessInstance:(test-workflow,test-instance)");
+    entityResponse.setUrn(urn);
+    entityResponse.setAspects(new EnvelopedAspectMap(ImmutableMap.of()));
 
-        DataProcessInstance instance = DataProcessInstanceMapper.map(null, entityResponse);
+    DataProcessInstance instance = DataProcessInstanceMapper.map(null, entityResponse);
 
-        assertNotNull(instance);
-        assertEquals(instance.getUrn(), urn.toString());
-        assertEquals(instance.getType(), EntityType.DATA_PROCESS_INSTANCE);
-    }
+    assertNotNull(instance);
+    assertEquals(instance.getUrn(), urn.toString());
+    assertEquals(instance.getType(), EntityType.DATA_PROCESS_INSTANCE);
+  }
 }

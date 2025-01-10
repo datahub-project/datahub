@@ -40,7 +40,7 @@ public class TimeStampToAuditStampMapperTest {
   @Test
   public void testMapNull() {
     AuditStamp result = TimeStampToAuditStampMapper.map(null, null);
-    
+
     assertNull(result);
   }
 }

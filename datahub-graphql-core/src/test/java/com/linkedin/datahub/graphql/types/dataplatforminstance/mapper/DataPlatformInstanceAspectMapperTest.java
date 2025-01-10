@@ -5,8 +5,8 @@ import static org.testng.Assert.*;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.generated.DataPlatformInstance;
-import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.DataPlatformInstanceAspectMapper;
 import org.testng.annotations.Test;
 
 public class DataPlatformInstanceAspectMapperTest {
@@ -14,8 +14,9 @@ public class DataPlatformInstanceAspectMapperTest {
   private static final String TEST_PLATFORM = "hive";
   private static final String TEST_INSTANCE = "prod";
   private static final String TEST_PLATFORM_URN = "urn:li:dataPlatform:" + TEST_PLATFORM;
-  private static final String TEST_INSTANCE_URN = 
-      String.format("urn:li:dataPlatformInstance:(urn:li:dataPlatform:%s,%s)", TEST_PLATFORM, TEST_INSTANCE);
+  private static final String TEST_INSTANCE_URN =
+      String.format(
+          "urn:li:dataPlatformInstance:(urn:li:dataPlatform:%s,%s)", TEST_PLATFORM, TEST_INSTANCE);
 
   @Test
   public void testMapWithInstance() throws Exception {
@@ -23,7 +24,7 @@ public class DataPlatformInstanceAspectMapperTest {
     com.linkedin.common.DataPlatformInstance input = new com.linkedin.common.DataPlatformInstance();
     DataPlatformUrn platformUrn = new DataPlatformUrn(TEST_PLATFORM);
     Urn instanceUrn = Urn.createFromString(TEST_INSTANCE_URN);
-    
+
     input.setPlatform(platformUrn);
     input.setInstance(instanceUrn);
 
@@ -33,7 +34,7 @@ public class DataPlatformInstanceAspectMapperTest {
     assertNotNull(result);
     assertEquals(result.getType(), EntityType.DATA_PLATFORM_INSTANCE);
     assertEquals(result.getUrn(), TEST_INSTANCE_URN);
-    
+
     // Verify platform mapping
     assertNotNull(result.getPlatform());
     assertEquals(result.getPlatform().getType(), EntityType.DATA_PLATFORM);
@@ -51,9 +52,9 @@ public class DataPlatformInstanceAspectMapperTest {
     DataPlatformInstance result = DataPlatformInstanceAspectMapper.map(null, input);
 
     assertNotNull(result);
-    assertNull(result.getType());  // Type should be null when no instance
-    assertNull(result.getUrn());   // URN should be null when no instance
-    
+    assertNull(result.getType()); // Type should be null when no instance
+    assertNull(result.getUrn()); // URN should be null when no instance
+
     // Verify platform is still mapped correctly
     assertNotNull(result.getPlatform());
     assertEquals(result.getPlatform().getType(), EntityType.DATA_PLATFORM);
@@ -68,6 +69,7 @@ public class DataPlatformInstanceAspectMapperTest {
   @Test
   public void testSingleton() {
     assertNotNull(DataPlatformInstanceAspectMapper.INSTANCE);
-    assertSame(DataPlatformInstanceAspectMapper.INSTANCE, DataPlatformInstanceAspectMapper.INSTANCE);
+    assertSame(
+        DataPlatformInstanceAspectMapper.INSTANCE, DataPlatformInstanceAspectMapper.INSTANCE);
   }
 }
