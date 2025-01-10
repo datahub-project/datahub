@@ -25,7 +25,6 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
   private static final Map<String, Supplier<SchemaFieldDataType.Type>> LOGICAL_TYPE_MAPPING;
   public static final String ARRAY_ITEMS_FIELD_NAME = "items";
   public static final String MAP_VALUE_FIELD_NAME = "value";
-  public static final String UNION_TYPE_FIELD_NAME = "type";
 
   static {
     Map<String, Supplier<SchemaFieldDataType.Type>> logicalTypeMap = new HashMap<>();
@@ -472,9 +471,16 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
     int typeIndex = 0;
     for (Schema unionSchema : unionTypes) {
       if (unionSchema.getType() != Schema.Type.NULL) {
+        String unionFieldName = field.name();
+        FieldPath indexedFieldPath = fieldPath.popLast();
+        indexedFieldPath =
+            indexedFieldPath.clonePlus(
+                new FieldElement(
+                    Collections.singletonList("union"), new ArrayList<>(), null, null));
+
         Schema.Field unionFieldInner =
             new Schema.Field(
-                UNION_TYPE_FIELD_NAME,
+                unionFieldName,
                 unionSchema,
                 unionSchema.getDoc() != null ? unionSchema.getDoc() : unionDescription,
                 null);
@@ -483,7 +489,7 @@ public class AvroSchemaConverter implements SchemaConverter<Schema> {
             typeIndex,
             unionFieldPath.asString(),
             unionFieldInner.doc());
-        processField(unionFieldInner, unionFieldPath, defaultNullable, fields);
+        processField(unionFieldInner, indexedFieldPath, defaultNullable, fields);
       }
       typeIndex++;
     }
