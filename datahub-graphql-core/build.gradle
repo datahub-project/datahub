@@ -33,6 +33,7 @@ dependencies {
 
 graphqlCodegen {
     // For options: https://github.com/kobylynskyi/graphql-java-codegen/blob/master/docs/codegen-options.md
+    graphqlSchemaPaths = fileTree(dir: "${projectDir}/src/main/resources", include: '**/*.graphql').collect { it.absolutePath }
     outputDir = new File("${projectDir}/src/mainGeneratedGraphQL/java")
     packageName = "com.linkedin.datahub.graphql.generated"
     generateToString = true
