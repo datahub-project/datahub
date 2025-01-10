@@ -121,7 +121,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Test Results (build)
+          name: Test Results (build) - ${{ matrix.command}}-${{ matrix.timezone }}
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
