@@ -29,7 +29,7 @@ class DatahubExecutionRequestCleanupConfig(ConfigModel):
     )
 
     keep_history_max_days: int = Field(
-        30,
+        90,
         description="Maximum number of days to keep execution requests for, per ingestion source",
     )
 
