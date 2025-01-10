@@ -28,7 +28,7 @@ replace_jar "zookeeper-" "false" "${ZOOKEEPER_DEPENDENCY:-org.apache.zookeeper:z
 replace_jar "hadoop-client-" "true" "${HADOOP_CLIENT_API_DEPENDENCY:-org.apache.hadoop:hadoop-client-api:3.3.6}"
 replace_jar "hadoop-client-" "true" "${HADOOP_CLIENT_RUNTIME_DEPENDENCY:-org.apache.hadoop:hadoop-client-runtime:3.3.6}"
 replace_jar "hadoop-yarn-" "true" "${HADOOP_YARN_DEPENDENCY:-org.apache.hadoop:hadoop-yarn-server-web-proxy:3.3.6}"
-replace_jar "snappy-java-" "false" "${SNAPPY_JAVA_DEPENDENCY:-org.xerial.snappy:snappy-java:1.1.10.4}"
+replace_jar "snappy-java-" "false" "${SNAPPY_JAVA_DEPENDENCY:-org.xerial.snappy:snappy-java:1.1.10.5}"
 replace_jar "libthrift-" "false" "${LIBTHRIFT_DEPENDENCY:-org.apache.thrift:libthrift:0.19.0}"
 replace_jar "ivy-" "false" "${IVY_DEPENDENCY:-org.apache.ivy:ivy:2.5.2}"
 replace_jar "parquet-jackson-" "false" "${PARQUET_JACKSON_DEPENDENCY:-org.apache.parquet:parquet-jackson:1.13.1}"
