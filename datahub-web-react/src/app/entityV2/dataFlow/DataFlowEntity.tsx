@@ -234,6 +234,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
+                parentContainers={data.parentContainers}
             />
         );
     };

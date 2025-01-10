@@ -10,6 +10,7 @@ import {
     EntityType,
     GlobalTags,
     Owner,
+    ParentContainersResult,
     SearchInsight,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
@@ -44,6 +45,7 @@ export const Preview = ({
     isOutputPort,
     headerDropdownItems,
     previewType,
+    parentContainers,
 }: {
     urn: string;
     data: GenericEntityProperties | null;
@@ -66,6 +68,7 @@ export const Preview = ({
     isOutputPort?: boolean;
     headerDropdownItems?: Set<EntityMenuItems>;
     previewType?: PreviewType;
+    parentContainers?: ParentContainersResult | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -101,6 +104,7 @@ export const Preview = ({
             isOutputPort={isOutputPort}
             headerDropdownItems={headerDropdownItems}
             previewType={previewType}
+            parentEntities={parentContainers?.containers}
         />
     );
 };

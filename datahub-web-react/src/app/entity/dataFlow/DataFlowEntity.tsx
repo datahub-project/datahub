@@ -188,6 +188,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 health={data.health}
+                parentContainers={data.parentContainers}
             />
         );
     };

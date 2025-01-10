@@ -257,6 +257,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 isOutputPort={isOutputPort(result)}
                 headerDropdownItems={headerDropdownItems}
                 browsePaths={data?.browsePathV2 || undefined}
+                parentContainers={data.parentContainers}
             />
         );
     };

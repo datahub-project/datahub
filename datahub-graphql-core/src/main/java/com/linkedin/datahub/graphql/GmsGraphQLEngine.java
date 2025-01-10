@@ -2489,6 +2489,17 @@ public class GmsGraphQLEngine {
                                   ? dataJob.getDataPlatformInstance().getUrn()
                                   : null;
                             }))
+                    .dataFetcher(
+                        "container",
+                        new LoadableTypeResolver<>(
+                            containerType,
+                            (env) -> {
+                              final DataJob dataJob = env.getSource();
+                              return dataJob.getContainer() != null
+                                  ? dataJob.getContainer().getUrn()
+                                  : null;
+                            }))
+                    .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                     .dataFetcher("runs", new DataJobRunsResolver(entityClient))
                     .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
@@ -2567,6 +2578,17 @@ public class GmsGraphQLEngine {
                               ? dataFlow.getDataPlatformInstance().getUrn()
                               : null;
                         }))
+                .dataFetcher(
+                    "container",
+                    new LoadableTypeResolver<>(
+                        containerType,
+                        (env) -> {
+                          final DataFlow dataFlow = env.getSource();
+                          return dataFlow.getContainer() != null
+                              ? dataFlow.getContainer().getUrn()
+                              : null;
+                        }))
+                .dataFetcher("parentContainers", new ParentContainersResolver(entityClient))
                 .dataFetcher(
                     "health",
                     new AcrylEntityHealthResolver(

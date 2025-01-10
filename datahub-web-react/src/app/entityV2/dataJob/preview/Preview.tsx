@@ -13,6 +13,7 @@ import {
     EntityType,
     GlobalTags,
     Owner,
+    ParentContainersResult,
     SearchInsight,
 } from '../../../../types.generated';
 import DefaultPreviewCard from '../../../previewV2/DefaultPreviewCard';
@@ -50,6 +51,7 @@ export const Preview = ({
     headerDropdownItems,
     previewType,
     browsePaths,
+    parentContainers,
 }: {
     urn: string;
     data: GenericEntityProperties | null;
@@ -74,6 +76,7 @@ export const Preview = ({
     headerDropdownItems?: Set<EntityMenuItems>;
     previewType?: PreviewType;
     browsePaths?: BrowsePathV2;
+    parentContainers?: ParentContainersResult | null;
 }): JSX.Element => {
     const entityRegistry = useEntityRegistry();
     return (
@@ -113,6 +116,7 @@ export const Preview = ({
             headerDropdownItems={headerDropdownItems}
             previewType={previewType}
             browsePaths={browsePaths}
+            parentEntities={parentContainers?.containers}
         />
     );
 };
