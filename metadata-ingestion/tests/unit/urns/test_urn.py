@@ -4,7 +4,13 @@ from typing import List
 
 import pytest
 
-from datahub.metadata.urns import CorpUserUrn, DatasetUrn, Urn
+from datahub.metadata.urns import (
+    CorpUserUrn,
+    DataPlatformUrn,
+    DatasetUrn,
+    SchemaFieldUrn,
+    Urn,
+)
 from datahub.utilities.urns.error import InvalidUrnError
 
 pytestmark = pytest.mark.filterwarnings("ignore::DeprecationWarning")
@@ -58,6 +64,20 @@ def test_urn_coercion() -> None:
     assert urn.urn() == "urn:li:corpuser:foo%E2%90%9Fbar"
 
     assert urn == Urn.from_string(urn.urn())
+
+
+def test_urns_in_init() -> None:
+    platform = DataPlatformUrn("abc")
+    assert platform.urn() == "urn:li:dataPlatform:abc"
+
+    dataset_urn = DatasetUrn(platform, "def", "PROD")
+    assert dataset_urn.urn() == "urn:li:dataset:(urn:li:dataPlatform:abc,def,PROD)"
+
+    schema_field = SchemaFieldUrn(dataset_urn, "foo")
+    assert (
+        schema_field.urn()
+        == "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:abc,def,PROD),foo)"
+    )
 
 
 def test_urn_type_dispatch_1() -> None:
