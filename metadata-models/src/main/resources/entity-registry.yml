@@ -70,6 +70,7 @@ entities:
       - glossaryTerms
       - institutionalMemory
       - dataPlatformInstance
+      - container
       - browsePathsV2
       - structuredProperties
       - forms
@@ -93,6 +94,7 @@ entities:
       - glossaryTerms
       - institutionalMemory
       - dataPlatformInstance
+      - container
       - browsePathsV2
       - structuredProperties
       - incidentsSummary
