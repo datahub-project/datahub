@@ -203,7 +203,9 @@ class IcebergSource(StatefulIngestionSourceBase):
                 with PerfTimer() as timer:
                     table = thread_local.local_catalog.load_table(dataset_path)
                     time_taken = timer.elapsed_seconds()
-                    self.report.report_table_load_time(time_taken, dataset_name, table.metadata_location)
+                    self.report.report_table_load_time(
+                        time_taken, dataset_name, table.metadata_location
+                    )
                 LOGGER.debug(f"Loaded table: {table.name()}, time taken: {time_taken}")
                 yield from self._create_iceberg_workunit(dataset_name, table)
             except NoSuchPropertyException as e:
