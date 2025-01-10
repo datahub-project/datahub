@@ -247,7 +247,10 @@ class IcebergSource(StatefulIngestionSourceBase):
                     f"Iceberg Rest Catalog server error (500 status) encountered when processing table {dataset_path}, skipping it."
                 )
             except Exception as e:
-                self.report.report_failure("general", f"Failed to create workunit: {e}")
+                self.report.report_failure(
+                    "general",
+                    f"Failed to create workunit for dataset {dataset_name}: {e}",
+                )
                 LOGGER.exception(
                     f"Exception while processing table {dataset_path}, skipping it.",
                 )
