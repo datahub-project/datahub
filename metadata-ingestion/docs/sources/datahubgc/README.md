@@ -65,12 +65,13 @@ source:
 ```
 
 #### Features
-- Truncates old Elasticsearch indices for:
-    - Dataset operations
-    - Dataset usage statistics
-    - Chart usage statistics
-    - Dashboard usage statistics
-    - Query usage statistics
+- Truncates old Elasticsearch indices for the following timeseries aspects:
+    - DatasetOperations
+    - DatasetUsageStatistics
+    - ChartUsageStatistics
+    - DashboardUsageStatistics
+    - QueryUsageStatistics
+    - Timeseries Aspects
 - Monitors truncation progress
 - Implements safe deletion with monitoring thresholds
 - Supports gradual truncation with sleep intervals
