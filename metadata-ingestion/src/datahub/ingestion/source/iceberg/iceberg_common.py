@@ -170,7 +170,7 @@ class TopTableTimings:
 
 
 class TimingClass:
-    times: SortedList[float]
+    times: SortedList
 
     def __init__(self):
         self.times = SortedList()
