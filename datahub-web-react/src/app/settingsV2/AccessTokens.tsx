@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import styled from 'styled-components';
-import { Alert, Button, Divider, Empty, message, Modal, Pagination, Select, Typography } from 'antd';
+import { Alert, Button, Divider, Dropdown, Empty, message, Modal, Pagination, Select, Typography } from 'antd';
 import { DeleteOutlined, InfoCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { red } from '@ant-design/colors';
 import { EntityType, FacetFilterInput } from '../../types.generated';
@@ -99,7 +99,7 @@ export enum StatusType {
 }
 
 export const AccessTokens = () => {
-    const [isCreatingToken, setIsCreatingToken] = useState(false);
+    const [createTokenFor, setCreateTokenFor] = useState<'personal' | 'remote-executor' | undefined>(undefined);
     const [removedTokens, setRemovedTokens] = useState<string[]>([]);
     const [statusFilter, setStatusFilter] = useState(StatusType.ALL);
     const [owner, setOwner] = useState('All');
@@ -346,14 +346,31 @@ export const AccessTokens = () => {
             </PersonTokenDescriptionText>
             <TabToolbar>
                 <div>
-                    <Button
-                        type="text"
-                        onClick={() => setIsCreatingToken(true)}
-                        data-testid="add-token-button"
+                    {/* NOTE: only for SaaS. If this is brought into OSS, we will need to disable the dropdown and have the button onClick open the personal token modal */}
+                    <Dropdown
                         disabled={!canGeneratePersonalAccessTokens}
+                        placement="bottom"
+                        menu={{
+                            items: [
+                                {
+                                    key: 'personal',
+                                    className: 'personal-token-dropdown-option',
+                                    label: 'Personal Token',
+                                    onClick: () => setCreateTokenFor('personal'),
+                                },
+                                {
+                                    key: 'remote-executor',
+                                    className: 'remote-executor-dropdown-option',
+                                    label: 'Remote Executor',
+                                    onClick: () => setCreateTokenFor('remote-executor'),
+                                },
+                            ],
+                        }}
                     >
-                        <PlusOutlined /> Generate new token
-                    </Button>
+                        <Button type="text" data-testid="add-token-button" disabled={!canGeneratePersonalAccessTokens}>
+                            <PlusOutlined /> Generate new token
+                        </Button>
+                    </Dropdown>
                 </div>
                 <SelectContainer>
                     {canGeneratePersonalAccessTokens && canManageToken && (
@@ -419,8 +436,9 @@ export const AccessTokens = () => {
             </PaginationContainer>
             <CreateTokenModal
                 currentUserUrn={currentUserUrn}
-                visible={isCreatingToken}
-                onClose={() => setIsCreatingToken(false)}
+                visible={!!createTokenFor}
+                forRemoteExecutor={createTokenFor === 'remote-executor'}
+                onClose={() => setCreateTokenFor(undefined)}
                 onCreateToken={() => {
                     // Hack to deal with eventual consistency.
                     setTimeout(() => {

@@ -28,6 +28,7 @@ describe("manage access tokens", () => {
     cy.skipIntroducePage();
     cy.goToAccessTokenSettings();
     cy.clickOptionWithTestId("add-token-button");
+    cy.clickOptionWithSpecificClass(".personal-token-dropdown-option", 0);
     cy.enterTextInTestId("create-access-token-name", `Token Name${test_id}`);
     cy.enterTextInTestId(
       "create-access-token-description",

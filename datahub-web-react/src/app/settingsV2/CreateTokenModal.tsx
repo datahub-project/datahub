@@ -13,6 +13,7 @@ import analytics, { EventType } from '../analytics';
 type Props = {
     currentUserUrn: string;
     visible: boolean;
+    forRemoteExecutor?: boolean;
     onClose: () => void;
     onCreateToken: () => void;
 };
@@ -36,10 +37,16 @@ const ExpirationDurationSelect = styled(Select)`
 `;
 
 const OptionText = styled.span<{ isRed: boolean }>`
-    ${(props) => props.isRed && `color: ${red[5]};`}
+    ${(props) => props.isRed && `color: ${red[5]}`}
 `;
 
-export default function CreateTokenModal({ currentUserUrn, visible, onClose, onCreateToken }: Props) {
+export default function CreateTokenModal({
+    currentUserUrn,
+    forRemoteExecutor,
+    visible,
+    onClose,
+    onCreateToken,
+}: Props) {
     const [selectedTokenDuration, setSelectedTokenDuration] = useState<AccessTokenDuration | null>(null);
 
     const [showModal, setShowModal] = useState(false);
@@ -48,6 +55,13 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
     const [createAccessToken, { data }] = useCreateAccessTokenMutation();
 
     const [form] = Form.useForm<FormProps>();
+
+    // For remote executors they default to never
+    useEffect(() => {
+        if (forRemoteExecutor) {
+            form.setFieldValue('duration', AccessTokenDuration.NoExpiry);
+        }
+    }, [forRemoteExecutor, form]);
 
     // Check and show the modal once the data for createAccessToken will generate
     useEffect(() => {
@@ -112,7 +126,7 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
     return (
         <>
             <Modal
-                title="Create new Token"
+                title={forRemoteExecutor ? 'Create new Token for Remote Executor' : 'Create new Token'}
                 visible={visible}
                 onCancel={onModalClose}
                 footer={
@@ -169,7 +183,7 @@ export default function CreateTokenModal({ currentUserUrn, visible, onClose, onC
                     <ExpirationSelectContainer>
                         <Typography.Text strong>Expires in</Typography.Text>
                         <Form.Item name="duration" data-testid="create-access-token-duration" noStyle>
-                            <ExpirationDurationSelect>
+                            <ExpirationDurationSelect disabled={forRemoteExecutor}>
                                 {ACCESS_TOKEN_DURATIONS.map((duration) => (
                                     <Select.Option key={duration.text} value={duration.duration}>
                                         <OptionText isRed={duration.duration === AccessTokenDuration.NoExpiry}>
