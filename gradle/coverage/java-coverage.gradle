@@ -22,7 +22,7 @@ afterEvaluate {
         Tools that aggregate and analyse coverage tools search for the coverage result files. Keeping them under one
         folder will minimize the time spent searching through the full source tree.
         */
-        outputLocation = rootProject.layout.buildDirectory.file("coverage-reports/jacoco-${project.name}.xml")
+        outputLocation = rootProject.layout.buildDirectory.file("coverage-reports/${rootProject.relativePath(project.projectDir)}/jacoco-${project.name}.xml")
       }
       csv.required = false
       html.required = false

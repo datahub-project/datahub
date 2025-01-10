@@ -29,7 +29,7 @@ class DatahubExecutionRequestCleanupConfig(ConfigModel):
     )
 
     keep_history_max_days: int = Field(
-        30,
+        90,
         description="Maximum number of days to keep execution requests for, per ingestion source",
     )
 
@@ -46,6 +46,10 @@ class DatahubExecutionRequestCleanupConfig(ConfigModel):
     runtime_limit_seconds: int = Field(
         default=3600,
         description="Maximum runtime in seconds for the cleanup task",
+    )
+
+    limit_entities_delete: Optional[int] = Field(
+        10000, description="Max number of execution requests to hard delete."
     )
 
     max_read_errors: int = Field(
@@ -65,6 +69,8 @@ class DatahubExecutionRequestCleanupReport(SourceReport):
     ergc_delete_errors: int = 0
     ergc_start_time: Optional[datetime.datetime] = None
     ergc_end_time: Optional[datetime.datetime] = None
+    ergc_delete_limit_reached: bool = False
+    ergc_runtime_limit_reached: bool = False
 
 
 class CleanupRecord(BaseModel):
@@ -85,11 +91,19 @@ class DatahubExecutionRequestCleanup:
         self.graph = graph
         self.report = report
         self.instance_id = int(time.time())
+        self.last_print_time = 0.0
 
         if config is not None:
             self.config = config
         else:
             self.config = DatahubExecutionRequestCleanupConfig()
+
+    def _print_report(self) -> None:
+        time_taken = round(time.time() - self.last_print_time, 1)
+        # Print report every 2 minutes
+        if time_taken > 120:
+            self.last_print_time = time.time()
+            logger.info(f"\n{self.report.as_string()}")
 
     def _to_cleanup_record(self, entry: Dict) -> CleanupRecord:
         input_aspect = (
@@ -175,6 +189,7 @@ class DatahubExecutionRequestCleanup:
         running_guard_timeout = now_ms - 30 * 24 * 3600 * 1000
 
         for entry in self._scroll_execution_requests():
+            self._print_report()
             self.report.ergc_records_read += 1
             key = entry.ingestion_source
 
@@ -225,15 +240,12 @@ class DatahubExecutionRequestCleanup:
                     f"record timestamp: {entry.requested_at}."
                 )
             )
-            self.report.ergc_records_deleted += 1
             yield entry
 
     def _delete_entry(self, entry: CleanupRecord) -> None:
         try:
-            logger.info(
-                f"ergc({self.instance_id}): going to delete ExecutionRequest {entry.request_id}"
-            )
             self.graph.delete_entity(entry.urn, True)
+            self.report.ergc_records_deleted += 1
         except Exception as e:
             self.report.ergc_delete_errors += 1
             self.report.failure(
@@ -252,7 +264,20 @@ class DatahubExecutionRequestCleanup:
                 >= datetime.timedelta(seconds=self.config.runtime_limit_seconds)
             )
         ):
+            self.report.ergc_runtime_limit_reached = True
             logger.info(f"ergc({self.instance_id}): max runtime reached.")
+            return True
+        return False
+
+    def _reached_delete_limit(self) -> bool:
+        if (
+            self.config.limit_entities_delete
+            and self.report.ergc_records_deleted >= self.config.limit_entities_delete
+        ):
+            logger.info(
+                f"ergc({self.instance_id}): max delete limit reached: {self.config.limit_entities_delete}."
+            )
+            self.report.ergc_delete_limit_reached = True
             return True
         return False
 
@@ -274,7 +299,7 @@ class DatahubExecutionRequestCleanup:
         )
 
         for entry in self._scroll_garbage_records():
-            if self._reached_runtime_limit():
+            if self._reached_runtime_limit() or self._reached_delete_limit():
                 break
             self._delete_entry(entry)
 
