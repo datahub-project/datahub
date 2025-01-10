@@ -248,9 +248,11 @@ class DataHubGraph(DatahubRestEmitter):
         with DatahubRestSink(PipelineContext(run_id=run_id), sink_config) as sink:
             yield sink
         if sink.report.failures:
+            logger.error(
+                f"Failed to emit {len(sink.report.failures)} records\n{sink.report.as_string()}"
+            )
             raise OperationalError(
-                f"Failed to emit {len(sink.report.failures)} records",
-                info=sink.report.as_obj(),
+                f"Failed to emit {len(sink.report.failures)} records"
             )
 
     def emit_all(
