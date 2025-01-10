@@ -1,11 +1,88 @@
 #### Configuration Notes
 
 1. If a view contains a liquid template (e.g. `sql_table_name: {{ user_attributes['db']}}.kafka_streaming.events }}`, with `db=ANALYTICS_PROD`), then you will need to specify the values of those variables in the `liquid_variable` config as shown below:
-    ```yml
-      liquid_variable:
-        user_attributes:
-          db: ANALYTICS_PROD
-    ```
+
+   ```yml
+   liquid_variable:
+     user_attributes:
+       db: ANALYTICS_PROD
+   ```
+
+2. If a view contains a liquid variable (e.g., `sql_table_name: ${db}.kafka_streaming.events;`), with `db=ANALYTICS_PROD`, you will need to specify the value of the variable in the `liquid_variable` config as shown below:
+
+   ```yml
+   liquid_variable:
+     db: ANALYTICS_PROD
+   ```
+
+   **Example**:
+
+   ```lkml
+   sql_table_name: ${db}.kafka_streaming.events;;
+   ```
+
+   **Resolved Output**:
+
+   ```
+   ANALYTICS_PROD.kafka_streaming.events
+   ```
+
+3. If a view contains a LookML parameter (e.g., `sql_table_name: @{year}.public.events;`), with `year=public.winner_2025`, you will need to specify the value of the parameter in the `lookml_parameter` config as shown below:
+
+   ```yml
+   lookml_parameter:
+     year: public.winner_2025
+   ```
+
+   **Example**:
+
+   ```lkml
+   parameter: year {
+     type: string
+     allowed_value: {
+       label: "2025"
+       value: "public.winner_2025"
+     }
+   }
+
+   sql_table_name: @{year}.public.events;;
+   ```
+
+   **Resolved Output**:
+
+   ```
+   public.winner_2025.public.events
+   ```
+
+4. If a view contains both liquid variables and LookML parameters (e.g., `sql_table_name: ${db}.@{year}.events;`), you will need to configure both in your recipe as shown below:
+
+   ```yml
+   liquid_variable:
+     db: ANALYTICS_PROD
+
+   lookml_parameter:
+     year: public.winner_2025
+   ```
+
+   **Example**:
+
+   ```lkml
+   parameter: year {
+     type: string
+     allowed_value: {
+       label: "2025"
+       value: "public.winner_2025"
+     }
+   }
+
+   sql_table_name: ${db}.@{year}.events;;
+   ```
+
+   **Resolved Output**:
+
+   ```
+   ANALYTICS_PROD.public.winner_2025.events
+   ```
 
 ### Multi-Project LookML (Advanced)
 

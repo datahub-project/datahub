@@ -351,16 +351,16 @@ class LookmlParameterTransformer(LookMLViewTransformer):
 
         def replace_parameters(match):
             key = match.group(1)
+            # Resolve parameter
+            if key in self.source_config.lookml_parameter:
+                return str(self.source_config.lookml_parameter.get(key))
+
             # Check if it's a misplaced liquid variable
             if key in self.source_config.liquid_variable:
                 logger.warning(
                     f"Misplaced liquid variable '@{{{key}}}' detected. Use '${{{key}}}' instead."
                 )
                 return f"@{{{key}}}"
-
-            # Resolve parameter
-            if key in self.source_config.lookml_parameter:
-                return str(self.source_config.lookml_parameter.get(key))
 
             logger.warning(f"Parameter '@{{{key}}}' not found in configuration.")
             return ""
@@ -453,7 +453,7 @@ def process_lookml_template_language(
         ),  # Now resolve liquid variables
         LookmlParameterTransformer(
             source_config=source_config
-        ),  # Remove @{param}/${var} with its corresponding value
+        ),  # Resolve @{param} with its corresponding value
         DropDerivedViewPatternTransformer(
             source_config=source_config
         ),  # Remove any ${} symbol
