@@ -286,7 +286,8 @@ project.ext.externalDependency = [
     'annotationApi': 'javax.annotation:javax.annotation-api:1.3.2',
     'jakartaAnnotationApi': 'jakarta.annotation:jakarta.annotation-api:3.0.0',
     'classGraph': 'io.github.classgraph:classgraph:4.8.172',
-    'mustache': 'com.github.spullara.mustache.java:compiler:0.9.14'
+    'mustache': 'com.github.spullara.mustache.java:compiler:0.9.14',
+    'javaxMail': 'com.sun.mail:jakarta.mail:1.6.7'
 ]
 
 allprojects {
@@ -374,6 +375,7 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     exclude group: "org.slf4j", module: "slf4j-nop"
     exclude group: "org.slf4j", module: "slf4j-ext"
     exclude group: "org.codehaus.jackson", module: "jackson-mapper-asl"
+    exclude group: "javax.mail", module: "mail"
 
     resolutionStrategy.force externalDependency.antlr4Runtime
     resolutionStrategy.force externalDependency.antlr4

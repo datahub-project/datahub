@@ -12,7 +12,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
+from datahub.ingestion.api.source_helpers import (
+    auto_fix_duplicate_schema_field_paths,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
 from datahub.ingestion.source.datahub.datahub_api_reader import DataHubApiReader
@@ -57,7 +60,14 @@ class DataHubSource(StatefulIngestionSourceBase):
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         # Exactly replicate data from DataHub source
-        return [partial(auto_workunit_reporter, self.get_report())]
+        return [
+            (
+                auto_fix_duplicate_schema_field_paths
+                if self.config.drop_duplicate_schema_fields
+                else None
+            ),
+            partial(auto_workunit_reporter, self.get_report()),
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.report.stop_time = datetime.now(tz=timezone.utc)
