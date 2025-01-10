@@ -1,6 +1,11 @@
 import logging
 import os
-from typing import Optional
+from collections import defaultdict
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3.service_resource import ObjectSummary
+
 
 S3_PREFIXES = ["s3://", "s3n://", "s3a://"]
 
@@ -68,3 +73,21 @@ def get_key_prefix(s3_uri: str) -> str:
             f"Not an S3 URI. Must start with one of the following prefixes: {str(S3_PREFIXES)}"
         )
     return strip_s3_prefix(s3_uri).split("/", maxsplit=1)[1]
+
+
+def group_s3_objects_by_dirname(
+    s3_objects: Iterable["ObjectSummary"],
+) -> Dict[str, List["ObjectSummary"]]:
+    """
+    Groups S3 objects by their directory name.
+
+    If a s3_object in the root directory (i.e., s3://bucket/file.txt), it is grouped under '/'.
+    """
+    grouped_s3_objs = defaultdict(list)
+    for obj in s3_objects:
+        if "/" in obj.key:
+            dirname = obj.key.rsplit("/", 1)[0]
+        else:
+            dirname = "/"
+        grouped_s3_objs[dirname].append(obj)
+    return grouped_s3_objs
