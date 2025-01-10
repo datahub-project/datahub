@@ -2118,6 +2118,9 @@ fragment entityPrivileges on EntityPrivileges {
     canShareEntity
     canEditMonitors
     canEditSqlAssertionMonitors
+    canViewDatasetUsage
+    canViewDatasetProfile
+    canViewDatasetOperations
 }
 
 fragment shareResultFields on ShareResult {

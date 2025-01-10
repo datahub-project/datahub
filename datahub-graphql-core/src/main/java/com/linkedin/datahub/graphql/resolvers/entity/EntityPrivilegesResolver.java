@@ -130,6 +130,11 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
         LabelUtils.isAuthorizedToUpdateTerms(context, urn, "ignored"));
     result.setCanEditSchemaFieldDescription(
         DescriptionUtils.isAuthorizedToUpdateFieldDescription(context, urn));
+    result.setCanViewDatasetUsage(AuthorizationUtils.isViewDatasetUsageAuthorized(context, urn));
+    result.setCanViewDatasetProfile(
+        AuthorizationUtils.isViewDatasetProfileAuthorized(context, urn));
+    result.setCanViewDatasetOperations(
+        AuthorizationUtils.isViewDatasetOperationsAuthorized(context, urn));
     addCommonPrivileges(result, urn, context);
 
     // Acryl-only start //
