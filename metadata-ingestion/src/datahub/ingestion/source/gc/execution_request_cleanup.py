@@ -91,11 +91,19 @@ class DatahubExecutionRequestCleanup:
         self.graph = graph
         self.report = report
         self.instance_id = int(time.time())
+        self.last_print_time = 0.0
 
         if config is not None:
             self.config = config
         else:
             self.config = DatahubExecutionRequestCleanupConfig()
+
+    def _print_report(self) -> None:
+        time_taken = round(time.time() - self.last_print_time, 1)
+        # Print report every 2 minutes
+        if time_taken > 120:
+            self.last_print_time = time.time()
+            logger.info(f"\n{self.report.as_string()}")
 
     def _to_cleanup_record(self, entry: Dict) -> CleanupRecord:
         input_aspect = (
@@ -181,6 +189,7 @@ class DatahubExecutionRequestCleanup:
         running_guard_timeout = now_ms - 30 * 24 * 3600 * 1000
 
         for entry in self._scroll_execution_requests():
+            self._print_report()
             self.report.ergc_records_read += 1
             key = entry.ingestion_source
 
