@@ -66,16 +66,14 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
     Urn entityUrn = entityResponse.getUrn();
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<DataProcessInstance> mappingHelper = new MappingHelper<>(aspectMap, result);
-    mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(
         DATA_PROCESS_INSTANCE_PROPERTIES_ASPECT_NAME,
-        (dataProcessInstance, dataMap) -> {
-          try {
-            mapTrainingRunProperties(context, dataProcessInstance, dataMap, entityUrn);
-          } catch (Exception e) {
-            mapDataProcessProperties(context, dataProcessInstance, dataMap, entityUrn);
-          }
-        });
+        (dataProcessInstance, dataMap) ->
+            mapDataProcessProperties(context, dataProcessInstance, dataMap, entityUrn));
+    mappingHelper.mapToResult(
+        ML_TRAINING_RUN_PROPERTIES_ASPECT_NAME,
+        (dataProcessInstance, dataMap) ->
+            mapTrainingRunProperties(context, dataProcessInstance, dataMap));
     mappingHelper.mapToResult(
         DATA_PLATFORM_INSTANCE_ASPECT_NAME,
         (dataProcessInstance, dataMap) -> {
@@ -99,10 +97,7 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
   }
 
   private void mapTrainingRunProperties(
-      @Nonnull QueryContext context,
-      @Nonnull DataProcessInstance dpi,
-      @Nonnull DataMap dataMap,
-      @Nonnull Urn entityUrn) {
+      @Nonnull QueryContext context, @Nonnull DataProcessInstance dpi, @Nonnull DataMap dataMap) {
     MLTrainingRunProperties trainingProperties = new MLTrainingRunProperties(dataMap);
 
     com.linkedin.datahub.graphql.generated.MLTrainingRunProperties properties =
@@ -128,6 +123,7 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
     if (trainingProperties.hasId()) {
       properties.setId(trainingProperties.getId());
     }
+    dpi.setMlTrainingRunProperties(properties);
   }
 
   private void mapDataProcessProperties(
