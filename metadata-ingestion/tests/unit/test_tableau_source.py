@@ -5,6 +5,7 @@ import pytest
 import datahub.ingestion.source.tableau.tableau_constant as c
 from datahub.ingestion.source.tableau.tableau import TableauSiteSource
 from datahub.ingestion.source.tableau.tableau_common import (
+    TableauUpstreamReference,
     get_filter_pages,
     make_filter,
     optimize_query_filter,
@@ -247,3 +248,23 @@ def test_optimize_query_filter_handles_no_duplicates():
     assert len(result) == 2
     assert result[c.ID_WITH_IN] == ["id1", "id2"]
     assert result[c.PROJECT_NAME_WITH_IN] == ["project1", "project2"]
+
+
+def testTableaUpstreamReference():
+    d = {
+        "id": "7127b695-3df5-4a3a-4837-eb0f4b572337",
+        "name": "TABLE1",
+        "database": None,
+        "schema": "SCHEMA1",
+        "fullName": "DB1.SCHEMA1.TABLE1",
+        "connectionType": "snowflake",
+        "description": "",
+        "columnsConnection": {"totalCount": 0},
+    }
+    ref = TableauUpstreamReference.create(d)
+    assert ref
+
+    assert ref.database == "DB1"
+    assert ref.schema == "SCHEMA1"
+    assert ref.table == "TABLE1"
+    assert ref.connection_type == "snowflake"
