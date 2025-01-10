@@ -20,6 +20,7 @@ on:
       - ".github/workflows/metadata-io.yml"
   release:
     types: [published]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
