@@ -48,6 +48,10 @@ class DatahubExecutionRequestCleanupConfig(ConfigModel):
         description="Maximum runtime in seconds for the cleanup task",
     )
 
+    limit_entities_delete: Optional[int] = Field(
+        10000, description="Max number of execution requests to hard delete."
+    )
+
     max_read_errors: int = Field(
         default=10,
         description="Maximum number of read errors before aborting",
@@ -65,6 +69,8 @@ class DatahubExecutionRequestCleanupReport(SourceReport):
     ergc_delete_errors: int = 0
     ergc_start_time: Optional[datetime.datetime] = None
     ergc_end_time: Optional[datetime.datetime] = None
+    ergc_delete_limit_reached: bool = False
+    ergc_runtime_limit_reached: bool = False
 
 
 class CleanupRecord(BaseModel):
@@ -225,15 +231,12 @@ class DatahubExecutionRequestCleanup:
                     f"record timestamp: {entry.requested_at}."
                 )
             )
-            self.report.ergc_records_deleted += 1
             yield entry
 
     def _delete_entry(self, entry: CleanupRecord) -> None:
         try:
-            logger.info(
-                f"ergc({self.instance_id}): going to delete ExecutionRequest {entry.request_id}"
-            )
             self.graph.delete_entity(entry.urn, True)
+            self.report.ergc_records_deleted += 1
         except Exception as e:
             self.report.ergc_delete_errors += 1
             self.report.failure(
@@ -252,7 +255,20 @@ class DatahubExecutionRequestCleanup:
                 >= datetime.timedelta(seconds=self.config.runtime_limit_seconds)
             )
         ):
+            self.report.ergc_runtime_limit_reached = True
             logger.info(f"ergc({self.instance_id}): max runtime reached.")
+            return True
+        return False
+
+    def _reached_delete_limit(self) -> bool:
+        if (
+            self.config.limit_entities_delete
+            and self.report.ergc_records_deleted >= self.config.limit_entities_delete
+        ):
+            logger.info(
+                f"ergc({self.instance_id}): max delete limit reached: {self.config.limit_entities_delete}."
+            )
+            self.report.ergc_delete_limit_reached = True
             return True
         return False
 
@@ -274,7 +290,7 @@ class DatahubExecutionRequestCleanup:
         )
 
         for entry in self._scroll_garbage_records():
-            if self._reached_runtime_limit():
+            if self._reached_runtime_limit() or self._reached_delete_limit():
                 break
             self._delete_entry(entry)
 
