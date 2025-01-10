@@ -130,20 +130,21 @@ class OracleInspectorObjectWrapper:
         self.exclude_tablespaces: Tuple[str, str] = ("SYSTEM", "SYSAUX")
 
     def get_db_name(self) -> str:
+        db_name = None
         try:
             # Try to retrieve current DB name by executing query
             db_name = self._inspector_instance.bind.execute(
                 sql.text("select sys_context('USERENV','DB_NAME') from dual")
             ).scalar()
             return str(db_name)
-        except sqlalchemy.exc.DatabaseError as exc:
-            logger.error("Error fetching DB name: " + str(exc))
+        except sqlalchemy.exc.DatabaseError as e:
+            logger.error("Error fetching DB name: " + str(e))
             self.report.report_exc(
-                title="Error fetching database name",
-                message="Error extracting dataset info from API response.",
+                title="Error fetching database name using sys_context.",
+                message="database_fetch_error",
                 context=db_name,
                 level=StructuredLogLevel.ERROR,
-                exc=exc,
+                exc=e,
             )
             return ""
 
@@ -316,6 +317,10 @@ class OracleInspectorObjectWrapper:
                     logger.warning(
                         f"Did not recognize type {coltype} of column {colname}"
                     )
+                    self.report.warning(
+                        message=f"Unrecognized column datatype {coltype}",
+                        context=colname,
+                    )
                     coltype = sqltypes.NULLTYPE
 
             if generated == "YES":
@@ -464,6 +469,13 @@ class OracleInspectorObjectWrapper:
             logger.error(
                 f"Error processing PK constraint data for {schema}.{table_name}: {str(e)}"
             )
+            self.report.report_exc(
+                message="Error processing primary key constraints",
+                title="pk_constraint_error",
+                context=f"{schema}.{table_name}",
+                level=StructuredLogLevel.ERROR,
+                exc=e,
+            )
             # Return empty constraint if we can't process it
             return {"constrained_columns": [], "name": None}
 
@@ -522,6 +534,11 @@ class OracleInspectorObjectWrapper:
                         "Got 'None' querying 'table_name' from "
                         f"dba_cons_columns{dblink} - does the user have "
                         "proper rights to the table?"
+                    )
+                    self.report.warning(
+                        message="Missing Table Permissions"
+                        f"Unable to query table_name from dba_cons_columns{dblink}.",
+                        context=f"{schema}.{table_name}",
                     )
 
                 rec = fkeys[cons_name]
