@@ -203,7 +203,7 @@ class IcebergSource(StatefulIngestionSourceBase):
                 with PerfTimer() as timer:
                     table = thread_local.local_catalog.load_table(dataset_path)
                     time_taken = timer.elapsed_seconds()
-                    self.report.report_table_load_time(time_taken)
+                    self.report.report_table_load_time(time_taken, dataset_name, table.metadata_location)
                 LOGGER.debug(f"Loaded table: {table.name()}, time taken: {time_taken}")
                 yield from self._create_iceberg_workunit(dataset_name, table)
             except NoSuchPropertyException as e:
@@ -315,7 +315,9 @@ class IcebergSource(StatefulIngestionSourceBase):
             dataset_snapshot.aspects.append(schema_metadata)
 
             mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
-        self.report.report_table_processing_time(timer.elapsed_seconds())
+        self.report.report_table_processing_time(
+            timer.elapsed_seconds(), dataset_name, table.metadata_location
+        )
         yield MetadataWorkUnit(id=dataset_name, mce=mce)
 
         dpi_aspect = self._get_dataplatform_instance_aspect(dataset_urn=dataset_urn)
