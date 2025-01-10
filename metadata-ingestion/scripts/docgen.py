@@ -1,3 +1,4 @@
+import dataclasses
 import glob
 import json
 import logging
@@ -209,6 +210,21 @@ def load_plugin(plugin_name: str, out_dir: str) -> Plugin:
     return plugin
 
 
+@dataclasses.dataclass
+class PluginMetrics:
+    discovered: int = 0
+    loaded: int = 0
+    generated: int = 0
+    failed: int = 0
+
+
+@dataclasses.dataclass
+class PlatformMetrics:
+    discovered: int = 0
+    generated: int = 0
+    warnings: List[str] = dataclasses.field(default_factory=list)
+
+
 @click.command()
 @click.option("--out-dir", type=str, required=True)
 @click.option("--extra-docs", type=str, required=False)
@@ -216,9 +232,8 @@ def load_plugin(plugin_name: str, out_dir: str) -> Plugin:
 def generate(
     out_dir: str, extra_docs: Optional[str] = None, source: Optional[str] = None
 ) -> None:  # noqa: C901
-    metrics = {}
-    metrics["source_platforms"] = {"discovered": 0, "generated": 0, "warnings": []}
-    metrics["plugins"] = {"discovered": 0, "loaded": 0, "generated": 0, "failed": 0}
+    plugin_metrics = PluginMetrics()
+    platform_metrics = PlatformMetrics()
 
     platforms: Dict[str, Platform] = {}
     for plugin_name in sorted(source_registry.mapping.keys()):
@@ -233,17 +248,17 @@ def generate(
             logger.info(f"Skipping {plugin_name} as it is on the deny list")
             continue
 
-        metrics["plugins"]["discovered"] = metrics["plugins"]["discovered"] + 1  # type: ignore
+        plugin_metrics.discovered += 1
         try:
             plugin = load_plugin(plugin_name, out_dir=out_dir)
         except Exception as e:
             logger.error(
                 f"Failed to load {plugin_name} due to exception {e}", exc_info=e
             )
-            metrics["plugins"]["failed"] = metrics["plugins"].get("failed", 0) + 1  # type: ignore
+            plugin_metrics.failed += 1
             continue
         else:
-            metrics["plugins"]["loaded"] = metrics["plugins"]["loaded"] + 1  # type: ignore
+            plugin_metrics.loaded += 1
 
             # Add to the platform list if not already present.
             platforms.setdefault(
@@ -256,8 +271,7 @@ def generate(
 
     if extra_docs:
         for path in glob.glob(f"{extra_docs}/**/*[.md|.yaml|.yml]", recursive=True):
-            m = re.search("/docs/sources/(.*)/(.*).md", path)
-            if m:
+            if m := re.search("/docs/sources/(.*)/(.*).md", path):
                 platform_name = m.group(1).lower()  # TODO: rename this to platform_id
                 file_name = m.group(2)
                 destination_md: str = (
@@ -266,48 +280,44 @@ def generate(
 
                 with open(path, "r") as doc_file:
                     file_contents = doc_file.read()
-                    final_markdown = rewrite_markdown(
-                        file_contents, path, destination_md
-                    )
+                final_markdown = rewrite_markdown(file_contents, path, destination_md)
 
-                    if file_name == "README":
-                        # README goes as platform level docs
-                        # all other docs are assumed to be plugin level
-                        platforms[platform_name].custom_docs_pre = final_markdown
+                if file_name == "README":
+                    # README goes as platform level docs
+                    # all other docs are assumed to be plugin level
+                    platforms[platform_name].custom_docs_pre = final_markdown
 
-                    elif "_" in file_name:
-                        plugin_doc_parts = file_name.split("_")
-                        if len(plugin_doc_parts) != 2:
-                            raise ValueError(
-                                f"{file_name} needs to be of the form <plugin>_pre.md or <plugin>_post.md"
-                            )
-                        plugin_name, suffix = plugin_doc_parts
-                        if suffix == "pre":
-                            platforms[platform_name].plugins[
-                                plugin_name
-                            ].custom_docs_pre = final_markdown
-                        elif suffix == "post":
-                            platforms[platform_name].plugins[
-                                plugin_name
-                            ].custom_docs_post = final_markdown
-                        else:
-                            raise ValueError(
-                                f"{file_name} needs to be of the form <plugin>_pre.md or <plugin>_post.md"
-                            )
-
-                    else:  # assume this is the platform post.
-                        # TODO: Probably need better error checking here.
+                elif "_" in file_name:
+                    plugin_doc_parts = file_name.split("_")
+                    if len(plugin_doc_parts) != 2:
+                        raise ValueError(
+                            f"{file_name} needs to be of the form <plugin>_pre.md or <plugin>_post.md"
+                        )
+                    plugin_name, suffix = plugin_doc_parts
+                    if suffix == "pre":
                         platforms[platform_name].plugins[
-                            file_name
+                            plugin_name
+                        ].custom_docs_pre = final_markdown
+                    elif suffix == "post":
+                        platforms[platform_name].plugins[
+                            plugin_name
                         ].custom_docs_post = final_markdown
-            else:
-                yml_match = re.search("/docs/sources/(.*)/(.*)_recipe.yml", path)
-                if yml_match:
-                    platform_name = yml_match.group(1).lower()
-                    plugin_name = yml_match.group(2)
+                    else:
+                        raise ValueError(
+                            f"{file_name} needs to be of the form <plugin>_pre.md or <plugin>_post.md"
+                        )
+
+                else:  # assume this is the platform post.
+                    # TODO: Probably need better error checking here.
                     platforms[platform_name].plugins[
-                        plugin_name
-                    ].starter_recipe = pathlib.Path(path).read_text()
+                        file_name
+                    ].custom_docs_post = final_markdown
+            elif yml_match := re.search("/docs/sources/(.*)/(.*)_recipe.yml", path):
+                platform_name = yml_match.group(1).lower()
+                plugin_name = yml_match.group(2)
+                platforms[platform_name].plugins[
+                    plugin_name
+                ].starter_recipe = pathlib.Path(path).read_text()
 
     sources_dir = f"{out_dir}/sources"
     os.makedirs(sources_dir, exist_ok=True)
@@ -319,9 +329,7 @@ def generate(
     for platform_id, platform in platforms.items():
         if source and platform_id != source:
             continue
-        metrics["source_platforms"]["discovered"] = (
-            metrics["source_platforms"]["discovered"] + 1  # type: ignore
-        )
+        platform_metrics.discovered += 1
         platform_doc_file = f"{sources_dir}/{platform_id}.md"
         # if "name" not in platform_docs:
         #     # We seem to have discovered written docs that corresponds to a platform, but haven't found linkage to it from the source classes
@@ -455,21 +463,27 @@ The [JSONSchema](https://json-schema.org/) for this configuration is inlined bel
                         f.write(
                             f"- Browse on [GitHub](../../../../metadata-ingestion/{plugin.filename})\n\n"
                         )
-                metrics["plugins"]["generated"] = metrics["plugins"]["generated"] + 1  # type: ignore
+                plugin_metrics.generated += 1
 
             # Using an h2 tag to prevent this from showing up in page's TOC sidebar.
             f.write("\n<h2>Questions</h2>\n\n")
             f.write(
                 f"If you've got any questions on configuring ingestion for {platform.name}, feel free to ping us on [our Slack](https://slack.datahubproject.io).\n"
             )
-            metrics["source_platforms"]["generated"] = (
-                metrics["source_platforms"]["generated"] + 1  # type: ignore
-            )
+            platform_metrics.generated += 1
     print("Ingestion Documentation Generation Complete")
     print("############################################")
-    print(json.dumps(metrics, indent=2))
+    print(
+        json.dumps(
+            {
+                "plugin_metrics": dataclasses.asdict(plugin_metrics),
+                "platform_metrics": dataclasses.asdict(platform_metrics),
+            },
+            indent=2,
+        )
+    )
     print("############################################")
-    if metrics["plugins"].get("failed", 0) > 0:  # type: ignore
+    if plugin_metrics.failed > 0:
         sys.exit(1)
 
     # Create Lineage doc
