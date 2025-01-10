@@ -6,3 +6,4 @@ repos:
         entry: ./gradlew :smoke-test:cypressLintFix
         language: system
         files: ^smoke-test/tests/cypress/.*$
+        pass_filenames: false
