@@ -12,7 +12,6 @@ describe("login", () => {
     cy.get(".ant-select-selection-overflow").click();
     cy.get('[src*="bigquerylogo.png"]').should("be.visible").click();
     cy.get("body").click();
-    cy.contains("Data Engineer").click();
     cy.get(".ant-btn-primary").click();
     cy.get('[data-testid="home-page-content-container"').should("exist");
   });
