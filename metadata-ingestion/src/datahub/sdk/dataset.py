@@ -9,9 +9,7 @@ from typing_extensions import TypeAlias, assert_never
 import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import first_non_null
 from datahub.emitter.mce_builder import DEFAULT_ENV
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.errors import SdkUsageError
-from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.sdk._shared import (
@@ -21,21 +19,9 @@ from datahub.sdk._shared import (
     HasOwnership,
     HasSubtype,
     OwnersInputType,
-    UrnOrStr,
     make_time_stamp,
     parse_time_stamp,
 )
-from datahub.specific.dataset import DatasetPatchBuilder
-
-
-class DatasetUpdater:
-    # basically a clone of the DatasetPatchBuilder, but with a few more methods?
-
-    # TODO: need to build this one out more
-    # TODO: also need to make this one's interface be uniform with the full mechanism
-
-    DatasetPatchBuilder
-    pass
 
 
 class DatasetEditMode(Enum):
@@ -379,46 +365,3 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
 
     def set_upstreams(self, upstreams: UpstreamLineageInputType) -> None:
         self._set_aspect(_parse_upstream_lineage_input(upstreams, self.urn))
-
-
-def graph_get_dataset(self: DataHubGraph, urn: UrnOrStr) -> Dataset:
-    if not isinstance(urn, Urn):
-        urn = Urn.from_string(urn)
-
-    assert isinstance(urn, DatasetUrn)
-
-    aspects = self.get_entity_semityped(str(urn))
-
-    # TODO get the right entity type subclass
-    # TODO: save the timestamp so we can use If-Unmodified-Since on the updates
-    return Dataset._new_from_graph(urn, aspects)
-
-
-def graph_create(self: DataHubGraph, dataset: Dataset) -> None:
-    mcps = []
-
-    # By putting this first, we can ensure that the request fails if the entity already exists?
-    # TODO: actually validate that this works.
-    mcps.append(
-        MetadataChangeProposalWrapper(
-            entityUrn=str(dataset.urn),
-            aspect=dataset.urn.to_key_aspect(),
-            changeType=models.ChangeTypeClass.CREATE_ENTITY,
-        )
-    )
-
-    mcps.extend(dataset._as_mcps(models.ChangeTypeClass.CREATE))
-
-    self.emit_mcps(mcps)
-
-
-def graph_update(
-    self: DataHubGraph, dataset: DatasetPatchBuilder, *, check_exists: bool = True
-) -> None:
-    if check_exists and not self.exists(dataset.urn):
-        raise SdkUsageError(
-            f"Dataset {dataset.urn} does not exist, and hence cannot be updated."
-        )
-
-    mcps = dataset.build()
-    self.emit_mcps(mcps)

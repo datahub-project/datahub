@@ -10,7 +10,7 @@ from datahub.emitter.mcp_builder import (
     ContainerKey,
 )
 from datahub.errors import SdkUsageError
-from datahub.metadata.urns import ContainerUrn, Urn
+from datahub.metadata.urns import ContainerUrn, DataPlatformUrn, Urn
 from datahub.sdk._shared import (
     Entity,
     HasContainer,
@@ -31,9 +31,10 @@ class Container(HasSubtype, HasContainer, HasOwnership, Entity):
 
     def __init__(
         self,
-        *,
+        /,
         # Identity.
         container_key: ContainerKey,
+        *,
         # Container attributes.
         display_name: str,
         qualified_name: Optional[str] = None,
@@ -54,7 +55,7 @@ class Container(HasSubtype, HasContainer, HasOwnership, Entity):
 
         self._set_aspect(
             models.DataPlatformInstanceClass(
-                platform=container_key.platform,
+                platform=DataPlatformUrn(container_key.platform).urn(),
                 instance=container_key.instance,
             )
         )
