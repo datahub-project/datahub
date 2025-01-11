@@ -1,0 +1,46 @@
+services:
+  couchbase:
+    image: couchbase/server
+    hostname: node
+    container_name: testdb
+    ports:
+      - "8091:8091/tcp"
+      - "8092:8092/tcp"
+      - "8093:8093/tcp"
+      - "8094:8094/tcp"
+      - "8095:8095/tcp"
+      - "8096:8096/tcp"
+      - "8097:8097/tcp"
+      - "18091:18091/tcp"
+      - "18092:18092/tcp"
+      - "18093:18093/tcp"
+      - "18094:18094/tcp"
+      - "18095:18095/tcp"
+      - "18096:18096/tcp"
+      - "18097:18097/tcp"
+      - "9102:9102/tcp"
+      - "11207:11207/tcp"
+      - "11210:11210/tcp"
+    networks:
+      cbnet1:
+        ipv4_address: 10.10.1.2
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8091" ]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+      start_interval: 5s
+    volumes:
+      - ./scripts/entrypoint.sh:/entrypoint.sh
+      - ./data/customers.json:/import.json
+    entrypoint: ["/entrypoint.sh"]
+    command: ["couchbase-server"]
+networks:
+  cbnet1:
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.10.0.0/16
+          ip_range: 10.10.1.0/24
+          gateway: 10.10.1.1

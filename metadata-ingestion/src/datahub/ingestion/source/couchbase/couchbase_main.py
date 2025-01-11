@@ -1,35 +1,27 @@
 import logging
 from dataclasses import dataclass, field
-from enum import Enum
-from typing import Dict, Iterable, List, Optional, Tuple, Type, Union, ValuesView
+from typing import Dict, Iterable, List, Optional, Type, Union, ValuesView
 
-import bson.timestamp
-from datetime import timedelta
-from packaging import version
-from pydantic import PositiveInt, validator
+from pydantic import PositiveInt
 from pydantic.fields import Field
-from couchbase.auth import PasswordAuthenticator
-from couchbase.options import ClusterTimeoutOptions, ClusterOptions, TLSVerifyMode
-from couchbase.bucket import Bucket
-from couchbase.collection import Collection
-from couchbase.management.buckets import BucketManager, BucketSettings
-from couchbase.management.collections import CollectionManager, ScopeSpec
 from couchbase.cluster import Cluster
+from couchbase.management.buckets import BucketSettings
+from datahub.ingestion.source.couchbase.couchbase_connect import CouchbaseConnect
+from datahub.ingestion.source.couchbase.couchbase_kv_schema import construct_schema
+from datahub.ingestion.source.couchbase.couchbase_schema_reader import CouchbaseCollectionItemsReader
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.emitter.mcp_builder import add_domain_to_entity_wu
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mce_builder import (
     make_data_platform_urn,
     make_dataplatform_instance_urn,
-)
-from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.mcp_builder import (
-    DatabaseKey,
-    add_dataset_to_container,
-    gen_containers,
+    make_dataset_urn_with_platform_instance,
+    make_domain_urn,
 )
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -42,16 +34,13 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 from datahub.ingestion.source.schema_inference.object import (
     SchemaDescription,
-    construct_schema,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulIngestionConfigBase,
-    StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -59,7 +48,6 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BooleanTypeClass,
-    BytesTypeClass,
     DataPlatformInstanceClass,
     DatasetPropertiesClass,
     NullTypeClass,
@@ -70,187 +58,88 @@ from datahub.metadata.schema_classes import (
     SchemalessClass,
     SchemaMetadataClass as SchemaMetadata,
     StringTypeClass,
-    TimeTypeClass,
     UnionTypeClass,
 )
-from datahub.metadata.urns import DatasetUrn
+from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.perf_timer import PerfTimer
+from datahub.ingestion.glossary.classification_mixin import (
+    ClassificationHandler,
+    ClassificationReportMixin,
+    ClassificationSourceConfigMixin,
+    classification_workunit_processor,
+)
 
 logger = logging.getLogger(__name__)
 
 
-class HostingEnvironment(Enum):
-    SELF_HOSTED = "SELF_HOSTED"
-    CAPELLA = "CAPELLA"
-
-
 class CouchbaseDBConfig(
-    PlatformInstanceConfigMixin, EnvConfigMixin, StatefulIngestionConfigBase
+    PlatformInstanceConfigMixin, EnvConfigMixin, StatefulIngestionConfigBase, ClassificationSourceConfigMixin
 ):
-    connect_string: str = Field(
-        default="couchbases://localhost", description="Couchbase connection string."
-    )
-    username: Optional[str] = Field(default=None, description="Couchbase username.")
-    password: Optional[str] = Field(default=None, description="Couchbase password.")
+    connect_string: str = Field(default=None, description="Couchbase connect string.")
+    username: str = Field(default=None, description="Couchbase username.")
+    password: str = Field(default=None, description="Couchbase password.")
+    cluster_name: str = Field(default=None, description="Couchbase cluster name.")
     kv_timeout: Optional[PositiveInt] = Field(default=5, description="KV timeout.")
     query_timeout: Optional[PositiveInt] = Field(default=60, description="Query timeout.")
+    schema_sample_size: Optional[PositiveInt] = Field(default=10000, description="Number of documents to sample.")
     options: dict = Field(
         default={}, description="Additional options to pass to `ClusterOptions()`."
     )
-    enableSchemaInference: bool = Field(
-        default=True, description="Whether to infer schemas. "
-    )
-    schemaSamplingSize: Optional[PositiveInt] = Field(
-        default=1000,
-        description="Number of documents to use when inferring schema size. If set to `null`, all documents will be scanned.",
-    )
-    useRandomSampling: bool = Field(
-        default=True,
-        description="If documents for schema inference should be randomly selected. If `False`, documents will be selected from start.",
-    )
     maxSchemaSize: Optional[PositiveInt] = Field(
         default=300, description="Maximum number of fields to include in the schema."
-    )
-    maxDocumentSize: Optional[PositiveInt] = Field(default=20971520, description="")
-
-    hostingEnvironment: Optional[HostingEnvironment] = Field(
-        default=HostingEnvironment.SELF_HOSTED,
-        description="Hosting environment for Couchbase, default is SELF_HOSTED, currently supported is `SELF_HOSTED` or `CAPELLA`",
-    )
-
-    bucket_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="regex patterns for buckets to filter in ingestion.",
-    )
-    scope_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="regex patterns for scopes to filter in ingestion.",
     )
     keyspace_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="regex patterns for keyspace to filter in ingestion.",
     )
-    # Custom Stateful Ingestion settings
-    stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
-
-    @validator("maxDocumentSize")
-    def check_max_doc_size_filter_is_valid(cls, doc_size_filter_value):
-        if doc_size_filter_value > 20971520:
-            raise ValueError("maxDocumentSize must be a positive value <= 20971520.")
-        return doc_size_filter_value
+    domain: Dict[str, AllowDenyPattern] = Field(
+        default=dict(),
+        description="regex patterns for keyspaces to filter to assign domain_key.",
+    )
 
 
 @dataclass
-class CouchbaseDBSourceReport(StaleEntityRemovalSourceReport):
+class CouchbaseDBSourceReport(StaleEntityRemovalSourceReport, ClassificationReportMixin):
     filtered: List[str] = field(default_factory=list)
+    documents_processed: int = 0
+    collection_aggregate_timer: PerfTimer = field(default_factory=PerfTimer)
 
     def report_dropped(self, name: str) -> None:
         self.filtered.append(name)
 
 
-# map Python types to canonical strings
-PYTHON_TYPE_TO_DATA_TYPE = {
-    list: "array",
-    dict: "object",
-    type(None): "null",
-    bool: "boolean",
-    int: "integer",
-    float: "float",
-    str: "string",
-    "mixed": "mixed",
-}
-
 # map Python types to DataHub classes
-_field_type_mapping: Dict[Union[Type, str], Type] = {
-    list: ArrayTypeClass,
-    bool: BooleanTypeClass,
-    type(None): NullTypeClass,
-    int: NumberTypeClass,
-    float: NumberTypeClass,
-    str: StringTypeClass,
-    dict: RecordTypeClass,
+_field_type_mapping: Dict[str, Type] = {
+    "array": ArrayTypeClass,
+    "boolean": BooleanTypeClass,
+    "null": NullTypeClass,
+    "number": NumberTypeClass,
+    "string": StringTypeClass,
+    "object": RecordTypeClass,
     "mixed": UnionTypeClass,
 }
 
 
-def construct_schema_couchbase(
-    cluster: Cluster,
-    keyspace: str,
-    delimiter: str,
-    use_random_sampling: bool,
-    sample_size: Optional[int] = None,
-) -> Dict[Tuple[str, ...], SchemaDescription]:
-    """
-    Calls construct_schema on a Couchbase collection.
-
-    Returned schema is keyed by tuples of nested field names, with each
-    value containing 'types', 'count', 'nullable', 'delimited_name', and 'type' attributes.
-
-    Parameters
-    ----------
-        cluster:
-            Couchbase Cluster object
-        keyspace:
-            the Couchbase keyspace
-        delimiter:
-            string to concatenate field names by
-        use_random_sampling:
-            boolean to indicate if random sampling should be used
-        sample_size:
-            number of items in the collection to sample
-            (reads entire collection if not provided)
-    """
-
-    document_id_list = []
-    query = f"select meta().id from {keyspace}"
-    if sample_size:
-        query += f" limit {sample_size}"
-    result = cluster.query(query)
-    for item in result:
-        document_id_list.append(item.get('id'))
-
-    if use_random_sampling:
-        pass
-
-    keyspace_vector: List[str] = keyspace.split(".")
-    if len(keyspace_vector) != 3:
-        raise ValueError(
-            f"Invalid keyspace format: {keyspace}. Expected format is <bucket>.<scope>.<collection>"
-        )
-
-    bucket_name = keyspace_vector[0]
-    scope_name = keyspace_vector[1]
-    collection_name = keyspace_vector[2]
-
-    bucket: Bucket = cluster.bucket(bucket_name)
-    collection: Collection = bucket.scope(scope_name).collection(collection_name)
-
-    documents = []
-    for document_id in document_id_list:
-        document = collection.get(document_id)
-        documents.append(document.content_as[dict])
-
-    return construct_schema(documents, delimiter)
-
-
 @platform_name("Couchbase")
 @config_class(CouchbaseDBConfig)
-@support_status(SupportStatus.CERTIFIED)
-@capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@support_status(SupportStatus.TESTING)
+@capability(SourceCapability.PLATFORM_INSTANCE, "The platform_instance is derived from the configured cluster name")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
+@capability(
+    SourceCapability.CLASSIFICATION,
+    "Optionally enabled via `classification.enabled`",
+    supported=True,
+)
+@capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @dataclass
 class CouchbaseDBSource(StatefulIngestionSourceBase):
     """
     This plugin extracts the following:
 
-    - Databases and associated metadata
-    - Collections in each database and schemas for each collection (via schema inference)
+    - Buckets (databases), scopes and collections
+    - Schemas for each collection (via schema inference)
 
-    By default, schema inference samples 1,000 documents from each collection. Setting `schemaSamplingSize: null` will scan the entire collection.
-    Moreover, setting `useRandomSampling: False` will sample the first documents found without random selection, which may be faster for large collections.
-
-    Note that `schemaSamplingSize` has no effect if `enableSchemaInference: False` is set.
-
-    Really large schemas will be further truncated to a maximum of 300 schema fields. This is configurable using the `maxSchemaSize` parameter.
+    The plugin will sample 10,000 documents by default. Use the setting `schema_sample_size` to define how many documents will be sampled per collection.
 
     """
 
@@ -263,26 +152,20 @@ class CouchbaseDBSource(StatefulIngestionSourceBase):
         super().__init__(config, ctx)
         self.config = config
         self.report = CouchbaseDBSourceReport()
+        self.classification_handler = ClassificationHandler(self.config, self.report)
+
+        if self.config.domain:
+            self.domain_registry = DomainRegistry(
+                cached_domains=[domain_id for domain_id in self.config.domain],
+                graph=self.ctx.graph,
+            )
 
         query_timeout = float(self.config.query_timeout)
         kv_timeout = float(self.config.kv_timeout)
-        timeouts = ClusterTimeoutOptions(query_timeout=timedelta(seconds=query_timeout),
-                                         kv_timeout=timedelta(seconds=kv_timeout),
-                                         bootstrap_timeout=timedelta(seconds=kv_timeout * 2),
-                                         resolve_timeout=timedelta(seconds=kv_timeout),
-                                         connect_timeout=timedelta(seconds=kv_timeout),
-                                         management_timeout=timedelta(seconds=kv_timeout * 2))
 
-        cluster_options = ClusterOptions(PasswordAuthenticator(self.config.username, self.config.password),
-                                         timeout_options=timeouts,
-                                         tls_verify=TLSVerifyMode.NO_VERIFY,
-                                         **self.config.options)
-
-        self.couchbase_cluster = Cluster.connect(
-            self.config.connect_string, cluster_options
-        )
-
-        self.couchbase_cluster.wait_until_ready(timedelta(seconds=10))
+        self.couchbase_connect = CouchbaseConnect(self.config.connect_string, self.config.username, self.config.password, kv_timeout, query_timeout)
+        self.couchbase_connect.cluster_init()
+        self.couchbase_cluster = self.couchbase_connect.connect()
 
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "CouchbaseDBSource":
@@ -297,152 +180,118 @@ class CouchbaseDBSource(StatefulIngestionSourceBase):
             ).workunit_processor,
         ]
 
-    def get_python_type_string(
-        self, field_type: Union[Type, str], collection_name: str
-    ) -> str:
-        """
-        Return Mongo type string from a Python type
-
-        Parameters
-        ----------
-            field_type:
-                type of Python object
-            collection_name:
-                name of collection (for logging)
-        """
-        try:
-            type_string = PYTHON_TYPE_TO_DATA_TYPE[field_type]
-        except KeyError:
-            self.report.warning(
-                message="Unrecognized column types found",
-                context=f"Collection: {collection_name}, field type {field_type}",
-            )
-            PYTHON_TYPE_TO_DATA_TYPE[field_type] = "unknown"
-            type_string = "unknown"
-
-        return type_string
-
     def get_field_type(
         self, field_type: Union[Type, str], collection_name: str
     ) -> SchemaFieldDataType:
-        """
-        Maps types encountered in PyMongo to corresponding schema types.
+        type_class: Optional[Type] = _field_type_mapping.get(field_type)
 
-        Parameters
-        ----------
-            field_type:
-                type of Python object
-            collection_name:
-                name of collection (for logging)
-        """
-        TypeClass: Optional[Type] = _field_type_mapping.get(field_type)
-
-        if TypeClass is None:
+        if type_class is None:
             self.report.warning(
                 message="Unrecognized column type found",
                 context=f"Collection: {collection_name}, field type {field_type}",
             )
-            TypeClass = NullTypeClass
+            type_class = NullTypeClass
 
-        return SchemaFieldDataType(type=TypeClass())
+        return SchemaFieldDataType(type=type_class())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        bucket_manager: BucketManager = self.couchbase_cluster.buckets()
-        buckets: List[BucketSettings] = bucket_manager.get_all_buckets()
-        bucket_names: List[str] = [b.name for b in buckets]
+        bucket_names: List[str] = self.couchbase_connect.bucket_list()
 
-        # traverse databases in sorted order so output is consistent
         for bucket_name in sorted(bucket_names):
-            if not self.config.bucket_pattern.allowed(bucket_name):
-                self.report.report_dropped(bucket_name)
-                continue
+            bucket_settings: BucketSettings = self.couchbase_connect.bucket_info(bucket_name)
+            scope_names: List[str] = self.couchbase_connect.scope_list(bucket_name)
 
-            bucket: Bucket = self.couchbase_cluster.bucket(bucket_name)
-            database_key = DatabaseKey(
-                database=bucket_name,
-                platform=self.platform,
-                instance=self.config.platform_instance,
-                env=self.config.env,
-            )
-            yield from gen_containers(
-                container_key=database_key,
-                name=bucket_name,
-                sub_types=[DatasetContainerSubTypes.DATABASE],
-            )
-
-            collection_manager: CollectionManager = bucket.collections()
-            scopes: Iterable[ScopeSpec] = collection_manager.get_all_scopes()
-            for scope in scopes:
-                if not self.config.scope_pattern.allowed(scope.name):
-                    self.report.report_dropped(scope.name)
+            for scope_name in sorted(scope_names):
+                if scope_name == "_system":
                     continue
-                collection_names: List[str] = [c.name for c in scope.collections]
-                # traverse collections in sorted order so output is consistent
-                for collection_name in sorted(collection_names):
-                    dataset_name = f"{bucket_name}.{scope.name}.{collection_name}"
+                collection_names: List[str] = self.couchbase_connect.collection_list(bucket_name, scope_name)
 
+                for collection_name in sorted(collection_names):
+                    dataset_name = f"{bucket_name}.{scope_name}.{collection_name}"
                     if not self.config.keyspace_pattern.allowed(dataset_name):
                         self.report.report_dropped(dataset_name)
                         continue
 
-                    dataset_urn = DatasetUrn.create_from_ids(
-                        platform_id=self.platform,
-                        table_name=dataset_name,
-                        env=self.config.env,
-                        platform_instance=self.config.platform_instance,
+                    collection_count: int = self.couchbase_connect.collection_count(dataset_name)
+                    if collection_count == 0:
+                        self.report.report_dropped(dataset_name)
+                        continue
+
+                    value_sample_size: int = self.config.classification.sample_size
+                    schema_sample_size: int = self.config.schema_sample_size
+                    schema: dict = self.couchbase_connect.collection_infer(schema_sample_size, value_sample_size, dataset_name)
+
+                    table_wu_generator = self.process_keyspace(dataset_name, schema, collection_count, bucket_settings)
+
+                    data_reader = CouchbaseCollectionItemsReader.create(schema)
+
+                    yield from classification_workunit_processor(
+                        table_wu_generator,
+                        self.classification_handler,
+                        data_reader,
+                        [bucket_name, scope_name, collection_name],
                     )
 
-                    # Initialize data_platform_instance with a default value
-                    data_platform_instance = None
-                    if self.config.platform_instance:
-                        data_platform_instance = DataPlatformInstanceClass(
-                            platform=make_data_platform_urn(self.platform),
-                            instance=make_dataplatform_instance_urn(
-                                self.platform, self.config.platform_instance
-                            ),
-                        )
+    def process_keyspace(self, dataset_name: str, schema: dict, doc_count: int, bucket_settings: BucketSettings) -> Iterable[MetadataWorkUnit]:
+        platform_instance = self.config.cluster_name
 
-                    dataset_properties = DatasetPropertiesClass(
-                        name=dataset_name,
-                        tags=[],
-                        customProperties={},
-                    )
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            platform_instance=platform_instance,
+            name=dataset_name,
+        )
+        dataset_properties = DatasetPropertiesClass(
+            tags=[],
+            customProperties={
+                "bucket.type": str(bucket_settings.bucket_type.name.lower()),
+                "bucket.storageBackend": str(bucket_settings.storage_backend.name.lower()),
+                "bucket.quota": str(bucket_settings.get('ram_quota_mb')),
+                "bucket.maxExpiry": str(bucket_settings.max_expiry.seconds),
+                "bucket.numReplicas": str(bucket_settings.get('num_replicas')),
+                "collection.totalItems": str(doc_count),
+            },
+        )
 
-                    schema_metadata: Optional[SchemaMetadata] = None
-                    if self.config.enableSchemaInference:
-                        schema_metadata = self._infer_schema_metadata(
-                            keyspace=dataset_name,
-                            dataset_urn=dataset_urn,
-                            dataset_properties=dataset_properties,
-                        )
+        schema_metadata = self.construct_schema_metadata(
+            keyspace=dataset_name,
+            schema=schema,
+            dataset_urn=dataset_urn,
+            dataset_properties=dataset_properties,
+        )
 
-                    yield from add_dataset_to_container(database_key, dataset_urn.urn())
-                    yield from [
-                        mcp.as_workunit()
-                        for mcp in MetadataChangeProposalWrapper.construct_many(
-                            entityUrn=dataset_urn.urn(),
-                            aspects=[
-                                schema_metadata,
-                                dataset_properties,
-                                data_platform_instance,
-                            ],
-                        )
-                    ]
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=schema_metadata,
+        ).as_workunit()
 
-    def _infer_schema_metadata(
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=dataset_properties,
+        ).as_workunit()
+
+        yield from self._get_domain_wu(
+            dataset_name=dataset_name,
+            entity_urn=dataset_urn,
+        )
+
+        platform_instance_aspect = DataPlatformInstanceClass(
+            platform=make_data_platform_urn(self.platform),
+            instance=make_dataplatform_instance_urn(self.platform, platform_instance),
+        )
+
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=platform_instance_aspect,
+        ).as_workunit()
+
+    def construct_schema_metadata(
         self,
         keyspace: str,
-        dataset_urn: DatasetUrn,
+        schema: dict,
+        dataset_urn: str,
         dataset_properties: DatasetPropertiesClass,
     ) -> SchemaMetadata:
-        assert self.config.maxDocumentSize is not None
-        collection_schema = construct_schema_couchbase(
-            self.couchbase_cluster,
-            keyspace,
-            delimiter=".",
-            use_random_sampling=self.config.useRandomSampling,
-            sample_size=self.config.schemaSamplingSize,
-        )
+        collection_schema = construct_schema(schema)
 
         # initialize the schema for the collection
         canonical_schema: List[SchemaField] = []
@@ -476,10 +325,8 @@ class CouchbaseDBSource(StatefulIngestionSourceBase):
         )[0:max_schema_size]:
             field = SchemaField(
                 fieldPath=schema_field["delimited_name"],
-                nativeDataType=self.get_pymongo_type_string(
-                    schema_field["type"], dataset_urn.name
-                ),
-                type=self.get_field_type(schema_field["type"], dataset_urn.name),
+                nativeDataType=schema_field["type"],
+                type=self.get_field_type(schema_field["type"], dataset_urn),
                 description=None,
                 nullable=schema_field["nullable"],
                 recursive=False,
@@ -498,6 +345,23 @@ class CouchbaseDBSource(StatefulIngestionSourceBase):
 
     def get_report(self) -> CouchbaseDBSourceReport:
         return self.report
+
+    def _get_domain_wu(
+            self, dataset_name: str, entity_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        domain_urn = None
+        for domain, pattern in self.config.domain.items():
+            if pattern.allowed(dataset_name):
+                domain_urn = make_domain_urn(
+                    self.domain_registry.get_domain_urn(domain)
+                )
+                break
+
+        if domain_urn:
+            yield from add_domain_to_entity_wu(
+                entity_urn=entity_urn,
+                domain_urn=domain_urn,
+            )
 
     def close(self):
         self.couchbase_cluster.close()

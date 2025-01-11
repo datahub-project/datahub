@@ -1,0 +1,475 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:couchbase,testdb.data.data.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "data.data.customers",
+            "platform": "urn:li:dataPlatform:couchbase",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.Schemaless": {}
+            },
+            "fields": [
+                {
+                    "fieldPath": "orders.id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "orders.total",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "profile.cardNumber",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:Credit_Debit_Card_Number"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1615443388097,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "profile.createdOn",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "profile.cvv",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "profile.expiresMonth",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "profile.expiresYear",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "profile.picture",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.UnionType": {}
+                        }
+                    },
+                    "nativeDataType": "mixed",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "address",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:Street_Address"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1615443388097,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "balance",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "city",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "email",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:Email_Address"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1615443388097,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "firstName",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "number",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "isActive",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "boolean",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "lastName",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "orders",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {}
+                        }
+                    },
+                    "nativeDataType": "array",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "phone",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "glossaryTerms": {
+                        "terms": [
+                            {
+                                "urn": "urn:li:glossaryTerm:Phone_Number"
+                            }
+                        ],
+                        "auditStamp": {
+                            "time": 1615443388097,
+                            "actor": "urn:li:corpuser:datahub"
+                        }
+                    },
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "profile",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "object",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "state",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "tags",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "uuid",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "zip",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "string",
+                    "recursive": false,
+                    "isPartOfKey": false
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "couchbase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:couchbase,testdb.data.data.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "bucket.type": "couchbase",
+                "bucket.storageBackend": "couchstore",
+                "bucket.quota": "128",
+                "bucket.maxExpiry": "0",
+                "bucket.numReplicas": "1",
+                "collection.totalItems": "1000"
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "couchbase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:couchbase,testdb.data.data.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:couchbase",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:couchbase,testdb)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "couchbase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:couchbase,testdb.data.data.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "couchbase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Credit_Debit_Card_Number",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Credit_Debit_Card_Number"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "couchbase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Email_Address",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Email_Address"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "couchbase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Phone_Number",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Phone_Number"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "couchbase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Street_Address",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermKey",
+    "aspect": {
+        "json": {
+            "name": "Street_Address"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "couchbase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

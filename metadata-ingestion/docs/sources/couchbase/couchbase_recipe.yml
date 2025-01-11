@@ -1,0 +1,14 @@
+source:
+  type: couchbase
+  config:
+    connect_string: "couchbases://127.0.0.1"
+    username: "Administrator"
+    password: "password"
+    cluster_name: "testdb"
+    classification:
+      enabled: True
+      classifiers:
+        - type: datahub
+
+sink:
+  # sink configs
