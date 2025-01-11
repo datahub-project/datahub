@@ -207,7 +207,7 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
       List<SortCriterion> sortCriteria,
       int size,
       @Nullable String scrollId,
-      @Nonnull String keepAliveDuration,
+      @Nullable String keepAliveDuration,
       @Nullable SearchDocFieldFetchConfig fetchConfig) {
     log.debug(
         "Filtering Search documents entityName: {}, filters: {}, sortCriteria: {}, size: {}, scrollId: {}",

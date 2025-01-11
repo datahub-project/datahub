@@ -253,7 +253,7 @@ public class ESSearchDAO {
       @Nonnull List<EntitySpec> entitySpecs,
       @Nullable Filter filters,
       @Nonnull SearchRequest searchRequest,
-      @Nonnull String keepAlive,
+      @Nullable String keepAlive,
       int size) {
     try (Timer.Context ignored = MetricUtils.timer(this.getClass(), "esSearch").time()) {
       final SearchResponse searchResponse = client.search(searchRequest, RequestOptions.DEFAULT);
@@ -443,7 +443,7 @@ public class ESSearchDAO {
       @Nullable List<SortCriterion> sortCriteria,
       int size,
       @Nullable String scrollId,
-      @Nonnull String keepAliveDuration,
+      @Nullable String keepAliveDuration,
       @Nullable SearchDocFieldFetchConfig searchDocFieldFetchConfig) {
     List<EntitySpec> entitySpecs =
         entities.stream()
@@ -467,14 +467,14 @@ public class ESSearchDAO {
     if (scrollId != null) {
       SearchAfterWrapper searchAfterWrapper = SearchAfterWrapper.fromScrollId(scrollId);
       sort = searchAfterWrapper.getSort();
-      if (supportsPointInTime()) {
+      if (supportsPointInTime() && keepAliveDuration != null) {
         if (System.currentTimeMillis() + 10000 <= searchAfterWrapper.getExpirationTime()) {
           pitId = searchAfterWrapper.getPitId();
         } else {
           pitId = createPointInTime(indexArray, keepAliveDuration);
         }
       }
-    } else if (supportsPointInTime()) {
+    } else if (supportsPointInTime() && keepAliveDuration != null) {
       pitId = createPointInTime(indexArray, keepAliveDuration);
     }
     final SearchRequest searchRequest =
@@ -813,18 +813,18 @@ public class ESSearchDAO {
 
   private void testLog(ObjectMapper mapper, SearchRequest searchRequest) {
     try {
-      log.warn("SearchRequest(custom): {}", mapper.writeValueAsString(customSearchConfiguration));
+      log.debug("SearchRequest(custom): {}", mapper.writeValueAsString(customSearchConfiguration));
       final String[] indices = searchRequest.indices();
-      log.warn(
+      log.debug(
           String.format(
               "SearchRequest(indices): %s",
               mapper.writerWithDefaultPrettyPrinter().writeValueAsString(indices)));
-      log.warn(
+      log.debug(
           String.format(
               "SearchRequest(query): %s",
               mapper.writeValueAsString(mapper.readTree(searchRequest.source().toString()))));
     } catch (JsonProcessingException e) {
-      log.warn("Error writing test log");
+      log.error("Error writing test log");
     }
   }
 

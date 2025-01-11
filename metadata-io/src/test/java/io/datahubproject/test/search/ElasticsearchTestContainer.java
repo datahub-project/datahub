@@ -6,7 +6,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
 
 public class ElasticsearchTestContainer implements SearchTestContainer {
-  private static final String ELASTIC_VERSION = "7.10.1";
+  private static final String ELASTIC_VERSION = "7.10.2";
   private static final String ELASTIC_IMAGE_NAME = "docker.elastic.co/elasticsearch/elasticsearch";
   private static final String ENV_ELASTIC_IMAGE_FULL_NAME =
       System.getenv("ELASTIC_IMAGE_FULL_NAME");
