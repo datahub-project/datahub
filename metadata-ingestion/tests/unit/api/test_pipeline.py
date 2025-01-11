@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pytest
 from freezegun import freeze_time
+from typing_extensions import Self
 
 from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.api.committable import CommitPolicy, Committable
@@ -440,7 +441,7 @@ class FakeSource(Source):
         ]
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> Self:
         assert not config_dict
         return cls(ctx)
 
