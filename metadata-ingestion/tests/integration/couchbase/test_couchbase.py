@@ -1,18 +1,20 @@
 import pytest
 import base64
 import requests
+import logging
+import os
+import shutil
 
 from requests.auth import AuthBase
 from urllib3.util.retry import Retry
 from requests.adapters import HTTPAdapter
+from pathlib import Path
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.glossary.classification_mixin import ClassificationConfig
 from datahub.ingestion.glossary.classifier import DynamicTypedClassifierConfig
 from datahub.ingestion.glossary.datahub_classifier import (
     DataHubClassifierConfig,
-    InfoTypeConfig,
-    PredictionFactorsAndWeights,
 )
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
@@ -42,6 +44,11 @@ def test_couchbase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "couchbase"
     ) as docker_services:
+        if 'PYTEST_ENABLE_FILE_LOGGING' in os.environ:
+            log_file = os.path.join(Path.home(), 'pytest.log')
+            file_handler = logging.FileHandler(log_file)
+            logging.getLogger().addHandler(file_handler)
+
         wait_for_port(docker_services, "testdb", 8091)
 
         retries = Retry(total=5,
@@ -66,6 +73,9 @@ def test_couchbase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
                         "username": "Administrator",
                         "password": "password",
                         "cluster_name": "testdb",
+                        "profiling": {
+                            "enabled": True
+                        },
                         "classification": ClassificationConfig(
                             enabled=True,
                             classifiers=[
@@ -73,16 +83,6 @@ def test_couchbase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
                                     type="datahub",
                                     config=DataHubClassifierConfig(
                                         minimum_values_threshold=1,
-                                        info_types_config={
-                                            "Phone_Number": InfoTypeConfig(
-                                                prediction_factors_and_weights=PredictionFactorsAndWeights(
-                                                    name=0.7,
-                                                    description=0,
-                                                    datatype=0,
-                                                    values=0.3,
-                                                )
-                                            )
-                                        },
                                     ),
                                 )
                             ],
@@ -100,9 +100,15 @@ def test_couchbase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
         pipeline.run()
         pipeline.raise_from_status()
 
+        if 'PYTEST_SAVE_OUTPUT_FILE' in os.environ:
+            shutil.copyfile(f"{tmp_path}/couchbase_mces.json", os.path.join(Path.home(), "couchbase_mces.json"))
+
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
             output_path=tmp_path / "couchbase_mces.json",
             golden_path=test_resources_dir / "couchbase_mces_golden.json",
+            ignore_paths=[
+                r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]",
+            ],
         )

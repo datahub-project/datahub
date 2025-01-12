@@ -1,5 +1,99 @@
 [
 {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4822a5fdbd864ec3d6e32dabcb2139c1",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "couchbase",
+                "env": "PROD",
+                "keyspace": "data.data.customers",
+                "bucket_type": "couchbase",
+                "bucket_storage_backend": "couchstore",
+                "bucket_quota": "128",
+                "bucket_max_expiry": "0",
+                "bucket_num_replicas": "1"
+            },
+            "name": "data.data.customers",
+            "qualifiedName": "data.data.customers",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "couchbase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4822a5fdbd864ec3d6e32dabcb2139c1",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "couchbase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4822a5fdbd864ec3d6e32dabcb2139c1",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:couchbase"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "couchbase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4822a5fdbd864ec3d6e32dabcb2139c1",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Keyspace"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "couchbase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:4822a5fdbd864ec3d6e32dabcb2139c1",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "couchbase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:couchbase,testdb.data.data.customers,PROD)",
     "changeType": "UPSERT",
@@ -359,14 +453,25 @@
     "aspect": {
         "json": {
             "customProperties": {
-                "bucket.type": "couchbase",
-                "bucket.storageBackend": "couchstore",
-                "bucket.quota": "128",
-                "bucket.maxExpiry": "0",
-                "bucket.numReplicas": "1",
                 "collection.totalItems": "1000"
             },
             "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "couchbase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:couchbase,testdb.data.data.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:4822a5fdbd864ec3d6e32dabcb2139c1"
         }
     },
     "systemMetadata": {
@@ -396,10 +501,360 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:couchbase,testdb.data.data.customers,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "datasetProfile",
+    "aspect": {
+        "json": {
+            "timestampMillis": 1615443388098,
+            "partitionSpec": {
+                "partition": "FULL_TABLE_SNAPSHOT",
+                "type": "FULL_TABLE"
+            },
+            "rowCount": 1000,
+            "columnCount": 21,
+            "fieldProfiles": [
+                {
+                    "fieldPath": "id",
+                    "uniqueCount": 1000,
+                    "nullCount": 0,
+                    "min": "1",
+                    "max": "1001",
+                    "mean": "500.5",
+                    "median": "500.5",
+                    "stdev": "288.68",
+                    "sampleValues": [
+                        "216",
+                        "189",
+                        "859",
+                        "367",
+                        "66"
+                    ]
+                },
+                {
+                    "fieldPath": "uuid",
+                    "uniqueCount": 1000,
+                    "nullCount": 0,
+                    "min": "001b3b27-50a6-4533-afbe-a5825389782b",
+                    "max": "ff924934-1858-4d01-a2a3-29d9bd3aa366",
+                    "sampleValues": [
+                        "e79d024b-7fc9-4375-88a6-1a61c18c61ff",
+                        "56a0322e-8f11-4c29-a6a9-7feb4ce82556",
+                        "f5083e44-72c4-4a2e-8410-36e82dc2ca89",
+                        "6d3c3108-bdcb-4c8c-91c3-57ad5f35ab1d",
+                        "73dd3909-2c14-4f59-a198-1e8c466c77f1"
+                    ]
+                },
+                {
+                    "fieldPath": "firstName",
+                    "uniqueCount": 145,
+                    "nullCount": 0,
+                    "min": "Aaron",
+                    "max": "Zoey",
+                    "sampleValues": [
+                        "Aubrey",
+                        "Nora",
+                        "Grayson",
+                        "Amelia",
+                        "Sophia"
+                    ]
+                },
+                {
+                    "fieldPath": "lastName",
+                    "uniqueCount": 175,
+                    "nullCount": 0,
+                    "min": "Adams",
+                    "max": "Young",
+                    "sampleValues": [
+                        "Ward",
+                        "Martin",
+                        "Robinson",
+                        "Bennett",
+                        "Nelson"
+                    ]
+                },
+                {
+                    "fieldPath": "address",
+                    "uniqueCount": 1000,
+                    "nullCount": 0,
+                    "min": "10032 Ash Court",
+                    "max": "99953 Dogwood Avenue",
+                    "sampleValues": [
+                        "33779 Myrtle Street",
+                        "97912 Ash Street",
+                        "51145 Cedar Boulevard",
+                        "89159 Spruce Street",
+                        "41502 Cypress Court"
+                    ]
+                },
+                {
+                    "fieldPath": "city",
+                    "uniqueCount": 852,
+                    "nullCount": 0,
+                    "min": "Aberdeen",
+                    "max": "Zionsville",
+                    "sampleValues": [
+                        "Rolfe",
+                        "Pasadena",
+                        "Medicine Lake",
+                        "Maricopa",
+                        "Alapaha"
+                    ]
+                },
+                {
+                    "fieldPath": "state",
+                    "uniqueCount": 49,
+                    "nullCount": 0,
+                    "min": "AK",
+                    "max": "WY",
+                    "sampleValues": [
+                        "MD",
+                        "NH",
+                        "MD",
+                        "GA",
+                        "MA"
+                    ]
+                },
+                {
+                    "fieldPath": "zip",
+                    "uniqueCount": 963,
+                    "nullCount": 0,
+                    "min": "01009",
+                    "max": "99825",
+                    "sampleValues": [
+                        "10580",
+                        "55940",
+                        "28479",
+                        "88135",
+                        "77006"
+                    ]
+                },
+                {
+                    "fieldPath": "phone",
+                    "uniqueCount": 999,
+                    "nullCount": 0,
+                    "min": "201-555-0668",
+                    "max": "989-555-7724",
+                    "sampleValues": [
+                        "660-555-3355",
+                        "248-555-1505",
+                        "267-555-9036",
+                        "585-555-2506",
+                        "850-555-6027"
+                    ]
+                },
+                {
+                    "fieldPath": "email",
+                    "uniqueCount": 970,
+                    "nullCount": 0,
+                    "min": "aaron.barnes@example.com",
+                    "max": "zoey.young@example.com",
+                    "sampleValues": [
+                        "michael.sanchez@example.com",
+                        "jack.ward@example.com",
+                        "alexander.bennett@example.com",
+                        "hannah.evans@example.com",
+                        "henry.turner@example.com"
+                    ]
+                },
+                {
+                    "fieldPath": "isActive",
+                    "uniqueCount": 2,
+                    "nullCount": 0,
+                    "max": "True",
+                    "sampleValues": [
+                        "True",
+                        "True",
+                        "False",
+                        "False",
+                        "False"
+                    ]
+                },
+                {
+                    "fieldPath": "balance",
+                    "uniqueCount": 949,
+                    "nullCount": 0,
+                    "min": "10.01",
+                    "max": "99.94",
+                    "mean": "55.52",
+                    "median": "56.59",
+                    "stdev": "26.05",
+                    "sampleValues": [
+                        "50.86",
+                        "24.21",
+                        "26.49",
+                        "44.52",
+                        "58.1"
+                    ]
+                },
+                {
+                    "fieldPath": "profile.createdOn",
+                    "uniqueCount": 1000,
+                    "nullCount": 0,
+                    "min": "2020-01-09T20:29:36Z",
+                    "max": "2024-07-03T19:24:59Z",
+                    "sampleValues": [
+                        "2021-04-04T07:13:13Z",
+                        "2022-05-28T23:50:15Z",
+                        "2024-03-19T07:14:20Z",
+                        "2022-04-14T16:01:39Z",
+                        "2024-01-30T02:04:24Z"
+                    ]
+                },
+                {
+                    "fieldPath": "profile.picture",
+                    "uniqueCount": 493,
+                    "nullCount": 506,
+                    "min": "/v1/102769/200/300/image.jpg",
+                    "max": "/v1/999554/200/300/image.jpg",
+                    "sampleValues": [
+                        "/v1/297174/200/300/image.jpg",
+                        "/v1/145755/200/300/image.jpg",
+                        "/v1/522251/200/300/image.jpg",
+                        "/v1/104998/200/300/image.jpg",
+                        "/v1/891074/200/300/image.jpg"
+                    ]
+                },
+                {
+                    "fieldPath": "profile.cardNumber",
+                    "uniqueCount": 1000,
+                    "nullCount": 0,
+                    "min": "4011730201816262",
+                    "max": "6011989072807736",
+                    "sampleValues": [
+                        "5127163322592950",
+                        "6011099471270781",
+                        "5495622314745565",
+                        "6011967108319496",
+                        "6011050046003421"
+                    ]
+                },
+                {
+                    "fieldPath": "profile.expiresMonth",
+                    "uniqueCount": 7,
+                    "nullCount": 0,
+                    "min": "01",
+                    "max": "07",
+                    "sampleValues": [
+                        "06",
+                        "01",
+                        "06",
+                        "07",
+                        "03"
+                    ]
+                },
+                {
+                    "fieldPath": "profile.expiresYear",
+                    "uniqueCount": 5,
+                    "nullCount": 0,
+                    "min": "2026",
+                    "max": "2030",
+                    "sampleValues": [
+                        "2028",
+                        "2030",
+                        "2027",
+                        "2028",
+                        "2030"
+                    ]
+                },
+                {
+                    "fieldPath": "profile.cvv",
+                    "uniqueCount": 590,
+                    "nullCount": 0,
+                    "min": "100",
+                    "max": "998",
+                    "sampleValues": [
+                        "621",
+                        "769",
+                        "370",
+                        "103",
+                        "404"
+                    ]
+                },
+                {
+                    "fieldPath": "orders.id",
+                    "uniqueCount": 3,
+                    "nullCount": 0,
+                    "min": "1",
+                    "max": "3",
+                    "mean": "2.0",
+                    "median": "2.0",
+                    "stdev": "0.82",
+                    "sampleValues": [
+                        "1",
+                        "2",
+                        "3",
+                        "1",
+                        "2"
+                    ]
+                },
+                {
+                    "fieldPath": "orders.total",
+                    "uniqueCount": 2552,
+                    "nullCount": 0,
+                    "min": "10.0",
+                    "max": "99.99",
+                    "mean": "54.31",
+                    "median": "54.34",
+                    "stdev": "25.92",
+                    "sampleValues": [
+                        "49.44",
+                        "39.55",
+                        "41.78",
+                        "73.26",
+                        "46.22"
+                    ]
+                },
+                {
+                    "fieldPath": "tags",
+                    "uniqueCount": 6,
+                    "nullCount": 0,
+                    "min": "bronze",
+                    "max": "silver",
+                    "sampleValues": [
+                        "new",
+                        "silver",
+                        "new",
+                        "gold",
+                        "escalate"
+                    ]
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "couchbase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:couchbase,testdb.data.data.customers,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
         "json": {
             "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1615443388097,
+        "runId": "couchbase-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:couchbase,testdb.data.data.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:container:4822a5fdbd864ec3d6e32dabcb2139c1",
+                    "urn": "urn:li:container:4822a5fdbd864ec3d6e32dabcb2139c1"
+                }
+            ]
         }
     },
     "systemMetadata": {

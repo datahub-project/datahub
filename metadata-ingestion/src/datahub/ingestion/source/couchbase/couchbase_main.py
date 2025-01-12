@@ -1,19 +1,16 @@
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Dict, Iterable, List, Optional, Type, Union, ValuesView
 
-from pydantic import PositiveInt
-from pydantic.fields import Field
 from couchbase.cluster import Cluster
 from couchbase.management.buckets import BucketSettings
 from datahub.ingestion.source.couchbase.couchbase_connect import CouchbaseConnect
 from datahub.ingestion.source.couchbase.couchbase_kv_schema import construct_schema
 from datahub.ingestion.source.couchbase.couchbase_schema_reader import CouchbaseCollectionItemsReader
-
-from datahub.configuration.common import AllowDenyPattern
-from datahub.configuration.source_common import (
-    EnvConfigMixin,
-    PlatformInstanceConfigMixin,
+from datahub.ingestion.source.couchbase.couchbase_profiling import CouchbaseProfiler
+from datahub.ingestion.source.couchbase.couchbase_common import (
+    CouchbaseDBConfig,
+    CouchbaseDBSourceReport,
 )
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -39,8 +36,6 @@ from datahub.ingestion.source.schema_inference.object import (
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
-    StaleEntityRemovalSourceReport,
-    StatefulIngestionConfigBase,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -61,51 +56,20 @@ from datahub.metadata.schema_classes import (
     UnionTypeClass,
 )
 from datahub.utilities.registries.domain_registry import DomainRegistry
-from datahub.utilities.perf_timer import PerfTimer
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationHandler,
-    ClassificationReportMixin,
-    ClassificationSourceConfigMixin,
     classification_workunit_processor,
+)
+from datahub.emitter.mcp_builder import (
+    ContainerKey,
+    add_dataset_to_container,
+    gen_containers,
+)
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
 )
 
 logger = logging.getLogger(__name__)
-
-
-class CouchbaseDBConfig(
-    PlatformInstanceConfigMixin, EnvConfigMixin, StatefulIngestionConfigBase, ClassificationSourceConfigMixin
-):
-    connect_string: str = Field(default=None, description="Couchbase connect string.")
-    username: str = Field(default=None, description="Couchbase username.")
-    password: str = Field(default=None, description="Couchbase password.")
-    cluster_name: str = Field(default=None, description="Couchbase cluster name.")
-    kv_timeout: Optional[PositiveInt] = Field(default=5, description="KV timeout.")
-    query_timeout: Optional[PositiveInt] = Field(default=60, description="Query timeout.")
-    schema_sample_size: Optional[PositiveInt] = Field(default=10000, description="Number of documents to sample.")
-    options: dict = Field(
-        default={}, description="Additional options to pass to `ClusterOptions()`."
-    )
-    maxSchemaSize: Optional[PositiveInt] = Field(
-        default=300, description="Maximum number of fields to include in the schema."
-    )
-    keyspace_pattern: AllowDenyPattern = Field(
-        default=AllowDenyPattern.allow_all(),
-        description="regex patterns for keyspace to filter in ingestion.",
-    )
-    domain: Dict[str, AllowDenyPattern] = Field(
-        default=dict(),
-        description="regex patterns for keyspaces to filter to assign domain_key.",
-    )
-
-
-@dataclass
-class CouchbaseDBSourceReport(StaleEntityRemovalSourceReport, ClassificationReportMixin):
-    filtered: List[str] = field(default_factory=list)
-    documents_processed: int = 0
-    collection_aggregate_timer: PerfTimer = field(default_factory=PerfTimer)
-
-    def report_dropped(self, name: str) -> None:
-        self.filtered.append(name)
 
 
 # map Python types to DataHub classes
@@ -120,15 +84,24 @@ _field_type_mapping: Dict[str, Type] = {
 }
 
 
+class KeyspaceKey(ContainerKey):
+    keyspace: str
+
+
 @platform_name("Couchbase")
 @config_class(CouchbaseDBConfig)
 @support_status(SupportStatus.TESTING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "The platform_instance is derived from the configured cluster name")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
+@capability(SourceCapability.CONTAINERS, "Enabled by default")
 @capability(
     SourceCapability.CLASSIFICATION,
     "Optionally enabled via `classification.enabled`",
     supported=True,
+)
+@capability(
+    SourceCapability.DATA_PROFILING,
+    "Optionally enabled via configuration `profiling.enabled`",
 )
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @dataclass
@@ -167,6 +140,8 @@ class CouchbaseDBSource(StatefulIngestionSourceBase):
         self.couchbase_connect.cluster_init()
         self.couchbase_cluster = self.couchbase_connect.connect()
 
+        self.profiler = CouchbaseProfiler(self.config, self.report, self.couchbase_connect)
+
     @classmethod
     def create(cls, config_dict: dict, ctx: PipelineContext) -> "CouchbaseDBSource":
         config = CouchbaseDBConfig.parse_obj(config_dict)
@@ -195,6 +170,7 @@ class CouchbaseDBSource(StatefulIngestionSourceBase):
         return SchemaFieldDataType(type=type_class())
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        keyspaces: List[str] = []
         bucket_names: List[str] = self.couchbase_connect.bucket_list()
 
         for bucket_name in sorted(bucket_names):
@@ -217,11 +193,14 @@ class CouchbaseDBSource(StatefulIngestionSourceBase):
                         self.report.report_dropped(dataset_name)
                         continue
 
+                    yield from self._generate_keyspace_container(dataset_name, bucket_settings)
+
                     value_sample_size: int = self.config.classification.sample_size
                     schema_sample_size: int = self.config.schema_sample_size
                     schema: dict = self.couchbase_connect.collection_infer(schema_sample_size, value_sample_size, dataset_name)
+                    keyspaces.append(dataset_name)
 
-                    table_wu_generator = self.process_keyspace(dataset_name, schema, collection_count, bucket_settings)
+                    table_wu_generator = self.process_keyspace(dataset_name, schema, collection_count)
 
                     data_reader = CouchbaseCollectionItemsReader.create(schema)
 
@@ -232,7 +211,11 @@ class CouchbaseDBSource(StatefulIngestionSourceBase):
                         [bucket_name, scope_name, collection_name],
                     )
 
-    def process_keyspace(self, dataset_name: str, schema: dict, doc_count: int, bucket_settings: BucketSettings) -> Iterable[MetadataWorkUnit]:
+        # Profiling
+        if self.config.is_profiling_enabled():
+            yield from self.profiler.get_workunits(keyspaces)
+
+    def process_keyspace(self, dataset_name: str, schema: dict, doc_count: int) -> Iterable[MetadataWorkUnit]:
         platform_instance = self.config.cluster_name
 
         dataset_urn = make_dataset_urn_with_platform_instance(
@@ -243,11 +226,6 @@ class CouchbaseDBSource(StatefulIngestionSourceBase):
         dataset_properties = DatasetPropertiesClass(
             tags=[],
             customProperties={
-                "bucket.type": str(bucket_settings.bucket_type.name.lower()),
-                "bucket.storageBackend": str(bucket_settings.storage_backend.name.lower()),
-                "bucket.quota": str(bucket_settings.get('ram_quota_mb')),
-                "bucket.maxExpiry": str(bucket_settings.max_expiry.seconds),
-                "bucket.numReplicas": str(bucket_settings.get('num_replicas')),
                 "collection.totalItems": str(doc_count),
             },
         )
@@ -272,6 +250,11 @@ class CouchbaseDBSource(StatefulIngestionSourceBase):
         yield from self._get_domain_wu(
             dataset_name=dataset_name,
             entity_urn=dataset_urn,
+        )
+
+        yield from add_dataset_to_container(
+            container_key=self._generate_keyspace_container_key(dataset_name),
+            dataset_urn=dataset_urn,
         )
 
         platform_instance_aspect = DataPlatformInstanceClass(
@@ -362,6 +345,33 @@ class CouchbaseDBSource(StatefulIngestionSourceBase):
                 entity_urn=entity_urn,
                 domain_urn=domain_urn,
             )
+
+    def _generate_keyspace_container(
+            self,
+            keyspace: str,
+            bucket_settings: BucketSettings,
+    ) -> Iterable[MetadataWorkUnit]:
+        yield from gen_containers(
+            container_key=self._generate_keyspace_container_key(keyspace),
+            name=keyspace,
+            qualified_name=keyspace,
+            extra_properties={
+                "bucket_type": str(bucket_settings.bucket_type.name.lower()),
+                "bucket_storage_backend": str(bucket_settings.storage_backend.name.lower()),
+                "bucket_quota": str(bucket_settings.get('ram_quota_mb')),
+                "bucket_max_expiry": str(bucket_settings.max_expiry.seconds),
+                "bucket_num_replicas": str(bucket_settings.get('num_replicas')),
+            },
+            sub_types=[DatasetContainerSubTypes.KEYSPACE],
+        )
+
+    def _generate_keyspace_container_key(self, keyspace: str) -> ContainerKey:
+        return KeyspaceKey(
+            keyspace=keyspace,
+            platform=self.platform,
+            instance=self.config.platform_instance,
+            env=self.config.env,
+        )
 
     def close(self):
         self.couchbase_cluster.close()
