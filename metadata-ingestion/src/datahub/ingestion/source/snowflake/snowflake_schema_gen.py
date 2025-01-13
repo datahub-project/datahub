@@ -46,6 +46,7 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeFK,
     SnowflakePK,
     SnowflakeSchema,
+    SnowflakeStream,
     SnowflakeTable,
     SnowflakeTag,
     SnowflakeView,
@@ -419,6 +420,11 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         if self.config.include_views:
             views = self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
 
+        if self.config.include_streams:
+            streams = self.fetch_streams_for_schema(
+                snowflake_schema, db_name, schema_name
+            )
+
         if self.config.include_tables:
             db_tables[schema_name] = tables
 
@@ -464,10 +470,22 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             for tag in snowflake_schema.tags:
                 yield from self._process_tag(tag)
 
-        if not snowflake_schema.views and not snowflake_schema.tables:
+        if self.config.include_streams:
+            for stream in streams:
+                yield from self._process_stream(stream, snowflake_schema, db_name)
+
+        if self.config.include_technical_schema and snowflake_schema.tags:
+            for tag in snowflake_schema.tags:
+                yield from self._process_tag(tag)
+
+        if (
+            not snowflake_schema.views
+            and not snowflake_schema.tables
+            and not snowflake_schema.streams
+        ):
             self.structured_reporter.info(
-                title="No tables/views found in schema",
-                message="If tables exist, please grant REFERENCES or SELECT permissions on them.",
+                title="No tables/views/streams found in schema",
+                message="If objects exist, please grant REFERENCES or SELECT permissions on them.",
                 context=f"{db_name}.{schema_name}",
             )
 
@@ -684,7 +702,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def gen_dataset_workunits(
         self,
-        table: Union[SnowflakeTable, SnowflakeView],
+        table: Union[SnowflakeTable, SnowflakeView, SnowflakeStream],
         schema_name: str,
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
@@ -739,7 +757,9 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         subTypes = SubTypes(
             typeNames=(
-                [DatasetSubTypes.VIEW]
+                [DatasetSubTypes.SNOWFLAKE_STREAM]
+                if isinstance(table, SnowflakeStream)
+                else [DatasetSubTypes.VIEW]
                 if isinstance(table, SnowflakeView)
                 else [DatasetSubTypes.TABLE]
             )
@@ -786,7 +806,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def get_dataset_properties(
         self,
-        table: Union[SnowflakeTable, SnowflakeView],
+        table: Union[SnowflakeTable, SnowflakeView, SnowflakeStream],
         schema_name: str,
         db_name: str,
     ) -> DatasetProperties:
@@ -807,6 +827,34 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         if isinstance(table, SnowflakeView) and table.is_secure:
             custom_properties["IS_SECURE"] = "true"
+
+        elif isinstance(table, SnowflakeStream):
+            if table.source_type:
+                custom_properties["SOURCE_TYPE"] = table.source_type
+
+            if table.type:
+                custom_properties["TYPE"] = table.type
+
+            if table.stale:
+                custom_properties["STALE"] = table.stale
+
+            if table.mode:
+                custom_properties["MODE"] = table.mode
+
+            if table.invalid_reason:
+                custom_properties["INVALID_REASON"] = table.invalid_reason
+
+            if table.owner_role_type:
+                custom_properties["OWNER_ROLE_TYPE"] = table.owner_role_type
+
+            if table.table_name:
+                custom_properties["TABLE_NAME"] = table.table_name
+
+            if table.base_tables:
+                custom_properties["BASE_TABLES"] = table.base_tables
+
+            if table.stale_after:
+                custom_properties["STALE_AFTER"] = table.stale_after.isoformat()
 
         return DatasetProperties(
             name=table.name,
@@ -853,7 +901,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
     def gen_schema_metadata(
         self,
-        table: Union[SnowflakeTable, SnowflakeView],
+        table: Union[SnowflakeTable, SnowflakeView, SnowflakeStream],
         schema_name: str,
         db_name: str,
     ) -> SchemaMetadata:
@@ -1130,3 +1178,143 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 "External table ddl lineage extraction failed",
                 exc=e,
             )
+
+    def fetch_streams_for_schema(
+        self, snowflake_schema: SnowflakeSchema, db_name: str, schema_name: str
+    ) -> List[SnowflakeStream]:
+        try:
+            streams: List[SnowflakeStream] = []
+            for stream in self.get_streams_for_schema(schema_name, db_name):
+                stream_identifier = self.identifiers.get_dataset_identifier(
+                    stream.name.lower(), schema_name, db_name
+                )
+
+                self.report.report_entity_scanned(stream_identifier, "stream")
+
+                if not self.filters.filter_config.table_pattern.allowed(
+                    stream_identifier
+                ):
+                    self.report.report_dropped(stream_identifier)
+                else:
+                    streams.append(stream)
+            snowflake_schema.streams = [stream.name.lower() for stream in streams]
+            return streams
+        except Exception as e:
+            if isinstance(e, SnowflakePermissionError):
+                error_msg = f"Failed to get streams for schema {db_name}.{schema_name}. Please check permissions."
+                raise SnowflakePermissionError(error_msg) from e.__cause__
+            else:
+                self.structured_reporter.warning(
+                    "Failed to get streams for schema",
+                    f"{db_name}.{schema_name}",
+                    exc=e,
+                )
+                return []
+
+    def get_streams_for_schema(
+        self, schema_name: str, db_name: str
+    ) -> List[SnowflakeStream]:
+        streams = self.data_dictionary.get_streams_for_database(db_name)
+
+        return streams.get(schema_name, [])
+
+    def _process_stream(
+        self,
+        stream: SnowflakeStream,
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        schema_name = snowflake_schema.name
+        stream_identifier = self.identifiers.get_dataset_identifier(
+            stream.name, schema_name, db_name
+        )
+
+        try:
+            stream.columns = self.get_columns_for_stream(
+                stream.name, snowflake_schema, db_name, stream.table_name
+            )
+            if self.config.extract_tags != TagOption.skip:
+                stream.column_tags = self.tag_extractor.get_column_tags_for_table(
+                    stream.name, schema_name, db_name
+                )
+        except Exception as e:
+            self.structured_reporter.warning(
+                "Failed to get columns for stream", stream_identifier, exc=e
+            )
+
+        yield from self.gen_dataset_workunits(stream, schema_name, db_name)
+
+    def get_columns_for_stream(
+        self,
+        stream_name: str,
+        snowflake_schema: SnowflakeSchema,
+        db_name: str,
+        source_object: str,  # Qualified name of source table/view
+    ) -> List[SnowflakeColumn]:
+        """
+        Get column information for a stream by getting source object columns and adding metadata columns.
+        Stream includes all columns from source object plus metadata columns like:
+        - METADATA$ACTION
+        - METADATA$ISUPDATE
+        - METADATA$ROW_ID
+        """
+        columns: List[SnowflakeColumn] = []
+
+        # First get the source object columns by reusing existing table/view column logic
+        # Extract database, schema, table name from source_object
+        source_parts = source_object.split(".")
+        if len(source_parts) != 3:
+            self.report.warning(f"Invalid source object name format: {source_object}")
+            return columns
+
+        source_db, source_schema, source_name = source_parts
+
+        # Get columns from source object
+        source_columns = self.get_columns_for_table(
+            source_name,
+            SnowflakeSchema(
+                name=source_schema, created=None, last_altered=None, comment=None
+            ),
+            source_db,
+        )
+
+        # Add all source columns
+        columns.extend(source_columns)
+
+        # Add standard stream metadata columns
+        metadata_columns = [
+            SnowflakeColumn(
+                name="METADATA$ACTION",
+                ordinal_position=len(columns) + 1,
+                is_nullable=False,
+                data_type="VARCHAR",
+                comment="Type of DML operation (INSERT/DELETE)",
+                character_maximum_length=10,
+                numeric_precision=None,
+                numeric_scale=None,
+            ),
+            SnowflakeColumn(
+                name="METADATA$ISUPDATE",
+                ordinal_position=len(columns) + 2,
+                is_nullable=False,
+                data_type="BOOLEAN",
+                comment="Whether row is from UPDATE operation",
+                character_maximum_length=None,
+                numeric_precision=None,
+                numeric_scale=None,
+            ),
+            SnowflakeColumn(
+                name="METADATA$ROW_ID",
+                ordinal_position=len(columns) + 3,
+                is_nullable=False,
+                data_type="NUMBER",
+                comment="Unique row identifier",
+                character_maximum_length=None,
+                numeric_precision=38,
+                numeric_scale=0,
+            ),
+        ]
+
+        columns.extend(metadata_columns)
+
+        return columns

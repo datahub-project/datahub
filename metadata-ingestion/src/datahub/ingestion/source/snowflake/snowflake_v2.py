@@ -53,7 +53,10 @@ from datahub.ingestion.source.snowflake.snowflake_queries import (
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDataDictionary
+from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SnowflakeDataDictionary,
+    SnowflakeStream,
+)
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
@@ -502,15 +505,25 @@ class SnowflakeV2Source(
             for schema in db.schemas
             for table_name in schema.views
         ]
+        discovered_streams: List[str] = [
+            self.identifiers.get_dataset_identifier(stream_name, schema.name, db.name)
+            for db in databases
+            for schema in db.schemas
+            for stream_name in schema.streams
+        ]
 
-        if len(discovered_tables) == 0 and len(discovered_views) == 0:
+        if (
+            len(discovered_tables) == 0
+            and len(discovered_views) == 0
+            and len(discovered_streams) == 0
+        ):
             self.structured_reporter.failure(
                 GENERIC_PERMISSION_ERROR_KEY,
-                "No tables/views found. Please check permissions.",
+                "No tables/views/streams found. Please check permissions.",
             )
             return
 
-        discovered_datasets = discovered_tables + discovered_views
+        discovered_datasets = discovered_tables + discovered_views + discovered_streams
 
         if self.config.use_queries_v2:
             with self.report.new_stage(f"*: {VIEW_PARSING}"):
@@ -538,13 +551,19 @@ class SnowflakeV2Source(
                     discovered_tables=discovered_datasets,
                     graph=self.ctx.graph,
                 )
+            with self.report.new_stage(f"*: {LINEAGE_EXTRACTION}"):
+                if self.lineage_extractor and self.config.include_streams:
+                    self.lineage_extractor.populate_stream_upstreams(
+                        self.get_streams(databases)
+                    )
+                    yield from auto_workunit(self.aggregator.gen_metadata())
 
-                # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
-                # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
-                # it should be pretty straightforward to refactor this and only initialize the aggregator once.
-                self.report.queries_extractor = queries_extractor.report
-                yield from queries_extractor.get_workunits_internal()
-                queries_extractor.close()
+            # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
+            # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
+            # it should be pretty straightforward to refactor this and only initialize the aggregator once.
+            self.report.queries_extractor = queries_extractor.report
+            yield from queries_extractor.get_workunits_internal()
+            queries_extractor.close()
 
         else:
             if self.lineage_extractor:
@@ -737,6 +756,17 @@ class SnowflakeV2Source(
                 os.remove(file_path)
         except Exception:
             logger.debug(f'Failed to remove OCSP cache file at "{file_path}"')
+
+    def get_streams(self, databases: List) -> List[SnowflakeStream]:
+        streams = []
+        for db in databases:
+            for schema in db.schemas:
+                schema_streams = self.data_dictionary.get_streams_for_schema(
+                    schema.name, db.name
+                )
+                if schema_streams:
+                    streams.extend(schema_streams)
+        return streams
 
     def close(self) -> None:
         super().close()

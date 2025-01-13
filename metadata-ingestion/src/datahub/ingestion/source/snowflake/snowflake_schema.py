@@ -115,6 +115,7 @@ class SnowflakeSchema:
     comment: Optional[str]
     tables: List[str] = field(default_factory=list)
     views: List[str] = field(default_factory=list)
+    streams: List[str] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
 
 
@@ -126,6 +127,29 @@ class SnowflakeDatabase:
     last_altered: Optional[datetime] = None
     schemas: List[SnowflakeSchema] = field(default_factory=list)
     tags: Optional[List[SnowflakeTag]] = None
+
+
+@dataclass
+class SnowflakeStream:
+    name: str
+    created: datetime
+    owner: str
+    comment: str
+    source_type: str
+    type: str
+    stale: str
+    mode: str
+    invalid_reason: str
+    owner_role_type: str
+    database_name: str
+    schema_name: str
+    table_name: str
+    columns: List[SnowflakeColumn] = field(default_factory=list)
+    stale_after: Optional[datetime] = None
+    base_tables: Optional[str] = None
+    tags: Optional[List[SnowflakeTag]] = None
+    column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
+    last_altered: Optional[datetime] = None
 
 
 class _SnowflakeTagCache:
@@ -205,6 +229,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             self.get_tables_for_database,
             self.get_views_for_database,
             self.get_columns_for_schema,
+            self.get_streams_for_database,
             self.get_pk_constraints_for_schema,
             self.get_fk_constraints_for_schema,
         ]
@@ -591,3 +616,103 @@ class SnowflakeDataDictionary(SupportsAsObj):
             tags[column_name].append(snowflake_tag)
 
         return tags
+
+    @serialized_lru_cache(maxsize=1)
+    def get_streams_for_database(
+        self, db_name: str
+    ) -> Dict[str, List[SnowflakeStream]]:
+        page_limit = SHOW_VIEWS_MAX_PAGE_SIZE
+
+        streams: Dict[str, List[SnowflakeStream]] = {}
+
+        first_iteration = True
+        stream_pagination_marker: Optional[str] = None
+        while first_iteration or stream_pagination_marker is not None:
+            cur = self.connection.query(
+                SnowflakeQuery.streams_for_database(
+                    db_name,
+                    limit=page_limit,
+                    stream_pagination_marker=stream_pagination_marker,
+                )
+            )
+
+            first_iteration = False
+            stream_pagination_marker = None
+
+            result_set_size = 0
+            for stream in cur:
+                result_set_size += 1
+
+                stream_name = stream["name"]
+                schema_name = stream["schema_name"]
+                if schema_name not in streams:
+                    streams[schema_name] = []
+                streams[stream["schema_name"]].append(
+                    SnowflakeStream(
+                        name=stream["name"],
+                        created=stream["created_on"],
+                        owner=stream["owner"],
+                        comment=stream["comment"],
+                        source_type=stream["source_type"],
+                        type=stream["type"],
+                        stale=stream["stale"],
+                        mode=stream["mode"],
+                        database_name=stream["database_name"],
+                        schema_name=stream["schema_name"],
+                        invalid_reason=stream["invalid_reason"],
+                        owner_role_type=stream["owner_role_type"],
+                        stale_after=stream["stale_after"],
+                        table_name=stream["table_name"],
+                        base_tables=stream["base_tables"],
+                        last_altered=stream["created_on"],
+                    )
+                )
+
+            if result_set_size >= page_limit:
+                # If we hit the limit, we need to send another request to get the next page.
+                logger.info(
+                    f"Fetching next page of views for {db_name} - after {stream_name}"
+                )
+                stream_pagination_marker = stream_name
+
+        return streams
+
+    @serialized_lru_cache(maxsize=1)
+    def get_streams_for_schema(
+        self, schema_name: str, db_name: str
+    ) -> Optional[List[SnowflakeStream]]:
+        try:
+            streams: List[SnowflakeStream] = []
+            cur = self.connection.query(
+                SnowflakeQuery.streams_for_schema(schema_name, db_name),
+            )
+
+            for stream in cur:
+                streams.append(
+                    SnowflakeStream(
+                        name=stream["name"],
+                        created=stream["created_on"],
+                        owner=stream["owner"],
+                        comment=stream["comment"],
+                        source_type=stream["source_type"],
+                        type=stream["type"],
+                        stale=stream["stale"],
+                        mode=stream["mode"],
+                        database_name=stream["database_name"],
+                        schema_name=stream["schema_name"],
+                        invalid_reason=stream["invalid_reason"],
+                        owner_role_type=stream["owner_role_type"],
+                        stale_after=stream["stale_after"],
+                        table_name=stream["table_name"],
+                        base_tables=stream["base_tables"],
+                        last_altered=stream["created_on"],
+                    )
+                )
+            return streams
+
+        except Exception as e:
+            logger.debug(
+                f"Failed to get all streams for schema - {db_name}.{schema_name}",
+                exc_info=e,
+            )
+            return None

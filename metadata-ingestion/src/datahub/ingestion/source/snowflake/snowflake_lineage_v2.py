@@ -20,6 +20,7 @@ from datahub.ingestion.source.snowflake.snowflake_connection import (
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
+from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeStream
 from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeCommonMixin,
     SnowflakeFilter,
@@ -540,3 +541,35 @@ class SnowflakeLineageExtractor(SnowflakeCommonMixin, Closeable):
 
     def close(self) -> None:
         pass
+
+    def populate_stream_upstreams(self, streams: List[SnowflakeStream]) -> None:
+        try:
+            for stream in streams:
+                stream_fully_qualified = ".".join(
+                    [
+                        stream.database_name.lower(),
+                        stream.schema_name.lower(),
+                        stream.name.lower(),
+                    ]
+                )
+
+                logger.info(
+                    f"Stream Info: upstream_urn: {stream.table_name.lower()}, downstream_urn: {stream_fully_qualified}"
+                )
+                known_lineage = KnownLineageMapping(
+                    upstream_urn=self.identifiers.gen_dataset_urn(
+                        stream.table_name.lower()
+                    ),
+                    downstream_urn=self.identifiers.gen_dataset_urn(
+                        stream_fully_qualified
+                    ),
+                )
+                self.report.num_streams_with_known_upstreams += 1
+                self.sql_aggregator.add(known_lineage)
+        except Exception as e:
+            logger.debug(e, exc_info=e)
+            self.warn_if_stateful_else_error(
+                "stream-lineage",
+                f"Failed to extract stream lineage due to error {e}",
+            )
+            self.report_status("STREAM_LINEAGE", False)

@@ -263,6 +263,16 @@ class SnowflakeV2Config(
         description="List of regex patterns for tags to include in ingestion. Only used if `extract_tags` is enabled.",
     )
 
+    include_streams: bool = Field(
+        default=True,
+        description="If enabled, streams will be ingested as separate entities from tables/views.",
+    )
+
+    stream_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for streams to filter in ingestion.",
+    )
+
     # This is required since access_history table does not capture whether the table was temporary table.
     temporary_tables_pattern: List[str] = Field(
         default=DEFAULT_TEMP_TABLES_PATTERNS,

@@ -125,6 +125,7 @@ class SnowflakeFilter:
             SnowflakeObjectDomain.VIEW,
             SnowflakeObjectDomain.MATERIALIZED_VIEW,
             SnowflakeObjectDomain.ICEBERG_TABLE,
+            SnowflakeObjectDomain.STREAM,
         ):
             return False
         if _is_sys_table(dataset_name):
@@ -137,7 +138,7 @@ class SnowflakeFilter:
                 message=f"Found a {dataset_type} with an unexpected number of parts. Database and schema filtering will not work as expected, but table filtering will still work.",
                 context=dataset_name,
             )
-            # We fall-through here so table/view filtering still works.
+            # We fall-through here so table/view/stream filtering still works.
 
         if (
             len(dataset_params) >= 1
@@ -167,6 +168,14 @@ class SnowflakeFilter:
             SnowflakeObjectDomain.MATERIALIZED_VIEW,
         } and not self.filter_config.view_pattern.allowed(
             _cleanup_qualified_name(dataset_name, self.structured_reporter)
+        ):
+            return False
+
+        if (
+            dataset_type.lower() == SnowflakeObjectDomain.STREAM
+            and not self.filter_config.stream_pattern.allowed(
+                _cleanup_qualified_name(dataset_name, self.structured_reporter)
+            )
         ):
             return False
 
