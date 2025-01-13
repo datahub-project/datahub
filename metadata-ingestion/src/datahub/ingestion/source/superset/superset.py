@@ -337,7 +337,7 @@ class SupersetSource(StatefulIngestionSourceBase):
     def get_datasource_urn_from_id(
         self, dataset_response: dict, platform_instance: str
     ) -> str:
-        schema_name = dataset_response.get("result", {}).get("schema")
+        schema_name = dataset_response.get("result", {}).get("../schema")
         table_name = dataset_response.get("result", {}).get("table_name")
         database_id = dataset_response.get("result", {}).get("database", {}).get("id")
         platform = self.get_platform_from_database_id(database_id)

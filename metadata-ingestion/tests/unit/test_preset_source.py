@@ -1,4 +1,4 @@
-from datahub.ingestion.source.preset import PresetConfig
+from datahub.ingestion.source.superset.preset import PresetConfig
 
 
 def test_default_values():

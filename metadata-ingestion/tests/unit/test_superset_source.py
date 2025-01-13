@@ -1,4 +1,4 @@
-from datahub.ingestion.source.superset import SupersetConfig
+from datahub.ingestion.source.superset.superset import SupersetConfig
 
 
 def test_default_values():

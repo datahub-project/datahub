@@ -19,7 +19,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
-from datahub.ingestion.source.superset import SupersetConfig, SupersetSource
+from datahub.ingestion.source.superset.superset import SupersetConfig, SupersetSource
 from datahub.utilities import config_clean
 
 logger = logging.getLogger(__name__)
