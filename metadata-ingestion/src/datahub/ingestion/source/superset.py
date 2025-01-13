@@ -555,15 +555,10 @@ class SupersetSource(StatefulIngestionSourceBase):
         chart_url = f"{self.config.display_uri}{chart_data.get('url', '')}"
 
         datasource_id = chart_data.get("datasource_id")
-        if not datasource_id:
-            logger.debug(
-                f'chart {chart_data["id"]} has no datasource_id, skipping fetching dataset info'
-            )
-            datasource_urn = None
-        else:
-            dataset_response = self.get_dataset_info(datasource_id)
-            ds_urn = self.get_datasource_urn_from_id(dataset_response, self.platform)
-            datasource_urn = [ds_urn] if not isinstance(ds_urn, list) else ds_urn
+        dataset_response = self.get_dataset_info(datasource_id)
+        datasource_urn = self.get_datasource_urn_from_id(
+            dataset_response, self.platform
+        )
 
         params = json.loads(chart_data.get("params", "{}"))
         metrics = [
@@ -744,11 +739,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         datasource_urn = self.get_datasource_urn_from_id(
             dataset_response, self.platform
         )
-        modified_ts = int(
-            dp.parse(dataset_data.get("changed_on_utc", "now")).timestamp() * 1000
-        )
-        modified_actor = f"urn:li:corpuser:{(dataset_data.get('changed_by') or {}).get('username', 'unknown')}"
-        last_modified = AuditStampClass(time=modified_ts, actor=modified_actor)
+
         dataset_url = f"{self.config.display_uri}{dataset.explore_url or ''}"
 
         dataset_info = DatasetPropertiesClass(
@@ -779,13 +770,6 @@ class SupersetSource(StatefulIngestionSourceBase):
             ],
         )
         aspects_items.append(owners_info)
-
-        metrics = dataset_response.get("result", {}).get("metrics", [])
-
-        if metrics:
-            glossary_terms = self.parse_glossary_terms_from_metrics(metrics, last_modified)
-            aspects_items.append(glossary_terms)
-
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
             aspects=aspects_items,
@@ -798,7 +782,6 @@ class SupersetSource(StatefulIngestionSourceBase):
                 dataset_snapshot = self.construct_dataset_from_dataset_data(
                     dataset_data
                 )
-
                 mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
             except Exception as e:
                 self.report.warning(
