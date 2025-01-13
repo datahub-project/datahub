@@ -452,7 +452,7 @@ export const IngestionSourceList = () => {
                 />
                 <SourcePaginationContainer>
                     <Pagination
-                        style={{ margin: 40 }}
+                        style={{ margin: 15 }}
                         current={page}
                         pageSize={pageSize}
                         total={totalSources}
