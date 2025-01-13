@@ -153,8 +153,10 @@ public class DataProcessInstanceTypeTest {
                     .setUrn(dpiUrn1)
                     .setAspects(new EnvelopedAspectMap(aspectMap))));
 
-    DataProcessInstanceType type =
-        new DataProcessInstanceType(client, Mockito.mock(FeatureFlags.class));
+    FeatureFlags mockFeatureFlags = Mockito.mock(FeatureFlags.class);
+    Mockito.when(mockFeatureFlags.isDataProcessInstanceEntityEnabled()).thenReturn(true);
+
+    DataProcessInstanceType type = new DataProcessInstanceType(client, mockFeatureFlags);
 
     QueryContext mockContext = getMockAllowContext();
     List<DataFetcherResult<DataProcessInstance>> result =
