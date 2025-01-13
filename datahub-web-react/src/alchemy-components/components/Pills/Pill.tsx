@@ -1,6 +1,5 @@
 import { Icon } from '@components';
 import React from 'react';
-
 import { PillContainer, PillText } from './components';
 import { PillProps } from './types';
 
@@ -23,6 +22,8 @@ export function Pill({
     onClickRightIcon,
     onClickLeftIcon,
     onPillClick,
+    customStyle,
+    CustomIconRenderer,
 }: PillProps) {
     return (
         <PillContainer
@@ -33,9 +34,12 @@ export function Pill({
             id={id}
             data-testid="pill-container"
             onClick={onPillClick}
+            style={{
+                backgroundColor: customStyle?.backgroundColor,
+            }}
         >
-            {leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} />}
-            <PillText>{label}</PillText>
+            {CustomIconRenderer || (leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} />)}
+            <PillText style={customStyle}>{label}</PillText>
             {rightIcon && <Icon icon={rightIcon} size={size} onClick={onClickRightIcon} />}
         </PillContainer>
     );
