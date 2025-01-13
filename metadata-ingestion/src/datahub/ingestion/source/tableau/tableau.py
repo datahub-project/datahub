@@ -701,6 +701,16 @@ class TableauSourceReport(
         default_factory=(lambda: defaultdict(int))
     )
 
+    get_connection_objects_query_counter: Dict[str, int] = dataclass_field(
+        default_factory=(lambda: defaultdict(int))
+    )
+    get_connection_objects_query_filter_pages_counter: Dict[str, int] = dataclass_field(
+        default_factory=(lambda: defaultdict(int))
+    )
+    get_connection_objects_query_total_pages_counter: Dict[str, int] = dataclass_field(
+        default_factory=(lambda: defaultdict(int))
+    )
+
 
 def report_user_role(report: TableauSourceReport, server: Server) -> None:
     title: str = "Insufficient Permissions"
@@ -1436,11 +1446,20 @@ class TableauSiteSource:
         page_size = page_size_override or self.config.page_size
 
         filter_pages = get_filter_pages(query_filter, page_size)
+        self.report.get_connection_objects_query_counter[connection_type] += 1
+        self.report.get_connection_objects_query_filter_pages_counter[
+            connection_type
+        ] += len(filter_pages)
+
         for filter_page in filter_pages:
             has_next_page = 1
             current_cursor: Optional[str] = None
             while has_next_page:
                 filter_: str = make_filter(filter_page)
+
+                self.report.get_connection_objects_query_total_pages_counter[
+                    connection_type
+                ] += 1
 
                 self.report.num_expected_tableau_metadata_queries += 1
                 (
