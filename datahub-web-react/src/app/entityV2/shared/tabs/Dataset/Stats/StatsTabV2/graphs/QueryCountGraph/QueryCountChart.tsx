@@ -1,28 +1,28 @@
 import { BarChart, GraphCard } from '@components';
 import { pluralize } from '@src/app/shared/textUtil';
-import { Maybe, TimeRange, UsageAggregation } from '@src/types.generated';
+import { TimeRange } from '@src/types.generated';
 import React, { useEffect, useState } from 'react';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
+import { useGetStatsData } from '../../useGetStatsData';
 import { SectionKeys } from '../../utils';
 import GraphPopover from '../components/GraphPopover';
 import MonthOverMonthPill from '../components/MonthOverMonthPill';
 import TimeRangeSelect from '../components/TimeRangeSelect';
 import { AGGRAGATION_TIME_RANGE_OPTIONS } from '../constants';
+import useGetTimeRangeOptionsByTimeRange from '../hooks/useGetTimeRangeOptionsByTimeRange';
 import { getPopoverTimeFormat, getXAxisTickFormat } from '../utils';
 import useQueryCountData from './useQueryCountData';
-import useGetTimeRangeOptionsByTimeRange from '../hooks/useGetTimeRangeOptionsByTimeRange';
 
-interface Props {
-    queryCountBuckets?: Array<Maybe<UsageAggregation>>;
-}
-
-const QueryCountChart = ({ queryCountBuckets }: Props) => {
+const QueryCountChart = () => {
     const {
         sections,
         setSectionState,
         dataInfo: { capabilitiesLoading, oldestDatasetUsageTime },
         statsEntityUrn,
     } = useStatsSectionsContext();
+
+    const { usageStats } = useGetStatsData();
+    const queryCountBuckets = usageStats?.buckets || undefined;
 
     const timeRangeOptions = useGetTimeRangeOptionsByTimeRange(AGGRAGATION_TIME_RANGE_OPTIONS, oldestDatasetUsageTime);
     const [timeRange, setTimeRange] = useState<TimeRange>(TimeRange.Month);

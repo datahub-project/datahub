@@ -3,12 +3,12 @@ import { groupByFieldPath } from '@src/app/entityV2/dataset/profile/schema/utils
 import { DatasetFieldProfile } from '@src/types.generated';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
-import SchemaFieldDrawer from '../../Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
-import { useGetEntityWithSchema } from '../../Schema/useGetEntitySchema';
-import useKeyboardControls from '../../Schema/useKeyboardControls';
-import { decimalToPercentStr } from '../../Schema/utils/statsUtil';
+import SchemaFieldDrawer from '../../../Schema/components/SchemaFieldDrawer/SchemaFieldDrawer';
+import { useGetEntityWithSchema } from '../../../Schema/useGetEntitySchema';
+import useKeyboardControls from '../../../Schema/useKeyboardControls';
+import { decimalToPercentStr } from '../../../Schema/utils/statsUtil';
+import { isPresent } from '../utils';
 import { useGetColumnStatsColumns } from './useGetColumnStatsColumns';
-import { isPresent } from './utils';
 
 const EmptyContainer = styled.div`
     display: flex;

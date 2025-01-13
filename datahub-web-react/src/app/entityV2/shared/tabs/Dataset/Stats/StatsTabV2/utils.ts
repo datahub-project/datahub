@@ -1,5 +1,5 @@
-import { CorpGroup, CorpUser, EntityType } from '@src/types.generated';
 import { GetDatasetQuery } from '@src/graphql/dataset.generated';
+import { CorpGroup, CorpUser, EntityType } from '@src/types.generated';
 
 export const isPresent = (val?: string | number | null): val is string | number => {
     return val !== undefined && val !== null;
@@ -54,9 +54,9 @@ const hasStats = (entity) => {
 };
 
 export const getSiblingEntityWithStats = (baseEntity: GetDatasetQuery) => {
-    const areStatsPresentInPrimaryEntity = hasStats(baseEntity.dataset);
+    const areStatsPresentInBaseEntity = hasStats(baseEntity.dataset);
     const siblingEntity = baseEntity.dataset?.siblingsSearch?.searchResults[0]?.entity;
-    if (!areStatsPresentInPrimaryEntity && hasStats(siblingEntity)) return siblingEntity?.urn;
+    if (!areStatsPresentInBaseEntity && hasStats(siblingEntity)) return siblingEntity?.urn;
     return baseEntity.dataset?.urn;
 };
 

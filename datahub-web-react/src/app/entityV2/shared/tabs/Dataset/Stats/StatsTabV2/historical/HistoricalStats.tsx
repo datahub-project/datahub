@@ -1,16 +1,12 @@
 import React from 'react';
-import { Section } from './StatsSectionsContext';
-import { SectionKeys } from './utils';
+import { useGetStatsSections } from '../useGetStatsSections';
 
-interface Props {
-    sortedSections: [string, Section][];
-    sectionsList: Record<SectionKeys, React.ReactNode>;
-}
+const HistoricalStats = () => {
+    const { sectionsList, orderedSections } = useGetStatsSections();
 
-const HistoricalStats = ({ sortedSections, sectionsList }: Props) => {
     return (
         <>
-            {sortedSections.map(([key, section]) => {
+            {orderedSections.map(([key, section]) => {
                 const SectionComponent = sectionsList[key];
                 return (
                     <div key={key} ref={section.ref}>

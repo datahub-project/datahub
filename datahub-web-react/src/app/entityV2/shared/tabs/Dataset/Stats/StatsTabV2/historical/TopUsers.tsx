@@ -7,7 +7,7 @@ import { Maybe, UserUsageCounts } from '@src/types.generated';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
-import { getMockTopUsersData, getUserOrGroupAvatarUrl } from './utils';
+import { getMockTopUsersData, getUserOrGroupAvatarUrl } from '../utils';
 
 const CardWrapper = styled.div`
     display: flex;

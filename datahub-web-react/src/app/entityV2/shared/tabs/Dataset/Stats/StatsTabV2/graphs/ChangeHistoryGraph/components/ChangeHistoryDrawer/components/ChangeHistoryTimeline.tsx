@@ -38,7 +38,7 @@ export default function ChangeHistoryTimeline({ selectedDay, operations, users, 
     const renderTimeline = () => {
         if (loading) return <TimelineSkeleton />;
 
-        if (operations.length === 0) return <Text color="gray">There are no any operations for the selected day</Text>;
+        if (operations.length === 0) return <Text color="gray">There are no operations for the selected day</Text>;
 
         return (
             <TimelineWrapper>
