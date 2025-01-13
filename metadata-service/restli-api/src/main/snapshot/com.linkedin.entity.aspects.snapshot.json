@@ -3827,7 +3827,43 @@
       "name" : "MLModelProperties",
       "namespace" : "com.linkedin.ml.metadata",
       "doc" : "Properties associated with a ML Model\r",
-      "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
+      "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference", {
+        "type" : "record",
+        "name" : "MLModelLineageInfo",
+        "doc" : "A set of re-usable fields used to capture lineage information for ML Models and ML Model Groups\r",
+        "fields" : [ {
+          "name" : "trainingJobs",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.common.Urn"
+          },
+          "doc" : "List of jobs or process instances (if any) used to train the model or group. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.\r",
+          "optional" : true,
+          "Relationship" : {
+            "/*" : {
+              "entityTypes" : [ "dataJob", "dataProcessInstance" ],
+              "isLineage" : true,
+              "name" : "TrainedBy"
+            }
+          }
+        }, {
+          "name" : "downstreamJobs",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.common.Urn"
+          },
+          "doc" : "List of jobs or process instances (if any) that use the model or group.\r",
+          "optional" : true,
+          "Relationship" : {
+            "/*" : {
+              "entityTypes" : [ "dataJob", "dataProcessInstance" ],
+              "isLineage" : true,
+              "isUpstream" : false,
+              "name" : "UsedBy"
+            }
+          }
+        } ]
+      } ],
       "fields" : [ {
         "name" : "name",
         "type" : "string",
@@ -4003,37 +4039,6 @@
           "/*" : {
             "entityTypes" : [ "mlModelDeployment" ],
             "name" : "DeployedTo"
-          }
-        }
-      }, {
-        "name" : "trainingJobs",
-        "type" : {
-          "type" : "array",
-          "items" : "com.linkedin.common.Urn"
-        },
-        "doc" : "List of jobs (if any) used to train the model. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.\r",
-        "optional" : true,
-        "Relationship" : {
-          "/*" : {
-            "entityTypes" : [ "dataJob", "dataProcessInstance" ],
-            "isLineage" : true,
-            "name" : "TrainedBy"
-          }
-        }
-      }, {
-        "name" : "downstreamJobs",
-        "type" : {
-          "type" : "array",
-          "items" : "com.linkedin.common.Urn"
-        },
-        "doc" : "List of jobs (if any) that use the model\r",
-        "optional" : true,
-        "Relationship" : {
-          "/*" : {
-            "entityTypes" : [ "dataJob" ],
-            "isLineage" : true,
-            "isUpstream" : false,
-            "name" : "UsedBy"
           }
         }
       }, {
@@ -4213,7 +4218,7 @@
       },
       "doc" : "The order to sort the results i.e. ASCENDING or DESCENDING"
     } ]
-  }, "com.linkedin.metadata.query.filter.SortOrder", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.mxe.GenericAspect", {
+  }, "com.linkedin.metadata.query.filter.SortOrder", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelLineageInfo", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.mxe.GenericAspect", {
     "type" : "record",
     "name" : "MetadataChangeProposal",
     "namespace" : "com.linkedin.mxe",

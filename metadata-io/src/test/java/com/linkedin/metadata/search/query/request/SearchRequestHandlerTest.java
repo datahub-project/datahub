@@ -772,6 +772,11 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 EntityType.SCHEMA_FIELD,
                 Stream.concat(COMMON.stream(), Stream.of("schemaFieldAliases", "parent"))
                     .collect(Collectors.toSet()))
+            .put(
+                EntityType.DATA_PROCESS_INSTANCE,
+                Stream.concat(
+                        COMMON.stream(), Stream.of("parentInstance", "parentTemplate", "status"))
+                    .collect(Collectors.toSet()))
             .build();
 
     for (EntityType entityType : SEARCHABLE_ENTITY_TYPES) {
