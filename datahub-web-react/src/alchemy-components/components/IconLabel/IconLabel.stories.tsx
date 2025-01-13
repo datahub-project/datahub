@@ -1,7 +1,8 @@
 import React from 'react';
 import { Meta, StoryObj } from '@storybook/react';
-import { IconLabel } from './IconLabel';
 import { Airplane } from '@phosphor-icons/react';
+
+import { IconLabel } from './IconLabel';
 import { IconType } from './types';
 
 const meta: Meta<typeof IconLabel> = {
