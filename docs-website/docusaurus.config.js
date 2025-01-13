@@ -18,16 +18,9 @@ module.exports = {
       tagName: 'meta',
       attributes: {
         httpEquiv: 'Content-Security-Policy',
-        content: "frame-ancestors 'none'"
+        content: "frame-ancestors 'self' https://*.acryl.io https://*.acryldata.io"
       }
     },
-    {
-      tagName: 'meta',
-      attributes: {
-        httpEquiv: 'X-Frame-Options',
-        content: 'DENY'
-      }
-    }
   ],
   scripts: [
     {
