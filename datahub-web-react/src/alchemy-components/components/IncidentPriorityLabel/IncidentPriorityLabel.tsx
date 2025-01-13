@@ -1,10 +1,12 @@
-import { IconLabel } from '../IconLabel';
+import React from 'react';
 import { ExclamationMark } from '@phosphor-icons/react';
+import colors from '@src/alchemy-components/theme/foundations/colors';
+
+import { IconLabel } from '../IconLabel';
 import { IncidentPriorityLabelProps } from './types';
 import { Bar } from '../Bar';
 import { PRIORITIES } from './constant';
 import { IconType } from '../IconLabel/types';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 const PRIORITY_LEVEL = {
     [PRIORITIES.HIGH]: 3,
