@@ -1,8 +1,10 @@
+import React from 'react';
 import { Hexagon, Circle, CircleHalf, CheckCircle, CircleDashed } from '@phosphor-icons/react';
-import { Pill } from '../Pills';
-import { Incident_Stage } from './constant';
 import { IncidentStage } from '@src/types.generated';
 import colors from '@src/alchemy-components/theme/foundations/colors';
+
+import { Pill } from '../Pills';
+import { IncidentStageLabel } from './constant';
 
 const INCIDENT_STAGE = {
     [IncidentStage.Triage]: {
@@ -37,12 +39,15 @@ export const IncidentStagePill = ({ stage }: { stage: string }) => {
 
     const { icon, color, bgColor } = INCIDENT_STAGE[stage] || {};
 
-    const IconComponent = icon as React.ReactNode;
+    function iconRenderer(){
+        return icon
+    }
+
     return (
         <Pill
-            label={Incident_Stage[stage] || 'None'}
+            label={IncidentStageLabel[stage] || 'None'}
             size="md"
-            CustomIconRenderer={IconComponent}
+            customIconRenderer={iconRenderer}
             customStyle={{
                 backgroundColor: bgColor,
                 color: color,

@@ -1,6 +1,6 @@
 import { IncidentStage } from '@src/types.generated';
 
-export const Incident_Stage = {
+export const IncidentStageLabel = {
     [IncidentStage.Triage]: 'Triage',
     [IncidentStage.Fixed]: 'Resolved',
     [IncidentStage.Investigation]: 'Investigation',
