@@ -102,6 +102,9 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
 
     com.linkedin.datahub.graphql.generated.MLTrainingRunProperties properties =
         new com.linkedin.datahub.graphql.generated.MLTrainingRunProperties();
+    if (trainingProperties.hasId()) {
+      properties.setId(trainingProperties.getId());
+    }
     if (trainingProperties.hasOutputUrls()) {
       properties.setOutputUrls(
           trainingProperties.getOutputUrls().stream()
@@ -133,9 +136,12 @@ public class DataProcessInstanceMapper implements ModelMapper<EntityResponse, Da
       @Nonnull Urn entityUrn) {
     DataProcessInstanceProperties dataProcessInstanceProperties =
         new DataProcessInstanceProperties(dataMap);
-    dpi.setName(dataProcessInstanceProperties.getName());
+
     com.linkedin.datahub.graphql.generated.DataProcessInstanceProperties properties =
         new com.linkedin.datahub.graphql.generated.DataProcessInstanceProperties();
+
+    dpi.setName(dataProcessInstanceProperties.getName());
+    properties.setName(dataProcessInstanceProperties.getName());
     if (dataProcessInstanceProperties.hasExternalUrl()) {
       dpi.setExternalUrl(dataProcessInstanceProperties.getExternalUrl().toString());
       properties.setExternalUrl(dataProcessInstanceProperties.getExternalUrl().toString());

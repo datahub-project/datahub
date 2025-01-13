@@ -31,9 +31,15 @@ public class DataProcessInstanceType
 
   public static final Set<String> ASPECTS_TO_FETCH =
       ImmutableSet.of(
+          DATA_PROCESS_INSTANCE_KEY_ASPECT_NAME,
           DATA_PLATFORM_INSTANCE_ASPECT_NAME,
           DATA_PROCESS_INSTANCE_PROPERTIES_ASPECT_NAME,
+          DATA_PROCESS_INSTANCE_INPUT_ASPECT_NAME,
+          DATA_PROCESS_INSTANCE_OUTPUT_ASPECT_NAME,
+          DATA_PROCESS_INSTANCE_RUN_EVENT_ASPECT_NAME,
+          TEST_RESULTS_ASPECT_NAME,
           DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME,
+          ML_TRAINING_RUN_PROPERTIES_ASPECT_NAME,
           SUB_TYPES_ASPECT_NAME,
           CONTAINER_ASPECT_NAME);
 
@@ -90,7 +96,7 @@ public class DataProcessInstanceType
           .collect(Collectors.toList());
 
     } catch (Exception e) {
-      throw new RuntimeException("Failed to load schemaField entity", e);
+      throw new RuntimeException("Failed to load Data Process Instance entity", e);
     }
   }
 }
