@@ -739,7 +739,11 @@ class SupersetSource(StatefulIngestionSourceBase):
         datasource_urn = self.get_datasource_urn_from_id(
             dataset_response, self.platform
         )
-
+        modified_ts = int(
+            dp.parse(dataset_data.get("changed_on_utc", "now")).timestamp() * 1000
+        )
+        modified_actor = f"urn:li:corpuser:{(dataset_data.get('changed_by') or {}).get('username', 'unknown')}"
+        last_modified = AuditStampClass(time=modified_ts, actor=modified_actor)
         dataset_url = f"{self.config.display_uri}{dataset.explore_url or ''}"
 
         dataset_info = DatasetPropertiesClass(
@@ -770,6 +774,13 @@ class SupersetSource(StatefulIngestionSourceBase):
             ],
         )
         aspects_items.append(owners_info)
+
+        metrics = dataset_response.get("result", {}).get("metrics", [])
+
+        if metrics:
+            glossary_terms = self.parse_glossary_terms_from_metrics(metrics, last_modified)
+            aspects_items.append(glossary_terms)
+
         dataset_snapshot = DatasetSnapshot(
             urn=datasource_urn,
             aspects=aspects_items,
