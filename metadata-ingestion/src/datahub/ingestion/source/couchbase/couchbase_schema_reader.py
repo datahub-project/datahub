@@ -1,15 +1,15 @@
 from __future__ import annotations
+
 from collections import defaultdict
 from typing import Any, Dict, List
 
 from datahub.ingestion.source.common.data_reader import DataReader
-from datahub.ingestion.source.couchbase.couchbase_kv_schema import json_schema, flatten
+from datahub.ingestion.source.couchbase.couchbase_kv_schema import flatten, json_schema
 
 PAGE_SIZE = 100
 
 
 class CouchbaseCollectionItemsReader(DataReader):
-
     @staticmethod
     def create(schema: dict) -> CouchbaseCollectionItemsReader:
         return CouchbaseCollectionItemsReader(schema)
@@ -25,7 +25,7 @@ class CouchbaseCollectionItemsReader(DataReader):
 
         parsed = json_schema(self.schema)
         for field_path, field_data in flatten([], parsed):
-            column_values[field_path].extend(field_data.samples)
+            column_values[".".join(field_path)].extend(field_data.samples)
 
         return column_values
 

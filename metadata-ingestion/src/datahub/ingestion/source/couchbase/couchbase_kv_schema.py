@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import Any, Counter as CounterType, Dict, Tuple, Union, List
+from typing import Any, Counter as CounterType, Dict, Iterable, List, Tuple, Union
 
 from typing_extensions import TypedDict
 
@@ -17,13 +17,16 @@ class SchemaDescription(BasicSchemaDescription):
 
 
 class CouchbaseFieldData:
-    types: Tuple[str] = ()
+    types: Tuple[str, ...] = ()
     samples: List[Any] = []
 
 
-def json_schema(schema: dict, upper_key: str = None, samples: List[Any] = None) -> Union[dict, List[dict], CouchbaseFieldData]:
-
-    def process_samples(_key: str, _samples: List[Any]):
+def json_schema(
+    schema: dict,
+    upper_key: Union[str, None] = None,
+    samples: Union[List[Any], None] = None,
+) -> Union[Dict[str, Any], List[Any], CouchbaseFieldData]:
+    def process_samples(_key: Union[str, None], _samples: List[Any]) -> List[Any]:
         if len(_samples) > 0 and type(_samples[0]) is list:
             if type(_samples[0][0]) is dict and _key is not None:
                 subset = []
@@ -38,45 +41,56 @@ def json_schema(schema: dict, upper_key: str = None, samples: List[Any] = None) 
             return subset
         return _samples
 
-    if schema.get('type') == 'object':
+    if schema.get("type") == "object":
         if upper_key is None:
-            return json_schema(schema['properties'], samples=samples)
+            return json_schema(schema["properties"], samples=samples)
         else:
-            return {upper_key: json_schema(schema['properties'], samples=samples)}
+            return {upper_key: json_schema(schema["properties"], samples=samples)}
 
-    elif schema.get('type') == 'array':
+    elif schema.get("type") == "array":
         if upper_key is None:
-            return [json_schema(schema['items'], samples=schema.get('samples'))]
+            return [json_schema(schema["items"], samples=schema.get("samples"))]
         else:
-            return {upper_key: [json_schema(schema['items'], samples=schema.get('samples'))]}
+            return {
+                upper_key: [json_schema(schema["items"], samples=schema.get("samples"))]
+            }
 
-    elif schema.get('type'):
+    elif schema.get("type"):
         field_data_ = CouchbaseFieldData()
-        if isinstance(schema.get('type'), list):
-            for type_ in schema.get('type'):
+        if isinstance(schema.get("type"), list):
+            types_: List[str] = schema.get("type", [])
+            for type_ in types_:
                 field_data_.types += (type_,)
         else:
-            field_data_.types += (schema.get('type'),)
-        field_data_.samples = process_samples(upper_key, samples) if samples else process_samples(upper_key, schema.get('samples'))
+            _type_string: str = str(schema.get("type"))
+            field_data_.types += (_type_string,)
+        field_data_.samples = (
+            process_samples(upper_key, samples)
+            if samples
+            else process_samples(upper_key, schema.get("samples", []))
+        )
         if upper_key is None:
             return field_data_
         else:
             return {upper_key: field_data_}
 
     else:
-        result = {}
+        result: Dict[str, Any] = {}
         for key, value in schema.items():
-            result.update(json_schema(value, key, samples=samples))
+            struct: Any = json_schema(value, key, samples=samples)
+            if isinstance(struct, dict):
+                result.update(struct)
         return result
 
 
-def flatten(path: List[str], data: Any, truncate: bool = True) -> Tuple[str, CouchbaseFieldData]:
-
+def flatten(
+    path: List[str], data: Any, truncate: bool = True
+) -> Iterable[Tuple[Tuple[str, ...], CouchbaseFieldData]]:
     if isinstance(data, dict):
         if path and truncate:
             field_data_ = CouchbaseFieldData()
-            field_data_.types = ('object',)
-            yield '.'.join(path), field_data_
+            field_data_.types = ("object",)
+            yield tuple(path), field_data_
         for key, value in data.items():
             path.append(key)
             yield from flatten(path, value)
@@ -86,15 +100,15 @@ def flatten(path: List[str], data: Any, truncate: bool = True) -> Tuple[str, Cou
     elif isinstance(data, list):
         if path and not isinstance(data[0], CouchbaseFieldData):
             field_data_ = CouchbaseFieldData()
-            field_data_.types = ('array',)
-            yield '.'.join(path), field_data_
+            field_data_.types = ("array",)
+            yield tuple(path), field_data_
         else:
-            data[0].types += ('array',)
+            data[0].types += ("array",)
         for value in data:
             yield from flatten(path, value, False)
 
     else:
-        yield '.'.join(path), data
+        yield tuple(path), data
         if len(path) > 0 and truncate:
             del path[-1]
 
@@ -131,6 +145,8 @@ def construct_schema(
 
     parsed = json_schema(collection)
 
+    field_path: Tuple[str, ...]
+    field_data: CouchbaseFieldData
     for field_path, field_data in flatten([], parsed):
         field_type: Union[str, type] = "mixed"
 
@@ -143,9 +159,9 @@ def construct_schema(
         is_nullable = "null" in field_data.types
         field_extended: SchemaDescription = {
             "types": Counter(field_data.types),
-            "count": len(field_path.split('.')),
+            "count": len(field_path),
             "nullable": is_nullable,
-            "delimited_name": field_path,
+            "delimited_name": ".".join(field_path),
             "type": field_type,
         }
 

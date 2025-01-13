@@ -1,30 +1,32 @@
-from typing import Any, List, Tuple, Optional, Dict
 from dataclasses import dataclass, field
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from pydantic import PositiveInt
 from pydantic.fields import Field
 
-from datahub.ingestion.source.ge_profiling_config import GEProfilingBaseConfig
-from datahub.ingestion.source_config.operation_config import is_profiling_enabled
-from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalSourceReport,
-    StatefulIngestionConfigBase,
-)
-from datahub.utilities.perf_timer import PerfTimer
 from datahub.ingestion.glossary.classification_mixin import (
     ClassificationReportMixin,
     ClassificationSourceConfigMixin,
 )
+from datahub.ingestion.source.ge_profiling_config import GEProfilingBaseConfig
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalSourceReport,
+    StatefulIngestionConfigBase,
+)
+from datahub.ingestion.source_config.operation_config import is_profiling_enabled
+from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
+from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.stats_collections import TopKDict, int_top_k_dict
 
 
-def flatten(field_path: List[str], data: Any, truncate: bool = True) -> Tuple[str, Any]:
+def flatten(
+    field_path: List[str], data: Any, truncate: bool = True
+) -> Iterable[Tuple[str, Any]]:
     if isinstance(data, dict):
         for key, value in data.items():
             field_path.append(key)
@@ -35,21 +37,30 @@ def flatten(field_path: List[str], data: Any, truncate: bool = True) -> Tuple[st
         for value in data:
             yield from flatten(field_path, value, False)
     else:
-        yield '.'.join(field_path), data
+        yield ".".join(field_path), data
         if len(field_path) > 0 and truncate:
             del field_path[-1]
 
 
 class CouchbaseDBConfig(
-    PlatformInstanceConfigMixin, EnvConfigMixin, StatefulIngestionConfigBase, ClassificationSourceConfigMixin
+    PlatformInstanceConfigMixin,
+    EnvConfigMixin,
+    StatefulIngestionConfigBase,
+    ClassificationSourceConfigMixin,
 ):
-    connect_string: str = Field(default=None, description="Couchbase connect string.")
-    username: str = Field(default=None, description="Couchbase username.")
-    password: str = Field(default=None, description="Couchbase password.")
-    cluster_name: str = Field(default=None, description="Couchbase cluster name.")
+    connect_string: str = Field(
+        default="couchbases://127.0.0.1", description="Couchbase connect string."
+    )
+    username: str = Field(default="Administrator", description="Couchbase username.")
+    password: str = Field(default="password", description="Couchbase password.")
+    cluster_name: str = Field(default="cbdb", description="Couchbase cluster name.")
     kv_timeout: Optional[PositiveInt] = Field(default=5, description="KV timeout.")
-    query_timeout: Optional[PositiveInt] = Field(default=60, description="Query timeout.")
-    schema_sample_size: Optional[PositiveInt] = Field(default=10000, description="Number of documents to sample.")
+    query_timeout: Optional[PositiveInt] = Field(
+        default=75, description="Query timeout."
+    )
+    schema_sample_size: Optional[PositiveInt] = Field(
+        default=10000, description="Number of documents to sample."
+    )
     options: dict = Field(
         default={}, description="Additional options to pass to `ClusterOptions()`."
     )
@@ -83,7 +94,9 @@ class CouchbaseDBConfig(
 
 
 @dataclass
-class CouchbaseDBSourceReport(StaleEntityRemovalSourceReport, ClassificationReportMixin, IngestionStageReport):
+class CouchbaseDBSourceReport(
+    StaleEntityRemovalSourceReport, ClassificationReportMixin, IngestionStageReport
+):
     filtered: List[str] = field(default_factory=list)
     documents_processed: int = 0
     keyspaces_profiled: int = 0

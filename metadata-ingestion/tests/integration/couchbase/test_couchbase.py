@@ -1,34 +1,31 @@
-import pytest
 import base64
-import requests
 import logging
 import os
 import shutil
-
-from requests.auth import AuthBase
-from urllib3.util.retry import Retry
-from requests.adapters import HTTPAdapter
 from pathlib import Path
 
-from datahub.ingestion.run.pipeline import Pipeline
+import pytest
+import requests
+from requests.adapters import HTTPAdapter
+from requests.auth import AuthBase
+from urllib3.util.retry import Retry
+
 from datahub.ingestion.glossary.classification_mixin import ClassificationConfig
 from datahub.ingestion.glossary.classifier import DynamicTypedClassifierConfig
-from datahub.ingestion.glossary.datahub_classifier import (
-    DataHubClassifierConfig,
-)
+from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfig
+from datahub.ingestion.run.pipeline import Pipeline
 from tests.test_helpers import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
 
 class BasicAuth(AuthBase):
-
     def __init__(self, username, password):
         self.username = username
         self.password = password
 
     def __call__(self, r):
         auth_hash = f"{self.username}:{self.password}"
-        auth_bytes = auth_hash.encode('ascii')
+        auth_bytes = auth_hash.encode("ascii")
         auth_encoded = base64.b64encode(auth_bytes)
         request_headers = {
             "Authorization": f"Basic {auth_encoded.decode('ascii')}",
@@ -44,21 +41,24 @@ def test_couchbase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "couchbase"
     ) as docker_services:
-        if 'PYTEST_ENABLE_FILE_LOGGING' in os.environ:
-            log_file = os.path.join(Path.home(), 'pytest.log')
+        if "PYTEST_ENABLE_FILE_LOGGING" in os.environ:
+            log_file = os.path.join(Path.home(), "pytest.log")
             file_handler = logging.FileHandler(log_file)
             logging.getLogger().addHandler(file_handler)
 
         wait_for_port(docker_services, "testdb", 8091)
 
-        retries = Retry(total=5,
-                        backoff_factor=1,
-                        status_forcelist=[404])
+        retries = Retry(total=5, backoff_factor=1, status_forcelist=[404])
         adapter = HTTPAdapter(max_retries=retries)
         session = requests.Session()
-        session.mount('http://', adapter)
-        session.mount('https://', adapter)
-        response = session.get(f"http://127.0.0.1:8091/pools/default/buckets/data", verify=False, timeout=15, auth=BasicAuth("Administrator", "password"))
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        response = session.get(
+            "http://127.0.0.1:8091/pools/default/buckets/data",
+            verify=False,
+            timeout=15,
+            auth=BasicAuth("Administrator", "password"),
+        )
 
         assert response.status_code == 200
 
@@ -73,9 +73,7 @@ def test_couchbase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
                         "username": "Administrator",
                         "password": "password",
                         "cluster_name": "testdb",
-                        "profiling": {
-                            "enabled": True
-                        },
+                        "profiling": {"enabled": True},
                         "classification": ClassificationConfig(
                             enabled=True,
                             classifiers=[
@@ -100,8 +98,11 @@ def test_couchbase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
         pipeline.run()
         pipeline.raise_from_status()
 
-        if 'PYTEST_SAVE_OUTPUT_FILE' in os.environ:
-            shutil.copyfile(f"{tmp_path}/couchbase_mces.json", os.path.join(Path.home(), "couchbase_mces.json"))
+        if "PYTEST_SAVE_OUTPUT_FILE" in os.environ:
+            shutil.copyfile(
+                f"{tmp_path}/couchbase_mces.json",
+                os.path.join(Path.home(), "couchbase_mces.json"),
+            )
         else:
             # Verify the output.
             mce_helpers.check_golden_file(

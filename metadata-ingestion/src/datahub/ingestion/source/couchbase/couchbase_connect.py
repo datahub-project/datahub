@@ -1,17 +1,24 @@
 import logging
 from datetime import timedelta
-from typing import List, Iterable, Tuple
-from couchbase.auth import PasswordAuthenticator
-from couchbase.options import ClusterTimeoutOptions, LockMode, ClusterOptions, TLSVerifyMode
-from couchbase.cluster import Cluster
-from couchbase.bucket import Bucket
-from acouchbase.cluster import AsyncCluster
+from typing import Iterable, List, Tuple
+
 from acouchbase.bucket import AsyncBucket
-from acouchbase.scope import AsyncScope
+from acouchbase.cluster import AsyncCluster
 from acouchbase.collection import AsyncCollection
+from acouchbase.scope import AsyncScope
+from couchbase.auth import PasswordAuthenticator
+from couchbase.bucket import Bucket
+from couchbase.cluster import Cluster
+from couchbase.exceptions import BucketNotFoundException, InternalServerFailureException
 from couchbase.management.buckets import BucketManager, BucketSettings
 from couchbase.management.collections import CollectionManager, ScopeSpec
-from couchbase.exceptions import BucketNotFoundException, InternalServerFailureException
+from couchbase.options import (
+    ClusterOptions,
+    ClusterTimeoutOptions,
+    LockMode,
+    TLSVerifyMode,
+)
+
 from datahub.ingestion.source.couchbase.retry import retry
 
 logger = logging.getLogger(__name__)
@@ -27,23 +34,36 @@ class CouchbaseConnect:
     scope_name: str
     collection_name: str
 
-    def __init__(self, connect_string: str, username: str, password: str, kv_timeout: float = 5, query_timeout: float = 60):
+    def __init__(
+        self,
+        connect_string: str,
+        username: str,
+        password: str,
+        kv_timeout: float = 5,
+        query_timeout: float = 60,
+    ):
         self.cb_connect_string = connect_string
 
         auth = PasswordAuthenticator(username, password)
-        timeouts = ClusterTimeoutOptions(query_timeout=timedelta(seconds=query_timeout),
-                                         kv_timeout=timedelta(seconds=kv_timeout),
-                                         bootstrap_timeout=timedelta(seconds=kv_timeout * 2),
-                                         resolve_timeout=timedelta(seconds=kv_timeout),
-                                         connect_timeout=timedelta(seconds=kv_timeout),
-                                         management_timeout=timedelta(seconds=kv_timeout * 2))
+        timeouts = ClusterTimeoutOptions(
+            query_timeout=timedelta(seconds=query_timeout),
+            kv_timeout=timedelta(seconds=kv_timeout),
+            bootstrap_timeout=timedelta(seconds=kv_timeout * 2),
+            resolve_timeout=timedelta(seconds=kv_timeout),
+            connect_timeout=timedelta(seconds=kv_timeout),
+            management_timeout=timedelta(seconds=kv_timeout * 2),
+        )
 
-        self.cluster_options = ClusterOptions(auth,
-                                              timeout_options=timeouts,
-                                              tls_verify=TLSVerifyMode.NO_VERIFY,
-                                              lockmode=LockMode.WAIT)
+        self.cluster_options = ClusterOptions(
+            auth,
+            timeout_options=timeouts,
+            tls_verify=TLSVerifyMode.NO_VERIFY,
+            lockmode=LockMode.WAIT,
+        )
 
-        logger.debug(f"couchbase: connect string = {connect_string} username = {username}")
+        logger.debug(
+            f"couchbase: connect string = {connect_string} username = {username}"
+        )
 
     @retry()
     def connect(self) -> Cluster:
@@ -60,7 +80,9 @@ class CouchbaseConnect:
 
     @retry()
     async def connect_async(self) -> AsyncCluster:
-        cluster = await AsyncCluster.connect(self.cb_connect_string, self.cluster_options)
+        cluster = await AsyncCluster.connect(
+            self.cb_connect_string, self.cluster_options
+        )
         await cluster.on_connect()
         await cluster.wait_until_ready(timedelta(seconds=10))
         return cluster
@@ -81,7 +103,9 @@ class CouchbaseConnect:
     async def cluster_init_async(self):
         self.cluster_async = await self.connect_async()
 
-    async def connect_keyspace_async(self, keyspace: str) -> Tuple[AsyncScope, AsyncCollection]:
+    async def connect_keyspace_async(
+        self, keyspace: str
+    ) -> Tuple[AsyncScope, AsyncCollection]:
         if not self.cluster_async:
             raise RuntimeError("cluster is not initialized")
 
@@ -129,7 +153,9 @@ class CouchbaseConnect:
     def expand_keyspace(keyspace: str) -> Tuple[str, ...]:
         keyspace_vector: List[str] = keyspace.split(".")
         if len(keyspace_vector) != 3:
-            raise ValueError(f"keyspace: invalid format: {keyspace}. Expected format is <bucket>.<scope>.<collection>")
+            raise ValueError(
+                f"keyspace: invalid format: {keyspace}. Expected format is <bucket>.<scope>.<collection>"
+            )
         return tuple(keyspace_vector)
 
     def collection_count(self, keyspace: str) -> int:
@@ -145,7 +171,8 @@ class CouchbaseConnect:
 
         results = scope.query(query)
         for row in results:
-            return int(row.get('count'))
+            return int(row.get("count"))
+        return 0
 
     def bucket_info(self, bucket_name: str) -> BucketSettings:
         if not self.bucket_manager:
@@ -153,7 +180,9 @@ class CouchbaseConnect:
         settings: BucketSettings = self.bucket_manager.get_bucket(bucket_name)
         return settings
 
-    def collection_infer(self, sample_size: int, sample_values: int, keyspace: str) -> dict:
+    def collection_infer(
+        self, sample_size: int, sample_values: int, keyspace: str
+    ) -> dict:
         if not self.cluster:
             raise RuntimeError("cluster is not initialized")
 

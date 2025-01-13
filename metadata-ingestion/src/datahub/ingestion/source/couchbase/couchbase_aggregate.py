@@ -1,8 +1,9 @@
-import logging
 import asyncio
-from typing import List, AsyncGenerator
-from acouchbase.scope import AsyncScope
+import logging
+from typing import AsyncGenerator, List
+
 from acouchbase.collection import AsyncCollection
+from acouchbase.scope import AsyncScope
 from couchbase.result import GetResult
 
 from datahub.ingestion.source.couchbase.couchbase_connect import CouchbaseConnect
@@ -14,11 +15,13 @@ class CouchbaseAggregate:
     scope: AsyncScope
     collection: AsyncCollection
 
-    def __init__(self,
-                 connector: CouchbaseConnect,
-                 keyspace: str,
-                 batch_size: int = 100,
-                 max_sample_size: int = 0):
+    def __init__(
+        self,
+        connector: CouchbaseConnect,
+        keyspace: str,
+        batch_size: int = 100,
+        max_sample_size: int = 0,
+    ):
         self.connector = connector
         self.keyspace = keyspace
         self.batch_size = batch_size
@@ -29,9 +32,11 @@ class CouchbaseAggregate:
 
     async def init(self):
         await self.connector.cluster_init_async()
-        self.scope, self.collection = await self.connector.connect_keyspace_async(self.keyspace)
-    
-    async def collection_get(self, key: str):
+        self.scope, self.collection = await self.connector.connect_keyspace_async(
+            self.keyspace
+        )
+
+    async def collection_get(self, key: str) -> GetResult:
         return await self.collection.get(key)
 
     async def get_keys(self):
@@ -41,7 +46,7 @@ class CouchbaseAggregate:
 
         result = self.scope.query(query)
         async for row in result:
-            yield row.get('id')
+            yield row.get("id")
 
     async def get_key_chunks(self) -> AsyncGenerator[List[str], None]:
         keys = []

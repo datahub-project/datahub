@@ -3,17 +3,22 @@ import logging
 import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Union
+
 import numpy as np
-from datahub.ingestion.source.couchbase.couchbase_common import flatten
+
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.couchbase.couchbase_connect import CouchbaseConnect
 from datahub.ingestion.source.couchbase.couchbase_aggregate import CouchbaseAggregate
 from datahub.ingestion.source.couchbase.couchbase_common import (
     CouchbaseDBConfig,
     CouchbaseDBSourceReport,
+    flatten,
+)
+from datahub.ingestion.source.couchbase.couchbase_connect import CouchbaseConnect
+from datahub.ingestion.source.couchbase.couchbase_schema_reader import (
+    CouchbaseCollectionItemsReader,
 )
 from datahub.ingestion.source_report.ingestion_stage import PROFILING
 from datahub.metadata.schema_classes import (
@@ -27,7 +32,7 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ColumnMetric:
-    col_type: str = None
+    col_type: Union[str, None] = None
     values: List[Any] = field(default_factory=list)
     null_count: int = 0
     total_count: int = 0
@@ -68,9 +73,7 @@ class CouchbaseProfiler:
         except RuntimeError:
             self.loop = asyncio.new_event_loop()
 
-    def get_workunits(
-        self, datasets: List[str]
-    ) -> Iterable[MetadataWorkUnit]:
+    def get_workunits(self, datasets: List[str]) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Profiling {len(datasets)} keyspaces")
         for keyspace in datasets:
             logger.info(f"Profiling Keyspace {keyspace}")
@@ -96,9 +99,7 @@ class CouchbaseProfiler:
 
         if not self.config.profile_pattern.allowed(keyspace):
             self.report.profiling_skipped_table_profile_pattern[keyspace] += 1
-            logger.info(
-                f"Profiling not allowed for Keyspace {keyspace}"
-            )
+            logger.info(f"Profiling not allowed for Keyspace {keyspace}")
             return
 
         try:
@@ -134,7 +135,7 @@ class CouchbaseProfiler:
 
     @staticmethod
     def _create_field_profile(
-            field_name: str, field_stats: ColumnMetric
+        field_name: str, field_stats: ColumnMetric
     ) -> DatasetFieldProfileClass:
         quantiles = field_stats.quantiles
         return DatasetFieldProfileClass(
@@ -161,9 +162,38 @@ class CouchbaseProfiler:
         profile_data = ProfileData()
 
         if not self.config.profiling.profile_table_level_only:
-            return self.loop.run_until_complete(self._collect_column_data(keyspace, profile_data))
+            return self.loop.run_until_complete(
+                self._collect_column_data(keyspace, profile_data)
+            )
+        else:
+            return self._collect_keyspace_data(keyspace, profile_data)
 
-    async def _collect_column_data(self, keyspace: str, profile_data: ProfileData) -> ProfileData:
+    def _collect_keyspace_data(
+        self, keyspace: str, profile_data: ProfileData
+    ) -> ProfileData:
+        collection_count: int = self.client.collection_count(keyspace)
+
+        value_sample_size: int = self.config.classification.sample_size
+        schema_sample_size: int = (
+            self.config.schema_sample_size if self.config.schema_sample_size else 10000
+        )
+        schema: dict = self.client.collection_infer(
+            schema_sample_size, value_sample_size, keyspace
+        )
+
+        schema_reader = CouchbaseCollectionItemsReader.create(schema)
+        schema_data: dict = schema_reader.get_sample_data_for_table(
+            keyspace.split("."), value_sample_size
+        )
+
+        profile_data.row_count = collection_count
+        profile_data.column_count = len(list(schema_data.keys()))
+
+        return profile_data
+
+    async def _collect_column_data(
+        self, keyspace: str, profile_data: ProfileData
+    ) -> ProfileData:
         document_total_count: int = 0
 
         aggregator = CouchbaseAggregate(self.client, keyspace)
@@ -179,14 +209,22 @@ class CouchbaseProfiler:
                 for field_name, values in column_values.items():
                     if field_name not in profile_data.column_metrics:
                         profile_data.column_metrics[field_name] = ColumnMetric()
-                        profile_data.column_count += 1
+                        if not profile_data.column_count:
+                            profile_data.column_count = 1
+                        else:
+                            profile_data.column_count += 1
                     for value in values:
                         col_type = type(value).__name__
                         if not profile_data.column_metrics[field_name].col_type:
                             profile_data.column_metrics[field_name].col_type = col_type
                         else:
-                            if profile_data.column_metrics[field_name].col_type != col_type:
-                                profile_data.column_metrics[field_name].col_type = "mixed"
+                            if (
+                                profile_data.column_metrics[field_name].col_type
+                                != col_type
+                            ):
+                                profile_data.column_metrics[
+                                    field_name
+                                ].col_type = "mixed"
                         profile_data.column_metrics[field_name].total_count += 1
                         if value is None:
                             profile_data.column_metrics[field_name].null_count += 1
@@ -244,8 +282,11 @@ class CouchbaseProfiler:
             column_metrics.sample_values = [str(v) for v in values[:5]]
 
     @staticmethod
-    def _is_numeric_type(data_type: str) -> bool:
-        return data_type.lower() in [
-            "int",
-            "float",
-        ]
+    def _is_numeric_type(data_type: Union[str, None]) -> bool:
+        if not data_type:
+            return False
+        else:
+            return data_type.lower() in [
+                "int",
+                "float",
+            ]

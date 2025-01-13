@@ -1,28 +1,27 @@
-import pytest
 import base64
-import requests
 import logging
 
+import pytest
+import requests
+from requests.adapters import HTTPAdapter
 from requests.auth import AuthBase
 from urllib3.util.retry import Retry
-from requests.adapters import HTTPAdapter
 
-from datahub.ingestion.source.couchbase.couchbase_connect import CouchbaseConnect
 from datahub.ingestion.source.couchbase.couchbase_aggregate import CouchbaseAggregate
+from datahub.ingestion.source.couchbase.couchbase_connect import CouchbaseConnect
 from tests.test_helpers.docker_helpers import wait_for_port
 
 logger = logging.getLogger(__name__)
 
 
 class BasicAuth(AuthBase):
-
     def __init__(self, username, password):
         self.username = username
         self.password = password
 
     def __call__(self, r):
         auth_hash = f"{self.username}:{self.password}"
-        auth_bytes = auth_hash.encode('ascii')
+        auth_bytes = auth_hash.encode("ascii")
         auth_encoded = base64.b64encode(auth_bytes)
         request_headers = {
             "Authorization": f"Basic {auth_encoded.decode('ascii')}",
@@ -33,7 +32,9 @@ class BasicAuth(AuthBase):
 
 @pytest.mark.slow
 @pytest.mark.asyncio
-async def test_couchbase_driver(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+async def test_couchbase_driver(
+    docker_compose_runner, pytestconfig, tmp_path, mock_time
+):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/couchbase"
 
     with docker_compose_runner(
@@ -41,19 +42,24 @@ async def test_couchbase_driver(docker_compose_runner, pytestconfig, tmp_path, m
     ) as docker_services:
         wait_for_port(docker_services, "testdb", 8091)
 
-        retries = Retry(total=5,
-                        backoff_factor=1,
-                        status_forcelist=[404])
+        retries = Retry(total=5, backoff_factor=1, status_forcelist=[404])
         adapter = HTTPAdapter(max_retries=retries)
         session = requests.Session()
-        session.mount('http://', adapter)
-        session.mount('https://', adapter)
-        response = session.get(f"http://127.0.0.1:8091/pools/default/buckets/data", verify=False, timeout=15, auth=BasicAuth("Administrator", "password"))
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        response = session.get(
+            "http://127.0.0.1:8091/pools/default/buckets/data",
+            verify=False,
+            timeout=15,
+            auth=BasicAuth("Administrator", "password"),
+        )
 
         assert response.status_code == 200
 
         # Run the driver test.
-        couchbase_connect = CouchbaseConnect("couchbases://127.0.0.1", "Administrator", "password", 5, 60)
+        couchbase_connect = CouchbaseConnect(
+            "couchbases://127.0.0.1", "Administrator", "password", 5, 60
+        )
         couchbase_connect.cluster_init()
 
         bucket_list = couchbase_connect.bucket_list()
