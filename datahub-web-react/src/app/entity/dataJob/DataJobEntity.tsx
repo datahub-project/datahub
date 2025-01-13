@@ -205,6 +205,7 @@ export class DataJobEntity implements Entity<DataJob> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 health={data.health}
+                parentContainers={data.parentContainers}
             />
         );
     };
