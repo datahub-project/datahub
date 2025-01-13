@@ -113,6 +113,7 @@ export const AssertionName = ({ record, groupBy, contract }: Props) => {
                         <AssertionPlatformAvatar
                             platform={platform}
                             externalUrl={lastEvaluationUrl || assertion?.info?.externalUrl || undefined}
+                            noRightMargin
                         />
                     </AssertionPlatformWrapper>
                 )}

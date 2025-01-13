@@ -155,8 +155,7 @@ export const Table = <T,>({
                                                 alignment={
                                                     columns.length - 1 === i && canExpand ? 'right' : column.alignment
                                                 }
-                                                shouldUseMinimumPadding={canExpand}
-                                                isExpanded={!isExpanded}
+                                                isGroupHeader={canExpand}
                                             >
                                                 {/* Add expandable icon if applicable or render row */}
                                                 {columns.length - 1 === i && canExpand ? (
@@ -186,7 +185,6 @@ export const Table = <T,>({
                                         <TableCell
                                             colSpan={columns.length + (expandable?.expandIconPosition ? 1 : 0)}
                                             style={{ padding: 0 }}
-                                            isExpanded={isExpanded}
                                         >
                                             <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
                                                 {expandable.expandedRowRender(row, index)} {/* Expanded content */}
