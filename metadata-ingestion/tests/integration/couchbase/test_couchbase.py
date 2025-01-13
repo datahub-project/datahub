@@ -102,13 +102,13 @@ def test_couchbase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
 
         if 'PYTEST_SAVE_OUTPUT_FILE' in os.environ:
             shutil.copyfile(f"{tmp_path}/couchbase_mces.json", os.path.join(Path.home(), "couchbase_mces.json"))
-
-        # Verify the output.
-        mce_helpers.check_golden_file(
-            pytestconfig,
-            output_path=tmp_path / "couchbase_mces.json",
-            golden_path=test_resources_dir / "couchbase_mces_golden.json",
-            ignore_paths=[
-                r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]",
-            ],
-        )
+        else:
+            # Verify the output.
+            mce_helpers.check_golden_file(
+                pytestconfig,
+                output_path=tmp_path / "couchbase_mces.json",
+                golden_path=test_resources_dir / "couchbase_mces_golden.json",
+                ignore_paths=[
+                    r"root\[\d+\]\['aspect'\]\['json'\]\['fieldProfiles'\]\[\d+\]\['sampleValues'\]",
+                ],
+            )

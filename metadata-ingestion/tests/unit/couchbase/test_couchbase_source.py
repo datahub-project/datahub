@@ -32,7 +32,8 @@ class BasicAuth(AuthBase):
 
 
 @pytest.mark.slow
-def test_couchbase_driver(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+@pytest.mark.asyncio
+async def test_couchbase_driver(docker_compose_runner, pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/couchbase"
 
     with docker_compose_runner(
@@ -69,6 +70,8 @@ def test_couchbase_driver(docker_compose_runner, pytestconfig, tmp_path, mock_ti
                 elif scope == "_default":
                     assert "_default" in collection_list
 
+        documents = []
         aggregator = CouchbaseAggregate(couchbase_connect, "data.data.customers")
-        documents = aggregator.aggregate()
+        async for chunk in aggregator.get_documents():
+            documents.extend(chunk)
         assert len(documents) == 1000

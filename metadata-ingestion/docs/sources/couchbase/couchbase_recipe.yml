@@ -6,9 +6,11 @@ source:
     password: "password"
     cluster_name: "testdb"
     classification:
-      enabled: True
+      enabled: true
       classifiers:
         - type: datahub
+    profiling:
+      enabled: true
 
 sink:
   # sink configs

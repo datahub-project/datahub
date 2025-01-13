@@ -90,7 +90,7 @@ class KeyspaceKey(ContainerKey):
 
 @platform_name("Couchbase")
 @config_class(CouchbaseDBConfig)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.PLATFORM_INSTANCE, "The platform_instance is derived from the configured cluster name")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.CONTAINERS, "Enabled by default")

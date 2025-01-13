@@ -333,5 +333,13 @@
         "description": "Import Nodes and Relationships from Neo4j.",
         "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/neo4j/",
         "recipe": "source:\n    type: 'neo4j'\n    config:\n        uri: 'neo4j+ssc://host:7687'\n        username: 'neo4j'\n        password: 'password'\n        env: 'PROD'\n\nsink:\n  type: \"datahub-rest\"\n  config:\n    server: 'http://localhost:8080'"
+    },
+    {
+        "urn": "urn:li:dataPlatform:couchbase",
+        "name": "couchbase",
+        "displayName": "Couchbase",
+        "description": "Import data from Couchbase Server and Capella.",
+        "docsUrl": "https://datahubproject.io/docs/generated/ingestion/sources/couchbase",
+        "recipe": "source:\n  type: couchbase\n  config:\n    connect_string: 'couchbases://127.0.0.1'\n    username: 'Administrator'\n    password: 'password'\n    cluster_name: 'testdb'\n    classification:\n      enabled: true\n      classifiers:\n        - type: datahub\n    profiling:\n      enabled: true"
     }
 ]
