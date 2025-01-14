@@ -15,6 +15,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.entity.EntityService;
@@ -22,6 +23,7 @@ import com.linkedin.metadata.entity.EntityServiceAspectRetriever;
 import com.linkedin.metadata.entity.RollbackResult;
 import com.linkedin.metadata.entity.RollbackRunResult;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.entity.TestEntityRegistry;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -36,7 +38,6 @@ import com.linkedin.versionset.VersioningScheme;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
-import io.datahubproject.test.util.TestEntityRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -82,15 +83,14 @@ public class EntityVersioningServiceTest {
             () ->
                 RetrieverContext.builder()
                     .aspectRetriever(mockAspectRetriever)
-                    .graphRetriever(TestOperationContexts.emptyGraphRetriever)
+                    .graphRetriever(GraphRetriever.EMPTY)
                     .searchRetriever(mockSearchRetriever)
                     .build(),
             null,
             opContext ->
-                ((EntityServiceAspectRetriever) opContext.getAspectRetrieverOpt().get())
+                ((EntityServiceAspectRetriever) opContext.getAspectRetriever())
                     .setSystemOperationContext(opContext),
             null);
-    ;
     versioningService = new EntityVersioningServiceImpl(mockEntityService);
   }
 
