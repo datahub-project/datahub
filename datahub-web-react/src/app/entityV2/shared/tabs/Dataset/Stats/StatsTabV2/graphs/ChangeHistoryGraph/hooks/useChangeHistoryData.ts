@@ -1,8 +1,9 @@
+import { CALENDAR_DATE_FORMAT } from '@src/alchemy-components';
 import { useGetOperationsStatsBucketsLazyQuery } from '@src/graphql/dataset.generated';
 import { TimeRange } from '@src/types.generated';
 import dayjs from 'dayjs';
 import { useEffect, useMemo } from 'react';
-import { CALENDAR_DATE_FORMAT } from '@src/alchemy-components';
+import { useStatsSectionsContext } from '../../../StatsSectionsContext';
 import { addMonthOverMonthValue } from '../../utils';
 
 export type ValueType = {
@@ -26,9 +27,14 @@ type Response = {
 export default function useChangeHistoryData(urn: string | undefined, range: TimeRange | undefined): Response {
     const [getOperationsStatsBuckets, { data, loading }] = useGetOperationsStatsBucketsLazyQuery();
 
+    const {
+        permissions: { canViewDatasetOperations },
+    } = useStatsSectionsContext();
+
     useEffect(() => {
-        if (urn && range) getOperationsStatsBuckets({ variables: { urn, input: { range } } });
-    }, [urn, range, getOperationsStatsBuckets]);
+        if (urn && range && canViewDatasetOperations)
+            getOperationsStatsBuckets({ variables: { urn, input: { range } } });
+    }, [urn, range, getOperationsStatsBuckets, canViewDatasetOperations]);
 
     const preparedData = useMemo(() => {
         if (loading) return [];
@@ -62,6 +68,13 @@ export default function useChangeHistoryData(urn: string | undefined, range: Tim
             value: { ...datum.value, mom: datum.mom },
         }));
     }, [data, loading]);
+
+    if (!canViewDatasetOperations) {
+        return {
+            data: [],
+            loading: false,
+        };
+    }
 
     return { data: preparedData as DatumType[], loading };
 }

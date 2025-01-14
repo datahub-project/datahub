@@ -10,6 +10,7 @@ import MonthOverMonthPill from '../components/MonthOverMonthPill';
 import TimeRangeSelect from '../components/TimeRangeSelect';
 import { AGGRAGATION_TIME_RANGE_OPTIONS } from '../constants';
 import useGetTimeRangeOptionsByTimeRange from '../hooks/useGetTimeRangeOptionsByTimeRange';
+import NoPermission from '../NoPermission';
 import { getPopoverTimeFormat, getXAxisTickFormat } from '../utils';
 import useQueryCountData from './useQueryCountData';
 
@@ -19,10 +20,11 @@ const QueryCountChart = () => {
         setSectionState,
         dataInfo: { capabilitiesLoading, oldestDatasetUsageTime },
         statsEntityUrn,
+        permissions: { canViewDatasetUsage },
     } = useStatsSectionsContext();
 
     const { usageStats } = useGetStatsData();
-    const queryCountBuckets = usageStats?.buckets || undefined;
+    const queryCountBuckets = canViewDatasetUsage ? usageStats?.buckets || undefined : [];
 
     const timeRangeOptions = useGetTimeRangeOptionsByTimeRange(AGGRAGATION_TIME_RANGE_OPTIONS, oldestDatasetUsageTime);
     const [timeRange, setTimeRange] = useState<TimeRange>(TimeRange.Month);
@@ -83,7 +85,8 @@ const QueryCountChart = () => {
                 </>
             )}
             loading={loading}
-            isEmpty={chartData.length === 0}
+            isEmpty={chartData.length === 0 || !canViewDatasetUsage}
+            emptyContent={!canViewDatasetUsage && <NoPermission statName="daily query count" />}
         />
     );
 };

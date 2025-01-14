@@ -1,6 +1,7 @@
 import { useGetTimeRangeUsageAggregationsLazyQuery } from '@src/graphql/dataset.generated';
 import { Maybe, TimeRange, UsageAggregation, UsageQueryResult } from '@src/types.generated';
 import { useEffect, useState } from 'react';
+import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import { addMonthOverMonthValue, groupTimeData, TimeInterval } from '../utils';
 
 const MAX_NUM_DAYS_PER_MONTH = 31;
@@ -49,6 +50,10 @@ export default function useQueryCountData(
     const [chartData, setChartData] = useState<ChartData[]>([]);
     const [groupInterval, setGroupInterval] = useState<TimeInterval>(TimeInterval.DAY);
 
+    const {
+        permissions: { canViewDatasetUsage },
+    } = useStatsSectionsContext();
+
     const [getTimeRangeUsageAggregations, { data: aggregationData, loading }] =
         useGetTimeRangeUsageAggregationsLazyQuery();
 
@@ -60,21 +65,21 @@ export default function useQueryCountData(
     };
 
     useEffect(() => {
-        if (initialData) handleSetGroupInterval(initialData);
+        if (initialData?.length) handleSetGroupInterval(initialData);
         else if (aggregationData)
             handleSetGroupInterval((aggregationData.dataset?.usageStats as UsageQueryResult)?.buckets);
     }, [initialData, aggregationData]);
 
     useEffect(() => {
-        if (timeRange && !initialData && urn !== undefined) {
+        if (timeRange && !initialData && urn !== undefined && canViewDatasetUsage) {
             getTimeRangeUsageAggregations({
                 variables: { urn, timeRange },
             });
         }
-    }, [timeRange, initialData, getTimeRangeUsageAggregations, urn]);
+    }, [timeRange, initialData, getTimeRangeUsageAggregations, urn, canViewDatasetUsage]);
 
     useEffect(() => {
-        if (initialData) {
+        if (initialData?.length) {
             const normalizedData: UsageAggregation[] = normalizeData(initialData);
             const processedData = getChartData(normalizedData, groupInterval);
             setChartData(processedData);
@@ -89,6 +94,14 @@ export default function useQueryCountData(
             setChartData(processedData);
         }
     }, [aggregationData, groupInterval, initialData?.length]);
+
+    if (!canViewDatasetUsage) {
+        return {
+            chartData: [],
+            loading: false,
+            groupInterval: TimeInterval.DAY,
+        };
+    }
 
     return {
         chartData,

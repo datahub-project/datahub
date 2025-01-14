@@ -7,6 +7,8 @@ import { Maybe, UserUsageCounts } from '@src/types.generated';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
+import { useStatsSectionsContext } from '../StatsSectionsContext';
+import NoPermission from '../graphs/NoPermission';
 import { getMockTopUsersData, getUserOrGroupAvatarUrl } from '../utils';
 
 const CardWrapper = styled.div`
@@ -20,6 +22,10 @@ interface Props {
 
 const TopUsers = ({ users }: Props) => {
     const entityRegistry = useEntityRegistryV2();
+
+    const {
+        permissions: { canViewDatasetUsage },
+    } = useStatsSectionsContext();
     const isUsersDataPresent = users && users?.length > 0;
 
     const getUserOrGroupName = (user) => {
@@ -66,7 +72,12 @@ const TopUsers = ({ users }: Props) => {
 
     return (
         <CardWrapper>
-            <GraphCard title="Top Users" renderGraph={renderTopUsersTable} isEmpty={!isUsersDataPresent} />
+            <GraphCard
+                title="Top Users"
+                renderGraph={renderTopUsersTable}
+                isEmpty={!isUsersDataPresent || !canViewDatasetUsage}
+                emptyContent={!canViewDatasetUsage && <NoPermission statName="top users" />}
+            />
         </CardWrapper>
     );
 };

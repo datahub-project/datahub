@@ -6,14 +6,15 @@ import { SectionKeys } from '../../utils';
 import AddAssertionButton from '../components/AddAssertionButton';
 import TimeRangeSelect from '../components/TimeRangeSelect';
 import { AGGRAGATION_TIME_RANGE_OPTIONS } from '../constants';
+import useGetTimeRangeOptionsByTimeRange from '../hooks/useGetTimeRangeOptionsByTimeRange';
+import NoPermission from '../NoPermission';
 import { ChangeHistoryDrawer } from './components/ChangeHistoryDrawer/ChangeHistoryDrawer';
 import ChangeHistoryPopover from './components/ChangeHistoryPopover';
-import useChangeHistoryData from './hooks/useChangeHistoryData';
-import useColorAccessors from './hooks/useColorAccessors';
-import useGetTimeRangeOptionsByTimeRange from '../hooks/useGetTimeRangeOptionsByTimeRange';
+import Subtitle from './components/Subtitle';
 import TypesSelect from './components/TypesSelect';
 import { DEFAULT_OPERATION_TYPES, OPERATION_TYPE_OPTIONS } from './constants';
-import Subtitle from './components/Subtitle';
+import useChangeHistoryData from './hooks/useChangeHistoryData';
+import useColorAccessors from './hooks/useColorAccessors';
 import useDataRange from './hooks/useDataRange';
 import useGetCalendarRangeByTimeRange from './hooks/useGetCalendarRangeByTimeRange';
 
@@ -29,6 +30,7 @@ export default function ChangeHistoryGraph() {
         setSectionState,
         dataInfo: { capabilitiesLoading, oldestOperationTime },
         statsEntityUrn,
+        permissions: { canViewDatasetOperations },
     } = useStatsSectionsContext();
 
     // The time range select
@@ -75,7 +77,8 @@ export default function ChangeHistoryGraph() {
                 subTitle={
                     <Subtitle data={data} onTypeClick={(operationType) => setSelectedOperationTypes([operationType])} />
                 }
-                isEmpty={data.length === 0}
+                isEmpty={data.length === 0 || !canViewDatasetOperations}
+                emptyContent={!canViewDatasetOperations && <NoPermission statName="change history" />}
                 renderControls={() => (
                     <>
                         <AddAssertionButton assertionType={AssertionType.Freshness} />

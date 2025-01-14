@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 import RowCountGraph from '../graphs/RowCountGraph/RowCountGraph';
 import { useStatsSectionsContext } from '../StatsSectionsContext';
@@ -22,9 +22,14 @@ const Container = styled.div`
 
 const RowsAndUsers = () => {
     const { hasHistoricalStats } = useGetStatsSections();
-    const { users } = useGetStatsData();
+    const {
+        sections,
+        setSectionState,
+        permissions: { canViewDatasetUsage },
+    } = useStatsSectionsContext();
 
-    const { sections, setSectionState } = useStatsSectionsContext();
+    const { users: usersData } = useGetStatsData();
+    const users = useMemo(() => (!canViewDatasetUsage ? [] : usersData), [usersData, canViewDatasetUsage]);
 
     useEffect(() => {
         if (!sections.rowsAndUsers.hasData && users && users.length > 0)
