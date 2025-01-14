@@ -64,7 +64,7 @@ class Entity(HasUrn):
             raise SdkUsageError(f"{Entity.__name__} cannot be instantiated directly.")
 
         assert isinstance(urn, self.get_urn_type())
-        self._urn: Urn = urn
+        self._urn: _SpecificUrn = urn
 
         # prev_aspects is None means this was created from scratch
         self._prev_aspects: Optional[models.AspectBag] = None
@@ -91,7 +91,7 @@ class Entity(HasUrn):
         pass
 
     @property
-    def urn(self) -> Urn:
+    def urn(self) -> _SpecificUrn:
         return self._urn
 
     def _get_aspect(
