@@ -276,6 +276,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         "HLLSKETCH": NullType,
         "TIMETZ": TimeType,
         "VARBYTE": StringType,
+        "SUPER": NullType
     }
 
     def get_platform_instance_id(self) -> str:
