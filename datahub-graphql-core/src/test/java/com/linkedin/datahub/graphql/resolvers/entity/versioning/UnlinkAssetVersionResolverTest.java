@@ -7,8 +7,8 @@ import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.UnlinkVersionInput;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
+import com.linkedin.datahub.graphql.generated.UnlinkVersionInput;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.Collections;
@@ -19,7 +19,8 @@ import org.testng.annotations.Test;
 public class UnlinkAssetVersionResolverTest {
 
   private static final String TEST_VERSION_SET_URN = "urn:li:versionSet:test-version-set";
-  private static final String TEST_ENTITY_URN = "urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,PROD)";
+  private static final String TEST_ENTITY_URN =
+      "urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,PROD)";
 
   @Test
   public void testGetSuccessful() throws Exception {
@@ -28,10 +29,11 @@ public class UnlinkAssetVersionResolverTest {
 
     Mockito.when(mockFlags.isEntityVersioning()).thenReturn(true);
 
-    Mockito.when(mockService.unlinkVersion(
-            any(),
-            eq(UrnUtils.getUrn(TEST_VERSION_SET_URN)),
-            eq(UrnUtils.getUrn(TEST_ENTITY_URN))))
+    Mockito.when(
+            mockService.unlinkVersion(
+                any(),
+                eq(UrnUtils.getUrn(TEST_VERSION_SET_URN)),
+                eq(UrnUtils.getUrn(TEST_ENTITY_URN))))
         .thenReturn(Collections.emptyList());
 
     UnlinkAssetVersionResolver resolver = new UnlinkAssetVersionResolver(mockService, mockFlags);
@@ -50,9 +52,7 @@ public class UnlinkAssetVersionResolverTest {
 
     Mockito.verify(mockService)
         .unlinkVersion(
-            any(),
-            eq(UrnUtils.getUrn(TEST_VERSION_SET_URN)),
-            eq(UrnUtils.getUrn(TEST_ENTITY_URN)));
+            any(), eq(UrnUtils.getUrn(TEST_VERSION_SET_URN)), eq(UrnUtils.getUrn(TEST_ENTITY_URN)));
   }
 
   @Test

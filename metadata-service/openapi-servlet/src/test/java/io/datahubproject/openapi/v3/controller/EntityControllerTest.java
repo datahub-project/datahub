@@ -450,7 +450,7 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     // Mock entity aspect response
     when(mockEntityService.getEnvelopedVersionedAspects(
-        any(OperationContext.class), anyMap(), eq(false)))
+            any(OperationContext.class), anyMap(), eq(false)))
         .thenReturn(
             Map.of(
                 TEST_URNS.get(0),
@@ -464,10 +464,10 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
                         .setName("status")
                         .setValue(new Aspect(new Status().data())))));
 
-    String requestBody = String.format(
-        "[{\"urn\": \"%s\"}, {\"urn\": \"%s\"}]",
-        TEST_URNS.get(0).toString(),
-        TEST_URNS.get(1).toString());
+    String requestBody =
+        String.format(
+            "[{\"urn\": \"%s\"}, {\"urn\": \"%s\"}]",
+            TEST_URNS.get(0).toString(), TEST_URNS.get(1).toString());
 
     mockMvc
         .perform(
@@ -509,18 +509,18 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
                         new SearchEntity().setEntity(TEST_URNS.get(1)))));
 
     when(mockSearchService.scrollAcrossEntities(
-        any(OperationContext.class),
-        eq(List.of("dataset")),
-        anyString(),
-        nullable(Filter.class),
-        any(),
-        nullable(String.class),
-        nullable(String.class),
-        anyInt()))
+            any(OperationContext.class),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
         .thenReturn(expectedResult);
 
     when(mockEntityService.getEnvelopedVersionedAspects(
-        any(OperationContext.class), anyMap(), eq(false)))
+            any(OperationContext.class), anyMap(), eq(false)))
         .thenReturn(
             Map.of(
                 TEST_URNS.get(0),
@@ -537,7 +537,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is2xxSuccessful())
-        .andExpect(MockMvcResultMatchers.jsonPath("$.entities[0].urn").value(TEST_URNS.get(0).toString()));
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.entities[0].urn").value(TEST_URNS.get(0).toString()));
   }
 
   @Test
@@ -552,18 +553,18 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             .setScrollId("test-scroll-id");
 
     when(mockSearchService.scrollAcrossEntities(
-        any(OperationContext.class),
-        eq(List.of("dataset")),
-        anyString(),
-        nullable(Filter.class),
-        any(),
-        nullable(String.class),
-        eq("10m"),
-        anyInt()))
+            any(OperationContext.class),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            eq("10m"),
+            anyInt()))
         .thenReturn(expectedResult);
 
     when(mockEntityService.getEnvelopedVersionedAspects(
-        any(OperationContext.class), anyMap(), eq(false)))
+            any(OperationContext.class), anyMap(), eq(false)))
         .thenReturn(
             Map.of(
                 TEST_URNS.get(0),
@@ -596,7 +597,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     mockMvc
         .perform(
             MockMvcRequestBuilders.post(
-                    String.format("/v3/entity/versioning/%s/relationship/versionOf/%s",
+                    String.format(
+                        "/v3/entity/versioning/%s/relationship/versionOf/%s",
                         VERSION_SET_URN, TEST_URN))
                 .content("{}")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -607,7 +609,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     mockMvc
         .perform(
             MockMvcRequestBuilders.delete(
-                    String.format("/v3/entity/versioning/%s/relationship/versionOf/%s",
+                    String.format(
+                        "/v3/entity/versioning/%s/relationship/versionOf/%s",
                         VERSION_SET_URN, TEST_URN))
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is4xxClientError());
@@ -626,7 +629,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     mockMvc
         .perform(
             MockMvcRequestBuilders.post(
-                    String.format("/v3/entity/versioning/%s/relationship/versionOf/%s",
+                    String.format(
+                        "/v3/entity/versioning/%s/relationship/versionOf/%s",
                         INVALID_VERSION_SET_URN, TEST_URN))
                 .content("{}")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -637,7 +641,8 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     mockMvc
         .perform(
             MockMvcRequestBuilders.delete(
-                    String.format("/v3/entity/versioning/%s/relationship/versionOf/%s",
+                    String.format(
+                        "/v3/entity/versioning/%s/relationship/versionOf/%s",
                         INVALID_VERSION_SET_URN, TEST_URN))
                 .accept(MediaType.APPLICATION_JSON))
         .andExpect(status().is4xxClientError());

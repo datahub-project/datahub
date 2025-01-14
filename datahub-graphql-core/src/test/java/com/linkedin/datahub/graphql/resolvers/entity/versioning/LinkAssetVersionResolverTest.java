@@ -9,8 +9,8 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
-import com.linkedin.datahub.graphql.generated.LinkVersionInput;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
+import com.linkedin.datahub.graphql.generated.LinkVersionInput;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.versioning.EntityVersioningService;
 import com.linkedin.metadata.entity.versioning.VersionPropertiesInput;
@@ -21,7 +21,8 @@ import org.testng.annotations.Test;
 public class LinkAssetVersionResolverTest {
 
   private static final String TEST_VERSION_SET_URN = "urn:li:versionSet:test-version-set";
-  private static final String TEST_ENTITY_URN = "urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,PROD)";
+  private static final String TEST_ENTITY_URN =
+      "urn:li:dataset:(urn:li:dataPlatform:mysql,my-test,PROD)";
 
   @Test
   public void testGetSuccessful() throws Exception {
@@ -30,7 +31,8 @@ public class LinkAssetVersionResolverTest {
 
     Mockito.when(mockFlags.isEntityVersioning()).thenReturn(true);
 
-    IngestResult mockResult = IngestResult.builder().urn(Urn.createFromString(TEST_ENTITY_URN)).build();
+    IngestResult mockResult =
+        IngestResult.builder().urn(Urn.createFromString(TEST_ENTITY_URN)).build();
 
     Mockito.when(
             mockService.linkLatestVersion(
