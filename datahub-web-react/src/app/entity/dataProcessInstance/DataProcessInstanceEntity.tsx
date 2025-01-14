@@ -23,7 +23,7 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
-import SummaryTab from './profile/DataProcessInstaceSummary';
+import SummaryTab from './profile/DataProcessInstanceSummary';
 
 const getParentEntities = (data: DataProcessInstance): GeneratedEntity[] => {
 
