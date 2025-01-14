@@ -2,11 +2,11 @@ from typing import TYPE_CHECKING
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.errors import SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.urns import DatasetUrn, Urn
 from datahub.sdk._shared import Entity, UrnOrStr
-from datahub.specific.dataset import DatasetPatchBuilder
 
 if TYPE_CHECKING:
     from datahub.sdk.dataset import Dataset
@@ -36,20 +36,20 @@ class SDKGraph:
         # TODO: save the timestamp so we can use If-Unmodified-Since on the updates
         return Dataset._new_from_graph(urn, aspects)
 
-    def create(self, dataset: "Dataset") -> None:
+    def create(self, entity: Entity) -> None:
         mcps = []
 
         # By putting this first, we can ensure that the request fails if the entity already exists?
         # TODO: actually validate that this works.
         mcps.append(
             MetadataChangeProposalWrapper(
-                entityUrn=str(dataset.urn),
-                aspect=dataset.urn.to_key_aspect(),
+                entityUrn=str(entity.urn),
+                aspect=entity.urn.to_key_aspect(),
                 changeType=models.ChangeTypeClass.CREATE_ENTITY,
             )
         )
 
-        mcps.extend(dataset._as_mcps(models.ChangeTypeClass.CREATE))
+        mcps.extend(entity._as_mcps(models.ChangeTypeClass.CREATE))
 
         self._graph.emit_mcps(mcps)
 
@@ -62,13 +62,13 @@ class SDKGraph:
         self._graph.emit_mcps(mcps)
 
     def update(
-        self, dataset: DatasetPatchBuilder, *, check_exists: bool = True
+        self, entity: MetadataPatchProposal, *, check_exists: bool = True
     ) -> None:
-        if check_exists and not self._graph.exists(dataset.urn):
+        if check_exists and not self._graph.exists(entity.urn):
             raise SdkUsageError(
-                f"Dataset {dataset.urn} does not exist, and hence cannot be updated. "
+                f"Entity {entity.urn} does not exist, and hence cannot be updated. "
                 "You can bypass this check by setting check_exists=False."
             )
 
-        mcps = dataset.build()
+        mcps = entity.build()
         self._graph.emit_mcps(mcps)

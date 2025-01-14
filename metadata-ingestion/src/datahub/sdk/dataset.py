@@ -140,8 +140,8 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
         name: str,
         platform_instance: Optional[str] = None,
         env: str = DEFAULT_ENV,
+        # Settings.
         edit_mode: Optional[DatasetEditMode] = None,
-        # TODO have an urn-based variant? probably not, since we need to know the raw platform instance
         # Dataset properties.
         description: Optional[str] = None,
         display_name: Optional[str] = None,
