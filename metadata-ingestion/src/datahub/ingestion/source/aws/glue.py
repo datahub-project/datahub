@@ -117,6 +117,7 @@ from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_col
 logger = logging.getLogger(__name__)
 
 DEFAULT_PLATFORM = "glue"
+DEFAULT_CATALOG_NAME = "awsdatacatalog"
 VALID_PLATFORMS = [DEFAULT_PLATFORM, "athena"]
 
 
@@ -154,6 +155,9 @@ class GlueSourceConfig(
     catalog_id: Optional[str] = Field(
         default=None,
         description="The aws account id where the target glue catalog lives. If None, datahub will ingest glue in aws caller's account.",
+    )
+    catalog_name: str = Field(
+        default="awsdatacatalog", description="The aws athena catalog name"
     )
     ignore_resource_links: Optional[bool] = Field(
         default=False,
@@ -198,6 +202,14 @@ class GlueSourceConfig(
     def s3_client(self):
         return self.get_s3_client()
 
+    @property
+    def athena_client(self):
+        return self.get_athena_client()
+
+    @property
+    def sts_client(self):
+        return self.get_sts_client()
+
     @validator("glue_s3_lineage_direction")
     def check_direction(cls, v: str) -> str:
         if v.lower() not in ["upstream", "downstream"]:
@@ -213,6 +225,28 @@ class GlueSourceConfig(
         else:
             raise ValueError(
                 f"'platform' can only take following values: {VALID_PLATFORMS}"
+            )
+
+    def __post_init__(self) -> None:
+        current_account_id = self.sts_client.get_caller_identity().get("Account")
+        if self.catalog_id:
+            if self.catalog_id == current_account_id:
+                self.catalog_name = DEFAULT_CATALOG_NAME
+            else:
+                self._validate_catalog_name()
+        else:
+            self.catalog_name = DEFAULT_CATALOG_NAME
+
+    def _validate_catalog_name(self) -> None:
+        effective_catalog_id = (
+            self.athena_client.get_data_catalog(Name=self.catalog_name)["DataCatalog"]
+            .get("Parameters", {})
+            .get("catalog-id", "")
+        )
+        if effective_catalog_id != self.catalog_id:
+            raise ValueError(
+                f"Catalog configuration mismatch for catalog name {self.catalog_name}."
+                f"Effective catalog_id: {effective_catalog_id}, configured catalog_id: {self.catalog_id}."
             )
 
 
@@ -459,7 +493,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
             # if data object is Glue table
             if "database" in node_args and "table_name" in node_args:
-                full_table_name = f"{node_args['database']}.{node_args['table_name']}"
+                full_table_name = f"{self.source_config.catalog_name}.{node_args['database']}.{node_args['table_name']}"
 
                 # we know that the table will already be covered when ingesting Glue tables
                 node_urn = make_dataset_urn_with_platform_instance(
@@ -1082,7 +1116,9 @@ class GlueSource(StatefulIngestionSourceBase):
     def _gen_table_wu(self, table: Dict) -> Iterable[MetadataWorkUnit]:
         database_name = table["DatabaseName"]
         table_name = table["Name"]
-        full_table_name = f"{database_name}.{table_name}"
+        full_table_name = (
+            f"{self.source_config.catalog_name}.{database_name}.{table_name}"
+        )
         self.report.report_table_scanned()
         if not self.source_config.database_pattern.allowed(
             database_name
