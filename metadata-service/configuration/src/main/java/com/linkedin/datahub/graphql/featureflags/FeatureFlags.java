@@ -26,4 +26,5 @@ public class FeatureFlags {
   private boolean alternateMCPValidation = false;
   private boolean showManageStructuredProperties = false;
   private boolean dataProcessInstanceEntityEnabled = true;
+  private boolean entityVersioning = false;
 }
