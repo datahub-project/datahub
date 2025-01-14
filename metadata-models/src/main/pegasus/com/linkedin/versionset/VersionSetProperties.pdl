@@ -4,21 +4,21 @@ import com.linkedin.common.CustomProperties
 import com.linkedin.common.Urn
 
 @Aspect = {
-	"name": "versionSetProperties"
+  "name": "versionSetProperties"
 }
 record VersionSetProperties includes CustomProperties {
   /**
    * The latest versioned entity linked to in this version set
    */
-	@Searchable = {
-		"queryByDefault": "false"
-	}
-	latest: Urn
+  @Searchable = {
+    "queryByDefault": "false"
+  }
+  latest: Urn
 
   /**
    * What versioning scheme is being utilized for the versioned entities sort criterion. Static once set
    */
-	versioningScheme: enum VersioningScheme {
-		ALPHANUMERIC_GENERATED_BY_DATAHUB
-	}
+  versioningScheme: enum VersioningScheme {
+    ALPHANUMERIC_GENERATED_BY_DATAHUB
+  }
 }
