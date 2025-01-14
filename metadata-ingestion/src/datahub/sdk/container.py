@@ -59,6 +59,7 @@ class Container(HasSubtype, HasContainer, HasOwnership, Entity):
         super().__init__(urn)
 
         if isinstance(container_key, ContainerKey):
+            # TODO: Normal usages should require container key. Only the graph init method can accept an urn.
             self._set_aspect(
                 models.DataPlatformInstanceClass(
                     platform=DataPlatformUrn(container_key.platform).urn(),
