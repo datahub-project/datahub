@@ -5,6 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from typing import (
+    TYPE_CHECKING,
     Any,
     DefaultDict,
     Dict,
@@ -114,6 +115,12 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 
+if TYPE_CHECKING:
+    from mypy_boto3_glue.type_defs import (
+        DatabasePaginatorTypeDef,
+        TablePaginatorTypeDef,
+    )
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_PLATFORM = "glue"
@@ -156,8 +163,8 @@ class GlueSourceConfig(
         default=None,
         description="The aws account id where the target glue catalog lives. If None, datahub will ingest glue in aws caller's account.",
     )
-    catalog_name: str = Field(
-        default="awsdatacatalog", description="The aws athena catalog name"
+    catalog_name: Optional[str] = Field(
+        default=None, description="The aws athena catalog name"
     )
     ignore_resource_links: Optional[bool] = Field(
         default=False,
@@ -715,7 +722,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
         return MetadataWorkUnit(id=f'{job_name}-{node["Id"]}', mce=mce)
 
-    def get_all_databases(self) -> Iterable[Mapping[str, Any]]:
+    def get_all_databases(self) -> Iterable[DatabasePaginatorTypeDef]:
         logger.debug("Getting all databases")
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetDatabases.html
         paginator = self.glue_client.get_paginator("get_databases")
@@ -743,7 +750,9 @@ class GlueSource(StatefulIngestionSourceBase):
                 self.report.databases.processed(database["Name"])
                 yield database
 
-    def get_tables_from_database(self, database: Mapping[str, Any]) -> Iterable[Dict]:
+    def get_tables_from_database(
+        self, database: DatabasePaginatorTypeDef
+    ) -> Iterable[TablePaginatorTypeDef]:
         logger.debug(f"Getting tables from database {database['Name']}")
         # see https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/glue/paginator/GetTables.html
         paginator = self.glue_client.get_paginator("get_tables")
@@ -770,7 +779,7 @@ class GlueSource(StatefulIngestionSourceBase):
 
     def get_all_databases_and_tables(
         self,
-    ) -> Tuple[List[Mapping[str, Any]], List[Dict]]:
+    ) -> Tuple[List[DatabasePaginatorTypeDef], List[TablePaginatorTypeDef]]:
         all_databases = [*self.get_all_databases()]
         all_tables = [
             tables
@@ -1038,7 +1047,7 @@ class GlueSource(StatefulIngestionSourceBase):
         )
 
     def gen_database_containers(
-        self, database: Mapping[str, Any]
+        self, database: DatabasePaginatorTypeDef
     ) -> Iterable[MetadataWorkUnit]:
         domain_urn = self._gen_domain_urn(database["Name"])
         database_container_key = self.gen_database_key(database["Name"])
@@ -1113,7 +1122,7 @@ class GlueSource(StatefulIngestionSourceBase):
         if self.extract_transforms:
             yield from self._transform_extraction()
 
-    def _gen_table_wu(self, table: Dict) -> Iterable[MetadataWorkUnit]:
+    def _gen_table_wu(self, table: TablePaginatorTypeDef) -> Iterable[MetadataWorkUnit]:
         database_name = table["DatabaseName"]
         table_name = table["Name"]
         full_table_name = (
