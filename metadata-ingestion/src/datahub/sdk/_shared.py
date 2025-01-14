@@ -72,6 +72,8 @@ class Entity(HasUrn):
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
+        # TODO: It's technically possible to bypass the init method using cls.__new__,
+        # but it's a bit hacky and not recommended.
         entity = cls(urn=urn)
         return entity._init_from_graph(current_aspects)
 
