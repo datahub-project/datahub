@@ -9,7 +9,6 @@ from datahub.sdk._shared import Entity, UrnOrStr
 from datahub.specific.dataset import DatasetPatchBuilder
 
 if TYPE_CHECKING:
-    from datahub.sdk._all_entities import ENTITY_CLASSES
     from datahub.sdk.dataset import Dataset
 
 
@@ -22,6 +21,7 @@ class SDKGraph:
     # TODO: Make all of these methods sync by default.
 
     def get_dataset(self, urn: UrnOrStr) -> "Dataset":
+        from datahub.sdk._all_entities import ENTITY_CLASSES
         from datahub.sdk.dataset import Dataset
 
         if not isinstance(urn, Urn):
