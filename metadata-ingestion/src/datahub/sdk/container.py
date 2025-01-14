@@ -10,7 +10,7 @@ from datahub.emitter.mcp_builder import (
     ContainerKey,
 )
 from datahub.errors import SdkUsageError
-from datahub.metadata.urns import ContainerUrn, DataPlatformUrn, Urn
+from datahub.metadata.urns import ContainerUrn, DataPlatformUrn
 from datahub.sdk._shared import (
     Entity,
     HasContainer,
@@ -26,7 +26,7 @@ class Container(HasSubtype, HasContainer, HasOwnership, Entity):
     __slots__ = ()
 
     @classmethod
-    def get_urn_type(cls) -> Type[Urn]:
+    def get_urn_type(cls) -> Type[ContainerUrn]:
         return ContainerUrn
 
     def __init__(
