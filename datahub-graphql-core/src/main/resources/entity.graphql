@@ -956,6 +956,16 @@ type Mutation {
     Remove Business Attribute
     """
     removeBusinessAttribute(input: AddBusinessAttributeInput!): Boolean
+
+    """
+    Link the latest versioned entity to a Version Set
+    """
+    linkAssetVersion(input: LinkVersionInput!): String
+
+    """
+    Unlink a versioned entity from a Version Set
+    """
+    unlinkAssetVersion(input: UnlinkVersionInput!): Boolean
 }
 
 """
@@ -12934,6 +12944,56 @@ input ListBusinessAttributesInput {
     Optional search query
     """
     query: String
+}
+
+"""
+Input for linking a versioned entity to a Version Set
+"""
+input LinkVersionInput {
+    """
+    The target version set
+    """
+    versionSet: String!
+
+    """
+    The target versioned entity to link
+    """
+    linkedEntity: String!
+
+    """
+    Version Tag label for the version, should be unique within a Version Set
+    """
+    version: String!
+
+    """
+    Optional timestamp from the source system
+    """
+    sourceTimestamp: Long
+
+    """
+    Optional creator from the source system, will be converted to an Urn
+    """
+    sourceCreator: String
+
+    """
+    Optional comment about the version
+    """
+    comment: String
+}
+
+"""
+Input for unlinking a versioned entity from a Version Set
+"""
+input UnlinkVersionInput {
+    """
+    The target version set
+    """
+    versionSet: String
+
+    """
+    The target versioned entity to unlink
+    """
+    unlinkedEntity: String
 }
 
 """
