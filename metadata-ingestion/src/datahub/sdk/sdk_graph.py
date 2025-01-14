@@ -1,14 +1,15 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_patch_builder import MetadataPatchProposal
 from datahub.errors import SdkUsageError
 from datahub.ingestion.graph.client import DataHubGraph
-from datahub.metadata.urns import DatasetUrn, Urn
+from datahub.metadata.urns import ContainerUrn, DatasetUrn, Urn
 from datahub.sdk._shared import Entity, UrnOrStr
 
 if TYPE_CHECKING:
+    from datahub.sdk.container import Container
     from datahub.sdk.dataset import Dataset
 
 
@@ -20,27 +21,42 @@ class SDKGraph:
 
     # TODO: Make all of these methods sync by default.
 
-    def get_dataset(self, urn: UrnOrStr) -> "Dataset":
+    @overload
+    def get(self, urn: "ContainerUrn") -> "Container":
+        ...
+
+    @overload
+    def get(self, urn: "DatasetUrn") -> "Dataset":
+        ...
+
+    @overload
+    def get(self, urn: str) -> Entity:
+        ...
+
+    def get(self, urn: UrnOrStr) -> Entity:
         from datahub.sdk._all_entities import ENTITY_CLASSES
-        from datahub.sdk.dataset import Dataset
 
         if not isinstance(urn, Urn):
             urn = Urn.from_string(urn)
 
-        assert isinstance(urn, DatasetUrn)
+        # TODO: add error handling around this with a suggested alternative if not yet supported
+        EntityClass = ENTITY_CLASSES[urn.entity_type]
 
-        assert ENTITY_CLASSES
         aspects = self._graph.get_entity_semityped(str(urn))
 
-        # TODO get the right entity type subclass
         # TODO: save the timestamp so we can use If-Unmodified-Since on the updates
-        return Dataset._new_from_graph(urn, aspects)
+        return EntityClass._new_from_graph(urn, aspects)
 
     def create(self, entity: Entity) -> None:
         mcps = []
 
-        # By putting this first, we can ensure that the request fails if the entity already exists?
-        # TODO: actually validate that this works.
+        if self._graph.exists(str(entity.urn)):
+            raise SdkUsageError(
+                f"Entity {entity.urn} already exists, and hence cannot be created."
+            )
+
+        # Extra safety check: by putting this first, we can ensure that
+        # the request fails if the entity already exists.
         mcps.append(
             MetadataChangeProposalWrapper(
                 entityUrn=str(entity.urn),
