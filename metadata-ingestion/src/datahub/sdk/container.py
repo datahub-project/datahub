@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Type
+from typing import Dict, List, Optional, Type
+
+from typing_extensions import Self
 
 import datahub.metadata.schema_classes as models
 from datahub.emitter.mce_builder import ALL_ENV_TYPES
@@ -10,7 +12,7 @@ from datahub.emitter.mcp_builder import (
     ContainerKey,
 )
 from datahub.errors import SdkUsageError
-from datahub.metadata.urns import ContainerUrn, DataPlatformUrn
+from datahub.metadata.urns import ContainerUrn, DataPlatformUrn, Urn
 from datahub.sdk._shared import (
     Entity,
     HasContainer,
@@ -33,7 +35,7 @@ class Container(HasSubtype, HasContainer, HasOwnership, Entity):
         self,
         /,
         # Identity.
-        container_key: ContainerKey,
+        container_key: ContainerKey | ContainerUrn,
         *,
         # Container attributes.
         display_name: str,
@@ -50,25 +52,37 @@ class Container(HasSubtype, HasContainer, HasOwnership, Entity):
         owners: Optional[OwnersInputType] = None,
         domain_urn: Optional[str] = None,
     ):
-        urn = ContainerUrn.from_string(container_key.as_urn())
+        if isinstance(container_key, ContainerUrn):
+            urn = container_key
+        else:
+            urn = ContainerUrn.from_string(container_key.as_urn())
         super().__init__(urn)
 
-        self._set_aspect(
-            models.DataPlatformInstanceClass(
-                platform=DataPlatformUrn(container_key.platform).urn(),
-                instance=container_key.instance,
+        if isinstance(container_key, ContainerKey):
+            self._set_aspect(
+                models.DataPlatformInstanceClass(
+                    platform=DataPlatformUrn(container_key.platform).urn(),
+                    instance=container_key.instance,
+                )
             )
-        )
 
-        self._set_container(container_key.parent_key())
+            self._set_container(container_key.parent_key())
+
+            self.set_custom_properties(
+                {
+                    **container_key.property_dict(),
+                    **(extra_properties or {}),
+                }
+            )
+
+            # Extra validation on the env field.
+            # In certain cases (mainly for backwards compatibility), the env field will actually
+            # have a platform instance name.
+            env = container_key.env if container_key.env in ALL_ENV_TYPES else None
+            if _INCLUDE_ENV_IN_CONTAINER_PROPERTIES and env is not None:
+                self._ensure_container_props().env = env
 
         self._ensure_container_props(name=display_name)
-        self.set_custom_properties(
-            {
-                **container_key.property_dict(),
-                **(extra_properties or {}),
-            }
-        )
 
         if description is not None:
             self.set_description(description)
@@ -80,13 +94,6 @@ class Container(HasSubtype, HasContainer, HasOwnership, Entity):
             self.set_created(created)
         if last_modified is not None:
             self.set_last_modified(last_modified)
-
-        # Extra validation on the env field.
-        # In certain cases (mainly for backwards compatibility), the env field will actually
-        # have a platform instance name.
-        env = container_key.env if container_key.env in ALL_ENV_TYPES else None
-        if _INCLUDE_ENV_IN_CONTAINER_PROPERTIES and env is not None:
-            self._ensure_container_props().env = env
 
         if subtype is not None:
             self.set_subtype(subtype)
@@ -100,8 +107,10 @@ class Container(HasSubtype, HasContainer, HasOwnership, Entity):
         #     self.set_domain_urn(domain_urn)
 
     @classmethod
-    def _graph_init_dummy_args(cls) -> dict[str, Any]:
-        return {"display_name": "__dummy_value__"}
+    def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
+        assert isinstance(urn, ContainerUrn)
+        entity = cls(urn, display_name="__dummy_value__")
+        return entity._init_from_graph(current_aspects)
 
     def _ensure_container_props(
         self, *, name: Optional[str] = None

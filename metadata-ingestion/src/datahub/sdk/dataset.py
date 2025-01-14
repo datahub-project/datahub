@@ -2,16 +2,16 @@ from __future__ import annotations
 
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Dict, List, Optional, Tuple, Type, Union
 
-from typing_extensions import TypeAlias, assert_never
+from typing_extensions import Self, TypeAlias, assert_never
 
 import datahub.metadata.schema_classes as models
 from datahub.cli.cli_utils import first_non_null
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.errors import SdkUsageError
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
-from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
+from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.sdk._shared import (
     ContainerInputType,
     Entity,
@@ -209,8 +209,15 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
             self.set_owners(owners)
 
     @classmethod
-    def _graph_init_dummy_args(cls) -> dict[str, Any]:
-        return {"_edit_mode": DatasetEditMode.OVERWRITE_UI}
+    def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
+        assert isinstance(urn, DatasetUrn)
+        entity = cls(
+            platform=urn.platform,
+            name=urn.name,
+            env=urn.env,
+            edit_mode=DatasetEditMode.OVERWRITE_UI,
+        )
+        return entity._init_from_graph(current_aspects)
 
     @property
     def urn(self) -> DatasetUrn:
