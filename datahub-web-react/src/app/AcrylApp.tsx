@@ -1,6 +1,7 @@
 import { useSetUserPersona } from './homeV2/persona/useUserPersona';
 import { useSetUserTitle } from './identity/user/useUserTitle';
 import { useSetThemeIsV2 } from './useIsThemeV2';
+import { useSetNavBarRedesignEnabled } from './useShowNavBarRedesign';
 import { useUserTracking } from './useUserTracking';
 
 /**
@@ -11,6 +12,7 @@ export default function AcrylApp({ children }: { children: JSX.Element }) {
     useSetUserPersona();
     useSetUserTitle();
     useUserTracking();
+    useSetNavBarRedesignEnabled();
 
     return children;
 }
