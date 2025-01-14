@@ -1,8 +1,10 @@
+import base64
 import concurrent.futures
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, Iterable, List, Optional, Type, cast
+from datetime import datetime
+from typing import Any, Dict, Iterable, List, Optional, Set, Type, cast
 
 import avro.schema
 import confluent_kafka
@@ -68,9 +70,12 @@ from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     BrowsePathsClass,
     DataPlatformInstanceClass,
+    DatasetFieldProfileClass,
+    DatasetProfileClass,
     DatasetPropertiesClass,
     KafkaSchemaClass,
     OwnershipSourceTypeClass,
+    SchemaMetadataClass,
     SubTypesClass,
 )
 from datahub.utilities.mapping import Constants, OperationProcessor
@@ -145,6 +150,15 @@ class KafkaSourceConfig(
         default=False,
         description="Enables ingesting schemas from schema registry as separate entities, in addition to the topics",
     )
+    enable_sample_data: bool = pydantic.Field(
+        default=False, description="Whether to collect sample messages from topics"
+    )
+    sample_size: int = pydantic.Field(
+        default=10, description="Number of sample messages to collect per topic"
+    )
+    sample_timeout_seconds: int = pydantic.Field(
+        default=5, description="Timeout in seconds when collecting sample messages"
+    )
 
 
 def get_kafka_consumer(
@@ -185,6 +199,41 @@ def get_kafka_admin_client(
         client.poll(timeout=30)
         logger.debug("Initiated polling for kafka admin client")
     return client
+
+
+def flatten_json(
+    nested_json: Dict[str, Any],
+    parent_key: str = "",
+    flattened_dict: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """
+    Flatten a nested JSON object into a single level dictionary.
+    """
+    if flattened_dict is None:
+        flattened_dict = {}
+
+    if isinstance(nested_json, dict):
+        for key, value in nested_json.items():
+            new_key = f"{parent_key}.{key}" if parent_key else key
+            if isinstance(value, (dict, list)):
+                flatten_json(
+                    {"value": value} if isinstance(value, list) else value,
+                    new_key,
+                    flattened_dict,
+                )
+            else:
+                flattened_dict[new_key] = value
+    elif isinstance(nested_json, list):
+        for i, item in enumerate(nested_json):
+            new_key = f"{parent_key}[{i}]"
+            if isinstance(item, (dict, list)):
+                flatten_json({"item": item}, new_key, flattened_dict)
+            else:
+                flattened_dict[new_key] = item
+    else:
+        flattened_dict[parent_key] = nested_json
+
+    return flattened_dict
 
 
 @dataclass
@@ -362,72 +411,139 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         "subject", f"Exception while extracting topic {subject}: {e}"
                     )
 
-    def _extract_record(
+    def get_sample_messages(self, topic: str) -> List[Dict[str, Any]]:
+        """
+        Collects sample messages from a Kafka topic and flattens nested structures.
+        """
+        samples: List[Dict[str, Any]] = []
+        try:
+            # Subscribe to the topic
+            self.consumer.subscribe([topic])
+
+            # Poll for messages
+            start_time = datetime.now()
+            while len(samples) < self.source_config.sample_size:
+                if (
+                    datetime.now() - start_time
+                ).total_seconds() > self.source_config.sample_timeout_seconds:
+                    break
+
+                msg = self.consumer.poll(timeout=1.0)
+                if msg is None:
+                    continue
+
+                if msg.error():
+                    logger.warning(f"Error while consuming from {topic}: {msg.error()}")
+                    break
+
+                try:
+                    # Try to decode the message value
+                    value = msg.value()
+                    if isinstance(value, bytes):
+                        try:
+                            # Try JSON decode first
+                            value = json.loads(value.decode("utf-8"))
+                            # Flatten nested JSON structure
+                            if isinstance(value, dict):
+                                value = flatten_json(value)
+                            elif isinstance(value, list):
+                                # Convert list to dict before flattening
+                                value = flatten_json({"root": value})
+                        except Exception as exc:
+                            logger.warning(exc)
+                            # If JSON fails, just use base64
+                            value = base64.b64encode(value).decode("utf-8")
+
+                    # Convert timestamp to datetime
+                    msg_timestamp = msg.timestamp()[1]
+                    timestamp_dt = datetime.fromtimestamp(
+                        msg_timestamp / 1000.0
+                        if msg_timestamp > 1e10
+                        else msg_timestamp
+                    )
+
+                    samples.append(
+                        {
+                            "offset": msg.offset(),
+                            "timestamp": timestamp_dt.isoformat(),
+                            "value": value,
+                        }
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to decode message from {topic}: {e}")
+
+        except Exception as e:
+            logger.warning(f"Failed to collect samples from {topic}: {e}")
+        finally:
+            self.consumer.unsubscribe()
+
+        return samples
+
+    def _process_sample_data(self, samples: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Process sample data to extract field information."""
+        all_keys: Set[str] = set()
+        field_sample_map: Dict[str, List[str]] = {}
+
+        for sample in samples:
+            if isinstance(sample.get("value", None), dict):
+                all_keys.update(sample["value"].keys())
+                # Collect sample values for each field
+                for key, value in sample["value"].items():
+                    if key not in field_sample_map:
+                        field_sample_map[key] = []
+                    field_sample_map[key].append(str(value))
+            else:
+                if "value" not in field_sample_map:
+                    field_sample_map["value"] = []
+                field_sample_map["value"].append(str(sample["value"]))
+
+        return {"all_keys": all_keys, "field_sample_map": field_sample_map}
+
+    def _create_profile_data(
+        self, all_keys: set, field_sample_map: Dict[str, List[str]], sample_count: int
+    ) -> DatasetProfileClass:
+        """Create profile data from processed samples."""
+        timestamp_millis = int(datetime.now().timestamp() * 1000)
+        return DatasetProfileClass(
+            timestampMillis=timestamp_millis,
+            rowCount=sample_count,
+            columnCount=len(all_keys),
+            fieldProfiles=[
+                DatasetFieldProfileClass(
+                    fieldPath=field_name,
+                    sampleValues=field_samples[
+                        :3
+                    ],  # Take first 3 samples for each field
+                )
+                for field_name, field_samples in field_sample_map.items()
+            ],
+        )
+
+    def create_samples_wu(
         self,
+        entity_urn: str,
         topic: str,
-        is_subject: bool,
-        topic_detail: Optional[TopicMetadata],
-        extra_topic_config: Optional[Dict[str, ConfigEntry]],
     ) -> Iterable[MetadataWorkUnit]:
+        samples = self.get_sample_messages(topic)
+        if samples:
+            processed_data = self._process_sample_data(samples)
+            profile_data = self._create_profile_data(
+                processed_data["all_keys"],
+                processed_data["field_sample_map"],
+                len(samples),
+            )
+            yield MetadataChangeProposalWrapper(
+                entityUrn=entity_urn, aspect=profile_data
+            ).as_workunit()
+
+    def get_dataset_description(
+        self,
+        dataset_name: str,
+        dataset_snapshot: DatasetSnapshot,
+        custom_props: Dict[str, str],
+        schema_metadata: Optional[SchemaMetadataClass],
+    ) -> DatasetSnapshot:
         AVRO = "AVRO"
-
-        kafka_entity = "subject" if is_subject else "topic"
-
-        logger.debug(f"extracting schema metadata from kafka entity = {kafka_entity}")
-
-        platform_urn = make_data_platform_urn(self.platform)
-
-        # 1. Create schemaMetadata aspect (pass control to SchemaRegistry)
-        schema_metadata = self.schema_registry_client.get_schema_metadata(
-            topic, platform_urn, is_subject
-        )
-
-        # topic can have no associated subject, but still it can be ingested without schema
-        # for schema ingestion, ingest only if it has valid schema
-        if is_subject:
-            if schema_metadata is None:
-                return
-            dataset_name = schema_metadata.schemaName
-        else:
-            dataset_name = topic
-
-        # 2. Create the default dataset snapshot for the topic.
-        dataset_urn = make_dataset_urn_with_platform_instance(
-            platform=self.platform,
-            name=dataset_name,
-            platform_instance=self.source_config.platform_instance,
-            env=self.source_config.env,
-        )
-        dataset_snapshot = DatasetSnapshot(
-            urn=dataset_urn,
-            aspects=[Status(removed=False)],  # we append to this list later on
-        )
-
-        if schema_metadata is not None:
-            dataset_snapshot.aspects.append(schema_metadata)
-
-        # 3. Attach browsePaths aspect
-        browse_path_str = f"/{self.source_config.env.lower()}/{self.platform}"
-        if self.source_config.platform_instance:
-            browse_path_str += f"/{self.source_config.platform_instance}"
-        browse_path = BrowsePathsClass([browse_path_str])
-        dataset_snapshot.aspects.append(browse_path)
-
-        # build custom properties for topic, schema properties may be added as needed
-        custom_props: Dict[str, str] = {}
-        if not is_subject:
-            custom_props = self.build_custom_properties(
-                topic, topic_detail, extra_topic_config
-            )
-            schema_name: Optional[
-                str
-            ] = self.schema_registry_client._get_subject_for_topic(
-                topic, is_key_schema=False
-            )
-            if schema_name is not None:
-                custom_props["Schema Name"] = schema_name
-
-        # 4. Set dataset's description, tags, ownership, etc, if topic schema type is avro
         description: Optional[str] = None
         if (
             schema_metadata is not None
@@ -485,6 +601,79 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         )
         dataset_snapshot.aspects.append(dataset_properties)
 
+        return dataset_snapshot
+
+    def _extract_record(
+        self,
+        topic: str,
+        is_subject: bool,
+        topic_detail: Optional[TopicMetadata],
+        extra_topic_config: Optional[Dict[str, ConfigEntry]],
+    ) -> Iterable[MetadataWorkUnit]:
+        kafka_entity = "subject" if is_subject else "topic"
+
+        logger.debug(f"extracting schema metadata from kafka entity = {kafka_entity}")
+
+        platform_urn = make_data_platform_urn(self.platform)
+
+        # 1. Create schemaMetadata aspect (pass control to SchemaRegistry)
+        schema_metadata = self.schema_registry_client.get_schema_metadata(
+            topic, platform_urn, is_subject
+        )
+
+        # topic can have no associated subject, but still it can be ingested without schema
+        # for schema ingestion, ingest only if it has valid schema
+        if is_subject:
+            if schema_metadata is None:
+                return
+            dataset_name = schema_metadata.schemaName
+        else:
+            dataset_name = topic
+
+        # 2. Create the default dataset snapshot for the topic.
+        dataset_urn = make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=dataset_name,
+            platform_instance=self.source_config.platform_instance,
+            env=self.source_config.env,
+        )
+        dataset_snapshot = DatasetSnapshot(
+            urn=dataset_urn,
+            aspects=[Status(removed=False)],  # we append to this list later on
+        )
+
+        if schema_metadata is not None:
+            dataset_snapshot.aspects.append(schema_metadata)
+
+        # 3. Attach browsePaths aspect
+        browse_path_str = f"/{self.source_config.env.lower()}/{self.platform}"
+        if self.source_config.platform_instance:
+            browse_path_str += f"/{self.source_config.platform_instance}"
+        browse_path = BrowsePathsClass([browse_path_str])
+        dataset_snapshot.aspects.append(browse_path)
+
+        # build custom properties for topic, schema properties may be added as needed
+        custom_props: Dict[str, str] = {}
+        if not is_subject:
+            custom_props = self.build_custom_properties(
+                topic, topic_detail, extra_topic_config
+            )
+            schema_name: Optional[
+                str
+            ] = self.schema_registry_client._get_subject_for_topic(
+                topic, is_key_schema=False
+            )
+            if schema_name is not None:
+                custom_props["Schema Name"] = schema_name
+
+        # 4. Set dataset's description, tags, ownership, etc, if topic schema type is avro
+        dataset_snapshot = self.get_dataset_description(
+            dataset_name=dataset_name,
+            dataset_snapshot=dataset_snapshot,
+            custom_props=custom_props,
+            schema_metadata=schema_metadata,
+        )
+
         # 5. Attach dataPlatformInstance aspect.
         if self.source_config.platform_instance:
             dataset_snapshot.aspects.append(
@@ -520,6 +709,13 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             yield from add_domain_to_entity_wu(
                 entity_urn=dataset_urn,
                 domain_urn=domain_urn,
+            )
+
+        # 9. Emit sample values
+        if not is_subject and self.source_config.enable_sample_data:
+            yield from self.create_samples_wu(
+                entity_urn=dataset_urn,
+                topic=topic,
             )
 
     def build_custom_properties(
