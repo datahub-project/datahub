@@ -2,7 +2,6 @@ import abc
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
-    Any,
     List,
     Optional,
     Protocol,
@@ -72,17 +71,17 @@ class Entity(HasUrn):
         self._aspects: models.AspectBag = {}
 
     @classmethod
-    def _graph_init_dummy_args(cls) -> dict[str, Any]:
-        return {}
-
-    @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
-        entity = cls(urn=urn, **cls._graph_init_dummy_args())
+        entity = cls(urn=urn)
+        return entity._init_from_graph(current_aspects)
 
-        entity._prev_aspects = current_aspects
-        for aspect_name, aspect in (current_aspects or {}).items():
-            entity._aspects[aspect_name] = aspect.copy()  # type: ignore
-        return entity
+    def _init_from_graph(self, current_aspects: models.AspectBag) -> Self:
+        self._prev_aspects = current_aspects
+        aspect: models._Aspect
+        for aspect_name, aspect in (current_aspects or {}).items():  # type: ignore
+            aspect_copy = type(aspect).from_obj(aspect.to_obj())
+            self._aspects[aspect_name] = aspect_copy  # type: ignore
+        return self
 
     @classmethod
     @abc.abstractmethod
