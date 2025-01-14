@@ -7,6 +7,7 @@ import pydantic
 import pytest
 from botocore.stub import Stubber
 from freezegun import freeze_time
+from moto import mock_athena, mock_sts
 
 import datahub.metadata.schema_classes as models
 from datahub.ingestion.api.common import PipelineContext
@@ -256,6 +257,8 @@ def test_glue_ingest(
     )
 
 
+@mock_athena
+@mock_sts
 def test_platform_config():
     source = GlueSource(
         ctx=PipelineContext(run_id="glue-source-test"),

@@ -5,7 +5,6 @@ from collections import defaultdict
 from dataclasses import dataclass, field as dataclass_field
 from functools import lru_cache
 from typing import (
-    TYPE_CHECKING,
     Any,
     DefaultDict,
     Dict,
@@ -22,6 +21,7 @@ from urllib.parse import urlparse
 
 import botocore.exceptions
 import yaml
+from mypy_boto3_glue.type_defs import DatabasePaginatorTypeDef, TablePaginatorTypeDef
 from pydantic import validator
 from pydantic.fields import Field
 
@@ -114,12 +114,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.utilities.delta import delta_type_to_hive_type
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
-
-if TYPE_CHECKING:
-    from mypy_boto3_glue.type_defs import (
-        DatabasePaginatorTypeDef,
-        TablePaginatorTypeDef,
-    )
 
 logger = logging.getLogger(__name__)
 
@@ -234,9 +228,10 @@ class GlueSourceConfig(
                 f"'platform' can only take following values: {VALID_PLATFORMS}"
             )
 
-    def __post_init__(self) -> None:
-        current_account_id = self.sts_client.get_caller_identity().get("Account")
+    def __init__(self, **data: Any):
+        super().__init__(**data)
         if self.catalog_id:
+            current_account_id = self.sts_client.get_caller_identity().get("Account")
             if self.catalog_id == current_account_id:
                 self.catalog_name = DEFAULT_CATALOG_NAME
             else:
@@ -1142,7 +1137,7 @@ class GlueSource(StatefulIngestionSourceBase):
             platform_instance=self.source_config.platform_instance,
         )
 
-        mce = self._extract_record(dataset_urn, table, full_table_name)
+        mce = self._extract_record(dataset_urn, dict(table), full_table_name)
         yield MetadataWorkUnit(full_table_name, mce=mce)
 
         # We also want to assign "table" subType to the dataset representing glue table - unfortunately it is not
