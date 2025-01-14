@@ -109,9 +109,6 @@ class CouchbaseDBSourceReport(
     def report_dropped(self, name: str) -> None:
         self.filtered.append(name)
 
-    def set_ingestion_stage(self, keyspace: str, stage: str) -> None:
-        self.report_ingestion_stage_start(f"{keyspace}: {stage}")
-
     def report_entity_profiled(self) -> None:
         self.keyspaces_profiled += 1
 

@@ -20,7 +20,6 @@ from datahub.ingestion.source.couchbase.couchbase_connect import CouchbaseConnec
 from datahub.ingestion.source.couchbase.couchbase_schema_reader import (
     CouchbaseCollectionItemsReader,
 )
-from datahub.ingestion.source_report.ingestion_stage import PROFILING
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
     DatasetProfileClass,
@@ -77,7 +76,6 @@ class CouchbaseProfiler:
         logger.info(f"Profiling {len(datasets)} keyspaces")
         for keyspace in datasets:
             logger.info(f"Profiling Keyspace {keyspace}")
-            self.report.set_ingestion_stage(keyspace, PROFILING)
 
             try:
                 yield from self.generate_profile(keyspace)
