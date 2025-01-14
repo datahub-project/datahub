@@ -45,8 +45,8 @@ ext {
             'quickstartDebugConsumers': [
                     profile: 'debug-consumers',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
-                                                                                  ':metadata-jobs:mce-consumer-job',
-                                                                                  ':metadata-jobs:mae-consumer-job',],
+                                                                          ':metadata-jobs:mce-consumer-job',
+                                                                          ':metadata-jobs:mae-consumer-job'],
                     isDebug: true
             ],
             'quickstartPg': [
