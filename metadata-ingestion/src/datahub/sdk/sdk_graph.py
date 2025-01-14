@@ -9,6 +9,7 @@ from datahub.sdk._shared import Entity, UrnOrStr
 from datahub.specific.dataset import DatasetPatchBuilder
 
 if TYPE_CHECKING:
+    from datahub.sdk._all_entities import ENTITY_CLASSES
     from datahub.sdk.dataset import Dataset
 
 
@@ -28,6 +29,7 @@ class SDKGraph:
 
         assert isinstance(urn, DatasetUrn)
 
+        assert ENTITY_CLASSES
         aspects = self._graph.get_entity_semityped(str(urn))
 
         # TODO get the right entity type subclass
