@@ -33,6 +33,7 @@ import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.dataset.DatasetProfile;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EnvelopedAspect;
@@ -59,6 +60,7 @@ import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.openapi.config.SpringWebConfig;
 import io.datahubproject.openapi.exception.InvalidUrnException;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import jakarta.servlet.ServletException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -437,5 +439,207 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
     public TimeseriesAspectService timeseriesAspectService() {
       return timeseriesAspectService;
     }
+  }
+
+  @Test
+  public void testGetEntityBatchWithMultipleEntities() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"),
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,2,PROD)"));
+
+    // Mock entity aspect response
+    when(mockEntityService.getEnvelopedVersionedAspects(
+        any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                TEST_URNS.get(0),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data()))),
+                TEST_URNS.get(1),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    String requestBody = String.format(
+        "[{\"urn\": \"%s\"}, {\"urn\": \"%s\"}]",
+        TEST_URNS.get(0).toString(),
+        TEST_URNS.get(1).toString());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/v3/entity/dataset/batchGet")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(MockMvcResultMatchers.jsonPath("$[0].urn").value(TEST_URNS.get(0).toString()))
+        .andExpect(MockMvcResultMatchers.jsonPath("$[1].urn").value(TEST_URNS.get(1).toString()));
+  }
+
+  @Test(expectedExceptions = ServletException.class)
+  public void testGetEntityBatchWithInvalidUrn() throws Exception {
+    String requestBody = "[{\"urn\": \"invalid:urn\"}]";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/v3/entity/dataset/batchGet")
+                .content(requestBody)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is4xxClientError());
+  }
+
+  @Test
+  public void testScrollEntitiesWithMultipleSortFields() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"),
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,2,PROD)"));
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setEntities(
+                new SearchEntityArray(
+                    List.of(
+                        new SearchEntity().setEntity(TEST_URNS.get(0)),
+                        new SearchEntity().setEntity(TEST_URNS.get(1)))));
+
+    when(mockSearchService.scrollAcrossEntities(
+        any(OperationContext.class),
+        eq(List.of("dataset")),
+        anyString(),
+        nullable(Filter.class),
+        any(),
+        nullable(String.class),
+        nullable(String.class),
+        anyInt()))
+        .thenReturn(expectedResult);
+
+    when(mockEntityService.getEnvelopedVersionedAspects(
+        any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                TEST_URNS.get(0),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("sortCriteria", "name", "urn")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.entities[0].urn").value(TEST_URNS.get(0).toString()));
+  }
+
+  @Test
+  public void testScrollEntitiesWithPitKeepAlive() throws Exception {
+    List<Urn> TEST_URNS =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setEntities(
+                new SearchEntityArray(List.of(new SearchEntity().setEntity(TEST_URNS.get(0)))))
+            .setScrollId("test-scroll-id");
+
+    when(mockSearchService.scrollAcrossEntities(
+        any(OperationContext.class),
+        eq(List.of("dataset")),
+        anyString(),
+        nullable(Filter.class),
+        any(),
+        nullable(String.class),
+        eq("10m"),
+        anyInt()))
+        .thenReturn(expectedResult);
+
+    when(mockEntityService.getEnvelopedVersionedAspects(
+        any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(
+            Map.of(
+                TEST_URNS.get(0),
+                List.of(
+                    new EnvelopedAspect()
+                        .setName("status")
+                        .setValue(new Aspect(new Status().data())))));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("pitKeepAlive", "10m")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(MockMvcResultMatchers.jsonPath("$.scrollId").value("test-scroll-id"));
+  }
+
+  @Test(expectedExceptions = ServletException.class)
+  public void testEntityVersioningFeatureFlagDisabled() throws Exception {
+    Urn TEST_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)");
+    Urn VERSION_SET_URN = UrnUtils.getUrn("urn:li:versionSet:test-version-set");
+
+    FeatureFlags mockFeatureFlags = mock(FeatureFlags.class);
+    when(configurationProvider.getFeatureFlags()).thenReturn(mockFeatureFlags);
+    when(mockFeatureFlags.isEntityVersioning()).thenReturn(false);
+
+    // Test linking version with disabled flag
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    String.format("/v3/entity/versioning/%s/relationship/versionOf/%s",
+                        VERSION_SET_URN, TEST_URN))
+                .content("{}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is4xxClientError());
+
+    // Test unlinking version with disabled flag
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(
+                    String.format("/v3/entity/versioning/%s/relationship/versionOf/%s",
+                        VERSION_SET_URN, TEST_URN))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is4xxClientError());
+  }
+
+  @Test(expectedExceptions = ServletException.class)
+  public void testInvalidVersionSetUrn() throws Exception {
+    Urn TEST_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)");
+    String INVALID_VERSION_SET_URN = "urn:li:dataset:invalid-version-set";
+
+    FeatureFlags mockFeatureFlags = mock(FeatureFlags.class);
+    when(configurationProvider.getFeatureFlags()).thenReturn(mockFeatureFlags);
+    when(mockFeatureFlags.isEntityVersioning()).thenReturn(true);
+
+    // Test linking with invalid version set URN
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(
+                    String.format("/v3/entity/versioning/%s/relationship/versionOf/%s",
+                        INVALID_VERSION_SET_URN, TEST_URN))
+                .content("{}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is4xxClientError());
+
+    // Test unlinking with invalid version set URN
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(
+                    String.format("/v3/entity/versioning/%s/relationship/versionOf/%s",
+                        INVALID_VERSION_SET_URN, TEST_URN))
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is4xxClientError());
   }
 }
