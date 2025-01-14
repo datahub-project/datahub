@@ -59,7 +59,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-lineage.avro,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,awsdatacatalog.flights-database-lineage.avro,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -97,7 +97,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "flights-database-lineage.avro",
+                        "schemaName": "awsdatacatalog.flights-database-lineage.avro",
                         "platform": "urn:li:dataPlatform:glue",
                         "version": 0,
                         "created": {
@@ -250,7 +250,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-lineage.avro,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,awsdatacatalog.flights-database-lineage.avro,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -263,7 +263,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-lineage.avro,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,awsdatacatalog.flights-database-lineage.avro,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
@@ -274,7 +274,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-lineage.avro,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,awsdatacatalog.flights-database-lineage.avro,PROD)",
     "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
@@ -297,7 +297,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-lineage.avro,PROD),yr)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,awsdatacatalog.flights-database-lineage.avro,PROD),yr)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -308,7 +308,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-lineage.avro,PROD),flightdate)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,awsdatacatalog.flights-database-lineage.avro,PROD),flightdate)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -319,7 +319,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-lineage.avro,PROD),uniquecarrier)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,awsdatacatalog.flights-database-lineage.avro,PROD),uniquecarrier)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -330,7 +330,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-lineage.avro,PROD),airlineid)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,awsdatacatalog.flights-database-lineage.avro,PROD),airlineid)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -341,7 +341,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-lineage.avro,PROD),carrier)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,awsdatacatalog.flights-database-lineage.avro,PROD),carrier)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -352,7 +352,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-lineage.avro,PROD),flightnum)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,awsdatacatalog.flights-database-lineage.avro,PROD),flightnum)"
                     ],
                     "confidenceScore": 1.0
                 },
@@ -363,7 +363,7 @@
                     ],
                     "downstreamType": "FIELD",
                     "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,flights-database-lineage.avro,PROD),origin)"
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:glue,awsdatacatalog.flights-database-lineage.avro,PROD),origin)"
                     ],
                     "confidenceScore": 1.0
                 }

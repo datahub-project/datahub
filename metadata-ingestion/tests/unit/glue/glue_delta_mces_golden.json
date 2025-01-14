@@ -58,7 +58,7 @@
 {
     "proposedSnapshot": {
         "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,delta_platform_instance.delta-database.delta_table_1,PROD)",
+            "urn": "urn:li:dataset:(urn:li:dataPlatform:glue,delta_platform_instance.awsdatacatalog.delta-database.delta_table_1,PROD)",
             "aspects": [
                 {
                     "com.linkedin.pegasus2avro.common.Status": {
@@ -82,7 +82,7 @@
                 },
                 {
                     "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "delta-database.delta_table_1",
+                        "schemaName": "awsdatacatalog.delta-database.delta_table_1",
                         "platform": "urn:li:dataPlatform:glue",
                         "version": 0,
                         "created": {
@@ -1525,7 +1525,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,delta_platform_instance.delta-database.delta_table_1,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,delta_platform_instance.awsdatacatalog.delta-database.delta_table_1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "subTypes",
     "aspect": {
@@ -1538,7 +1538,7 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,delta_platform_instance.delta-database.delta_table_1,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:glue,delta_platform_instance.awsdatacatalog.delta-database.delta_table_1,PROD)",
     "changeType": "UPSERT",
     "aspectName": "container",
     "aspect": {
