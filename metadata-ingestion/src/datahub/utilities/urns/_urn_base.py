@@ -6,6 +6,7 @@ from typing import ClassVar, Dict, List, Optional, Type, Union
 from deprecated import deprecated
 from typing_extensions import Self
 
+from datahub._codegen.aspect import _Aspect
 from datahub.utilities.urns.error import InvalidUrnError
 
 URN_TYPES: Dict[str, Type["_SpecificUrn"]] = {}
@@ -286,7 +287,10 @@ class _SpecificUrn(Urn):
         return super().__init_subclass__()
 
     @classmethod
-    def underlying_key_aspect_type(cls) -> Type:
+    def underlying_key_aspect_type(cls) -> Type[_Aspect]:
+        raise NotImplementedError()
+
+    def to_key_aspect(self) -> _Aspect:
         raise NotImplementedError()
 
     @classmethod
