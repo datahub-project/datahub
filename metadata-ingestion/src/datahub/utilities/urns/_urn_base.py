@@ -270,7 +270,7 @@ class Urn:
 
 
 class _SpecificUrn(Urn):
-    ENTITY_TYPE: str = ""
+    ENTITY_TYPE: ClassVar[str] = ""
 
     def __init_subclass__(cls) -> None:
         # Validate the subclass.

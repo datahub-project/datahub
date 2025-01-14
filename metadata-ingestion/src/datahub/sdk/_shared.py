@@ -26,6 +26,7 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.errors import SdkUsageError
 from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn, OwnershipTypeUrn, Urn
+from datahub.utilities.urns._urn_base import _SpecificUrn
 
 if TYPE_CHECKING:
     from datahub.sdk.container import Container
@@ -85,7 +86,7 @@ class Entity(HasUrn):
 
     @classmethod
     @abc.abstractmethod
-    def get_urn_type(cls) -> Type[Urn]:
+    def get_urn_type(cls) -> Type[_SpecificUrn]:
         pass
 
     @property
