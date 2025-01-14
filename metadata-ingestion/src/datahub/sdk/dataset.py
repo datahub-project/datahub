@@ -11,7 +11,7 @@ from datahub.cli.cli_utils import first_non_null
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.errors import SdkUsageError
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
-from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
+from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.sdk._shared import (
     ContainerInputType,
     Entity,
@@ -129,7 +129,7 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
     __slots__ = ("_edit_mode",)
 
     @classmethod
-    def get_urn_type(cls) -> Type[Urn]:
+    def get_urn_type(cls) -> Type[DatasetUrn]:
         return DatasetUrn
 
     def __init__(
