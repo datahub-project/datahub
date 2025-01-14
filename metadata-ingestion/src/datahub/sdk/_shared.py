@@ -129,6 +129,9 @@ class Entity(HasUrn):
             )
         return mcps
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}('{self.urn}')"
+
 
 class HasSubtype(Entity):
     __slots__ = ()
