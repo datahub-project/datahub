@@ -1026,7 +1026,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     final SearchRequestHandler requestHandler =
         SearchRequestHandler.getBuilder(
             operationContext.getEntityRegistry(),
-            TestEntitySpecBuilder.getSpec(),
+            entitySpec,
             testQueryConfig,
             null,
             QueryFilterRewriteChain.EMPTY);

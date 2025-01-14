@@ -15,6 +15,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
@@ -53,6 +54,7 @@ public class EntityVersioningServiceTest {
   private EntityService mockEntityService;
   private OperationContext mockOpContext;
   private AspectRetriever mockAspectRetriever;
+  private CachingAspectRetriever mockCachingAspectRetriever;
   private SearchRetriever mockSearchRetriever;
   private static Urn TEST_VERSION_SET_URN = UrnUtils.getUrn("urn:li:versionSet:(123456,dataset)");
   private static Urn TEST_DATASET_URN =
@@ -72,6 +74,7 @@ public class EntityVersioningServiceTest {
     final EntityRegistry testEntityRegistry =
         new MergedEntityRegistry(snapshotEntityRegistry).apply(configEntityRegistry);
     mockAspectRetriever = mock(EntityServiceAspectRetriever.class);
+    mockCachingAspectRetriever = mock(CachingAspectRetriever.class);
     mockSearchRetriever = mock(SearchRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(testEntityRegistry);
     mockOpContext =
@@ -85,6 +88,7 @@ public class EntityVersioningServiceTest {
                     .aspectRetriever(mockAspectRetriever)
                     .graphRetriever(GraphRetriever.EMPTY)
                     .searchRetriever(mockSearchRetriever)
+                    .cachingAspectRetriever(mockCachingAspectRetriever)
                     .build(),
             null,
             opContext ->
