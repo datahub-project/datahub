@@ -9571,6 +9571,52 @@ input CreateGroupInput {
   description: String
 }
 
+
+"""
+Represents properties about a versioned asset.
+"""
+type VersionProperties {
+  """
+  References the Version Set entity that groups related versioned assets.
+  """
+  versionSet: String
+
+  """
+  Unique label for this versioned asset within its version set.
+  """
+  version: VersionTag!
+
+  """
+  Additional version identifiers for this versioned asset.
+  """
+  aliases: [VersionTag]
+
+  """
+  Description of the version's purpose or changes.
+  """
+  comment: String
+
+  """
+  Identifier used for ordering versions within a Version Set.
+  """
+  sortId: String!
+
+  """
+  Timestamp when this version was created in the source system.
+  """
+  sourceCreatedTimestamp: AuditStamp
+
+  """
+  Timestamp when this version's metadata was created in DataHub.
+  """
+  metadataCreatedTimestamp: AuditStamp
+
+  """
+  Indicates if this is the latest version.
+  """
+  isLatest: Boolean
+}
+
 """
 An ML Model Metadata Entity Note that this entity is incubating
 """

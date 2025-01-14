@@ -242,4 +242,48 @@ public class MLModelMapper implements ModelMapper<EntityResponse, MLModel> {
     }
     entity.setEditableProperties(editableProperties);
   }
+
+  private static void mapVersionProperties(MLModel entity, DataMap dataMap) {
+    com.linkedin.datahub.graphql.generated.VersionProperties properties =
+        new com.linkedin.datahub.graphql.generated.VersionProperties();
+
+    if (dataMap != null) {
+      com.linkedin.common.VersionProperties versionProps =
+          new com.linkedin.common.VersionProperties(dataMap);
+
+      if (versionProps.hasVersionSet()) {
+        properties.setVersionSet(versionProps.getVersionSet().toString());
+      }
+
+      if (versionProps.hasVersion()) {
+        com.linkedin.datahub.graphql.generated.VersionTag versionTag =
+            new com.linkedin.datahub.graphql.generated.VersionTag();
+        versionTag.setVersionTag(versionProps.getVersion().toString());
+        properties.setVersion(versionTag);
+      }
+
+      if (versionProps.hasAliases()) {
+        properties.setAliases(
+            versionProps.getAliases().stream()
+                .map(
+                    alias -> {
+                      com.linkedin.datahub.graphql.generated.VersionTag aliasTag =
+                          new com.linkedin.datahub.graphql.generated.VersionTag();
+                      aliasTag.setVersionTag(alias.toString());
+                      return aliasTag;
+                    })
+                .collect(Collectors.toList()));
+      }
+      if (versionProps.hasComment()) {
+        properties.setComment(versionProps.getComment());
+      }
+      if (versionProps.hasSortId()) {
+        properties.setSortId(versionProps.getSortId());
+      }
+      if (versionProps.hasIsLatest()) {
+        properties.setIsLatest(versionProps.isIsLatest());
+      }
+    }
+    entity.setVersionProperties(properties);
+  }
 }

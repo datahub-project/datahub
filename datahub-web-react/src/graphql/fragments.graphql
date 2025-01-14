@@ -926,6 +926,11 @@ fragment nonRecursiveMLModel on MLModel {
     browsePathV2 {
         ...browsePathV2Fields
     }
+    verisonProperties {
+        version
+        aliases
+        isLatest
+    }
 }
 
 fragment nonRecursiveMLModelGroupFields on MLModelGroup {
