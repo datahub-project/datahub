@@ -42,6 +42,15 @@ ext {
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend'],
                     isDebug: true
             ],
+
+            'quickstartDebugConsumers': [
+                    profile: 'debug-consumers',
+                    modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
+                                                                          ':metadata-jobs:mce-consumer-job',
+                                                                          ':metadata-jobs:mae-consumer-job',],
+                    isDebug: true
+            ],
+
             'quickstartPg': [
                     profile: 'quickstart-postgres',
                     modules: (backend_profile_modules - [':docker:mysql-setup']) + [
