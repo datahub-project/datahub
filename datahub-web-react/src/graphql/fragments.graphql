@@ -971,6 +971,10 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
             time
             actor
         }
+        lastModified {
+            time
+            actor
+        }
     }
     browsePathV2 {
         ...browsePathV2Fields

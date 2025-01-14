@@ -23,17 +23,10 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
-// import SummaryTab from './profile/DataProcessInstaceSummary';
-
-// const getProcessPlatformName = (data?: DataProcessInstance): string => {
-//     return (
-//         data?.dataPlatformInstance?.platform?.properties?.displayName ||
-//         capitalizeFirstLetterOnly(data?.dataPlatformInstance?.platform?.name) ||
-//         ''
-//     );
-// };
+import SummaryTab from './profile/DataProcessInstaceSummary';
 
 const getParentEntities = (data: DataProcessInstance): GeneratedEntity[] => {
+
     const parentEntity = data?.relationships?.relationships?.find(
         (rel) => rel.type === 'InstanceOf' && rel.entity?.type === EntityType.DataJob,
     );
@@ -105,10 +98,10 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 //     name: 'Documentation',
                 //     component: DocumentationTab,
                 // },
-                // {
-                //     name: 'Summary',
-                //     component: SummaryTab,
-                // },
+                {
+                    name: 'Summary',
+                    component: SummaryTab,
+                },
                 {
                     name: 'Lineage',
                     component: LineageTab,
@@ -117,14 +110,6 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                     name: 'Properties',
                     component: PropertiesTab,
                 },
-                // {
-                //     name: 'Incidents',
-                //     component: IncidentTab,
-                //     getDynamicName: (_, processInstance) => {
-                //         const activeIncidentCount = processInstance?.dataProcessInstance?.activeIncidents.total;
-                //         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
-                //     },
-                // },
             ]}
             sidebarSections={this.getSidebarSections()}
         />
@@ -217,9 +202,9 @@ export class DataProcessInstanceEntity implements Entity<DataProcessInstance> {
                 parentContainers={data.parentContainers}
                 parentEntities={parentEntities}
                 container={data.container || undefined}
-                // duration={data?.state?.[0]?.durationMillis}
-                // status={data?.state?.[0]?.result?.resultType}
-                // startTime={data?.state?.[0]?.timestampMillis}
+                duration={data?.state[0]?.durationMillis}
+                status={data?.state[0]?.result?.resultType}
+                startTime={data?.state[0]?.timestampMillis}
                 //                health={data.health}
             />
         );
