@@ -55,7 +55,6 @@ from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
     SnowflakeDataDictionary,
-    SnowflakeStream,
 )
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
@@ -551,12 +550,6 @@ class SnowflakeV2Source(
                     discovered_tables=discovered_datasets,
                     graph=self.ctx.graph,
                 )
-            with self.report.new_stage(f"*: {LINEAGE_EXTRACTION}"):
-                if self.lineage_extractor and self.config.include_streams:
-                    self.lineage_extractor.populate_stream_upstreams(
-                        self.get_streams(databases)
-                    )
-                    yield from auto_workunit(self.aggregator.gen_metadata())
 
             # TODO: This is slightly suboptimal because we create two SqlParsingAggregator instances with different configs
             # but a shared schema resolver. That's fine for now though - once we remove the old lineage/usage extractors,
@@ -757,16 +750,16 @@ class SnowflakeV2Source(
         except Exception:
             logger.debug(f'Failed to remove OCSP cache file at "{file_path}"')
 
-    def get_streams(self, databases: List) -> List[SnowflakeStream]:
-        streams = []
-        for db in databases:
-            for schema in db.schemas:
-                schema_streams = self.data_dictionary.get_streams_for_schema(
-                    schema.name, db.name
-                )
-                if schema_streams:
-                    streams.extend(schema_streams)
-        return streams
+    # def get_streams(self, databases: List) -> List[SnowflakeStream]:
+    #     streams = []
+    #     for db in databases:
+    #         for schema in db.schemas:
+    #             schema_streams = self.data_dictionary.get_streams_for_schema(
+    #                 schema.name, db.name
+    #             )
+    #             if schema_streams:
+    #                 streams.extend(schema_streams)
+    #     return streams
 
     def close(self) -> None:
         super().close()

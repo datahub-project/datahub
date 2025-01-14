@@ -962,7 +962,7 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         limit: int = SHOW_STREAM_MAX_PAGE_SIZE,
         stream_pagination_marker: Optional[str] = None,
     ) -> str:
-        # SHOW VIEWS can return a maximum of 10000 rows.
+        # SHOW STREAMS can return a maximum of 10000 rows.
         # https://docs.snowflake.com/en/sql-reference/sql/show-streams#usage-notes
         assert limit <= SHOW_STREAM_MAX_PAGE_SIZE
 

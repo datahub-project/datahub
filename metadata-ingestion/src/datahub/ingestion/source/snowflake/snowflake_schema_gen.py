@@ -57,6 +57,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
     SnowflakeIdentifierBuilder,
     SnowflakeStructuredReportMixin,
     SnowsightUrlBuilder,
+    _split_qualified_name,
 )
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -69,6 +70,7 @@ from datahub.ingestion.source.sql.sql_utils import (
 )
 from datahub.ingestion.source_report.ingestion_stage import (
     EXTERNAL_TABLE_DDL_LINEAGE,
+    LINEAGE_EXTRACTION,
     METADATA_EXTRACTION,
     PROFILING,
 )
@@ -233,6 +235,10 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 ]
                 if self.aggregator:
                     for entry in self._external_tables_ddl_lineage(discovered_tables):
+                        self.aggregator.add(entry)
+            with self.report.new_stage(f"*: {LINEAGE_EXTRACTION}"):
+                if self.config.include_streams and self.aggregator:
+                    for entry in self.populate_stream_upstreams():
                         self.aggregator.add(entry)
 
         except SnowflakePermissionError as e:
@@ -421,7 +427,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             views = self.fetch_views_for_schema(snowflake_schema, db_name, schema_name)
 
         if self.config.include_streams:
-            streams = self.fetch_streams_for_schema(
+            self.streams = self.fetch_streams_for_schema(
                 snowflake_schema, db_name, schema_name
             )
 
@@ -471,7 +477,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 yield from self._process_tag(tag)
 
         if self.config.include_streams:
-            for stream in streams:
+            for stream in self.streams:
                 yield from self._process_stream(stream, snowflake_schema, db_name)
 
         if self.config.include_technical_schema and snowflake_schema.tags:
@@ -1186,7 +1192,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
             streams: List[SnowflakeStream] = []
             for stream in self.get_streams_for_schema(schema_name, db_name):
                 stream_identifier = self.identifiers.get_dataset_identifier(
-                    stream.name.lower(), schema_name, db_name
+                    stream.name, schema_name, db_name
                 )
 
                 self.report.report_entity_scanned(stream_identifier, "stream")
@@ -1260,12 +1266,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         """
         columns: List[SnowflakeColumn] = []
 
-        # First get the source object columns by reusing existing table/view column logic
-        # Extract database, schema, table name from source_object
-        source_parts = source_object.split(".")
-        if len(source_parts) != 3:
-            self.report.warning(f"Invalid source object name format: {source_object}")
-            return columns
+        source_parts = _split_qualified_name(source_object)
 
         source_db, source_schema, source_name = source_parts
 
@@ -1318,3 +1319,29 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         columns.extend(metadata_columns)
 
         return columns
+
+    def populate_stream_upstreams(self) -> Iterable[KnownLineageMapping]:
+        try:
+            for stream in self.streams:
+                stream_fully_qualified = ".".join(
+                    [
+                        stream.database_name.lower(),
+                        stream.schema_name.lower(),
+                        stream.name.lower(),
+                    ]
+                )
+
+                yield KnownLineageMapping(
+                    upstream_urn=self.identifiers.gen_dataset_urn(
+                        stream.table_name.lower()
+                    ),
+                    downstream_urn=self.identifiers.gen_dataset_urn(
+                        stream_fully_qualified
+                    ),
+                )
+                self.report.num_streams_with_known_upstreams += 1
+        except Exception as e:
+            self.structured_reporter.warning(
+                "Stream lineage extraction failed",
+                exc=e,
+            )
