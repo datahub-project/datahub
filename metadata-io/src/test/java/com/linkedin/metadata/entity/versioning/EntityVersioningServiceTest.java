@@ -594,6 +594,6 @@ public class EntityVersioningServiceTest {
     assertTrue(results.isEmpty());
     verify(mockEntityService, never()).deleteAspect(any(), any(), any(), any(), anyBoolean());
     verify(mockEntityService, never()).deleteUrn(any(), any());
-    verify(mockSearchRetriever, never()).scroll(any(), any(), anyString(), anyInt(), any());
+    verify(mockSearchRetriever, never()).scroll(any(), any(), anyString(), anyInt(), any(), any());
   }
 }
