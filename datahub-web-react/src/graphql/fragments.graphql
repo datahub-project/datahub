@@ -897,6 +897,10 @@ fragment nonRecursiveMLModel on MLModel {
             key
             value
         }
+        mlModelLineageInfo {
+            trainingJobs
+            downstreamJobs
+        }
     }
     globalTags {
         ...globalTagsFields
@@ -974,6 +978,10 @@ fragment nonRecursiveMLModelGroupFields on MLModelGroup {
         lastModified {
             time
             actor
+        }
+        mlModelLineageInfo {
+            trainingJobs
+            downstreamJobs
         }
     }
     browsePathV2 {

@@ -67,25 +67,18 @@ export default function MLModelSummary() {
     };
 
     const renderTrainingJobs = () => {
-        const trainingJobs = model?.properties?.trainingJobs || [];
-        if (trainingJobs.length === 0) return '-';
-
-        return trainingJobs.map((relationship, index) => {
-
-            console.log("trainedBy", model?.trainedBy?.relationships);
-
-            const job = model?.trainedBy?.relationships[0]?.entity
-            console.log("job", job);
-
-            return (
-                <div key={job?.urn}>
-                    <JobLink to={entityRegistry.getEntityUrl(EntityType.DataProcessInstance, job?.urn )}>
-                        {job?.name}
-                    </JobLink>
-                    {index < trainingJobs.length - 1 && ', '}
-                </div>
-            );
-        });
+        const lineageTrainingJobs = model?.properties?.mlModelLineageInfo?.trainingJobs || [];
+        
+        if (lineageTrainingJobs.length === 0) return '-';
+        
+        return lineageTrainingJobs.map((jobUrn, index) => (
+            <div key={jobUrn}>
+                <JobLink to={entityRegistry.getEntityUrl(EntityType.DataProcessInstance, jobUrn)}>
+                    {jobUrn}
+                </JobLink>
+                {index < lineageTrainingJobs.length - 1 && ', '}
+            </div>
+        ));
     };
 
     return (

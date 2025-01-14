@@ -9886,6 +9886,21 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
 }
 
 """
+Represents lineage information for ML entities.
+"""
+type MLModelLineageInfo {
+   """
+   List of jobs or processes used to train the model.
+   """
+   trainingJobs: [String!]
+
+   """
+   List of jobs or processes that use this model.
+   """
+   downstreamJobs: [String!]
+}
+
+"""
 Properties describing a group of related ML models
 """
 type MLModelGroupProperties {
@@ -9918,6 +9933,11 @@ type MLModelGroupProperties {
     Custom key-value properties for the model group
     """
     customProperties: [CustomPropertiesEntry!]
+
+    """
+    Information related to lineage to this model group
+    """
+    mlModelLineageInfo: MLModelLineageInfo
 
     """
     Deprecated creation timestamp
@@ -10154,6 +10174,11 @@ type MLModelProperties {
     Additional custom properties specific to this model
     """
     customProperties: [CustomPropertiesEntry!]
+
+    """
+    Information related to lineage to this model
+    """
+    mlModelLineageInfo: MLModelLineageInfo
 
     """
     URL to view this model in external system
