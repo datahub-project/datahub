@@ -12,7 +12,7 @@ import com.linkedin.common.TimeStamp
 @Aspect = {
   "name": "mlModelGroupProperties"
 }
-record MLModelGroupProperties includes CustomProperties {
+record MLModelGroupProperties includes CustomProperties, MLModelLineageInfo {
 
   /**
    * Display name of the MLModelGroup
@@ -49,18 +49,6 @@ record MLModelGroupProperties includes CustomProperties {
    * Date when the MLModelGroup was last modified
    */
   lastModified: optional TimeStamp
-
-  /**
-   * List of jobs (if any) used to train the model group. Visible in Lineage.
-   */
-  @Relationship = {
-    "/*": {
-      "name": "TrainedBy",
-      "entityTypes": [ "dataJob" ],
-      "isLineage": true
-    }
-  }
-  trainingJobs: optional array[Urn]
 
   /**
    * Version of the MLModelGroup

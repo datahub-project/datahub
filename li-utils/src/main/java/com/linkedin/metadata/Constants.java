@@ -421,6 +421,10 @@ public class Constants {
       "dataProcessInstanceRunEvent";
   public static final String DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME =
       "dataProcessInstanceRelationships";
+  public static final String DATA_PROCESS_INSTANCE_INPUT_ASPECT_NAME = "dataProcessInstanceInput";
+  public static final String DATA_PROCESS_INSTANCE_OUTPUT_ASPECT_NAME = "dataProcessInstanceOutput";
+  public static final String DATA_PROCESS_INSTANCE_KEY_ASPECT_NAME = "dataProcessInstanceKey";
+  public static final String ML_TRAINING_RUN_PROPERTIES_ASPECT_NAME = "mlTrainingRunProperties";
 
   // Business Attribute
   public static final String BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME = "businessAttributeKey";

@@ -23,7 +23,6 @@ from datahub.ingestion.api.incremental_properties_helper import (
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
-    Source,
     SourceCapability,
     SourceReport,
     TestableSource,
@@ -250,11 +249,6 @@ class SnowflakeV2Source(
             )
 
         self.add_config_to_report()
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
-        config = SnowflakeV2Config.parse_obj(config_dict)
-        return cls(ctx, config)
 
     @staticmethod
     def test_connection(config_dict: dict) -> TestConnectionReport:

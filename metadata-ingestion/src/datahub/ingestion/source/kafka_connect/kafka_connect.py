@@ -17,7 +17,7 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.kafka_connect.common import (
     CONNECTOR_CLASS,
@@ -93,11 +93,6 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         logger.info(f"Connection to {self.config.connect_uri} is ok")
         if not jpype.isJVMStarted():
             jpype.startJVM()
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = KafkaConnectSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
 
     def get_connectors_manifest(self) -> Iterable[ConnectorManifest]:
         """Get Kafka Connect connectors manifest using REST API.

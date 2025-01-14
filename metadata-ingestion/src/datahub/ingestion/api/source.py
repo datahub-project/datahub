@@ -23,7 +23,7 @@ from typing import (
 )
 
 from pydantic import BaseModel
-from typing_extensions import LiteralString
+from typing_extensions import LiteralString, Self
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import PlatformInstanceConfigMixin
@@ -400,7 +400,7 @@ class Source(Closeable, metaclass=ABCMeta):
     ctx: PipelineContext
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> Self:
         # Technically, this method should be abstract. However, the @config_class
         # decorator automatically generates a create method at runtime if one is
         # not defined. Python still treats the class as abstract because it thinks
