@@ -2,6 +2,7 @@ import base64
 import concurrent.futures
 import json
 import logging
+import random
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Set, Type, cast
@@ -154,7 +155,7 @@ class KafkaSourceConfig(
         default=False, description="Whether to collect sample messages from topics"
     )
     sample_size: int = pydantic.Field(
-        default=10, description="Number of sample messages to collect per topic"
+        default=100, description="Number of sample messages to collect per topic"
     )
     sample_timeout_seconds: int = pydantic.Field(
         default=5, description="Timeout in seconds when collecting sample messages"
@@ -506,14 +507,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         timestamp_millis = int(datetime.now().timestamp() * 1000)
         return DatasetProfileClass(
             timestampMillis=timestamp_millis,
-            rowCount=sample_count,
             columnCount=len(all_keys),
             fieldProfiles=[
                 DatasetFieldProfileClass(
-                    fieldPath=field_name,
-                    sampleValues=field_samples[
-                        :3
-                    ],  # Take first 3 samples for each field
+                    fieldPath=field_name, sampleValues=random.sample(field_samples, 3)
                 )
                 for field_name, field_samples in field_sample_map.items()
             ],
