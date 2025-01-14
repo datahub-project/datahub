@@ -111,6 +111,9 @@ entityService:
   retention:
     enabled: ${ENTITY_SERVICE_ENABLE_RETENTION:true}
     applyOnBootstrap: ${ENTITY_SERVICE_APPLY_RETENTION_BOOTSTRAP:false}
+  applyMclSyncForSources:
+    ui: ${ENTITY_SERVICE_SYNC_MCL_UI:true}
+    reportingExecutor: ${ENTITY_SERVICE_SYNC_MCL_REPORTING_EXECUTOR:true}
 
 graphService:
   type: ${GRAPH_SERVICE_IMPL:elasticsearch}
