@@ -122,11 +122,6 @@ class DeltaLakeSource(Source):
             config_report,
         )
 
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
-        config = DeltaLakeSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
-
     def _parse_datatype(self, raw_field_json_str: str) -> List[SchemaFieldClass]:
         raw_field_json = json.loads(raw_field_json_str)
 

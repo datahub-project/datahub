@@ -169,6 +169,12 @@ public class PoliciesConfig {
           "Manage Structured Properties",
           "Manage structured properties in your instance.");
 
+  public static final Privilege VIEW_STRUCTURED_PROPERTIES_PAGE_PRIVILEGE =
+      Privilege.of(
+          "VIEW_STRUCTURED_PROPERTIES_PAGE",
+          "View Structured Properties",
+          "View structured properties in your instance.");
+
   public static final Privilege MANAGE_DOCUMENTATION_FORMS_PRIVILEGE =
       Privilege.of(
           "MANAGE_DOCUMENTATION_FORMS",
@@ -213,6 +219,7 @@ public class PoliciesConfig {
           MANAGE_BUSINESS_ATTRIBUTE_PRIVILEGE,
           MANAGE_CONNECTIONS_PRIVILEGE,
           MANAGE_STRUCTURED_PROPERTIES_PRIVILEGE,
+          VIEW_STRUCTURED_PROPERTIES_PAGE_PRIVILEGE,
           MANAGE_DOCUMENTATION_FORMS_PRIVILEGE,
           MANAGE_FEATURES_PRIVILEGE,
           MANAGE_SYSTEM_OPERATIONS_PRIVILEGE);
@@ -742,6 +749,14 @@ public class PoliciesConfig {
               EDIT_ENTITY_TAGS_PRIVILEGE,
               EDIT_ENTITY_GLOSSARY_TERMS_PRIVILEGE));
 
+  // Version Set privileges
+  public static final ResourcePrivileges VERSION_SET_PRIVILEGES =
+      ResourcePrivileges.of(
+          "versionSet",
+          "Version Set",
+          "A logical collection of versioned entities.",
+          COMMON_ENTITY_PRIVILEGES);
+
   public static final List<ResourcePrivileges> ENTITY_RESOURCE_PRIVILEGES =
       ImmutableList.of(
           DATASET_PRIVILEGES,
@@ -760,7 +775,8 @@ public class PoliciesConfig {
           DATA_PRODUCT_PRIVILEGES,
           ER_MODEL_RELATIONSHIP_PRIVILEGES,
           BUSINESS_ATTRIBUTE_PRIVILEGES,
-          STRUCTURED_PROPERTIES_PRIVILEGES);
+          STRUCTURED_PROPERTIES_PRIVILEGES,
+          VERSION_SET_PRIVILEGES);
 
   // Merge all entity specific resource privileges to create a superset of all resource privileges
   public static final ResourcePrivileges ALL_RESOURCE_PRIVILEGES =

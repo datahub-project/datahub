@@ -247,6 +247,9 @@ public class SearchDocumentTransformerTest {
         TestOperationContexts.systemContextNoSearchAuthorization(
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
+                .cachingAspectRetriever(
+                    TestOperationContexts.emptyActiveUsersAspectRetriever(
+                        () -> TEST_ENTITY_REGISTRY))
                 .graphRetriever(mock(GraphRetriever.class))
                 .searchRetriever(mock(SearchRetriever.class))
                 .build());
@@ -301,6 +304,9 @@ public class SearchDocumentTransformerTest {
         TestOperationContexts.systemContextNoSearchAuthorization(
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
+                .cachingAspectRetriever(
+                    TestOperationContexts.emptyActiveUsersAspectRetriever(
+                        () -> TEST_ENTITY_REGISTRY))
                 .graphRetriever(mock(GraphRetriever.class))
                 .searchRetriever(mock(SearchRetriever.class))
                 .build());
@@ -337,6 +343,9 @@ public class SearchDocumentTransformerTest {
         TestOperationContexts.systemContextNoSearchAuthorization(
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
+                .cachingAspectRetriever(
+                    TestOperationContexts.emptyActiveUsersAspectRetriever(
+                        () -> TEST_ENTITY_REGISTRY))
                 .graphRetriever(mock(GraphRetriever.class))
                 .searchRetriever(mock(SearchRetriever.class))
                 .build());
@@ -369,6 +378,9 @@ public class SearchDocumentTransformerTest {
         TestOperationContexts.systemContextNoSearchAuthorization(
             RetrieverContext.builder()
                 .aspectRetriever(aspectRetriever)
+                .cachingAspectRetriever(
+                    TestOperationContexts.emptyActiveUsersAspectRetriever(
+                        () -> TEST_ENTITY_REGISTRY))
                 .graphRetriever(mock(GraphRetriever.class))
                 .searchRetriever(mock(SearchRetriever.class))
                 .build());
@@ -417,5 +429,24 @@ public class SearchDocumentTransformerTest {
     assertTrue(transformed.get().has("description"));
     assertTrue(transformed.get().get("description").isNull());
     assertFalse(transformed.get().get("hasDescription").asBoolean());
+  }
+
+  @Test
+  public void testHandleRemoveFieldsWithStructuredProperties() throws IOException {
+    ObjectNode previousDoc = JsonNodeFactory.instance.objectNode();
+    previousDoc.put("structuredProperties.prop1", "value1");
+    previousDoc.put("structuredProperties.prop2", "value2");
+    previousDoc.put("otherField", "value3");
+
+    ObjectNode newDoc = JsonNodeFactory.instance.objectNode();
+    newDoc.put("structuredProperties.prop1", "updatedValue1");
+    newDoc.put("otherField", "updatedValue3");
+
+    ObjectNode result = SearchDocumentTransformer.handleRemoveFields(newDoc, previousDoc);
+
+    assertEquals(result.get("structuredProperties.prop1").asText(), "updatedValue1");
+    assertTrue(result.has("structuredProperties.prop2"));
+    assertTrue(result.get("structuredProperties.prop2").isNull());
+    assertEquals(result.get("otherField").asText(), "updatedValue3");
   }
 }

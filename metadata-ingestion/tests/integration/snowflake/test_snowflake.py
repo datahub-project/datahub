@@ -117,7 +117,6 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
                         include_technical_schema=True,
                         include_table_lineage=True,
-                        include_view_lineage=True,
                         include_usage_stats=True,
                         format_sql_queries=True,
                         validate_upstreams_against_patterns=False,
@@ -186,8 +185,72 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
         assert cache_info["get_fk_constraints_for_schema"]["misses"] == 1
 
 
+def test_snowflake_tags_as_structured_properties(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
+
+    # Run the metadata ingestion pipeline.
+    output_file = tmp_path / "snowflake_structured_properties_test_events.json"
+    golden_file = test_resources_dir / "snowflake_structured_properties_golden.json"
+
+    with mock.patch("snowflake.connector.connect") as mock_connect:
+        sf_connection = mock.MagicMock()
+        sf_cursor = mock.MagicMock()
+        mock_connect.return_value = sf_connection
+        sf_connection.cursor.return_value = sf_cursor
+
+        sf_cursor.execute.side_effect = default_query_results
+
+        pipeline = Pipeline(
+            config=PipelineConfig(
+                source=SourceConfig(
+                    type="snowflake",
+                    config=SnowflakeV2Config(
+                        extract_tags_as_structured_properties=True,
+                        extract_tags=TagOption.without_lineage,
+                        account_id="ABC12345.ap-south-1.aws",
+                        username="TST_USR",
+                        password="TST_PWD",
+                        match_fully_qualified_names=True,
+                        schema_pattern=AllowDenyPattern(allow=["test_db.test_schema"]),
+                        include_technical_schema=True,
+                        include_table_lineage=False,
+                        include_column_lineage=False,
+                        include_usage_stats=False,
+                        include_operational_stats=False,
+                    ),
+                ),
+                sink=DynamicTypedConfig(
+                    type="file", config={"filename": str(output_file)}
+                ),
+            )
+        )
+        pipeline.run()
+        pipeline.pretty_print_summary()
+        pipeline.raise_from_status()
+        assert not pipeline.source.get_report().warnings
+
+        # Verify the output.
+
+        mce_helpers.check_golden_file(
+            pytestconfig,
+            output_path=output_file,
+            golden_path=golden_file,
+            ignore_paths=[
+                r"root\[\d+\]\['aspect'\]\['json'\]\['timestampMillis'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['created'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['lastModified'\]",
+                r"root\[\d+\]\['aspect'\]\['json'\]\['fields'\]\[\d+\]\['glossaryTerms'\]\['auditStamp'\]\['time'\]",
+                r"root\[\d+\]\['systemMetadata'\]",
+            ],
+        )
+
+
 @freeze_time(FROZEN_TIME)
-def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
+def test_snowflake_private_link_and_incremental_mcps(
+    pytestconfig, tmp_path, mock_time, mock_datahub_graph
+):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/snowflake"
 
     # Run the metadata ingestion pipeline.
@@ -214,10 +277,10 @@ def test_snowflake_private_link(pytestconfig, tmp_path, mock_time, mock_datahub_
                         include_table_lineage=True,
                         include_column_lineage=False,
                         include_views=True,
-                        include_view_lineage=True,
                         include_usage_stats=False,
                         format_sql_queries=True,
                         incremental_lineage=False,
+                        incremental_properties=True,
                         include_operational_stats=False,
                         platform_instance="instance1",
                         start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(

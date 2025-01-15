@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import partial
 from typing import Dict, Iterable, List, Optional
 
@@ -12,7 +12,10 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.source import MetadataWorkUnitProcessor, SourceReport
-from datahub.ingestion.api.source_helpers import auto_workunit_reporter
+from datahub.ingestion.api.source_helpers import (
+    auto_fix_duplicate_schema_field_paths,
+    auto_workunit_reporter,
+)
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.datahub.config import DataHubSourceConfig
 from datahub.ingestion.source.datahub.datahub_api_reader import DataHubApiReader
@@ -26,6 +29,7 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
 from datahub.metadata.schema_classes import ChangeTypeClass
+from datahub.utilities.progress_timer import ProgressTimer
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +60,14 @@ class DataHubSource(StatefulIngestionSourceBase):
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         # Exactly replicate data from DataHub source
-        return [partial(auto_workunit_reporter, self.get_report())]
+        return [
+            (
+                auto_fix_duplicate_schema_field_paths
+                if self.config.drop_duplicate_schema_fields
+                else None
+            ),
+            partial(auto_workunit_reporter, self.get_report()),
+        ]
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self.report.stop_time = datetime.now(tz=timezone.utc)
@@ -105,10 +116,16 @@ class DataHubSource(StatefulIngestionSourceBase):
         self, from_createdon: datetime, reader: DataHubDatabaseReader
     ) -> Iterable[MetadataWorkUnit]:
         logger.info(f"Fetching database aspects starting from {from_createdon}")
+        progress = ProgressTimer(report_every=timedelta(seconds=60))
         mcps = reader.get_aspects(from_createdon, self.report.stop_time)
         for i, (mcp, createdon) in enumerate(mcps):
             if not self.urn_pattern.allowed(str(mcp.entityUrn)):
                 continue
+
+            if progress.should_report():
+                logger.info(
+                    f"Ingested {i} database aspects so far, currently at {createdon}"
+                )
 
             yield mcp.as_workunit()
             self.report.num_database_aspects_ingested += 1
@@ -123,7 +140,7 @@ class DataHubSource(StatefulIngestionSourceBase):
             self._commit_progress(i)
 
     def _get_kafka_workunits(
-        self, from_offsets: Dict[int, int], soft_deleted_urns: List[str] = []
+        self, from_offsets: Dict[int, int], soft_deleted_urns: List[str]
     ) -> Iterable[MetadataWorkUnit]:
         if self.config.kafka_connection is None:
             return

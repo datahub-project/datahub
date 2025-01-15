@@ -15,15 +15,6 @@ def get_long_description():
 
 rest_common = {"requests", "requests_file"}
 
-# TODO: Can we move away from sqllineage and use sqlglot ??
-sqllineage_lib = {
-    "sqllineage==1.3.8",
-    # We don't have a direct dependency on sqlparse but it is a dependency of sqllineage.
-    # There have previously been issues from not pinning sqlparse, so it's best to pin it.
-    # Related: https://github.com/reata/sqllineage/issues/361 and https://github.com/reata/sqllineage/pull/360
-    "sqlparse==0.4.4",
-}
-
 _version: str = package_metadata["__version__"]
 _self_pin = (
     f"=={_version}"
@@ -43,8 +34,7 @@ base_requirements = {
     # https://github.com/ipython/traitlets/issues/741
     "traitlets<5.2.2",
     *rest_common,
-    *sqllineage_lib,
-    f"acryl-datahub[datahub-rest]{_self_pin}",
+    f"acryl-datahub[datahub-rest,sql-parser]{_self_pin}",
 }
 
 mypy_stubs = {
@@ -128,9 +118,6 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",

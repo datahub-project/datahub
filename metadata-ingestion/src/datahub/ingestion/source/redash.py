@@ -2,7 +2,7 @@ import logging
 import math
 import sys
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set, Type
+from typing import Dict, Iterable, List, Optional, Set
 
 import dateutil.parser as dp
 from packaging import version
@@ -22,7 +22,6 @@ from datahub.ingestion.api.decorators import (  # SourceCapability,; capability,
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.registry import import_path
 from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
@@ -39,9 +38,9 @@ from datahub.metadata.schema_classes import (
     ChartTypeClass,
     DashboardInfoClass,
 )
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
-from datahub.utilities.sql_parser_base import SQLParser
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
 
 logger = logging.getLogger(__name__)
@@ -270,10 +269,6 @@ class RedashConfig(ConfigModel):
     parse_table_names_from_sql: bool = Field(
         default=False, description="See note below."
     )
-    sql_parser: str = Field(
-        default="datahub.utilities.sql_parser.DefaultSQLParser",
-        description="custom SQL parser. See note below for details.",
-    )
 
     env: str = Field(
         default=DEFAULT_ENV,
@@ -354,7 +349,6 @@ class RedashSource(Source):
         self.api_page_limit = self.config.api_page_limit or math.inf
 
         self.parse_table_names_from_sql = self.config.parse_table_names_from_sql
-        self.sql_parser_path = self.config.sql_parser
 
         logger.info(
             f"Running Redash ingestion with parse_table_names_from_sql={self.parse_table_names_from_sql}"
@@ -374,36 +368,6 @@ class RedashSource(Source):
             logger.info("Redash API connected succesfully")
         else:
             raise ValueError(f"Failed to connect to {self.config.connect_uri}/api")
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = RedashConfig.parse_obj(config_dict)
-        return cls(ctx, config)
-
-    @classmethod
-    def _import_sql_parser_cls(cls, sql_parser_path: str) -> Type[SQLParser]:
-        assert "." in sql_parser_path, "sql_parser-path must contain a ."
-        parser_cls = import_path(sql_parser_path)
-
-        if not issubclass(parser_cls, SQLParser):
-            raise ValueError(f"must be derived from {SQLParser}; got {parser_cls}")
-        return parser_cls
-
-    @classmethod
-    def _get_sql_table_names(cls, sql: str, sql_parser_path: str) -> List[str]:
-        parser_cls = cls._import_sql_parser_cls(sql_parser_path)
-
-        try:
-            sql_table_names: List[str] = parser_cls(sql).get_tables()
-        except Exception as e:
-            logger.warning(f"Sql parser failed on {sql} with {e}")
-            return []
-
-        # Remove quotes from table names
-        sql_table_names = [t.replace('"', "") for t in sql_table_names]
-        sql_table_names = [t.replace("`", "") for t in sql_table_names]
-
-        return sql_table_names
 
     def _get_chart_data_source(self, data_source_id: Optional[int] = None) -> Dict:
         url = f"/api/data_sources/{data_source_id}"
@@ -441,14 +405,6 @@ class RedashSource(Source):
 
         return database_name
 
-    def _construct_datalineage_urn(
-        self, platform: str, database_name: str, sql_table_name: str
-    ) -> str:
-        full_dataset_name = get_full_qualified_name(
-            platform, database_name, sql_table_name
-        )
-        return builder.make_dataset_urn(platform, full_dataset_name, self.config.env)
-
     def _get_datasource_urns(
         self, data_source: Dict, sql_query_data: Dict = {}
     ) -> Optional[List[str]]:
@@ -464,34 +420,23 @@ class RedashSource(Source):
             # Getting table lineage from SQL parsing
             if self.parse_table_names_from_sql and data_source_syntax == "sql":
                 dataset_urns = list()
-                try:
-                    sql_table_names = self._get_sql_table_names(
-                        query, self.sql_parser_path
-                    )
-                except Exception as e:
+                sql_parser_in_tables = create_lineage_sql_parsed_result(
+                    query=query,
+                    platform=platform,
+                    env=self.config.env,
+                    platform_instance=None,
+                    default_db=database_name,
+                )
+                # make sure dataset_urns is not empty list
+                dataset_urns = sql_parser_in_tables.in_tables
+                if sql_parser_in_tables.debug_info.table_error:
                     self.report.queries_problem_parsing.add(str(query_id))
                     self.error(
                         logger,
                         "sql-parsing",
-                        f"exception {e} in parsing query-{query_id}-datasource-{data_source_id}",
+                        f"exception {sql_parser_in_tables.debug_info.table_error} in parsing query-{query_id}-datasource-{data_source_id}",
                     )
-                    sql_table_names = []
-                for sql_table_name in sql_table_names:
-                    try:
-                        dataset_urns.append(
-                            self._construct_datalineage_urn(
-                                platform, database_name, sql_table_name
-                            )
-                        )
-                    except Exception:
-                        self.report.queries_problem_parsing.add(str(query_id))
-                        self.warn(
-                            logger,
-                            "data-urn-invalid",
-                            f"Problem making URN for {sql_table_name} parsed from query {query_id}",
-                        )
 
-                # make sure dataset_urns is not empty list
                 return dataset_urns if len(dataset_urns) > 0 else None
 
             else:

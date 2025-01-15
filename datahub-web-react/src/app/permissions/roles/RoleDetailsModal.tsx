@@ -45,8 +45,8 @@ export default function RoleDetailsModal({ role, open, onClose }: Props) {
 
     const castedRole = role as any;
 
-    const users = castedRole?.users?.relationships.map((relationship) => relationship.entity as CorpUser);
-    const policies = castedRole?.policies?.relationships.map((relationship) => relationship.entity as DataHubPolicy);
+    const users = castedRole?.users?.relationships?.map((relationship) => relationship.entity as CorpUser);
+    const policies = castedRole?.policies?.relationships?.map((relationship) => relationship.entity as DataHubPolicy);
 
     return (
         <Modal title={role?.name} open={open} onCancel={onClose} closable width={800} footer={actionButtons}>

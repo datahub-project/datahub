@@ -50,6 +50,9 @@ fragment dataFlowFields on DataFlow {
     dataPlatformInstance {
         ...dataPlatformInstanceFields
     }
+    parentContainers {
+        ...parentContainersFields
+    }
     browsePathV2 {
         ...browsePathV2Fields
     }

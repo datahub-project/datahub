@@ -2,9 +2,9 @@ import json
 import logging
 import re
 import time
-from collections import OrderedDict
-from dataclasses import dataclass
-from datetime import datetime
+from collections import OrderedDict, defaultdict
+from dataclasses import dataclass, field as dataclass_field
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import (
     Any,
@@ -35,7 +35,10 @@ from tableauserverclient import (
     SiteItem,
     TableauAuth,
 )
-from tableauserverclient.server.endpoint.exceptions import NonXMLResponseError
+from tableauserverclient.server.endpoint.exceptions import (
+    InternalServerError,
+    NonXMLResponseError,
+)
 from urllib3 import Retry
 
 import datahub.emitter.mce_builder as builder
@@ -49,6 +52,7 @@ from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.validate_field_removal import pydantic_removed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import (
     ContainerKey,
@@ -67,7 +71,6 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
-    Source,
     StructuredLogLevel,
     TestableSource,
     TestConnectionReport,
@@ -105,12 +108,16 @@ from datahub.ingestion.source.tableau.tableau_common import (
     make_filter,
     make_fine_grained_lineage_class,
     make_upstream_class,
+    optimize_query_filter,
     published_datasource_graphql_query,
     query_metadata_cursor_based_pagination,
     sheet_graphql_query,
     tableau_field_to_schema_field,
     workbook_graphql_query,
 )
+from datahub.ingestion.source.tableau.tableau_server_wrapper import UserInfo
+from datahub.ingestion.source.tableau.tableau_validation import check_user_role
+from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
@@ -163,11 +170,13 @@ from datahub.sql_parsing.sqlglot_lineage import (
     create_lineage_sql_parsed_result,
 )
 from datahub.utilities import config_clean
+from datahub.utilities.perf_timer import PerfTimer
+from datahub.utilities.stats_collections import TopKDict
 from datahub.utilities.urns.dataset_urn import DatasetUrn
 
 try:
     # On earlier versions of the tableauserverclient, the NonXMLResponseError
-    # was thrown when reauthentication was needed. We'll keep both exceptions
+    # was thrown when reauthentication was necessary. We'll keep both exceptions
     # around for now, but can remove this in the future.
     from tableauserverclient.server.endpoint.exceptions import (  # type: ignore
         NotSignedInError,
@@ -179,6 +188,20 @@ try:
     )
 except ImportError:
     REAUTHENTICATE_ERRORS = (NonXMLResponseError,)
+
+RETRIABLE_ERROR_CODES = [
+    408,  # Request Timeout
+    429,  # Too Many Requests
+    500,  # Internal Server Error
+    502,  # Bad Gateway
+    503,  # Service Unavailable
+    504,  # Gateway Timeout
+]
+
+# From experience, this expiry time typically ranges from 50 minutes
+# to 2 hours but might as well be configurable. We will allow upto
+# 10 minutes of such expiry time
+REGULAR_AUTH_EXPIRY_PERIOD = timedelta(minutes=10)
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -281,7 +304,7 @@ class TableauConnectionConfig(ConfigModel):
                 max_retries=Retry(
                     total=self.max_retries,
                     backoff_factor=1,
-                    status_forcelist=[429, 500, 502, 503, 504],
+                    status_forcelist=RETRIABLE_ERROR_CODES,
                 )
             )
             server._session.mount("http://", adapter)
@@ -353,7 +376,7 @@ class TableauConfig(
 
     project_path_separator: str = Field(
         default="/",
-        description="The separator used for the project_pattern field between project names. By default, we use a slash. "
+        description="The separator used for the project_path_pattern field between project names. By default, we use a slash. "
         "You can change this if your Tableau projects contain slashes in their names, and you'd like to filter by project.",
     )
 
@@ -376,11 +399,6 @@ class TableauConfig(
     page_size: int = Field(
         default=10,
         description="[advanced] Number of metadata objects (e.g. CustomSQLTable, PublishedDatasource, etc) to query at a time using the Tableau API.",
-    )
-
-    fetch_size: int = Field(
-        default=250,
-        description="Specifies the number of records to retrieve in each batch during a query execution.",
     )
 
     # We've found that even with a small workbook page size (e.g. 10), the Tableau API often
@@ -485,6 +503,22 @@ class TableauConfig(
         description="Configuration settings for ingesting Tableau groups and their capabilities as custom properties.",
     )
 
+    ingest_hidden_assets: bool = Field(
+        True,
+        description="When enabled, hidden views and dashboards are ingested into Datahub. "
+        "If a dashboard or view is hidden in Tableau the luid is blank. Default of this config field is True.",
+    )
+
+    tags_for_hidden_assets: List[str] = Field(
+        default=[],
+        description="Tags to be added to hidden dashboards and views. If a dashboard or view is hidden in Tableau the luid is blank. "
+        "This can only be used with ingest_tags enabled as it will overwrite tags entered from the UI.",
+    )
+
+    _fetch_size = pydantic_removed_field(
+        "fetch_size",
+    )
+
     # pre = True because we want to take some decision before pydantic initialize the configuration to default values
     @root_validator(pre=True)
     def projects_backward_compatibility(cls, values: Dict) -> Dict:
@@ -508,6 +542,20 @@ class TableauConfig(
                 "project_pattern is deprecated. Please use project_path_pattern only."
             )
 
+        return values
+
+    @root_validator()
+    def validate_config_values(cls, values: Dict) -> Dict:
+        tags_for_hidden_assets = values.get("tags_for_hidden_assets")
+        ingest_tags = values.get("ingest_tags")
+        if (
+            not ingest_tags
+            and tags_for_hidden_assets
+            and len(tags_for_hidden_assets) > 0
+        ):
+            raise ValueError(
+                "tags_for_hidden_assets is only allowed with ingest_tags enabled. Be aware that this will overwrite tags entered from the UI."
+            )
         return values
 
 
@@ -590,13 +638,93 @@ class DatabaseTable:
                 self.parsed_columns = parsed_columns
 
 
-class TableauSourceReport(StaleEntityRemovalSourceReport):
+@dataclass
+class SiteIdContentUrl:
+    site_id: str
+    site_content_url: str
+
+
+@dataclass
+class TableauSourceReport(
+    StaleEntityRemovalSourceReport,
+    IngestionStageReport,
+):
     get_all_datasources_query_failed: bool = False
     num_get_datasource_query_failures: int = 0
     num_datasource_field_skipped_no_name: int = 0
     num_csql_field_skipped_no_name: int = 0
     num_table_field_skipped_no_name: int = 0
+    # timers
+    extract_usage_stats_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    fetch_groups_timer: Dict[str, float] = dataclass_field(default_factory=TopKDict)
+    populate_database_server_hostname_map_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    populate_projects_registry_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    emit_workbooks_timer: Dict[str, float] = dataclass_field(default_factory=TopKDict)
+    emit_sheets_timer: Dict[str, float] = dataclass_field(default_factory=TopKDict)
+    emit_dashboards_timer: Dict[str, float] = dataclass_field(default_factory=TopKDict)
+    emit_embedded_datasources_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    emit_published_datasources_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    emit_custom_sql_datasources_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    emit_upstream_tables_timer: Dict[str, float] = dataclass_field(
+        default_factory=TopKDict
+    )
+    # lineage
+    num_tables_with_upstream_lineage: int = 0
+    num_upstream_table_lineage: int = 0
+    num_upstream_fine_grained_lineage: int = 0
     num_upstream_table_skipped_no_name: int = 0
+    num_upstream_table_skipped_no_columns: int = 0
+    num_upstream_table_failed_generate_reference: int = 0
+    num_upstream_table_lineage_failed_parse_sql: int = 0
+    num_upstream_fine_grained_lineage_failed_parse_sql: int = 0
+    num_hidden_assets_skipped: int = 0
+    logged_in_user: List[UserInfo] = dataclass_field(default_factory=list)
+
+    last_authenticated_at: Optional[datetime] = None
+
+    num_expected_tableau_metadata_queries: int = 0
+    num_actual_tableau_metadata_queries: int = 0
+    tableau_server_error_stats: Dict[str, int] = dataclass_field(
+        default_factory=(lambda: defaultdict(int))
+    )
+
+
+def report_user_role(report: TableauSourceReport, server: Server) -> None:
+    title: str = "Insufficient Permissions"
+    message: str = "The user must have the `Site Administrator Explorer` role to perform metadata ingestion."
+    try:
+        # TableauSiteSource instance is per site, so each time we need to find-out user detail
+        # the site-role might be different on another site
+        logged_in_user: UserInfo = UserInfo.from_server(server=server)
+
+        if not logged_in_user.has_site_administrator_explorer_privileges():
+            report.warning(
+                title=title,
+                message=message,
+                context=f"user-name={logged_in_user.user_name}, role={logged_in_user.site_role}, site_id={logged_in_user.site_id}",
+            )
+
+        report.logged_in_user.append(logged_in_user)
+
+    except Exception as e:
+        report.warning(
+            title=title,
+            message="Failed to verify the user's role. The user must have `Site Administrator Explorer` role.",
+            context=f"{e}",
+            exc=e,
+        )
 
 
 @platform_name("Tableau")
@@ -641,6 +769,8 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         try:
             logger.info(f"Authenticated to Tableau site: '{site_content_url}'")
             self.server = self.config.make_tableau_client(site_content_url)
+            self.report.last_authenticated_at = datetime.now(timezone.utc)
+            report_user_role(report=self.report, server=self.server)
         # Note that we're not catching ConfigurationError, since we want that to throw.
         except ValueError as e:
             self.report.failure(
@@ -654,9 +784,17 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
         test_report = TestConnectionReport()
         try:
             source_config = TableauConfig.parse_obj_allow_extras(config_dict)
-            source_config.make_tableau_client(source_config.site)
+
+            server = source_config.make_tableau_client(source_config.site)
+
             test_report.basic_connectivity = CapabilityReport(capable=True)
+
+            test_report.capability_report = check_user_role(
+                logged_in_user=UserInfo.from_server(server=server)
+            )
+
         except Exception as e:
+            logger.warning(f"{e}", exc_info=e)
             test_report.basic_connectivity = CapabilityReport(
                 capable=False, failure_reason=str(e)
             )
@@ -664,11 +802,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_report(self) -> TableauSourceReport:
         return self.report
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = TableauConfig.parse_obj(config_dict)
-        return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [
@@ -697,7 +830,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                         config=self.config,
                         ctx=self.ctx,
                         site=site,
-                        site_id=site.id,
                         report=self.report,
                         server=self.server,
                         platform=self.platform,
@@ -716,13 +848,20 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
                 site_source = TableauSiteSource(
                     config=self.config,
                     ctx=self.ctx,
-                    site=site,
-                    site_id=self.server.site_id,
+                    site=(
+                        site
+                        if site
+                        else SiteIdContentUrl(
+                            site_id=self.server.site_id,
+                            site_content_url=self.config.site,
+                        )
+                    ),
                     report=self.report,
                     server=self.server,
                     platform=self.platform,
                 )
                 yield from site_source.ingest_tableau_site()
+
         except MetadataQueryException as md_exception:
             self.report.failure(
                 title="Failed to Retrieve Tableau Metadata",
@@ -750,8 +889,7 @@ class TableauSiteSource:
         self,
         config: TableauConfig,
         ctx: PipelineContext,
-        site: Optional[SiteItem],
-        site_id: Optional[str],
+        site: Union[SiteItem, SiteIdContentUrl],
         report: TableauSourceReport,
         server: Server,
         platform: str,
@@ -762,13 +900,18 @@ class TableauSiteSource:
         self.ctx: PipelineContext = ctx
         self.platform = platform
 
-        self.site: Optional[SiteItem] = site
-        if site_id is not None:
-            self.site_id: str = site_id
+        self.site: Optional[SiteItem] = None
+        if isinstance(site, SiteItem):
+            self.site = site
+            assert site.id is not None, "Site ID is required"
+            self.site_id = site.id
+            self.site_content_url = site.content_url
+        elif isinstance(site, SiteIdContentUrl):
+            self.site = None
+            self.site_id = site.site_id
+            self.site_content_url = site.site_content_url
         else:
-            assert self.site is not None, "site or site_id is required"
-            assert self.site.id is not None, "site_id is required when site is provided"
-            self.site_id = self.site.id
+            raise AssertionError("site or site id+content_url pair is required")
 
         self.database_tables: Dict[str, DatabaseTable] = {}
         self.tableau_stat_registry: Dict[str, UsageStat] = {}
@@ -796,6 +939,8 @@ class TableauSiteSource:
         # when emitting custom SQL data sources.
         self.custom_sql_ids_being_used: List[str] = []
 
+        report_user_role(report=report, server=server)
+
     @property
     def no_env_browse_prefix(self) -> str:
         # Prefix to use with browse path (v1)
@@ -820,17 +965,12 @@ class TableauSiteSource:
         # datasets also have the env in the browse path
         return f"/{self.config.env.lower()}{self.no_env_browse_prefix}"
 
-    def _re_authenticate(self):
-        tableau_auth: Union[
-            TableauAuth, PersonalAccessTokenAuth
-        ] = self.config.get_tableau_auth(self.site_id)
-        self.server.auth.sign_in(tableau_auth)
-
-    @property
-    def site_content_url(self) -> Optional[str]:
-        if self.site and self.site.content_url:
-            return self.site.content_url
-        return None
+    def _re_authenticate(self) -> None:
+        logger.info(f"Re-authenticating to Tableau site '{self.site_content_url}'")
+        # Sign-in again may not be enough because Tableau sometimes caches invalid sessions
+        # so we need to recreate the Tableau Server object
+        self.server = self.config.make_tableau_client(self.site_content_url)
+        self.report.last_authenticated_at = datetime.now(timezone.utc)
 
     def _populate_usage_stat_registry(self) -> None:
         if self.server is None:
@@ -924,19 +1064,36 @@ class TableauSiteSource:
         return is_allowed
 
     def _is_denied_project(self, project: TableauProject) -> bool:
-        # Either project name or project path should exist in deny
-        for deny_pattern in self.config.project_pattern.deny:
-            # Either name or project path is denied
-            if re.match(
-                deny_pattern, project.name, self.config.project_pattern.regex_flags
-            ) or re.match(
-                deny_pattern,
-                self._get_project_path(project),
-                self.config.project_pattern.regex_flags,
-            ):
-                return True
-        logger.info(f"project({project.name}) is not denied as per project_pattern")
-        return False
+        """
+        Why use an explicit denial check instead of the `AllowDenyPattern.allowed` method?
+
+        Consider a scenario where a Tableau site contains four projects: A, B, C, and D, with the following hierarchical relationship:
+
+        - **A**
+          - **B** (Child of A)
+          - **C** (Child of A)
+        - **D**
+
+        In this setup:
+
+        - `project_pattern` is configured with `allow: ["A"]` and `deny: ["B"]`.
+        - `extract_project_hierarchy` is set to `True`.
+
+        The goal is to extract assets from project A and its children while explicitly denying the child project B.
+
+        If we rely solely on the `project_pattern.allowed()` method, project C's assets will not be ingested.
+        This happens because project C is not explicitly included in the `allow` list, nor is it part of the `deny` list.
+        However, since `extract_project_hierarchy` is enabled, project C should ideally be included in the ingestion process unless explicitly denied.
+
+        To address this, the function explicitly checks the deny regex to ensure that project C’s assets are ingested if it is not specifically denied in the deny list. This approach ensures that the hierarchy is respected while adhering to the configured allow/deny rules.
+        """
+
+        # Either project_pattern or project_path_pattern is set in a recipe
+        # TableauConfig.projects_backward_compatibility ensures that at least one of these properties is configured.
+
+        return self.config.project_pattern.denied(
+            project.name
+        ) or self.config.project_path_pattern.denied(self._get_project_path(project))
 
     def _init_tableau_project_registry(self, all_project_map: dict) -> None:
         list_of_skip_projects: List[TableauProject] = []
@@ -964,9 +1121,11 @@ class TableauSiteSource:
             for project in list_of_skip_projects:
                 if (
                     project.parent_id in projects_to_ingest
-                    and self._is_denied_project(project) is False
+                    and not self._is_denied_project(project)
                 ):
-                    logger.debug(f"Project {project.name} is added in project registry")
+                    logger.debug(
+                        f"Project {project.name} is added in project registry as it's a child project and not explicitly denied in `deny` list"
+                    )
                     projects_to_ingest[project.id] = project
 
         # We rely on automatic browse paths (v2) when creating containers. That's why we need to sort the projects here.
@@ -1043,13 +1202,18 @@ class TableauSiteSource:
             ),
         )
 
+    def _is_hidden_view(self, dashboard_or_view: Dict) -> bool:
+        # LUID is blank if the view is hidden in the workbook.
+        # More info here: https://help.tableau.com/current/api/metadata_api/en-us/reference/view.doc.html
+        return not dashboard_or_view.get(c.LUID)
+
     def get_connection_object_page(
         self,
         query: str,
         connection_type: str,
         query_filter: str,
         current_cursor: Optional[str],
-        fetch_size: int = 250,
+        fetch_size: int,
         retry_on_auth_error: bool = True,
         retries_remaining: Optional[int] = None,
     ) -> Tuple[dict, Optional[str], int]:
@@ -1072,6 +1236,7 @@ class TableauSiteSource:
         )
         try:
             assert self.server is not None
+            self.report.num_actual_tableau_metadata_queries += 1
             query_data = query_metadata_cursor_based_pagination(
                 server=self.server,
                 main_query=query,
@@ -1081,24 +1246,56 @@ class TableauSiteSource:
                 qry_filter=query_filter,
             )
 
-        except REAUTHENTICATE_ERRORS:
-            if not retry_on_auth_error:
+        except REAUTHENTICATE_ERRORS as e:
+            self.report.tableau_server_error_stats[e.__class__.__name__] += 1
+            if not retry_on_auth_error or retries_remaining <= 0:
                 raise
 
-            # If ingestion has been running for over 2 hours, the Tableau
-            # temporary credentials will expire. If this happens, this exception
-            # will be thrown, and we need to re-authenticate and retry.
-            self._re_authenticate()
+            # We have been getting some irregular authorization errors like below well before the expected expiry time
+            # - within few seconds of initial authentication . We'll retry without re-auth for such cases.
+            # <class 'tableauserverclient.server.endpoint.exceptions.NonXMLResponseError'>:
+            # b'{"timestamp":"xxx","status":401,"error":"Unauthorized","path":"/relationship-service-war/graphql"}'
+            if self.report.last_authenticated_at and (
+                datetime.now(timezone.utc) - self.report.last_authenticated_at
+                > REGULAR_AUTH_EXPIRY_PERIOD
+            ):
+                # If ingestion has been running for over 2 hours, the Tableau
+                # temporary credentials will expire. If this happens, this exception
+                # will be thrown, and we need to re-authenticate and retry.
+                self._re_authenticate()
+
             return self.get_connection_object_page(
                 query=query,
                 connection_type=connection_type,
                 query_filter=query_filter,
                 fetch_size=fetch_size,
                 current_cursor=current_cursor,
-                retry_on_auth_error=False,
+                retry_on_auth_error=True,
                 retries_remaining=retries_remaining - 1,
             )
+
+        except InternalServerError as ise:
+            self.report.tableau_server_error_stats[InternalServerError.__name__] += 1
+            # In some cases Tableau Server returns 504 error, which is a timeout error, so it worths to retry.
+            # Extended with other retryable errors.
+            if ise.code in RETRIABLE_ERROR_CODES:
+                if retries_remaining <= 0:
+                    raise ise
+                logger.info(f"Retrying query due to error {ise.code}")
+                return self.get_connection_object_page(
+                    query=query,
+                    connection_type=connection_type,
+                    query_filter=query_filter,
+                    fetch_size=fetch_size,
+                    current_cursor=current_cursor,
+                    retry_on_auth_error=True,
+                    retries_remaining=retries_remaining - 1,
+                )
+            else:
+                raise ise
+
         except OSError:
+            self.report.tableau_server_error_stats[OSError.__name__] += 1
             # In tableauseverclient 0.26 (which was yanked and released in 0.28 on 2023-10-04),
             # the request logic was changed to use threads.
             # https://github.com/tableau/server-client-python/commit/307d8a20a30f32c1ce615cca7c6a78b9b9bff081
@@ -1113,7 +1310,7 @@ class TableauSiteSource:
                 query_filter=query_filter,
                 fetch_size=fetch_size,
                 current_cursor=current_cursor,
-                retry_on_auth_error=False,
+                retry_on_auth_error=True,
                 retries_remaining=retries_remaining - 1,
             )
 
@@ -1201,7 +1398,7 @@ class TableauSiteSource:
                         query_filter=query_filter,
                         fetch_size=fetch_size,
                         current_cursor=current_cursor,
-                        retry_on_auth_error=False,
+                        retry_on_auth_error=True,
                         retries_remaining=retries_remaining,
                     )
                 raise RuntimeError(f"Query {connection_type} error: {errors}")
@@ -1226,18 +1423,20 @@ class TableauSiteSource:
         query_filter: dict = {},
         page_size_override: Optional[int] = None,
     ) -> Iterable[dict]:
+        query_filter = optimize_query_filter(query_filter)
+
         # Calls the get_connection_object_page function to get the objects,
         # and automatically handles pagination.
         page_size = page_size_override or self.config.page_size
 
         filter_pages = get_filter_pages(query_filter, page_size)
-
         for filter_page in filter_pages:
             has_next_page = 1
             current_cursor: Optional[str] = None
             while has_next_page:
                 filter_: str = make_filter(filter_page)
 
+                self.report.num_expected_tableau_metadata_queries += 1
                 (
                     connection_objects,
                     current_cursor,
@@ -1247,7 +1446,11 @@ class TableauSiteSource:
                     connection_type=connection_type,
                     query_filter=filter_,
                     current_cursor=current_cursor,
-                    fetch_size=self.config.fetch_size,
+                    # `filter_page` contains metadata object IDs (e.g., Project IDs, Field IDs, Sheet IDs, etc.).
+                    # The number of IDs is always less than or equal to page_size.
+                    # If the IDs are primary keys, the number of metadata objects to load matches the number of records to return.
+                    # In our case, mostly, the IDs are primary key, therefore, fetch_size is set equal to page_size.
+                    fetch_size=page_size,
                 )
 
                 yield from connection_objects.get(c.NODES) or []
@@ -1311,7 +1514,7 @@ class TableauSiteSource:
         datasource: dict,
         browse_path: Optional[str],
         is_embedded_ds: bool = False,
-    ) -> Tuple:
+    ) -> Tuple[List[Upstream], List[FineGrainedLineage]]:
         upstream_tables: List[Upstream] = []
         fine_grained_lineages: List[FineGrainedLineage] = []
         table_id_to_urn = {}
@@ -1472,6 +1675,7 @@ class TableauSiteSource:
                 c.COLUMNS_CONNECTION
             ].get("totalCount")
             if not is_custom_sql and not num_tbl_cols:
+                self.report.num_upstream_table_skipped_no_columns += 1
                 logger.warning(
                     f"Skipping upstream table with id {table[c.ID]}, no columns: {table}"
                 )
@@ -1488,6 +1692,7 @@ class TableauSiteSource:
                     table, default_schema_map=self.config.default_schema_map
                 )
             except Exception as e:
+                self.report.num_upstream_table_failed_generate_reference += 1
                 self.report.warning(
                     title="Potentially Missing Lineage Issue",
                     message="Failed to generate upstream reference",
@@ -1659,15 +1864,7 @@ class TableauSiteSource:
             func_overridden_info=None,  # Here we don't want to override any information from configuration
         )
 
-        if parsed_result is None:
-            logger.info(
-                f"Failed to extract column level lineage from datasource {datasource_urn}"
-            )
-            return []
-        if parsed_result.debug_info.error:
-            logger.info(
-                f"Failed to extract column level lineage from datasource {datasource_urn}: {parsed_result.debug_info.error}"
-            )
+        if parsed_result is None or parsed_result.debug_info.error:
             return []
 
         cll: List[ColumnLineageInfo] = (
@@ -2031,6 +2228,8 @@ class TableauSiteSource:
                 aspect_name=c.UPSTREAM_LINEAGE,
                 aspect=upstream_lineage,
             )
+            self.report.num_tables_with_upstream_lineage += 1
+            self.report.num_upstream_table_lineage += len(upstream_tables)
 
     @staticmethod
     def _clean_tableau_query_parameters(query: str) -> str:
@@ -2130,7 +2329,7 @@ class TableauSiteSource:
             f"Overridden info upstream_db={upstream_db}, platform_instance={platform_instance}, platform={platform}"
         )
 
-        return create_lineage_sql_parsed_result(
+        parsed_result = create_lineage_sql_parsed_result(
             query=query,
             default_db=upstream_db,
             platform=platform,
@@ -2139,6 +2338,21 @@ class TableauSiteSource:
             graph=self.ctx.graph,
             schema_aware=not self.config.sql_parsing_disable_schema_awareness,
         )
+
+        assert parsed_result is not None
+
+        if parsed_result.debug_info.table_error:
+            logger.warning(
+                f"Failed to extract table lineage from datasource {datasource_urn}: {parsed_result.debug_info.table_error}"
+            )
+            self.report.num_upstream_table_lineage_failed_parse_sql += 1
+        elif parsed_result.debug_info.column_error:
+            logger.warning(
+                f"Failed to extract column level lineage from datasource {datasource_urn}: {parsed_result.debug_info.column_error}"
+            )
+            self.report.num_upstream_fine_grained_lineage_failed_parse_sql += 1
+
+        return parsed_result
 
     def _enrich_database_tables_with_parsed_schemas(
         self, parsing_result: SqlParsingResult
@@ -2174,9 +2388,6 @@ class TableauSiteSource:
         )
 
         if parsed_result is None:
-            logger.info(
-                f"Failed to extract table level lineage for datasource {csql_urn}"
-            )
             return
 
         self._enrich_database_tables_with_parsed_schemas(parsed_result)
@@ -2196,12 +2407,14 @@ class TableauSiteSource:
             upstreams=upstream_tables,
             fineGrainedLineages=fine_grained_lineages,
         )
-
         yield self.get_metadata_change_proposal(
             csql_urn,
             aspect_name=c.UPSTREAM_LINEAGE,
             aspect=upstream_lineage,
         )
+        self.report.num_tables_with_upstream_lineage += 1
+        self.report.num_upstream_table_lineage += len(upstream_tables)
+        self.report.num_upstream_fine_grained_lineage += len(fine_grained_lineages)
 
     def _get_schema_metadata_for_datasource(
         self, datasource_fields: List[dict]
@@ -2278,12 +2491,11 @@ class TableauSiteSource:
         )
 
         # Tags
-        if datasource_info:
+        if datasource_info and self.config.ingest_tags:
             tags = self.get_tags(datasource_info)
-            if tags:
-                dataset_snapshot.aspects.append(
-                    builder.make_global_tag_aspect_with_tag_list(tags)
-                )
+            dataset_snapshot.aspects.append(
+                builder.make_global_tag_aspect_with_tag_list(tags)
+            )
 
         # Browse path
         if browse_path and is_embedded_ds and workbook and workbook.get(c.NAME):
@@ -2351,6 +2563,11 @@ class TableauSiteSource:
                     datasource_urn,
                     aspect_name=c.UPSTREAM_LINEAGE,
                     aspect=upstream_lineage,
+                )
+                self.report.num_tables_with_upstream_lineage += 1
+                self.report.num_upstream_table_lineage += len(upstream_tables)
+                self.report.num_upstream_fine_grained_lineage += len(
+                    fine_grained_lineages
                 )
 
         # Datasource Fields
@@ -2669,7 +2886,13 @@ class TableauSiteSource:
             c.SHEETS_CONNECTION,
             sheets_filter,
         ):
-            yield from self.emit_sheets_as_charts(sheet, sheet.get(c.WORKBOOK))
+            if self.config.ingest_hidden_assets or not self._is_hidden_view(sheet):
+                yield from self.emit_sheets_as_charts(sheet, sheet.get(c.WORKBOOK))
+            else:
+                self.report.num_hidden_assets_skipped += 1
+                logger.debug(
+                    f"Skip view {sheet.get(c.ID)} because it's hidden (luid is blank)."
+                )
 
     def emit_sheets_as_charts(
         self, sheet: dict, workbook: Optional[Dict]
@@ -2760,11 +2983,17 @@ class TableauSiteSource:
             chart_snapshot.aspects.append(owner)
 
         #  Tags
-        tags = self.get_tags(sheet)
-        if tags:
+        if self.config.ingest_tags:
+            tags = self.get_tags(sheet)
+            if len(self.config.tags_for_hidden_assets) > 0 and self._is_hidden_view(
+                sheet
+            ):
+                tags.extend(self.config.tags_for_hidden_assets)
+
             chart_snapshot.aspects.append(
                 builder.make_global_tag_aspect_with_tag_list(tags)
             )
+
         yield self.get_metadata_change_event(chart_snapshot)
         if sheet_external_url is not None and self.config.ingest_embed_url is True:
             yield self.new_work_unit(
@@ -2846,7 +3075,7 @@ class TableauSiteSource:
             else None
         )
 
-        tags = self.get_tags(workbook)
+        tags = self.get_tags(workbook) if self.config.ingest_tags else None
 
         parent_key = None
         project_luid: Optional[str] = self._get_workbook_project_luid(workbook)
@@ -2977,17 +3206,23 @@ class TableauSiteSource:
             c.DASHBOARDS_CONNECTION,
             dashboards_filter,
         ):
-            yield from self.emit_dashboard(dashboard, dashboard.get(c.WORKBOOK))
+            if self.config.ingest_hidden_assets or not self._is_hidden_view(dashboard):
+                yield from self.emit_dashboard(dashboard, dashboard.get(c.WORKBOOK))
+            else:
+                self.report.num_hidden_assets_skipped += 1
+                logger.debug(
+                    f"Skip dashboard {dashboard.get(c.ID)} because it's hidden (luid is blank)."
+                )
 
-    def get_tags(self, obj: dict) -> Optional[List[str]]:
+    def get_tags(self, obj: dict) -> List[str]:
         tag_list = obj.get(c.TAGS, [])
-        if tag_list and self.config.ingest_tags:
+        if tag_list:
             tag_list_str = [
                 t[c.NAME] for t in tag_list if t is not None and t.get(c.NAME)
             ]
 
             return tag_list_str
-        return None
+        return []
 
     def emit_dashboard(
         self, dashboard: dict, workbook: Optional[Dict]
@@ -3038,8 +3273,13 @@ class TableauSiteSource:
         )
         dashboard_snapshot.aspects.append(dashboard_info_class)
 
-        tags = self.get_tags(dashboard)
-        if tags:
+        if self.config.ingest_tags:
+            tags = self.get_tags(dashboard)
+            if len(self.config.tags_for_hidden_assets) > 0 and self._is_hidden_view(
+                dashboard
+            ):
+                tags.extend(self.config.tags_for_hidden_assets)
+
             dashboard_snapshot.aspects.append(
                 builder.make_global_tag_aspect_with_tag_list(tags)
             )
@@ -3277,33 +3517,87 @@ class TableauSiteSource:
         return {"permissions": json.dumps(groups)} if len(groups) > 0 else None
 
     def ingest_tableau_site(self):
-        # Initialise the dictionary to later look-up for chart and dashboard stat
-        if self.config.extract_usage_stats:
-            self._populate_usage_stat_registry()
+        with self.report.new_stage(
+            f"Ingesting Tableau Site: {self.site_id} {self.site_content_url}"
+        ):
+            # Initialise the dictionary to later look-up for chart and dashboard stat
+            if self.config.extract_usage_stats:
+                with PerfTimer() as timer:
+                    self._populate_usage_stat_registry()
+                    self.report.extract_usage_stats_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
 
-        if self.config.permission_ingestion:
-            self._fetch_groups()
+            if self.config.permission_ingestion:
+                with PerfTimer() as timer:
+                    self._fetch_groups()
+                    self.report.fetch_groups_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
 
-        # Populate the map of database names and database hostnames to be used later to map
-        # databases to platform instances.
-        if self.config.database_hostname_to_platform_instance_map:
-            self._populate_database_server_hostname_map()
+            # Populate the map of database names and database hostnames to be used later to map
+            # databases to platform instances.
+            if self.config.database_hostname_to_platform_instance_map:
+                with PerfTimer() as timer:
+                    self._populate_database_server_hostname_map()
+                    self.report.populate_database_server_hostname_map_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
 
-        self._populate_projects_registry()
+            with PerfTimer() as timer:
+                self._populate_projects_registry()
+                self.report.populate_projects_registry_timer[
+                    self.site_content_url
+                ] = timer.elapsed_seconds(digits=2)
 
-        if self.config.add_site_container:
-            yield from self.emit_site_container()
-        yield from self.emit_project_containers()
-        yield from self.emit_workbooks()
-        if self.sheet_ids:
-            yield from self.emit_sheets()
-        if self.dashboard_ids:
-            yield from self.emit_dashboards()
-        if self.embedded_datasource_ids_being_used:
-            yield from self.emit_embedded_datasources()
-        if self.datasource_ids_being_used:
-            yield from self.emit_published_datasources()
-        if self.custom_sql_ids_being_used:
-            yield from self.emit_custom_sql_datasources()
-        if self.database_tables:
-            yield from self.emit_upstream_tables()
+            if self.config.add_site_container:
+                yield from self.emit_site_container()
+            yield from self.emit_project_containers()
+
+            with PerfTimer() as timer:
+                yield from self.emit_workbooks()
+                self.report.emit_workbooks_timer[
+                    self.site_content_url
+                ] = timer.elapsed_seconds(digits=2)
+
+            if self.sheet_ids:
+                with PerfTimer() as timer:
+                    yield from self.emit_sheets()
+                    self.report.emit_sheets_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
+
+            if self.dashboard_ids:
+                with PerfTimer() as timer:
+                    yield from self.emit_dashboards()
+                    self.report.emit_dashboards_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
+
+            if self.embedded_datasource_ids_being_used:
+                with PerfTimer() as timer:
+                    yield from self.emit_embedded_datasources()
+                    self.report.emit_embedded_datasources_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
+
+            if self.datasource_ids_being_used:
+                with PerfTimer() as timer:
+                    yield from self.emit_published_datasources()
+                    self.report.emit_published_datasources_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
+
+            if self.custom_sql_ids_being_used:
+                with PerfTimer() as timer:
+                    yield from self.emit_custom_sql_datasources()
+                    self.report.emit_custom_sql_datasources_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)
+
+            if self.database_tables:
+                with PerfTimer() as timer:
+                    yield from self.emit_upstream_tables()
+                    self.report.emit_upstream_tables_timer[
+                        self.site_content_url
+                    ] = timer.elapsed_seconds(digits=2)

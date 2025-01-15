@@ -221,7 +221,7 @@ export const HomePageHeader = () => {
     const searchResultsToShow = useMemo(() => {
         let result: string[] | undefined = [];
         if (searchResultsData) {
-            const entities = searchResultsData?.searchAcrossEntities?.searchResults.map((searchResult) => {
+            const entities = searchResultsData?.searchAcrossEntities?.searchResults?.map((searchResult) => {
                 return searchResult?.entity;
             });
 

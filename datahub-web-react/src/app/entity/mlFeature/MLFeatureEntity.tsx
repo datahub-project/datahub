@@ -18,6 +18,7 @@ import { EntityMenuItems } from '../shared/EntityDropdown/EntityDropdown';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
 import { PropertiesTab } from '../shared/tabs/Properties/PropertiesTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 /**
  * Definition of the DataHub MLFeature entity.
@@ -51,6 +52,8 @@ export class MLFeatureEntity implements Entity<MlFeature> {
     isLineageEnabled = () => true;
 
     getAutoCompleteFieldName = () => 'name';
+
+    getGraphName = () => 'mlFeature';
 
     getPathName = () => 'features';
 
@@ -119,6 +122,9 @@ export class MLFeatureEntity implements Entity<MlFeature> {
         },
         {
             component: DataProductSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 

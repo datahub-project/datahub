@@ -52,6 +52,26 @@ public class EntityAspect {
 
   private String createdFor;
 
+  @Override
+  public String toString() {
+    return "EntityAspect{"
+        + "urn='"
+        + urn
+        + '\''
+        + ", aspect='"
+        + aspect
+        + '\''
+        + ", version="
+        + version
+        + ", metadata='"
+        + metadata
+        + '\''
+        + ", systemMetadata='"
+        + systemMetadata
+        + '\''
+        + '}';
+  }
+
   /**
    * Provide a typed EntityAspect without breaking the existing public contract with generic types.
    */
@@ -142,6 +162,11 @@ public class EntityAspect {
       envelopedAspect.setCreated(getAuditStamp());
 
       return envelopedAspect;
+    }
+
+    @Override
+    public String toString() {
+      return entityAspect.toString();
     }
 
     public static class EntitySystemAspectBuilder {

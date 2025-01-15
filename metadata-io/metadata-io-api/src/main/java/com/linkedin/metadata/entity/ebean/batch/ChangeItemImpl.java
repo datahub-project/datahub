@@ -3,11 +3,13 @@ package com.linkedin.metadata.entity.ebean.batch;
 import com.datahub.util.exception.ModelConversionException;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.template.common.GenericPatchTemplate;
@@ -270,6 +272,11 @@ public class ChangeItemImpl implements ChangeMCP {
   }
 
   @Override
+  public boolean isDatabaseDuplicateOf(BatchItem other) {
+    return equals(other);
+  }
+
+  @Override
   public boolean equals(Object o) {
     if (this == o) {
       return true;
@@ -280,13 +287,15 @@ public class ChangeItemImpl implements ChangeMCP {
     ChangeItemImpl that = (ChangeItemImpl) o;
     return urn.equals(that.urn)
         && aspectName.equals(that.aspectName)
+        && changeType.equals(that.changeType)
         && Objects.equals(systemMetadata, that.systemMetadata)
-        && recordTemplate.equals(that.recordTemplate);
+        && Objects.equals(auditStamp, that.auditStamp)
+        && DataTemplateUtil.areEqual(recordTemplate, that.recordTemplate);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(urn, aspectName, systemMetadata, recordTemplate);
+    return Objects.hash(urn, aspectName, changeType, systemMetadata, auditStamp, recordTemplate);
   }
 
   @Override

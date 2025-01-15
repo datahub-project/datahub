@@ -42,6 +42,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -121,11 +122,10 @@ public class UpdateIndicesService implements SearchIndicesService {
   public void handleChangeEvent(
       @Nonnull OperationContext opContext, @Nonnull final MetadataChangeLog event) {
     try {
-      MCLItemImpl batch =
-          MCLItemImpl.builder().build(event, opContext.getAspectRetrieverOpt().get());
+      MCLItemImpl batch = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
 
       Stream<MCLItem> sideEffects =
-          AspectsBatch.applyMCLSideEffects(List.of(batch), opContext.getRetrieverContext().get());
+          AspectsBatch.applyMCLSideEffects(List.of(batch), opContext.getRetrieverContext());
 
       for (MCLItem mclItem :
           Stream.concat(Stream.of(batch), sideEffects).collect(Collectors.toList())) {
@@ -400,7 +400,7 @@ public class UpdateIndicesService implements SearchIndicesService {
       Urn urn,
       String entityName,
       AspectSpec aspectSpec,
-      RecordTemplate aspect,
+      @Nullable RecordTemplate aspect,
       Boolean isKeyAspect) {
     String docId;
     try {

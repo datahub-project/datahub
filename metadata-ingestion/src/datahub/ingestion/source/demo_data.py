@@ -29,7 +29,7 @@ class DemoDataSource(Source):
 
     def __init__(self, ctx: PipelineContext, config: DemoDataConfig):
         file_config = FileSourceConfig(path=str(download_sample_data()))
-        self.file_source = GenericFileSource(ctx, file_config)
+        self.file_source: GenericFileSource = GenericFileSource(ctx, file_config)
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         yield from self.file_source.get_workunits()

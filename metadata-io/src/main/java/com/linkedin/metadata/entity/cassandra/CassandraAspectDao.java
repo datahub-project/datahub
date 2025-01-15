@@ -36,6 +36,7 @@ import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
+import com.linkedin.util.Pair;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.sql.Timestamp;
@@ -110,7 +111,14 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
     validateConnection();
-    Map<String, Long> result = getMaxVersions(urn, ImmutableSet.of(aspectName));
+    Map<String, Pair<Long, Long>> result = getVersionRanges(urn, ImmutableSet.of(aspectName));
+    return result.get(aspectName).getSecond();
+  }
+
+  @Override
+  @Nonnull
+  public Pair<Long, Long> getVersionRange(@Nonnull String urn, @Nonnull String aspectName) {
+    Map<String, Pair<Long, Long>> result = getVersionRanges(urn, ImmutableSet.of(aspectName));
     return result.get(aspectName);
   }
 
@@ -148,15 +156,17 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     return rs.one() != null;
   }
 
-  private Map<String, Long> getMaxVersions(
+  private Map<String, Pair<Long, Long>> getVersionRanges(
       @Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
     SimpleStatement ss =
         selectFrom(CassandraAspect.TABLE_NAME)
             .selectors(
                 Selector.column(CassandraAspect.URN_COLUMN),
                 Selector.column(CassandraAspect.ASPECT_COLUMN),
+                Selector.function("min", Selector.column(CassandraAspect.VERSION_COLUMN))
+                    .as("min_version"),
                 Selector.function("max", Selector.column(CassandraAspect.VERSION_COLUMN))
-                    .as(CassandraAspect.VERSION_COLUMN))
+                    .as("max_version"))
             .whereColumn(CassandraAspect.URN_COLUMN)
             .isEqualTo(literal(urn))
             .whereColumn(CassandraAspect.ASPECT_COLUMN)
@@ -168,21 +178,21 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             .build();
 
     ResultSet rs = _cqlSession.execute(ss);
-    Map<String, Long> aspectVersions =
+    Map<String, Pair<Long, Long>> aspectVersionRanges =
         rs.all().stream()
             .collect(
                 Collectors.toMap(
                     row -> row.getString(CassandraAspect.ASPECT_COLUMN),
-                    row -> row.getLong(CassandraAspect.VERSION_COLUMN)));
+                    row -> Pair.of(row.getLong("min_version"), row.getLong("max_version"))));
 
-    // For each requested aspect that didn't come back from DB, add a version -1
+    // For each requested aspect that didn't come back from DB, add a version range of (-1, -1)
     for (String aspect : aspectNames) {
-      if (!aspectVersions.containsKey(aspect)) {
-        aspectVersions.put(aspect, -1L);
+      if (!aspectVersionRanges.containsKey(aspect)) {
+        aspectVersionRanges.put(aspect, Pair.of(-1L, -1L));
       }
     }
 
-    return aspectVersions;
+    return aspectVersionRanges;
   }
 
   @Override
@@ -198,7 +208,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public Map<EntityAspectIdentifier, EntityAspect> batchGet(
-      @Nonnull final Set<EntityAspectIdentifier> keys) {
+      @Nonnull final Set<EntityAspectIdentifier> keys, boolean forUpdate) {
     validateConnection();
     return keys.stream()
         .map(this::getAspect)
@@ -551,11 +561,12 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     Map<String, Map<String, Long>> result = new HashMap<>();
 
     for (Map.Entry<String, Set<String>> aspectNames : urnAspectMap.entrySet()) {
-      Map<String, Long> maxVersions = getMaxVersions(aspectNames.getKey(), aspectNames.getValue());
+      Map<String, Pair<Long, Long>> maxVersions =
+          getVersionRanges(aspectNames.getKey(), aspectNames.getValue());
       Map<String, Long> nextVersions = new HashMap<>();
 
       for (String aspectName : aspectNames.getValue()) {
-        long latestVersion = maxVersions.get(aspectName);
+        long latestVersion = maxVersions.get(aspectName).getSecond();
         long nextVal = latestVersion < 0 ? ASPECT_LATEST_VERSION : latestVersion + 1L;
         nextVersions.put(aspectName, nextVal);
       }
@@ -590,7 +601,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     // Save oldValue as the largest version + 1
     long largestVersion = ASPECT_LATEST_VERSION;
     BatchStatement batch = BatchStatement.newInstance(BatchType.UNLOGGED);
-    if (oldAspectMetadata != null && oldTime != null) {
+    if (!ASPECT_LATEST_VERSION.equals(nextVersion) && oldTime != null) {
       largestVersion = nextVersion;
       final EntityAspect aspect =
           new EntityAspect(
@@ -616,7 +627,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             newTime,
             newActor,
             newImpersonator);
-    batch = batch.add(generateSaveStatement(aspect, oldAspectMetadata == null));
+    batch = batch.add(generateSaveStatement(aspect, ASPECT_LATEST_VERSION.equals(nextVersion)));
     _cqlSession.execute(batch);
     return largestVersion;
   }

@@ -46,6 +46,7 @@ entities:
       - structuredProperties
       - forms
       - partitionsSummary
+      - versionProperties
   - name: dataHubPolicy
     doc: DataHub Policies represent access policies granted to users or groups on metadata operations like edit, view etc.
     category: internal
@@ -70,12 +71,14 @@ entities:
       - glossaryTerms
       - institutionalMemory
       - dataPlatformInstance
+      - container
       - browsePathsV2
       - structuredProperties
       - forms
       - subTypes
       - incidentsSummary
       - testResults
+      - dataTransformLogic
   - name: dataFlow
     category: core
     keyAspect: dataFlowKey
@@ -92,6 +95,7 @@ entities:
       - glossaryTerms
       - institutionalMemory
       - dataPlatformInstance
+      - container
       - browsePathsV2
       - structuredProperties
       - incidentsSummary
@@ -116,6 +120,10 @@ entities:
       - dataProcessInstanceRunEvent
       - status
       - testResults
+      - dataPlatformInstance
+      - subTypes
+      - container
+      - mlTrainingRunProperties
   - name: chart
     category: core
     keyAspect: chartKey
@@ -358,6 +366,7 @@ entities:
       - structuredProperties
       - forms
       - testResults
+      - versionProperties
   - name: mlModelGroup
     category: core
     keyAspect: mlModelGroupKey
@@ -487,6 +496,11 @@ entities:
     keyAspect: globalSettingsKey
     aspects:
       - globalSettingsInfo
+  - name: versionSet
+    category: core
+    keyAspect: versionSetKey
+    aspects:
+      - versionSetProperties
   - name: incident
     doc: An incident for an asset.
     category: core
@@ -602,6 +616,7 @@ entities:
     keyAspect: structuredPropertyKey
     aspects:
       - propertyDefinition
+      - structuredPropertySettings
       - institutionalMemory
       - status
   - name: form
