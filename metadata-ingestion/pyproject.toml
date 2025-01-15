@@ -9,7 +9,7 @@ extend-exclude = '''
 ^/tmp
 '''
 include = '\.pyi?$'
-target-version = ['py37', 'py38', 'py39', 'py310']
+target-version = ['py38', 'py39', 'py310', 'py311']
 
 [tool.isort]
 combine_as_imports = true
@@ -42,7 +42,12 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-select = ["E", "F", "B"]
+select = [
+    "B",
+    "C90",
+    "E",
+    "F",
+]
 ignore = [
     # Ignore line length violations (handled by Black)
     "E501",
@@ -59,6 +64,10 @@ ignore = [
     "B904", 
     "B017",
 ]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 20
+
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
