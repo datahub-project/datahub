@@ -128,6 +128,7 @@ public class Constants {
   public static final String INCIDENTS_SUMMARY_ASPECT_NAME = "incidentsSummary";
   public static final String DOCUMENTATION_ASPECT_NAME = "documentation";
   public static final String DATA_TRANSFORM_LOGIC_ASPECT_NAME = "dataTransformLogic";
+  public static final String VERSION_PROPERTIES_ASPECT_NAME = "versionProperties";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -463,6 +464,18 @@ public class Constants {
 
   // Incidents
   public static final String ENTITY_REF = "entities";
+
+  // Version Set
+  public static final String VERSION_SET_ENTITY_NAME = "versionSet";
+  public static final String VERSION_SET_KEY_ASPECT_NAME = "versionSetKey";
+  public static final String VERSION_SET_PROPERTIES_ASPECT_NAME = "versionSetProperties";
+
+  // Versioning related
+  public static final String INITIAL_VERSION_SORT_ID = "AAAAAAAA";
+  public static final String VERSION_SORT_ID_FIELD_NAME = "versionSortId";
+  public static final String IS_LATEST_FIELD_NAME = "isLatest";
+
+  public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
 
   // Config
   public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";
