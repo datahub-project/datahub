@@ -490,7 +490,10 @@ class SweeperJob:
                 self._execute_cancel_action(action)
             return True
         except Exception as e:
-            logger.error(f"Sweeper({self.run_id}): error executing an action: {e}")
+            logger.error(
+                f"Sweeper({self.run_id}): error executing an action {action}",
+                exc_info=True,
+            )
 
             # If action's errors are fatal, do not proceed
             if action.errors_fatal:
