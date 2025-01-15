@@ -2,6 +2,7 @@ import base64
 import logging
 import os
 import shutil
+import time
 from pathlib import Path
 
 import pytest
@@ -61,6 +62,8 @@ def test_couchbase_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_ti
         )
 
         assert response.status_code == 200
+
+        time.sleep(2)
 
         # Run the metadata ingestion pipeline.
         pipeline = Pipeline.create(

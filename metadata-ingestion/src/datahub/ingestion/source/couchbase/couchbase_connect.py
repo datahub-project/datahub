@@ -180,6 +180,7 @@ class CouchbaseConnect:
         settings: BucketSettings = self.bucket_manager.get_bucket(bucket_name)
         return settings
 
+    @retry()
     def collection_infer(
         self, sample_size: int, sample_values: int, keyspace: str
     ) -> dict:

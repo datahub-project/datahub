@@ -1,3 +1,4 @@
+import asyncio
 import base64
 import logging
 
@@ -55,6 +56,8 @@ async def test_couchbase_driver(
         )
 
         assert response.status_code == 200
+
+        await asyncio.sleep(2)
 
         # Run the driver test.
         couchbase_connect = CouchbaseConnect(

@@ -4,9 +4,11 @@ from typing import AsyncGenerator, List
 
 from acouchbase.collection import AsyncCollection
 from acouchbase.scope import AsyncScope
+from couchbase.exceptions import DocumentNotFoundException
 from couchbase.result import GetResult
 
 from datahub.ingestion.source.couchbase.couchbase_connect import CouchbaseConnect
+from datahub.ingestion.source.couchbase.retry import retry
 
 logger = logging.getLogger(__name__)
 
@@ -36,9 +38,16 @@ class CouchbaseAggregate:
             self.keyspace
         )
 
-    async def collection_get(self, key: str) -> GetResult:
-        return await self.collection.get(key)
+    @retry()
+    async def collection_get(self, key: str) -> dict:
+        try:
+            result: GetResult = await self.collection.get(key)
+            return result.content_as[dict]
+        except DocumentNotFoundException:
+            logger.warning(f"Document ID {key} not found")
+            return {}
 
+    @retry()
     async def get_keys(self):
         query = f"select meta().id from {self.connector.collection_name}"
         if self.max_sample_size > 0:
@@ -75,8 +84,9 @@ class CouchbaseAggregate:
                     if isinstance(result, Exception):
                         logger.error(result)
                         errors += 1
-                    elif isinstance(result, GetResult):
-                        batch.append(result.content_as[dict])
+                    elif isinstance(result, dict):
+                        if result:
+                            batch.append(result)
                 yield batch
 
             if errors > 0:
