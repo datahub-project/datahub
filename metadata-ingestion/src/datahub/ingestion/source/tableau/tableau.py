@@ -403,6 +403,15 @@ class TableauConfig(
         description="[advanced] Number of metadata objects (e.g. CustomSQLTable, PublishedDatasource, etc) to query at a time using the Tableau API.",
     )
 
+    database_server_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of database servers to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
+    )
+
+    @property
+    def effective_database_server_page_size(self) -> int:
+        return self.database_server_page_size or self.page_size
+
     # We've found that even with a small workbook page size (e.g. 10), the Tableau API often
     # returns warnings like this:
     # {
@@ -416,25 +425,41 @@ class TableauConfig(
     # 	}
     # }
     # Reducing the page size for the workbook queries helps to avoid this.
-    workbook_page_size: int = Field(
+    workbook_page_size: Optional[int] = Field(
         default=1,
-        description="[advanced] Number of workbooks to query at a time using the Tableau API.",
+        description="[advanced] Number of workbooks to query at a time using the Tableau API; defaults to `1` and fallbacks to `page_size` if not set.",
     )
 
-    sheet_page_size: int = Field(
-        default=DEFAULT_PAGE_SIZE,
-        description="[advanced] Number of sheets to query at a time using the Tableau API.",
+    @property
+    def effective_workbook_page_size(self) -> int:
+        return self.workbook_page_size or self.page_size
+
+    sheet_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of sheets to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
     )
 
-    dashboard_page_size: int = Field(
-        default=DEFAULT_PAGE_SIZE,
-        description="[advanced] Number of dashboards to query at a time using the Tableau API.",
+    @property
+    def effective_sheet_page_size(self) -> int:
+        return self.sheet_page_size or self.page_size
+
+    dashboard_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of dashboards to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
     )
 
-    embedded_datasource_page_size: int = Field(
-        default=DEFAULT_PAGE_SIZE,
-        description="[advanced] Number of embedded datasources to query at a time using the Tableau API.",
+    @property
+    def effective_dashboard_page_size(self) -> int:
+        return self.dashboard_page_size or self.page_size
+
+    embedded_datasource_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of embedded datasources to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
     )
+
+    @property
+    def effective_embedded_datasource_page_size(self) -> int:
+        return self.embedded_datasource_page_size or self.page_size
 
     # Since the field upstream query was separated from the embedded datasource queries into an independent query,
     # the number of queries increased significantly and so the execution time.
@@ -442,30 +467,50 @@ class TableauConfig(
     # particular case.
     #
     # `get_connection_objects_query_*` metrics in the report will help to understand the impact of this change.
-    embedded_datasource_field_upstream_page_size: int = Field(
-        default=DEFAULT_PAGE_SIZE * 10,
-        description="[advanced] Number of upstream fields to query at a time for embedded datasources using the Tableau API.",
+    embedded_datasource_field_upstream_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of upstream fields to query at a time for embedded datasources using the Tableau API; fallbacks to `page_size` * 10 if not set.",
     )
 
-    published_datasource_page_size: int = Field(
-        default=DEFAULT_PAGE_SIZE,
-        description="[advanced] Number of published datasources to query at a time using the Tableau API.",
+    @property
+    def effective_embedded_datasource_field_upstream_page_size(self) -> int:
+        return self.embedded_datasource_field_upstream_page_size or self.page_size * 10
+
+    published_datasource_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of published datasources to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
     )
 
-    published_datasource_field_upstream_page_size: int = Field(
-        default=DEFAULT_PAGE_SIZE * 10,
-        description="[advanced] Number of upstream fields to query at a time for published datasources using the Tableau API.",
+    @property
+    def effective_published_datasource_page_size(self) -> int:
+        return self.published_datasource_page_size or self.page_size
+
+    published_datasource_field_upstream_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of upstream fields to query at a time for published datasources using the Tableau API; fallbacks to `page_size` * 10 if not set.",
     )
 
-    custom_sql_table_page_size: int = Field(
-        default=DEFAULT_PAGE_SIZE,
-        description="[advanced] Number of custom sql datasources to query at a time using the Tableau API.",
+    @property
+    def effective_published_datasource_field_upstream_page_size(self) -> int:
+        return self.published_datasource_field_upstream_page_size or self.page_size * 10
+
+    custom_sql_table_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of custom sql datasources to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
     )
 
-    database_table_page_size: int = Field(
-        default=DEFAULT_PAGE_SIZE,
-        description="[advanced] Number of database tables to query at a time using the Tableau API.",
+    @property
+    def effective_custom_sql_table_page_size(self) -> int:
+        return self.custom_sql_table_page_size or self.page_size
+
+    database_table_page_size: Optional[int] = Field(
+        default=None,
+        description="[advanced] Number of database tables to query at a time using the Tableau API; fallbacks to `page_size` if not set.",
     )
+
+    @property
+    def effective_database_table_page_size(self) -> int:
+        return self.database_table_page_size or self.page_size
 
     env: str = Field(
         default=builder.DEFAULT_ENV,
@@ -1052,7 +1097,9 @@ class TableauSiteSource:
             return server_connection
 
         for database_server in self.get_connection_objects(
-            database_servers_graphql_query, c.DATABASE_SERVERS_CONNECTION
+            query=database_servers_graphql_query,
+            connection_type=c.DATABASE_SERVERS_CONNECTION,
+            page_size=self.config.effective_database_server_page_size,
         ):
             database_server_id = database_server.get(c.ID)
             server_connection = database_server.get(c.HOST_NAME)
@@ -1478,14 +1525,13 @@ class TableauSiteSource:
         self,
         query: str,
         connection_type: str,
+        page_size: int,
         query_filter: dict = {},
-        page_size_override: Optional[int] = None,
     ) -> Iterable[dict]:
         query_filter = optimize_query_filter(query_filter)
 
         # Calls the get_connection_object_page function to get the objects,
         # and automatically handles pagination.
-        page_size = page_size_override or self.config.page_size
 
         filter_pages = get_filter_pages(query_filter, page_size)
         self.report.get_connection_objects_query_counter[connection_type] += 1
@@ -1530,10 +1576,10 @@ class TableauSiteSource:
             projects = {c.PROJECT_NAME_WITH_IN: project_names}
 
             for workbook in self.get_connection_objects(
-                workbook_graphql_query,
-                c.WORKBOOKS_CONNECTION,
-                projects,
-                page_size_override=self.config.workbook_page_size,
+                query=workbook_graphql_query,
+                connection_type=c.WORKBOOKS_CONNECTION,
+                query_filter=projects,
+                page_size=self.config.effective_workbook_page_size,
             ):
                 # This check is needed as we are using projectNameWithin which return project as per project name so if
                 # user want to ingest only nested project C from A->B->C then tableau might return more than one Project
@@ -1991,7 +2037,7 @@ class TableauSiteSource:
                 query=custom_sql_graphql_query,
                 connection_type=c.CUSTOM_SQL_TABLE_CONNECTION,
                 query_filter=custom_sql_filter,
-                page_size_override=self.config.custom_sql_table_page_size,
+                page_size=self.config.effective_custom_sql_table_page_size,
             )
         )
 
@@ -2700,7 +2746,7 @@ class TableauSiteSource:
         self,
         datasource: dict,
         field_upstream_query: str,
-        page_size_override: Optional[int] = None,
+        page_size: int,
     ) -> dict:
         # Collect field ids to fetch field upstreams
         field_ids: List[str] = []
@@ -2714,7 +2760,7 @@ class TableauSiteSource:
             query=field_upstream_query,
             connection_type=c.FIELDS_CONNECTION,
             query_filter={c.ID_WITH_IN: field_ids},
-            page_size_override=page_size_override,
+            page_size=page_size,
         ):
             if field_upstream.get(c.ID):
                 field_id = field_upstream[c.ID]
@@ -2740,12 +2786,12 @@ class TableauSiteSource:
             query=published_datasource_graphql_query,
             connection_type=c.PUBLISHED_DATA_SOURCES_CONNECTION,
             query_filter=datasource_filter,
-            page_size_override=self.config.published_datasource_page_size,
+            page_size=self.config.effective_published_datasource_page_size,
         ):
             datasource = self.update_datasource_for_field_upstream(
                 datasource=datasource,
                 field_upstream_query=datasource_upstream_fields_graphql_query,
-                page_size_override=self.config.published_datasource_field_upstream_page_size,
+                page_size=self.config.effective_published_datasource_field_upstream_page_size,
             )
 
             yield from self.emit_datasource(datasource)
@@ -2766,7 +2812,7 @@ class TableauSiteSource:
             query=database_tables_graphql_query,
             connection_type=c.DATABASE_TABLES_CONNECTION,
             query_filter=tables_filter,
-            page_size_override=self.config.database_table_page_size,
+            page_size=self.config.effective_database_table_page_size,
         ):
             database_table = self.database_tables[
                 tableau_database_table_id_to_urn_map[tableau_table[c.ID]]
@@ -2958,7 +3004,7 @@ class TableauSiteSource:
             query=sheet_graphql_query,
             connection_type=c.SHEETS_CONNECTION,
             query_filter=sheets_filter,
-            page_size_override=self.config.sheet_page_size,
+            page_size=self.config.effective_sheet_page_size,
         ):
             if self.config.ingest_hidden_assets or not self._is_hidden_view(sheet):
                 yield from self.emit_sheets_as_charts(sheet, sheet.get(c.WORKBOOK))
@@ -3279,7 +3325,7 @@ class TableauSiteSource:
             query=dashboard_graphql_query,
             connection_type=c.DASHBOARDS_CONNECTION,
             query_filter=dashboards_filter,
-            page_size_override=self.config.dashboard_page_size,
+            page_size=self.config.effective_dashboard_page_size,
         ):
             if self.config.ingest_hidden_assets or not self._is_hidden_view(dashboard):
                 yield from self.emit_dashboard(dashboard, dashboard.get(c.WORKBOOK))
@@ -3427,12 +3473,12 @@ class TableauSiteSource:
             query=embedded_datasource_graphql_query,
             connection_type=c.EMBEDDED_DATA_SOURCES_CONNECTION,
             query_filter=datasource_filter,
-            page_size_override=self.config.embedded_datasource_page_size,
+            page_size=self.config.effective_embedded_datasource_page_size,
         ):
             datasource = self.update_datasource_for_field_upstream(
                 datasource=datasource,
                 field_upstream_query=datasource_upstream_fields_graphql_query,
-                page_size_override=self.config.embedded_datasource_field_upstream_page_size,
+                page_size=self.config.effective_embedded_datasource_field_upstream_page_size,
             )
             yield from self.emit_datasource(
                 datasource,
