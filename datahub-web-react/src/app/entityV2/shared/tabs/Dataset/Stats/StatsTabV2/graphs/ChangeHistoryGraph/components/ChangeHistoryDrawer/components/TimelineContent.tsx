@@ -41,7 +41,7 @@ export default function TimelineContent({ operation, user }: TimelineContentProp
     return (
         <Content>
             <ContentRow>
-                <ChangeTypePill changeType={operation.operationType} />
+                <ChangeTypePill changeType={operation.customOperationType ?? operation.operationType} />
                 <Text>
                     <Text color="gray" type="span">
                         by

@@ -1,15 +1,15 @@
-import { Drawer, SimpleSelect } from '@components';
+import { Drawer, SelectOption, SimpleSelect } from '@components';
 import { OperationType } from '@src/types.generated';
 import React, { useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
+import { AnyOperationType, OperationsData } from '../../types';
+import TypesSelect from '../TypesSelect';
 import ChangeHistoryTimeline from './components/ChangeHistoryTimeline';
 import useDebounceFalse from './useDebounceFalse';
 import useGetOperations from './useGetOperations';
 import useGetUsers from './useGetUsers';
 import useSelectUserOptions from './useSelectUserOptions';
 import { getUniqueActorsFromOperations } from './utils';
-import { OPERATION_TYPE_OPTIONS } from '../../constants';
-import TypesSelect from '../TypesSelect';
 
 const FlexRow = styled.div`
     display: flex;
@@ -19,6 +19,10 @@ const FlexRow = styled.div`
 
 const Controls = styled(FlexRow)`
     align-items: start;
+`;
+
+const ControlWrapper = styled.div`
+    width: 280px;
 `;
 
 const DrawerContent = styled.div`
@@ -32,12 +36,34 @@ type ChangeHistoryDrawerProps = {
     selectedDay?: string;
     onClose: () => void;
     open: boolean;
-    operationTypes: OperationType[];
+    operationTypesOptions: SelectOption[];
+    value?: OperationsData;
 };
 
-export const ChangeHistoryDrawer = ({ urn, selectedDay, open, onClose, operationTypes }: ChangeHistoryDrawerProps) => {
-    const [selectedOperationTypes, setSelectedOperationTypes] = useState<OperationType[]>(operationTypes);
+export const ChangeHistoryDrawer = ({
+    urn,
+    selectedDay,
+    open,
+    onClose,
+    operationTypesOptions,
+    value,
+}: ChangeHistoryDrawerProps) => {
+    const keysFromValue = useMemo(
+        () =>
+            Object.entries(value?.operations || {})
+                .filter(([_, operation]) => operation.value > 0)
+                .map(([_, operation]) => operation.key),
+        [value?.operations],
+    );
+
     const [selectedActors, setSelectedActors] = useState<string[]>([]);
+
+    const filteredOperationTypesOptions = useMemo(() => {
+        return operationTypesOptions.filter((option) => keysFromValue.includes(option.value));
+    }, [operationTypesOptions, keysFromValue]);
+    const [selectedOperationTypes, setSelectedOperationTypes] = useState<AnyOperationType[]>(
+        filteredOperationTypesOptions.map((option) => option.value),
+    );
 
     const { operations, loading: operationsLoading } = useGetOperations(
         urn,
@@ -65,19 +91,23 @@ export const ChangeHistoryDrawer = ({ urn, selectedDay, open, onClose, operation
         <Drawer title="Change History Details" open={open} onClose={onClose} maskTransparent>
             <DrawerContent>
                 <Controls>
-                    <SimpleSelect
-                        placeholder="User"
-                        options={selectUsersOptions}
-                        onUpdate={(values) => setSelectedActors(values)}
-                        width="full"
-                        isDisabled={users.length === 0 || loading || selectUsersOptions.length === 0}
-                    />
-                    <TypesSelect
-                        options={OPERATION_TYPE_OPTIONS}
-                        values={selectedOperationTypes}
-                        onUpdate={(values) => setSelectedOperationTypes(values as OperationType[])}
-                        loading={loading}
-                    />
+                    <ControlWrapper>
+                        <SimpleSelect
+                            placeholder="User"
+                            options={selectUsersOptions}
+                            onUpdate={(values) => setSelectedActors(values)}
+                            width="full"
+                            isDisabled={users.length === 0 || loading || selectUsersOptions.length === 0}
+                        />
+                    </ControlWrapper>
+                    <ControlWrapper>
+                        <TypesSelect
+                            options={filteredOperationTypesOptions}
+                            values={selectedOperationTypes}
+                            onUpdate={(values) => setSelectedOperationTypes(values as OperationType[])}
+                            loading={loading}
+                        />
+                    </ControlWrapper>
                 </Controls>
 
                 <ChangeHistoryTimeline

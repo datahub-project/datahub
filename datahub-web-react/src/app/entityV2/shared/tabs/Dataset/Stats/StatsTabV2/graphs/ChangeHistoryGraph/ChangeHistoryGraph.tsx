@@ -1,6 +1,7 @@
 import { CalendarChart, GraphCard } from '@components';
+import { DayData } from '@src/alchemy-components/components/CalendarChart/types';
 import { AssertionType, OperationType, TimeRange } from '@src/types.generated';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useStatsSectionsContext } from '../../StatsSectionsContext';
 import { SectionKeys } from '../../utils';
 import AddAssertionButton from '../components/AddAssertionButton';
@@ -17,9 +18,12 @@ import useChangeHistoryData from './hooks/useChangeHistoryData';
 import useColorAccessors from './hooks/useColorAccessors';
 import useDataRange from './hooks/useDataRange';
 import useGetCalendarRangeByTimeRange from './hooks/useGetCalendarRangeByTimeRange';
+import useOperationsStatsSummary from './hooks/useGetOperationsSummary';
+import { AnyOperationType, OperationsData } from './types';
+import { addPrefixToOperationType } from './utils';
 
 // DAY, WEEKDAY, ALL time ranges are not available for the change history graph
-const NOT_AVAILABLE_RANGES = [TimeRange.Day, TimeRange.Week, TimeRange.All];
+const NOT_AVAILABLE_RANGES = [TimeRange.Week];
 const TIME_RANGE_OPTIONS = AGGRAGATION_TIME_RANGE_OPTIONS.filter(
     (option) => !NOT_AVAILABLE_RANGES.includes(option.value),
 );
@@ -44,20 +48,52 @@ export default function ChangeHistoryGraph() {
         );
     }, [timeRangeOptions, setSelectedTimeRange]);
 
+    const { data: summary, customOperationTypes } = useOperationsStatsSummary(
+        statsEntityUrn,
+        selectedTimeRange || TimeRange.Month,
+    );
+
     // The day details drawer
     const [isDayDetailsDrawerShown, setIsDayDetailsDrawerShown] = useState<boolean>(false);
     const [dayOfDayDetailsDrawer, setDayOfDayDetailsDrawer] = useState<string>();
-    const showDayDetailsDrawer = (selectedDay: string) => {
-        setDayOfDayDetailsDrawer(selectedDay);
+    const [drawerOperationValue, setDrawerOperationValue] = useState<OperationsData | undefined>();
+    const showDayDetailsDrawer = (dayData: DayData<OperationsData>) => {
+        setDayOfDayDetailsDrawer(dayData.day);
+        setDrawerOperationValue(dayData.value);
         setIsDayDetailsDrawerShown(true);
     };
 
     // Operation types
-    const [selectedOperationTypes, setSelectedOperationTypes] = useState<OperationType[]>(DEFAULT_OPERATION_TYPES);
+    const operationTypesOptions = useMemo(
+        () => [
+            ...OPERATION_TYPE_OPTIONS,
+            ...customOperationTypes.map((operationType) => ({
+                value: addPrefixToOperationType(operationType),
+                label: operationType,
+            })),
+        ],
+        [customOperationTypes],
+    );
+    const prefixedCustomOperationTypes = useMemo(
+        () => customOperationTypes.map((operationType) => addPrefixToOperationType(operationType, true)),
+        [customOperationTypes],
+    );
+    const [selectedOperationTypes, setSelectedOperationTypes] = useState<AnyOperationType[]>([
+        ...DEFAULT_OPERATION_TYPES,
+        ...(prefixedCustomOperationTypes ?? []),
+    ]);
+    useEffect(() => {
+        setSelectedOperationTypes([...DEFAULT_OPERATION_TYPES, ...(prefixedCustomOperationTypes ?? [])]);
+    }, [prefixedCustomOperationTypes]);
+
     // The data of change history
-    const { data, loading: dataLoading } = useChangeHistoryData(statsEntityUrn, selectedTimeRange);
-    // Map of color accessors for day, inserts, updates, deletes
-    const colorAccessors = useColorAccessors(data, selectedOperationTypes);
+    const { data, loading: dataLoading } = useChangeHistoryData(
+        statsEntityUrn,
+        selectedTimeRange,
+        customOperationTypes,
+    );
+    // Map of color accessors for day and each operation type
+    const colorAccessors = useColorAccessors(summary, data, selectedOperationTypes);
     // The interval of the calendar chart
     const { startDay: calendarStartDay, endDay: calendarEndDay } = useGetCalendarRangeByTimeRange(selectedTimeRange);
     // The interval of the data
@@ -75,7 +111,10 @@ export default function ChangeHistoryGraph() {
             <GraphCard
                 title="Change History"
                 subTitle={
-                    <Subtitle data={data} onTypeClick={(operationType) => setSelectedOperationTypes([operationType])} />
+                    <Subtitle
+                        summary={summary}
+                        onTypeClick={(operationType) => setSelectedOperationTypes([operationType])}
+                    />
                 }
                 isEmpty={data.length === 0 || !canViewDatasetOperations}
                 emptyContent={!canViewDatasetOperations && <NoPermission statName="change history" />}
@@ -84,7 +123,7 @@ export default function ChangeHistoryGraph() {
                         <AddAssertionButton assertionType={AssertionType.Freshness} />
 
                         <TypesSelect
-                            options={OPERATION_TYPE_OPTIONS}
+                            options={operationTypesOptions}
                             values={selectedOperationTypes}
                             onUpdate={(values) => setSelectedOperationTypes(values as OperationType[])}
                             loading={loading}
@@ -105,15 +144,15 @@ export default function ChangeHistoryGraph() {
                         startDate={calendarStartDay}
                         endDate={calendarEndDay}
                         colorAccessor={colorAccessors.day}
-                        onDayClick={(datum) => showDayDetailsDrawer(datum.day)}
+                        onDayClick={(datum) => showDayDetailsDrawer(datum)}
                         popoverRenderer={(datum) => (
                             <ChangeHistoryPopover
                                 datum={datum}
                                 hasData={!!dataStartDay && datum.day >= dataStartDay && datum.day <= dataEndDay}
-                                onViewDetails={() => showDayDetailsDrawer(datum.day)}
-                                insertsColorAccessor={colorAccessors.inserts}
-                                updatesColorAccessor={colorAccessors.updates}
-                                deletesColorAccessor={colorAccessors.deletes}
+                                onViewDetails={() => showDayDetailsDrawer(datum)}
+                                colorAccessors={colorAccessors}
+                                defaultCustomOperationTypes={prefixedCustomOperationTypes}
+                                selectedOperationTypes={selectedOperationTypes}
                             />
                         )}
                     />
@@ -127,7 +166,8 @@ export default function ChangeHistoryGraph() {
                     urn={statsEntityUrn}
                     open={isDayDetailsDrawerShown}
                     onClose={() => setIsDayDetailsDrawerShown(false)}
-                    operationTypes={selectedOperationTypes}
+                    operationTypesOptions={operationTypesOptions}
+                    value={drawerOperationValue}
                 />
             )}
         </>

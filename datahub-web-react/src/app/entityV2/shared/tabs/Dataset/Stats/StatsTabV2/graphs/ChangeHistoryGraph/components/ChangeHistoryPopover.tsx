@@ -1,10 +1,12 @@
-import React from 'react';
-import dayjs from 'dayjs';
 import { Button, Text } from '@src/alchemy-components';
-import styled from 'styled-components';
-import { pluralize } from '@src/app/shared/textUtil';
 import { DayData } from '@src/alchemy-components/components/CalendarChart/types';
-import { ValueType } from '../hooks/useChangeHistoryData';
+import { pluralize, pluralizeIfIrregular } from '@src/app/shared/textUtil';
+import dayjs from 'dayjs';
+import React, { useMemo } from 'react';
+import styled from 'styled-components';
+import { OperationType } from '@src/types.generated';
+import { AnyOperationType, CustomOperationType, Operation, OperationsData } from '../types';
+import { convertAggregationsToValue } from '../utils';
 
 const Container = styled.div`
     display: flex;
@@ -15,6 +17,7 @@ const RowContainer = styled.div`
     display: flex;
     flex-direction: row;
     gap: 8px;
+    height: 100%;
 `;
 
 const ColumnContainer = styled.div`
@@ -28,11 +31,9 @@ const ValueContainer = styled(RowContainer)`
 `;
 
 const LinkContainer = styled(RowContainer)`
-    // FIY: show link at the bottom side.
-    // "align-item: end;" doesn't work here
-    padding-top: 39px;
+    align-items: end;
     position: relative;
-    height: 100%;
+    height: auto;
 `;
 
 const Square = styled.div<{ $color: string }>`
@@ -43,23 +44,37 @@ const Square = styled.div<{ $color: string }>`
 `;
 
 type ChangeHistoryPopoverProps = {
-    datum: DayData<ValueType>;
+    datum: DayData<OperationsData>;
     onViewDetails?: () => void;
     hasData?: boolean;
-    insertsColorAccessor: (value?: ValueType) => string;
-    updatesColorAccessor: (value?: ValueType) => string;
-    deletesColorAccessor: (value?: ValueType) => string;
+    colorAccessors: { [key: string]: (value?: OperationsData) => string };
+    defaultCustomOperationTypes?: CustomOperationType[];
+    selectedOperationTypes: AnyOperationType[];
 };
 
 export default function ChangeHistoryPopover({
     datum,
     onViewDetails,
     hasData,
-    insertsColorAccessor,
-    updatesColorAccessor,
-    deletesColorAccessor,
+    colorAccessors,
+    defaultCustomOperationTypes,
+    selectedOperationTypes,
 }: ChangeHistoryPopoverProps) {
-    const total = datum?.value?.total ?? 0;
+    const operations = useMemo(
+        () =>
+            Object.entries(
+                (datum.value?.operations ?? convertAggregationsToValue({}, defaultCustomOperationTypes)?.operations) ||
+                    {},
+            )
+                .map(([_, value]) => value)
+                .filter((value) => selectedOperationTypes.includes(value.key))
+                .filter((value) => value.value > 0)
+                // order from newest to oldest
+                .sort((a, b) => b.value - a.value),
+        [datum.value?.operations, selectedOperationTypes, defaultCustomOperationTypes],
+    );
+
+    const totalAmoutOfOperations = useMemo(() => operations.reduce((sum, value) => sum + value.value, 0), [operations]);
 
     const renderTotalRow = (value: number) => {
         return (
@@ -77,17 +92,48 @@ export default function ChangeHistoryPopover({
         );
     };
 
-    const renderValue = (value: number, changeType: string, color: string) => {
+    const renderNoDataThisDay = () => {
         return (
-            <ValueContainer>
+            <Text size="sm" color="gray" weight="bold">
+                No changes this day
+            </Text>
+        );
+    };
+
+    const renderOperation = (operation: Operation) => {
+        const color = colorAccessors?.[operation.key](datum.value);
+        const name = operation.type === OperationType.Custom ? operation.name : pluralizeIfIrregular(operation.name);
+
+        return (
+            <ValueContainer key={operation.key}>
                 <Square $color={color} />
                 <Text size="sm" color="gray">
-                    {changeType}
+                    {name}
                 </Text>
                 <Text size="sm" color="gray" weight="bold">
-                    {value}
+                    {operation.value}
                 </Text>
             </ValueContainer>
+        );
+    };
+
+    const renderChanges = () => {
+        if (!hasData) return renderNoData();
+        if (totalAmoutOfOperations === 0) return renderNoDataThisDay();
+        return (
+            <>
+                {renderTotalRow(totalAmoutOfOperations)}
+                <RowContainer>
+                    <ColumnContainer>{operations.map((value) => renderOperation(value))}</ColumnContainer>
+                    <LinkContainer>
+                        {operations.length > 0 && (
+                            <Button variant="text" size="xs" onClick={() => onViewDetails?.()}>
+                                View Details
+                            </Button>
+                        )}
+                    </LinkContainer>
+                </RowContainer>
+            </>
         );
     };
 
@@ -96,25 +142,7 @@ export default function ChangeHistoryPopover({
             <Text size="sm" color="gray" type="div">
                 {dayjs(datum.day).format('dddd, MMM DD ’YY')}
             </Text>
-            {!hasData ? (
-                renderNoData()
-            ) : (
-                <>
-                    {renderTotalRow(total)}
-                    <RowContainer>
-                        <ColumnContainer>
-                            {renderValue(datum.value?.updates ?? 0, 'Updates', updatesColorAccessor(datum.value))}
-                            {renderValue(datum.value?.inserts ?? 0, 'Inserts', insertsColorAccessor(datum.value))}
-                            {renderValue(datum.value?.deletes ?? 0, 'Deletes', deletesColorAccessor(datum.value))}
-                        </ColumnContainer>
-                        <LinkContainer>
-                            <Button variant="text" size="xs" onClick={onViewDetails}>
-                                View Details
-                            </Button>
-                        </LinkContainer>
-                    </RowContainer>
-                </>
-            )}
+            {renderChanges()}
         </Container>
     );
 }

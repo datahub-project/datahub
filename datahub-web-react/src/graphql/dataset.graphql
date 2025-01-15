@@ -468,6 +468,7 @@ query getOperations($urn: String!, $limit: Int, $startTime: Long, $endTime: Long
             operationType
             actor
             lastUpdatedTimestamp
+            customOperationType
         }
     }
 }
@@ -482,6 +483,14 @@ query getOperationsStatsBuckets($urn: String!, $input: OperationsStatsInput) {
                     totalInserts
                     totalUpdates
                     totalDeletes
+                    totalCreates
+                    totalAlters
+                    totalDrops
+                    totalCustoms
+                    customOperationsMap {
+                        key
+                        value
+                    }
                 }
             }
         }
@@ -508,6 +517,14 @@ query getOperationsStats($urn: String!, $range: TimeRange!) {
                 totalInserts
                 totalUpdates
                 totalDeletes
+                totalCreates
+                totalAlters
+                totalDrops
+                totalCustoms
+                customOperationsMap {
+                    key
+                    value
+                }
             }
         }
     }

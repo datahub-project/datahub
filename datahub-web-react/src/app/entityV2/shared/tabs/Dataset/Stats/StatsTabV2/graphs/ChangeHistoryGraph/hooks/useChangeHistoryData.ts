@@ -3,28 +3,22 @@ import { useGetOperationsStatsBucketsLazyQuery } from '@src/graphql/dataset.gene
 import { TimeRange } from '@src/types.generated';
 import dayjs from 'dayjs';
 import { useEffect, useMemo } from 'react';
+import { CalendarData } from '@src/alchemy-components/components/CalendarChart/types';
 import { useStatsSectionsContext } from '../../../StatsSectionsContext';
 import { addMonthOverMonthValue } from '../../utils';
+import { CustomOperationType, OperationsData } from '../types';
+import { convertAggregationsToValue } from '../utils';
 
-export type ValueType = {
-    total: number;
-    inserts: number;
-    updates: number;
-    deletes: number;
-    mom: number | null;
-};
-
-export type DatumType = {
-    day: string;
-    value: ValueType;
-};
-
-type Response = {
-    data: DatumType[];
+type ResponseType = {
+    data: CalendarData<OperationsData>[];
     loading: boolean;
 };
 
-export default function useChangeHistoryData(urn: string | undefined, range: TimeRange | undefined): Response {
+export default function useChangeHistoryData(
+    urn: string | undefined,
+    range: TimeRange | undefined,
+    defaultCustomOperationTypes?: CustomOperationType[],
+): ResponseType {
     const [getOperationsStatsBuckets, { data, loading }] = useGetOperationsStatsBucketsLazyQuery();
 
     const {
@@ -38,21 +32,11 @@ export default function useChangeHistoryData(urn: string | undefined, range: Tim
 
     const preparedData = useMemo(() => {
         if (loading) return [];
-
         const convertedData = (data?.dataset?.operationsStats?.buckets ?? []).map((bucket) => {
-            const inserts = bucket?.aggregations?.totalInserts ?? 0;
-            const updates = bucket?.aggregations?.totalUpdates ?? 0;
-            const deletes = bucket?.aggregations?.totalDeletes ?? 0;
-            const total = inserts + updates + deletes;
-
+            const value = convertAggregationsToValue(bucket?.aggregations, defaultCustomOperationTypes);
             return {
                 day: dayjs(bucket?.bucket).utcOffset(0).utc(true).format(CALENDAR_DATE_FORMAT),
-                value: {
-                    total,
-                    inserts,
-                    updates,
-                    deletes,
-                },
+                value,
             };
         });
 
@@ -62,12 +46,12 @@ export default function useChangeHistoryData(urn: string | undefined, range: Tim
         return addMonthOverMonthValue(
             sortedData,
             (d) => d.day,
-            (d) => d.value.total,
+            (d) => d.value?.summary?.totalOperations,
         ).map((datum) => ({
             day: datum.day,
             value: { ...datum.value, mom: datum.mom },
         }));
-    }, [data, loading]);
+    }, [data, loading, defaultCustomOperationTypes]);
 
     if (!canViewDatasetOperations) {
         return {
@@ -76,5 +60,5 @@ export default function useChangeHistoryData(urn: string | undefined, range: Tim
         };
     }
 
-    return { data: preparedData as DatumType[], loading };
+    return { data: preparedData as CalendarData<OperationsData>[], loading };
 }
