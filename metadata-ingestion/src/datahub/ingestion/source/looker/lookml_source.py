@@ -59,6 +59,7 @@ from datahub.ingestion.source.looker.lookml_concept_context import (
 from datahub.ingestion.source.looker.lookml_config import (
     BASE_PROJECT_NAME,
     MODEL_FILE_EXTENSION,
+    VIEW_FILE_EXTENSION,
     LookerConnectionDefinition,
     LookMLSourceConfig,
     LookMLSourceReport,
@@ -940,6 +941,30 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 self.reporter.report_views_dropped(
                                     str(maybe_looker_view.id)
                                 )
+
+        if not self.source_config.emit_reachable_views_only:
+            view_files: Dict[str, List[pathlib.Path]] = {}
+            # Collect view files from each project
+            for project, folder_path in self.base_projects_folder.items():
+                folder = pathlib.Path(folder_path)
+                view_files[project] = list(folder.glob(f"**/*{VIEW_FILE_EXTENSION}"))
+
+            for project, views in view_files.items():
+                for view_path in views:
+                    # Check if the view is already in processed_view_map
+                    if not any(
+                        str(view_path) in view_set
+                        for view_set in processed_view_map.values()
+                    ):
+                        self.reporter.info(
+                            title="Skipped View File",
+                            message=(
+                                "The Looker view file was skipped because it may not be referenced by any models."
+                            ),
+                            context=(
+                                f"Project: {project}, " f"View File Path: {view_path}, "
+                            ),
+                        )
 
         if (
             self.source_config.tag_measures_and_dimensions
