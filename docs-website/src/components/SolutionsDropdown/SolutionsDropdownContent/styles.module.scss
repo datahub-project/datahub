@@ -1,0 +1,137 @@
+.container {
+    display: flex;
+  }
+  
+  .row {
+    display: flex;
+    gap: 1rem;
+  }
+  
+  .card {
+    display: flex;
+    width: 12.4375rem;
+    height: 12.5rem;
+    padding: 0;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+    border-radius: 0.72681rem;
+    background: #F7F7F7;
+    text-align: left;
+    text-decoration: none;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .header { 
+    display: inline-flex;
+  }
+
+  .title {
+    color: #1E1E1E;
+    font-family: Manrope;
+    font-style: normal;
+    font-weight: 600;
+  }
+
+  .description {
+    color: #757575;
+    font-family: Manrope;
+    font-style: normal;
+    font-weight: 300;
+  }
+
+  .fullSizeCard {
+    background-repeat: no-repeat;  
+    background-size: contain;
+    background-position: bottom right;
+    height: 100%;
+    padding: 1.4rem;
+
+    .icon {
+        width: 1.7rem;
+        height: 1.7rem;
+        display: block;
+    }
+
+    .title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        line-height: 150%; /* 1.6875rem */
+        letter-spacing: -0.01238rem;
+        margin-top: 0.5rem;
+    }
+
+    .description {
+        font-size: 0.95rem;
+        line-height: 150%; /* 1.5rem */
+        letter-spacing: -0.011rem;
+    };
+  }
+  
+  .halfSizeWrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.98rem; 
+  }
+
+  .halfSizeCard {
+    display: flex;
+    height: 5.75rem;
+    padding: 1.4rem;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    align-self: stretch;
+
+    .icon {
+        display: flex;
+        width: 1.26806rem;
+        height: 1.26806rem;
+        padding: 0.13206rem 0.13725rem 0.13213rem 0.13213rem;
+        justify-content: center;
+        align-items: center;
+        flex-shrink: 0;
+        margin-right: 0.65rem;
+    }
+
+    .title {
+        color: #1E1E1E;
+        font-family: Manrope;
+        font-size: 0.95rem;
+        font-style: normal;
+        font-weight: 600;
+        line-height: 150%; /* 1.5rem */
+        letter-spacing: -0.011rem;
+    }
+
+    .description {
+        font-size: 0.75rem;
+        line-height: 150%; /* 1.125rem */
+        letter-spacing: -0.00825rem;
+        margin-left: 2rem;
+    }
+  }
+  
+  .card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+    text-decoration: none;
+    color: inherit;
+  }
+  
+  
+  @media (max-width: 768px) {
+    .col {
+      flex: 1 1 48%;
+      max-width: 48%;
+    }
+  }
+  
+  @media (max-width: 480px) {
+    .col {
+      flex: 1 1 100%;
+      max-width: 100%;
+    }
+  }
+  
