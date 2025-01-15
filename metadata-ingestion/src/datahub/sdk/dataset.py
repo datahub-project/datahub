@@ -18,7 +18,9 @@ from datahub.sdk._shared import (
     HasContainer,
     HasOwnership,
     HasSubtype,
+    HasTags,
     OwnersInputType,
+    TagsInputType,
     make_time_stamp,
     parse_time_stamp,
 )
@@ -125,7 +127,7 @@ def _parse_upstream_lineage_input(
         assert_never(upstream_input)
 
 
-class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
+class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
     __slots__ = ("_edit_mode",)
 
     @classmethod
@@ -154,7 +156,7 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
         subtype: Optional[str] = None,
         container: Optional[ContainerInputType] = None,
         owners: Optional[OwnersInputType] = None,
-        # TODO tags
+        tags: Optional[TagsInputType] = None,
         # TODO: do we need to support edit_mode for tags / other aspects?
         # TODO terms
         # TODO structured_properties
@@ -207,6 +209,8 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, Entity):
             self._set_container(container)
         if owners is not None:
             self.set_owners(owners)
+        if tags is not None:
+            self.set_tags(tags)
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:

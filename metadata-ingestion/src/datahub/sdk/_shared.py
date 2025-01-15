@@ -24,7 +24,13 @@ from datahub.emitter.mce_builder import (
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.errors import SdkUsageError
-from datahub.metadata.urns import CorpGroupUrn, CorpUserUrn, OwnershipTypeUrn, Urn
+from datahub.metadata.urns import (
+    CorpGroupUrn,
+    CorpUserUrn,
+    OwnershipTypeUrn,
+    TagUrn,
+    Urn,
+)
 from datahub.utilities.urns._urn_base import _SpecificUrn
 
 if TYPE_CHECKING:
@@ -48,6 +54,7 @@ def parse_time_stamp(ts: Optional[models.TimeStampClass]) -> Optional[datetime]:
 
 @runtime_checkable
 class HasUrn(Protocol):
+    # TODO: Not clear if we even need this protocol.
     __slots__ = ()
 
     @property
@@ -204,7 +211,7 @@ class HasOwnership(Entity):
 
     @property
     def owners(self) -> Optional[List[models.OwnerClass]]:
-        # TODO: Ideally we'd use first-class type urns here, not strings.
+        # TODO: Ideally we'd use first-class ownership type urns here, not strings.
         if owners_aspect := self._get_aspect(models.OwnershipClass):
             return owners_aspect.owners
         return None
@@ -264,13 +271,46 @@ class HasContainer(Entity):
         self._set_aspect(
             models.BrowsePathsV2Class(
                 path=[
-                    entry
-                    if isinstance(entry, models.BrowsePathEntryClass)
-                    else models.BrowsePathEntryClass(
-                        id=entry,
-                        urn=entry,
+                    (
+                        entry
+                        if isinstance(entry, models.BrowsePathEntryClass)
+                        else models.BrowsePathEntryClass(
+                            id=entry,
+                            urn=entry,
+                        )
                     )
                     for entry in browse_path
                 ]
             )
         )
+
+
+TagInputType: TypeAlias = Union[str, TagUrn, models.TagAssociationClass]
+TagsInputType: TypeAlias = List[TagInputType]
+
+
+class HasTags(Entity):
+    __slots__ = ()
+
+    @property
+    def tags(self) -> Optional[List[models.TagAssociationClass]]:
+        if tags := self._get_aspect(models.GlobalTagsClass):
+            return tags.tags
+        return None
+
+    @classmethod
+    def _parse_tag_association_class(
+        cls, tag: TagInputType
+    ) -> models.TagAssociationClass:
+        if isinstance(tag, models.TagAssociationClass):
+            return tag
+        return models.TagAssociationClass(tag=str(tag))
+
+    def set_tags(self, tags: TagsInputType) -> None:
+        self._set_aspect(
+            models.GlobalTagsClass(
+                tags=[self._parse_tag_association_class(tag) for tag in tags]
+            )
+        )
+
+    # TODO: Add add_tag and remove_tag methods.
