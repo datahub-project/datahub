@@ -106,7 +106,7 @@ export const IngestionSourceList = () => {
     // Ingestion Source Default Filters
     const filters = hideSystemSources
         ? [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE], negated: true }]
-        : [];
+        : [{ field: 'sourceType', values: [SYSTEM_INTERNAL_SOURCE_TYPE] }];
     if (sourceFilter !== IngestionSourceType.ALL) {
         filters.push({
             field: 'sourceExecutorId',
