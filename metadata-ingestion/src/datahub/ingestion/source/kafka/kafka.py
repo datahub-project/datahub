@@ -204,6 +204,20 @@ def get_kafka_admin_client(
     return client
 
 
+def clean_field_path(field_path: str) -> str:
+    """Clean field path by removing version, type and other metadata."""
+    # Split by dots and take the last part which should be the actual field name
+    parts = field_path.split(".")
+    # Return last non-empty part that isn't a type or version declaration
+    for part in reversed(parts):
+        if part and not (part.startswith("[version=") or part.startswith("[type=")):
+            if part.endswith("[key=True]"):
+                return "key"
+            else:
+                return part
+    return field_path
+
+
 def flatten_json(
     nested_json: Dict[str, Any],
     parent_key: str = "",
@@ -581,8 +595,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
             # Handle value schema fields
             for schema_field in schema_metadata.fields or []:
-                field_sample_map[schema_field.fieldPath] = []
-                all_keys.add(schema_field.fieldPath)
+                field_path = clean_field_path(schema_field.fieldPath)
+                field_sample_map[field_path] = []
+                all_keys.add(field_path)
 
         # Process samples
         for sample in samples:
