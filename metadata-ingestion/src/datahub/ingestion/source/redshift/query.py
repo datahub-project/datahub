@@ -821,6 +821,23 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     qs.start_time < '{end_time}'
                 GROUP BY cluster, "schema", "table", qs.table_id, query_id, step_name, username, source -- to be sure we are not making duplicates ourselves the list of group by must match whatever we use in "group by" and "where" of subsequent queries ("cluster" is already set to single value in this query)
             ),
+            unique_query_text AS (
+                SELECT
+                    query_id,
+                    sequence,
+                    text
+                FROM (
+                    SELECT
+                        query_id,
+                        "sequence",
+                        text,
+                        ROW_NUMBER() OVER (
+                        PARTITION BY query_id, sequence
+                        ) as rn
+                    FROM SYS_QUERY_TEXT
+                    )
+                WHERE rn = 1
+            ),
             scan_queries AS (
                 SELECT
                     "schema" as source_schema,
@@ -831,7 +848,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     LISTAGG(qt."text") WITHIN GROUP (ORDER BY sequence) AS query_text
                 FROM
                     "queries" LEFT JOIN
-                    SYS_QUERY_TEXT qt ON qt.query_id = queries.query_id
+                    unique_query_text qt ON qt.query_id = queries.query_id
                 WHERE
                     source = 'Redshift(local)' AND
                     step_name = 'scan' AND
@@ -852,7 +869,6 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                     step_name = 'insert'
                 GROUP BY cluster, target_schema, target_table, target_table_id, query_id
             )
-            
             SELECT
                 cluster,
                 target_schema,
@@ -862,7 +878,7 @@ class RedshiftServerlessQuery(RedshiftCommonQuery):
                 source_table,
                 query_text AS ddl,
                 "timestamp"
-            FROM scan_queries 
+            FROM scan_queries
                 JOIN insert_queries on insert_queries.query_id = scan_queries.query_id
             WHERE source_table_id <> target_table_id
             ORDER BY cluster, target_schema, target_table, "timestamp" ASC;
