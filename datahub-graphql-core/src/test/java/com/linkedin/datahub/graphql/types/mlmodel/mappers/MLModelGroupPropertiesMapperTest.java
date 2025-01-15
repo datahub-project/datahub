@@ -6,9 +6,8 @@ import static org.testng.Assert.assertNull;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.ml.metadata.MLModelGroupProperties;
-import org.testng.annotations.Test;
-
 import java.net.URISyntaxException;
+import org.testng.annotations.Test;
 
 public class MLModelGroupPropertiesMapperTest {
 
@@ -20,12 +19,13 @@ public class MLModelGroupPropertiesMapperTest {
     // Set description
     input.setDescription("a ml trust model group");
 
-
     // Create URN
-    Urn groupUrn = Urn.createFromString("urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,another-group,PROD)");
+    Urn groupUrn =
+        Urn.createFromString(
+            "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,another-group,PROD)");
 
     // Map the properties
-    com.linkedin.datahub.graphql.generated.MLModelGroupProperties result = 
+    com.linkedin.datahub.graphql.generated.MLModelGroupProperties result =
         MLModelGroupPropertiesMapper.map(null, input, groupUrn);
 
     // Verify mapped properties
@@ -44,10 +44,12 @@ public class MLModelGroupPropertiesMapperTest {
     MLModelGroupProperties input = new MLModelGroupProperties();
 
     // Create URN
-    Urn groupUrn = Urn.createFromString("urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,another-group,PROD)");
+    Urn groupUrn =
+        Urn.createFromString(
+            "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,another-group,PROD)");
 
     // Map the properties
-    com.linkedin.datahub.graphql.generated.MLModelGroupProperties result = 
+    com.linkedin.datahub.graphql.generated.MLModelGroupProperties result =
         MLModelGroupPropertiesMapper.map(null, input, groupUrn);
 
     // Verify basic mapping with minimal properties

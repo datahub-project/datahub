@@ -5,22 +5,21 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 
 import com.linkedin.common.MLFeatureUrnArray;
-import com.linkedin.data.template.StringArray;
 import com.linkedin.common.TimeStamp;
-import com.linkedin.common.urn.Urn;
-import com.linkedin.common.urn.MLFeatureUrn;
-import com.linkedin.common.urn.MLModelUrn;
 import com.linkedin.common.VersionTag;
 import com.linkedin.common.url.Url;
+import com.linkedin.common.urn.MLFeatureUrn;
+import com.linkedin.common.urn.MLModelUrn;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.ml.metadata.MLHyperParam;
 import com.linkedin.ml.metadata.MLHyperParamArray;
 import com.linkedin.ml.metadata.MLMetric;
 import com.linkedin.ml.metadata.MLMetricArray;
 import com.linkedin.ml.metadata.MLModelProperties;
-import org.testng.annotations.Test;
-
 import java.net.URISyntaxException;
+import org.testng.annotations.Test;
 
 public class MLModelPropertiesMapperTest {
 
@@ -32,7 +31,7 @@ public class MLModelPropertiesMapperTest {
     input.setName("TestModel");
     input.setDescription("A test ML model");
     input.setType("Classification");
-    
+
     // Set version
     VersionTag versionTag = new VersionTag();
     versionTag.setVersionTag("1.0.0");
@@ -89,14 +88,18 @@ public class MLModelPropertiesMapperTest {
     input.setTags(tags);
 
     // Set training and downstream jobs
-    input.setTrainingJobs(new com.linkedin.common.UrnArray(Urn.createFromString("urn:li:dataJob:train")));
-    input.setDownstreamJobs(new com.linkedin.common.UrnArray(Urn.createFromString("urn:li:dataJob:predict")));
+    input.setTrainingJobs(
+        new com.linkedin.common.UrnArray(Urn.createFromString("urn:li:dataJob:train")));
+    input.setDownstreamJobs(
+        new com.linkedin.common.UrnArray(Urn.createFromString("urn:li:dataJob:predict")));
 
     // Create ML Model URN
-    MLModelUrn modelUrn = MLModelUrn.createFromString("urn:li:mlModel:(urn:li:dataPlatform:sagemaker,unittestmodel,PROD)");
+    MLModelUrn modelUrn =
+        MLModelUrn.createFromString(
+            "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,unittestmodel,PROD)");
 
     // Map the properties
-    com.linkedin.datahub.graphql.generated.MLModelProperties result = 
+    com.linkedin.datahub.graphql.generated.MLModelProperties result =
         MLModelPropertiesMapper.map(null, input, modelUrn);
 
     // Verify mapped properties
@@ -146,15 +149,18 @@ public class MLModelPropertiesMapperTest {
     assertEquals(result.getMlModelLineageInfo().getTrainingJobs().size(), 1);
     assertEquals(result.getMlModelLineageInfo().getTrainingJobs().get(0), "urn:li:dataJob:train");
     assertEquals(result.getMlModelLineageInfo().getDownstreamJobs().size(), 1);
-    assertEquals(result.getMlModelLineageInfo().getDownstreamJobs().get(0), "urn:li:dataJob:predict");
+    assertEquals(
+        result.getMlModelLineageInfo().getDownstreamJobs().get(0), "urn:li:dataJob:predict");
   }
 
   @Test
   public void testMapWithMissingName() throws URISyntaxException {
     MLModelProperties input = new MLModelProperties();
-    MLModelUrn modelUrn = MLModelUrn.createFromString("urn:li:mlModel:(urn:li:dataPlatform:sagemaker,missingnamemodel,PROD)");
+    MLModelUrn modelUrn =
+        MLModelUrn.createFromString(
+            "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,missingnamemodel,PROD)");
 
-    com.linkedin.datahub.graphql.generated.MLModelProperties result = 
+    com.linkedin.datahub.graphql.generated.MLModelProperties result =
         MLModelPropertiesMapper.map(null, input, modelUrn);
 
     // Verify that name is extracted from URN when not present in input
@@ -164,9 +170,11 @@ public class MLModelPropertiesMapperTest {
   @Test
   public void testMapWithMinimalProperties() throws URISyntaxException {
     MLModelProperties input = new MLModelProperties();
-    MLModelUrn modelUrn = MLModelUrn.createFromString("urn:li:mlModel:(urn:li:dataPlatform:sagemaker,minimalmodel,PROD)");
+    MLModelUrn modelUrn =
+        MLModelUrn.createFromString(
+            "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,minimalmodel,PROD)");
 
-    com.linkedin.datahub.graphql.generated.MLModelProperties result = 
+    com.linkedin.datahub.graphql.generated.MLModelProperties result =
         MLModelPropertiesMapper.map(null, input, modelUrn);
 
     // Verify basic mapping with minimal properties

@@ -41,16 +41,16 @@ public class MLModelGroupPropertiesMapper
 
     final MLModelLineageInfo lineageInfo = new MLModelLineageInfo();
     if (mlModelGroupProperties.hasTrainingJobs()) {
-        lineageInfo.setTrainingJobs(
-            mlModelGroupProperties.getTrainingJobs().stream()
-                .map(urn -> urn.toString())
-                .collect(Collectors.toList()));
+      lineageInfo.setTrainingJobs(
+          mlModelGroupProperties.getTrainingJobs().stream()
+              .map(urn -> urn.toString())
+              .collect(Collectors.toList()));
     }
     if (mlModelGroupProperties.hasDownstreamJobs()) {
-        lineageInfo.setDownstreamJobs(
-            mlModelGroupProperties.getDownstreamJobs().stream()
-                .map(urn -> urn.toString())
-                .collect(Collectors.toList()));
+      lineageInfo.setDownstreamJobs(
+          mlModelGroupProperties.getDownstreamJobs().stream()
+              .map(urn -> urn.toString())
+              .collect(Collectors.toList()));
     }
     result.setMlModelLineageInfo(lineageInfo);
 
