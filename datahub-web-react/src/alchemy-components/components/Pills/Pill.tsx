@@ -38,7 +38,9 @@ export function Pill({
                 backgroundColor: customStyle?.backgroundColor,
             }}
         >
-            {customIconRenderer ? customIconRenderer() : (leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} />)}
+            {customIconRenderer
+                ? customIconRenderer()
+                : leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} />}
             <PillText style={customStyle}>{label}</PillText>
             {rightIcon && <Icon icon={rightIcon} size={size} onClick={onClickRightIcon} />}
         </PillContainer>

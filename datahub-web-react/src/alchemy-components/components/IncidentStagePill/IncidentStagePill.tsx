@@ -39,8 +39,8 @@ export const IncidentStagePill = ({ stage }: { stage: string }) => {
 
     const { icon, color, bgColor } = INCIDENT_STAGE[stage] || {};
 
-    function iconRenderer(){
-        return icon
+    function iconRenderer() {
+        return icon;
     }
 
     return (
@@ -50,7 +50,7 @@ export const IncidentStagePill = ({ stage }: { stage: string }) => {
             customIconRenderer={iconRenderer}
             customStyle={{
                 backgroundColor: bgColor,
-                color: color,
+                color,
             }}
         />
     );
