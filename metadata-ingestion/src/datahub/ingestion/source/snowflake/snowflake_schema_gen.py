@@ -104,7 +104,13 @@ from datahub.metadata.com.linkedin.pegasus2avro.schema import (
 from datahub.metadata.com.linkedin.pegasus2avro.tag import TagProperties
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownLineageMapping,
+    KnownQueryLineageInfo,
     SqlParsingAggregator,
+)
+from datahub.sql_parsing.sqlglot_lineage import (
+    ColumnLineageInfo,
+    ColumnRef,
+    DownstreamColumnRef,
 )
 from datahub.utilities.registries.domain_registry import DomainRegistry
 from datahub.utilities.threaded_iterator_executor import ThreadedIteratorExecutor
@@ -235,10 +241,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 ]
                 if self.aggregator:
                     for entry in self._external_tables_ddl_lineage(discovered_tables):
-                        self.aggregator.add(entry)
-            with self.report.new_stage(f"*: {LINEAGE_EXTRACTION}"):
-                if self.config.include_streams and self.aggregator:
-                    for entry in self.populate_stream_upstreams():
                         self.aggregator.add(entry)
 
         except SnowflakePermissionError as e:
@@ -1203,7 +1205,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     self.report.report_dropped(stream_identifier)
                 else:
                     streams.append(stream)
-            snowflake_schema.streams = [stream.name.lower() for stream in streams]
+            snowflake_schema.streams = [stream.name for stream in streams]
             return streams
         except Exception as e:
             if isinstance(e, SnowflakePermissionError):
@@ -1231,9 +1233,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         db_name: str,
     ) -> Iterable[MetadataWorkUnit]:
         schema_name = snowflake_schema.name
-        stream_identifier = self.identifiers.get_dataset_identifier(
-            stream.name, schema_name, db_name
-        )
 
         try:
             stream.columns = self.get_columns_for_stream(
@@ -1243,9 +1242,13 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                 stream.column_tags = self.tag_extractor.get_column_tags_for_table(
                     stream.name, schema_name, db_name
                 )
+            if self.config.include_column_lineage:
+                with self.report.new_stage(f"*: {LINEAGE_EXTRACTION}"):
+                    self.populate_stream_upstreams(stream, db_name, schema_name)
+
         except Exception as e:
             self.structured_reporter.warning(
-                "Failed to get columns for stream", stream_identifier, exc=e
+                "Failed to get columns for stream:", stream.name, exc=e
             )
 
         yield from self.gen_dataset_workunits(stream, schema_name, db_name)
@@ -1320,28 +1323,54 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         return columns
 
-    def populate_stream_upstreams(self) -> Iterable[KnownLineageMapping]:
-        try:
-            for stream in self.streams:
-                stream_fully_qualified = ".".join(
-                    [
-                        stream.database_name.lower(),
-                        stream.schema_name.lower(),
-                        stream.name.lower(),
-                    ]
-                )
+    def populate_stream_upstreams(
+        self, stream: SnowflakeStream, db_name: str, schema_name: str
+    ) -> None:
+        """
+        Populate Streams upstream tables excluding the metadata columns
+        """
+        if self.aggregator:
+            source_parts = _split_qualified_name(stream.table_name)
+            source_db, source_schema, source_name = source_parts
 
-                yield KnownLineageMapping(
-                    upstream_urn=self.identifiers.gen_dataset_urn(
-                        stream.table_name.lower()
-                    ),
-                    downstream_urn=self.identifiers.gen_dataset_urn(
-                        stream_fully_qualified
-                    ),
-                )
-                self.report.num_streams_with_known_upstreams += 1
-        except Exception as e:
-            self.structured_reporter.warning(
-                "Stream lineage extraction failed",
-                exc=e,
+            downstream_identifier = self.identifiers.get_dataset_identifier(
+                stream.name, schema_name, db_name
             )
+            downstream_urn = self.identifiers.gen_dataset_urn(downstream_identifier)
+
+            upstream_identifier = self.identifiers.get_dataset_identifier(
+                source_name, source_schema, source_db
+            )
+            upstream_urn = self.identifiers.gen_dataset_urn(upstream_identifier)
+
+            column_lineage = []
+            for col in stream.columns:
+                if not col.name.startswith("METADATA$"):
+                    column_lineage.append(
+                        ColumnLineageInfo(
+                            downstream=DownstreamColumnRef(
+                                dataset=downstream_urn,
+                                column=self.identifiers.snowflake_identifier(col.name),
+                            ),
+                            upstreams=[
+                                ColumnRef(
+                                    table=upstream_urn,
+                                    column=self.identifiers.snowflake_identifier(
+                                        col.name
+                                    ),
+                                )
+                            ],
+                        )
+                    )
+
+            if column_lineage:
+                self.aggregator.add_known_query_lineage(
+                    known_query_lineage=KnownQueryLineageInfo(
+                        query_id=f"stream_lineage_{stream.name}",
+                        query_text="",
+                        upstreams=[upstream_urn],
+                        downstream=downstream_urn,
+                        column_lineage=column_lineage,
+                        timestamp=stream.created if stream.created else None,
+                    )
+                )

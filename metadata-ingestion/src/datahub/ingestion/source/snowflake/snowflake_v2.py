@@ -53,9 +53,7 @@ from datahub.ingestion.source.snowflake.snowflake_queries import (
 )
 from datahub.ingestion.source.snowflake.snowflake_query import SnowflakeQuery
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
-from datahub.ingestion.source.snowflake.snowflake_schema import (
-    SnowflakeDataDictionary,
-)
+from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeDataDictionary
 from datahub.ingestion.source.snowflake.snowflake_schema_gen import (
     SnowflakeSchemaGenerator,
 )
@@ -749,17 +747,6 @@ class SnowflakeV2Source(
                 os.remove(file_path)
         except Exception:
             logger.debug(f'Failed to remove OCSP cache file at "{file_path}"')
-
-    # def get_streams(self, databases: List) -> List[SnowflakeStream]:
-    #     streams = []
-    #     for db in databases:
-    #         for schema in db.schemas:
-    #             schema_streams = self.data_dictionary.get_streams_for_schema(
-    #                 schema.name, db.name
-    #             )
-    #             if schema_streams:
-    #                 streams.extend(schema_streams)
-    #     return streams
 
     def close(self) -> None:
         super().close()
