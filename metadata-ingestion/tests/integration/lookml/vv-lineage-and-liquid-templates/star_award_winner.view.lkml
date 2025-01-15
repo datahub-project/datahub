@@ -1,5 +1,5 @@
 view: star_award_winner {
-  sql_table_name: ${db}.@{star_award_winner_year};;
+  sql_table_name: @{customer_support_db}.@{customer_support_schema}.@{customer_support_table};;
 
 
   dimension: id {
@@ -7,18 +7,6 @@ view: star_award_winner {
     primary_key: yes
     type: number
     sql: ${TABLE}.id ;;
-  }
-
-  parameter: star_award_winner_year {
-    type: string
-    allowed_value: {
-      label: "Star Award Winner Of 2025"
-      value: "public.winner_2025"
-    }
-    allowed_value: {
-      label: "Star Award Winner Of 2024"
-      value: "public.winner_2024"
-    }
   }
 
 }

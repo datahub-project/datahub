@@ -869,15 +869,15 @@ def test_view_to_view_lineage_and_liquid_template(pytestconfig, tmp_path, mock_t
             "dev_database_prefix": "employee",
             "dev_schema_prefix": "public",
         },
+        "_dev_database_attributes": {
+            "dev_database_prefix": "customer",
+        },
         "dw_eff_dt_date": {
             "_is_selected": True,
         },
         "source_region": "ap-south-1",
-        "db": "test-db",
     }
-    new_recipe["source"]["config"]["lookml_parameter"] = {
-        "star_award_winner_year": "public.winner_2025"
-    }
+    new_recipe["source"]["config"]["lookml_constant"] = {"winner_table": "dev"}
 
     pipeline = Pipeline.create(new_recipe)
     pipeline.run()
