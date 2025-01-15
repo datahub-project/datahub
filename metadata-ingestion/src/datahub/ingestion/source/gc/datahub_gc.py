@@ -152,13 +152,8 @@ class DataHubGcSource(Source):
             except Exception as e:
                 self.report.failure("While trying to truncate indices ", exc=e)
         if self.config.soft_deleted_entities_cleanup.enabled:
-            try:
-                with self.report.new_stage("Soft Deleted Entities Cleanup"):
-                    self.soft_deleted_entities_cleanup.cleanup_soft_deleted_entities()
-            except Exception as e:
-                self.report.failure(
-                    "While trying to cleanup soft deleted entities ", exc=e
-                )
+            with self.report.new_stage("Soft Deleted Entities Cleanup"):
+                self.soft_deleted_entities_cleanup.cleanup_soft_deleted_entities()
         if self.config.dataprocess_cleanup.enabled:
             try:
                 with self.report.new_stage("Data Process Cleanup"):
