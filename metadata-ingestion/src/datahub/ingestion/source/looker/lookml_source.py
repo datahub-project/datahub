@@ -310,6 +310,8 @@ class LookMLSource(StatefulIngestionSourceBase):
                     "manage_models permission enabled on this API key."
                 ) from err
 
+        self.looker_constant: List[Dict[str, str]] = []
+
     def _load_model(self, path: str) -> LookerModel:
         logger.debug(f"Loading model from file {path}")
 
@@ -548,7 +550,6 @@ class LookMLSource(StatefulIngestionSourceBase):
             ] = self.source_config.base_folder
 
             visited_projects: Set[str] = set()
-            looker_constant: List[Dict[str, str]] = []
 
             # We clone everything that we're pointed at.
             for project, p_ref in self.source_config.project_dependencies.items():
@@ -577,10 +578,10 @@ class LookMLSource(StatefulIngestionSourceBase):
                 self.base_projects_folder[project] = p_ref
 
             self._recursively_check_manifests(
-                tmp_dir, BASE_PROJECT_NAME, visited_projects, looker_constant
+                tmp_dir, BASE_PROJECT_NAME, visited_projects, self.looker_constant
             )
 
-            yield from self.get_internal_workunits(looker_constant)
+            yield from self.get_internal_workunits()
 
             if not self.report.events_produced and not self.report.failures:
                 # Don't pass if we didn't produce any events.
@@ -681,16 +682,14 @@ class LookMLSource(StatefulIngestionSourceBase):
                 tmp_dir, project, project_visited, looker_constant
             )
 
-    def get_internal_workunits(
-        self, looker_constant: Optional[List[Dict]]
-    ) -> Iterable[MetadataWorkUnit]:  # noqa: C901
+    def get_internal_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
         assert self.source_config.base_folder
         viewfile_loader = LookerViewFileLoader(
             self.source_config.project_name,
             self.base_projects_folder,
             self.reporter,
             self.source_config,
-            looker_constant,
+            self.looker_constant,
         )
 
         # Some views can be mentioned by multiple 'include' statements and can be included via different connections.
