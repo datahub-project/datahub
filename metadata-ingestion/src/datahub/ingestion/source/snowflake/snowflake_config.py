@@ -273,7 +273,6 @@ class SnowflakeV2Config(
         description="List of regex patterns for tags to include in ingestion. Only used if `extract_tags` is enabled.",
     )
 
-snowflake-streams-v2
     include_streams: bool = Field(
         default=True,
         description="If enabled, streams will be ingested as separate entities from tables/views.",
