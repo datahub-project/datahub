@@ -47,6 +47,7 @@ select = [
     "C90",
     "E",
     "F",
+    "TID",
 ]
 ignore = [
     # Ignore line length violations (handled by Black)
