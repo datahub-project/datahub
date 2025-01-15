@@ -16,7 +16,7 @@ export const Bar = ({
     size = defaultProps.size,
 }: BarComponentProps) => {
     const Bars = Array.from({ length: 3 }, (_, index) => {
-        const barHeight = (index + 2) * BAR_HEIGHT_MULTIPLIER;
+        const barHeight = (index + 2) * BAR_HEIGHT_MULTIPLIER[size];
         return (
             <IndividualBar key={index} size={size} height={barHeight} isColored={index < coloredBars} color={color} />
         );

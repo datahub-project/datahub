@@ -2,7 +2,7 @@ import styled from 'styled-components';
 
 export const BarContainer = styled.div`
     display: flex;
-    gap: 3px;
+    gap: 2px;
     align-items: baseline;
 `;
 
