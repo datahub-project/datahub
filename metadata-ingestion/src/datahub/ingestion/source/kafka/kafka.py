@@ -412,16 +412,39 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         "subject", f"Exception while extracting topic {subject}: {e}"
                     )
 
+    def _process_message_part(self, data: Any, prefix: str) -> Optional[Any]:
+        """Process either key or value part of a message."""
+        if data is None:
+            return None
+
+        if isinstance(data, bytes):
+            try:
+                # Try JSON decode first
+                decoded = json.loads(data.decode("utf-8"))
+                if isinstance(decoded, (dict, list)):
+                    # Flatten nested structures
+                    if isinstance(decoded, list):
+                        # Convert list to dict before flattening
+                        decoded = {"item": decoded}
+                    return flatten_json(decoded)
+                return decoded
+            except Exception:
+                # If JSON fails, try to decode as string, then fallback to base64
+                try:
+                    return data.decode("utf-8")
+                except Exception:
+                    return base64.b64encode(data).decode("utf-8")
+
+        return data
+
     def get_sample_messages(self, topic: str) -> List[Dict[str, Any]]:
         """
-        Collects sample messages from a Kafka topic and flattens nested structures.
+        Collects sample messages from a Kafka topic, handling both key and value fields.
         """
         samples: List[Dict[str, Any]] = []
         try:
-            # Subscribe to the topic
             self.consumer.subscribe([topic])
 
-            # Poll for messages
             start_time = datetime.now()
             while len(samples) < self.source_config.sample_size:
                 if (
@@ -438,24 +461,12 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     break
 
                 try:
-                    # Try to decode the message value
+                    # Process both key and value
+                    key = msg.key()
                     value = msg.value()
-                    if isinstance(value, bytes):
-                        try:
-                            # Try JSON decode first
-                            value = json.loads(value.decode("utf-8"))
-                            # Flatten nested JSON structure
-                            if isinstance(value, dict):
-                                value = flatten_json(value)
-                            elif isinstance(value, list):
-                                # Convert list to dict before flattening
-                                value = flatten_json({"root": value})
-                        except Exception as exc:
-                            logger.warning(exc)
-                            # If JSON fails, just use base64
-                            value = base64.b64encode(value).decode("utf-8")
+                    processed_key = self._process_message_part(key, "key")
+                    processed_value = self._process_message_part(value, "value")
 
-                    # Convert timestamp to datetime
                     msg_timestamp = msg.timestamp()[1]
                     timestamp_dt = datetime.fromtimestamp(
                         msg_timestamp / 1000.0
@@ -463,13 +474,30 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         else msg_timestamp
                     )
 
-                    samples.append(
-                        {
-                            "offset": msg.offset(),
-                            "timestamp": timestamp_dt.isoformat(),
-                            "value": value,
-                        }
-                    )
+                    sample = {
+                        "offset": msg.offset(),
+                        "timestamp": timestamp_dt.isoformat(),
+                    }
+
+                    # Add key and value data with proper prefixing
+                    if processed_key is not None:
+                        if isinstance(processed_key, dict):
+                            sample.update(
+                                {f"key.{k}": v for k, v in processed_key.items()}
+                            )
+                        else:
+                            sample["key"] = processed_key
+
+                    if processed_value is not None:
+                        if isinstance(processed_value, dict):
+                            sample.update(
+                                {f"value.{k}": v for k, v in processed_value.items()}
+                            )
+                        else:
+                            sample["value"] = processed_value
+
+                    samples.append(sample)
+
                 except Exception as e:
                     logger.warning(f"Failed to decode message from {topic}: {e}")
 
@@ -485,29 +513,43 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         samples: List[Dict[str, Any]],
         schema_metadata: Optional[SchemaMetadataClass] = None,
     ) -> Dict[str, Any]:
-        """Process sample data to extract field information, incorporating schema fields if available."""
+        """Process sample data to extract field information from both key and value schemas."""
         all_keys: Set[str] = set()
         field_sample_map: Dict[str, List[str]] = {}
 
-        # If we have schema metadata, initialize the field map with schema fields
-        if schema_metadata is not None:
+        # Initialize from schema if available
+        if schema_metadata is not None and isinstance(
+            schema_metadata.platformSchema, KafkaSchemaClass
+        ):
+            # Handle key schema fields if present
+            if schema_metadata.platformSchema.keySchema:
+                try:
+                    key_schema = avro.schema.parse(
+                        schema_metadata.platformSchema.keySchema
+                    )
+                    if hasattr(key_schema, "fields"):
+                        for schema_field in key_schema.fields:
+                            field_path = f"key.{schema_field.name}"
+                            all_keys.add(field_path)
+                            field_sample_map[field_path] = []
+                except Exception as e:
+                    logger.warning(f"Failed to parse key schema: {e}")
+
+            # Handle value schema fields
             for schema_field in schema_metadata.fields or []:
-                field_path = schema_field.fieldPath
+                field_path = f"value.{schema_field.fieldPath}"
                 all_keys.add(field_path)
                 field_sample_map[field_path] = []
 
         # Process samples
         for sample in samples:
-            if isinstance(sample.get("value", None), dict):
-                all_keys.update(sample["value"].keys())
-                for key, value in sample["value"].items():
+            # Process each field in the sample
+            for key, value in sample.items():
+                if key not in ["offset", "timestamp"]:  # Skip metadata fields
                     if key not in field_sample_map:
                         field_sample_map[key] = []
+                        all_keys.add(key)
                     field_sample_map[key].append(str(value))
-            else:
-                if "value" not in field_sample_map:
-                    field_sample_map["value"] = []
-                field_sample_map["value"].append(str(sample["value"]))
 
         return {"all_keys": all_keys, "field_sample_map": field_sample_map}
 
