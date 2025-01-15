@@ -106,12 +106,7 @@ task modelDocUpload(type: Exec, dependsOn: [modelDocGen]) {
 
 
 task lint(type: Exec, dependsOn: installDev) {
-  /*
-    The find/sed combo below is a temporary work-around for the following mypy issue with airflow 2.2.0:
-   "venv/lib/python3.8/site-packages/airflow/_vendor/connexion/spec.py:169: error: invalid syntax".
-   */
   commandLine 'bash', '-c',
-    "find ${venv_name}/lib -path *airflow/_vendor/connexion/spec.py -exec sed -i.bak -e '169,169s/  # type: List\\[str\\]//g' {} \\; && " +
     "source ${venv_name}/bin/activate && set -x && " +
     "black --check --diff src/ tests/ examples/ && " +
     "isort --check --diff src/ tests/ examples/ && " +
@@ -124,8 +119,7 @@ task lintFix(type: Exec, dependsOn: installDev) {
     "source ${venv_name}/bin/activate && set -x && " +
     "black src/ tests/ examples/ && " +
     "isort src/ tests/ examples/ && " +
-    "ruff check --fix src/ tests/ examples/ && " +
-    "mypy --show-traceback --show-error-codes src/ tests/ examples/"
+    "ruff check --fix src/ tests/ examples/"
 }
 
 def pytest_default_env = "PYTHONDEVMODE=1"
