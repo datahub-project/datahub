@@ -10,6 +10,7 @@ import SearchExtendedMenu from './SearchExtendedMenu';
 import { SearchSelectBar } from './SearchSelectBar';
 import { EntityAndType } from '../../../types';
 import { DownloadSearchResultsInput, DownloadSearchResults } from '../../../../../search/utils/types';
+import SearchSortSelect from '../../../../../search/sorting/SearchSortSelect';
 
 const HeaderContainer = styled.div`
     display: flex;
@@ -26,6 +27,8 @@ const SearchAndDownloadContainer = styled.div`
 
 const SearchMenuContainer = styled.div`
     margin-left: 10px;
+    display: flex;
+    align-items: center;
 `;
 
 type Props = {
@@ -95,6 +98,7 @@ export default function EmbeddedListSearchHeader({
                             hideRecommendations
                         />
                         <SearchMenuContainer>
+                            <SearchSortSelect />
                             <SearchExtendedMenu
                                 downloadSearchResults={downloadSearchResults}
                                 filters={filters}
