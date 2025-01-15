@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO)
 rest_emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
 
 # first, let's make an open ended structured property that allows one text value
-text_property_urn = StructuredPropertyUrn("openTextProperty")
+text_property_urn = StructuredPropertyUrn("io.acryl.openTextProperty")
 text_property_definition = StructuredPropertyDefinitionClass(
     qualifiedName="io.acryl.openTextProperty",
     displayName="Open Text Property",
@@ -39,7 +39,7 @@ rest_emitter.emit(event_prop_1)
 
 # next, let's make a property that allows for multiple datahub entity urns as values
 # This example property could be used to reference other users or groups in datahub
-urn_property_urn = StructuredPropertyUrn("dataSteward")
+urn_property_urn = StructuredPropertyUrn("io.acryl.dataManagement.dataSteward")
 urn_property_definition = StructuredPropertyDefinitionClass(
     qualifiedName="io.acryl.dataManagement.dataSteward",
     displayName="Data Steward",
@@ -63,7 +63,7 @@ event_prop_2: MetadataChangeProposalWrapper = MetadataChangeProposalWrapper(
 rest_emitter.emit(event_prop_2)
 
 # finally, let's make a single select number property with a few allowed options
-number_property_urn = StructuredPropertyUrn("replicationSLA")
+number_property_urn = StructuredPropertyUrn("io.acryl.dataManagement.replicationSLA")
 number_property_definition = StructuredPropertyDefinitionClass(
     qualifiedName="io.acryl.dataManagement.replicationSLA",
     displayName="Retention Time",
