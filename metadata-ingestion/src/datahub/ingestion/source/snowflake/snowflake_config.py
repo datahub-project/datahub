@@ -244,6 +244,11 @@ class SnowflakeV2Config(
         description="""Optional. Allowed values are `without_lineage`, `with_lineage`, and `skip` (default). `without_lineage` only extracts tags that have been applied directly to the given entity. `with_lineage` extracts both directly applied and propagated tags, but will be significantly slower. See the [Snowflake documentation](https://docs.snowflake.com/en/user-guide/object-tagging.html#tag-lineage) for information about tag lineage/propagation. """,
     )
 
+    extract_tags_as_structured_properties: bool = Field(
+        default=False,
+        description="If enabled along with `extract_tags`, extracts snowflake's key-value tags as DataHub structured properties instead of DataHub tags.",
+    )
+
     include_external_url: bool = Field(
         default=True,
         description="Whether to populate Snowsight url for Snowflake Objects",
@@ -261,6 +266,14 @@ class SnowflakeV2Config(
     tag_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="List of regex patterns for tags to include in ingestion. Only used if `extract_tags` is enabled.",
+    )
+
+    structured_property_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "List of regex patterns for structured properties to include in ingestion."
+            " Only used if `extract_tags` and `extract_tags_as_structured_properties` are enabled."
+        ),
     )
 
     # This is required since access_history table does not capture whether the table was temporary table.

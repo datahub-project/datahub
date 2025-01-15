@@ -147,7 +147,7 @@ public class SearchDocumentTransformer {
   public Optional<ObjectNode> transformAspect(
       @Nonnull OperationContext opContext,
       final @Nonnull Urn urn,
-      final @Nonnull RecordTemplate aspect,
+      final @Nullable RecordTemplate aspect,
       final @Nonnull AspectSpec aspectSpec,
       final Boolean forDelete)
       throws RemoteInvocationException, URISyntaxException {
