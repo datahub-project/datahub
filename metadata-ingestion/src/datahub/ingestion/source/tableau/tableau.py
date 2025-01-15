@@ -71,7 +71,6 @@ from datahub.ingestion.api.decorators import (
 from datahub.ingestion.api.source import (
     CapabilityReport,
     MetadataWorkUnitProcessor,
-    Source,
     StructuredLogLevel,
     TestableSource,
     TestConnectionReport,
@@ -824,11 +823,6 @@ class TableauSource(StatefulIngestionSourceBase, TestableSource):
 
     def get_report(self) -> TableauSourceReport:
         return self.report
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = TableauConfig.parse_obj(config_dict)
-        return cls(config, ctx)
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [

@@ -333,8 +333,3 @@ class MLflowSource(Source):
             aspect=global_tags,
         )
         return wu
-
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = MLflowConfig.parse_obj(config_dict)
-        return cls(ctx, config)

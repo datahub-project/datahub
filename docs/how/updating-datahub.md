@@ -1,3 +1,8 @@
+# Known Issues
+
+- Async APIs - DataHub's asynchronous APIs perform only basic schema validation when receiving MCP requests, similar to direct production to MCP Kafka topics. While requests must conform to the MCP schema to be accepted, actual processing happens later in the pipeline. Any processing failures that occur after the initial acceptance are captured in the Failed MCP topic, but these failures are not immediately surfaced to the API caller since they happen asynchronously.
+
+
 # Updating DataHub
 
 <!--

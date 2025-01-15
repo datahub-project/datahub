@@ -102,3 +102,29 @@ Runs everything except for the GMS. Useful for running just a local (non-docker)
 | debug-consumers     | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |               |
 | debug-neo4j         | X     |          |           | X     | X        | X   | X       | X            |     |     | X     | X          |               |
 | debug-elasticsearch | X     |          |           |       | X        | X   | X       | X            |     |     | X     |            | X             |
+
+## Advanced Setups
+
+### Version Mixing
+
+In some cases, it might be useful to debug upgrade scenarios where there are intentional version miss-matches. It is possible
+to override individual component versions.
+
+Note: This only works for `non-debug` profiles because of the file mounts when in `debug` which would run older containers
+but still pickup the latest application jars.
+
+In this example we are interested in upgrading two components (the `mae-consumer` and the `mce-consumer`) to a fresh build `v0.15.1-SNAPSHOT`
+while maintaining older components on `v0.14.1` (especially the `system-update` container).
+
+This configuration reproduces the situation where the consumers were upgraded prior to running the latest version of `system-update`. In this
+scenario we expect the consumers to block their startup waiting for the successful completion of a newer `system-update`.
+
+`DATAHUB_VERSION` - specifies the default component version of `v0.14.1`
+`DATAHUB_MAE_VERSION` - specifies an override of just the `mae-consumer` to version `v0.15.1-SNAPSHOT`[1]
+`DATAHUB_MCE_VERSION` - specifies an override of just the `mce-consumer` to version `v0.15.1-SNAPSHOT`[1]
+
+```shell
+ DATAHUB_MAE_VERSION="v0.15.1-SNAPSHOT" DATAHUB_MCE_VERSION="v0.15.1-SNAPSHOT" DATAHUB_VERSION="v0.14.1" ./gradlew quickstart
+```
+
+[1] Image versions were `v0.15.1-SNAPSHOT` built locally prior to running the command.

@@ -5,4 +5,5 @@ namespace com.linkedin.common
  */
 record VersionTag {
   versionTag: optional string
+  metadataAttribution: optional MetadataAttribution
 }
