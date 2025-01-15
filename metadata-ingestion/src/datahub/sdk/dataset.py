@@ -35,7 +35,6 @@ class DatasetEditMode(Enum):
     DEFER_TO_UI = "DEFER_TO_UI"
 
 
-_DEFAULT_EDIT_MODE = DatasetEditMode.DEFER_TO_UI
 # TODO: Add a way for ingestion to change the default edit mode
 # TODO: Add default edit attribution for basic props e.g. tags/terms/owners/etc?
 
@@ -183,7 +182,9 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
         )
 
         if edit_mode is None:
-            edit_mode = _DEFAULT_EDIT_MODE
+            # When created via the constructor, we're likely creating a new dataset.
+            # In this case, there's no UI changes yet, so it's fine to defer to the UI.
+            edit_mode = DatasetEditMode.DEFER_TO_UI
         self._edit_mode = edit_mode
 
         if schema is not None:

@@ -5,3 +5,11 @@ from datahub.configuration.common import MetaError
 
 class SdkUsageError(MetaError):
     pass
+
+
+class AlreadyExistsError(SdkUsageError):
+    pass
+
+
+class ItemNotFoundError(SdkUsageError):
+    pass
