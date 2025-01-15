@@ -82,11 +82,11 @@ class BigqueryProfiler(GenericProfiler):
         )
         partition = table.max_partition_id
         if table.partition_info and partition:
-            partition_where_clause: str
+            partition_where_clauses: List[str] = []
 
             if table.partition_info.type == RANGE_PARTITION_NAME:
                 if table.partition_info.column:
-                    partition_where_clause = (
+                    partition_where_clauses.append(
                         f"{table.partition_info.column.name} >= {partition}"
                     )
                 else:
@@ -108,6 +108,31 @@ class BigqueryProfiler(GenericProfiler):
                     ) = self.get_partition_range_from_partition_id(
                         partition, partition_datetime
                     )
+
+                    if table.partition_info.column:
+                        partition_column_name = table.partition_info.column.name
+                        partition_data_type = table.partition_info.column.data_type
+                    else:
+                        # Default to TIMESTAMP for data type
+                        partition_data_type = "TIMESTAMP"
+                        # Ingestion time partitioned tables has a pseudo column called _PARTITIONTIME
+                        # See more about this at
+                        # https://cloud.google.com/bigquery/docs/partitioned-tables#ingestion_time
+                        partition_column_name = "_PARTITIONTIME"
+
+                    if table.partition_info.type in ("HOUR", "DAY", "MONTH", "YEAR"):
+                        partition_where_clauses.append(
+                            f"`{partition_column_name}` BETWEEN {partition_data_type}('{partition_datetime}') AND {partition_data_type}('{upper_bound_partition_datetime}')"
+                        )
+                    else:
+                        logger.warning(
+                            f"Not supported partition type {table.partition_info.type}"
+                        )
+                        self.report.profiling_skipped_invalid_partition_type[
+                            f"{project}.{schema}.{table.name}"
+                        ] = table.partition_info.type
+                        return None, None
+
                 except ValueError as e:
                     logger.error(
                         f"Unable to get partition range for partition id: {partition} it failed with exception {e}"
@@ -117,24 +142,17 @@ class BigqueryProfiler(GenericProfiler):
                     ] = partition
                     return None, None
 
-                partition_data_type: str = "TIMESTAMP"
-                # Ingestion time partitioned tables has a pseudo column called _PARTITIONTIME
-                # See more about this at
-                # https://cloud.google.com/bigquery/docs/partitioned-tables#ingestion_time
-                partition_column_name = "_PARTITIONTIME"
-                if table.partition_info.column:
-                    partition_column_name = table.partition_info.column.name
-                    partition_data_type = table.partition_info.column.data_type
-                if table.partition_info.type in ("HOUR", "DAY", "MONTH", "YEAR"):
-                    partition_where_clause = f"`{partition_column_name}` BETWEEN {partition_data_type}('{partition_datetime}') AND {partition_data_type}('{upper_bound_partition_datetime}')"
-                else:
-                    logger.warning(
-                        f"Not supported partition type {table.partition_info.type}"
-                    )
-                    self.report.profiling_skipped_invalid_partition_type[
-                        f"{project}.{schema}.{table.name}"
-                    ] = table.partition_info.type
-                    return None, None
+            if not partition_where_clauses:
+                logger.warning(
+                    f"Not supported partition type {table.partition_info.type}"
+                )
+                self.report.profiling_skipped_invalid_partition_type[
+                    f"{project}.{schema}.{table.name}"
+                ] = table.partition_info.type
+                return None, None
+
+            combined_where_clause = " AND ".join(partition_where_clauses)
+
             custom_sql = """
 SELECT
     *
@@ -146,7 +164,7 @@ WHERE
                 table_catalog=project,
                 table_schema=schema,
                 table_name=table.name,
-                partition_where_clause=partition_where_clause,
+                partition_where_clause=combined_where_clause,
             )
 
             return (partition, custom_sql)
