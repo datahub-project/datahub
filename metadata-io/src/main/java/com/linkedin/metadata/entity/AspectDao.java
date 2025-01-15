@@ -6,6 +6,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.util.Pair;
 import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +44,7 @@ public interface AspectDao {
 
   @Nonnull
   Map<EntityAspectIdentifier, EntityAspect> batchGet(
-      @Nonnull final Set<EntityAspectIdentifier> keys);
+      @Nonnull final Set<EntityAspectIdentifier> keys, boolean forUpdate);
 
   @Nonnull
   List<EntityAspect> getAspectsInRange(
@@ -154,6 +155,16 @@ public interface AspectDao {
   }
 
   long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName);
+
+  /**
+   * Return the min/max version for the given URN & aspect
+   *
+   * @param urn the urn
+   * @param aspectName the aspect
+   * @return the range of versions, if they do not exist -1 is returned
+   */
+  @Nonnull
+  Pair<Long, Long> getVersionRange(@Nonnull final String urn, @Nonnull final String aspectName);
 
   void setWritable(boolean canWrite);
 

@@ -44,7 +44,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
-from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
     TwoTierSQLAlchemySource,
@@ -330,7 +330,7 @@ def optimized_get_view_definition(
 
 
 @dataclass
-class TeradataReport(ProfilingSqlReport, IngestionStageReport, BaseTimeWindowReport):
+class TeradataReport(SQLSourceReport, IngestionStageReport, BaseTimeWindowReport):
     num_queries_parsed: int = 0
     num_view_ddl_parsed: int = 0
     num_table_parse_failures: int = 0
@@ -878,7 +878,7 @@ ORDER by DataBaseName, TableName;
 
         urns = self.schema_resolver.get_urns()
         if self.config.include_table_lineage or self.config.include_usage_statistics:
-            self.report.report_ingestion_stage_start("audit log extraction")
-            yield from self.get_audit_log_mcps(urns=urns)
+            with self.report.new_stage("Audit log extraction"):
+                yield from self.get_audit_log_mcps(urns=urns)
 
         yield from self.builder.gen_workunits()

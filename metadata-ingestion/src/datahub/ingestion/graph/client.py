@@ -33,7 +33,9 @@ from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
-from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.graph.config import (  # noqa: I250; TODO: Remove this alias
+    DatahubClientConfig as DatahubClientConfig,
+)
 from datahub.ingestion.graph.connections import (
     connections_gql,
     get_id_from_connection_urn,
@@ -65,6 +67,7 @@ from datahub.metadata.schema_classes import (
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
+from datahub.telemetry.telemetry import telemetry_instance
 from datahub.utilities.perf_timer import PerfTimer
 from datahub.utilities.str_enum import StrEnum
 from datahub.utilities.urns.urn import Urn, guess_entity_type
@@ -176,18 +179,24 @@ class DataHubGraph(DatahubRestEmitter):
 
     @classmethod
     def from_emitter(cls, emitter: DatahubRestEmitter) -> "DataHubGraph":
+        session_config = emitter._session_config
+        if isinstance(session_config.timeout, tuple):
+            # TODO: This is slightly lossy. Eventually, we want to modify the emitter
+            # to accept a tuple for timeout_sec, and then we'll be able to remove this.
+            timeout_sec: Optional[float] = session_config.timeout[0]
+        else:
+            timeout_sec = session_config.timeout
         return cls(
             DatahubClientConfig(
                 server=emitter._gms_server,
                 token=emitter._token,
-                timeout_sec=emitter._read_timeout_sec,
-                retry_status_codes=emitter._retry_status_codes,
-                retry_max_times=emitter._retry_max_times,
-                extra_headers=emitter._session.headers,
-                disable_ssl_verification=emitter._session.verify is False,
-                # TODO: Support these headers.
-                # ca_certificate_path=emitter._ca_certificate_path,
-                # client_certificate_path=emitter._client_certificate_path,
+                timeout_sec=timeout_sec,
+                retry_status_codes=session_config.retry_status_codes,
+                retry_max_times=session_config.retry_max_times,
+                extra_headers=session_config.extra_headers,
+                disable_ssl_verification=session_config.disable_ssl_verification,
+                ca_certificate_path=session_config.ca_certificate_path,
+                client_certificate_path=session_config.client_certificate_path,
             )
         )
 
@@ -239,9 +248,11 @@ class DataHubGraph(DatahubRestEmitter):
         with DatahubRestSink(PipelineContext(run_id=run_id), sink_config) as sink:
             yield sink
         if sink.report.failures:
+            logger.error(
+                f"Failed to emit {len(sink.report.failures)} records\n{sink.report.as_string()}"
+            )
             raise OperationalError(
-                f"Failed to emit {len(sink.report.failures)} records",
-                info=sink.report.as_obj(),
+                f"Failed to emit {len(sink.report.failures)} records"
             )
 
     def emit_all(
@@ -1817,4 +1828,5 @@ def get_default_graph() -> DataHubGraph:
     graph_config = config_utils.load_client_config()
     graph = DataHubGraph(graph_config)
     graph.test_connection()
+    telemetry_instance.set_context(server=graph)
     return graph

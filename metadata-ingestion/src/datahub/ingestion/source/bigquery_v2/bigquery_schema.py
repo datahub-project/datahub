@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from functools import lru_cache
 from typing import Any, Dict, FrozenSet, Iterable, Iterator, List, Optional
 
@@ -15,6 +15,7 @@ from google.cloud.bigquery.table import (
     TimePartitioningType,
 )
 
+from datahub.emitter.mce_builder import parse_ts_millis
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.source.bigquery_v2.bigquery_audit import BigqueryTableIdentifier
 from datahub.ingestion.source.bigquery_v2.bigquery_helper import parse_labels
@@ -118,7 +119,6 @@ class BigqueryTable(BaseTable):
     active_billable_bytes: Optional[int] = None
     long_term_billable_bytes: Optional[int] = None
     partition_info: Optional[PartitionInfo] = None
-    columns_ignore_from_profiling: List[str] = field(default_factory=list)
     external: bool = False
     constraints: List[BigqueryTableConstraint] = field(default_factory=list)
     table_type: Optional[str] = None
@@ -151,6 +151,21 @@ class BigqueryDataset:
     views: List[BigqueryView] = field(default_factory=list)
     snapshots: List[BigqueryTableSnapshot] = field(default_factory=list)
     columns: List[BigqueryColumn] = field(default_factory=list)
+
+    # Some INFORMATION_SCHEMA views are not available for BigLake tables
+    # based on Amazon S3 and Blob Storage data.
+    # https://cloud.google.com/bigquery/docs/omni-introduction#limitations
+    # Omni Locations - https://cloud.google.com/bigquery/docs/omni-introduction#locations
+    def is_biglake_dataset(self) -> bool:
+        return self.location is not None and self.location.lower().startswith(
+            ("aws-", "azure-")
+        )
+
+    def supports_table_constraints(self) -> bool:
+        return not self.is_biglake_dataset()
+
+    def supports_table_partitions(self) -> bool:
+        return not self.is_biglake_dataset()
 
 
 @dataclass
@@ -379,13 +394,7 @@ class BigQuerySchemaApi:
             name=table.table_name,
             created=table.created,
             table_type=table.table_type,
-            last_altered=(
-                datetime.fromtimestamp(
-                    table.get("last_altered") / 1000, tz=timezone.utc
-                )
-                if table.get("last_altered") is not None
-                else None
-            ),
+            last_altered=parse_ts_millis(table.get("last_altered")),
             size_in_bytes=table.get("bytes"),
             rows_count=table.get("row_count"),
             comment=table.comment,
@@ -446,11 +455,7 @@ class BigQuerySchemaApi:
         return BigqueryView(
             name=view.table_name,
             created=view.created,
-            last_altered=(
-                datetime.fromtimestamp(view.get("last_altered") / 1000, tz=timezone.utc)
-                if view.get("last_altered") is not None
-                else None
-            ),
+            last_altered=(parse_ts_millis(view.get("last_altered"))),
             comment=view.comment,
             view_definition=view.view_definition,
             materialized=view.table_type == BigqueryTableType.MATERIALIZED_VIEW,
@@ -541,18 +546,26 @@ class BigQuerySchemaApi:
                         table_name=constraint.table_name,
                         type=constraint.constraint_type,
                         field_path=constraint.column_name,
-                        referenced_project_id=constraint.referenced_catalog
-                        if constraint.constraint_type == "FOREIGN KEY"
-                        else None,
-                        referenced_dataset=constraint.referenced_schema
-                        if constraint.constraint_type == "FOREIGN KEY"
-                        else None,
-                        referenced_table_name=constraint.referenced_table
-                        if constraint.constraint_type == "FOREIGN KEY"
-                        else None,
-                        referenced_column_name=constraint.referenced_column
-                        if constraint.constraint_type == "FOREIGN KEY"
-                        else None,
+                        referenced_project_id=(
+                            constraint.referenced_catalog
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_dataset=(
+                            constraint.referenced_schema
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_table_name=(
+                            constraint.referenced_table
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
+                        referenced_column_name=(
+                            constraint.referenced_column
+                            if constraint.constraint_type == "FOREIGN KEY"
+                            else None
+                        ),
                     )
                 )
             self.report.num_get_table_constraints_for_dataset_api_requests += 1
@@ -683,13 +696,7 @@ class BigQuerySchemaApi:
         return BigqueryTableSnapshot(
             name=snapshot.table_name,
             created=snapshot.created,
-            last_altered=(
-                datetime.fromtimestamp(
-                    snapshot.get("last_altered") / 1000, tz=timezone.utc
-                )
-                if snapshot.get("last_altered") is not None
-                else None
-            ),
+            last_altered=parse_ts_millis(snapshot.get("last_altered")),
             comment=snapshot.comment,
             ddl=snapshot.ddl,
             snapshot_time=snapshot.snapshot_time,

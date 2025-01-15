@@ -3,6 +3,8 @@ plugins {
   id 'pegasus'
 }
 
+apply from: '../gradle/coverage/java-coverage.gradle'
+
 dependencies {
   api externalDependency.avro
   implementation externalDependency.commonsLang
@@ -24,6 +26,7 @@ dependencies {
 
   implementation externalDependency.slf4jApi
   compileOnly externalDependency.lombok
+  runtimeOnly externalDependency.javaxMail
 
   annotationProcessor externalDependency.lombok
 
@@ -37,6 +40,9 @@ dependencies {
       }
       implementation(externalDependency.log4jApi) {
         because("previous versions are vulnerable to CVE-2021-45105")
+    }
+    implementation(externalDependency.javaxMail) {
+      because("previous versions are vulnerable")
     }
   }
   implementation externalDependency.logbackClassic

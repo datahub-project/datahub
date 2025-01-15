@@ -4,6 +4,7 @@ from unittest.mock import patch
 
 import pytest
 from freezegun import freeze_time
+from typing_extensions import Self
 
 from datahub.configuration.common import DynamicTypedConfig
 from datahub.ingestion.api.committable import CommitPolicy, Committable
@@ -33,7 +34,9 @@ pytestmark = pytest.mark.random_order(disabled=True)
 
 class TestPipeline:
     @patch("confluent_kafka.Consumer", autospec=True)
-    @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits", autospec=True)
+    @patch(
+        "datahub.ingestion.source.kafka.kafka.KafkaSource.get_workunits", autospec=True
+    )
     @patch("datahub.ingestion.sink.console.ConsoleSink.close", autospec=True)
     @freeze_time(FROZEN_TIME)
     def test_configure(self, mock_sink, mock_source, mock_consumer):
@@ -198,7 +201,9 @@ class TestPipeline:
         assert pipeline.ctx.graph.config.token == pipeline.config.sink.config["token"]
 
     @freeze_time(FROZEN_TIME)
-    @patch("datahub.ingestion.source.kafka.KafkaSource.get_workunits", autospec=True)
+    @patch(
+        "datahub.ingestion.source.kafka.kafka.KafkaSource.get_workunits", autospec=True
+    )
     def test_configure_with_file_sink_does_not_init_graph(self, mock_source, tmp_path):
         pipeline = Pipeline.create(
             {
@@ -436,7 +441,7 @@ class FakeSource(Source):
         ]
 
     @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
+    def create(cls, config_dict: dict, ctx: PipelineContext) -> Self:
         assert not config_dict
         return cls(ctx)
 

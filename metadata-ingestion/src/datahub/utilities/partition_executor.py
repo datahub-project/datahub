@@ -268,9 +268,9 @@ class BatchPartitionExecutor(Closeable):
         self.process_batch = process_batch
         self.min_process_interval = min_process_interval
         self.read_from_pending_interval = read_from_pending_interval
-        assert self.max_workers > 1
+        assert self.max_workers >= 1
 
-        self.state_lock = threading.Lock()
+        self._state_lock = threading.Lock()
         self._executor = ThreadPoolExecutor(
             # We add one here to account for the clearinghouse worker thread.
             max_workers=max_workers + 1,
@@ -323,7 +323,7 @@ class BatchPartitionExecutor(Closeable):
                 if item.done_callback:
                     item.done_callback(future)
 
-        def _find_ready_items() -> List[_BatchPartitionWorkItem]:
+        def _find_ready_items(max_to_add: int) -> List[_BatchPartitionWorkItem]:
             with clearinghouse_state_lock:
                 # First, update the keys in flight.
                 for key in keys_no_longer_in_flight:
@@ -336,10 +336,7 @@ class BatchPartitionExecutor(Closeable):
 
                 ready: List[_BatchPartitionWorkItem] = []
                 for item in pending:
-                    if (
-                        len(ready) < self.max_per_batch
-                        and item.key not in keys_in_flight
-                    ):
+                    if len(ready) < max_to_add and item.key not in keys_in_flight:
                         ready.append(item)
                     else:
                         pending_key_completion.append(item)
@@ -347,7 +344,7 @@ class BatchPartitionExecutor(Closeable):
                 return ready
 
         def _build_batch() -> List[_BatchPartitionWorkItem]:
-            next_batch = _find_ready_items()
+            next_batch = _find_ready_items(self.max_per_batch)
 
             while (
                 not self._queue_empty_for_shutdown
@@ -382,11 +379,12 @@ class BatchPartitionExecutor(Closeable):
                             pending_key_completion.append(next_item)
                         else:
                             next_batch.append(next_item)
-
-                    if not next_batch:
-                        next_batch = _find_ready_items()
                 except queue.Empty:
-                    if not blocking:
+                    if blocking:
+                        next_batch.extend(
+                            _find_ready_items(self.max_per_batch - len(next_batch))
+                        )
+                    else:
                         break
 
             return next_batch
@@ -458,7 +456,7 @@ class BatchPartitionExecutor(Closeable):
                 f"{self.__class__.__name__} is shutting down; cannot submit new work items."
             )
 
-        with self.state_lock:
+        with self._state_lock:
             # Lazily start the clearinghouse worker.
             if not self._clearinghouse_started:
                 self._clearinghouse_started = True

@@ -126,7 +126,6 @@ def log_http_error(e: BaseException, message: str) -> Any:
 
 
 def get_response_dict(response: requests.Response, error_message: str) -> dict:
-
     result_dict: dict = {}
     try:
         response.raise_for_status()
@@ -486,7 +485,7 @@ class PowerBiReportServerDashboardSourceReport(SourceReport):
         self.filtered_reports.append(view)
 
 
-@platform_name("PowerBI")
+@platform_name("PowerBI Report Server")
 @config_class(PowerBiReportServerDashboardSourceConfig)
 @support_status(SupportStatus.INCUBATING)
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")

@@ -206,7 +206,7 @@ class MCPDiff:
         """
         aspect_diffs = [v for d in self.aspect_changes.values() for v in d.values()]
         for aspect_diff in aspect_diffs:
-            for (_, old, new) in aspect_diff.aspects_changed.keys():
+            for _, old, new in aspect_diff.aspects_changed.keys():
                 golden[old.delta_info.idx] = new.delta_info.original
 
         indices_to_remove = set()

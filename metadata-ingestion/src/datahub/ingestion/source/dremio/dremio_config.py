@@ -1,9 +1,7 @@
-import datetime
 import os
 from typing import List, Literal, Optional
 
 import certifi
-import pydantic
 from pydantic import Field, validator
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
@@ -11,7 +9,7 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.ge_profiling_config import GEProfilingBaseConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -97,78 +95,14 @@ class DremioConnectionConfig(ConfigModel):
         return value
 
 
-class ProfileConfig(GEProfilingConfig):
-
+class ProfileConfig(GEProfilingBaseConfig):
     query_timeout: int = Field(
         default=300, description="Time before cancelling Dremio profiling query"
     )
-
-    row_count: bool = True
-    column_count: bool = True
-    sample_values: bool = True
-
-    # Below Configs inherited from GEProfilingConfig
-    # but not used in Dremio so we hide them from docs.
     include_field_median_value: bool = Field(
         default=False,
         hidden_from_docs=True,
         description="Median causes a number of issues in Dremio.",
-    )
-    partition_profiling_enabled: bool = Field(default=True, hidden_from_docs=True)
-    profile_table_row_count_estimate_only: bool = Field(
-        default=False, hidden_from_docs=True
-    )
-    query_combiner_enabled: bool = Field(default=True, hidden_from_docs=True)
-    max_number_of_fields_to_profile: Optional[pydantic.PositiveInt] = Field(
-        default=None, hidden_from_docs=True
-    )
-    profile_if_updated_since_days: Optional[pydantic.PositiveFloat] = Field(
-        default=None, hidden_from_docs=True
-    )
-    profile_table_size_limit: Optional[int] = Field(
-        default=5,
-        description="Profile tables only if their size is less then specified GBs. If set to `null`, no limit on the size of tables to profile. Supported only in `snowflake` and `BigQuery`",
-        hidden_from_docs=True,
-    )
-
-    profile_table_row_limit: Optional[int] = Field(
-        default=5000000,
-        hidden_from_docs=True,
-        description="Profile tables only if their row count is less then specified count. If set to `null`, no limit on the row count of tables to profile. Supported only in `snowflake` and `BigQuery`",
-    )
-
-    partition_datetime: Optional[datetime.datetime] = Field(
-        default=None,
-        hidden_from_docs=True,
-        description="If specified, profile only the partition which matches this datetime. "
-        "If not specified, profile the latest partition. Only Bigquery supports this.",
-    )
-    use_sampling: bool = Field(
-        default=True,
-        hidden_from_docs=True,
-        description="Whether to profile column level stats on sample of table. Only BigQuery and Snowflake support this. "
-        "If enabled, profiling is done on rows sampled from table. Sampling is not done for smaller tables. ",
-    )
-
-    sample_size: int = Field(
-        default=10000,
-        hidden_from_docs=True,
-        description="Number of rows to be sampled from table for column level profiling."
-        "Applicable only if `use_sampling` is set to True.",
-    )
-    profile_external_tables: bool = Field(
-        default=False,
-        hidden_from_docs=True,
-        description="Whether to profile external tables. Only Snowflake and Redshift supports this.",
-    )
-
-    tags_to_ignore_sampling: Optional[List[str]] = pydantic.Field(
-        default=None,
-        hidden_from_docs=True,
-        description=(
-            "Fixed list of tags to ignore sampling."
-            " If not specified, tables will be sampled based on `use_sampling`."
-        ),
     )
 
 
@@ -187,7 +121,6 @@ class DremioSourceConfig(
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 ):
-
     domain: Optional[str] = Field(
         default=None,
         description="Domain for all source objects.",
@@ -240,4 +173,9 @@ class DremioSourceConfig(
     include_query_lineage: bool = Field(
         default=False,
         description="Whether to include query-based lineage information.",
+    )
+
+    ingest_owner: bool = Field(
+        default=True,
+        description="Ingest Owner from source. This will override Owner info entered from UI",
     )

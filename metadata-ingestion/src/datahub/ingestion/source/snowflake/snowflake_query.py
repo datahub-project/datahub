@@ -129,10 +129,12 @@ class SnowflakeQuery:
         row_count AS "ROW_COUNT",
         bytes AS "BYTES",
         clustering_key AS "CLUSTERING_KEY",
-        auto_clustering_on AS "AUTO_CLUSTERING_ON"
+        auto_clustering_on AS "AUTO_CLUSTERING_ON",
+        is_dynamic AS "IS_DYNAMIC",
+        is_iceberg AS "IS_ICEBERG"
         FROM {db_clause}information_schema.tables t
         WHERE table_schema != 'INFORMATION_SCHEMA'
-        and table_type in ( 'BASE TABLE', 'EXTERNAL TABLE')
+        and table_type in ( 'BASE TABLE', 'EXTERNAL TABLE', 'HYBRID TABLE')
         order by table_schema, table_name"""
 
     @staticmethod
@@ -149,10 +151,12 @@ class SnowflakeQuery:
         row_count AS "ROW_COUNT",
         bytes AS "BYTES",
         clustering_key AS "CLUSTERING_KEY",
-        auto_clustering_on AS "AUTO_CLUSTERING_ON"
+        auto_clustering_on AS "AUTO_CLUSTERING_ON",
+        is_dynamic AS "IS_DYNAMIC",
+        is_iceberg AS "IS_ICEBERG"
         FROM {db_clause}information_schema.tables t
         where table_schema='{schema_name}'
-        and table_type in ('BASE TABLE', 'EXTERNAL TABLE')
+        and table_type in ('BASE TABLE', 'EXTERNAL TABLE', 'HYBRID TABLE')
         order by table_schema, table_name"""
 
     @staticmethod
@@ -232,6 +236,19 @@ class SnowflakeQuery:
 SHOW VIEWS IN DATABASE "{db_name}"
 LIMIT {limit} {from_clause};
 """
+
+    @staticmethod
+    def get_secure_view_definitions() -> str:
+        # https://docs.snowflake.com/en/sql-reference/account-usage/views
+        return """
+            SELECT
+                TABLE_CATALOG as "TABLE_CATALOG",
+                TABLE_SCHEMA as "TABLE_SCHEMA",
+                TABLE_NAME as "TABLE_NAME",
+                VIEW_DEFINITION as "VIEW_DEFINITION"
+            FROM SNOWFLAKE.ACCOUNT_USAGE.VIEWS
+            WHERE IS_SECURE = 'YES' AND VIEW_DEFINITION !='' AND DELETED IS NULL
+        """
 
     @staticmethod
     def columns_for_schema(
@@ -359,7 +376,6 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
     def table_to_table_lineage_history_v2(
         start_time_millis: int,
         end_time_millis: int,
-        include_view_lineage: bool = True,
         include_column_lineage: bool = True,
         upstreams_deny_pattern: List[str] = DEFAULT_TEMP_TABLES_PATTERNS,
     ) -> str:
@@ -368,14 +384,12 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 start_time_millis,
                 end_time_millis,
                 upstreams_deny_pattern,
-                include_view_lineage,
             )
         else:
             return SnowflakeQuery.table_upstreams_only(
                 start_time_millis,
                 end_time_millis,
                 upstreams_deny_pattern,
-                include_view_lineage,
             )
 
     @staticmethod
@@ -660,12 +674,9 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         start_time_millis: int,
         end_time_millis: int,
         upstreams_deny_pattern: List[str],
-        include_view_lineage: bool = True,
     ) -> str:
         allowed_upstream_table_domains = (
             SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER
-            if include_view_lineage
-            else SnowflakeQuery.ACCESS_HISTORY_TABLE_DOMAINS_FILTER
         )
 
         upstream_sql_filter = create_deny_regex_sql_filter(
@@ -830,12 +841,9 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
         start_time_millis: int,
         end_time_millis: int,
         upstreams_deny_pattern: List[str],
-        include_view_lineage: bool = True,
     ) -> str:
         allowed_upstream_table_domains = (
             SnowflakeQuery.ACCESS_HISTORY_TABLE_VIEW_DOMAINS_FILTER
-            if include_view_lineage
-            else SnowflakeQuery.ACCESS_HISTORY_TABLE_DOMAINS_FILTER
         )
 
         upstream_sql_filter = create_deny_regex_sql_filter(
@@ -939,4 +947,8 @@ WHERE table_schema='{schema_name}' AND {extra_clause}"""
                 AND METRIC_NAME ilike '{pattern}' escape '{escape_pattern}'
                 ORDER BY MEASUREMENT_TIME ASC;
 
-"""
+            """
+
+    @staticmethod
+    def get_all_users() -> str:
+        return """SELECT name as "NAME", email as "EMAIL" FROM SNOWFLAKE.ACCOUNT_USAGE.USERS"""

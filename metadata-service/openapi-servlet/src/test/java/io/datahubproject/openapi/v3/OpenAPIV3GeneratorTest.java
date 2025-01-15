@@ -6,6 +6,8 @@ import static org.junit.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
+import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
+import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import io.swagger.v3.core.util.Yaml;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -36,8 +38,10 @@ public class OpenAPIV3GeneratorTest {
             OpenAPIV3GeneratorTest.class
                 .getClassLoader()
                 .getResourceAsStream("entity-registry.yml"));
+    ConfigurationProvider configurationProvider = new ConfigurationProvider();
+    configurationProvider.setFeatureFlags(new FeatureFlags());
 
-    OpenAPI openAPI = OpenAPIV3Generator.generateOpenApiSpec(er);
+    OpenAPI openAPI = OpenAPIV3Generator.generateOpenApiSpec(er, configurationProvider);
     String openapiYaml = Yaml.pretty(openAPI);
     Files.write(
         Path.of(getClass().getResource("/").getPath(), "open-api.yaml"),

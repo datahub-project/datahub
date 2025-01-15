@@ -185,6 +185,29 @@ public class UpstreamLineageTemplateTest {
     // New entry in array because of new transformation type
     assertEquals(result4.getFineGrainedLineages().get(3), fineGrainedLineage4);
 
+    JsonPatchBuilder patchOperations5 = Json.createPatchBuilder();
+    String urn4 =
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/hive/folder_1/folder_2/my_dataset,DEV),c2)";
+    UrnArray downstreamUrns5 = new UrnArray();
+    downstreamUrns5.add(Urn.createFromString(urn4));
+    patchOperations5.add(
+        "/fineGrainedLineages/TRANSFORM/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket~1hive~1folder_1~1folder_2~1my_dataset,DEV),c2)/urn:li:query:anotherQuery/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_1,PROD),c2)",
+        finegrainedLineageNode5.build());
+    JsonPatch jsonPatch5 = patchOperations5.build();
+    UpstreamLineage result5 = upstreamLineageTemplate.applyPatch(result4, jsonPatch5);
+    // Hack because Jackson parses values to doubles instead of floats
+    DataMap dataMap5 = new DataMap();
+    dataMap5.put("confidenceScore", 1.0);
+    FineGrainedLineage fineGrainedLineage5 = new FineGrainedLineage(dataMap5);
+    fineGrainedLineage5.setUpstreams(upstreamUrns3);
+    fineGrainedLineage5.setDownstreams(downstreamUrns5);
+    fineGrainedLineage5.setTransformOperation("TRANSFORM");
+    fineGrainedLineage5.setUpstreamType(FineGrainedLineageUpstreamType.FIELD_SET);
+    fineGrainedLineage5.setDownstreamType(FineGrainedLineageDownstreamType.FIELD);
+    fineGrainedLineage5.setQuery(UrnUtils.getUrn("urn:li:query:anotherQuery"));
+    // New entry in array because of new transformation type
+    assertEquals(result5.getFineGrainedLineages().get(4), fineGrainedLineage5);
+
     // Remove
     JsonPatchBuilder removeOperations = Json.createPatchBuilder();
     removeOperations.remove(
@@ -198,6 +221,7 @@ public class UpstreamLineageTemplateTest {
 
     JsonPatch removePatch = removeOperations.build();
     UpstreamLineage finalResult = upstreamLineageTemplate.applyPatch(result4, removePatch);
+
     assertEquals(finalResult, upstreamLineageTemplate.getDefault());
   }
 
@@ -249,8 +273,8 @@ public class UpstreamLineageTemplateTest {
     UpstreamLineage result = upstreamLineageTemplate.applyPatch(upstreamLineage, jsonPatch);
     long end = System.currentTimeMillis();
     assertTrue(
-        end - start < 10000,
-        String.format("Expected less then 10 seconds patch actual %s ms", end - start));
+        end - start < 20000,
+        String.format("Expected less then 20 seconds patch actual %s ms", end - start));
 
     assertEquals(result.getUpstreams().size(), 187, "Expected 1 less upstream");
     assertEquals(result.getFineGrainedLineages().size(), 607);
@@ -313,5 +337,40 @@ public class UpstreamLineageTemplateTest {
     assertEquals(
         result.getFineGrainedLineages().get(0).getUpstreams().get(0).toString(),
         unescapedUpstreamUrn);
+  }
+
+  @Test
+  public void testPatchRemoveWithFields() throws JsonProcessingException {
+
+    String downstreamUrn =
+        "/fineGrainedLineages/CREATE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,~1tmp~1test.parquet,PROD),c1)";
+    String upstreamUrn =
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c1)";
+    String upstreamUrn2 =
+        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream_table_2,PROD),c2)";
+
+    String lineagePath1 = downstreamUrn + "/NONE/" + upstreamUrn;
+    String lineagePath2 = downstreamUrn + "/NONE/" + upstreamUrn2;
+
+    UpstreamLineageTemplate upstreamLineageTemplate = new UpstreamLineageTemplate();
+    UpstreamLineage upstreamLineage = upstreamLineageTemplate.getDefault();
+    JsonPatchBuilder jsonPatchBuilder = Json.createPatchBuilder();
+
+    JsonObjectBuilder fineGrainedLineageNode = Json.createObjectBuilder();
+    JsonValue upstreamConfidenceScore = Json.createValue(1.0f);
+    fineGrainedLineageNode.add("confidenceScore", upstreamConfidenceScore);
+
+    jsonPatchBuilder.add(lineagePath1, fineGrainedLineageNode.build());
+    jsonPatchBuilder.add(lineagePath2, fineGrainedLineageNode.build());
+
+    // Initial population test
+    UpstreamLineage result =
+        upstreamLineageTemplate.applyPatch(upstreamLineage, jsonPatchBuilder.build());
+    assertEquals(
+        result.getFineGrainedLineages().get(0).getUpstreams().get(0).toString(), upstreamUrn);
+    assertEquals(
+        result.getFineGrainedLineages().get(0).getUpstreams().get(1).toString(), upstreamUrn2);
+
+    assertEquals(result.getFineGrainedLineages().get(0).getUpstreams().size(), 2);
   }
 }

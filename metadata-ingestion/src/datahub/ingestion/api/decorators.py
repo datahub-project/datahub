@@ -3,7 +3,10 @@ from enum import Enum, auto
 from typing import Callable, Dict, Optional, Type
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.source import Source, SourceCapability
+from datahub.ingestion.api.source import (  # noqa: I250
+    Source,
+    SourceCapability as SourceCapability,
+)
 
 
 def config_class(config_cls: Type) -> Callable[[Type], Type]:

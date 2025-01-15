@@ -165,10 +165,20 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
 
         allowed_tags = []
         for tag in tags:
-            tag_identifier = tag.identifier()
-            self.report.report_entity_scanned(tag_identifier, "tag")
-            if not self.config.tag_pattern.allowed(tag_identifier):
-                self.report.report_dropped(tag_identifier)
+            identifier = (
+                tag._id_prefix_as_str()
+                if self.config.extract_tags_as_structured_properties
+                else tag.tag_identifier()
+            )
+            self.report.report_entity_scanned(identifier, "tag")
+
+            pattern = (
+                self.config.structured_property_pattern
+                if self.config.extract_tags_as_structured_properties
+                else self.config.tag_pattern
+            )
+            if not pattern.allowed(identifier):
+                self.report.report_dropped(identifier)
             else:
                 allowed_tags.append(tag)
         return allowed_tags

@@ -19,7 +19,7 @@ _PROFILING_FLAGS_TO_REPORT = {
 logger = logging.getLogger(__name__)
 
 
-class GEProfilingConfig(ConfigModel):
+class GEProfilingBaseConfig(ConfigModel):
     enabled: bool = Field(
         default=False, description="Whether profiling should be done."
     )
@@ -34,15 +34,6 @@ class GEProfilingConfig(ConfigModel):
     offset: Optional[int] = Field(
         default=None,
         description="Offset in documents to profile. By default, uses no offset.",
-    )
-    report_dropped_profiles: bool = Field(
-        default=False,
-        description="Whether to report datasets or dataset columns which were not profiled. Set to `True` for debugging purposes.",
-    )
-
-    turn_off_expensive_profiling_metrics: bool = Field(
-        default=False,
-        description="Whether to turn off expensive profiling or not. This turns off profiling for quantiles, distinct_value_frequencies, histogram & sample_values. This also limits maximum number of fields being profiled to 10.",
     )
     profile_table_level_only: bool = Field(
         default=False,
@@ -92,6 +83,28 @@ class GEProfilingConfig(ConfigModel):
         default=True,
         description="Whether to profile for the sample values for all columns.",
     )
+
+    # The default of (5 * cpu_count) is adopted from the default max_workers
+    # parameter of ThreadPoolExecutor. Given that profiling is often an I/O-bound
+    # task, it may make sense to increase this default value in the future.
+    # https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor
+    max_workers: int = Field(
+        default=5 * (os.cpu_count() or 4),
+        description="Number of worker threads to use for profiling. Set to 1 to disable.",
+    )
+
+
+class GEProfilingConfig(GEProfilingBaseConfig):
+    report_dropped_profiles: bool = Field(
+        default=False,
+        description="Whether to report datasets or dataset columns which were not profiled. Set to `True` for debugging purposes.",
+    )
+
+    turn_off_expensive_profiling_metrics: bool = Field(
+        default=False,
+        description="Whether to turn off expensive profiling or not. This turns off profiling for quantiles, distinct_value_frequencies, histogram & sample_values. This also limits maximum number of fields being profiled to 10.",
+    )
+
     field_sample_values_limit: int = Field(
         default=20,
         description="Upper limit for number of sample values to collect for all columns.",
@@ -112,27 +125,22 @@ class GEProfilingConfig(ConfigModel):
 
     profile_table_size_limit: Optional[int] = Field(
         default=5,
-        description="Profile tables only if their size is less then specified GBs. If set to `null`, no limit on the size of tables to profile. Supported only in `snowflake` and `BigQuery`",
+        description="Profile tables only if their size is less than specified GBs. If set to `null`, "
+        "no limit on the size of tables to profile. Supported only in `snowflake` and `BigQuery`"
+        "Supported for `oracle` based on calculated size from gathered stats.",
     )
 
     profile_table_row_limit: Optional[int] = Field(
         default=5000000,
-        description="Profile tables only if their row count is less then specified count. If set to `null`, no limit on the row count of tables to profile. Supported only in `snowflake` and `BigQuery`",
+        description="Profile tables only if their row count is less than specified count. If set to `null`, "
+        "no limit on the row count of tables to profile. Supported only in `snowflake` and `BigQuery`"
+        "Supported for `oracle` based on gathered stats.",
     )
 
     profile_table_row_count_estimate_only: bool = Field(
         default=False,
         description="Use an approximate query for row count. This will be much faster but slightly "
         "less accurate. Only supported for Postgres and MySQL. ",
-    )
-
-    # The default of (5 * cpu_count) is adopted from the default max_workers
-    # parameter of ThreadPoolExecutor. Given that profiling is often an I/O-bound
-    # task, it may make sense to increase this default value in the future.
-    # https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.ThreadPoolExecutor
-    max_workers: int = Field(
-        default=5 * (os.cpu_count() or 4),
-        description="Number of worker threads to use for profiling. Set to 1 to disable.",
     )
 
     # The query combiner enables us to combine multiple queries into a single query,
@@ -178,6 +186,11 @@ class GEProfilingConfig(ConfigModel):
             "Fixed list of tags to ignore sampling."
             " If not specified, tables will be sampled based on `use_sampling`."
         ),
+    )
+
+    profile_nested_fields: bool = Field(
+        default=False,
+        description="Whether to profile complex types like structs, arrays and maps. ",
     )
 
     @pydantic.root_validator(pre=True)

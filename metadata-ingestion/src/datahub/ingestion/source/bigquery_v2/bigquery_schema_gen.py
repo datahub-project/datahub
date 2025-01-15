@@ -248,9 +248,9 @@ class BigQuerySchemaGenerator:
     def get_project_workunits(
         self, project: BigqueryProject
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.set_ingestion_stage(project.id, METADATA_EXTRACTION)
-        logger.info(f"Processing project: {project.id}")
-        yield from self._process_project(project)
+        with self.report.new_stage(f"{project.id}: {METADATA_EXTRACTION}"):
+            logger.info(f"Processing project: {project.id}")
+            yield from self._process_project(project)
 
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str, project_id: str
@@ -356,7 +356,6 @@ class BigQuerySchemaGenerator:
                 project_id
             )
         except Exception as e:
-
             if self.config.project_ids and "not enabled BigQuery." in str(e):
                 action_mesage = (
                     "The project has not enabled BigQuery API. "
@@ -406,18 +405,17 @@ class BigQuerySchemaGenerator:
 
         if self.config.is_profiling_enabled():
             logger.info(f"Starting profiling project {project_id}")
-            self.report.set_ingestion_stage(project_id, PROFILING)
-            yield from self.profiler.get_workunits(
-                project_id=project_id,
-                tables=db_tables,
-            )
+            with self.report.new_stage(f"{project_id}: {PROFILING}"):
+                yield from self.profiler.get_workunits(
+                    project_id=project_id,
+                    tables=db_tables,
+                )
 
     def _process_project_datasets(
         self,
         bigquery_project: BigqueryProject,
         db_tables: Dict[str, List[BigqueryTable]],
     ) -> Iterable[MetadataWorkUnit]:
-
         db_views: Dict[str, List[BigqueryView]] = {}
         db_snapshots: Dict[str, List[BigqueryTableSnapshot]] = {}
         project_id = bigquery_project.id
@@ -500,7 +498,10 @@ class BigQuerySchemaGenerator:
                 report=self.report,
                 rate_limiter=rate_limiter,
             )
-            if self.config.include_table_constraints:
+            if (
+                self.config.include_table_constraints
+                and bigquery_dataset.supports_table_constraints()
+            ):
                 constraints = self.schema_api.get_table_constraints_for_dataset(
                     project_id=project_id, dataset_name=dataset_name, report=self.report
                 )
@@ -597,18 +598,6 @@ class BigQuerySchemaGenerator:
                     dataset_name=dataset_name,
                 )
 
-    # This method is used to generate the ignore list for datatypes the profiler doesn't support we have to do it here
-    # because the profiler doesn't have access to columns
-    def generate_profile_ignore_list(self, columns: List[BigqueryColumn]) -> List[str]:
-        ignore_list: List[str] = []
-        for column in columns:
-            if not column.data_type or any(
-                word in column.data_type.lower()
-                for word in ["array", "struct", "geography", "json"]
-            ):
-                ignore_list.append(column.field_path)
-        return ignore_list
-
     def _process_table(
         self,
         table: BigqueryTable,
@@ -629,15 +618,6 @@ class BigQuerySchemaGenerator:
                 str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
             )
         table.column_count = len(columns)
-
-        # We only collect profile ignore list if profiling is enabled and profile_table_level_only is false
-        if (
-            self.config.is_profiling_enabled()
-            and not self.config.profiling.profile_table_level_only
-        ):
-            table.columns_ignore_from_profiling = self.generate_profile_ignore_list(
-                columns
-            )
 
         if not table.column_count:
             logger.warning(
@@ -673,14 +653,11 @@ class BigQuerySchemaGenerator:
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.store_table_refs:
-            table_ref = str(
-                BigQueryTableRef(table_identifier).get_sanitized_table_ref()
-            )
-            self.table_refs.add(table_ref)
-            if self.config.lineage_parse_view_ddl and view.view_definition:
-                self.view_refs_by_project[project_id].add(table_ref)
-                self.view_definitions[table_ref] = view.view_definition
+        table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
+        self.table_refs.add(table_ref)
+        if view.view_definition:
+            self.view_refs_by_project[project_id].add(table_ref)
+            self.view_definitions[table_ref] = view.view_definition
 
         view.column_count = len(columns)
         if not view.column_count:
@@ -721,14 +698,11 @@ class BigQuerySchemaGenerator:
                 f"Snapshot doesn't have any column or unable to get columns for snapshot: {table_identifier}"
             )
 
-        if self.store_table_refs:
-            table_ref = str(
-                BigQueryTableRef(table_identifier).get_sanitized_table_ref()
-            )
-            self.table_refs.add(table_ref)
-            if snapshot.base_table_identifier:
-                self.snapshot_refs_by_project[project_id].add(table_ref)
-                self.snapshots_by_ref[table_ref] = snapshot
+        table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
+        self.table_refs.add(table_ref)
+        if snapshot.base_table_identifier:
+            self.snapshot_refs_by_project[project_id].add(table_ref)
+            self.snapshots_by_ref[table_ref] = snapshot
 
         yield from self.gen_snapshot_dataset_workunits(
             table=snapshot,
@@ -1141,7 +1115,6 @@ class BigQuerySchemaGenerator:
         columns: List[BigqueryColumn],
         dataset_name: BigqueryTableIdentifier,
     ) -> MetadataWorkUnit:
-
         foreign_keys: List[ForeignKeyConstraint] = []
         # Foreign keys only make sense for tables
         if isinstance(table, BigqueryTable):
@@ -1160,14 +1133,16 @@ class BigQuerySchemaGenerator:
             # fields=[],
             fields=self.gen_schema_fields(
                 columns,
-                table.constraints
-                if (isinstance(table, BigqueryTable) and table.constraints)
-                else [],
+                (
+                    table.constraints
+                    if (isinstance(table, BigqueryTable) and table.constraints)
+                    else []
+                ),
             ),
             foreignKeys=foreign_keys if foreign_keys else None,
         )
 
-        if self.config.lineage_parse_view_ddl or self.config.lineage_use_sql_parser:
+        if self.config.lineage_use_sql_parser:
             self.sql_parser_schema_resolver.add_schema_metadata(
                 dataset_urn, schema_metadata
             )
@@ -1183,14 +1158,9 @@ class BigQuerySchemaGenerator:
     ) -> Iterable[BigqueryTable]:
         # In bigquery there is no way to query all tables in a Project id
         with PerfTimer() as timer:
-
-            # PARTITIONS INFORMATION_SCHEMA view is not available for BigLake tables
-            # based on Amazon S3 and Blob Storage data.
-            # https://cloud.google.com/bigquery/docs/omni-introduction#limitations
-            # Omni Locations - https://cloud.google.com/bigquery/docs/omni-introduction#locations
-            with_partitions = self.config.have_table_data_read_permission and not (
-                dataset.location
-                and dataset.location.lower().startswith(("aws-", "azure-"))
+            with_partitions = (
+                self.config.have_table_data_read_permission
+                and dataset.supports_table_partitions()
             )
 
             # Partitions view throw exception if we try to query partition info for too many tables
@@ -1233,9 +1203,9 @@ class BigQuerySchemaGenerator:
                     report=self.report,
                 )
 
-        self.report.metadata_extraction_sec[f"{project_id}.{dataset.name}"] = round(
-            timer.elapsed_seconds(), 2
-        )
+        self.report.metadata_extraction_sec[
+            f"{project_id}.{dataset.name}"
+        ] = timer.elapsed_seconds(digits=2)
 
     def get_core_table_details(
         self, dataset_name: str, project_id: str, temp_table_dataset_prefix: str

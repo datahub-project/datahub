@@ -1,9 +1,10 @@
 import functools
 import urllib.parse
 from abc import abstractmethod
-from typing import ClassVar, Dict, List, Optional, Type, TypeVar
+from typing import ClassVar, Dict, List, Optional, Type
 
 from deprecated import deprecated
+from typing_extensions import Self
 
 from datahub.utilities.urns.error import InvalidUrnError
 
@@ -40,9 +41,6 @@ def _split_entity_id(entity_id: str) -> List[str]:
     parts.append(entity_id[part_start:-1])
 
     return parts
-
-
-_UrnSelf = TypeVar("_UrnSelf", bound="Urn")
 
 
 @functools.total_ordering
@@ -88,7 +86,7 @@ class Urn:
         return self._entity_ids
 
     @classmethod
-    def from_string(cls: Type[_UrnSelf], urn_str: str) -> "_UrnSelf":
+    def from_string(cls, urn_str: str) -> Self:
         """
         Creates an Urn from its string representation.
 
@@ -174,7 +172,7 @@ class Urn:
 
     @classmethod
     @deprecated(reason="prefer .from_string")
-    def create_from_string(cls: Type[_UrnSelf], urn_str: str) -> "_UrnSelf":
+    def create_from_string(cls, urn_str: str) -> Self:
         return cls.from_string(urn_str)
 
     @deprecated(reason="prefer .entity_ids")
@@ -200,7 +198,7 @@ class Urn:
     @classmethod
     @deprecated(reason="no longer needed")
     def validate(cls, urn_str: str) -> None:
-        Urn.create_from_string(urn_str)
+        Urn.from_string(urn_str)
 
     @staticmethod
     def url_encode(urn: str) -> str:
@@ -270,5 +268,5 @@ class _SpecificUrn(Urn):
 
     @classmethod
     @abstractmethod
-    def _parse_ids(cls: Type[_UrnSelf], entity_ids: List[str]) -> _UrnSelf:
+    def _parse_ids(cls, entity_ids: List[str]) -> Self:
         raise NotImplementedError()

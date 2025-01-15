@@ -1,0 +1,82 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "6a779a57ffb2598c301606d3a7d82142a7af8b102efa55a2c9a4e960fd55ac07",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.persons,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "age",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INTEGER"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.persons,PROD)",
+                    "column": "Age"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "name",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR(16777216)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.persons,PROD)",
+                    "column": "Name"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "uppercased_col",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "VARCHAR(16777216)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:mssql,newdata.foo.persons,PROD)",
+                    "column": "Uppercased_Col"
+                }
+            ]
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "count",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "INTEGER"
+            },
+            "upstreams": []
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT Age, name, UPPERCASED_COL, COUNT(*) AS Count FROM Foo.Persons GROUP BY Age"
+    }
+}

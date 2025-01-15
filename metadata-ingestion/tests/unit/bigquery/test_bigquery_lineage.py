@@ -144,7 +144,6 @@ def test_column_level_lineage(lineage_entries: List[QueryEvent]) -> None:
 
 
 def test_lineage_for_external_bq_table(mock_datahub_graph_instance):
-
     pipeline_context = PipelineContext(run_id="bq_gcs_lineage")
     pipeline_context.graph = mock_datahub_graph_instance
 
@@ -239,7 +238,6 @@ def test_lineage_for_external_bq_table(mock_datahub_graph_instance):
 
 
 def test_lineage_for_external_bq_table_no_column_lineage(mock_datahub_graph_instance):
-
     pipeline_context = PipelineContext(run_id="bq_gcs_lineage")
     pipeline_context.graph = mock_datahub_graph_instance
 

@@ -35,14 +35,14 @@ export class SchemaFieldPropertiesEntity implements Entity<SchemaFieldEntity> {
     // Currently unused.
     getPathName = () => 'schemaField';
 
-    // Currently unused.
-    getEntityName = () => 'schemaField';
+    getEntityName = () => 'Column';
 
-    // Currently unused.
-    getCollectionName = () => 'schemaFields';
+    getCollectionName = () => 'Columns';
 
     // Currently unused.
     renderProfile = (_: string) => <></>;
+
+    getGraphName = () => 'schemaField';
 
     renderPreview = (previewType: PreviewType, data: SchemaFieldEntity) => {
         const parent = data.parent as Dataset;

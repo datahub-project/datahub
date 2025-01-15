@@ -47,7 +47,6 @@ def _generate_queries_cached_file(tmp_path: Path, queries_json_path: Path) -> No
 @patch("google.cloud.bigquery.Client")
 @patch("google.cloud.resourcemanager_v3.ProjectsClient")
 def test_queries_ingestion(project_client, client, pytestconfig, monkeypatch, tmp_path):
-
     test_resources_dir = pytestconfig.rootpath / "tests/integration/bigquery_v2"
     mcp_golden_path = f"{test_resources_dir}/bigquery_queries_mcps_golden.json"
     mcp_output_path = tmp_path / "bigquery_queries_mcps.json"

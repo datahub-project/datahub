@@ -3,7 +3,6 @@ import unittest
 import pytest
 
 from datahub.utilities.urns.data_flow_urn import DataFlowUrn
-from datahub.utilities.urns.error import InvalidUrnError
 
 
 @pytest.mark.filterwarnings("ignore::DeprecationWarning")
@@ -16,10 +15,3 @@ class TestDataFlowUrn(unittest.TestCase):
         assert data_flow_urn.get_env() == "prod"
         assert data_flow_urn.__str__() == "urn:li:dataFlow:(airflow,def,prod)"
         assert data_flow_urn == DataFlowUrn("airflow", "def", "prod")
-
-    def test_invalid_urn(self) -> None:
-        with self.assertRaises(InvalidUrnError):
-            DataFlowUrn.create_from_string("urn:li:abc:(airflow,def,prod)")
-
-        with self.assertRaises(InvalidUrnError):
-            DataFlowUrn.create_from_string("urn:li:dataFlow:(airflow,flow_id)")

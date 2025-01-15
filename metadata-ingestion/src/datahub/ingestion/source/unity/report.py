@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Tuple
 
 from datahub.ingestion.api.report import EntityFilterReport, Report
-from datahub.ingestion.source.sql.sql_generic_profiler import ProfilingSqlReport
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source_report.ingestion_stage import IngestionStageReport
 from datahub.utilities.lossy_collections import LossyDict, LossyList
 from datahub.utilities.perf_timer import PerfTimer
@@ -19,7 +19,7 @@ class UnityCatalogUsagePerfReport(Report):
 
 
 @dataclass
-class UnityCatalogReport(IngestionStageReport, ProfilingSqlReport):
+class UnityCatalogReport(IngestionStageReport, SQLSourceReport):
     metastores: EntityFilterReport = EntityFilterReport.field(type="metastore")
     catalogs: EntityFilterReport = EntityFilterReport.field(type="catalog")
     schemas: EntityFilterReport = EntityFilterReport.field(type="schema")

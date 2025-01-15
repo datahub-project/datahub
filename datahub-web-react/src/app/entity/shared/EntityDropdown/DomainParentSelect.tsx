@@ -23,7 +23,7 @@ export function filterResultsForMove(entity: Domain, entityUrn: string) {
     return (
         entity.urn !== entityUrn &&
         entity.__typename === 'Domain' &&
-        !entity.parentDomains?.domains.some((node) => node.urn === entityUrn)
+        !entity.parentDomains?.domains?.some((node) => node.urn === entityUrn)
     );
 }
 

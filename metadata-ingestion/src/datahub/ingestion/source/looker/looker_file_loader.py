@@ -9,8 +9,8 @@ from datahub.ingestion.source.looker.looker_template_language import (
     load_and_preprocess_file,
 )
 from datahub.ingestion.source.looker.lookml_config import (
-    _EXPLORE_FILE_EXTENSION,
-    _VIEW_FILE_EXTENSION,
+    EXPLORE_FILE_EXTENSION,
+    VIEW_FILE_EXTENSION,
     LookMLSourceConfig,
     LookMLSourceReport,
 )
@@ -42,7 +42,7 @@ class LookerViewFileLoader:
     ) -> Optional[LookerViewFile]:
         # always fully resolve paths to simplify de-dup
         path = str(pathlib.Path(path).resolve())
-        allowed_extensions = [_VIEW_FILE_EXTENSION, _EXPLORE_FILE_EXTENSION]
+        allowed_extensions = [VIEW_FILE_EXTENSION, EXPLORE_FILE_EXTENSION]
         matched_any_extension = [
             match for match in [path.endswith(x) for x in allowed_extensions] if match
         ]

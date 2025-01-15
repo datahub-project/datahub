@@ -1,10 +1,12 @@
 import json
 import logging
+from datetime import datetime
 from functools import lru_cache
-from typing import Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 import dateutil.parser as dp
 import requests
+from pydantic import BaseModel
 from pydantic.class_validators import root_validator, validator
 from pydantic.fields import Field
 
@@ -16,7 +18,9 @@ from datahub.configuration.source_common import (
 from datahub.emitter.mce_builder import (
     make_chart_urn,
     make_dashboard_urn,
+    make_data_platform_urn,
     make_dataset_urn,
+    make_dataset_urn_with_platform_instance,
     make_domain_urn,
 )
 from datahub.emitter.mcp_builder import add_domain_to_entity_wu
@@ -29,8 +33,9 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor, Source
+from datahub.ingestion.api.source import MetadataWorkUnitProcessor
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.sql.sql_types import resolve_sql_type
 from datahub.ingestion.source.sql.sqlalchemy_uri_mapper import (
     get_platform_from_sqlalchemy_uri,
 )
@@ -47,16 +52,26 @@ from datahub.metadata.com.linkedin.pegasus2avro.common import (
     AuditStamp,
     ChangeAuditStamps,
     Status,
+    TimeStamp,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
     ChartSnapshot,
     DashboardSnapshot,
+    DatasetSnapshot,
 )
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
+from datahub.metadata.com.linkedin.pegasus2avro.schema import (
+    MySqlDDL,
+    NullType,
+    SchemaField,
+    SchemaFieldDataType,
+    SchemaMetadata,
+)
 from datahub.metadata.schema_classes import (
     ChartInfoClass,
     ChartTypeClass,
     DashboardInfoClass,
+    DatasetPropertiesClass,
 )
 from datahub.utilities import config_clean
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -82,7 +97,27 @@ chart_type_from_viz_type = {
     "box_plot": ChartTypeClass.BAR,
 }
 
+
 platform_without_databases = ["druid"]
+
+
+class SupersetDataset(BaseModel):
+    id: int
+    table_name: str
+    changed_on_utc: Optional[str] = None
+    explore_url: Optional[str] = ""
+
+    @property
+    def modified_dt(self) -> Optional[datetime]:
+        if self.changed_on_utc:
+            return dp.parse(self.changed_on_utc)
+        return None
+
+    @property
+    def modified_ts(self) -> Optional[int]:
+        if self.modified_dt:
+            return int(self.modified_dt.timestamp() * 1000)
+        return None
 
 
 class SupersetConfig(
@@ -103,14 +138,16 @@ class SupersetConfig(
     )
     username: Optional[str] = Field(default=None, description="Superset username.")
     password: Optional[str] = Field(default=None, description="Superset password.")
-    api_key: Optional[str] = Field(default=None, description="Preset.io API key.")
-    api_secret: Optional[str] = Field(default=None, description="Preset.io API secret.")
-    manager_uri: str = Field(
-        default="https://api.app.preset.io", description="Preset.io API URL"
-    )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Superset Stateful Ingestion Config."
+    )
+    ingest_dashboards: bool = Field(
+        default=True, description="Enable to ingest dashboards."
+    )
+    ingest_charts: bool = Field(default=True, description="Enable to ingest charts.")
+    ingest_datasets: bool = Field(
+        default=False, description="Enable to ingest datasets."
     )
 
     provider: str = Field(default="db", description="Superset provider.")
@@ -122,6 +159,10 @@ class SupersetConfig(
         default={},
         description="Can be used to change mapping for database names in superset to what you have in datahub",
     )
+
+    class Config:
+        # This is required to allow preset configs to get parsed
+        extra = "allow"
 
     @validator("connect_uri", "display_uri")
     def remove_trailing_slash(cls, v):
@@ -224,10 +265,27 @@ class SupersetSource(StatefulIngestionSourceBase):
             # TODO(Gabe): how should we message about this error?
         return requests_session
 
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> Source:
-        config = SupersetConfig.parse_obj(config_dict)
-        return cls(ctx, config)
+    def paginate_entity_api_results(self, entity_type, page_size=100):
+        current_page = 0
+        total_items = page_size
+
+        while current_page * page_size < total_items:
+            response = self.session.get(
+                f"{self.config.connect_uri}/api/v1/{entity_type}/",
+                params={"q": f"(page:{current_page},page_size:{page_size})"},
+            )
+
+            if response.status_code != 200:
+                logger.warning(f"Failed to get {entity_type} data: {response.text}")
+
+            payload = response.json()
+            # Update total_items with the actual count from the response
+            total_items = payload.get("count", total_items)
+            # Yield each item in the result, this gets passed into the construct functions
+            for item in payload.get("result", []):
+                yield item
+
+            current_page += 1
 
     @lru_cache(maxsize=None)
     def get_platform_from_database_id(self, database_id):
@@ -250,11 +308,18 @@ class SupersetSource(StatefulIngestionSourceBase):
         return platform_name
 
     @lru_cache(maxsize=None)
-    def get_datasource_urn_from_id(self, datasource_id):
+    def get_dataset_info(self, dataset_id: int) -> dict:
         dataset_response = self.session.get(
-            f"{self.config.connect_uri}/api/v1/dataset/{datasource_id}"
-        ).json()
+            f"{self.config.connect_uri}/api/v1/dataset/{dataset_id}",
+        )
+        if dataset_response.status_code != 200:
+            logger.warning(f"Failed to get dataset info: {dataset_response.text}")
+            dataset_response.raise_for_status()
+        return dataset_response.json()
 
+    def get_datasource_urn_from_id(
+        self, dataset_response: dict, platform_instance: str
+    ) -> str:
         schema_name = dataset_response.get("result", {}).get("schema")
         table_name = dataset_response.get("result", {}).get("table_name")
         database_id = dataset_response.get("result", {}).get("database", {}).get("id")
@@ -283,9 +348,11 @@ class SupersetSource(StatefulIngestionSourceBase):
                 ),
                 env=self.config.env,
             )
-        return None
+        raise ValueError("Could not construct dataset URN")
 
-    def construct_dashboard_from_api_data(self, dashboard_data):
+    def construct_dashboard_from_api_data(
+        self, dashboard_data: dict
+    ) -> DashboardSnapshot:
         dashboard_urn = make_dashboard_urn(
             platform=self.platform,
             name=dashboard_data["id"],
@@ -340,7 +407,7 @@ class SupersetSource(StatefulIngestionSourceBase):
         }
 
         if dashboard_data.get("certified_by"):
-            custom_properties["CertifiedBy"] = dashboard_data.get("certified_by")
+            custom_properties["CertifiedBy"] = dashboard_data.get("certified_by", "")
             custom_properties["CertificationDetails"] = str(
                 dashboard_data.get("certification_details")
             )
@@ -358,38 +425,25 @@ class SupersetSource(StatefulIngestionSourceBase):
         return dashboard_snapshot
 
     def emit_dashboard_mces(self) -> Iterable[MetadataWorkUnit]:
-        current_dashboard_page = 0
-        # we will set total dashboards to the actual number after we get the response
-        total_dashboards = PAGE_SIZE
-
-        while current_dashboard_page * PAGE_SIZE <= total_dashboards:
-            dashboard_response = self.session.get(
-                f"{self.config.connect_uri}/api/v1/dashboard/",
-                params=f"q=(page:{current_dashboard_page},page_size:{PAGE_SIZE})",
-            )
-            if dashboard_response.status_code != 200:
-                logger.warning(
-                    f"Failed to get dashboard data: {dashboard_response.text}"
-                )
-            dashboard_response.raise_for_status()
-
-            payload = dashboard_response.json()
-            total_dashboards = payload.get("count") or 0
-
-            current_dashboard_page += 1
-
-            for dashboard_data in payload["result"]:
+        for dashboard_data in self.paginate_entity_api_results("dashboard", PAGE_SIZE):
+            try:
                 dashboard_snapshot = self.construct_dashboard_from_api_data(
                     dashboard_data
                 )
-                mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
-                yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
-                yield from self._get_domain_wu(
-                    title=dashboard_data.get("dashboard_title", ""),
-                    entity_urn=dashboard_snapshot.urn,
+            except Exception as e:
+                self.report.warning(
+                    f"Failed to construct dashboard snapshot. Dashboard name: {dashboard_data.get('dashboard_title')}. Error: \n{e}"
                 )
+                continue
+            # Emit the dashboard
+            mce = MetadataChangeEvent(proposedSnapshot=dashboard_snapshot)
+            yield MetadataWorkUnit(id=dashboard_snapshot.urn, mce=mce)
+            yield from self._get_domain_wu(
+                title=dashboard_data.get("dashboard_title", ""),
+                entity_urn=dashboard_snapshot.urn,
+            )
 
-    def construct_chart_from_chart_data(self, chart_data):
+    def construct_chart_from_chart_data(self, chart_data: dict) -> ChartSnapshot:
         chart_urn = make_chart_urn(
             platform=self.platform,
             name=chart_data["id"],
@@ -415,9 +469,12 @@ class SupersetSource(StatefulIngestionSourceBase):
         chart_url = f"{self.config.display_uri}{chart_data.get('url', '')}"
 
         datasource_id = chart_data.get("datasource_id")
-        datasource_urn = self.get_datasource_urn_from_id(datasource_id)
+        dataset_response = self.get_dataset_info(datasource_id)
+        datasource_urn = self.get_datasource_urn_from_id(
+            dataset_response, self.platform
+        )
 
-        params = json.loads(chart_data.get("params"))
+        params = json.loads(chart_data.get("params", "{}"))
         metrics = [
             get_metric_name(metric)
             for metric in (params.get("metrics", []) or [params.get("metric")])
@@ -467,36 +524,124 @@ class SupersetSource(StatefulIngestionSourceBase):
         return chart_snapshot
 
     def emit_chart_mces(self) -> Iterable[MetadataWorkUnit]:
-        current_chart_page = 0
-        # we will set total charts to the actual number after we get the response
-        total_charts = PAGE_SIZE
-
-        while current_chart_page * PAGE_SIZE <= total_charts:
-            chart_response = self.session.get(
-                f"{self.config.connect_uri}/api/v1/chart/",
-                params=f"q=(page:{current_chart_page},page_size:{PAGE_SIZE})",
-            )
-            if chart_response.status_code != 200:
-                logger.warning(f"Failed to get chart data: {chart_response.text}")
-            chart_response.raise_for_status()
-
-            current_chart_page += 1
-
-            payload = chart_response.json()
-            total_charts = payload["count"]
-            for chart_data in payload["result"]:
+        for chart_data in self.paginate_entity_api_results("chart", PAGE_SIZE):
+            try:
                 chart_snapshot = self.construct_chart_from_chart_data(chart_data)
 
                 mce = MetadataChangeEvent(proposedSnapshot=chart_snapshot)
-                yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
-                yield from self._get_domain_wu(
-                    title=chart_data.get("slice_name", ""),
-                    entity_urn=chart_snapshot.urn,
+            except Exception as e:
+                self.report.warning(
+                    f"Failed to construct chart snapshot. Chart name: {chart_data.get('table_name')}. Error: \n{e}"
                 )
+                continue
+            # Emit the chart
+            yield MetadataWorkUnit(id=chart_snapshot.urn, mce=mce)
+            yield from self._get_domain_wu(
+                title=chart_data.get("slice_name", ""),
+                entity_urn=chart_snapshot.urn,
+            )
+
+    def gen_schema_fields(self, column_data: List[Dict[str, str]]) -> List[SchemaField]:
+        schema_fields: List[SchemaField] = []
+        for col in column_data:
+            col_type = (col.get("type") or "").lower()
+            data_type = resolve_sql_type(col_type)
+            if data_type is None:
+                data_type = NullType()
+
+            field = SchemaField(
+                fieldPath=col.get("column_name", ""),
+                type=SchemaFieldDataType(data_type),
+                nativeDataType="",
+                description=col.get("column_name", ""),
+                nullable=True,
+            )
+            schema_fields.append(field)
+        return schema_fields
+
+    def gen_schema_metadata(
+        self,
+        dataset_response: dict,
+    ) -> SchemaMetadata:
+        dataset_response = dataset_response.get("result", {})
+        column_data = dataset_response.get("columns", [])
+        schema_metadata = SchemaMetadata(
+            schemaName=dataset_response.get("table_name", ""),
+            platform=make_data_platform_urn(self.platform),
+            version=0,
+            hash="",
+            platformSchema=MySqlDDL(tableSchema=""),
+            fields=self.gen_schema_fields(column_data),
+        )
+        return schema_metadata
+
+    def gen_dataset_urn(self, datahub_dataset_name: str) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=self.platform,
+            name=datahub_dataset_name,
+            platform_instance=self.config.platform_instance,
+            env=self.config.env,
+        )
+
+    def construct_dataset_from_dataset_data(
+        self, dataset_data: dict
+    ) -> DatasetSnapshot:
+        dataset_response = self.get_dataset_info(dataset_data.get("id"))
+        dataset = SupersetDataset(**dataset_response["result"])
+        datasource_urn = self.get_datasource_urn_from_id(
+            dataset_response, self.platform
+        )
+
+        dataset_url = f"{self.config.display_uri}{dataset.explore_url or ''}"
+
+        dataset_info = DatasetPropertiesClass(
+            name=dataset.table_name,
+            description="",
+            lastModified=TimeStamp(time=dataset.modified_ts)
+            if dataset.modified_ts
+            else None,
+            externalUrl=dataset_url,
+        )
+        aspects_items: List[Any] = []
+        aspects_items.extend(
+            [
+                self.gen_schema_metadata(dataset_response),
+                dataset_info,
+            ]
+        )
+
+        dataset_snapshot = DatasetSnapshot(
+            urn=datasource_urn,
+            aspects=aspects_items,
+        )
+        return dataset_snapshot
+
+    def emit_dataset_mces(self) -> Iterable[MetadataWorkUnit]:
+        for dataset_data in self.paginate_entity_api_results("dataset", PAGE_SIZE):
+            try:
+                dataset_snapshot = self.construct_dataset_from_dataset_data(
+                    dataset_data
+                )
+                mce = MetadataChangeEvent(proposedSnapshot=dataset_snapshot)
+            except Exception as e:
+                self.report.warning(
+                    f"Failed to construct dataset snapshot. Dataset name: {dataset_data.get('table_name')}. Error: \n{e}"
+                )
+                continue
+            # Emit the dataset
+            yield MetadataWorkUnit(id=dataset_snapshot.urn, mce=mce)
+            yield from self._get_domain_wu(
+                title=dataset_data.get("table_name", ""),
+                entity_urn=dataset_snapshot.urn,
+            )
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        yield from self.emit_dashboard_mces()
-        yield from self.emit_chart_mces()
+        if self.config.ingest_dashboards:
+            yield from self.emit_dashboard_mces()
+        if self.config.ingest_charts:
+            yield from self.emit_chart_mces()
+        if self.config.ingest_datasets:
+            yield from self.emit_dataset_mces()
 
     def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
         return [

@@ -1,3 +1,4 @@
+import copy
 import html
 import json
 import logging
@@ -35,6 +36,7 @@ from datahub.metadata.schema_classes import (
     UpstreamClass,
 )
 from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo, SqlParsingResult
+from datahub.utilities.ordered_set import OrderedSet
 
 logger = logging.getLogger(__name__)
 
@@ -643,8 +645,11 @@ class TableauUpstreamReference:
         cls, d: dict, default_schema_map: Optional[Dict[str, str]] = None
     ) -> "TableauUpstreamReference":
         # Values directly from `table` object from Tableau
-        database = t_database = d.get(c.DATABASE, {}).get(c.NAME)
-        database_id = d.get(c.DATABASE, {}).get(c.ID)
+        database_dict = (
+            d.get(c.DATABASE) or {}
+        )  # this sometimes is None, so we need the `or {}`
+        database = t_database = database_dict.get(c.NAME)
+        database_id = database_dict.get(c.ID)
         schema = t_schema = d.get(c.SCHEMA)
         table = t_table = d.get(c.NAME) or ""
         t_full_name = d.get(c.FULL_NAME)
@@ -972,16 +977,22 @@ def get_filter_pages(query_filter: dict, page_size: int) -> List[dict]:
     # a few ten thousand, then tableau server responds with empty response
     # causing below error:
     # tableauserverclient.server.endpoint.exceptions.NonXMLResponseError: b''
+
+    # in practice, we only do pagination if len(query_filter.keys()) == 1
+    if len(query_filter.keys()) != 1:
+        return filter_pages
+
+    current_key = (list(query_filter.keys()))[0]
+
     if (
-        len(query_filter.keys()) == 1
-        and query_filter.get(c.ID_WITH_IN)
-        and isinstance(query_filter[c.ID_WITH_IN], list)
-        and len(query_filter[c.ID_WITH_IN]) > 100 * page_size
+        current_key in [c.ID_WITH_IN, c.PROJECT_NAME_WITH_IN]
+        and query_filter.get(current_key)
+        and isinstance(query_filter[current_key], list)
     ):
-        ids = query_filter[c.ID_WITH_IN]
+        ids = query_filter[current_key]
         filter_pages = [
             {
-                c.ID_WITH_IN: ids[
+                current_key: ids[
                     start : (
                         start + page_size if start + page_size < len(ids) else len(ids)
                     )
@@ -991,3 +1002,19 @@ def get_filter_pages(query_filter: dict, page_size: int) -> List[dict]:
         ]
 
     return filter_pages
+
+
+def optimize_query_filter(query_filter: dict) -> dict:
+    """
+    Duplicates in the filter cause duplicates in the result,
+    leading to entities/aspects being emitted multiple times unnecessarily
+    """
+    optimized_query = copy.deepcopy(query_filter)
+
+    if query_filter.get(c.ID_WITH_IN):
+        optimized_query[c.ID_WITH_IN] = list(OrderedSet(query_filter[c.ID_WITH_IN]))
+    if query_filter.get(c.PROJECT_NAME_WITH_IN):
+        optimized_query[c.PROJECT_NAME_WITH_IN] = list(
+            OrderedSet(query_filter[c.PROJECT_NAME_WITH_IN])
+        )
+    return optimized_query

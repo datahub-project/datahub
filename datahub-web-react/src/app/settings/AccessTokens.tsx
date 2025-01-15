@@ -196,8 +196,8 @@ export const AccessTokens = () => {
         return renderSearchResult(result);
     });
 
-    const totalTokens = tokensData?.listAccessTokens.total || 0;
-    const tokens = useMemo(() => tokensData?.listAccessTokens.tokens || [], [tokensData]);
+    const totalTokens = tokensData?.listAccessTokens?.total || 0;
+    const tokens = useMemo(() => tokensData?.listAccessTokens?.tokens || [], [tokensData]);
     const filteredTokens = tokens.filter((token) => !removedTokens.includes(token.id));
 
     const [revokeAccessToken, { error: revokeTokenError }] = useRevokeAccessTokenMutation();

@@ -23,7 +23,7 @@ from datahub.metadata.schema_classes import (
     RecordTypeClass,
     SchemaFieldClass as SchemaField,
     SchemaFieldDataTypeClass,
-    SchemaMetadataClass as SchemaMetadata,
+    SchemaMetadataClass,
     StringTypeClass,
     UnionTypeClass,
 )
@@ -665,13 +665,13 @@ def get_schema_metadata(
     name: str,
     json_schema: Dict[Any, Any],
     raw_schema_string: Optional[str] = None,
-) -> SchemaMetadata:
+) -> SchemaMetadataClass:
     json_schema_as_string = raw_schema_string or json.dumps(json_schema)
     md5_hash: str = md5(json_schema_as_string.encode()).hexdigest()
 
     schema_fields = list(JsonSchemaTranslator.get_fields_from_schema(json_schema))
 
-    schema_metadata = SchemaMetadata(
+    schema_metadata = SchemaMetadataClass(
         schemaName=name,
         platform=f"urn:li:dataPlatform:{platform}",
         version=0,

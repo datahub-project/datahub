@@ -6,9 +6,9 @@ import pathlib
 import re
 import time
 from datetime import datetime
-from itertools import groupby
 from pathlib import PurePath
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
+from urllib.parse import urlparse
 
 import smart_open.compression as so_compression
 from more_itertools import peekable
@@ -40,6 +40,7 @@ from datahub.ingestion.source.aws.s3_util import (
     get_bucket_name,
     get_bucket_relative_path,
     get_key_prefix,
+    group_s3_objects_by_dirname,
     strip_s3_prefix,
 )
 from datahub.ingestion.source.data_lake_common.data_lake_utils import ContainerWUCreator
@@ -73,6 +74,9 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.telemetry import stats, telemetry
 from datahub.utilities.perf_timer import PerfTimer
+
+if TYPE_CHECKING:
+    from mypy_boto3_s3.service_resource import Bucket
 
 # hide annoying debug errors from py4j
 logging.getLogger("py4j").setLevel(logging.ERROR)
@@ -224,7 +228,7 @@ class S3Source(StatefulIngestionSourceBase):
             self.init_spark()
 
     def init_spark(self):
-        os.environ.setdefault("SPARK_VERSION", "3.3")
+        os.environ.setdefault("SPARK_VERSION", "3.5")
         spark_version = os.environ["SPARK_VERSION"]
 
         # Importing here to avoid Deequ dependency for non profiling use cases
@@ -804,7 +808,6 @@ class S3Source(StatefulIngestionSourceBase):
         protocol: str,
         min: bool = False,
     ) -> List[str]:
-
         # if len(path_spec.include.split("/")) == len(f"{protocol}{bucket_name}/{folder}".split("/")):
         #    return [f"{protocol}{bucket_name}/{folder}"]
 
@@ -842,7 +845,7 @@ class S3Source(StatefulIngestionSourceBase):
     def get_folder_info(
         self,
         path_spec: PathSpec,
-        bucket: Any,  # Todo: proper type
+        bucket: "Bucket",
         prefix: str,
     ) -> List[Folder]:
         """
@@ -857,22 +860,15 @@ class S3Source(StatefulIngestionSourceBase):
 
         Parameters:
         path_spec (PathSpec): The path specification used to determine partitioning.
-        bucket (Any): The S3 bucket object.
+        bucket (Bucket): The S3 bucket object.
         prefix (str): The prefix path in the S3 bucket to list objects from.
 
         Returns:
         List[Folder]: A list of Folder objects representing the partitions found.
         """
-
-        prefix_to_list = prefix
-        files = list(
-            bucket.objects.filter(Prefix=f"{prefix_to_list}").page_size(PAGE_SIZE)
-        )
-        files = sorted(files, key=lambda a: a.last_modified)
-        grouped_files = groupby(files, lambda x: x.key.rsplit("/", 1)[0])
-
         partitions: List[Folder] = []
-        for key, group in grouped_files:
+        s3_objects = bucket.objects.filter(Prefix=prefix).page_size(PAGE_SIZE)
+        for key, group in group_s3_objects_by_dirname(s3_objects).items():
             file_size = 0
             creation_time = None
             modification_time = None
@@ -904,7 +900,7 @@ class S3Source(StatefulIngestionSourceBase):
                 Folder(
                     partition_id=id,
                     is_partition=bool(id),
-                    creation_time=creation_time if creation_time else None,
+                    creation_time=creation_time if creation_time else None,  # type: ignore[arg-type]
                     modification_time=modification_time,
                     sample_file=self.create_s3_path(max_file.bucket_name, max_file.key),
                     size=file_size,
@@ -994,9 +990,7 @@ class S3Source(StatefulIngestionSourceBase):
                         folders = []
                         for dir in dirs_to_process:
                             logger.info(f"Getting files from folder: {dir}")
-                            prefix_to_process = dir.rstrip("\\").lstrip(
-                                self.create_s3_path(bucket_name, "/")
-                            )
+                            prefix_to_process = urlparse(dir).path.lstrip("/")
 
                             folders.extend(
                                 self.get_folder_info(

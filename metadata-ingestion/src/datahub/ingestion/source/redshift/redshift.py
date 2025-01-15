@@ -222,6 +222,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     ```
     """
 
+    # TODO: Replace with standardized types in sql_types.py
     REDSHIFT_FIELD_TYPE_MAPPINGS: Dict[
         str,
         Type[
@@ -275,6 +276,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
         "HLLSKETCH": NullType,
         "TIMETZ": TimeType,
         "VARBYTE": StringType,
+        "SUPER": NullType,
     }
 
     def get_platform_instance_id(self) -> str:
@@ -422,10 +424,10 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
         database = self.config.database
         logger.info(f"Processing db {database}")
-        self.report.report_ingestion_stage_start(METADATA_EXTRACTION)
-        self.db_tables[database] = defaultdict()
-        self.db_views[database] = defaultdict()
-        self.db_schemas.setdefault(database, {})
+        with self.report.new_stage(METADATA_EXTRACTION):
+            self.db_tables[database] = defaultdict()
+            self.db_views[database] = defaultdict()
+            self.db_schemas.setdefault(database, {})
 
         # TODO: Ideally, we'd push down exception handling to the place where the connection is used, as opposed to keeping
         # this fallback. For now, this gets us broad coverage quickly.
@@ -436,7 +438,6 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
     def _extract_metadata(
         self, connection: redshift_connector.Connection, database: str
     ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
-
         yield from self.gen_database_container(
             database=database,
         )
@@ -462,12 +463,12 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                     self.process_schemas(connection, database)
                 )
 
-                self.report.report_ingestion_stage_start(LINEAGE_EXTRACTION)
-                yield from self.extract_lineage_v2(
-                    connection=connection,
-                    database=database,
-                    lineage_extractor=lineage_extractor,
-                )
+                with self.report.new_stage(LINEAGE_EXTRACTION):
+                    yield from self.extract_lineage_v2(
+                        connection=connection,
+                        database=database,
+                        lineage_extractor=lineage_extractor,
+                    )
 
             all_tables = self.get_all_tables()
         else:
@@ -480,25 +481,25 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 or self.config.include_view_lineage
                 or self.config.include_copy_lineage
             ):
-                self.report.report_ingestion_stage_start(LINEAGE_EXTRACTION)
-                yield from self.extract_lineage(
+                with self.report.new_stage(LINEAGE_EXTRACTION):
+                    yield from self.extract_lineage(
+                        connection=connection, all_tables=all_tables, database=database
+                    )
+
+        if self.config.include_usage_statistics:
+            with self.report.new_stage(USAGE_EXTRACTION_INGESTION):
+                yield from self.extract_usage(
                     connection=connection, all_tables=all_tables, database=database
                 )
 
-        self.report.report_ingestion_stage_start(USAGE_EXTRACTION_INGESTION)
-        if self.config.include_usage_statistics:
-            yield from self.extract_usage(
-                connection=connection, all_tables=all_tables, database=database
-            )
-
         if self.config.is_profiling_enabled():
-            self.report.report_ingestion_stage_start(PROFILING)
-            profiler = RedshiftProfiler(
-                config=self.config,
-                report=self.report,
-                state_handler=self.profiling_state_handler,
-            )
-            yield from profiler.get_workunits(self.db_tables)
+            with self.report.new_stage(PROFILING):
+                profiler = RedshiftProfiler(
+                    config=self.config,
+                    report=self.report,
+                    state_handler=self.profiling_state_handler,
+                )
+                yield from profiler.get_workunits(self.db_tables)
 
     def process_schemas(self, connection, database):
         for schema in self.data_dictionary.get_schemas(
@@ -633,8 +634,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             else:
                 logger.info("View processing disabled, skipping")
 
-            self.report.metadata_extraction_sec[report_key] = round(
-                timer.elapsed_seconds(), 2
+            self.report.metadata_extraction_sec[report_key] = timer.elapsed_seconds(
+                digits=2
             )
 
     def _process_table(
@@ -831,6 +832,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
             customProperties=custom_properties,
         )
         if self.config.patch_custom_properties:
+            # TODO: use auto_incremental_properties workunit processor instead
+            # Deprecate use of patch_custom_properties
             patch_builder = create_dataset_props_patch_builder(
                 dataset_urn, dataset_properties
             )
@@ -984,9 +987,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
             yield from usage_extractor.get_usage_workunits(all_tables=all_tables)
 
-            self.report.usage_extraction_sec[database] = round(
-                timer.elapsed_seconds(), 2
-            )
+            self.report.usage_extraction_sec[database] = timer.elapsed_seconds(digits=2)
 
     def extract_lineage(
         self,
@@ -1009,8 +1010,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 database=database, connection=connection, all_tables=all_tables
             )
 
-            self.report.lineage_extraction_sec[f"{database}"] = round(
-                timer.elapsed_seconds(), 2
+            self.report.lineage_extraction_sec[f"{database}"] = timer.elapsed_seconds(
+                digits=2
             )
             yield from self.generate_lineage(
                 database, lineage_extractor=lineage_extractor
@@ -1040,8 +1041,8 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
             yield from lineage_extractor.generate()
 
-            self.report.lineage_extraction_sec[f"{database}"] = round(
-                timer.elapsed_seconds(), 2
+            self.report.lineage_extraction_sec[f"{database}"] = timer.elapsed_seconds(
+                digits=2
             )
 
         if self.redundant_lineage_run_skip_handler:

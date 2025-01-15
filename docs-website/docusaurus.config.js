@@ -13,6 +13,15 @@ module.exports = {
   projectName: "datahub", // Usually your repo name.
   staticDirectories: ["static", "genStatic"],
   stylesheets: ["https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700&display=swap"],
+  headTags: [
+    {
+      tagName: 'meta',
+      attributes: {
+        httpEquiv: 'Content-Security-Policy',
+        content: "frame-ancestors 'self' https://*.acryl.io https://acryldata.io http://localhost:*"
+      }
+    },
+  ],
   scripts: [
     {
       src: "https://tools.luckyorange.com/core/lo.js?site-id=28ea8a38",

@@ -149,11 +149,8 @@ class DremioProfiler:
     ) -> str:
         metrics = []
 
-        if self.config.profiling.row_count:
-            metrics.append("COUNT(*) AS row_count")
-
-        if self.config.profiling.column_count:
-            metrics.append(f"{len(columns)} AS column_count")
+        metrics.append("COUNT(*) AS row_count")
+        metrics.append(f"{len(columns)} AS column_count")
 
         if not self.config.profiling.profile_table_level_only:
             for column_name, data_type in columns:
@@ -239,11 +236,9 @@ class DremioProfiler:
         profile: Dict[str, Any] = {"column_stats": {}}
         result = results[0] if results else {}  # We expect only one row of results
 
-        if self.config.profiling.row_count:
-            profile["row_count"] = int(result.get("row_count", 0))
+        profile["row_count"] = int(result.get("row_count", 0))
 
-        if self.config.profiling.column_count:
-            profile["column_count"] = int(result.get("column_count", 0))
+        profile["column_count"] = int(result.get("column_count", 0))
 
         for column_name, data_type in columns:
             safe_column_name = re.sub(r"\W|^(?=\d)", "_", column_name)

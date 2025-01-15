@@ -19,6 +19,7 @@ import { capitalizeFirstLetterOnly } from '../../shared/textUtil';
 import DataProductSection from '../shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { getDataProduct } from '../shared/utils';
 import { IncidentTab } from '../shared/tabs/Incident/IncidentTab';
+import SidebarStructuredPropsSection from '../shared/containers/profile/sidebar/StructuredProperties/SidebarStructuredPropsSection';
 
 /**
  * Definition of the DataHub DataFlow entity.
@@ -52,6 +53,8 @@ export class DataFlowEntity implements Entity<DataFlow> {
     isLineageEnabled = () => false;
 
     getAutoCompleteFieldName = () => 'name';
+
+    getGraphName = () => 'dataFlow';
 
     getPathName = () => 'pipelines';
 
@@ -89,7 +92,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                     name: 'Incidents',
                     component: IncidentTab,
                     getDynamicName: (_, dataFlow) => {
-                        const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents.total;
+                        const activeIncidentCount = dataFlow?.dataFlow?.activeIncidents?.total;
                         return `Incidents${(activeIncidentCount && ` (${activeIncidentCount})`) || ''}`;
                     },
                 },
@@ -120,6 +123,9 @@ export class DataFlowEntity implements Entity<DataFlow> {
         },
         {
             component: DataProductSection,
+        },
+        {
+            component: SidebarStructuredPropsSection,
         },
     ];
 
@@ -178,6 +184,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 health={data.health}
+                parentContainers={data.parentContainers}
             />
         );
     };

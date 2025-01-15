@@ -4,6 +4,7 @@
 
     - Purpose: API Access
     - Access:
+        - Story Listing
         - Data Import Service
     - Authorization Grant: Client Credentials
 

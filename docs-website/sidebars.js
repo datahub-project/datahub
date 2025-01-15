@@ -150,6 +150,25 @@ module.exports = {
           id: "docs/glossary/business-glossary",
         },
         {
+          label: "Compliance Forms",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/overview",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/create-a-form",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/compliance-forms/complete-a-form",
+            },
+          ],
+        },
+        {
           label: "Data Contract",
           type: "doc",
           id: "docs/managed-datahub/observe/data-contract",
@@ -164,7 +183,6 @@ module.exports = {
           type: "doc",
           id: "docs/features/dataset-usage-and-query-history",
         },
-        "docs/features/feature-guides/documentation-forms",
         {
           label: "Domains",
           type: "doc",
@@ -221,7 +239,21 @@ module.exports = {
           type: "doc",
           id: "docs/posts",
         },
-        "docs/features/feature-guides/properties",
+        {
+          label: "Properties",
+          type: "category",
+          collapsed: true,
+          items: [
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/properties/overview",
+            },
+            {
+              type: "doc",
+              id: "docs/features/feature-guides/properties/create-a-property",
+            },
+          ],
+        },
         {
           label: "Schema history",
           type: "doc",
@@ -509,6 +541,7 @@ module.exports = {
         },
 
         "docs/platform-instances",
+        "docs/lineage/sql_parsing",
         "metadata-ingestion/docs/dev_guides/stateful",
         "metadata-ingestion/docs/dev_guides/classification",
         "metadata-ingestion/docs/dev_guides/add_stateful_ingestion_to_source",
@@ -746,6 +779,11 @@ module.exports = {
                   type: "doc",
                   label: "Getting Started With GraphQL",
                   id: "docs/api/graphql/getting-started",
+                },
+                {
+                  type: "doc",
+                  label: "GraphQL Best Practices",
+                  id: "docs/api/graphql/graphql-best-practices",
                 },
                 {
                   type: "doc",
@@ -989,6 +1027,7 @@ module.exports = {
     // "metadata-ingestion/examples/structured_properties/README"
     // "smoke-test/tests/openapi/README"
     // "docs/SECURITY_STANCE"
+    // "metadata-integration/java/datahub-schematron/README"
     // ],
   ],
 };

@@ -18,6 +18,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.EnvelopedAspect;
 import com.linkedin.metadata.aspect.EnvelopedAspectArray;
@@ -97,7 +98,7 @@ public class JavaEntityClient implements EntityClient {
   private final TimeseriesAspectService timeseriesAspectService;
   private final RollbackService rollbackService;
   private final EventProducer eventProducer;
-  private final int batchGetV2Size;
+  private final EntityClientConfig entityClientConfig;
 
   @Override
   @Nullable
@@ -105,11 +106,17 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Urn urn,
-      @Nullable final Set<String> aspectNames)
+      @Nullable final Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     final Set<String> projectedAspects =
         aspectNames == null ? opContext.getEntityAspectNames(entityName) : aspectNames;
-    return entityService.getEntityV2(opContext, entityName, urn, projectedAspects);
+    return entityService.getEntityV2(
+        opContext,
+        entityName,
+        urn,
+        projectedAspects,
+        alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect);
   }
 
   @Override
@@ -125,20 +132,25 @@ public class JavaEntityClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull Set<Urn> urns,
-      @Nullable Set<String> aspectNames)
+      @Nullable Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     final Set<String> projectedAspects =
         aspectNames == null ? opContext.getEntityAspectNames(entityName) : aspectNames;
 
     Map<Urn, EntityResponse> responseMap = new HashMap<>();
 
-    Iterators.partition(urns.iterator(), Math.max(1, batchGetV2Size))
+    Iterators.partition(urns.iterator(), Math.max(1, entityClientConfig.getBatchGetV2Size()))
         .forEachRemaining(
             batch -> {
               try {
                 responseMap.putAll(
                     entityService.getEntitiesV2(
-                        opContext, entityName, new HashSet<>(batch), projectedAspects));
+                        opContext,
+                        entityName,
+                        new HashSet<>(batch),
+                        projectedAspects,
+                        alwaysIncludeKeyAspect == null || alwaysIncludeKeyAspect));
               } catch (URISyntaxException e) {
                 throw new RuntimeException(e);
               }
@@ -159,7 +171,8 @@ public class JavaEntityClient implements EntityClient {
 
     Map<Urn, EntityResponse> responseMap = new HashMap<>();
 
-    Iterators.partition(versionedUrns.iterator(), Math.max(1, batchGetV2Size))
+    Iterators.partition(
+            versionedUrns.iterator(), Math.max(1, entityClientConfig.getBatchGetV2Size()))
         .forEachRemaining(
             batch -> {
               try {
@@ -760,48 +773,63 @@ public class JavaEntityClient implements EntityClient {
             : Constants.UNKNOWN_ACTOR;
     final AuditStamp auditStamp = AuditStampUtils.createAuditStamp(actorUrnStr);
 
-    AspectsBatch batch =
-        AspectsBatchImpl.builder()
-            .mcps(
-                metadataChangeProposals,
-                auditStamp,
-                opContext.getRetrieverContext().get(),
-                opContext.getValidationContext().isAlternateValidation())
-            .build();
+    List<String> updatedUrns = new ArrayList<>();
+    Iterators.partition(
+            metadataChangeProposals.iterator(),
+            Math.max(1, entityClientConfig.getBatchIngestSize()))
+        .forEachRemaining(
+            batch -> {
+              AspectsBatch aspectsBatch =
+                  AspectsBatchImpl.builder()
+                      .mcps(
+                          batch,
+                          auditStamp,
+                          opContext.getRetrieverContext(),
+                          opContext.getValidationContext().isAlternateValidation())
+                      .build();
 
-    List<IngestResult> results = entityService.ingestProposal(opContext, batch, async);
-    entitySearchService.appendRunId(opContext, results);
+              List<IngestResult> results =
+                  entityService.ingestProposal(opContext, aspectsBatch, async);
+              entitySearchService.appendRunId(opContext, results);
 
-    Map<Pair<Urn, String>, List<IngestResult>> resultMap =
-        results.stream()
-            .collect(
-                Collectors.groupingBy(
-                    result ->
-                        Pair.of(
-                            result.getRequest().getUrn(), result.getRequest().getAspectName())));
+              Map<Pair<Urn, String>, List<IngestResult>> resultMap =
+                  results.stream()
+                      .collect(
+                          Collectors.groupingBy(
+                              result ->
+                                  Pair.of(
+                                      result.getRequest().getUrn(),
+                                      result.getRequest().getAspectName())));
 
-    // Preserve ordering
-    return batch.getItems().stream()
-        .map(
-            requestItem -> {
-              // Urns generated
-              List<Urn> urnsForRequest =
-                  resultMap
-                      .getOrDefault(
-                          Pair.of(requestItem.getUrn(), requestItem.getAspectName()), List.of())
-                      .stream()
-                      .map(IngestResult::getUrn)
-                      .filter(Objects::nonNull)
-                      .distinct()
-                      .collect(Collectors.toList());
+              // Preserve ordering
+              updatedUrns.addAll(
+                  aspectsBatch.getItems().stream()
+                      .map(
+                          requestItem -> {
+                            // Urns generated
+                            List<Urn> urnsForRequest =
+                                resultMap
+                                    .getOrDefault(
+                                        Pair.of(requestItem.getUrn(), requestItem.getAspectName()),
+                                        List.of())
+                                    .stream()
+                                    .map(IngestResult::getUrn)
+                                    .filter(Objects::nonNull)
+                                    .distinct()
+                                    .collect(Collectors.toList());
 
-              // Update runIds
-              urnsForRequest.forEach(
-                  urn -> tryIndexRunId(opContext, urn, requestItem.getSystemMetadata()));
+                            // Update runIds
+                            urnsForRequest.forEach(
+                                urn ->
+                                    tryIndexRunId(opContext, urn, requestItem.getSystemMetadata()));
 
-              return urnsForRequest.isEmpty() ? null : urnsForRequest.get(0).toString();
-            })
-        .collect(Collectors.toList());
+                            return urnsForRequest.isEmpty()
+                                ? null
+                                : urnsForRequest.get(0).toString();
+                          })
+                      .collect(Collectors.toList()));
+            });
+    return updatedUrns;
   }
 
   @SneakyThrows

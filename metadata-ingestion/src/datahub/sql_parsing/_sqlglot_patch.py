@@ -19,7 +19,7 @@ from datahub.utilities.unified_diff import apply_diff
 # For a diff-formatted view, see:
 # https://github.com/tobymao/sqlglot/compare/main...hsheth2:sqlglot:main.diff
 
-_DEBUG_PATCHER = is_pytest_running() or True
+_DEBUG_PATCHER = is_pytest_running()
 logger = logging.getLogger(__name__)
 
 _apply_diff_subprocess = patchy.api._apply_patch

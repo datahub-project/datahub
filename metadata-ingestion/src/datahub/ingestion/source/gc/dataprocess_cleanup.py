@@ -98,6 +98,9 @@ query getDataJobRuns($dataJobUrn: String!, $start: Int!, $count: Int!) {
 
 
 class DataProcessCleanupConfig(ConfigModel):
+    enabled: bool = Field(
+        default=True, description="Whether to do data process cleanup."
+    )
     retention_days: Optional[int] = Field(
         10,
         description="Number of days to retain metadata in DataHub",
@@ -114,11 +117,11 @@ class DataProcessCleanupConfig(ConfigModel):
     )
 
     delete_empty_data_jobs: bool = Field(
-        True, description="Wether to delete Data Jobs without runs"
+        False, description="Whether to delete Data Jobs without runs"
     )
 
     delete_empty_data_flows: bool = Field(
-        True, description="Wether to delete Data Flows without runs"
+        False, description="Whether to delete Data Flows without runs"
     )
 
     hard_delete_entities: bool = Field(
@@ -128,7 +131,7 @@ class DataProcessCleanupConfig(ConfigModel):
 
     batch_size: int = Field(
         500,
-        description="The number of entities to get in a batch from GraphQL",
+        description="The number of entities to get in a batch from API",
     )
 
     max_workers: int = Field(
@@ -164,18 +167,20 @@ class DataJobEntity:
 class DataProcessCleanupReport(SourceReport):
     num_aspects_removed: int = 0
     num_aspect_removed_by_type: TopKDict[str, int] = field(default_factory=TopKDict)
-    sample_removed_aspects_by_type: TopKDict[str, LossyList[str]] = field(
+    sample_soft_deleted_aspects_by_type: TopKDict[str, LossyList[str]] = field(
         default_factory=TopKDict
     )
+    num_data_flows_found: int = 0
+    num_data_jobs_found: int = 0
 
 
 class DataProcessCleanup:
     """
     This source is a maintenance source which cleans up old/unused aspects.
 
-    Currently it only supports:.
+    Currently it only supports:
         - DataFlow
-        -DataJob
+        - DataJob
         - DataProcessInstance
 
     """
@@ -207,23 +212,34 @@ class DataProcessCleanup:
         assert self.ctx.graph
         dpis = []
         start = 0
+        # This graphql endpoint doesn't support scrolling and therefore after 10k DPIs it causes performance issues on ES
+        # Therefore, we are limiting the max DPIs to 9000
+        max_item = 9000
         while True:
-            job_query_result = self.ctx.graph.execute_graphql(
-                DATA_PROCESS_INSTANCES_QUERY,
-                {"dataJobUrn": job_urn, "start": start, "count": batch_size},
-            )
-            job_data = job_query_result.get("dataJob")
-            if not job_data:
-                raise ValueError(f"Error getting job {job_urn}")
+            try:
+                job_query_result = self.ctx.graph.execute_graphql(
+                    DATA_PROCESS_INSTANCES_QUERY,
+                    {"dataJobUrn": job_urn, "start": start, "count": batch_size},
+                )
+                job_data = job_query_result.get("dataJob")
+                if not job_data:
+                    logger.error(f"Error getting job {job_urn}")
+                    break
 
-            runs_data = job_data.get("runs")
-            if not runs_data:
-                raise ValueError(f"Error getting runs for {job_urn}")
+                runs_data = job_data.get("runs")
+                if not runs_data:
+                    logger.error(f"Error getting runs for {job_urn}")
+                    break
 
-            runs = runs_data.get("runs")
-            dpis.extend(runs)
-            start += batch_size
-            if len(runs) < batch_size:
+                runs = runs_data.get("runs")
+                dpis.extend(runs)
+                start += batch_size
+                if len(runs) < batch_size or start >= max_item:
+                    break
+            except Exception as e:
+                self.report.failure(
+                    f"Exception while fetching DPIs for job {job_urn}:", exc=e
+                )
                 break
         return dpis
 
@@ -243,16 +259,25 @@ class DataProcessCleanup:
                 futures[future] = dpi
 
             for future in as_completed(futures):
-                deleted_count_last_n += 1
-                futures[future]["deleted"] = True
-
-            if deleted_count_last_n % self.config.batch_size == 0:
+                try:
+                    future.result()
+                    deleted_count_last_n += 1
+                    futures[future]["deleted"] = True
+                except Exception as e:
+                    self.report.report_failure(
+                        f"Exception while deleting DPI: {e}", exc=e
+                    )
+            if (
+                deleted_count_last_n % self.config.batch_size == 0
+                and deleted_count_last_n > 0
+            ):
                 logger.info(f"Deleted {deleted_count_last_n} DPIs from {job.urn}")
                 if self.config.delay:
                     logger.info(f"Sleeping for {self.config.delay} seconds")
                     time.sleep(self.config.delay)
 
-        logger.info(f"Deleted {deleted_count_last_n} DPIs from {job.urn}")
+        if deleted_count_last_n > 0:
+            logger.info(f"Deleted {deleted_count_last_n} DPIs from {job.urn}")
 
     def delete_entity(self, urn: str, type: str) -> None:
         assert self.ctx.graph
@@ -261,13 +286,13 @@ class DataProcessCleanup:
         self.report.num_aspect_removed_by_type[type] = (
             self.report.num_aspect_removed_by_type.get(type, 0) + 1
         )
-        if type not in self.report.sample_removed_aspects_by_type:
-            self.report.sample_removed_aspects_by_type[type] = LossyList()
-        self.report.sample_removed_aspects_by_type[type].append(urn)
+        if type not in self.report.sample_soft_deleted_aspects_by_type:
+            self.report.sample_soft_deleted_aspects_by_type[type] = LossyList()
+        self.report.sample_soft_deleted_aspects_by_type[type].append(urn)
 
         if self.dry_run:
             logger.info(
-                f"Dry run is on otherwise it would have deleted {urn} with hard deletion is{self.config.hard_delete_entities}"
+                f"Dry run is on otherwise it would have deleted {urn} with hard deletion is {self.config.hard_delete_entities}"
             )
             return
 
@@ -277,7 +302,12 @@ class DataProcessCleanup:
         assert self.ctx.graph
 
         dpis = self.fetch_dpis(job.urn, self.config.batch_size)
-        dpis.sort(key=lambda x: x["created"]["time"], reverse=True)
+        dpis.sort(
+            key=lambda x: x["created"]["time"]
+            if x.get("created") and x["created"].get("time")
+            else 0,
+            reverse=True,
+        )
 
         with ThreadPoolExecutor(max_workers=self.config.max_workers) as executor:
             if self.config.keep_last_n:
@@ -309,17 +339,28 @@ class DataProcessCleanup:
             if dpi.get("deleted"):
                 continue
 
-            if dpi["created"]["time"] < retention_time * 1000:
+            if (
+                not dpi.get("created")
+                or not dpi["created"].get("time")
+                or dpi["created"]["time"] < retention_time * 1000
+            ):
                 future = executor.submit(
                     self.delete_entity, dpi["urn"], "dataprocessInstance"
                 )
                 futures[future] = dpi
 
         for future in as_completed(futures):
-            deleted_count_retention += 1
-            futures[future]["deleted"] = True
+            try:
+                future.result()
+                deleted_count_retention += 1
+                futures[future]["deleted"] = True
+            except Exception as e:
+                self.report.report_failure(f"Exception while deleting DPI: {e}", exc=e)
 
-            if deleted_count_retention % self.config.batch_size == 0:
+            if (
+                deleted_count_retention % self.config.batch_size == 0
+                and deleted_count_retention > 0
+            ):
                 logger.info(
                     f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
                 )
@@ -328,9 +369,12 @@ class DataProcessCleanup:
                     logger.info(f"Sleeping for {self.config.delay} seconds")
                     time.sleep(self.config.delay)
 
-        logger.info(
-            f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
-        )
+        if deleted_count_retention > 0:
+            logger.info(
+                f"Deleted {deleted_count_retention} DPIs from {job.urn} due to retention"
+            )
+        else:
+            logger.debug(f"No DPIs to delete from {job.urn} due to retention")
 
     def get_data_flows(self) -> Iterable[DataFlowEntity]:
         assert self.ctx.graph
@@ -339,17 +383,27 @@ class DataProcessCleanup:
         previous_scroll_id: Optional[str] = None
 
         while True:
-            result = self.ctx.graph.execute_graphql(
-                DATAFLOW_QUERY,
-                {
-                    "query": "*",
-                    "scrollId": scroll_id if scroll_id else None,
-                    "batchSize": self.config.batch_size,
-                },
-            )
+            result = None
+            try:
+                result = self.ctx.graph.execute_graphql(
+                    DATAFLOW_QUERY,
+                    {
+                        "query": "*",
+                        "scrollId": scroll_id if scroll_id else None,
+                        "batchSize": self.config.batch_size,
+                    },
+                )
+            except Exception as e:
+                self.report.failure(
+                    f"While trying to get dataflows with {scroll_id}", exc=e
+                )
+                break
+
             scrollAcrossEntities = result.get("scrollAcrossEntities")
             if not scrollAcrossEntities:
                 raise ValueError("Missing scrollAcrossEntities in response")
+            self.report.num_data_flows_found += scrollAcrossEntities.get("count")
+            logger.info(f"Got {scrollAcrossEntities.get('count')} DataFlow entities")
 
             scroll_id = scrollAcrossEntities.get("nextScrollId")
             for flow in scrollAcrossEntities.get("searchResults"):
@@ -366,28 +420,41 @@ class DataProcessCleanup:
             previous_scroll_id = scroll_id
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        if not self.config.enabled:
+            return []
         assert self.ctx.graph
 
         dataFlows: Dict[str, DataFlowEntity] = {}
-        for flow in self.get_data_flows():
-            dataFlows[flow.urn] = flow
+        if self.config.delete_empty_data_flows:
+            for flow in self.get_data_flows():
+                dataFlows[flow.urn] = flow
 
         scroll_id: Optional[str] = None
+        previous_scroll_id: Optional[str] = None
+
         dataJobs: Dict[str, List[DataJobEntity]] = defaultdict(list)
         deleted_jobs: int = 0
+
         while True:
-            result = self.ctx.graph.execute_graphql(
-                DATAJOB_QUERY,
-                {
-                    "query": "*",
-                    "scrollId": scroll_id if scroll_id else None,
-                    "batchSize": self.config.batch_size,
-                },
-            )
+            try:
+                result = self.ctx.graph.execute_graphql(
+                    DATAJOB_QUERY,
+                    {
+                        "query": "*",
+                        "scrollId": scroll_id if scroll_id else None,
+                        "batchSize": self.config.batch_size,
+                    },
+                )
+            except Exception as e:
+                self.report.failure(
+                    f"While trying to get data jobs with {scroll_id}", exc=e
+                )
+                break
             scrollAcrossEntities = result.get("scrollAcrossEntities")
             if not scrollAcrossEntities:
                 raise ValueError("Missing scrollAcrossEntities in response")
 
+            self.report.num_data_jobs_found += scrollAcrossEntities.get("count")
             logger.info(f"Got {scrollAcrossEntities.get('count')} DataJob entities")
 
             scroll_id = scrollAcrossEntities.get("nextScrollId")
@@ -401,7 +468,12 @@ class DataProcessCleanup:
                     total_runs=job.get("entity").get("runs").get("total"),
                 )
                 if datajob_entity.total_runs > 0:
-                    self.delete_dpi_from_datajobs(datajob_entity)
+                    try:
+                        self.delete_dpi_from_datajobs(datajob_entity)
+                    except Exception as e:
+                        self.report.failure(
+                            f"While trying to delete {datajob_entity} ", exc=e
+                        )
                 if (
                     datajob_entity.total_runs == 0
                     and self.config.delete_empty_data_jobs
@@ -416,10 +488,13 @@ class DataProcessCleanup:
                 else:
                     dataJobs[datajob_entity.flow_urn].append(datajob_entity)
 
-            if not scroll_id:
+            if not scroll_id or previous_scroll_id == scroll_id:
                 break
 
-        logger.info(f"Deleted {deleted_jobs} DataJobs")
+            previous_scroll_id = scroll_id
+
+        if deleted_jobs > 0:
+            logger.info(f"Deleted {deleted_jobs} DataJobs")
         # Delete empty dataflows if needed
         if self.config.delete_empty_data_flows:
             deleted_data_flows: int = 0
@@ -433,4 +508,5 @@ class DataProcessCleanup:
                     if deleted_jobs % self.config.batch_size == 0:
                         logger.info(f"Deleted {deleted_data_flows} DataFlows")
             logger.info(f"Deleted {deleted_data_flows} DataFlows")
+
         return []

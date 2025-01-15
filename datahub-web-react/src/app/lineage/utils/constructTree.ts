@@ -83,6 +83,8 @@ export default function constructTree(
     });
 
     const fetchedEntity = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
+    const sibling = fetchedEntity?.siblings?.siblings?.[0];
+    const fetchedSiblingEntity = sibling ? entityRegistry.getLineageVizConfig(sibling.type, sibling) : null;
 
     const root: NodeData = {
         name: fetchedEntity?.name || '',
@@ -100,6 +102,8 @@ export default function constructTree(
         upstreamRelationships: fetchedEntity?.upstreamRelationships || [],
         downstreamRelationships: fetchedEntity?.downstreamRelationships || [],
         health: fetchedEntity?.health,
+        structuredProperties: fetchedEntity?.structuredProperties,
+        siblingStructuredProperties: fetchedSiblingEntity?.structuredProperties,
     };
     const lineageConfig = entityRegistry.getLineageVizConfig(entityAndType.type, entityAndType.entity);
     let updatedLineageConfig = { ...lineageConfig };

@@ -20,10 +20,12 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriterContext;
+import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.HashMap;
@@ -187,6 +189,13 @@ public class ESUtils {
                 }
               });
       finalQueryBuilder.should(andQueryBuilder);
+    }
+    if (Boolean.TRUE.equals(
+        opContext.getSearchContext().getSearchFlags().isFilterNonLatestVersions())) {
+      BoolQueryBuilder filterNonLatestVersions =
+          ESUtils.buildFilterNonLatestEntities(
+              opContext, queryFilterRewriteChain, searchableFieldTypes);
+      finalQueryBuilder.must(filterNonLatestVersions);
     }
     if (!finalQueryBuilder.should().isEmpty()) {
       finalQueryBuilder.minimumShouldMatch(1);
@@ -448,9 +457,20 @@ public class ESUtils {
                             urnDefinition.getFirst(), urnDefinition.getSecond()))
             .orElse(filterField);
 
+    return replaceSuffix(fieldName);
+  }
+
+  /**
+   * Strip subfields from filter field
+   *
+   * @param fieldName name of the field
+   * @return normalized field name without subfields
+   */
+  @Nonnull
+  public static String replaceSuffix(@Nonnull final String fieldName) {
     for (String subfield : SUBFIELDS) {
       String SUFFIX = "." + subfield;
-      if (filterField.endsWith(SUFFIX)) {
+      if (fieldName.endsWith(SUFFIX)) {
         return fieldName.replace(SUFFIX, "");
       }
     }
@@ -710,7 +730,8 @@ public class ESUtils {
       final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes,
       @Nonnull AspectRetriever aspectRetriever,
       boolean enableCaseInsensitiveSearch) {
-    Set<String> fieldTypes = getFieldTypes(searchableFieldTypes, fieldName, aspectRetriever);
+    Set<String> fieldTypes =
+        getFieldTypes(searchableFieldTypes, fieldName, criterion, aspectRetriever);
     if (fieldTypes.size() > 1) {
       log.warn(
           "Multiple field types for field name {}, determining best fit for set: {}",
@@ -753,12 +774,16 @@ public class ESUtils {
   private static Set<String> getFieldTypes(
       Map<String, Set<SearchableAnnotation.FieldType>> searchableFields,
       String fieldName,
+      @Nonnull final Criterion criterion,
       @Nullable AspectRetriever aspectRetriever) {
 
     final Set<String> finalFieldTypes;
     if (fieldName.startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
+      // use criterion field here for structured props since fieldName has dots replaced with
+      // underscores
       finalFieldTypes =
-          StructuredPropertyUtils.toElasticsearchFieldType(fieldName, aspectRetriever);
+          StructuredPropertyUtils.toElasticsearchFieldType(
+              replaceSuffix(criterion.getField()), aspectRetriever);
     } else {
       Set<SearchableAnnotation.FieldType> fieldTypes =
           searchableFields.getOrDefault(fieldName.split("\\.")[0], Collections.emptySet());
@@ -782,7 +807,8 @@ public class ESUtils {
       Condition condition,
       boolean isTimeseries,
       AspectRetriever aspectRetriever) {
-    Set<String> fieldTypes = getFieldTypes(searchableFieldTypes, fieldName, aspectRetriever);
+    Set<String> fieldTypes =
+        getFieldTypes(searchableFieldTypes, fieldName, criterion, aspectRetriever);
 
     // Determine criterion value, range query only accepts single value so take first value in
     // values if multiple
@@ -851,5 +877,32 @@ public class ESUtils {
         filterQuery.mustNot(QueryBuilders.matchQuery(REMOVED, true));
       }
     }
+  }
+
+  public static BoolQueryBuilder buildFilterNonLatestEntities(
+      OperationContext opContext,
+      QueryFilterRewriteChain queryFilterRewriteChain,
+      Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes) {
+    ConjunctiveCriterion isLatestCriterion = new ConjunctiveCriterion();
+    CriterionArray isLatestCriterionArray = new CriterionArray();
+    isLatestCriterionArray.add(
+        CriterionUtils.buildCriterion(IS_LATEST_FIELD_NAME, Condition.EQUAL, "true"));
+    isLatestCriterion.setAnd(isLatestCriterionArray);
+    BoolQueryBuilder isLatest =
+        ESUtils.buildConjunctiveFilterQuery(
+            isLatestCriterion, false, searchableFieldTypes, opContext, queryFilterRewriteChain);
+    ConjunctiveCriterion isNotVersionedCriterion = new ConjunctiveCriterion();
+    CriterionArray isNotVersionedCriterionArray = new CriterionArray();
+    isNotVersionedCriterionArray.add(
+        CriterionUtils.buildCriterion(IS_LATEST_FIELD_NAME, Condition.EXISTS, true));
+    isNotVersionedCriterion.setAnd(isNotVersionedCriterionArray);
+    BoolQueryBuilder isNotVersioned =
+        ESUtils.buildConjunctiveFilterQuery(
+            isNotVersionedCriterion,
+            false,
+            searchableFieldTypes,
+            opContext,
+            queryFilterRewriteChain);
+    return QueryBuilders.boolQuery().should(isLatest).should(isNotVersioned).minimumShouldMatch(1);
   }
 }
