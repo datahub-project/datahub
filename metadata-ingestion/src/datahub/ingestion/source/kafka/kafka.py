@@ -204,6 +204,17 @@ def get_kafka_admin_client(
     return client
 
 
+def clean_field_path(field_path: str) -> str:
+    """Clean field path by removing version, type and other metadata."""
+    # Split by dots and take the last part which should be the actual field name
+    parts = field_path.split(".")
+    # Return last non-empty part that isn't a type or version declaration
+    for part in reversed(parts):
+        if part and not (part.startswith("[version=") or part.startswith("[type=")):
+            return part
+    return field_path
+
+
 def flatten_json(
     nested_json: Dict[str, Any],
     parent_key: str = "",
@@ -498,8 +509,8 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
                 try:
                     # Process both key and value
-                    key = msg.key()
-                    value = msg.value()
+                    key = msg.key() if callable(msg.key) else msg.key
+                    value = msg.value() if callable(msg.value) else msg.value
                     processed_key = self._process_message_part(
                         key, "key", topic, is_key=True
                     )
@@ -522,17 +533,15 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     # Add key and value data with proper prefixing
                     if processed_key is not None:
                         if isinstance(processed_key, dict):
-                            sample.update(
-                                {f"key.{k}": v for k, v in processed_key.items()}
-                            )
+                            # Don't prefix with 'key.'
+                            sample.update(processed_key)
                         else:
                             sample["key"] = processed_key
 
                     if processed_value is not None:
                         if isinstance(processed_value, dict):
-                            sample.update(
-                                {f"value.{k}": v for k, v in processed_value.items()}
-                            )
+                            # Add value fields without prefix
+                            sample.update(processed_value)
                         else:
                             sample["value"] = processed_value
 
@@ -559,6 +568,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         """Process sample data to extract field information from both key and value schemas."""
         all_keys: Set[str] = set()
         field_sample_map: Dict[str, List[str]] = {}
+        key_name: Optional[str] = None
 
         # Initialize from schema if available
         if schema_metadata is not None and isinstance(
@@ -570,9 +580,11 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     key_schema = avro.schema.parse(
                         schema_metadata.platformSchema.keySchema
                     )
+                    # Get key name from schema
+                    key_name = getattr(key_schema, "name", "key")
                     if hasattr(key_schema, "fields"):
                         for schema_field in key_schema.fields:
-                            field_path = f"key.{schema_field.name}"
+                            field_path = f"{key_name}.{schema_field.name}"
                             all_keys.add(field_path)
                             field_sample_map[field_path] = []
                 except Exception as e:
@@ -580,19 +592,27 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
 
             # Handle value schema fields
             for schema_field in schema_metadata.fields or []:
-                field_path = f"value.{schema_field.fieldPath}"
-                all_keys.add(field_path)
+                field_path = clean_field_path(schema_field.fieldPath)
                 field_sample_map[field_path] = []
+                all_keys.add(field_path)
 
         # Process samples
         for sample in samples:
             # Process each field in the sample
-            for key, value in sample.items():
-                if key not in ["offset", "timestamp"]:  # Skip metadata fields
-                    if key not in field_sample_map:
-                        field_sample_map[key] = []
-                        all_keys.add(key)
-                    field_sample_map[key].append(str(value))
+            for field_name, value in sample.items():
+                if field_name not in ["offset", "timestamp"]:
+                    clean_name = field_name
+                    if field_name == "key" and key_name:
+                        clean_name = key_name
+                    elif field_name.startswith("key.") and key_name:
+                        clean_name = f"{key_name}.{field_name[4:]}"
+                    elif field_name.startswith("value."):
+                        clean_name = field_name[6:]
+
+                    if clean_name not in field_sample_map:
+                        field_sample_map[clean_name] = []
+                        all_keys.add(clean_name)
+                    field_sample_map[clean_name].append(str(value))
 
         return {"all_keys": all_keys, "field_sample_map": field_sample_map}
 
