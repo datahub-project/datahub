@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Dict, List, Optional, Type
+from typing import Dict, Optional, Type
 
 from typing_extensions import Self
 
@@ -18,13 +18,15 @@ from datahub.sdk._shared import (
     HasContainer,
     HasOwnership,
     HasSubtype,
+    HasTags,
     OwnersInputType,
+    TagsInputType,
     make_time_stamp,
     parse_time_stamp,
 )
 
 
-class Container(HasSubtype, HasContainer, HasOwnership, Entity):
+class Container(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
     __slots__ = ()
 
     @classmethod
@@ -48,7 +50,7 @@ class Container(HasSubtype, HasContainer, HasOwnership, Entity):
         last_modified: Optional[datetime] = None,
         # Standard aspects.
         subtype: Optional[str] = None,
-        tags: Optional[List[str]] = None,
+        tags: Optional[TagsInputType] = None,
         owners: Optional[OwnersInputType] = None,
         domain_urn: Optional[str] = None,
     ):
@@ -100,9 +102,8 @@ class Container(HasSubtype, HasContainer, HasOwnership, Entity):
             self.set_subtype(subtype)
         if owners is not None:
             self.set_owners(owners)
-        # TODO: handle tags
-        # if tags is not None:
-        #     self.set_tags(tags)
+        if tags is not None:
+            self.set_tags(tags)
         # TODO: handle domain
         # if domain_urn is not None:
         #     self.set_domain_urn(domain_urn)
