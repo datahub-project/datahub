@@ -956,6 +956,16 @@ type Mutation {
     Remove Business Attribute
     """
     removeBusinessAttribute(input: AddBusinessAttributeInput!): Boolean
+
+    """
+    Link the latest versioned entity to a Version Set
+    """
+    linkAssetVersion(input: LinkVersionInput!): String
+
+    """
+    Unlink a versioned entity from a Version Set
+    """
+    unlinkAssetVersion(input: UnlinkVersionInput!): Boolean
 }
 
 """
@@ -6276,6 +6286,16 @@ type DataFlow implements EntityWithRelationships & Entity & BrowsableEntity {
     dataPlatformInstance: DataPlatformInstance
 
     """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
+    Recursively get the lineage of containers for this entity
+    """
+    parentContainers: ParentContainersResult
+
+    """
     Granular API for querying edges extending from this entity
     """
     relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -6456,6 +6476,16 @@ type DataJob implements EntityWithRelationships & Entity & BrowsableEntity {
     The specific instance of the data platform that this entity belongs to
     """
     dataPlatformInstance: DataPlatformInstance
+
+    """
+    The parent container in which the entity resides
+    """
+    container: Container
+
+    """
+    Recursively get the lineage of containers for this entity
+    """
+    parentContainers: ParentContainersResult
 
     """
     Additional read write properties associated with the Data Job
@@ -10078,7 +10108,7 @@ type MLModelProperties {
     """
     The display name of the model used in the UI
     """
-    name: String!
+    name: String
 
     """
     Detailed description of the model's purpose and characteristics
@@ -12889,6 +12919,56 @@ input ListBusinessAttributesInput {
     Optional search query
     """
     query: String
+}
+
+"""
+Input for linking a versioned entity to a Version Set
+"""
+input LinkVersionInput {
+    """
+    The target version set
+    """
+    versionSet: String!
+
+    """
+    The target versioned entity to link
+    """
+    linkedEntity: String!
+
+    """
+    Version Tag label for the version, should be unique within a Version Set
+    """
+    version: String!
+
+    """
+    Optional timestamp from the source system
+    """
+    sourceTimestamp: Long
+
+    """
+    Optional creator from the source system, will be converted to an Urn
+    """
+    sourceCreator: String
+
+    """
+    Optional comment about the version
+    """
+    comment: String
+}
+
+"""
+Input for unlinking a versioned entity from a Version Set
+"""
+input UnlinkVersionInput {
+    """
+    The target version set
+    """
+    versionSet: String
+
+    """
+    The target versioned entity to unlink
+    """
+    unlinkedEntity: String
 }
 
 """

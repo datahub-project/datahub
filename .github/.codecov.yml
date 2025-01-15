@@ -1,0 +1,65 @@
+comment:
+  layout: "header, files, footer" # remove "new" from "header" and "footer"
+  hide_project_coverage: true # set to false
+  require_changes: false  # if true: only post the comment if coverage changes
+
+codecov:
+  #due to ci-optimization, reports for modules that have not changed may be quite old
+  max_report_age: off
+
+flag_management:
+  default_rules: # the rules that will be followed for any flag added, generally
+    carryforward: true
+    statuses:
+      - type: project
+        target: auto
+        threshold: 0%  #Not enforcing project coverage yet.
+      - type: patch
+        target: 90%
+  individual_flags: # exceptions to the default rules above, stated flag by flag
+    - name: frontend
+      paths:
+        - "datahub-frontend/**"
+        - "datahub-web-react/**"
+    - name: backend
+      paths:
+        - "metadata-models/**"
+        - "datahub-upgrade/**"
+        - "entity-registry/**"
+        - "li-utils/**"
+        - "metadata-auth/**"
+        - "metadata-dao-impl/**"
+        - "metadata-events/**"
+        - "metadata-jobs/**"
+        - "metadata-service/**"
+        - "metadata-utils/**"
+        - "metadata-operation-context/**"
+        - "datahub-graphql-core/**"
+    - name: metadata-io
+      paths:
+        - "metadata-io/**"
+    - name: ingestion
+      paths:
+        - "metadata-ingestion/**"
+    - name: ingestion-airflow
+      paths:
+        - "metadata-ingestion-modules/airflow-plugin/**"
+    - name: ingestion-dagster
+      paths:
+        - "metadata-ingestion-modules/dagster-plugin/**"
+    - name: ingestion-gx-plugin
+      paths:
+        - "metadata-ingestion-modules/gx-plugin/**"
+    - name: ingestion-prefect
+      paths:
+        - "metadata-ingestion-modules/prefect-plugin/**"
+coverage:
+  status:
+    project:
+      default:
+        target: 0% # no threshold enforcement yet
+        only_pulls: true
+    patch:
+      default:
+        target: 90% # for new code added in the patch
+        only_pulls: true
