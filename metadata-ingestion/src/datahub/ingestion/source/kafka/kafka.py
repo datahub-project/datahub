@@ -211,7 +211,10 @@ def clean_field_path(field_path: str) -> str:
     # Return last non-empty part that isn't a type or version declaration
     for part in reversed(parts):
         if part and not (part.startswith("[version=") or part.startswith("[type=")):
-            return part
+            if part.endswith("[key=True]"):
+                return "key"
+            else:
+                return part
     return field_path
 
 
