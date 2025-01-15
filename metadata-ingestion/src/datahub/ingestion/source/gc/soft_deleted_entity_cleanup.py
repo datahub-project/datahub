@@ -99,7 +99,7 @@ class SoftDeletedEntitiesCleanupConfig(ConfigModel):
 
 @dataclass
 class SoftDeletedEntitiesReport(SourceReport):
-    num_queries_found: int = 0
+    num_entities_found: dict[str, int] = field(default_factory=dict)
     num_soft_deleted_entity_processed: int = 0
     num_soft_deleted_retained_due_to_age: int = 0
     num_soft_deleted_entity_removal_started: int = 0
@@ -277,7 +277,11 @@ class SoftDeletedEntitiesCleanup:
                 # We make the batch size = config after call has succeeded once
                 batch_size = self.config.batch_size
             scroll_id = scroll_across_entities.get("nextScrollId")
-            self.report.num_queries_found += scroll_across_entities.get("count")
+            if entity_type not in self.report.num_entities_found:
+                self.report.num_entities_found[entity_type] = 0
+            self.report.num_entities_found[entity_type] += scroll_across_entities.get(
+                "count"
+            )
             for query in scroll_across_entities.get("searchResults"):
                 yield query["entity"]["urn"]
 
