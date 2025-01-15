@@ -42,7 +42,6 @@ ext {
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend'],
                     isDebug: true
             ],
-
             'quickstartDebugConsumers': [
                     profile: 'debug-consumers',
                     modules: python_services_modules + backend_profile_modules + [':datahub-frontend',
@@ -50,7 +49,6 @@ ext {
                                                                           ':metadata-jobs:mae-consumer-job'],
                     isDebug: true
             ],
-
             'quickstartPg': [
                     profile: 'quickstart-postgres',
                     modules: (backend_profile_modules - [':docker:mysql-setup']) + [
@@ -108,9 +106,7 @@ dockerCompose {
             }
 
             // Common environment variables
-            environment.put 'DATAHUB_VERSION', config.isDebug ?
-                    System.getenv("DATAHUB_VERSION") ?: "v${version}" :
-                    "v${version}"
+            environment.put 'DATAHUB_VERSION', System.getenv("DATAHUB_VERSION") ?: "v${version}"
             environment.put 'DATAHUB_TELEMETRY_ENABLED', 'false'
             environment.put "METADATA_TESTS_ENABLED", "true"
             environment.put "DATAHUB_REPO", "${docker_registry}"
