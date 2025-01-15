@@ -68,6 +68,6 @@ export function getDatasetName(datainput: any): string {
         datainput?.editableProperties?.name ||
         datainput?.properties?.name ||
         datainput?.name ||
-        datainput?.urn.split(',').at(1)
+        datainput?.urn?.split(',')?.at(1)
     );
 }

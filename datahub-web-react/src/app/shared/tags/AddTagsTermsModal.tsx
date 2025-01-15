@@ -236,7 +236,7 @@ export default function EditTagTermsModal({
         setUrns(newUrns);
         setSelectedTerms([
             ...selectedTerms,
-            { urn, component: <TagTermLabel termName={selectedSearchOption?.props.name} /> },
+            { urn, component: <TagTermLabel termName={selectedSearchOption?.props?.name} /> },
         ]);
         setSelectedTags([
             ...selectedTags,

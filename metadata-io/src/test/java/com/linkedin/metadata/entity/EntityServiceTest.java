@@ -84,6 +84,8 @@ import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.annotation.Nonnull;
+import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -123,6 +125,8 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
   protected static final AuditStamp TEST_AUDIT_STAMP = AspectGenerationUtils.createAuditStamp();
   protected OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
   protected final EntityRegistry _testEntityRegistry = opContext.getEntityRegistry();
+  protected OperationContext userContext =
+      TestOperationContexts.userContextNoSearchAuthorization(_testEntityRegistry);
   protected EventProducer _mockProducer;
   protected UpdateIndicesService _mockUpdateIndicesService;
 
@@ -501,7 +505,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
-            opContext, entityUrn, new HashSet<>(Arrays.asList(aspectName1, aspectName2)));
+            opContext, entityUrn, new HashSet<>(Arrays.asList(aspectName1, aspectName2)), false);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, latestAspects.get(aspectName1)));
     assertTrue(DataTemplateUtil.areEqual(writeAspect2, latestAspects.get(aspectName2)));
 
@@ -557,7 +561,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
-            opContext, entityUrn, new HashSet<>(List.of(aspectName1)));
+            opContext, entityUrn, new HashSet<>(List.of(aspectName1)), false);
     assertTrue(DataTemplateUtil.areEqual(writeAspect1, latestAspects.get(aspectName1)));
 
     verify(_mockProducer, times(1))
@@ -627,7 +631,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     restateChangeLog.setSystemMetadata(futureSystemMetadata);
     restateChangeLog.setPreviousAspectValue(aspect);
     restateChangeLog.setPreviousSystemMetadata(
-        simulatePullFromDB(futureSystemMetadata, SystemMetadata.class));
+        simulatePullFromDB(initialSystemMetadata, SystemMetadata.class));
     restateChangeLog.setEntityKeyAspect(
         GenericRecordUtils.serializeAspect(
             EntityKeyUtils.convertUrnToEntityKey(
@@ -636,7 +640,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
-            opContext, entityUrn, new HashSet<>(List.of(aspectName1)));
+            opContext, entityUrn, new HashSet<>(List.of(aspectName1)), false);
     assertTrue(DataTemplateUtil.areEqual(upstreamLineage, latestAspects.get(aspectName1)));
 
     verify(_mockProducer, times(1))
@@ -705,12 +709,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     restateChangeLog.setAspect(genericAspect);
     restateChangeLog.setSystemMetadata(futureSystemMetadata);
     restateChangeLog.setPreviousAspectValue(genericAspect);
-    restateChangeLog.setPreviousSystemMetadata(
-        simulatePullFromDB(futureSystemMetadata, SystemMetadata.class));
+    restateChangeLog.setPreviousSystemMetadata(simulatePullFromDB(metadata1, SystemMetadata.class));
 
     Map<String, RecordTemplate> latestAspects =
         _entityServiceImpl.getLatestAspectsForUrn(
-            opContext, entityUrn, new HashSet<>(List.of(aspectName1)));
+            opContext, entityUrn, new HashSet<>(List.of(aspectName1)), false);
     assertTrue(DataTemplateUtil.areEqual(upstreamLineage, latestAspects.get(aspectName1)));
 
     verify(_mockProducer, times(1))
@@ -944,32 +947,32 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect3)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,
@@ -1036,25 +1039,25 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(keyAspectName)
                 .recordTemplate(writeKey1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,
@@ -1129,39 +1132,39 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(keyAspectName)
                 .recordTemplate(writeKey1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn2)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn3)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect3)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn1)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1Overwrite)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,
@@ -1207,11 +1210,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,
@@ -1263,11 +1266,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect2)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata2)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,
@@ -1319,11 +1322,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .auditStamp(TEST_AUDIT_STAMP)
                 .systemMetadata(metadata1)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,
@@ -1346,11 +1349,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect2)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,
@@ -1415,11 +1418,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .systemMetadata(metadata1)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,
@@ -1471,11 +1474,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect2)
                 .systemMetadata(metadata2)
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,
@@ -1533,46 +1536,46 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1)
                 .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1a)
                 .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName)
                 .recordTemplate(writeAspect1b)
                 .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .recordTemplate(writeAspect2)
                 .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .recordTemplate(writeAspect2a)
                 .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .recordTemplate(writeAspect2b)
                 .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,
@@ -1609,18 +1612,18 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                 .recordTemplate(writeAspect1c)
                 .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()),
+                .build(opContext.getAspectRetriever()),
             ChangeItemImpl.builder()
                 .urn(entityUrn)
                 .aspectName(aspectName2)
                 .recordTemplate(writeAspect2c)
                 .systemMetadata(AspectGenerationUtils.createSystemMetadata())
                 .auditStamp(TEST_AUDIT_STAMP)
-                .build(opContext.getAspectRetrieverOpt().get()));
+                .build(opContext.getAspectRetriever()));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(items)
             .build(),
         true,
@@ -1981,8 +1984,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
           stream
               .map(
                   entityAspect ->
-                      EntityUtils.toSystemAspect(
-                              opContext.getRetrieverContext().get(), entityAspect)
+                      EntityUtils.toSystemAspect(opContext.getRetrieverContext(), entityAspect)
                           .get()
                           .getAspect(StructuredPropertyDefinition.class))
               .collect(Collectors.toSet());
@@ -1994,7 +1996,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     SystemEntityClient mockSystemEntityClient = Mockito.mock(SystemEntityClient.class);
     Mockito.when(
             mockSystemEntityClient.getLatestAspectObject(
-                any(OperationContext.class), eq(firstPropertyUrn), eq("propertyDefinition")))
+                any(OperationContext.class),
+                eq(firstPropertyUrn),
+                eq("propertyDefinition"),
+                anyBoolean()))
         .thenReturn(new com.linkedin.entity.Aspect(structuredPropertyDefinition.data()));
 
     // Add a value for that property
@@ -2061,8 +2066,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
           stream
               .map(
                   entityAspect ->
-                      EntityUtils.toSystemAspect(
-                              opContext.getRetrieverContext().get(), entityAspect)
+                      EntityUtils.toSystemAspect(opContext.getRetrieverContext(), entityAspect)
                           .get()
                           .getAspect(StructuredPropertyDefinition.class))
               .collect(Collectors.toSet());
@@ -2073,7 +2077,10 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
     Mockito.when(
             mockSystemEntityClient.getLatestAspectObject(
-                any(OperationContext.class), eq(secondPropertyUrn), eq("propertyDefinition")))
+                any(OperationContext.class),
+                eq(secondPropertyUrn),
+                eq("propertyDefinition"),
+                anyBoolean()))
         .thenReturn(new com.linkedin.entity.Aspect(secondDefinition.data()));
 
     // Get existing value for first structured property
@@ -2157,7 +2164,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         ValidationException.class,
         () ->
             _entityServiceImpl.ingestProposal(
-                opContext, secondCreateProposal, TEST_AUDIT_STAMP, false));
+                userContext, secondCreateProposal, TEST_AUDIT_STAMP, false));
   }
 
   @Test
@@ -2208,7 +2215,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             .recordTemplate(new Status().setRemoved(true))
             .systemMetadata(systemMetadata.copy())
             .auditStamp(TEST_AUDIT_STAMP)
-            .build(TestOperationContexts.emptyAspectRetriever(null));
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
     ChangeItemImpl item2 =
         ChangeItemImpl.builder()
             .urn(entityUrn)
@@ -2216,11 +2223,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             .recordTemplate(new Status().setRemoved(false))
             .systemMetadata(systemMetadata.copy())
             .auditStamp(TEST_AUDIT_STAMP)
-            .build(TestOperationContexts.emptyAspectRetriever(null));
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(item1, item2))
             .build(),
         false,
@@ -2268,7 +2275,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .setTags(new TagAssociationArray(new TagAssociation().setTag(tag1))))
             .systemMetadata(systemMetadata.copy())
             .auditStamp(TEST_AUDIT_STAMP)
-            .build(TestOperationContexts.emptyAspectRetriever(null));
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
 
     PatchItemImpl patchAdd2 =
         PatchItemImpl.builder()
@@ -2310,7 +2317,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(initialAspectTag1))
             .build(),
         false,
@@ -2319,7 +2326,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(patchAdd2, patchRemoveNonExistent))
             .build(),
         false,
@@ -2367,7 +2374,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
                     .setTags(new TagAssociationArray(new TagAssociation().setTag(tag1))))
             .systemMetadata(systemMetadata.copy())
             .auditStamp(TEST_AUDIT_STAMP)
-            .build(TestOperationContexts.emptyAspectRetriever(null));
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
 
     PatchItemImpl patchAdd3 =
         PatchItemImpl.builder()
@@ -2427,7 +2434,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(initialAspectTag1))
             .build(),
         false,
@@ -2436,7 +2443,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(patchAdd3, patchAdd2, patchAdd1))
             .build(),
         false,
@@ -2490,7 +2497,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             .recordTemplate(new GlobalTags().setTags(new TagAssociationArray(initialTags)))
             .systemMetadata(systemMetadata.copy())
             .auditStamp(TEST_AUDIT_STAMP)
-            .build(TestOperationContexts.emptyAspectRetriever(null));
+            .build(TestOperationContexts.emptyActiveUsersAspectRetriever(null));
 
     PatchItemImpl patchAdd2 =
         PatchItemImpl.builder()
@@ -2515,7 +2522,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(initialAspectTag1))
             .build(),
         false,
@@ -2524,7 +2531,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     _entityServiceImpl.ingestAspects(
         opContext,
         AspectsBatchImpl.builder()
-            .retrieverContext(opContext.getRetrieverContext().get())
+            .retrieverContext(opContext.getRetrieverContext())
             .items(List.of(patchAdd2, patchAdd2)) // duplicate
             .build(),
         false,
@@ -2580,7 +2587,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         _entityServiceImpl.ingestAspects(
             opContext,
             AspectsBatchImpl.builder()
-                .retrieverContext(opContext.getRetrieverContext().get())
+                .retrieverContext(opContext.getRetrieverContext())
                 .items(List.of(patchRemove))
                 .build(),
             false,
@@ -2637,7 +2644,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
         _entityServiceImpl.ingestAspects(
             opContext,
             AspectsBatchImpl.builder()
-                .retrieverContext(opContext.getRetrieverContext().get())
+                .retrieverContext(opContext.getRetrieverContext())
                 .items(List.of(patchAdd))
                 .build(),
             false,
@@ -2663,6 +2670,109 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
         Set.of(tag1),
         "Expected all tags");
+  }
+
+  @Test
+  public void testDeleteUrnWithRunIdFilterNonMatch() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:deleteWithFilterNonMatch");
+
+    // Create aspects with different run IDs
+    SystemMetadata metadata1 = AspectGenerationUtils.createSystemMetadata();
+    metadata1.setRunId("run-123");
+
+    SystemMetadata metadata2 = AspectGenerationUtils.createSystemMetadata();
+    metadata2.setRunId("run-456"); // Different run ID
+
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+
+    // First ingest the aspect that should survive (run-456)
+    CorpUserInfo writeAspect1 = AspectGenerationUtils.createCorpUserInfo("first@test.com");
+    List<Pair<String, RecordTemplate>> firstPair = new ArrayList<>();
+    firstPair.add(getAspectRecordPair(writeAspect1, CorpUserInfo.class));
+    _entityServiceImpl.ingestAspects(opContext, entityUrn, firstPair, TEST_AUDIT_STAMP, metadata2);
+
+    // Then ingest the aspect that should be deleted (run-123)
+    CorpUserInfo writeAspect2 = AspectGenerationUtils.createCorpUserInfo("second@test.com");
+    List<Pair<String, RecordTemplate>> secondPair = new ArrayList<>();
+    secondPair.add(getAspectRecordPair(writeAspect2, CorpUserInfo.class));
+    _entityServiceImpl.ingestAspects(opContext, entityUrn, secondPair, TEST_AUDIT_STAMP, metadata1);
+
+    // When we try to delete with runId=run-123, the version with runId=run-456 should survive
+    RollbackResult result =
+        _entityServiceImpl.deleteAspectWithoutMCL(
+            opContext,
+            entityUrn.toString(),
+            aspectName,
+            Collections.singletonMap("runId", "run-123"),
+            true);
+
+    // The aspect with run-456 should still exist
+    RecordTemplate survivingAspect =
+        _entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect1, survivingAspect));
+
+    // Verify the RollbackResult details
+    assertNotNull(result);
+    assertEquals(result.getUrn(), entityUrn);
+    assertEquals(result.getEntityName(), "corpuser");
+    assertEquals(result.getAspectName(), aspectName);
+  }
+
+  @Test
+  public void testDeleteUrnWithRunIdFilterNonMatchVersionGap() throws Exception {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:deleteWithFilterNonMatch");
+    String aspectName = AspectGenerationUtils.getAspectName(new CorpUserInfo());
+
+    // Metadata that should be preserved (run-456)
+    SystemMetadata metadata456 = AspectGenerationUtils.createSystemMetadata();
+    metadata456.setRunId("run-456"); // Different run ID
+    CorpUserInfo writeAspect456 = AspectGenerationUtils.createCorpUserInfo("first@test.com");
+    List<Pair<String, RecordTemplate>> firstPair = new ArrayList<>();
+    firstPair.add(getAspectRecordPair(writeAspect456, CorpUserInfo.class));
+    _entityServiceImpl.ingestAspects(
+        opContext, entityUrn, firstPair, TEST_AUDIT_STAMP, metadata456);
+
+    // Metadata that should be deleted (run-123)
+    SystemMetadata metadata123 = AspectGenerationUtils.createSystemMetadata();
+    metadata123.setRunId("run-123");
+    CorpUserInfo writeAspect123 = AspectGenerationUtils.createCorpUserInfo("second@test.com");
+    List<Pair<String, RecordTemplate>> secondPair = new ArrayList<>();
+    secondPair.add(getAspectRecordPair(writeAspect123, CorpUserInfo.class));
+    _entityServiceImpl.ingestAspects(
+        opContext, entityUrn, secondPair, TEST_AUDIT_STAMP, metadata123);
+
+    // Then insert another run-123 with version gap
+    _aspectDao.saveAspect(
+        null,
+        entityUrn.toString(),
+        aspectName,
+        RecordUtils.toJsonString(writeAspect123),
+        TEST_AUDIT_STAMP.getActor().toString(),
+        null,
+        Timestamp.from(Instant.ofEpochMilli(TEST_AUDIT_STAMP.getTime())),
+        RecordUtils.toJsonString(metadata123),
+        10L,
+        true);
+
+    // When we try to delete with runId=run-123, the version with runId=run-456 should survive
+    RollbackResult result =
+        _entityServiceImpl.deleteAspectWithoutMCL(
+            opContext,
+            entityUrn.toString(),
+            aspectName,
+            Collections.singletonMap("runId", "run-123"),
+            true);
+
+    // The aspect with run-456 should still exist
+    RecordTemplate survivingAspect =
+        _entityServiceImpl.getLatestAspect(opContext, entityUrn, aspectName);
+    assertTrue(DataTemplateUtil.areEqual(writeAspect456, survivingAspect));
+
+    // Verify the RollbackResult details
+    assertNotNull(result);
+    assertEquals(result.getUrn(), entityUrn);
+    assertEquals(result.getEntityName(), "corpuser");
+    assertEquals(result.getAspectName(), aspectName);
   }
 
   @Nonnull

@@ -72,6 +72,7 @@ query appConfig {
             dataContractsEnabled
             editableDatasetNameEnabled
             showSeparateSiblings
+            showManageStructuredProperties
         }
     }
 }

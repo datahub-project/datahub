@@ -108,6 +108,8 @@ public class Constants {
   // Common
   public static final String OWNERSHIP_ASPECT_NAME = "ownership";
 
+  public static final String TIMESTAMP_MILLIS = "timestampMillis";
+
   public static final String INSTITUTIONAL_MEMORY_ASPECT_NAME = "institutionalMemory";
   public static final String DATA_PLATFORM_INSTANCE_ASPECT_NAME = "dataPlatformInstance";
   public static final String BROWSE_PATHS_ASPECT_NAME = "browsePaths";
@@ -125,6 +127,8 @@ public class Constants {
   public static final String EMBED_ASPECT_NAME = "embed";
   public static final String INCIDENTS_SUMMARY_ASPECT_NAME = "incidentsSummary";
   public static final String DOCUMENTATION_ASPECT_NAME = "documentation";
+  public static final String DATA_TRANSFORM_LOGIC_ASPECT_NAME = "dataTransformLogic";
+  public static final String VERSION_PROPERTIES_ASPECT_NAME = "versionProperties";
 
   // User
   public static final String CORP_USER_KEY_ASPECT_NAME = "corpUserKey";
@@ -363,6 +367,8 @@ public class Constants {
   // Structured Property
   public static final String STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME = "propertyDefinition";
   public static final String STRUCTURED_PROPERTY_KEY_ASPECT_NAME = "structuredPropertyKey";
+  public static final String STRUCTURED_PROPERTY_SETTINGS_ASPECT_NAME =
+      "structuredPropertySettings";
 
   // Form
   public static final String FORM_INFO_ASPECT_NAME = "formInfo";
@@ -405,6 +411,8 @@ public class Constants {
   /** User Status */
   public static final String CORP_USER_STATUS_ACTIVE = "ACTIVE";
 
+  public static final String CORP_USER_STATUS_SUSPENDED = "SUSPENDED";
+
   /** Task Runs */
   public static final String DATA_PROCESS_INSTANCE_ENTITY_NAME = "dataProcessInstance";
 
@@ -414,6 +422,10 @@ public class Constants {
       "dataProcessInstanceRunEvent";
   public static final String DATA_PROCESS_INSTANCE_RELATIONSHIPS_ASPECT_NAME =
       "dataProcessInstanceRelationships";
+  public static final String DATA_PROCESS_INSTANCE_INPUT_ASPECT_NAME = "dataProcessInstanceInput";
+  public static final String DATA_PROCESS_INSTANCE_OUTPUT_ASPECT_NAME = "dataProcessInstanceOutput";
+  public static final String DATA_PROCESS_INSTANCE_KEY_ASPECT_NAME = "dataProcessInstanceKey";
+  public static final String ML_TRAINING_RUN_PROPERTIES_ASPECT_NAME = "mlTrainingRunProperties";
 
   // Business Attribute
   public static final String BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME = "businessAttributeKey";
@@ -452,6 +464,18 @@ public class Constants {
 
   // Incidents
   public static final String ENTITY_REF = "entities";
+
+  // Version Set
+  public static final String VERSION_SET_ENTITY_NAME = "versionSet";
+  public static final String VERSION_SET_KEY_ASPECT_NAME = "versionSetKey";
+  public static final String VERSION_SET_PROPERTIES_ASPECT_NAME = "versionSetProperties";
+
+  // Versioning related
+  public static final String INITIAL_VERSION_SORT_ID = "AAAAAAAA";
+  public static final String VERSION_SORT_ID_FIELD_NAME = "versionSortId";
+  public static final String IS_LATEST_FIELD_NAME = "isLatest";
+
+  public static final String DISPLAY_PROPERTIES_ASPECT_NAME = "displayProperties";
 
   // Config
   public static final String ELASTICSEARCH_IMPLEMENTATION_OPENSEARCH = "opensearch";

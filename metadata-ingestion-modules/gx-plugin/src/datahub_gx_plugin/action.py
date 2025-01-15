@@ -34,8 +34,9 @@ from datahub.metadata.com.linkedin.pegasus2avro.assertion import (
 )
 from datahub.metadata.com.linkedin.pegasus2avro.common import DataPlatformInstance
 from datahub.metadata.schema_classes import PartitionSpecClass, PartitionTypeClass
+from datahub.sql_parsing.sqlglot_lineage import create_lineage_sql_parsed_result
 from datahub.utilities._markupsafe_compat import MARKUPSAFE_PATCHED
-from datahub.utilities.sql_parser import DefaultSQLParser
+from datahub.utilities.urns.dataset_urn import DatasetUrn
 from great_expectations.checkpoint.actions import ValidationAction
 from great_expectations.core.batch import Batch
 from great_expectations.core.batch_spec import (
@@ -677,10 +678,23 @@ class DataHubValidationAction(ValidationAction):
                     query=query,
                     customProperties=batchSpecProperties,
                 )
-                try:
-                    tables = DefaultSQLParser(query).get_tables()
-                except Exception as e:
-                    logger.warning(f"Sql parser failed on {query} with {e}")
+
+                data_platform = get_platform_from_sqlalchemy_uri(str(sqlalchemy_uri))
+                sql_parser_in_tables = create_lineage_sql_parsed_result(
+                    query=query,
+                    platform=data_platform,
+                    env=self.env,
+                    platform_instance=None,
+                    default_db=None,
+                )
+                tables = [
+                    DatasetUrn.from_string(table_urn).name
+                    for table_urn in sql_parser_in_tables.in_tables
+                ]
+                if sql_parser_in_tables.debug_info.table_error:
+                    logger.warning(
+                        f"Sql parser failed on {query} with {sql_parser_in_tables.debug_info.table_error}"
+                    )
                     tables = []
 
                 if len(set(tables)) != 1:

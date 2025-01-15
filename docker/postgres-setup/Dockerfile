@@ -1,11 +1,11 @@
 # Defining custom repo urls for use in enterprise environments. Re-used between stages below.
 ARG ALPINE_REPO_URL=http://dl-cdn.alpinelinux.org/alpine
 
-FROM golang:1-alpine3.20 AS binary
+FROM golang:1-alpine3.21 AS binary
 
 ARG ALPINE_REPO_URL
 
-ENV DOCKERIZE_VERSION=v0.6.1
+ENV DOCKERIZE_VERSION=v0.9.1
 WORKDIR /go/src/github.com/jwilder
 
 # Optionally set corporate mirror for apk
@@ -17,7 +17,7 @@ WORKDIR /go/src/github.com/jwilder/dockerize
 
 RUN go install github.com/jwilder/dockerize@$DOCKERIZE_VERSION
 
-FROM alpine:3.20
+FROM alpine:3.21
 COPY --from=binary /go/bin/dockerize /usr/local/bin
 
 ARG ALPINE_REPO_URL

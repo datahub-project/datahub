@@ -12,6 +12,7 @@ on:
     paths-ignore:
       - "docs/**"
       - "**.md"
+  workflow_dispatch:
   release:
     types: [published]
 
@@ -109,16 +110,20 @@ jobs:
         if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
         run: |
           ./gradlew :datahub-frontend:build :datahub-web-react:build --parallel
-        env:
-          NODE_OPTIONS: "--max-old-space-size=3072"
       - name: Gradle compile (jdk8) for legacy Spark
         if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
         run: |
           ./gradlew -PjavaClassVersionDefault=8 :metadata-integration:java:spark-lineage:compileJava
-      - uses: actions/upload-artifact@v3
+      - name: Gather coverage files
+        run: |
+          echo "BACKEND_FILES=`find ./build/coverage-reports/ -type f | grep -E '(metadata-models|entity-registry|datahuyb-graphql-core|metadata-io|metadata-jobs|metadata-utils|metadata-service|medata-dao-impl|metadata-operation|li-utils|metadata-integration|metadata-events|metadata-auth|ingestion-scheduler|notifications|datahub-upgrade)' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
+          echo "FRONTEND_FILES=`find ./build/coverage-reports/ -type f | grep -E '(datahub-frontend|datahub-web-react).*\.(xml|json)$' | xargs | sed 's/ /,/g'`" >> $GITHUB_ENV
+      - name: Generate tz artifact name
+        run: echo "NAME_TZ=$(echo ${{ matrix.timezone }} | tr '/' '-')" >> $GITHUB_ENV
+      - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: Test Results (build)
+          name: Test Results (build) - ${{ matrix.command}}-${{ env.NAME_TZ }}
           path: |
             **/build/reports/tests/test/**
             **/build/test-results/test/**
@@ -126,6 +131,35 @@ jobs:
             !**/binary/**
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
+      - name: Upload backend coverage to Codecov
+        if: ${{  matrix.command == 'except_metadata_ingestion' && needs.setup.outputs.backend_change == 'true' }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.BACKEND_FILES }}
+          disable_search: true
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          flags: backend
+          name: ${{ matrix.command }}
+          verbose: true
+      - name: Upload frontend coverage to Codecov
+        if: ${{  matrix.command == 'frontend' && needs.setup.outputs.frontend_change == 'true' }}
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ${{ env.FRONTEND_FILES }}
+          disable_search: true
+          #handle_no_reports_found: true
+          fail_ci_if_error: false
+          flags: frontend
+          name: ${{ matrix.command }}
+          verbose: true
+      - name: Upload test results to Codecov
+        if: ${{ !cancelled() }}
+        uses: codecov/test-results-action@v1
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   quickstart-compose-validation:
     runs-on: ubuntu-latest
@@ -144,7 +178,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Event File
           path: ${{ github.event_path }}

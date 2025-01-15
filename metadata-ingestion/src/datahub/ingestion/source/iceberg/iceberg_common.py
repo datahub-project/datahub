@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 from humanfriendly import format_timespan
 from pydantic import Field, validator
 from pyiceberg.catalog import Catalog, load_catalog
+from sortedcontainers import SortedList
 
 from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin
@@ -67,6 +68,10 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
     table_pattern: AllowDenyPattern = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for tables to filter in ingestion.",
+    )
+    namespace_pattern: AllowDenyPattern = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for namespaces to filter in ingestion.",
     )
     user_ownership_property: Optional[str] = Field(
         default="owner",
@@ -142,19 +147,40 @@ class IcebergSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin)
         return load_catalog(name=catalog_name, **catalog_config)
 
 
+class TopTableTimings:
+    _VALUE_FIELD: str = "timing"
+    top_entites: SortedList
+    _size: int
+
+    def __init__(self, size: int = 10):
+        self._size = size
+        self.top_entites = SortedList(key=lambda x: -x.get(self._VALUE_FIELD, 0))
+
+    def add(self, entity: Dict[str, Any]) -> None:
+        if self._VALUE_FIELD not in entity:
+            return
+        self.top_entites.add(entity)
+        if len(self.top_entites) > self._size:
+            self.top_entites.pop()
+
+    def __str__(self) -> str:
+        if len(self.top_entites) == 0:
+            return "no timings reported"
+        return str(list(self.top_entites))
+
+
 class TimingClass:
-    times: List[int]
+    times: SortedList
 
     def __init__(self):
-        self.times = []
+        self.times = SortedList()
 
-    def add_timing(self, t):
-        self.times.append(t)
+    def add_timing(self, t: float) -> None:
+        self.times.add(t)
 
-    def __str__(self):
+    def __str__(self) -> str:
         if len(self.times) == 0:
             return "no timings reported"
-        self.times.sort()
         total = sum(self.times)
         avg = total / len(self.times)
         return str(
@@ -176,6 +202,9 @@ class IcebergSourceReport(StaleEntityRemovalSourceReport):
     load_table_timings: TimingClass = field(default_factory=TimingClass)
     processing_table_timings: TimingClass = field(default_factory=TimingClass)
     profiling_table_timings: TimingClass = field(default_factory=TimingClass)
+    tables_load_timings: TopTableTimings = field(default_factory=TopTableTimings)
+    tables_profile_timings: TopTableTimings = field(default_factory=TopTableTimings)
+    tables_process_timings: TopTableTimings = field(default_factory=TopTableTimings)
     listed_namespaces: int = 0
     total_listed_tables: int = 0
     tables_listed_per_namespace: TopKDict[str, int] = field(
@@ -197,11 +226,26 @@ class IcebergSourceReport(StaleEntityRemovalSourceReport):
     def report_dropped(self, ent_name: str) -> None:
         self.filtered.append(ent_name)
 
-    def report_table_load_time(self, t: float) -> None:
+    def report_table_load_time(
+        self, t: float, table_name: str, table_metadata_location: str
+    ) -> None:
         self.load_table_timings.add_timing(t)
+        self.tables_load_timings.add(
+            {"table": table_name, "timing": t, "metadata_file": table_metadata_location}
+        )
 
-    def report_table_processing_time(self, t: float) -> None:
+    def report_table_processing_time(
+        self, t: float, table_name: str, table_metadata_location: str
+    ) -> None:
         self.processing_table_timings.add_timing(t)
+        self.tables_process_timings.add(
+            {"table": table_name, "timing": t, "metadata_file": table_metadata_location}
+        )
 
-    def report_table_profiling_time(self, t: float) -> None:
+    def report_table_profiling_time(
+        self, t: float, table_name: str, table_metadata_location: str
+    ) -> None:
         self.profiling_table_timings.add_timing(t)
+        self.tables_profile_timings.add(
+            {"table": table_name, "timing": t, "metadata_file": table_metadata_location}
+        )

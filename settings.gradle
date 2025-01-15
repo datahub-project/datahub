@@ -64,6 +64,7 @@ include 'metadata-ingestion-modules:airflow-plugin'
 include 'metadata-ingestion-modules:gx-plugin'
 include 'metadata-ingestion-modules:dagster-plugin'
 include 'metadata-ingestion-modules:prefect-plugin'
+include 'python-build'
 include 'smoke-test'
 include 'metadata-auth:auth-api'
 include 'metadata-service:schema-registry-api'
@@ -77,3 +78,66 @@ include ':metadata-operation-context'
 include ':metadata-service:openapi-servlet:models'
 include ':metadata-integration:java:datahub-schematron:lib'
 include ':metadata-integration:java:datahub-schematron:cli'
+
+buildCache {
+    def depotSecret = System.getenv('DEPOT_TOKEN');
+
+    remote(HttpBuildCache) {
+        url = 'https://cache.depot.dev'
+        enabled = depotSecret != null
+        push = true
+        credentials {
+            username = ''
+            password = depotSecret
+        }
+    }
+}
+
+def installPreCommitHooks() {
+    def preCommitInstalled = false
+    try {
+        def process = ["which", "pre-commit"].execute()
+        def stdout = new StringBuilder()
+        def stderr = new StringBuilder()
+        process.waitForProcessOutput(stdout, stderr)
+        preCommitInstalled = (process.exitValue() == 0)
+        println "Pre-commit check: ${stdout}"
+    } catch (Exception e) {
+        println "Error checking pre-commit: ${e.message}"
+        return
+    }
+
+    if (!preCommitInstalled) {
+        try {
+            def installProcess = ["python", "-m", "pip", "install", "pre-commit"].execute()
+            def stdout = new StringBuilder()
+            def stderr = new StringBuilder()
+            installProcess.waitForProcessOutput(stdout, stderr)
+            if (installProcess.exitValue() != 0) {
+                println "Failed to install pre-commit: ${stderr}"
+                return
+            }
+            println "Install output: ${stdout}"
+        } catch (Exception e) {
+            println "Error installing pre-commit: ${e.message}"
+            return 
+        }
+    }
+
+    try {
+        def installHooksProcess = ["python", "-m", "pre_commit", "install"].execute()
+        def stdout = new StringBuilder()
+        def stderr = new StringBuilder()
+        installHooksProcess.waitForProcessOutput(stdout, stderr)
+        if (installHooksProcess.exitValue() != 0) {
+            println "Failed to install hooks: ${stdout}"
+            return
+        }
+        println "Hooks output: ${stdout}"
+    } catch (Exception e) {
+        println "Error installing hooks: ${e.message}"
+        return
+    }
+}
+
+installPreCommitHooks()

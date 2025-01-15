@@ -169,10 +169,10 @@
                           "DESCENDANTS_INCL" : "Represent the relation: URN field any nested children in addition to the given URN",
                           "END_WITH" : "Represent the relation: String field ends with value, e.g. name ends with Event",
                           "EQUAL" : "Represent the relation: field = value, e.g. platform = hdfs",
-                          "IEQUAL" : "Represent the relation: field = value and support case insensitive values, e.g. platform = hdfs",
                           "EXISTS" : "Represents the relation: field exists and is non-empty, e.g. owners is not null and != [] (empty)",
                           "GREATER_THAN" : "Represent the relation greater than, e.g. ownerCount > 5",
                           "GREATER_THAN_OR_EQUAL_TO" : "Represent the relation greater than or equal to, e.g. ownerCount >= 5",
+                          "IEQUAL" : "Represent the relation: field = value and support case insensitive values, e.g. platform = hdfs",
                           "IN" : "Represent the relation: String field is one of the array values to, e.g. name in [\"Profile\", \"Event\"]",
                           "IS_NULL" : "Represent the relation: field is null, e.g. platform is null",
                           "LESS_THAN" : "Represent the relation less than, e.g. ownerCount < 3",
@@ -941,15 +941,18 @@
             "Searchable" : {
               "/actor" : {
                 "fieldName" : "tagAttributionActors",
-                "fieldType" : "URN"
+                "fieldType" : "URN",
+                "queryByDefault" : false
               },
               "/source" : {
                 "fieldName" : "tagAttributionSources",
-                "fieldType" : "URN"
+                "fieldType" : "URN",
+                "queryByDefault" : false
               },
               "/time" : {
                 "fieldName" : "tagAttributionDates",
-                "fieldType" : "DATETIME"
+                "fieldType" : "DATETIME",
+                "queryByDefault" : false
               }
             }
           } ]
@@ -1068,15 +1071,18 @@
       "Searchable" : {
         "/actor" : {
           "fieldName" : "termAttributionActors",
-          "fieldType" : "URN"
+          "fieldType" : "URN",
+          "queryByDefault" : false
         },
         "/source" : {
           "fieldName" : "termAttributionSources",
-          "fieldType" : "URN"
+          "fieldType" : "URN",
+          "queryByDefault" : false
         },
         "/time" : {
           "fieldName" : "termAttributionDates",
-          "fieldType" : "DATETIME"
+          "fieldType" : "DATETIME",
+          "queryByDefault" : false
         }
       }
     } ]
@@ -1375,6 +1381,10 @@
     "fields" : [ {
       "name" : "versionTag",
       "type" : "string",
+      "optional" : true
+    }, {
+      "name" : "metadataAttribution",
+      "type" : "MetadataAttribution",
       "optional" : true
     } ]
   }, {
@@ -2570,7 +2580,7 @@
       "Searchable" : {
         "fieldName" : "managerLdap",
         "fieldType" : "URN",
-        "queryByDefault" : true
+        "queryByDefault" : false
       }
     }, {
       "name" : "departmentId",
@@ -2977,7 +2987,7 @@
               "type" : "com.linkedin.dataset.SchemaFieldPath",
               "doc" : "Flattened name of the field. Field is computed from jsonPath field.",
               "Searchable" : {
-                "boostScore" : 5.0,
+                "boostScore" : 1.0,
                 "fieldName" : "fieldPaths",
                 "fieldType" : "TEXT",
                 "queryByDefault" : "true"
@@ -3151,15 +3161,18 @@
               "Searchable" : {
                 "/tags/*/attribution/actor" : {
                   "fieldName" : "fieldTagAttributionActors",
-                  "fieldType" : "URN"
+                  "fieldType" : "URN",
+                  "queryByDefault" : false
                 },
                 "/tags/*/attribution/source" : {
                   "fieldName" : "fieldTagAttributionSources",
-                  "fieldType" : "URN"
+                  "fieldType" : "URN",
+                  "queryByDefault" : false
                 },
                 "/tags/*/attribution/time" : {
                   "fieldName" : "fieldTagAttributionDates",
-                  "fieldType" : "DATETIME"
+                  "fieldType" : "DATETIME",
+                  "queryByDefault" : false
                 },
                 "/tags/*/tag" : {
                   "boostScore" : 0.5,
@@ -3181,15 +3194,18 @@
               "Searchable" : {
                 "/terms/*/attribution/actor" : {
                   "fieldName" : "fieldTermAttributionActors",
-                  "fieldType" : "URN"
+                  "fieldType" : "URN",
+                  "queryByDefault" : false
                 },
                 "/terms/*/attribution/source" : {
                   "fieldName" : "fieldTermAttributionSources",
-                  "fieldType" : "URN"
+                  "fieldType" : "URN",
+                  "queryByDefault" : false
                 },
                 "/terms/*/attribution/time" : {
                   "fieldName" : "fieldTermAttributionDates",
-                  "fieldType" : "DATETIME"
+                  "fieldType" : "DATETIME",
+                  "queryByDefault" : false
                 },
                 "/terms/*/urn" : {
                   "boostScore" : 0.5,
@@ -3362,11 +3378,13 @@
               "Searchable" : {
                 "/tags/*/attribution/actor" : {
                   "fieldName" : "editedFieldTagAttributionActors",
-                  "fieldType" : "URN"
+                  "fieldType" : "URN",
+                  "queryByDefault" : false
                 },
                 "/tags/*/attribution/source" : {
                   "fieldName" : "editedFieldTagAttributionSources",
-                  "fieldType" : "URN"
+                  "fieldType" : "URN",
+                  "queryByDefault" : false
                 },
                 "/tags/*/attribution/time" : {
                   "fieldName" : "editedFieldTagAttributionDates",
@@ -3392,11 +3410,13 @@
               "Searchable" : {
                 "/terms/*/attribution/actor" : {
                   "fieldName" : "editedFieldTermAttributionActors",
-                  "fieldType" : "URN"
+                  "fieldType" : "URN",
+                  "queryByDefault" : false
                 },
                 "/terms/*/attribution/source" : {
                   "fieldName" : "editedFieldTermAttributionSources",
-                  "fieldType" : "URN"
+                  "fieldType" : "URN",
+                  "queryByDefault" : false
                 },
                 "/terms/*/attribution/time" : {
                   "fieldName" : "editedFieldTermAttributionDates",
@@ -3810,12 +3830,59 @@
       "type" : "record",
       "name" : "MLModelProperties",
       "namespace" : "com.linkedin.ml.metadata",
-      "doc" : "Properties associated with a ML Model",
-      "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference" ],
+      "doc" : "Properties associated with a ML Model\r",
+      "include" : [ "com.linkedin.common.CustomProperties", "com.linkedin.common.ExternalReference", {
+        "type" : "record",
+        "name" : "MLModelLineageInfo",
+        "doc" : "A set of re-usable fields used to capture lineage information for ML Models and ML Model Groups\r",
+        "fields" : [ {
+          "name" : "trainingJobs",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.common.Urn"
+          },
+          "doc" : "List of jobs or process instances (if any) used to train the model or group. Visible in Lineage. Note that ML Models can also be specified as the output of a specific Data Process Instances (runs) via the DataProcessInstanceOutputs aspect.\r",
+          "optional" : true,
+          "Relationship" : {
+            "/*" : {
+              "entityTypes" : [ "dataJob", "dataProcessInstance" ],
+              "isLineage" : true,
+              "name" : "TrainedBy"
+            }
+          }
+        }, {
+          "name" : "downstreamJobs",
+          "type" : {
+            "type" : "array",
+            "items" : "com.linkedin.common.Urn"
+          },
+          "doc" : "List of jobs or process instances (if any) that use the model or group.\r",
+          "optional" : true,
+          "Relationship" : {
+            "/*" : {
+              "entityTypes" : [ "dataJob", "dataProcessInstance" ],
+              "isLineage" : true,
+              "isUpstream" : false,
+              "name" : "UsedBy"
+            }
+          }
+        } ]
+      } ],
       "fields" : [ {
+        "name" : "name",
+        "type" : "string",
+        "doc" : "Display name of the MLModel\r",
+        "optional" : true,
+        "Searchable" : {
+          "boostScore" : 10.0,
+          "enableAutocomplete" : true,
+          "fieldType" : "WORD_GRAM",
+          "queryByDefault" : true
+        }
+      }, {
         "name" : "description",
         "type" : "string",
-        "doc" : "Documentation of the MLModel",
+        "doc" : "Documentation of the MLModel\r",
         "optional" : true,
         "Searchable" : {
           "fieldType" : "TEXT",
@@ -3824,17 +3891,28 @@
       }, {
         "name" : "date",
         "type" : "com.linkedin.common.Time",
-        "doc" : "Date when the MLModel was developed",
+        "doc" : "Date when the MLModel was developed\r",
+        "optional" : true,
+        "deprecated" : true
+      }, {
+        "name" : "created",
+        "type" : "com.linkedin.common.TimeStamp",
+        "doc" : "Audit stamp containing who created this and when\r",
+        "optional" : true
+      }, {
+        "name" : "lastModified",
+        "type" : "com.linkedin.common.TimeStamp",
+        "doc" : "Date when the MLModel was last modified\r",
         "optional" : true
       }, {
         "name" : "version",
         "type" : "com.linkedin.common.VersionTag",
-        "doc" : "Version of the MLModel",
+        "doc" : "Version of the MLModel\r",
         "optional" : true
       }, {
         "name" : "type",
         "type" : "string",
-        "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc",
+        "doc" : "Type of Algorithm or MLModel such as whether it is a Naive Bayes classifier, Convolutional Neural Network, etc\r",
         "optional" : true,
         "Searchable" : {
           "fieldType" : "TEXT_PARTIAL"
@@ -3850,7 +3928,7 @@
             "ref" : [ "string", "int", "float", "double", "boolean" ]
           }
         },
-        "doc" : "Hyper Parameters of the MLModel\n\nNOTE: these are deprecated in favor of hyperParams",
+        "doc" : "Hyper Parameters of the MLModel\r\n\r\nNOTE: these are deprecated in favor of hyperParams\r",
         "optional" : true
       }, {
         "name" : "hyperParams",
@@ -3885,7 +3963,7 @@
             }
           }
         },
-        "doc" : "Hyperparameters of the MLModel",
+        "doc" : "Hyperparameters of the MLModel\r",
         "optional" : true
       }, {
         "name" : "trainingMetrics",
@@ -3920,7 +3998,7 @@
             }
           }
         },
-        "doc" : "Metrics of the MLModel used in training",
+        "doc" : "Metrics of the MLModel used in training\r",
         "optional" : true
       }, {
         "name" : "onlineMetrics",
@@ -3928,7 +4006,7 @@
           "type" : "array",
           "items" : "MLMetric"
         },
-        "doc" : "Metrics of the MLModel used in production",
+        "doc" : "Metrics of the MLModel used in production\r",
         "optional" : true
       }, {
         "name" : "mlFeatures",
@@ -3936,7 +4014,7 @@
           "type" : "array",
           "items" : "com.linkedin.common.MLFeatureUrn"
         },
-        "doc" : "List of features used for MLModel training",
+        "doc" : "List of features used for MLModel training\r",
         "optional" : true,
         "Relationship" : {
           "/*" : {
@@ -3951,7 +4029,7 @@
           "type" : "array",
           "items" : "string"
         },
-        "doc" : "Tags for the MLModel",
+        "doc" : "Tags for the MLModel\r",
         "default" : [ ]
       }, {
         "name" : "deployments",
@@ -3959,7 +4037,7 @@
           "type" : "array",
           "items" : "com.linkedin.common.Urn"
         },
-        "doc" : "Deployments for the MLModel",
+        "doc" : "Deployments for the MLModel\r",
         "optional" : true,
         "Relationship" : {
           "/*" : {
@@ -3968,43 +4046,12 @@
           }
         }
       }, {
-        "name" : "trainingJobs",
-        "type" : {
-          "type" : "array",
-          "items" : "com.linkedin.common.Urn"
-        },
-        "doc" : "List of jobs (if any) used to train the model",
-        "optional" : true,
-        "Relationship" : {
-          "/*" : {
-            "entityTypes" : [ "dataJob" ],
-            "isLineage" : true,
-            "name" : "TrainedBy"
-          }
-        }
-      }, {
-        "name" : "downstreamJobs",
-        "type" : {
-          "type" : "array",
-          "items" : "com.linkedin.common.Urn"
-        },
-        "doc" : "List of jobs (if any) that use the model",
-        "optional" : true,
-        "Relationship" : {
-          "/*" : {
-            "entityTypes" : [ "dataJob" ],
-            "isLineage" : true,
-            "isUpstream" : false,
-            "name" : "UsedBy"
-          }
-        }
-      }, {
         "name" : "groups",
         "type" : {
           "type" : "array",
           "items" : "com.linkedin.common.Urn"
         },
-        "doc" : "Groups the model belongs to",
+        "doc" : "Groups the model belongs to\r",
         "optional" : true,
         "Relationship" : {
           "/*" : {
@@ -4175,7 +4222,7 @@
       },
       "doc" : "The order to sort the results i.e. ASCENDING or DESCENDING"
     } ]
-  }, "com.linkedin.metadata.query.filter.SortOrder", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.mxe.GenericAspect", {
+  }, "com.linkedin.metadata.query.filter.SortOrder", "com.linkedin.ml.metadata.BaseData", "com.linkedin.ml.metadata.CaveatDetails", "com.linkedin.ml.metadata.CaveatsAndRecommendations", "com.linkedin.ml.metadata.EthicalConsiderations", "com.linkedin.ml.metadata.EvaluationData", "com.linkedin.ml.metadata.HyperParameterValueType", "com.linkedin.ml.metadata.IntendedUse", "com.linkedin.ml.metadata.IntendedUserType", "com.linkedin.ml.metadata.MLFeatureProperties", "com.linkedin.ml.metadata.MLHyperParam", "com.linkedin.ml.metadata.MLMetric", "com.linkedin.ml.metadata.MLModelFactorPrompts", "com.linkedin.ml.metadata.MLModelFactors", "com.linkedin.ml.metadata.MLModelLineageInfo", "com.linkedin.ml.metadata.MLModelProperties", "com.linkedin.ml.metadata.Metrics", "com.linkedin.ml.metadata.QuantitativeAnalyses", "com.linkedin.ml.metadata.ResultsType", "com.linkedin.ml.metadata.SourceCode", "com.linkedin.ml.metadata.SourceCodeUrl", "com.linkedin.ml.metadata.SourceCodeUrlType", "com.linkedin.ml.metadata.TrainingData", "com.linkedin.mxe.GenericAspect", {
     "type" : "record",
     "name" : "MetadataChangeProposal",
     "namespace" : "com.linkedin.mxe",

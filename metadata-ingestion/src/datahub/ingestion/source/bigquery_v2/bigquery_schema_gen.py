@@ -248,9 +248,9 @@ class BigQuerySchemaGenerator:
     def get_project_workunits(
         self, project: BigqueryProject
     ) -> Iterable[MetadataWorkUnit]:
-        self.report.set_ingestion_stage(project.id, METADATA_EXTRACTION)
-        logger.info(f"Processing project: {project.id}")
-        yield from self._process_project(project)
+        with self.report.new_stage(f"{project.id}: {METADATA_EXTRACTION}"):
+            logger.info(f"Processing project: {project.id}")
+            yield from self._process_project(project)
 
     def get_dataplatform_instance_aspect(
         self, dataset_urn: str, project_id: str
@@ -405,11 +405,11 @@ class BigQuerySchemaGenerator:
 
         if self.config.is_profiling_enabled():
             logger.info(f"Starting profiling project {project_id}")
-            self.report.set_ingestion_stage(project_id, PROFILING)
-            yield from self.profiler.get_workunits(
-                project_id=project_id,
-                tables=db_tables,
-            )
+            with self.report.new_stage(f"{project_id}: {PROFILING}"):
+                yield from self.profiler.get_workunits(
+                    project_id=project_id,
+                    tables=db_tables,
+                )
 
     def _process_project_datasets(
         self,
@@ -653,14 +653,11 @@ class BigQuerySchemaGenerator:
             self.report.report_dropped(table_identifier.raw_table_name())
             return
 
-        if self.store_table_refs:
-            table_ref = str(
-                BigQueryTableRef(table_identifier).get_sanitized_table_ref()
-            )
-            self.table_refs.add(table_ref)
-            if self.config.lineage_parse_view_ddl and view.view_definition:
-                self.view_refs_by_project[project_id].add(table_ref)
-                self.view_definitions[table_ref] = view.view_definition
+        table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
+        self.table_refs.add(table_ref)
+        if view.view_definition:
+            self.view_refs_by_project[project_id].add(table_ref)
+            self.view_definitions[table_ref] = view.view_definition
 
         view.column_count = len(columns)
         if not view.column_count:
@@ -701,14 +698,11 @@ class BigQuerySchemaGenerator:
                 f"Snapshot doesn't have any column or unable to get columns for snapshot: {table_identifier}"
             )
 
-        if self.store_table_refs:
-            table_ref = str(
-                BigQueryTableRef(table_identifier).get_sanitized_table_ref()
-            )
-            self.table_refs.add(table_ref)
-            if snapshot.base_table_identifier:
-                self.snapshot_refs_by_project[project_id].add(table_ref)
-                self.snapshots_by_ref[table_ref] = snapshot
+        table_ref = str(BigQueryTableRef(table_identifier).get_sanitized_table_ref())
+        self.table_refs.add(table_ref)
+        if snapshot.base_table_identifier:
+            self.snapshot_refs_by_project[project_id].add(table_ref)
+            self.snapshots_by_ref[table_ref] = snapshot
 
         yield from self.gen_snapshot_dataset_workunits(
             table=snapshot,
@@ -1148,7 +1142,7 @@ class BigQuerySchemaGenerator:
             foreignKeys=foreign_keys if foreign_keys else None,
         )
 
-        if self.config.lineage_parse_view_ddl or self.config.lineage_use_sql_parser:
+        if self.config.lineage_use_sql_parser:
             self.sql_parser_schema_resolver.add_schema_metadata(
                 dataset_urn, schema_metadata
             )
@@ -1209,9 +1203,9 @@ class BigQuerySchemaGenerator:
                     report=self.report,
                 )
 
-        self.report.metadata_extraction_sec[f"{project_id}.{dataset.name}"] = round(
-            timer.elapsed_seconds(), 2
-        )
+        self.report.metadata_extraction_sec[
+            f"{project_id}.{dataset.name}"
+        ] = timer.elapsed_seconds(digits=2)
 
     def get_core_table_details(
         self, dataset_name: str, project_id: str, temp_table_dataset_prefix: str

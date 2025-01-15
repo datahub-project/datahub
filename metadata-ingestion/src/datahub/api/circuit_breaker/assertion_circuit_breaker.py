@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 from pydantic import Field
@@ -10,6 +10,7 @@ from datahub.api.circuit_breaker.circuit_breaker import (
     CircuitBreakerConfig,
 )
 from datahub.api.graphql import Assertion, Operation
+from datahub.emitter.mce_builder import parse_ts_millis
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
         if not operations:
             return None
         else:
-            return datetime.fromtimestamp(operations[0]["lastUpdatedTimestamp"] / 1000)
+            return parse_ts_millis(operations[0]["lastUpdatedTimestamp"])
 
     def _check_if_assertion_failed(
         self, assertions: List[Dict[str, Any]], last_updated: Optional[datetime] = None
@@ -93,7 +94,7 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
                 logger.info(f"Found successful assertion: {assertion_urn}")
                 result = False
             if last_updated is not None:
-                last_run = datetime.fromtimestamp(last_assertion.time / 1000)
+                last_run = parse_ts_millis(last_assertion.time)
                 if last_updated > last_run:
                     logger.error(
                         f"Missing assertion run for {assertion_urn}. The dataset was updated on {last_updated} but the last assertion run was at {last_run}"
@@ -117,7 +118,7 @@ class AssertionCircuitBreaker(AbstractCircuitBreaker):
             )
 
         if not last_updated:
-            last_updated = datetime.now() - self.config.time_delta
+            last_updated = datetime.now(tz=timezone.utc) - self.config.time_delta
             logger.info(
                 f"Dataset {urn} doesn't have last updated or check_last_assertion_time is false, using calculated min assertion date {last_updated}"
             )

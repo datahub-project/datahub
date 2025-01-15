@@ -147,7 +147,7 @@ public class SearchDocumentTransformer {
   public Optional<ObjectNode> transformAspect(
       @Nonnull OperationContext opContext,
       final @Nonnull Urn urn,
-      final @Nonnull RecordTemplate aspect,
+      final @Nullable RecordTemplate aspect,
       final @Nonnull AspectSpec aspectSpec,
       final Boolean forDelete)
       throws RemoteInvocationException, URISyntaxException {
@@ -437,8 +437,6 @@ public class SearchDocumentTransformer {
 
     Map<Urn, Map<String, Aspect>> definitions =
         opContext
-            .getRetrieverContext()
-            .get()
             .getAspectRetriever()
             .getLatestAspectObjects(
                 propertyMap.keySet(), Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));

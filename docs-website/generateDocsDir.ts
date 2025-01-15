@@ -284,6 +284,10 @@ function markdown_add_slug(
 //   );
 // }
 
+function trim_anchor_link(url: string): string {
+  return url.replace(/#.+$/, "");
+}
+
 function new_url(original: string, filepath: string): string {
   if (original.toLowerCase().startsWith(HOSTED_SITE_URL)) {
     // For absolute links to the hosted docs site, we transform them into local ones.
@@ -313,7 +317,7 @@ function new_url(original: string, filepath: string): string {
   }
 
   // Now we assume this is a local reference.
-  const suffix = path.extname(original);
+  const suffix = path.extname(trim_anchor_link(original));
   if (
     suffix == "" ||
     [
@@ -335,7 +339,7 @@ function new_url(original: string, filepath: string): string {
     // A reference to a file or directory in the Github repo.
     const relation = path.dirname(filepath);
     const updated_path = path.normalize(`${relation}/${original}`);
-    const check_path = updated_path.replace(/#.+$/, "");
+    const check_path = trim_anchor_link(updated_path);
     if (
       !fs.existsSync(`../${check_path}`) &&
       actually_in_sidebar(filepath) &&
@@ -430,6 +434,42 @@ function markdown_process_inline_directives(
       new_contents += referenced_file;
 
       return new_contents;
+    }
+  );
+  contents.content = new_content;
+}
+
+function markdown_process_command_output(
+  contents: matter.GrayMatterFile<string>,
+  filepath: string
+): void {
+  const new_content = contents.content.replace(
+    /^{{\s*command-output\s*([\s\S]*?)\s*}}$/gm,
+    (_, command: string) => {
+      try {
+        // Change to repo root directory before executing command
+        const repoRoot = path.resolve(__dirname, "..");
+
+        console.log(`Executing command: ${command}`);
+
+        // Execute the command and capture output
+        const output = execSync(command, {
+          cwd: repoRoot,
+          encoding: "utf8",
+          stdio: ["pipe", "pipe", "pipe"],
+        });
+
+        // Return the command output
+        return output.trim();
+      } catch (error: any) {
+        // If there's an error, include it as a comment
+        const errorMessage = error.stderr
+          ? error.stderr.toString()
+          : error.message;
+        return `${
+          error.stdout ? error.stdout.toString().trim() : ""
+        }\n<!-- Error: ${errorMessage.trim()} -->`;
+      }
     }
   );
   contents.content = new_content;
@@ -569,26 +609,20 @@ function write_markdown_file(
 
 function copy_python_wheels(): void {
   // Copy the built wheel files to the static directory.
-  const wheel_dirs = [
-    "../metadata-ingestion/dist",
-    "../metadata-ingestion-modules/airflow-plugin/dist",
-    "../metadata-ingestion-modules/dagster-plugin/dist",
-    "../metadata-ingestion-modules/prefect-plugin/dist",
-    "../metadata-ingestion-modules/gx-plugin/dist",
-  ];
+  // Everything is copied to the python-build directory first, so
+  // we just need to copy from there.
+  const wheel_dir = "../python-build/wheels";
 
   const wheel_output_directory = path.join(STATIC_DIRECTORY, "wheels");
   fs.mkdirSync(wheel_output_directory, { recursive: true });
 
-  for (const wheel_dir of wheel_dirs) {
-    const wheel_files = fs.readdirSync(wheel_dir);
-    for (const wheel_file of wheel_files) {
-      const src = path.join(wheel_dir, wheel_file);
-      const dest = path.join(wheel_output_directory, wheel_file);
+  const wheel_files = fs.readdirSync(wheel_dir);
+  for (const wheel_file of wheel_files) {
+    const src = path.join(wheel_dir, wheel_file);
+    const dest = path.join(wheel_output_directory, wheel_file);
 
-      // console.log(`Copying artifact ${src} to ${dest}...`);
-      fs.copyFileSync(src, dest);
-    }
+    // console.log(`Copying artifact ${src} to ${dest}...`);
+    fs.copyFileSync(src, dest);
   }
 }
 
@@ -604,6 +638,7 @@ function copy_python_wheels(): void {
     markdown_rewrite_urls(contents, filepath);
     markdown_enable_specials(contents, filepath);
     markdown_process_inline_directives(contents, filepath);
+    markdown_process_command_output(contents, filepath);
     //copy_platform_logos();
     // console.log(contents);
 

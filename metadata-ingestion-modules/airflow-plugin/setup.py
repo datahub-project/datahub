@@ -119,6 +119,7 @@ per_version_test_requirements = {
         "pendulum<3.0",
         "Flask-Session<0.6.0",
         "connexion<3.0",
+        "marshmallow<3.24.0",
     },
 }
 
@@ -148,10 +149,6 @@ setuptools.setup(
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",

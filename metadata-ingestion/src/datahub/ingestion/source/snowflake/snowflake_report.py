@@ -113,6 +113,7 @@ class SnowflakeV2Report(
     external_lineage_queries_secs: float = -1
     num_tables_with_known_upstreams: int = 0
     num_upstream_lineage_edge_parsing_failed: int = 0
+    num_secure_views_missing_definition: int = 0
 
     data_dictionary_cache: Optional["SnowflakeDataDictionary"] = None
 
@@ -165,6 +166,3 @@ class SnowflakeV2Report(
 
     def report_tag_processed(self, tag_name: str) -> None:
         self._processed_tags.add(tag_name)
-
-    def set_ingestion_stage(self, database: str, stage: str) -> None:
-        self.report_ingestion_stage_start(f"{database}: {stage}")

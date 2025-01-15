@@ -103,10 +103,10 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import javax.mail.MethodNotSupportedException;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.NotImplementedException;
+import org.apache.http.MethodNotSupportedException;
 import org.opensearch.core.common.util.CollectionUtils;
 
 @Slf4j
@@ -156,10 +156,15 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Urn urn,
-      @Nullable final Set<String> aspectNames)
+      @Nullable final Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
     final EntitiesV2GetRequestBuilder requestBuilder =
-        ENTITIES_V2_REQUEST_BUILDERS.get().aspectsParam(aspectNames).id(urn.toString());
+        ENTITIES_V2_REQUEST_BUILDERS
+            .get()
+            .aspectsParam(aspectNames)
+            .id(urn.toString())
+            .alwaysIncludeKeyAspectParam(alwaysIncludeKeyAspect);
     return sendClientRequest(requestBuilder, opContext.getSessionAuthentication()).getEntity();
   }
 
@@ -241,7 +246,8 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull OperationContext opContext,
       @Nonnull String entityName,
       @Nonnull final Set<Urn> urns,
-      @Nullable final Set<String> aspectNames)
+      @Nullable final Set<String> aspectNames,
+      @Nullable Boolean alwaysIncludeKeyAspect)
       throws RemoteInvocationException, URISyntaxException {
 
     Map<Urn, EntityResponse> responseMap = new HashMap<>();
@@ -260,6 +266,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
                                 ENTITIES_V2_REQUEST_BUILDERS
                                     .batchGet()
                                     .aspectsParam(aspectNames)
+                                    .alwaysIncludeKeyAspectParam(alwaysIncludeKeyAspect)
                                     .ids(
                                         batch.stream()
                                             .map(Urn::toString)
@@ -1188,7 +1195,7 @@ public class RestliEntityClient extends BaseClient implements EntityClient {
       @Nonnull String aspect,
       @Nonnull Long version)
       throws RemoteInvocationException {
-    throw new MethodNotSupportedException();
+    throw new MethodNotSupportedException("Method not supported");
   }
 
   @Override
