@@ -484,11 +484,6 @@ class NifiSource(Source):
     def rest_api_base_url(self):
         return self.config.site_url[: -len("nifi/")] + "nifi-api/"
 
-    @classmethod
-    def create(cls, config_dict: dict, ctx: PipelineContext) -> "Source":
-        config = NifiSourceConfig.parse_obj(config_dict)
-        return cls(config, ctx)
-
     def get_report(self) -> SourceReport:
         return self.report
 
