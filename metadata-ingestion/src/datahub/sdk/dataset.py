@@ -11,7 +11,7 @@ from datahub.cli.cli_utils import first_non_null
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.errors import SdkUsageError
 from datahub.ingestion.source.sql.sql_types import resolve_sql_type
-from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
+from datahub.metadata.urns import DatajobUrn, DatasetUrn, SchemaFieldUrn, Urn
 from datahub.sdk._shared import (
     ContainerInputType,
     Entity,
@@ -24,6 +24,10 @@ from datahub.sdk._shared import (
     make_time_stamp,
     parse_time_stamp,
 )
+
+UrnOrStr: TypeAlias = Union[str, Urn]
+DatasetUrnOrStr: TypeAlias = Union[str, DatasetUrn]
+DatajobUrnOrStr: TypeAlias = Union[str, DatajobUrn]
 
 
 class DatasetEditMode(Enum):
@@ -45,7 +49,6 @@ SchemaFieldsInputType: TypeAlias = (
     List[SchemaFieldInputType] | models.SchemaMetadataClass
 )
 
-DatasetUrnOrStr: TypeAlias = Union[str, DatasetUrn]
 UpstreamInputType: TypeAlias = Union[
     # Dataset upstream variants.
     DatasetUrnOrStr,
@@ -211,6 +214,7 @@ class Dataset(HasSubtype, HasContainer, HasOwnership, HasTags, Entity):
             self.set_owners(owners)
         if tags is not None:
             self.set_tags(tags)
+        # TODO: add support for field-level tags, terms, etc
 
     @classmethod
     def _new_from_graph(cls, urn: Urn, current_aspects: models.AspectBag) -> Self:
