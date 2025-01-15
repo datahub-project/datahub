@@ -26,6 +26,39 @@ extraPaths = ['tests']
 exclude = ["src/datahub/metadata/"]
 ignore_decorators = ["@click.*", "@validator", "@root_validator", "@pydantic.validator", "@pydantic.root_validator", "@pytest.fixture"]
 ignore_names = ["*Source", "*Sink", "*Report"]
-# min_confidence = 80
 paths = ["src"]
 sort_by_size = true
+
+[tool.ruff]
+# Same as Black.
+line-length = 88
+# Exclude directories matching these patterns.
+exclude = [
+    ".git",
+    "src/datahub/metadata",
+    "venv",
+    ".tox",
+    "__pycache__",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "B"]
+ignore = [
+    # Ignore line length violations (handled by Black)
+    "E501",
+    # Ignore whitespace before ':' (matches Black)
+    "E203",
+    # Allow usages of functools.lru_cache
+    "B019",
+    # Allow function call in argument defaults
+    "B008",
+    # TODO: Enable these later as mentioned in original config
+    "B006",  # Mutable args
+    "B007",  # Unused loop control variable
+    # Below these were added while migrating flake8 to ruff to avoid making lot of changes
+    "B904", 
+    "B017",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
