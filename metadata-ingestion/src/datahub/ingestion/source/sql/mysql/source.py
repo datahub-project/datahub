@@ -147,14 +147,15 @@ class MySQLSource(TwoTierSQLAlchemySource):
     def loop_stored_procedures(
         self,
         inspector: Inspector,
-        schema: str,
+        schema: str,  # In two-tier this is actually the database name
         sql_config: MySQLConfig,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Loop schema data to get stored procedures as dataJob-s.
+        For two-tier databases, schema parameter is actually the database name.
         """
         db_name = self.get_db_name(inspector)
-        procedure_flow_name = f"{db_name}.{schema}.stored_procedures"
+        procedure_flow_name = f"{db_name}.stored_procedures"
         mysql_procedure_container = MySQLProcedureContainer(
             name=procedure_flow_name,
             env=sql_config.env,
@@ -168,9 +169,7 @@ class MySQLSource(TwoTierSQLAlchemySource):
             procedures: List[MySQLStoredProcedure] = []
 
             for procedure_data in procedures_data:
-                procedure_full_name = (
-                    f"{db_name}.{schema}.{procedure_data['routine_name']}"
-                )
+                procedure_full_name = f"{db_name}.{procedure_data['routine_name']}"
                 if not self.config.procedure_pattern.allowed(procedure_full_name):
                     self.report.report_dropped(procedure_full_name)
                     continue
@@ -191,6 +190,9 @@ class MySQLSource(TwoTierSQLAlchemySource):
         db_name: str,
         schema: str,
     ) -> List[Dict[str, str]]:
+        """
+        Get stored procedures from MySQL using information_schema.
+        """
         stored_procedures_data = conn.execute(
             f"""
 SELECT
@@ -211,17 +213,28 @@ AND ROUTINE_SCHEMA = '{schema}'
 
         procedures_list = []
         for row in stored_procedures_data:
+            code = row["ROUTINE_DEFINITION"]
+            if not code:
+                # If routine definition is null, try using show create procedure
+                try:
+                    create_proc = conn.execute(
+                        f"SHOW CREATE PROCEDURE `{schema}`.`{row['ROUTINE_NAME']}`"
+                    ).fetchone()
+                    if create_proc:
+                        code = create_proc[2]  # MySQL returns (Procedure, Name, Body)
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to get procedure definition for {schema}.{row['ROUTINE_NAME']} using SHOW CREATE PROCEDURE: {e}"
+                    )
+
             procedures_list.append(
                 dict(
-                    db=db_name,
-                    routine_schema=row["ROUTINE_SCHEMA"],
+                    routine_schema=schema,
                     routine_name=row["ROUTINE_NAME"],
-                    code=row["ROUTINE_DEFINITION"],
-                    description=row["ROUTINE_COMMENT"]
-                    if row["ROUTINE_COMMENT"]
-                    else None,
+                    code=code,
                 )
             )
+
         return procedures_list
 
     def _process_stored_procedure(
@@ -235,6 +248,7 @@ AND ROUTINE_SCHEMA = '{schema}'
         procedure_metadata = conn.execute(
             f"""
 SELECT
+    ROUTINE_COMMENT,
     SECURITY_TYPE,
     SQL_DATA_ACCESS,
     CREATED,
@@ -247,10 +261,18 @@ AND ROUTINE_NAME = '{procedure.routine_name}'
         ).fetchone()
 
         if procedure_metadata:
+            # Add description as a property if it exists
+            if procedure_metadata["ROUTINE_COMMENT"]:
+                data_job.add_property(
+                    "description", procedure_metadata["ROUTINE_COMMENT"]
+                )
+
+            # Add other metadata properties
             for key, value in procedure_metadata.items():
-                if value is not None:
+                if value is not None and key != "ROUTINE_COMMENT":
                     data_job.add_property(key.lower(), str(value))
 
+        # Rest of the method remains the same...
         # Get procedure parameters
         parameters = conn.execute(
             f"""

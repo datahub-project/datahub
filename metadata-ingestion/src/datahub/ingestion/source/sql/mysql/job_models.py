@@ -54,13 +54,15 @@ class MySQLProcedureContainer:
 
 @dataclass
 class MySQLStoredProcedure:
-    db: str
     routine_schema: str
     routine_name: str
     flow: MySQLProcedureContainer
     type: str = "STORED_PROCEDURE"
-    source: str = "mysql"
+    source: str = field(init=False)
     code: Optional[str] = None
+
+    def __post_init__(self):
+        self.source = self.flow.source
 
     @property
     def full_type(self) -> str:
@@ -72,7 +74,7 @@ class MySQLStoredProcedure:
 
     @property
     def full_name(self) -> str:
-        return f"{self.db}.{self.routine_schema}.{self.formatted_name}"
+        return f"{self.routine_schema}.{self.formatted_name}"
 
 
 @dataclass
