@@ -14,10 +14,10 @@ export const avatarListDefaults: AvatarListProps = {
 
 export const AvatarList = ({ avatars, size = 'md' }: AvatarListProps) => {
     if (avatars?.length === 0) return <div>-</div>;
-    const AvatarList = avatars?.map((avatar: AvatarItemProps) => (
+    const renderAvatarList = avatars?.map((avatar: AvatarItemProps) => (
         <AvatarContainer key={avatar.name}>
             <Avatar size={size} isOutlined imageUrl={avatar.imageUrl} name={avatar.name} />
         </AvatarContainer>
     ));
-    return <AvatarListContainer>{AvatarList}</AvatarListContainer>;
+    return <AvatarListContainer>{renderAvatarList}</AvatarListContainer>;
 };
