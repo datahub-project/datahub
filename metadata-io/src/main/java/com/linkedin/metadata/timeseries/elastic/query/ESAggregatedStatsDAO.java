@@ -480,12 +480,9 @@ public class ESAggregatedStatsDAO {
         AggregationBuilder curAggregationBuilder = null;
         if (curGroupingBucket.getType() == GroupingBucketType.DATE_GROUPING_BUCKET) {
           // Process the date grouping bucket using 'date-histogram' aggregation.
-          if (!curGroupingBucket.getKey().equals(ES_FIELD_TIMESTAMP)) {
-            throw new IllegalArgumentException("Date Grouping bucket is not:" + ES_FIELD_TIMESTAMP);
-          }
           curAggregationBuilder =
-              AggregationBuilders.dateHistogram(ES_AGG_TIMESTAMP)
-                  .field(ES_FIELD_TIMESTAMP)
+              AggregationBuilders.dateHistogram(ES_AGGREGATION_PREFIX + curGroupingBucket.getKey())
+                  .field(curGroupingBucket.getKey())
                   .calendarInterval(getHistogramInterval(curGroupingBucket.getTimeWindowSize()));
         } else if (curGroupingBucket.getType() == GroupingBucketType.STRING_GROUPING_BUCKET) {
           // Process the string grouping bucket using the 'terms' aggregation.

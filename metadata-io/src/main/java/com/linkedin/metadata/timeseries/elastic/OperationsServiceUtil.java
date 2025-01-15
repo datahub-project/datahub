@@ -43,11 +43,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class OperationsServiceUtil {
 
+  private static final String LAST_UPDATED_TIME = "lastUpdatedTimestamp";
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final AggregationSpec TIMESTAMP_SPEC =
       new AggregationSpec()
           .setAggregationType(AggregationType.CARDINALITY)
-          .setFieldPath(Constants.ES_FIELD_TIMESTAMP);
+          .setFieldPath(LAST_UPDATED_TIME);
   private static final GroupingBucket OPERATION_TYPE_BUCKET =
       new GroupingBucket()
           .setKey("operationType")
@@ -135,7 +136,7 @@ public class OperationsServiceUtil {
 
   private static GroupingBucket getTimestampBucket(@Nonnull WindowDuration duration) {
     return new GroupingBucket()
-        .setKey(Constants.ES_FIELD_TIMESTAMP)
+        .setKey(LAST_UPDATED_TIME)
         .setType(GroupingBucketType.DATE_GROUPING_BUCKET)
         .setTimeWindowSize(
             new TimeWindowSize()

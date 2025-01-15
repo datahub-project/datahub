@@ -465,6 +465,7 @@ query getOperations($urn: String!, $limit: Int, $startTime: Long, $endTime: Long
     dataset(urn: $urn) {
         operations(limit: $limit, startTimeMillis: $startTime, endTimeMillis: $endTime, filter: $filters) {
             timestampMillis
+            lastUpdatedTimestamp
             operationType
             actor
             lastUpdatedTimestamp
