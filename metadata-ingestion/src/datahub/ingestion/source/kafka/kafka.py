@@ -204,17 +204,31 @@ def get_kafka_admin_client(
     return client
 
 
-def clean_field_path(field_path: str) -> str:
-    """Clean field path by removing version, type and other metadata."""
-    # Split by dots and take the last part which should be the actual field name
+def clean_field_path(field_path: str, preserve_types: bool = True) -> str:
+    """Clean field path by optionally preserving or removing version, type and other metadata.
+
+    Args:
+        field_path: The full field path string
+        preserve_types: If True, preserves version and type information in the path
+
+    Returns:
+        The cleaned field path string
+    """
+    # Handle the key[key=True] special case first
+    if field_path.endswith("[key=True]"):
+        return "key"
+
+    if preserve_types:
+        # When preserving types, return the full path as-is
+        return field_path
+
+    # If not preserving types, use the original stripping logic
     parts = field_path.split(".")
     # Return last non-empty part that isn't a type or version declaration
     for part in reversed(parts):
         if part and not (part.startswith("[version=") or part.startswith("[type=")):
-            if part.endswith("[key=True]"):
-                return "key"
-            else:
-                return part
+            return part
+
     return field_path
 
 
@@ -593,9 +607,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 except Exception as e:
                     logger.warning(f"Failed to parse key schema: {e}")
 
-            # Handle value schema fields
+            # Handle value schema fields using the full field paths
             for schema_field in schema_metadata.fields or []:
-                field_path = clean_field_path(schema_field.fieldPath)
+                # Don't clean the field path - use it as is from schema metadata
+                field_path = schema_field.fieldPath
                 field_sample_map[field_path] = []
                 all_keys.add(field_path)
 
@@ -604,18 +619,38 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             # Process each field in the sample
             for field_name, value in sample.items():
                 if field_name not in ["offset", "timestamp"]:
-                    clean_name = field_name
-                    if field_name == "key" and key_name:
-                        clean_name = key_name
-                    elif field_name.startswith("key.") and key_name:
-                        clean_name = f"{key_name}.{field_name[4:]}"
-                    elif field_name.startswith("value."):
-                        clean_name = field_name[6:]
+                    # For sample data, we need to map the simplified field names back to full paths
+                    matching_schema_field = None
+                    if schema_metadata and schema_metadata.fields:
+                        # Find matching schema field by comparing the end of the path
+                        clean_field = clean_field_path(field_name, preserve_types=False)
+                        for schema_field in schema_metadata.fields:
+                            if (
+                                clean_field_path(
+                                    schema_field.fieldPath, preserve_types=False
+                                )
+                                == clean_field
+                            ):
+                                matching_schema_field = schema_field
+                                break
 
-                    if clean_name not in field_sample_map:
-                        field_sample_map[clean_name] = []
-                        all_keys.add(clean_name)
-                    field_sample_map[clean_name].append(str(value))
+                    # Use the full path from schema if found, otherwise use original field name
+                    field_path = (
+                        matching_schema_field.fieldPath
+                        if matching_schema_field
+                        else field_name
+                    )
+
+                    # Special handling for key fields
+                    if field_name == "key" and key_name:
+                        field_path = key_name
+                    elif field_name.startswith("key.") and key_name:
+                        field_path = f"{key_name}.{field_name[4:]}"
+
+                    if field_path not in field_sample_map:
+                        field_sample_map[field_path] = []
+                        all_keys.add(field_path)
+                    field_sample_map[field_path].append(str(value))
 
         return {"all_keys": all_keys, "field_sample_map": field_sample_map}
 
