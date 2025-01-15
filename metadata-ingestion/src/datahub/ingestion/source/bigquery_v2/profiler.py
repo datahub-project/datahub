@@ -86,9 +86,14 @@ class BigqueryProfiler(GenericProfiler):
 
             if table.partition_info.type == RANGE_PARTITION_NAME:
                 if table.partition_info.column:
-                    partition_where_clauses.append(
-                        f"{table.partition_info.column.name} >= {partition}"
-                    )
+                    # For range partitioned tables
+                    if isinstance(table.partition_info.column, list):
+                        for col in table.partition_info.column:
+                            partition_where_clauses.append(f"{col.name} >= {partition}")
+                    else:
+                        partition_where_clauses.append(
+                            f"{table.partition_info.column.name} >= {partition}"
+                        )
                 else:
                     logger.warning(
                         f"Partitioned table {table.name} without partition column"
@@ -110,8 +115,34 @@ class BigqueryProfiler(GenericProfiler):
                     )
 
                     if table.partition_info.column:
-                        partition_column_name = table.partition_info.column.name
-                        partition_data_type = table.partition_info.column.data_type
+                        if isinstance(table.partition_info.column, list):
+                            # Handle multiple partition columns
+                            for col in table.partition_info.column:
+                                if col.name in ["year", "month", "day"]:
+                                    # Extract the appropriate part from partition_datetime
+                                    date_part = getattr(partition_datetime, col.name)
+                                    partition_where_clauses.append(
+                                        f"`{col.name}` = {date_part}"
+                                    )
+                                else:
+                                    # For other columns use the partition value
+                                    partition_where_clauses.append(
+                                        f"`{col.name}` = '{partition}'"
+                                    )
+                        else:
+                            # Original single column handling
+                            partition_column_name = table.partition_info.column.name
+                            partition_data_type = table.partition_info.column.data_type
+
+                            if table.partition_info.type in (
+                                "HOUR",
+                                "DAY",
+                                "MONTH",
+                                "YEAR",
+                            ):
+                                partition_where_clauses.append(
+                                    f"`{partition_column_name}` BETWEEN {partition_data_type}('{partition_datetime}') AND {partition_data_type}('{upper_bound_partition_datetime}')"
+                                )
                     else:
                         # Default to TIMESTAMP for data type
                         partition_data_type = "TIMESTAMP"
@@ -120,18 +151,23 @@ class BigqueryProfiler(GenericProfiler):
                         # https://cloud.google.com/bigquery/docs/partitioned-tables#ingestion_time
                         partition_column_name = "_PARTITIONTIME"
 
-                    if table.partition_info.type in ("HOUR", "DAY", "MONTH", "YEAR"):
-                        partition_where_clauses.append(
-                            f"`{partition_column_name}` BETWEEN {partition_data_type}('{partition_datetime}') AND {partition_data_type}('{upper_bound_partition_datetime}')"
-                        )
-                    else:
-                        logger.warning(
-                            f"Not supported partition type {table.partition_info.type}"
-                        )
-                        self.report.profiling_skipped_invalid_partition_type[
-                            f"{project}.{schema}.{table.name}"
-                        ] = table.partition_info.type
-                        return None, None
+                        if table.partition_info.type in (
+                            "HOUR",
+                            "DAY",
+                            "MONTH",
+                            "YEAR",
+                        ):
+                            partition_where_clauses.append(
+                                f"`{partition_column_name}` BETWEEN {partition_data_type}('{partition_datetime}') AND {partition_data_type}('{upper_bound_partition_datetime}')"
+                            )
+                        else:
+                            logger.warning(
+                                f"Not supported partition type {table.partition_info.type}"
+                            )
+                            self.report.profiling_skipped_invalid_partition_type[
+                                f"{project}.{schema}.{table.name}"
+                            ] = table.partition_info.type
+                            return None, None
 
                 except ValueError as e:
                     logger.error(
