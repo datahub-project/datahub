@@ -253,6 +253,7 @@ class LookerManifest:
     # This must be set if the manifest has local_dependency entries.
     # See https://cloud.google.com/looker/docs/reference/param-manifest-project-name
     project_name: Optional[str]
+    constants: Optional[List[Dict[str, str]]]
 
     local_dependencies: List[str]
     remote_dependencies: List[LookerRemoteDependency]
@@ -506,6 +507,7 @@ class LookMLSource(StatefulIngestionSourceBase):
 
             manifest = LookerManifest(
                 project_name=manifest_dict.get("project_name"),
+                constants=manifest_dict.get("constants", []),
                 local_dependencies=[
                     x["project"] for x in manifest_dict.get("local_dependencys", [])
                 ],
@@ -546,6 +548,7 @@ class LookMLSource(StatefulIngestionSourceBase):
             ] = self.source_config.base_folder
 
             visited_projects: Set[str] = set()
+            looker_constant: List[Dict[str, str]] = []
 
             # We clone everything that we're pointed at.
             for project, p_ref in self.source_config.project_dependencies.items():
@@ -574,10 +577,10 @@ class LookMLSource(StatefulIngestionSourceBase):
                 self.base_projects_folder[project] = p_ref
 
             self._recursively_check_manifests(
-                tmp_dir, BASE_PROJECT_NAME, visited_projects
+                tmp_dir, BASE_PROJECT_NAME, visited_projects, looker_constant
             )
 
-            yield from self.get_internal_workunits()
+            yield from self.get_internal_workunits(looker_constant)
 
             if not self.report.events_produced and not self.report.failures:
                 # Don't pass if we didn't produce any events.
@@ -587,7 +590,11 @@ class LookMLSource(StatefulIngestionSourceBase):
                 )
 
     def _recursively_check_manifests(
-        self, tmp_dir: str, project_name: str, project_visited: Set[str]
+        self,
+        tmp_dir: str,
+        project_name: str,
+        project_visited: Set[str],
+        looker_constant: List[Dict[str, str]],
     ) -> None:
         if project_name in project_visited:
             return
@@ -603,6 +610,9 @@ class LookMLSource(StatefulIngestionSourceBase):
         manifest = self.get_manifest_if_present(project_path)
         if not manifest:
             return
+
+        if manifest.constants:
+            looker_constant.extend(manifest.constants)
 
         # Special case handling if the root project has a name in the manifest file.
         if project_name == BASE_PROJECT_NAME and manifest.project_name:
@@ -663,20 +673,24 @@ class LookMLSource(StatefulIngestionSourceBase):
                 project_visited.add(project_name)
             else:
                 self._recursively_check_manifests(
-                    tmp_dir, remote_project.name, project_visited
+                    tmp_dir, remote_project.name, project_visited, looker_constant
                 )
 
         for project in manifest.local_dependencies:
-            self._recursively_check_manifests(tmp_dir, project, project_visited)
+            self._recursively_check_manifests(
+                tmp_dir, project, project_visited, looker_constant
+            )
 
-    def get_internal_workunits(self) -> Iterable[MetadataWorkUnit]:  # noqa: C901
+    def get_internal_workunits(
+        self, looker_constant: Optional[List[Dict]]
+    ) -> Iterable[MetadataWorkUnit]:  # noqa: C901
         assert self.source_config.base_folder
-
         viewfile_loader = LookerViewFileLoader(
             self.source_config.project_name,
             self.base_projects_folder,
             self.reporter,
             self.source_config,
+            looker_constant,
         )
 
         # Some views can be mentioned by multiple 'include' statements and can be included via different connections.

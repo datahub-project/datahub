@@ -192,8 +192,13 @@ class LookMLViewTransformer(ABC):
 
     source_config: LookMLSourceConfig
 
-    def __init__(self, source_config: LookMLSourceConfig):
+    def __init__(
+        self,
+        source_config: LookMLSourceConfig,
+        looker_constant: Optional[List[Dict[str, str]]] = [],
+    ):
         self.source_config = source_config
+        self.looker_constant = looker_constant
 
     def transform(self, view: dict) -> dict:
         value_to_transform: Optional[str] = None
@@ -335,25 +340,36 @@ class LookMlIfCommentTransformer(LookMLViewTransformer):
         return self._apply_regx(value)
 
 
-class LookmlParameterTransformer(LookMLViewTransformer):
+class LookmlConstantTransformer(LookMLViewTransformer):
     """
-    Replace LookML parameters (@{param} or ${var}) from the configuration.
+    Replace LookML constants @{constant} from the manifest/configuration.
     """
 
-    PARAMETER_PATTERN = r"@{(\w+)}"  # Matches @{param}
-    LIQUID_VARIABLE_PATTERN = r"\${(\w+)}"  # Matches ${var}
+    CONSTANT_PATTERN = r"@{(\w+)}"  # Matches @{constant}
 
     def resolve_lookml_parameter(self, text: str) -> str:
         """
-        Resolves LookML parameters (@{param}) and liquid variables (${var}).
+        Resolves LookML constants (@{ }) from manifest or config.
         Logs warnings for misplaced or missing variables.
         """
 
-        def replace_parameters(match):
+        def replace_constants(match):
             key = match.group(1)
-            # Resolve parameter
-            if key in self.source_config.lookml_parameter:
-                return str(self.source_config.lookml_parameter.get(key))
+            if self.looker_constant:
+                value = next(
+                    (
+                        item["value"]
+                        for item in self.looker_constant
+                        if item["name"] == key
+                    ),
+                    None,
+                )
+                if value:
+                    return value
+
+            # Resolve constant
+            if key in self.source_config.lookml_constant:
+                return str(self.source_config.lookml_constant.get(key))
 
             # Check if it's a misplaced liquid variable
             if key in self.source_config.liquid_variable:
@@ -363,23 +379,10 @@ class LookmlParameterTransformer(LookMLViewTransformer):
                 return f"@{{{key}}}"
 
             logger.warning(f"Parameter '@{{{key}}}' not found in configuration.")
-            return ""
+            return "NULL"
 
-        def replace_liquid_variables(match):
-            key = match.group(1)
-            # Resolve liquid variable
-            if key in self.source_config.liquid_variable:
-                return str(self.source_config.liquid_variable.get(key))
-
-            logger.warning(f"Liquid variable '${{{key}}}' not found in configuration.")
-            return ""
-
-        # Resolve @{param} (parameters)
-        text = re.sub(self.PARAMETER_PATTERN, replace_parameters, text)
-
-        # Resolve ${var} (liquid variables)
-        text = re.sub(self.LIQUID_VARIABLE_PATTERN, replace_liquid_variables, text)
-        return text
+        # Resolve @{} (constant)
+        return re.sub(self.CONSTANT_PATTERN, replace_constants, text)
 
     def _apply_transformation(self, value: str, view: dict) -> str:
         return self.resolve_lookml_parameter(text=value)
@@ -440,6 +443,7 @@ class TransformedLookMlView:
 def process_lookml_template_language(
     source_config: LookMLSourceConfig,
     view_lkml_file_dict: dict,
+    looker_constant: Optional[List[Dict[str, str]]],
 ) -> None:
     if "views" not in view_lkml_file_dict:
         return
@@ -451,9 +455,9 @@ def process_lookml_template_language(
         LiquidVariableTransformer(
             source_config=source_config
         ),  # Now resolve liquid variables
-        LookmlParameterTransformer(
-            source_config=source_config
-        ),  # Resolve @{param} with its corresponding value
+        LookmlConstantTransformer(
+            source_config=source_config, looker_constant=looker_constant
+        ),  # Resolve @{} constant with its corresponding value
         DropDerivedViewPatternTransformer(
             source_config=source_config
         ),  # Remove any ${} symbol
@@ -475,12 +479,14 @@ def process_lookml_template_language(
 def load_and_preprocess_file(
     path: Union[str, pathlib.Path],
     source_config: LookMLSourceConfig,
+    looker_constant: Optional[List[Dict[str, str]]] = [],
 ) -> dict:
     parsed = load_lkml(path)
 
     process_lookml_template_language(
         view_lkml_file_dict=parsed,
         source_config=source_config,
+        looker_constant=looker_constant,
     )
 
     return parsed
