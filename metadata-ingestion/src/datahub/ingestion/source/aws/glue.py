@@ -157,7 +157,7 @@ class GlueSourceConfig(
         default=None,
         description="The aws account id where the target glue catalog lives. If None, datahub will ingest glue in aws caller's account.",
     )
-    catalog_name: Optional[str] = Field(
+    athena_catalog_name: Optional[str] = Field(
         default=None, description="The aws athena catalog name"
     )
     ignore_resource_links: Optional[bool] = Field(
@@ -229,25 +229,41 @@ class GlueSourceConfig(
             )
 
     def __init__(self, **data: Any):
+        """Post init configuration operations."""
         super().__init__(**data)
-        if self.catalog_id:
-            current_account_id = self.sts_client.get_caller_identity().get("Account")
-            if self.catalog_id == current_account_id:
-                self.catalog_name = DEFAULT_CATALOG_NAME
-            else:
-                self._validate_catalog_name()
-        else:
-            self.catalog_name = DEFAULT_CATALOG_NAME
+        self._set_athena_catalog_name()
 
-    def _validate_catalog_name(self) -> None:
+    def _set_athena_catalog_name(self) -> None:
+        """Set the correct athena catalog name or raise an exception in case of misconfiguration."""
+        if self.platform == "athena":
+            if self.catalog_id:
+                current_account_id = self.sts_client.get_caller_identity().get(
+                    "Account"
+                )
+                if self.catalog_id == current_account_id:
+                    self.athena_catalog_name = DEFAULT_CATALOG_NAME
+                else:
+                    self._validate_athena_catalog_name()
+            else:
+                self.athena_catalog_name = DEFAULT_CATALOG_NAME
+        else:
+            self.athena_catalog_name = None
+
+    def _validate_athena_catalog_name(self) -> None:
+        """Validate if athena catalog name is set correctly.
+
+        This method helps to avoid issue when the `athena_catalog_name` does not exist in a specified AWS account.
+        """
         effective_catalog_id = (
-            self.athena_client.get_data_catalog(Name=self.catalog_name)["DataCatalog"]
+            self.athena_client.get_data_catalog(Name=self.athena_catalog_name)[
+                "DataCatalog"
+            ]
             .get("Parameters", {})
             .get("catalog-id", "")
         )
         if effective_catalog_id != self.catalog_id:
             raise ValueError(
-                f"Catalog configuration mismatch for catalog name {self.catalog_name}."
+                f"Catalog configuration mismatch for catalog name {self.athena_catalog_name}."
                 f"Effective catalog_id: {effective_catalog_id}, configured catalog_id: {self.catalog_id}."
             )
 
@@ -495,8 +511,16 @@ class GlueSource(StatefulIngestionSourceBase):
 
             # if data object is Glue table
             if "database" in node_args and "table_name" in node_args:
-                full_table_name = f"{self.source_config.catalog_name}.{node_args['database']}.{node_args['table_name']}"
-
+                full_table_name = ".".join(
+                    filter(
+                        None,
+                        [
+                            self.source_config.athena_catalog_name,
+                            node_args["database"],
+                            node_args["table_name"],
+                        ],
+                    )
+                )
                 # we know that the table will already be covered when ingesting Glue tables
                 node_urn = make_dataset_urn_with_platform_instance(
                     platform=self.platform,
@@ -1120,8 +1144,15 @@ class GlueSource(StatefulIngestionSourceBase):
     def _gen_table_wu(self, table: TablePaginatorTypeDef) -> Iterable[MetadataWorkUnit]:
         database_name = table["DatabaseName"]
         table_name = table["Name"]
-        full_table_name = (
-            f"{self.source_config.catalog_name}.{database_name}.{table_name}"
+        full_table_name = ".".join(
+            filter(
+                None,
+                [
+                    self.source_config.athena_catalog_name,
+                    database_name,
+                    table_name,
+                ],
+            )
         )
         self.report.report_table_scanned()
         if not self.source_config.database_pattern.allowed(

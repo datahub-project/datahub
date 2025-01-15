@@ -402,7 +402,7 @@ def test_glue_stateful(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                 state1.get_urns_not_in(type="*", other_checkpoint_state=state2)
             )
             assert difference_urns == {
-                "urn:li:dataset:(urn:li:dataPlatform:glue,awsdatacatalog.flights-database.avro,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:glue,flights-database.avro,PROD)",
                 "urn:li:container:0b9f1f731ecf6743be6207fec3dc9cba",
             }
 
