@@ -4,7 +4,7 @@ import json
 import logging
 import random
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, Iterable, List, Optional, Set, Type, cast
 
 import avro.schema
@@ -445,14 +445,14 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         try:
             self.consumer.subscribe([topic])
 
-            start_time = datetime.now()
-            while len(samples) < self.source_config.sample_size:
-                if (
-                    datetime.now() - start_time
-                ).total_seconds() > self.source_config.sample_timeout_seconds:
-                    break
+            # Poll for messages until timeout or we get desired number of samples
+            end_time = datetime.now() + timedelta(
+                seconds=self.source_config.sample_timeout_seconds
+            )
 
+            while datetime.now() < end_time:
                 msg = self.consumer.poll(timeout=1.0)
+
                 if msg is None:
                     continue
 
@@ -497,6 +497,9 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                             sample["value"] = processed_value
 
                     samples.append(sample)
+
+                    if len(samples) >= self.source_config.sample_size:
+                        break
 
                 except Exception as e:
                     logger.warning(f"Failed to decode message from {topic}: {e}")
@@ -563,7 +566,10 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             columnCount=len(all_keys),
             fieldProfiles=[
                 DatasetFieldProfileClass(
-                    fieldPath=field_name, sampleValues=random.sample(field_samples, 3)
+                    fieldPath=field_name,
+                    sampleValues=random.sample(
+                        field_samples, min(3, len(field_samples))
+                    ),
                 )
                 for field_name, field_samples in field_sample_map.items()
             ],
