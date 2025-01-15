@@ -585,34 +585,32 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
         """Process sample data to extract field information from both key and value schemas."""
         all_keys: Set[str] = set()
         field_sample_map: Dict[str, List[str]] = {}
-        key_name: Optional[str] = None
+        key_field_path: Optional[str] = None
 
         # Initialize from schema if available
         if schema_metadata is not None and isinstance(
             schema_metadata.platformSchema, KafkaSchemaClass
         ):
-            # Handle key schema fields if present
-            if schema_metadata.platformSchema.keySchema:
-                try:
-                    key_schema = avro.schema.parse(
-                        schema_metadata.platformSchema.keySchema
-                    )
-                    # Get key name from schema
-                    key_name = getattr(key_schema, "name", "key")
-                    if hasattr(key_schema, "fields"):
-                        for schema_field in key_schema.fields:
-                            field_path = f"{key_name}.{schema_field.name}"
-                            all_keys.add(field_path)
-                            field_sample_map[field_path] = []
-                except Exception as e:
-                    logger.warning(f"Failed to parse key schema: {e}")
+            # Find the key field path from schema metadata fields
+            key_field = next(
+                (
+                    schema_field
+                    for schema_field in (schema_metadata.fields or [])
+                    if schema_field.fieldPath.endswith("[key=True]")
+                ),
+                None,
+            )
+            if key_field:
+                key_field_path = key_field.fieldPath
+                all_keys.add(key_field_path)
+                field_sample_map[key_field_path] = []
 
-            # Handle value schema fields using the full field paths
+            # Handle all schema fields (both key and value)
             for schema_field in schema_metadata.fields or []:
-                # Don't clean the field path - use it as is from schema metadata
                 field_path = schema_field.fieldPath
-                field_sample_map[field_path] = []
-                all_keys.add(field_path)
+                if field_path not in field_sample_map:
+                    field_sample_map[field_path] = []
+                    all_keys.add(field_path)
 
         # Process samples
         for sample in samples:
@@ -622,17 +620,26 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     # For sample data, we need to map the simplified field names back to full paths
                     matching_schema_field = None
                     if schema_metadata and schema_metadata.fields:
-                        # Find matching schema field by comparing the end of the path
                         clean_field = clean_field_path(field_name, preserve_types=False)
-                        for schema_field in schema_metadata.fields:
-                            if (
-                                clean_field_path(
-                                    schema_field.fieldPath, preserve_types=False
-                                )
-                                == clean_field
-                            ):
-                                matching_schema_field = schema_field
-                                break
+
+                        # Special handling for key field
+                        if field_name == "key" and key_field_path:
+                            matching_schema_field = next(
+                                schema_field
+                                for schema_field in schema_metadata.fields
+                                if schema_field.fieldPath == key_field_path
+                            )
+                        else:
+                            # Find matching schema field by comparing the end of the path
+                            for schema_field in schema_metadata.fields:
+                                if (
+                                    clean_field_path(
+                                        schema_field.fieldPath, preserve_types=False
+                                    )
+                                    == clean_field
+                                ):
+                                    matching_schema_field = schema_field
+                                    break
 
                     # Use the full path from schema if found, otherwise use original field name
                     field_path = (
@@ -640,12 +647,6 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                         if matching_schema_field
                         else field_name
                     )
-
-                    # Special handling for key fields
-                    if field_name == "key" and key_name:
-                        field_path = key_name
-                    elif field_name.startswith("key.") and key_name:
-                        field_path = f"{key_name}.{field_name[4:]}"
 
                     if field_path not in field_sample_map:
                         field_sample_map[field_path] = []
