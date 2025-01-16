@@ -508,19 +508,34 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                 fieldPath=field_path,
                 # Required fields with fallbacks
                 sampleValues=random.sample(samples, min(3, len(samples)))
-                if samples
+                if samples and self.source_config.profiling.include_field_sample_values
                 else None,
-                nullCount=row_count - len(samples),
-                uniqueCount=len(set(samples)),
+                nullCount=row_count - len(samples)
+                if self.source_config.profiling.include_field_null_count
+                else None,
+                uniqueCount=len(set(samples))
+                if self.source_config.profiling.include_field_distinct_count
+                else None,
                 # Numeric statistics
-                min=str(min(numeric_samples)) if numeric_samples else None,
-                max=str(max(numeric_samples)) if numeric_samples else None,
-                mean=str(statistics.mean(numeric_samples)) if numeric_samples else None,
+                min=str(min(numeric_samples))
+                if numeric_samples
+                and self.source_config.profiling.include_field_min_value
+                else None,
+                max=str(max(numeric_samples))
+                if numeric_samples
+                and self.source_config.profiling.include_field_max_value
+                else None,
+                mean=str(statistics.mean(numeric_samples))
+                if numeric_samples
+                and self.source_config.profiling.include_field_mean_value
+                else None,
                 median=str(statistics.median(numeric_samples))
                 if numeric_samples
+                and self.source_config.profiling.include_field_median_value
                 else None,
                 stdev=str(statistics.stdev(numeric_samples))
                 if len(numeric_samples) > 1
+                and self.source_config.profiling.include_field_stddev_value
                 else None,
                 # Quartile statistics
                 quantiles=[
@@ -532,6 +547,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
                     ),
                 ]
                 if len(sorted_samples) >= 4
+                and self.source_config.profiling.include_field_quantiles
                 else None,
                 # Set unused fields to None
                 histogram=None,
@@ -553,7 +569,7 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             ),
             # Add partition specification
             partitionSpec=PartitionSpecClass(
-                partition="SAMPLE",
+                partition=f"SAMPLE ({self.source_config.profiling.sample_size}/{self.source_config.profiling.max_sample_time_seconds} seconds)",
                 type=PartitionTypeClass.QUERY,
                 timePartition=TimeWindowClass(
                     startTimeMillis=timestamp_millis,
@@ -600,9 +616,25 @@ class KafkaSource(StatefulIngestionSourceBase, TestableSource):
             key = msg.key() if callable(msg.key) else msg.key
             value = msg.value() if callable(msg.value) else msg.value
 
+            # Fix timestamp handling
+            msg_timestamp = msg.timestamp()[1]
+            try:
+                # If timestamp is in milliseconds (> 1e10), convert to seconds
+                if msg_timestamp > 1e10:
+                    msg_timestamp = msg_timestamp / 1000.0
+                # Handle potential out of range timestamps
+                if (
+                    msg_timestamp < 0 or msg_timestamp > 2147483647
+                ):  # Max unix timestamp
+                    msg_timestamp = datetime.now().timestamp()
+                timestamp_str = datetime.fromtimestamp(msg_timestamp).isoformat()
+            except (ValueError, OSError, OverflowError):
+                # Fallback to current time if timestamp conversion fails
+                timestamp_str = datetime.now().isoformat()
+
             sample = {
                 "offset": msg.offset(),
-                "timestamp": datetime.fromtimestamp(msg.timestamp()[1]).isoformat(),
+                "timestamp": timestamp_str,
             }
 
             # Process key if present
