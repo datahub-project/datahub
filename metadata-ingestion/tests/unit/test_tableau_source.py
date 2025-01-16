@@ -271,6 +271,8 @@ def test_tableau_upstream_reference():
 
     try:
         ref = TableauUpstreamReference.create(None)
-        assert False, "TableauUpstreamReference.create with None should have raised exception"
+        assert (
+            False
+        ), "TableauUpstreamReference.create with None should have raised exception"
     except ValueError:
         assert True
